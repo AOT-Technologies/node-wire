@@ -55,6 +55,20 @@ ToolHive runs the connector platform in a secure Docker container, injects secre
 
 ---
 
+## Individual connector MCP servers
+
+For modular deployments, each connector can be run as an independent MCP server container:
+
+- `nw-google-drive` (Google Drive)
+- `nw-smartonfhir-epic` (Epic SMART on FHIR)
+- `nw-smartonfhir-cerner` (Cerner SMART on FHIR)
+
+When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS`** (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.
+
+**Full guide:** [docs/mcp-servers.md](mcp-servers.md)
+
+---
+
 ## What is ToolHive?
 
 [ToolHive](https://stacklok.com/toolhive) is a desktop application that:
@@ -121,13 +135,13 @@ Below is the full set of environment variables used by the connector platform an
 | `GROQ_API_KEY` | LLM (Groq) | Your Groq API key |
 | `GROQ_MODEL` | LLM | Example: `openai/gpt-oss-120b` |
 | `MCP_TRANSPORT` | ToolHive / local | `stdio` when running in ToolHive container |
-| `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `/path/to/node-wire/src` (macOS/Linux) or `C:\path\to\node-wire\src` (Windows) locally |
+| `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `d:\connector-platform\src` locally |
 | `SMTP_HOST` | SMTP connector | Example: `sandbox.smtp.mailtrap.io` |
 | `SMTP_PORT` | SMTP connector | Example: `2525` |
 | `SMTP_USERNAME` | SMTP connector | Mailtrap / SMTP user |
 | `SMTP_PASSWORD` | SMTP connector | Mailtrap / SMTP password |
 | `SMTP_USE_TLS` | SMTP connector | `true` or `false` |
-| `google_drive_sa_json` | Google Drive | Either paste full JSON into ToolHive secret or provide absolute file path to the service account JSON |
+| `GOOGLE_DRIVE_SA_JSON` | Google Drive | Either paste full JSON into ToolHive secret or provide absolute file path to the service account JSON |
 
 ---
 
@@ -140,7 +154,7 @@ Option A — Recommended: ToolHive UI (no code)
 1. Open the ToolHive UI on your machine.
 2. Build or pull the Docker image `node-wire:latest` (admins can do this for you), then Add a new Server / Container.
 3. Name it `node-wire-connectors`. Set Transport to `stdio`.
-4. In the server's Environment / Secrets section, add the variables from the table above. For `google_drive_sa_json` paste the entire service account JSON into the secret value (do NOT upload a file path here).
+4. In the server's Environment / Secrets section, add the variables from the table above. For `GOOGLE_DRIVE_SA_JSON` paste the entire service account JSON into the secret value (do NOT upload a file path here).
 5. Start the server. ToolHive will show an Endpoint URL like `http://localhost:<PORT>/sse` or a proxy URL that contains `/sse` or `/mcp`.
 6. Copy the proxy URL and paste it into a local `.env` or give it to the person running the agent as `TOOLHIVE_MCP_URL`.
 
@@ -190,7 +204,7 @@ Notes for non-developers:
 From the root of the repository:
 
 ```bash
-cd node-wire
+cd connector-platform
 
 docker build -t node-wire:latest .
 ```
@@ -220,7 +234,7 @@ Gather the following values before proceeding:
 | `CERNER_KID` | Key ID for your RSA key pair | You choose this when registering the app |
 | `CERNER_PRIVATE_KEY` | RSA private key (full PEM block) | Generated when you registered your app |
 | `CERNER_TOKEN_URL` | Cerner OAuth2 token endpoint | Format: `https://authorization.cerner.com/tenants/<tenant-id>/...` |
-| `google_drive_sa_json` | Contents of your service account JSON (not the file path — paste the full JSON string) | See [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
+| `GOOGLE_DRIVE_SA_JSON` | Contents of your service account JSON (not the file path — paste the full JSON string) | See [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
 | `SMTP_USERNAME` | Full email address (must include `@`) | Your email address, e.g. `you@gmail.com` |
 | `SMTP_PASSWORD` | App password for SMTP | For Gmail: [create an App Password](https://support.google.com/accounts/answer/185833) |
 | `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` for Gmail |
@@ -228,7 +242,7 @@ Gather the following values before proceeding:
 
 > **Epic users:** If using Epic instead of Cerner, replace the `CERNER_*` variables with their `EPIC_*` equivalents (`EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY`).
 
-> **Note on `google_drive_sa_json`:** Paste the **entire contents** of the service account JSON file as the secret value — not the file path. This is because the Docker container doesn't have access to your local filesystem.
+> **Note on `GOOGLE_DRIVE_SA_JSON`:** Paste the **entire contents** of the service account JSON file as the secret value — not the file path. This is because the Docker container doesn't have access to your local filesystem.
 
 ---
 
@@ -252,7 +266,7 @@ thv secret set CERNER_CLIENT_ID
 thv secret set CERNER_KID
 thv secret set CERNER_PRIVATE_KEY
 thv secret set CERNER_TOKEN_URL
-thv secret set google_drive_sa_json
+thv secret set GOOGLE_DRIVE_SA_JSON
 thv secret set SMTP_USERNAME
 thv secret set SMTP_PASSWORD
 thv secret set SMTP_HOST
@@ -287,7 +301,7 @@ thv run \
   --secret CERNER_KID,target=CERNER_KID \
   --secret CERNER_PRIVATE_KEY,target=CERNER_PRIVATE_KEY \
   --secret CERNER_TOKEN_URL,target=CERNER_TOKEN_URL \
-  --secret google_drive_sa_json,target=google_drive_sa_json \
+  --secret GOOGLE_DRIVE_SA_JSON,target=GOOGLE_DRIVE_SA_JSON \
   --secret SMTP_USERNAME,target=SMTP_USERNAME \
   --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
   --secret SMTP_HOST,target=SMTP_HOST \
@@ -314,7 +328,7 @@ Copy the proxy URL from the ToolHive UI (shown in the server's details page) and
 
 ```env
 # Replace PORT with the actual port number shown in ToolHive
-TOOLHIVE_MCP_URL=http://localhost:34567/sse
+TOOLHIVE_MCP_URL=http://localhost:34567/mcp
 
 # LLM provider (groq is recommended — it's fast and has a free tier)
 LLM_PROVIDER=groq
@@ -370,7 +384,7 @@ LLM_PROVIDER=gemini GEMINI_API_KEY=AIza... python -m agents.toolhive ...
 ============================================================
 Node Wire ToolHive Agent
 Provider : groq
-MCP URL  : http://localhost:34567/sse
+MCP URL  : http://localhost:34567/mcp
 ============================================================
 Task: Patient ID: 12724066
 Please:
@@ -487,7 +501,7 @@ In Cursor's MCP settings, add the same endpoint URL. The tools will appear in th
 | `TOOLHIVE_MCP_URL is not set` | Missing env var | Copy the endpoint URL from ToolHive UI → Installed → `node-wire-connectors` and add to `.env` |
 | `Failed to list MCP tools: Connection refused` | ToolHive server stopped | Re-start via ToolHive UI, or run `thv run ...` again; check `thv list` to see running servers |
 | `Secret 'CERNER_PRIVATE_KEY' is not configured` | Secret not stored in ToolHive | Run `thv secret set CERNER_PRIVATE_KEY` or add it via the ToolHive UI |
-| `google_drive connector: authentication failed` | `google_drive_sa_json` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
+| `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
 | `SMTP authentication failed` | Wrong username or password | For Gmail, use an App Password not your regular password; confirm `SMTP_USERNAME` includes `@` |
 | `groq SDK not installed` | Missing optional dependency | `pip install -e ".[agents]"` |
 | Agent loops forever without completing | LLM reasoning issue | Try increasing `--max-steps`; try a different LLM provider; check that all four tools are visible in ToolHive |
@@ -524,7 +538,7 @@ tests/test_toolhive_agent.py::test_mcp_entrypoint_registers_three_to PASSED
 ## File layout (`agents`)
 
 ```
-node-wire/
+connector-platform/
 ├── Dockerfile                              ← Docker image for ToolHive
 ├── pyproject.toml                          ← [agents] extras added
 ├── sample.env                              ← env var reference

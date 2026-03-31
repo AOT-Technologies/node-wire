@@ -21,7 +21,8 @@ Usage::
     LLM_PROVIDER=openai python -m agents.toolhive --patient-id 12724066 ...
 
 Environment variables:
-    TOOLHIVE_MCP_URL : MCP proxy URL from ToolHive UI (e.g. http://localhost:PORT/sse)
+    TOOLHIVE_MCP_URL : MCP proxy URL from ToolHive UI (e.g. http://localhost:PORT/mcp)
+    TOOLHIVE_MCP_URLS: Comma-separated MCP proxy URLs (multi-server)
     LLM_PROVIDER     : groq | openai | gemini | anthropic  (default: groq)
     GROQ_API_KEY     : (when using groq)
     OPENAI_API_KEY   : (when using openai)
@@ -39,7 +40,7 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol
 
 from dotenv import load_dotenv
 
@@ -77,6 +78,12 @@ class AgentRunResult:
 # Lightweight async MCP client (SSE / streamable-HTTP transport)
 # ---------------------------------------------------------------------------
 
+class McpClient(Protocol):
+    async def list_tools(self) -> List[Dict[str, Any]]: ...
+
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str: ...
+
+
 class ToolHiveMcpClient:
     """
     Minimal async MCP client that communicates with the ToolHive HTTP proxy.
@@ -85,31 +92,79 @@ class ToolHiveMcpClient:
     requests to that proxy endpoint.  The client sends POST requests to
     ``{base_url}/messages`` and receives responses as Server-Sent Events or
     plain JSON.
+
+    Newer ToolHive deployments use the MCP Streamable HTTP transport, which
+    requires an ``initialize`` / ``notifications/initialized`` handshake before
+    any other request.  The session ID returned in the ``Mcp-Session-Id``
+    response header must be forwarded in all subsequent requests.
     """
 
     def __init__(self, base_url: str) -> None:
         self._base_url = base_url.rstrip("/")
+        self._session_id: Optional[str] = None
+        self._initialized: bool = False
+
+    async def _initialize(self) -> None:
+        """Send MCP initialize + initialized handshake; store session ID."""
+        import httpx
+
+        init_payload = {
+            "jsonrpc": "2.0",
+            "id": str(uuid.uuid4()),
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "node-wire", "version": "1.0.0"},
+            },
+        }
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                self._base_url,
+                json=init_payload,
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            session_id = resp.headers.get("Mcp-Session-Id")
+            if session_id:
+                self._session_id = session_id
+            data = resp.json()
+            if "error" in data:
+                raise RuntimeError(f"MCP initialize error: {data['error']}")
+
+            # Send the initialized notification (fire-and-forget; no id = notification)
+            notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            if self._session_id:
+                headers["Mcp-Session-Id"] = self._session_id
+            try:
+                await client.post(self._base_url, json=notif, headers=headers)
+            except Exception:
+                pass  # Notifications have no response; ignore transport errors
+
+        self._initialized = True
 
     async def _rpc(self, method: str, params: Dict[str, Any]) -> Any:
         import httpx
-        payload = {
+
+        if not self._initialized:
+            await self._initialize()
+
+        payload: Dict[str, Any] = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
             "method": method,
-            "params": params,
         }
+        if params:
+            payload["params"] = params
 
-        # Post JSON-RPC to the configured base URL. Some deployments expect
-        # the base to already include the path (e.g. "/mcp"). Avoid probing
-        # other paths to prevent legitimate 404 responses from cluttering
-        # logs or causing fallbacks.
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+
         url = self._base_url
         async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-            )
+            resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             if "error" in data:
@@ -128,6 +183,65 @@ class ToolHiveMcpClient:
             parts = [c.get("text", "") for c in content if c.get("type") == "text"]
             return "\n".join(parts)
         return str(content)
+
+
+class MultiMcpClient:
+    """
+    Fan-out MCP client that merges tools from multiple MCP servers and routes
+    tool calls to the correct upstream based on tool name.
+    """
+
+    def __init__(self, clients: List[McpClient]) -> None:
+        if not clients:
+            raise ValueError("MultiMcpClient requires at least one client")
+        self._clients = clients
+        self._tool_to_client_idx: Dict[str, int] = {}
+
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        merged: List[Dict[str, Any]] = []
+        tool_to_idx: Dict[str, int] = {}
+        success_count = 0
+        fail_count = 0
+
+        for idx, c in enumerate(self._clients):
+            try:
+                tools = await c.list_tools()
+                success_count += 1
+            except Exception as exc:
+                logger.warning("MultiMcpClient: client %d unreachable, skipping: %s", idx, exc)
+                fail_count += 1
+                continue
+            for t in tools:
+                name = t.get("name")
+                if not name:
+                    continue
+                # First-writer wins on collisions (but collisions are unexpected).
+                if name in tool_to_idx:
+                    continue
+                tool_to_idx[name] = idx
+                merged.append(t)
+
+        logger.info(
+            "MultiMcpClient: %d/%d clients reachable, %d tools discovered",
+            success_count, len(self._clients), len(merged),
+        )
+        self._tool_to_client_idx = tool_to_idx
+        return merged
+
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
+        idx = self._tool_to_client_idx.get(name)
+        if idx is None:
+            # Fallback: probe sequentially (best-effort) so callers can call
+            # without explicitly calling list_tools first.
+            last_err: Optional[Exception] = None
+            for c in self._clients:
+                try:
+                    return await c.call_tool(name, arguments)
+                except Exception as exc:
+                    last_err = exc
+            raise RuntimeError(f"Tool not found on any MCP server: {name}") from last_err
+
+        return await self._clients[idx].call_tool(name, arguments)
 
 
 class StdioMcpClient:
@@ -197,7 +311,7 @@ class ToolHiveAgent:
 
     def __init__(
         self,
-        mcp_client: ToolHiveMcpClient,
+        mcp_client: McpClient,
         llm_provider: Any,  # BaseLLMProvider
         max_steps: int = 10,
     ) -> None:
@@ -345,14 +459,17 @@ async def _run_agent(args: argparse.Namespace) -> None:
         cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
         mcp_client_context = StdioMcpClient(cmd)
     else:
-        mcp_url = os.environ.get("TOOLHIVE_MCP_URL", "")
-        if not mcp_url:
+        urls = resolve_mcp_urls()
+        if not urls:
             raise ValueError(
-                "TOOLHIVE_MCP_URL is not set. "
-                "Find the proxy URL in ToolHive UI → Installed → node-wire-connectors → copy the endpoint, "
+                "TOOLHIVE_MCP_URL (single) or TOOLHIVE_MCP_URLS (comma-separated) is not set. "
+                "Find the proxy URL(s) in ToolHive UI → Installed → copy the endpoint(s), "
                 "or use --local for testing without a proxy."
             )
-        mcp_client_context = ToolHiveMcpClient(mcp_url)
+        if len(urls) == 1:
+            mcp_client_context = ToolHiveMcpClient(urls[0])
+        else:
+            mcp_client_context = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
 
     # Use the client (handle async context for stdio)
     if isinstance(mcp_client_context, StdioMcpClient):
@@ -361,7 +478,7 @@ async def _run_agent(args: argparse.Namespace) -> None:
             await _execute_task(agent, args, llm_provider_name, "local-stdio")
     else:
         agent = ToolHiveAgent(mcp_client_context, provider, max_steps=args.max_steps)
-        await _execute_task(agent, args, llm_provider_name, mcp_url)
+        await _execute_task(agent, args, llm_provider_name, ",".join(urls))
 
 
 async def _execute_task(agent: ToolHiveAgent, args: argparse.Namespace, provider_name: str, mcp_info: str) -> None:
@@ -430,3 +547,17 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def resolve_mcp_urls() -> List[str]:
+    """
+    Resolve MCP proxy URL(s) from environment variables.
+
+    - TOOLHIVE_MCP_URLS: comma-separated list (preferred for multi-server)
+    - TOOLHIVE_MCP_URL: single URL (backward compatible)
+    """
+    raw = (os.environ.get("TOOLHIVE_MCP_URLS") or "").strip()
+    if raw:
+        return [u.strip().rstrip("/") for u in raw.split(",") if u.strip()]
+    single = (os.environ.get("TOOLHIVE_MCP_URL") or "").strip()
+    return [single.rstrip("/")] if single else []

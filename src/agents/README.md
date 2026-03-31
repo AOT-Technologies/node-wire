@@ -63,11 +63,11 @@ GROQ_MODEL=llama-3.3-70b-versatile
 ### **MCP & Orchestration**
 ```bash
 # ToolHive Proxy URL (obtain from ToolHive UI)
-TOOLHIVE_MCP_URL=http://localhost:8000/sse
+TOOLHIVE_MCP_URL=http://localhost:8000/mcp
 
 # Connector Secrets (Injected into MCP Server)
 CERNER_CLIENT_ID=...
-google_drive_sa_json=****/node-wire/service_account.json
+GOOGLE_DRIVE_SA_JSON=D:\connector-platform\service_account.json
 SMTP_USERNAME=...
 SMTP_PASSWORD=...
 ```

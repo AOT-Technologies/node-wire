@@ -1160,7 +1160,13 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
     try:
         from agents.llm_factory import LLMProviderFactory, LLMMessage
-        from agents.toolhive import ToolHiveAgent, ToolHiveMcpClient, StdioMcpClient
+        from agents.toolhive import (
+            MultiMcpClient,
+            ToolHiveAgent,
+            ToolHiveMcpClient,
+            StdioMcpClient,
+            resolve_mcp_urls,
+        )
 
         provider_name = os.environ.get("LLM_PROVIDER", "groq")
         logger.info("Agent Chat | creating LLM provider: %s", provider_name)
@@ -1184,19 +1190,32 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             task = payload.message
 
         # Determine MCP transport — try proxy first, fallback to local stdio
-        mcp_url = os.environ.get("TOOLHIVE_MCP_URL", "")
+        urls = resolve_mcp_urls()
         run_result = None
 
-        if mcp_url:
-            logger.info("Agent Chat | trying ToolHive proxy: %s", mcp_url)
+        if urls:
+            logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
             try:
-                mcp_client = ToolHiveMcpClient(mcp_url)
+                if len(urls) == 1:
+                    mcp_client = ToolHiveMcpClient(urls[0])
+                else:
+                    mcp_client = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
                 agent = ToolHiveAgent(mcp_client, llm_provider, max_steps=10)
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
-                # If agent failed because MCP tools couldn't be listed, fallback
-                if not run_result.success and run_result.error and "Failed to list MCP tools" in run_result.error:
-                    logger.warning("Agent Chat | proxy unreachable, falling back to local stdio")
+                # Fallback to local stdio if:
+                # (a) agent hard-failed due to missing tools, OR
+                # (b) agent "succeeded" but called zero tools (LLM gave up because
+                #     only a subset of tools was discoverable via the proxy)
+                proxy_incomplete = (
+                    (not run_result.success and run_result.error and (
+                        "Failed to list MCP tools" in run_result.error
+                        or "not in request.tools" in run_result.error
+                    ))
+                    or (run_result.success and not run_result.steps)
+                )
+                if proxy_incomplete:
+                    logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
                     run_result = None
             except Exception as proxy_err:
                 logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)

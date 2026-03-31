@@ -20,12 +20,14 @@ Node Wire is a Python framework that runs connector adapters (Google Drive, SMTP
 
 ## Prerequisites
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Python | 3.12+ | `python --version` to check |
-| pip or uv | Latest | `pip install --upgrade pip` |
-| Git | Any | To clone the repo |
-| Docker | Latest | Only needed for ToolHive MCP deployment |
+
+| Requirement | Version | Notes                                   |
+| ----------- | ------- | --------------------------------------- |
+| Python      | 3.12+   | `python --version` to check             |
+| pip or uv   | Latest  | `pip install --upgrade pip`             |
+| Git         | Any     | To clone the repo                       |
+| Docker      | Latest  | Only needed for ToolHive MCP deployment |
+
 
 ---
 
@@ -34,13 +36,21 @@ Node Wire is a Python framework that runs connector adapters (Google Drive, SMTP
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd node-wire
+cd connector-platform
 
-# 2. Install the platform with all optional agent dependencies
-pip install -e ".[agents]"
+# 2. Install dependencies (recommended: uv)
+uv sync --extra agents
+
+# 3. Verify the install
+uv run node-wire --help
 ```
 
-> **Tip:** If you only need the REST/gRPC server and not the AI agent features, use `pip install -e .` instead.
+> **REST/gRPC only** (no AI agent features): `uv sync` without the extra is sufficient.
+>
+> **Alternative (pip):** If you’re not using `uv`, install editable deps with pip:
+>
+> - `pip install -e ".[agents]"` (includes MCP/LLM agent dependencies)
+> - `pip install -e .` (REST/gRPC only, no agent dependencies)
 
 ---
 
@@ -59,14 +69,16 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 
 ### Environment Variable Sections
 
-| Section | Key Variables | When Needed |
-|---|---|---|
-| **FHIR Epic** | `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY` | Epic EHR integration |
-| **FHIR Cerner** | `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`, `CERNER_SCOPES` | Cerner EHR integration |
-| **Google Drive** | `google_drive_sa_json`, `GOOGLE_DRIVE_FOLDER_ID` | Google Drive connector |
-| **SMTP** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Sending emails |
-| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key) | AI agent / ToolHive |
-| **ToolHive** | `TOOLHIVE_MCP_URL` | ToolHive MCP proxy |
+
+| Section          | Key Variables                                                                                                       | When Needed            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **FHIR Epic**    | `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY`                            | Epic EHR integration   |
+| **FHIR Cerner**  | `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`, `CERNER_SCOPES` | Cerner EHR integration |
+| **Google Drive** | `google_drive_sa_json`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
+| **SMTP**         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`                                                          | Sending emails         |
+| **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
+| **ToolHive**     | `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (comma-separated, multi-server)                                  | ToolHive MCP proxy     |
+
 
 See `sample.env` for the full list with example values.
 
@@ -76,16 +88,22 @@ See `sample.env` for the full list with example values.
 
 The platform supports three modes. Set the `MODE` environment variable to switch between them.
 
-| Mode | Command | Default Port | Use Case |
-|---|---|---|---|
-| **REST API** (default) | `python -m bindings_entrypoint` | `8000` | HTTP clients, Swagger UI, curl |
-| **gRPC** | `MODE=GRPC python -m bindings_entrypoint` | `50051` | gRPC clients |
-| **MCP (stdio)** | `python -m agents.mcp_entrypoint` | stdio | AI agents, ToolHive, Claude Desktop |
+
+| Mode                   | Command                           | Default Port | Use Case                            |
+| ---------------------- | --------------------------------- | ------------ | ----------------------------------- |
+| **REST API** (default) | `uv run node-wire`                | `8000`       | HTTP clients, Swagger UI, curl      |
+| **gRPC**               | `MODE=GRPC uv run node-wire`      | `50051`      | gRPC clients                        |
+| **MCP (stdio)**        | `python -m agents.mcp_entrypoint` | stdio        | AI agents, ToolHive, Claude Desktop |
+
 
 ### REST API Quick Start
 
 ```bash
-python -m bindings_entrypoint
+# Default port 8000
+uv run node-wire
+
+# If port 8000 is in use, override with PORT
+PORT=8001 uv run node-wire
 ```
 
 Once running:
@@ -119,14 +137,16 @@ All responses use the same standard shape:
 
 ## Connectors Overview
 
-| Connector | What It Does | Credentials Needed | Setup Guide |
-|---|---|---|---|
-| **http_generic** | Make HTTP requests to any URL | None | No setup needed |
-| **smtp** | Send emails via SMTP | SMTP host/port/username/password | [SMTP Setup](#smtp) |
-| **stripe** | Process Stripe payments | Stripe API key | [Stripe Setup](#stripe) |
-| **google_drive** | List, upload, download, manage Drive files | GCP service account JSON | [Google Drive setup & API](docs/google_drive_connector.md#google-drive-service-account-setup) |
-| **fhir_epic** | Read/write patient data from Epic EHR | Epic SMART credentials + private key | [FHIR Epic Setup](#fhir-epic) |
-| **fhir_cerner** | Read/write patient data from Cerner EHR | Cerner SMART credentials + private key | [FHIR Cerner Setup](#fhir-cerner) |
+
+| Connector        | What It Does                               | Credentials Needed                     | Setup Guide                                                                                   |
+| ---------------- | ------------------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **http_generic** | Make HTTP requests to any URL              | None                                   | No setup needed                                                                               |
+| **smtp**         | Send emails via SMTP                       | SMTP host/port/username/password       | [SMTP Setup](#smtp)                                                                           |
+| **stripe**       | Process Stripe payments                    | Stripe API key                         | [Stripe Setup](#stripe)                                                                       |
+| **google_drive** | List, upload, download, manage Drive files | GCP service account JSON               | [Google Drive setup & API](docs/google_drive_connector.md#google-drive-service-account-setup) |
+| **fhir_epic**    | Read/write patient data from Epic EHR      | Epic SMART credentials + private key   | [FHIR Epic Setup](#fhir-epic)                                                                 |
+| **fhir_cerner**  | Read/write patient data from Cerner EHR    | Cerner SMART credentials + private key | [FHIR Cerner Setup](#fhir-cerner)                                                             |
+
 
 ---
 
@@ -163,6 +183,7 @@ SMTP_PASSWORD=your-app-password
 > **Gmail users:** You must use an [App Password](https://support.google.com/accounts/answer/185833), not your regular Gmail password. Enable 2-Factor Authentication on your Google account first, then generate an App Password under Security settings.
 
 Supported configurations:
+
 - Port `587` with STARTTLS (recommended for Gmail, most SMTP providers)
 - Port `465` with implicit TLS
 
@@ -187,6 +208,7 @@ The Google Drive connector uses a **service account** — a non-human Google acc
 **Full documentation:** [docs/google_drive_connector.md](docs/google_drive_connector.md) — service account setup, verification, and REST `execute` API (all seven operations).
 
 Quick summary of what you'll need:
+
 1. A Google Cloud project with the Drive API enabled
 2. A service account with a downloaded JSON key file
 3. A shared Drive folder (share it with the service account's email)
@@ -243,24 +265,53 @@ Register your application in the [Cerner Developer Portal](https://code.cerner.c
 
 ## MCP Server & ToolHive
 
-The platform includes an MCP (Model Context Protocol) server that exposes 4 connector tools for AI agents:
+The platform exposes connector tools for AI agents via the MCP (Model Context Protocol). There are two deployment modes:
 
-| Tool | Description |
-|---|---|
-| `fhir_cerner_read_patient` | Fetch patient record from Cerner FHIR |
-| `fhir_epic_read_patient` | Fetch patient record from Epic FHIR |
-| `google_drive_upload_file` | Upload a text file to Google Drive |
-| `smtp_send_email` | Send an email via SMTP |
+### Individual MCP servers (recommended)
+
+Each connector runs as its own independent MCP server. This is the preferred approach for modular, scalable deployments.
+
+
+| Image                   | Tool exposed               | Docker image                     |
+| ----------------------- | -------------------------- | -------------------------------- |
+| `nw-google-drive`       | `google_drive_upload_file` | `docker/google-drive/Dockerfile` |
+| `nw-smartonfhir-epic`   | `fhir_epic_read_patient`   | `docker/fhir-epic/Dockerfile`    |
+| `nw-smartonfhir-cerner` | `fhir_cerner_read_patient` | `docker/fhir-cerner/Dockerfile`  |
+| `nw-smtp`               | `smtp_send_email`          | `docker/smtp/Dockerfile`         |
+
+
+**Full guide (build, env config, ToolHive registration, multi-server agent usage):** [docs/mcp-servers.md](docs/mcp-servers.md)
+
+Quick start:
+
+```bash
+# Build all three images
+./scripts/build-mcp-images.sh
+
+# Start all three locally
+docker compose -f docker-compose.mcp.yml up
+```
+
+### Combined MCP server (all connectors in one)
+
+For simpler setups all connectors can be exposed from a single MCP server:
+
+```bash
+python -m agents.mcp_entrypoint
+```
 
 **ToolHive** runs the MCP server inside a secure Docker container, manages secrets injection, and provides an HTTP proxy that any MCP-compatible client (Claude Desktop, Cursor, custom agents) can connect to.
 
-**See the full setup guide:** [docs/toolhive_agent_scenario.md](docs/toolhive_agent_scenario.md)
+**See the full ToolHive workflow guide:** [docs/toolhive_agent_scenario.md](docs/toolhive_agent_scenario.md)
 
 ### Quick Local Test (No ToolHive)
 
-You can verify the MCP server is working without ToolHive using the MCP Inspector:
-
 ```bash
+# Inspect any individual server with MCP Inspector
+npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
+npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
+
+# Or test the combined server
 npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
 ```
 
@@ -289,15 +340,18 @@ Most tests are unit tests that run without real credentials. Integration tests t
 
 The repository includes an interactive web playground that showcases 5 orchestration scenarios:
 
+> **Note:** The UI is served under the `/playground/` path (not at the server root).
+
 ```bash
 # Start the REST API (if not already running)
-python -m bindings_entrypoint
+uv run node-wire
 
 # Open in your browser
 open http://localhost:8000/playground/
 ```
 
 Scenarios include:
+
 1. Epic FHIR patient lookup and clinical note upload
 2. IT Ops automation via HTTP Generic
 3. Cerner FHIR orchestration

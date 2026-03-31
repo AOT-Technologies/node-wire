@@ -6,6 +6,21 @@ For dependency management use any tool that understands `pyproject.toml` (e.g. `
 
 ---
 
+## Individual MCP servers
+
+Each connector can run as its own independent MCP server (Docker image).
+
+| Image                   | Tool exposed               | Docker image                     |
+| ----------------------- | -------------------------- | -------------------------------- |
+| `nw-google-drive`       | `google_drive_upload_file` | `docker/google-drive/Dockerfile` |
+| `nw-smartonfhir-epic`   | `fhir_epic_read_patient`   | `docker/fhir-epic/Dockerfile`    |
+| `nw-smartonfhir-cerner` | `fhir_cerner_read_patient` | `docker/fhir-cerner/Dockerfile`  |
+| `nw-smtp`               | `smtp_send_email`          | `docker/smtp/Dockerfile`         |
+
+See [docs/mcp-servers.md](docs/mcp-servers.md) for build, env config, docker-compose, and ToolHive registration.
+
+---
+
 ## High-level architecture
 
 The platform is split into three layers:
@@ -139,7 +154,7 @@ Examples: Google Drive has a full doc at `src/connectors/google_drive/README.md`
 6. In Google Drive, share the target folder with that service-account email (Editor permission).
 7. Copy that folder ID and use it in demo requests / env as needed.
 
-Set credential secret used by this platform (`google_drive_sa_json`):
+Set credential secret used by this platform (`GOOGLE_DRIVE_SA_JSON`):
 
 - **Option A (recommended for local):** set it to the absolute path of the JSON file.
 - **Option B:** set it to the full JSON content as a string.
@@ -148,7 +163,7 @@ PowerShell example (load JSON content into env var for current shell):
 
 ```powershell
 $saPath = "C:\path\to\service_account.json"
-$env:google_drive_sa_json = Get-Content -Path $saPath -Raw
+$env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
 ```
 
 ---

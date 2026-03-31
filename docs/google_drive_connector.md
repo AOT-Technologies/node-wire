@@ -94,7 +94,7 @@ Add the following to your `.env` file:
 
 ```env
 # Absolute path to your downloaded service account JSON key file
-google_drive_sa_json=/Users/you/.secrets/google-drive-sa.json
+GOOGLE_DRIVE_SA_JSON=/Users/you/.secrets/google-drive-sa.json
 ```
 
 **For Windows (PowerShell) — alternative to editing `.env` directly:**
@@ -102,12 +102,12 @@ google_drive_sa_json=/Users/you/.secrets/google-drive-sa.json
 ```powershell
 # Read the service account JSON and set it as an environment variable
 $saPath = "C:\path\to\service_account.json"  # Replace with your actual path
-$env:google_drive_sa_json = Get-Content -Path $saPath -Raw
+$env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
 ```
 
-> This sets the variable for the current PowerShell session. To persist it across sessions, use `[System.Environment]::SetEnvironmentVariable("google_drive_sa_json", (Get-Content -Path $saPath -Raw), "User")` or add the path to your `.env` file manually.
+> This sets the variable for the current PowerShell session. To persist it across sessions, use `[System.Environment]::SetEnvironmentVariable("GOOGLE_DRIVE_SA_JSON", (Get-Content -Path $saPath -Raw), "User")` or add the path to your `.env` file manually.
 
-> **For ToolHive deployment:** Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `google_drive_sa_json`. See [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+> **For ToolHive deployment:** Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `GOOGLE_DRIVE_SA_JSON`. See [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ### Step 6: Share a Google Drive Folder with the Service Account
 
@@ -165,10 +165,10 @@ To upload a test file, use the request body documented under [files.upload](#fil
 
 | Error | Likely Cause | Fix |
 |---|---|---|
-| `GDRIVE_AUTH` / `401` or `403` | Service account key file path is wrong, or the JSON is invalid | Double-check `google_drive_sa_json` points to the correct absolute path |
+| `GDRIVE_AUTH` / `401` or `403` | Service account key file path is wrong, or the JSON is invalid | Double-check `GOOGLE_DRIVE_SA_JSON` points to the correct absolute path |
 | `GDRIVE_AUTH` / `403` on a specific file | Service account doesn't have permission to that file/folder | Share the folder with the service account email |
 | `GDRIVE_BUSINESS_RULE` / `404` | Folder ID is wrong | Check the URL in Drive and re-copy the folder ID |
-| `FileNotFoundError` | `google_drive_sa_json` path doesn't exist | Use an absolute path, not a relative one |
+| `FileNotFoundError` | `GOOGLE_DRIVE_SA_JSON` path doesn't exist | Use an absolute path, not a relative one |
 
 ### Security Notes
 

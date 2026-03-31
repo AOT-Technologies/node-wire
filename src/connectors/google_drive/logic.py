@@ -240,7 +240,7 @@ class GoogleDriveConnector(
         ) from exc
 
     def _build_client(self) -> Any:
-        raw_sa = self.secret_provider.get_secret("google_drive_sa_json")
+        raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
         try:
             info = json.loads(raw_sa)
             creds = service_account.Credentials.from_service_account_info(

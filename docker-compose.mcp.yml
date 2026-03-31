@@ -1,0 +1,28 @@
+services:
+  nw-google-drive:
+    image: nw-google-drive:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  nw-smartonfhir-epic:
+    image: nw-smartonfhir-epic:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  nw-smartonfhir-cerner:
+    image: nw-smartonfhir-cerner:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  nw-smtp:
+    image: nw-smtp:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped

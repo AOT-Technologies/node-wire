@@ -86,7 +86,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id =~ \"$connector_type.*\" |= \"completed successfully\" [$__range])) / sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id =~ \"$connector_type.*\" |= \"Starting connector execution\" [$__range])) * 100",
+          "expr": "sum(count_over_time({service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\" |= \"completed successfully\" [$__range])) / sum(count_over_time({service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\" |= \"Starting connector execution\" [$__range])) * 100",
           "queryType": "range",
           "refId": "A"
         }
@@ -190,7 +190,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id =~ \"$connector_type.*\" |~ \"(?i)completed successfully\" [$__range]))",
+          "expr": "sum(count_over_time({service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\" |~ \"(?i)completed successfully\" [$__range]))",
           "legendFormat": "Success",
           "queryType": "range",
           "refId": "A"
@@ -202,7 +202,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"node-wire\"} |~ \"(?i)error\" [$__range]))",
+          "expr": "sum(count_over_time({service_name=\"aot-connector-platform\"} |~ \"(?i)error\" [$__range]))",
           "legendFormat": "Error",
           "queryType": "range",
           "refId": "B"
@@ -250,7 +250,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "{service_name=\"node-wire\"} | logfmt | connector_id =~ \"$connector_type.*\"",
+          "expr": "{service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\"",
           "queryType": "range",
           "refId": "A"
         }

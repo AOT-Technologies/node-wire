@@ -21,7 +21,7 @@ from runtime import SecretProvider
 class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
         return {
-            "google_drive_sa_json": '{"type":"service_account","project_id":"dummy"}',
+            "GOOGLE_DRIVE_SA_JSON": '{"type":"service_account","project_id":"dummy"}',
         }[key]
 
 

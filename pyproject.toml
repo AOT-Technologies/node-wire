@@ -34,6 +34,9 @@ dependencies = [
 
 [project.scripts]
 node-wire = "bindings_entrypoint:main"
+nw-google-drive = "agents.google_drive_mcp:main"
+nw-smartonfhir-epic = "agents.fhir_epic_mcp:main"
+nw-smartonfhir-cerner = "agents.fhir_cerner_mcp:main"
 
 [project.optional-dependencies]
 dev = [

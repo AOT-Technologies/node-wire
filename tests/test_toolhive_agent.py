@@ -248,8 +248,8 @@ async def test_agent_fails_when_mcp_unreachable() -> None:
 # MCP entrypoint smoke test
 # ---------------------------------------------------------------------------
 
-def test_mcp_entrypoint_registers_three_tools() -> None:
-    """The FastMCP server should expose exactly 3 tools."""
+def test_mcp_entrypoint_registers_four_tools() -> None:
+    """The FastMCP server should expose exactly 4 tools."""
     # We patch all external deps before importing the module to avoid side effects
     with (
         patch("bindings.factory.ConnectorFactory") as mock_factory_cls,
@@ -259,6 +259,7 @@ def test_mcp_entrypoint_registers_three_tools() -> None:
         mock_factory = MagicMock()
         mock_factory._connectors = {
             "fhir_cerner": MagicMock(),
+            "fhir_epic": MagicMock(),
             "google_drive": MagicMock(),
             "smtp": MagicMock(),
         }
@@ -279,9 +280,60 @@ def test_mcp_entrypoint_registers_three_tools() -> None:
         from agents.mcp_entrypoint import _make_server
         _make_server()
 
-    assert len(registered_tools) == 3
+    assert len(registered_tools) == 4
     assert "fhir_cerner_read_patient" in registered_tools
+    assert "fhir_epic_read_patient" in registered_tools
     assert "google_drive_upload_file" in registered_tools
     assert "smtp_send_email" in registered_tools
+
+
+# ---------------------------------------------------------------------------
+# Individual MCP server smoke tests
+# ---------------------------------------------------------------------------
+
+def _make_server_smoke(module_path: str, expected_tool: str) -> None:
+    """Helper: verify a per-connector _make_server() registers exactly one tool."""
+    with (
+        patch("bindings.factory.ConnectorFactory") as mock_factory_cls,
+        patch("connectors.auto_register"),
+        patch("mcp.server.fastmcp.FastMCP", autospec=False) as mock_fastmcp_cls,
+    ):
+        mock_factory = MagicMock()
+        mock_factory._connectors = {}
+        mock_factory_cls.return_value = mock_factory
+
+        mock_mcp_instance = MagicMock()
+        registered_tools: List[str] = []
+
+        def fake_tool(*args: Any, **kwargs: Any):
+            name = kwargs.get("name") or (args[0] if args else "unknown")
+            registered_tools.append(name)
+            return lambda fn: fn
+
+        mock_mcp_instance.tool = fake_tool
+        mock_fastmcp_cls.return_value = mock_mcp_instance
+
+        import importlib
+        mod = importlib.import_module(module_path)
+        mod._make_server()
+
+    assert registered_tools == [expected_tool], (
+        f"{module_path}: expected [{expected_tool}], got {registered_tools}"
+    )
+
+
+def test_fhir_cerner_mcp_registers_one_tool() -> None:
+    """fhir_cerner_mcp._make_server() should expose exactly fhir_cerner_read_patient."""
+    _make_server_smoke("agents.fhir_cerner_mcp", "fhir_cerner_read_patient")
+
+
+def test_fhir_epic_mcp_registers_one_tool() -> None:
+    """fhir_epic_mcp._make_server() should expose exactly fhir_epic_read_patient."""
+    _make_server_smoke("agents.fhir_epic_mcp", "fhir_epic_read_patient")
+
+
+def test_google_drive_mcp_registers_one_tool() -> None:
+    """google_drive_mcp._make_server() should expose exactly google_drive_upload_file."""
+    _make_server_smoke("agents.google_drive_mcp", "google_drive_upload_file")
 
 

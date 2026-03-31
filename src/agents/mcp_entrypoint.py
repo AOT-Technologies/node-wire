@@ -20,7 +20,7 @@ Usage (run directly by ToolHive):
 Environment variables (injected by ToolHive via --secret flags):
     CERNER_FHIR_BASE_URL, CERNER_CLIENT_ID, CERNER_KID,
     CERNER_PRIVATE_KEY, CERNER_TOKEN_URL, CERNER_SCOPES
-    google_drive_sa_json
+    GOOGLE_DRIVE_SA_JSON
     SMTP_USERNAME, SMTP_PASSWORD, SMTP_HOST, SMTP_PORT
 """
 from __future__ import annotations
