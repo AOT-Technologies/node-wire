@@ -72,6 +72,8 @@ GOOGLE_DRIVE_SA_JSON=/absolute/path/to/service-account.json
 GOOGLE_DRIVE_FOLDER_ID=your-google-drive-folder-id
 ```
 
+> **Docker Compose MCP (`nw-google-drive`):** Mount the service account JSON from the host into the container and point `GOOGLE_DRIVE_SA_JSON` at the path **inside** the container. `docker-compose.mcp.yml` binds `${GOOGLE_DRIVE_SA_JSON_HOST:-./service-account.json}` → `/etc/secrets/google-drive-sa.json` (read-only). Set `GOOGLE_DRIVE_SA_JSON=/etc/secrets/google-drive-sa.json` and `GOOGLE_DRIVE_SA_JSON_HOST` to your key file on the host (see `sample.env`).
+
 > **ToolHive note:** When running inside ToolHive, set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) because ToolHive injects secrets as string values, not files.
 
 #### `nw-smartonfhir-epic`
@@ -208,7 +210,9 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
 
 ## Run with docker-compose
 
-`docker-compose.mcp.yml` starts all three MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
+`docker-compose.mcp.yml` starts all per-connector MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
+
+The **Google Drive** service (`nw-google-drive`) **mounts the service account JSON key as a volume**: the host file is mounted read-only at `/etc/secrets/google-drive-sa.json`. Configure `GOOGLE_DRIVE_SA_JSON_HOST` (host path to the `.json` file) and `GOOGLE_DRIVE_SA_JSON=/etc/secrets/google-drive-sa.json` in `.env` alongside `GOOGLE_DRIVE_FOLDER_ID`. This avoids baking secrets into the image and matches how a real deployment supplies credentials to the MCP container.
 
 ```bash
 # Ensure your .env is populated, then:
@@ -338,6 +342,7 @@ python -m agents.toolhive --local --patient-id 12724066 --recipient-email you@ex
 | `TOOLHIVE_MCP_URL(S) is not set` | Missing env var | Set `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (multi) in `.env` |
 | `Failed to list MCP tools: Connection refused` | ToolHive proxy stopped | Re-register with `thv run`; confirm the proxy URL matches what ToolHive UI shows |
 | Google Drive auth failures | Secret injected as a file path | For ToolHive, set `GOOGLE_DRIVE_SA_JSON` to JSON *contents* (not a path) |
+| Google Drive MCP fails under Compose | Wrong path or missing mount | Set `GOOGLE_DRIVE_SA_JSON=/etc/secrets/google-drive-sa.json` and `GOOGLE_DRIVE_SA_JSON_HOST` to the host key file; ensure the file exists at the default `./service-account.json` if you use the default mount |
 | `fhir_epic connector not configured` | Missing Epic env vars | Ensure all `EPIC_*` variables are set and non-empty |
 | `fhir_cerner connector not configured` | Missing Cerner env vars | Ensure all `CERNER_*` variables are set and non-empty |
 | Docker build fails with `COPY src/ not found` | Wrong build context | Always run `docker build` from the **repository root**, not from `docker/<name>/` |

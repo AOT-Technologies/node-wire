@@ -194,7 +194,7 @@ Supported configurations:
 Add to your `.env`:
 
 ```env
-stripe_api_key=sk_test_your_key_here
+STRIPE_API_KEY=sk_test_your_key_here
 ```
 
 Use a **test key** (`sk_test_...`) during development. Switch to a live key (`sk_live_...`) for production.
@@ -219,6 +219,8 @@ Add to your `.env`:
 google_drive_sa_json=/absolute/path/to/service-account.json
 GOOGLE_DRIVE_FOLDER_ID=your-folder-id-from-drive-url
 ```
+
+When you run the **Google Drive MCP** container via `docker-compose.mcp.yml`, use a **volume mount** for the JSON key (see `sample.env` and [docs/mcp-servers.md](docs/mcp-servers.md#run-with-docker-compose)) instead of relying on a host-only path inside the container.
 
 ---
 
@@ -285,12 +287,14 @@ Each connector runs as its own independent MCP server. This is the preferred app
 Quick start:
 
 ```bash
-# Build all three images
+# Build all per-connector MCP images
 ./scripts/build-mcp-images.sh
 
-# Start all three locally
+# Start the stack locally (Google Drive MCP needs the service account JSON mounted — see below)
 docker compose -f docker-compose.mcp.yml up
 ```
+
+For the **Google Drive** MCP image (`nw-google-drive`), the service account JSON key is **mounted into the container as a volume** (host file → `/etc/secrets/google-drive-sa.json`). Set `GOOGLE_DRIVE_SA_JSON` to that in-container path and `GOOGLE_DRIVE_SA_JSON_HOST` to the key file on your machine. Details: [docs/mcp-servers.md](docs/mcp-servers.md#run-with-docker-compose).
 
 ### Combined MCP server (all connectors in one)
 

@@ -2,6 +2,8 @@ services:
   nw-google-drive:
     image: nw-google-drive:latest
     env_file: .env
+    volumes:
+      - ${GOOGLE_DRIVE_SA_JSON_HOST:-./service-account.json}:/etc/secrets/google-drive-sa.json:ro
     stdin_open: true
     tty: true
     restart: unless-stopped

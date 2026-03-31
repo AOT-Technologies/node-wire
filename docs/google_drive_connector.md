@@ -109,6 +109,8 @@ $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
 
 > **For ToolHive deployment:** Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `GOOGLE_DRIVE_SA_JSON`. See [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
+> **For the Google Drive MCP image with Docker Compose:** Mount the JSON key file as a **volume** into the container (see [docs/mcp-servers.md](mcp-servers.md#run-with-docker-compose) and `docker-compose.mcp.yml`) and set `GOOGLE_DRIVE_SA_JSON` to the in-container path (`/etc/secrets/google-drive-sa.json`).
+
 ### Step 6: Share a Google Drive Folder with the Service Account
 
 The service account starts with no access to any Drive files. You must explicitly share folders or files with it, just like sharing with any other Google user.

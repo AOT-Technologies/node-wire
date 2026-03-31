@@ -62,6 +62,7 @@ For modular deployments, each connector can be run as an independent MCP server 
 - `nw-google-drive` (Google Drive)
 - `nw-smartonfhir-epic` (Epic SMART on FHIR)
 - `nw-smartonfhir-cerner` (Cerner SMART on FHIR)
+- `nw-smtp` (SMTP email)
 
 When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS`** (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.
 
@@ -135,7 +136,7 @@ Below is the full set of environment variables used by the connector platform an
 | `GROQ_API_KEY` | LLM (Groq) | Your Groq API key |
 | `GROQ_MODEL` | LLM | Example: `openai/gpt-oss-120b` |
 | `MCP_TRANSPORT` | ToolHive / local | `stdio` when running in ToolHive container |
-| `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `d:\connector-platform\src` locally |
+| `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `/path/to/connector-platform/src` (macOS/Linux) or `C:\path\to\connector-platform\src` (Windows) locally |
 | `SMTP_HOST` | SMTP connector | Example: `sandbox.smtp.mailtrap.io` |
 | `SMTP_PORT` | SMTP connector | Example: `2525` |
 | `SMTP_USERNAME` | SMTP connector | Mailtrap / SMTP user |
@@ -242,7 +243,9 @@ Gather the following values before proceeding:
 
 > **Epic users:** If using Epic instead of Cerner, replace the `CERNER_*` variables with their `EPIC_*` equivalents (`EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY`).
 
-> **Note on `GOOGLE_DRIVE_SA_JSON`:** Paste the **entire contents** of the service account JSON file as the secret value — not the file path. This is because the Docker container doesn't have access to your local filesystem.
+> **Note on `GOOGLE_DRIVE_SA_JSON`:** Paste the **entire contents** of the service account JSON file as the secret value — not the file path. This is because the ToolHive-managed container does not see arbitrary paths on your host unless you configure mounts in ToolHive; ToolHive normally injects this credential as a string.
+
+> **If you run the per-connector MCP stack with `docker-compose.mcp.yml` instead:** Mount the JSON file into the `nw-google-drive` container as a volume and set `GOOGLE_DRIVE_SA_JSON` to the path inside the container — see [docs/mcp-servers.md](mcp-servers.md#run-with-docker-compose).
 
 ---
 
