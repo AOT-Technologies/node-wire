@@ -6,28 +6,44 @@ from pydantic import BaseModel
 
 from runtime import BaseConnector
 
-# FHIR connectors expose a single `execute` entrypoint with a discriminated `action`
-# field; expand these for REST/MCP discovery so routes remain per-operation.
-_FHIR_DISCRIMINATED_ACTIONS: Dict[str, List[str]] = {
-    "fhir_cerner": [
-        "read_patient",
-        "search_patients",
-        "search_encounter",
-        "create_document_reference",
-        "search_document_reference",
-    ],
-    "fhir_epic": [
-        "read_patient",
-        "search_patients",
-        "search_encounter",
-        "create_document_reference",
-        "search_document_reference",
-    ],
-}
-
 
 def _schema_for(model: Type[BaseModel]) -> Dict[str, Any]:
     return model.model_json_schema()
+
+
+def _fhir_action_schemas() -> Dict[str, Dict[str, Type[BaseModel]]]:
+    """Return per-action input model classes for FHIR connectors (lazy import)."""
+    from connectors.fhir_cerner.schema import (
+        FhirCernerDocumentReferenceCreateInput,
+        FhirCernerDocumentReferenceSearchInput,
+        FhirCernerEncounterSearchInput,
+        FhirCernerPatientReadInput,
+        FhirCernerPatientSearchInput,
+    )
+    from connectors.fhir_epic.schema import (
+        FhirDocumentReferenceCreateInput,
+        FhirDocumentReferenceSearchInput,
+        FhirEncounterSearchInput,
+        FhirPatientReadInput,
+        FhirPatientSearchInput,
+    )
+
+    return {
+        "fhir_cerner": {
+            "read_patient": FhirCernerPatientReadInput,
+            "search_patients": FhirCernerPatientSearchInput,
+            "search_encounter": FhirCernerEncounterSearchInput,
+            "create_document_reference": FhirCernerDocumentReferenceCreateInput,
+            "search_document_reference": FhirCernerDocumentReferenceSearchInput,
+        },
+        "fhir_epic": {
+            "read_patient": FhirPatientReadInput,
+            "search_patients": FhirPatientSearchInput,
+            "search_encounter": FhirEncounterSearchInput,
+            "create_document_reference": FhirDocumentReferenceCreateInput,
+            "search_document_reference": FhirDocumentReferenceSearchInput,
+        },
+    }
 
 
 def build_manifest(connectors: List[BaseConnector[Any, Any]]) -> List[Dict[str, Any]]:
@@ -39,21 +55,25 @@ def build_manifest(connectors: List[BaseConnector[Any, Any]]) -> List[Dict[str, 
     REST route generation and MCP tool manifests.
     """
     manifest: List[Dict[str, Any]] = []
+    fhir_schemas: Dict[str, Dict[str, Type[BaseModel]]] | None = None
+
     for connector in connectors:
-        input_model = connector._input_model_cls  # type: ignore[attr-defined]
         output_model = connector._output_model_cls  # type: ignore[attr-defined]
         cid = connector.connector_id
-        if cid in _FHIR_DISCRIMINATED_ACTIONS and getattr(connector, "action", None) == "execute":
-            for sub_action in _FHIR_DISCRIMINATED_ACTIONS[cid]:
+        if getattr(connector, "action", None) == "execute" and cid in ("fhir_cerner", "fhir_epic"):
+            if fhir_schemas is None:
+                fhir_schemas = _fhir_action_schemas()
+            for sub_action, input_cls in fhir_schemas[cid].items():
                 manifest.append(
                     {
                         "connector_id": cid,
                         "action": sub_action,
-                        "input_schema": _schema_for(input_model),
+                        "input_schema": _schema_for(input_cls),
                         "output_schema": _schema_for(output_model),
                     }
                 )
         else:
+            input_model = connector._input_model_cls  # type: ignore[attr-defined]
             manifest.append(
                 {
                     "connector_id": cid,

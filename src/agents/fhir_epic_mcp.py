@@ -49,6 +49,7 @@ def _make_server():
         patient_id: str = "",
         family_name: str = "",
         given_name: str = "",
+        name: str = "",
         birthdate: str = "",
     ) -> dict:
         trace_id = str(uuid.uuid4())
@@ -58,19 +59,16 @@ def _make_server():
 
         if patient_id:
             params = FhirEpicPatientReadInput(action="read_patient", resource_id=patient_id)
-        elif family_name or given_name:
-            search = {
-                k: v
-                for k, v in {
-                    "family": family_name,
-                    "given": given_name,
-                    "birthdate": birthdate,
-                }.items()
-                if v
-            }
-            params = FhirEpicPatientReadInput(action="read_patient", search_params=search)
+        elif family_name or given_name or name:
+            params = FhirEpicPatientReadInput(
+                action="read_patient",
+                given_name=given_name or None,
+                family_name=family_name or None,
+                name=name or None,
+                birthdate=birthdate or None,
+            )
         else:
-            raise ValueError("Provide patient_id OR at least family_name/given_name")
+            raise ValueError("Provide patient_id OR at least family_name / given_name / name")
 
         result = await epic.internal_execute(params, trace_id=trace_id)
         resource = result.resource

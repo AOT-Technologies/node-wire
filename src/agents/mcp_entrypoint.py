@@ -406,6 +406,9 @@ def _make_server():
         if not cerner:
             raise RuntimeError("fhir_cerner connector not configured")
 
+        if not (patient_id or status or date):
+            raise ValueError("Provide at least one of patient_id / status / date")
+
         params = FhirCernerEncounterSearchInput(
             action="search_encounter",
             patient_id=patient_id or None,
@@ -462,6 +465,9 @@ def _make_server():
         epic = factory._connectors.get("fhir_epic")
         if not epic:
             raise RuntimeError("fhir_epic connector not configured")
+
+        if not (patient_id or status or date):
+            raise ValueError("Provide at least one of patient_id / status / date")
 
         params = FhirEpicEncounterSearchInput(
             action="search_encounter",
@@ -544,7 +550,7 @@ def _make_server():
         }
 
     # ------------------------------------------------------------------
-    # Tool 4: Send email via SMTP
+    # Tool 8: Send email via SMTP
     # ------------------------------------------------------------------
 
     @mcp.tool(

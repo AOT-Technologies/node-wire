@@ -16,7 +16,7 @@ class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
         return {
             "cerner_fhir_base_url": "https://fhir-myrecord.cerner.com/r4/tenant-id",
-            "cerner_private_key": "-----BEGIN RSA PRIVATE KEY-----\\\\nMEowIQ...dummy\\\\n-----END RSA PRIVATE KEY-----",
+            "cerner_private_key": "-----BEGIN RSA PRIVATE KEY-----\\nMEowIQ...dummy\\n-----END RSA PRIVATE KEY-----",
             "cerner_kid": "dummy-kid",
             "cerner_client_id": "dummy-client-id",
             "cerner_token_url": "https://authorization.cerner.com/tenants/tenant-id/protocols/oauth2/profiles/smart-v1/token",
