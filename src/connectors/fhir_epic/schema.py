@@ -1,43 +1,30 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, RootModel
 
 
 # ---------------------------------------------------------------------------
-# Patient – Read (single patient by ID or name search)
+# Patient – Read
 # ---------------------------------------------------------------------------
 
 class FhirPatientReadInput(BaseModel):
-    """Input for reading a single FHIR Patient resource from Epic."""
+    """Input for reading a FHIR Patient resource."""
+
+    action: Literal["read_patient"] = "read_patient"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     resource_id: Optional[str] = None
     """Direct Patient ID lookup (e.g. 'eXYZ123')."""
 
-    # Convenience name fields — take priority over raw search_params when set.
     given_name: Optional[str] = None
-    """Patient given / first name (used in name-based search)."""
-
     family_name: Optional[str] = None
-    """Patient family / last name (used in name-based search)."""
-
     name: Optional[str] = None
-    """Full or partial name string — mapped to FHIR 'name' search parameter.
-
-    Use this when you only have a single combined name string.  When both
-    ``name`` and ``given_name``/``family_name`` are set, the explicit given/
-    family fields take precedence.
-    """
-
     birthdate: Optional[str] = None
-    """Date of birth in YYYY-MM-DD format — used alongside name search."""
 
     search_params: Optional[Dict[str, str]] = None
-    """Raw FHIR search parameters (e.g. {\"family\": \"Smith\", \"given\": \"John\"}).
-
-    Lowest priority — used only when no ID or explicit name fields are set.
-    """
+    """Search parameters (e.g. {"family": "Smith", "given": "John"})."""
 
 
 class FhirPatientReadOutput(BaseModel):
@@ -52,59 +39,25 @@ class FhirPatientReadOutput(BaseModel):
 # ---------------------------------------------------------------------------
 
 class FhirPatientSearchInput(BaseModel):
-    """Input for searching / fetching multiple FHIR Patient resources from Epic.
+    """Input for searching / fetching multiple FHIR Patient resources from Epic."""
 
-    Two modes are supported:
-
-    1. **Multi-ID lookup** — pass ``resource_ids`` (list of Patient IDs).
-       Each ID is fetched concurrently; partial failures are captured in
-       ``FhirPatientSearchOutput.errors`` rather than raising globally.
-
-    2. **Name-based search** — pass ``given_name``, ``family_name``, ``name``,
-       and/or ``birthdate``.  A single FHIR search request is issued and all
-       matching Bundle entries are returned.
-
-    Only one mode should be used per request.  If ``resource_ids`` is set it
-    takes priority over the name/search fields.
-    """
+    action: Literal["search_patients"] = "search_patients"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     resource_ids: Optional[List[str]] = None
-    """List of Epic Patient IDs to fetch concurrently (e.g. ['eABC', 'eDEF'])."""
-
     given_name: Optional[str] = None
-    """Patient given / first name."""
-
     family_name: Optional[str] = None
-    """Patient family / last name."""
-
     name: Optional[str] = None
-    """Full or partial name string — mapped to FHIR 'name' search parameter."""
-
     birthdate: Optional[str] = None
-    """Date of birth in YYYY-MM-DD format."""
-
     search_params: Optional[Dict[str, str]] = None
-    """Additional raw FHIR search parameters merged with the name fields."""
 
 
 class FhirPatientSearchOutput(BaseModel):
     """Output for searching multiple FHIR Patient resources."""
 
     resources: List[Dict[str, Any]]
-    """List of successfully retrieved FHIR Patient JSON objects."""
-
     total: Optional[int] = None
-    """Total number of matches reported by the server Bundle (name-search mode)."""
-
-    errors: List[Dict[str, Any]] = []
-    """Per-ID errors encountered during multi-ID fan-out.
-
-    Each entry has the shape::
-
-        {"resource_id": "<id>", "error": "<message>"}
-
-    An empty list means all lookups succeeded.
-    """
+    errors: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -114,17 +67,13 @@ class FhirPatientSearchOutput(BaseModel):
 class FhirEncounterSearchInput(BaseModel):
     """Input for searching FHIR Encounter resources."""
 
+    action: Literal["search_encounter"] = "search_encounter"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
+
     patient_id: Optional[str] = None
-    """FHIR Patient ID to find encounters for (maps to 'patient' FHIR param)."""
-
     status: Optional[str] = None
-    """Status of the encounters to find (e.g. 'finished', 'arrived')."""
-
     date: Optional[str] = None
-    """Date or date range for the encounters (e.g. '2024', 'gt2023-01-01')."""
-
     search_params: Optional[Dict[str, str]] = None
-    """Raw FHIR search parameters. Used if explicit fields above are not provided."""
 
 
 class FhirEncounterSearchOutput(BaseModel):
@@ -143,6 +92,9 @@ class FhirEncounterSearchOutput(BaseModel):
 
 class FhirDocumentReferenceCreateInput(BaseModel):
     """Input for creating a FHIR DocumentReference resource."""
+
+    action: Literal["create_document_reference"] = "create_document_reference"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     identifier: list[Dict[str, Any]]
     """Document identifier."""
@@ -213,8 +165,11 @@ class FhirDocumentReferenceCreateOutput(BaseModel):
 class FhirDocumentReferenceSearchInput(BaseModel):
     """Input for searching FHIR DocumentReference resources."""
 
+    action: Literal["search_document_reference"] = "search_document_reference"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
+
     search_params: Dict[str, str]
-    """Search parameters (e.g. {\"patient\": \"eXYZ123\"})."""
+    """Search parameters (e.g. {"patient": "eXYZ123"})."""
 
 
 class FhirDocumentReferenceSearchOutput(BaseModel):
@@ -225,3 +180,35 @@ class FhirDocumentReferenceSearchOutput(BaseModel):
 
     total: Optional[int] = None
     """Total number of results reported by the Bundle."""
+
+
+# ---------------------------------------------------------------------------
+# Unified operation input/output (one endpoint, multiple actions)
+# ---------------------------------------------------------------------------
+
+_FhirEpicOperationUnion = Annotated[
+    Union[
+        FhirPatientReadInput,
+        FhirPatientSearchInput,
+        FhirEncounterSearchInput,
+        FhirDocumentReferenceCreateInput,
+        FhirDocumentReferenceSearchInput,
+    ],
+    Field(discriminator="action"),
+]
+
+FhirEpicOperationInput = RootModel[_FhirEpicOperationUnion]
+
+
+class FhirEpicOperationOutput(BaseModel):
+    """
+    Combined output shape for schema documentation/manifest generation.
+
+    Individual handlers still return their specific output models.
+    """
+
+    resource: Optional[Dict[str, Any]] = None
+    resources: Optional[list[Dict[str, Any]]] = None
+    total: Optional[int] = None
+    resource_id: Optional[str] = None
+    errors: Optional[list[Dict[str, Any]]] = None

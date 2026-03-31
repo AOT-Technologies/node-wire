@@ -50,7 +50,11 @@ class McpServer:
         if connector is None:
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
 
-        response = await connector.run(arguments)
+        run_args = dict(arguments)
+        if connector_id in ("fhir_cerner", "fhir_epic"):
+            run_args.setdefault("action", action)
+
+        response = await connector.run(run_args)
         return response.model_dump()
 
 

@@ -248,8 +248,8 @@ async def test_agent_fails_when_mcp_unreachable() -> None:
 # MCP entrypoint smoke test
 # ---------------------------------------------------------------------------
 
-def test_mcp_entrypoint_registers_four_tools() -> None:
-    """The FastMCP server should expose exactly 4 tools."""
+def test_mcp_entrypoint_registers_eight_tools() -> None:
+    """The FastMCP server should expose the full FHIR + integration tool surface."""
     # We patch all external deps before importing the module to avoid side effects
     with (
         patch("bindings.factory.ConnectorFactory") as mock_factory_cls,
@@ -280,9 +280,13 @@ def test_mcp_entrypoint_registers_four_tools() -> None:
         from agents.mcp_entrypoint import _make_server
         _make_server()
 
-    assert len(registered_tools) == 4
+    assert len(registered_tools) == 8
     assert "fhir_cerner_read_patient" in registered_tools
+    assert "fhir_cerner_search_patients" in registered_tools
+    assert "fhir_cerner_search_encounters" in registered_tools
     assert "fhir_epic_read_patient" in registered_tools
+    assert "fhir_epic_search_patients" in registered_tools
+    assert "fhir_epic_search_encounters" in registered_tools
     assert "google_drive_upload_file" in registered_tools
     assert "smtp_send_email" in registered_tools
 

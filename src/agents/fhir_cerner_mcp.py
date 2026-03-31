@@ -55,10 +55,8 @@ def _make_server():
         if not cerner:
             raise RuntimeError("fhir_cerner connector not configured")
 
-        action = cerner.get_action("read_patient")
-
         if patient_id:
-            params = FhirCernerPatientReadInput(resource_id=patient_id)
+            params = FhirCernerPatientReadInput(action="read_patient", resource_id=patient_id)
         elif family_name or given_name:
             search = {
                 k: v
@@ -69,11 +67,11 @@ def _make_server():
                 }.items()
                 if v
             }
-            params = FhirCernerPatientReadInput(search_params=search)
+            params = FhirCernerPatientReadInput(action="read_patient", search_params=search)
         else:
             raise ValueError("Provide patient_id OR at least family_name/given_name")
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await cerner.internal_execute(params, trace_id=trace_id)
         resource = result.resource
 
         name_parts = resource.get("name", [{}])[0]

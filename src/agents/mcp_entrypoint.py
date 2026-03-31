@@ -4,12 +4,14 @@ FastMCP Server Entrypoint
 This module is the main entrypoint for the Node Wire MCP server.
 When run, it exposes healthcare workflow tools via the MCP stdio transport:
 
-  • fhir_cerner_read_patient    — fetch a single patient from Cerner FHIR R4
-  • fhir_cerner_search_patients — fetch multiple patients from Cerner (multi-ID or name)
-  • fhir_epic_read_patient      — fetch a single patient from Epic FHIR R4
-  • fhir_epic_search_patients   — fetch multiple patients from Epic (multi-ID or name)
-  • google_drive_upload_file    — write a file to Google Drive
-  • smtp_send_email             — send an email via SMTP
+  • fhir_cerner_read_patient       — fetch a patient from Cerner FHIR R4
+  • fhir_cerner_search_patients    — search multiple patients in Cerner
+  • fhir_cerner_search_encounters   — search encounters in Cerner
+  • fhir_epic_read_patient          — fetch a patient from Epic FHIR R4
+  • fhir_epic_search_patients       — search multiple patients in Epic
+  • fhir_epic_search_encounters     — search encounters in Epic
+  • google_drive_upload_file       — write a file to Google Drive
+  • smtp_send_email                — send an email via SMTP
 
 ToolHive manages the container lifecycle, injects secrets as environment
 variables, and proxies the stdio MCP stream to HTTP/SSE for clients.
@@ -107,12 +109,11 @@ def _make_server():
         if not cerner:
             raise RuntimeError("fhir_cerner connector not configured")
 
-        action = cerner.get_action("read_patient")
-
         if patient_id:
-            params = FhirCernerPatientReadInput(resource_id=patient_id)
+            params = FhirCernerPatientReadInput(action="read_patient", resource_id=patient_id)
         elif family_name or given_name or name:
             params = FhirCernerPatientReadInput(
+                action="read_patient",
                 given_name=given_name or None,
                 family_name=family_name or None,
                 name=name or None,
@@ -121,7 +122,7 @@ def _make_server():
         else:
             raise ValueError("Provide patient_id OR at least family_name / given_name / name")
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await cerner.internal_execute(params, trace_id=trace_id)
         resource = result.resource
 
         # Extract a clean summary for the LLM
@@ -184,12 +185,11 @@ def _make_server():
         if not epic:
             raise RuntimeError("fhir_epic connector not configured")
 
-        action = epic.get_action("read_patient")
-
         if patient_id:
-            params = FhirEpicPatientReadInput(resource_id=patient_id)
+            params = FhirEpicPatientReadInput(action="read_patient", resource_id=patient_id)
         elif family_name or given_name or name:
             params = FhirEpicPatientReadInput(
+                action="read_patient",
                 given_name=given_name or None,
                 family_name=family_name or None,
                 name=name or None,
@@ -198,7 +198,7 @@ def _make_server():
         else:
             raise ValueError("Provide patient_id OR at least family_name / given_name / name")
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await epic.internal_execute(params, trace_id=trace_id)
         resource = result.resource
 
         # Clean extract for LLM
@@ -258,13 +258,12 @@ def _make_server():
         if not cerner:
             raise RuntimeError("fhir_cerner connector not configured")
 
-        action = cerner.get_action("search_patients")
-
         if patient_ids.strip():
             ids = [i.strip() for i in patient_ids.split(",") if i.strip()]
-            params = FhirCernerPatientSearchInput(resource_ids=ids)
+            params = FhirCernerPatientSearchInput(action="search_patients", resource_ids=ids)
         elif family_name or given_name or name or birthdate:
             params = FhirCernerPatientSearchInput(
+                action="search_patients",
                 given_name=given_name or None,
                 family_name=family_name or None,
                 name=name or None,
@@ -276,7 +275,7 @@ def _make_server():
                 "family_name / given_name / name / birthdate"
             )
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await cerner.internal_execute(params, trace_id=trace_id)
 
         summaries = []
         for resource in result.resources:
@@ -337,13 +336,12 @@ def _make_server():
         if not epic:
             raise RuntimeError("fhir_epic connector not configured")
 
-        action = epic.get_action("search_patients")
-
         if patient_ids.strip():
             ids = [i.strip() for i in patient_ids.split(",") if i.strip()]
-            params = FhirEpicPatientSearchInput(resource_ids=ids)
+            params = FhirEpicPatientSearchInput(action="search_patients", resource_ids=ids)
         elif family_name or given_name or name or birthdate:
             params = FhirEpicPatientSearchInput(
+                action="search_patients",
                 given_name=given_name or None,
                 family_name=family_name or None,
                 name=name or None,
@@ -355,7 +353,7 @@ def _make_server():
                 "family_name / given_name / name / birthdate"
             )
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await epic.internal_execute(params, trace_id=trace_id)
 
         summaries = []
         for resource in result.resources:
@@ -408,15 +406,14 @@ def _make_server():
         if not cerner:
             raise RuntimeError("fhir_cerner connector not configured")
 
-        action = cerner.get_action("search_encounter")
-
         params = FhirCernerEncounterSearchInput(
+            action="search_encounter",
             patient_id=patient_id or None,
             status=status or None,
             date=date or None,
         )
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await cerner.internal_execute(params, trace_id=trace_id)
 
         summaries = []
         for resource in result.resources:
@@ -466,15 +463,14 @@ def _make_server():
         if not epic:
             raise RuntimeError("fhir_epic connector not configured")
 
-        action = epic.get_action("search_encounter")
-
         params = FhirEpicEncounterSearchInput(
+            action="search_encounter",
             patient_id=patient_id or None,
             status=status or None,
             date=date or None,
         )
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await epic.internal_execute(params, trace_id=trace_id)
 
         summaries = []
         for resource in result.resources:

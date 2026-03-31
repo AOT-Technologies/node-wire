@@ -73,7 +73,10 @@ def _http_status_for_category(category: ErrorCategory | None) -> int:
         return 503
     return 500
 
-def _make_endpoint(cid: str, act: str) -> Any: 
+_FHIR_REST_IDS = frozenset({"fhir_cerner", "fhir_epic"})
+
+
+def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         payload: Dict[str, Any],
         factory_dep: ConnectorFactory = Depends(get_factory),
@@ -89,9 +92,12 @@ def _make_endpoint(cid: str, act: str) -> Any:
         connector = factory_dep.get_for_protocol(cid, "rest", action=act)
         if connector is None:
             raise HTTPException(status_code=404, detail="Connector not available for REST")
+        run_payload = dict(payload)
+        if cid in _FHIR_REST_IDS:
+            run_payload.setdefault("action", act)
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.
-        response: ConnectorResponse = await connector.run(payload)
+        response: ConnectorResponse = await connector.run(run_payload)
         status = _http_status_for_category(response.error_category)
 
         if not response.success:

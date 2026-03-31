@@ -133,7 +133,9 @@ class ConnectorFactory:
 
         raise ValueError(f"Unknown connector id {connector_id!r}")
 
-    def get_for_protocol(self, connector_id: str, protocol: str, action: Optional[str] = None) -> Optional[BaseConnector[Any, Any]]:
+    def get_for_protocol(
+        self, connector_id: str, protocol: str, action: Optional[str] = None
+    ) -> Optional[BaseConnector[Any, Any]]:
         cfg = self._configs.get(connector_id)
         if cfg is None:
             logger.warning(
@@ -160,9 +162,11 @@ class ConnectorFactory:
         if connector is None:
             return None
 
-        # Multi-action connectors (e.g. fhir_epic) expose a get_action() helper.
-        if action and hasattr(connector, "get_action"):
-            return connector.get_action(action)
+        if action:
+            logger.debug(
+                "get_for_protocol resolved connector (action from URL is merged into payload by REST)",
+                extra={"connector_id": connector_id, "protocol": protocol, "action": action},
+            )
 
         return connector  # type: ignore[return-value]
 
@@ -170,9 +174,5 @@ class ConnectorFactory:
         result: List[BaseConnector[Any, Any]] = []
         for connector_id, connector in self._connectors.items():
             if protocol in self._configs[connector_id].exposed_via:
-                # Multi-action connectors expose all their actions via list_actions().
-                if hasattr(connector, "list_actions"):
-                    result.extend(connector.list_actions())
-                else:
-                    result.append(connector)  # type: ignore[arg-type]
+                result.append(connector)  # type: ignore[arg-type]
         return result

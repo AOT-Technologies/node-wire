@@ -36,18 +36,13 @@ def _connector() -> FhirCernerConnector:
 
 
 # ---------------------------------------------------------------------------
-# Sanity: connector exposes all 5 actions
+# Sanity: unified connector (single execute entrypoint)
 # ---------------------------------------------------------------------------
 
-def test_fhir_cerner_connector_exposes_five_actions():
+def test_fhir_cerner_connector_is_unified_execute():
     c = _connector()
-    actions = {a.action for a in c.list_actions()}
-    assert actions == {
-        "read_patient", "search_patients",
-        "search_encounter", "create_document_reference", "search_document_reference",
-    }
-    for name in actions:
-        assert c.get_action(name) is not None
+    assert c.connector_id == "fhir_cerner"
+    assert c.action == "execute"
 
 
 # ---------------------------------------------------------------------------
@@ -56,9 +51,9 @@ def test_fhir_cerner_connector_exposes_five_actions():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_read_patient_by_id():
-    action = _connector().get_action("read_patient")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
-    params = FhirCernerPatientReadInput(resource_id="12345678")
+    params = FhirCernerPatientReadInput(action="read_patient", resource_id="12345678")
 
     patient_response = MagicMock()
     patient_response.status_code = 200
@@ -67,7 +62,7 @@ async def test_fhir_cerner_read_patient_by_id():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response):
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "12345678"
     assert result.resource["name"][0]["family"] == "Smith"
@@ -79,9 +74,12 @@ async def test_fhir_cerner_read_patient_by_id():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_read_patient_by_search():
-    action = _connector().get_action("read_patient")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
-    params = FhirCernerPatientReadInput(search_params={"family": "Smith", "given": "John"})
+    params = FhirCernerPatientReadInput(
+        action="read_patient",
+        search_params={"family": "Smith", "given": "John"},
+    )
 
     patient_response = MagicMock()
     patient_response.status_code = 200
@@ -93,7 +91,7 @@ async def test_fhir_cerner_read_patient_by_search():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response):
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "99887766"
 
@@ -104,9 +102,14 @@ async def test_fhir_cerner_read_patient_by_search():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_read_patient_by_explicit_name_fields():
-    action = _connector().get_action("read_patient")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
-    params = FhirCernerPatientReadInput(given_name="  Jane  ", family_name="Doe", birthdate="1990-06-15")
+    params = FhirCernerPatientReadInput(
+        action="read_patient",
+        given_name="  Jane  ",
+        family_name="Doe",
+        birthdate="1990-06-15",
+    )
  
     patient_response = MagicMock()
     patient_response.status_code = 200
@@ -118,7 +121,7 @@ async def test_fhir_cerner_read_patient_by_explicit_name_fields():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response) as mock_get:
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "55551234"
     call_kwargs = mock_get.call_args
@@ -134,9 +137,9 @@ async def test_fhir_cerner_read_patient_by_explicit_name_fields():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_read_patient_by_name_field():
-    action = _connector().get_action("read_patient")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
-    params = FhirCernerPatientReadInput(name="Johnson")
+    params = FhirCernerPatientReadInput(action="read_patient", name="Johnson")
  
     patient_response = MagicMock()
     patient_response.status_code = 200
@@ -148,7 +151,7 @@ async def test_fhir_cerner_read_patient_by_name_field():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response) as mock_get:
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "99990001"
     call_kwargs = mock_get.call_args
@@ -162,14 +165,14 @@ async def test_fhir_cerner_read_patient_by_name_field():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_read_patient_no_params_raises():
-    action = _connector().get_action("read_patient")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
-    params = FhirCernerPatientReadInput()
- 
+    params = FhirCernerPatientReadInput(action="read_patient")
+
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
         with pytest.raises(ValueError, match="Provide resource_id"):
-            await action.internal_execute(params, trace_id="test-trace")
+            await c.internal_execute(params, trace_id="test-trace")
 
 
 # ---------------------------------------------------------------------------
@@ -178,9 +181,12 @@ async def test_fhir_cerner_read_patient_no_params_raises():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_patients_multi_id():
-    action = _connector().get_action("search_patients")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientSearchInput
-    params = FhirCernerPatientSearchInput(resource_ids=["11111111", "22222222"])
+    params = FhirCernerPatientSearchInput(
+        action="search_patients",
+        resource_ids=["11111111", "22222222"],
+    )
 
     def _patient_resp(pid: str) -> MagicMock:
         m = MagicMock()
@@ -193,7 +199,7 @@ async def test_fhir_cerner_search_patients_multi_id():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=responses):
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     ids = {r["id"] for r in result.resources}
     assert ids == {"11111111", "22222222"}
@@ -207,9 +213,12 @@ async def test_fhir_cerner_search_patients_multi_id():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_patients_partial_failure():
-    action = _connector().get_action("search_patients")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientSearchInput
-    params = FhirCernerPatientSearchInput(resource_ids=["99999999", "00000000"])
+    params = FhirCernerPatientSearchInput(
+        action="search_patients",
+        resource_ids=["99999999", "00000000"],
+    )
 
     good_resp = MagicMock()
     good_resp.status_code = 200
@@ -222,7 +231,7 @@ async def test_fhir_cerner_search_patients_partial_failure():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=[good_resp, bad_resp]):
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert len(result.resources) == 1
     assert result.resources[0]["id"] == "99999999"
@@ -236,9 +245,9 @@ async def test_fhir_cerner_search_patients_partial_failure():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_patients_by_name():
-    action = _connector().get_action("search_patients")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientSearchInput
-    params = FhirCernerPatientSearchInput(family_name="Smith")
+    params = FhirCernerPatientSearchInput(action="search_patients", family_name="Smith")
 
     bundle_resp = MagicMock()
     bundle_resp.status_code = 200
@@ -254,7 +263,7 @@ async def test_fhir_cerner_search_patients_by_name():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=bundle_resp) as mock_get:
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 2
     assert len(result.resources) == 2
@@ -270,14 +279,14 @@ async def test_fhir_cerner_search_patients_by_name():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_patients_no_params_raises():
-    action = _connector().get_action("search_patients")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerPatientSearchInput
-    params = FhirCernerPatientSearchInput()
- 
+    params = FhirCernerPatientSearchInput(action="search_patients")
+
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
         with pytest.raises(ValueError):
-            await action.internal_execute(params, trace_id="test-trace")
+            await c.internal_execute(params, trace_id="test-trace")
 
 
 # ---------------------------------------------------------------------------
@@ -286,9 +295,12 @@ async def test_fhir_cerner_search_patients_no_params_raises():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_encounter():
-    action = _connector().get_action("search_encounter")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerEncounterSearchInput
-    params = FhirCernerEncounterSearchInput(search_params={"patient": "12345678", "status": "finished"})
+    params = FhirCernerEncounterSearchInput(
+        action="search_encounter",
+        search_params={"patient": "12345678", "status": "finished"},
+    )
 
     enc_response = MagicMock()
     enc_response.status_code = 200
@@ -303,7 +315,7 @@ async def test_fhir_cerner_search_encounter():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=enc_response):
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 2
     assert result.resources[0]["id"] == "enc-1"
@@ -311,9 +323,9 @@ async def test_fhir_cerner_search_encounter():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_encounter_by_patient():
-    action = _connector().get_action("search_encounter")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerEncounterSearchInput
-    params = FhirCernerEncounterSearchInput(patient_id="12345678")
+    params = FhirCernerEncounterSearchInput(action="search_encounter", patient_id="12345678")
 
     enc_response = MagicMock()
     enc_response.status_code = 200
@@ -325,7 +337,7 @@ async def test_fhir_cerner_search_encounter_by_patient():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=enc_response) as mock_get:
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 1
     assert result.resources[0]["id"] == "enc-1"
@@ -340,14 +352,26 @@ async def test_fhir_cerner_search_encounter_by_patient():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_create_document_reference():
-    action = _connector().get_action("create_document_reference")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerDocumentReferenceCreateInput
     params = FhirCernerDocumentReferenceCreateInput(
+        action="create_document_reference",
         identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
         status="current",
-        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100", "display": "Employer Group Scan"}]},
+        doc_status="final",
+        type={
+            "coding": [{
+                "system": "urn:oid:4.5.6",
+                "code": "18100",
+                "display": "Employer Group Scan",
+                "userSelected": True,
+            }],
+            "text": "Employer Group Scan",
+        },
         subject="Patient/12724066",
         data="dGVzdA==",
+        attachment_title="Document",
+        author=[{"reference": "Practitioner/p1"}],
         context={
             "encounter": [{"reference": "Encounter/enc-1"}],
             "period": {"start": "2024-01-01T00:00:00Z", "end": "2024-01-01T01:00:00Z"},
@@ -363,14 +387,14 @@ async def test_fhir_cerner_create_document_reference():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
         mock_post.side_effect = [_token_mock(), create_response]
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource_id == "doc-456"
     _, kwargs = mock_post.call_args_list[1]
     assert kwargs["json"]["resourceType"] == "DocumentReference"
     assert kwargs["json"]["subject"] == {"reference": "Patient/12724066"}
     # Verify that charset was added to contentType
-    assert kwargs["json"]["content"][0]["attachment"]["contentType"] == "text/plain; charset=UTF-8"
+    assert kwargs["json"]["content"][0]["attachment"]["contentType"] == "text/plain;charset=utf-8"
 
 
 # ---------------------------------------------------------------------------
@@ -379,9 +403,12 @@ async def test_fhir_cerner_create_document_reference():
 
 @pytest.mark.asyncio
 async def test_fhir_cerner_search_document_reference():
-    action = _connector().get_action("search_document_reference")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerDocumentReferenceSearchInput
-    params = FhirCernerDocumentReferenceSearchInput(search_params={"patient": "12345678"})
+    params = FhirCernerDocumentReferenceSearchInput(
+        action="search_document_reference",
+        search_params={"patient": "12345678"},
+    )
 
     search_response = MagicMock()
     search_response.status_code = 200
@@ -394,7 +421,7 @@ async def test_fhir_cerner_search_document_reference():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=search_response):
-        result = await action.internal_execute(params, trace_id="test-trace")
+        result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 1
     assert result.resources[0]["id"] == "doc-789"
@@ -407,18 +434,22 @@ async def test_fhir_cerner_search_document_reference():
 @pytest.mark.asyncio
 async def test_fhir_cerner_create_document_reference_validation():
     """Verify that ValueError is raised when period is missing but encounter is present."""
-    action = _connector().get_action("create_document_reference")
+    c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerDocumentReferenceCreateInput
     params = FhirCernerDocumentReferenceCreateInput(
+        action="create_document_reference",
         identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
         status="current",
+        doc_status="final",
         type={"coding": [{"system": "http://loinc.org", "code": "11488-4"}]},
         subject="Patient/12724066",
         data="dGVzdA==",
+        attachment_title="Doc",
+        author=[{"reference": "Practitioner/p1"}],
         context={"encounter": [{"reference": "Encounter/enc-1"}]},
     )
 
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
         with pytest.raises(ValueError, match="Cerner requires the proprietary CodeSet 72 system"):
-            await action.internal_execute(params, trace_id="test-trace")
+            await c.internal_execute(params, trace_id="test-trace")

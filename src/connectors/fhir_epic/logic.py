@@ -6,7 +6,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import jwt
@@ -20,6 +20,8 @@ from .schema import (
     FhirDocumentReferenceSearchOutput,
     FhirEncounterSearchInput,
     FhirEncounterSearchOutput,
+    FhirEpicOperationInput,
+    FhirEpicOperationOutput,
     FhirPatientReadInput,
     FhirPatientReadOutput,
     FhirPatientSearchInput,
@@ -29,92 +31,35 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_epic")
 
 
-class _FhirAction(BaseConnector[Any, Any]):
-    """
-    Lightweight BaseConnector that delegates execution to a FhirEpicConnector
-    instance method.  One of these is created per action so that the manifest
-    and REST router can discover each action's schema and route automatically.
-    """
-
-    connector_id = "fhir_epic"
-
-    def __init__(
-        self,
-        action: str,
-        input_model: type,
-        output_model: type,
-        handler: Callable,
-        *,
-        secret_provider: Optional[SecretProvider] = None,
-    ) -> None:
-        super().__init__(input_model, output_model, secret_provider=secret_provider)
-        self.action = action        # instance attribute, overrides absent class-level action
-        self._handler = handler
-
-    async def internal_execute(self, params: Any, *, trace_id: str) -> Any:
-        return await self._handler(params, trace_id=trace_id)
-
-
-class FhirEpicConnector:
+class FhirEpicConnector(BaseConnector[FhirEpicOperationInput, FhirEpicOperationOutput]):
     """
     Single FHIR/Epic connector.
 
-    ``connector_id = "fhir_epic"``.  All authentication helpers and action
-    implementations live here.  The factory registers ONE instance of this
-    class; ``list_actions()`` and ``get_action()`` are used by the factory to
-    expose each action to the manifest and REST router.
-
-    Supported actions:
-      • read_patient          — fetch a single Patient by ID or name search
-      • search_patients       — fetch multiple Patients by list of IDs or name search
-      • search_encounter
-      • create_document_reference
-      • search_document_reference
-
-    Name-based search parameters (``given_name``, ``family_name``, ``name``,
-    ``birthdate``) are prioritised over the raw ``search_params`` dict and are
-    normalised (stripped, lowercased for ``name`` token search).
+    Exposes one endpoint (`execute`) and dispatches actions via the
+    `action` discriminator on the request payload.
     """
 
     connector_id = "fhir_epic"
+    action = "execute"
 
     def __init__(self, *, secret_provider: SecretProvider) -> None:
+        super().__init__(FhirEpicOperationInput, FhirEpicOperationOutput, secret_provider=secret_provider)
         self._secret_provider = secret_provider
 
-        self._actions: Dict[str, _FhirAction] = {
-            "read_patient": _FhirAction(
-                "read_patient", FhirPatientReadInput, FhirPatientReadOutput,
-                self._read_patient, secret_provider=secret_provider,
-            ),
-            "search_patients": _FhirAction(
-                "search_patients", FhirPatientSearchInput, FhirPatientSearchOutput,
-                self._search_patients, secret_provider=secret_provider,
-            ),
-            "search_encounter": _FhirAction(
-                "search_encounter", FhirEncounterSearchInput, FhirEncounterSearchOutput,
-                self._search_encounter, secret_provider=secret_provider,
-            ),
-            "create_document_reference": _FhirAction(
-                "create_document_reference", FhirDocumentReferenceCreateInput, FhirDocumentReferenceCreateOutput,
-                self._create_document_reference, secret_provider=secret_provider,
-            ),
-            "search_document_reference": _FhirAction(
-                "search_document_reference", FhirDocumentReferenceSearchInput, FhirDocumentReferenceSearchOutput,
-                self._search_document_reference, secret_provider=secret_provider,
-            ),
-        }
-
-    # ------------------------------------------------------------------
-    # Action discovery — consumed by ConnectorFactory
-    # ------------------------------------------------------------------
-
-    def list_actions(self) -> List[_FhirAction]:
-        """Return all registered action connectors (used by list_for_protocol)."""
-        return list(self._actions.values())
-
-    def get_action(self, name: str) -> Optional[_FhirAction]:
-        """Return the action connector for the given action name."""
-        return self._actions.get(name)
+    async def internal_execute(self, params: Any, *, trace_id: str) -> Any:
+        # Back-compat: allow calling with either the RootModel union or a concrete action input model.
+        op = params.root if hasattr(params, "root") else params
+        if op.action == "read_patient":
+            return await self._read_patient(op, trace_id=trace_id)
+        if op.action == "search_patients":
+            return await self._search_patients(op, trace_id=trace_id)
+        if op.action == "search_encounter":
+            return await self._search_encounter(op, trace_id=trace_id)
+        if op.action == "create_document_reference":
+            return await self._create_document_reference(op, trace_id=trace_id)
+        if op.action == "search_document_reference":
+            return await self._search_document_reference(op, trace_id=trace_id)
+        raise ValueError(f"Unsupported action: {op.action!r}")
 
     # ------------------------------------------------------------------
     # Shared authentication helpers
@@ -194,22 +139,14 @@ class FhirEpicConnector:
         birthdate: Optional[str],
         extra: Optional[Dict[str, str]] = None,
     ) -> Dict[str, str]:
-        """Build a FHIR search params dict from explicit name/date fields.
-
-        Priority: given_name/family_name > name > (nothing).
-        The ``extra`` dict (raw search_params) is merged at lowest priority so
-        callers can pass additional filters without overriding name fields.
-        """
+        """Build a FHIR search params dict from explicit name/date fields."""
         params: Dict[str, str] = dict(extra or {})
 
-        # Normalize: strip whitespace; FHIR name search is typically case-insensitive
-        # on compliant servers but we preserve original case per FHIR spec.
         if given_name and given_name.strip():
             params["given"] = given_name.strip()
         if family_name and family_name.strip():
             params["family"] = family_name.strip()
         if name and name.strip() and "given" not in params and "family" not in params:
-            # Only fall back to the combined 'name' token when no split fields given
             params["name"] = name.strip()
         if birthdate and birthdate.strip():
             params["birthdate"] = birthdate.strip()
@@ -296,7 +233,6 @@ class FhirEpicConnector:
         base_url = self._get_base_url()
         auth_header = await self._get_auth_header()
 
-        # ---- Mode 1: Multi-ID fan-out ----
         if params.resource_ids:
             ids = [rid.strip() for rid in params.resource_ids if rid.strip()]
             if not ids:
@@ -309,7 +245,6 @@ class FhirEpicConnector:
             )
 
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
-                """Return (rid, resource_or_None, error_or_None)."""
                 try:
                     async with httpx.AsyncClient() as client:
                         resp = await client.get(
@@ -344,7 +279,6 @@ class FhirEpicConnector:
             )
             return FhirPatientSearchOutput(resources=resources, total=len(resources), errors=errors)
 
-        # ---- Mode 2: Name-based search (returns Bundle) ----
         name_params = self._build_name_search_params(
             params.given_name, params.family_name, params.name,
             params.birthdate, params.search_params,
@@ -386,7 +320,7 @@ class FhirEpicConnector:
             raise
 
         data = response.json()
-        resources = []
+        resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
             resources = [e["resource"] for e in data["entry"] if "resource" in e]

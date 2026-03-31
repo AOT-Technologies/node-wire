@@ -56,10 +56,8 @@ def _make_server():
         if not epic:
             raise RuntimeError("fhir_epic connector not configured")
 
-        action = epic.get_action("read_patient")
-
         if patient_id:
-            params = FhirEpicPatientReadInput(resource_id=patient_id)
+            params = FhirEpicPatientReadInput(action="read_patient", resource_id=patient_id)
         elif family_name or given_name:
             search = {
                 k: v
@@ -70,11 +68,11 @@ def _make_server():
                 }.items()
                 if v
             }
-            params = FhirEpicPatientReadInput(search_params=search)
+            params = FhirEpicPatientReadInput(action="read_patient", search_params=search)
         else:
             raise ValueError("Provide patient_id OR at least family_name/given_name")
 
-        result = await action.internal_execute(params, trace_id=trace_id)
+        result = await epic.internal_execute(params, trace_id=trace_id)
         resource = result.resource
 
         name_parts = resource.get("name", [{}])[0]
