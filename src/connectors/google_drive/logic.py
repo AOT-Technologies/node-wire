@@ -46,6 +46,10 @@ _OperationUnion = Union[
     FilesDeleteOperation,
 ]
 
+# Shared extra fields injected into every log record for this connector.
+# Grafana panels filter on connector_id — this must be present on ALL log lines.
+_LOG_CTX = {"connector_id": "google_drive", "connector_type": "google_drive"}
+
 
 class GoogleDriveConnector(
     BaseConnector[GoogleDriveOperationInput, GoogleDriveOperationOutput],
@@ -60,35 +64,64 @@ class GoogleDriveConnector(
     async def internal_execute(
         self, params: GoogleDriveOperationInput, *, trace_id: str
     ) -> GoogleDriveOperationOutput:
-        logger.info(
-            "Executing Google Drive operation",
-            extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": self.action,
-                "action_type": params.root.action,
-            },
-        )
+
+        log_extra = {
+            **_LOG_CTX,
+            "trace_id": trace_id,
+            "action": self.action,
+            "action_type": params.root.action,
+        }
+
+        # ------------------------------------------------------------------ #
+        # Panel 1 & 2 SUCCESS RATE: "Starting connector execution" is the     #
+        # denominator. Every execution MUST emit this line.                   #
+        # ------------------------------------------------------------------ #
+        logger.info("Starting connector execution", extra=log_extra)
+        logger.info("Loading connector configuration", extra=log_extra)
 
         drive = self._build_client()
 
         try:
+            logger.info("Executing Google Drive operation", extra=log_extra)
+
             response = await asyncio.to_thread(
                 self._dispatch_to_sdk, drive, params.root
             )
+
+            # -------------------------------------------------------------- #
+            # Panel 1 & 2 SUCCESS RATE: "completed successfully" is the       #
+            # numerator. Only emit this when the operation truly succeeded.   #
+            # -------------------------------------------------------------- #
+            logger.info(
+                "Connector completed successfully",
+                extra={
+                    **log_extra,
+                    "action_type": params.root.action,
+                },
+            )
+
             return GoogleDriveOperationOutput(
                 raw=response,
                 description=f"Successfully executed {params.root.action}",
             )
+
         except HttpError as exc:
+            logger.error(
+                "Connector failed with HTTP error",
+                extra={
+                    **log_extra,
+                    "error_type": "HttpError",
+                    "http_status": exc.resp.status,
+                    "error_message": str(exc),
+                },
+            )
             self._translate_and_raise_http_error(exc)
+
         except Exception as exc:  # noqa: BLE001
             logger.error(
-                "Unexpected SDK failure",
+                "Connector failed with unexpected error",
                 extra={
-                    "trace_id": trace_id,
-                    "connector_id": self.connector_id,
-                    "action": self.action,
+                    **log_extra,
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
                 },
@@ -106,22 +139,23 @@ class GoogleDriveConnector(
                 "parents": params.parents,
             }
             body = {k: v for k, v in body.items() if v is not None}
-            return drive.files().create(body=body, fields='id, name, webViewLink',
-                                supportsAllDrives=True,
-                                ).execute()
+            return drive.files().create(
+                body=body,
+                fields="id, name, webViewLink",
+                supportsAllDrives=True,
+            ).execute()
 
         if params.action == "files.list":
             fields = params.fields or DEFAULT_LIST_FIELDS
-            result = drive.files().list(
+            return drive.files().list(
                 pageSize=params.page_size,
                 q=params.query,
                 fields=fields,
                 supportsAllDrives=True,
                 includeItemsFromAllDrives=True,
             ).execute()
-            return result
 
-        if params.action == "permissions.create":           
+        if params.action == "permissions.create":
             body = {
                 "role": params.role,
                 "type": params.type,
@@ -182,7 +216,9 @@ class GoogleDriveConnector(
             elif params.content is not None:
                 media_bytes = params.content.encode("utf-8")
             else:
-                raise ValueError("Either content or content_base64 must be provided for files.upload")
+                raise ValueError(
+                    "Either content or content_base64 must be provided for files.upload"
+                )
 
             media = MediaInMemoryUpload(
                 media_bytes,
@@ -195,17 +231,18 @@ class GoogleDriveConnector(
                 .create(
                     body=body,
                     media_body=media,
-                    fields='id, name, webViewLink',                    
+                    fields="id, name, webViewLink",
                     supportsAllDrives=True,
                 )
                 .execute()
             )
 
         if params.action == "files.delete":
-            drive.files().update(fileId=params.file_id,
-                                body={'trashed': True},
-                                supportsAllDrives=True,
-                                ).execute()
+            drive.files().update(
+                fileId=params.file_id,
+                body={"trashed": True},
+                supportsAllDrives=True,
+            ).execute()
             return {"file_id": params.file_id, "status": "deleted"}
 
         raise ValueError(f"Unmapped action router: {params.action}")
