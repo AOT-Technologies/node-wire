@@ -22,7 +22,45 @@ from agents.llm_factory import (
     LLMResponse,
     ToolCall,
 )
-from agents.toolhive import AgentRunResult, ToolHiveAgent, ToolHiveMcpClient
+from agents.toolhive import (
+    AgentRunResult,
+    ToolHiveAgent,
+    ToolHiveMcpClient,
+    _is_tool_failure,
+    resolve_max_tool_failures,
+    truncate_tool_result_for_llm,
+)
+
+
+def test_truncate_tool_result_for_llm_respects_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOOLHIVE_MAX_TOOL_RESULT_CHARS", "20")
+    long = "x" * 100
+    out = truncate_tool_result_for_llm(long)
+    assert len(out) > 20
+    assert out.startswith("x" * 20)
+    assert "truncated" in out
+
+
+def test_truncate_tool_result_for_llm_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOOLHIVE_MAX_TOOL_RESULT_CHARS", "0")
+    long = "y" * 5000
+    assert truncate_tool_result_for_llm(long) == long
+
+
+def test_is_tool_failure_detects_validation_and_error_prefix() -> None:
+    assert _is_tool_failure("Input validation error: bad")
+    assert _is_tool_failure("ERROR: connection refused")
+    assert _is_tool_failure('{"success": false, "message": "x"}')
+    assert not _is_tool_failure("")
+    assert not _is_tool_failure('{"success": true, "data": {}}')
+
+
+def test_resolve_max_tool_failures_env_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TOOLHIVE_MAX_TOOL_FAILURES", raising=False)
+    assert resolve_max_tool_failures(None) == 2
+    monkeypatch.setenv("TOOLHIVE_MAX_TOOL_FAILURES", "5")
+    assert resolve_max_tool_failures(None) == 5
+    assert resolve_max_tool_failures(3) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -31,37 +69,38 @@ from agents.toolhive import AgentRunResult, ToolHiveAgent, ToolHiveMcpClient
 
 SAMPLE_TOOLS = [
     {
-        "name": "fhir_cerner_read_patient",
+        "name": "fhir_cerner.read_patient",
         "description": "Fetch a patient from Cerner FHIR",
         "input_schema": {
             "type": "object",
-            "properties": {"patient_id": {"type": "string"}},
-            "required": ["patient_id"],
+            "properties": {"resource_id": {"type": "string"}},
+            "required": ["resource_id"],
         },
     },
     {
-        "name": "google_drive_upload_file",
+        "name": "google_drive.files.upload",
         "description": "Upload a file to Google Drive",
         "input_schema": {
             "type": "object",
             "properties": {
-                "file_name": {"type": "string"},
+                "name": {"type": "string"},
+                "mime_type": {"type": "string"},
                 "content": {"type": "string"},
             },
-            "required": ["file_name", "content"],
+            "required": ["name", "mime_type", "content"],
         },
     },
     {
-        "name": "smtp_send_email",
+        "name": "smtp.send_email",
         "description": "Send an email via SMTP",
         "input_schema": {
             "type": "object",
             "properties": {
-                "to_email": {"type": "string"},
+                "to": {"type": "array", "items": {"type": "string"}},
                 "subject": {"type": "string"},
                 "body": {"type": "string"},
             },
-            "required": ["to_email", "subject", "body"],
+            "required": ["to", "subject", "body"],
         },
     },
 ]
@@ -142,19 +181,37 @@ async def test_agent_runs_three_tool_sequence() -> None:
         # Step 1: Call FHIR
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("fhir_cerner_read_patient", {"patient_id": "12724066"})],
+            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
             stop_reason="tool_calls",
         ),
         # Step 2: Call Drive
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive_upload_file", {"file_name": "summary.txt", "content": "Patient: John"})],
+            tool_calls=[
+                _tool_call(
+                    "google_drive.files.upload",
+                    {
+                        "name": "summary.txt",
+                        "mime_type": "text/plain",
+                        "content": "Patient: John",
+                    },
+                )
+            ],
             stop_reason="tool_calls",
         ),
         # Step 3: Send email
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("smtp_send_email", {"to_email": "doc@example.com", "subject": "Summary", "body": "Patient: John"})],
+            tool_calls=[
+                _tool_call(
+                    "smtp.send_email",
+                    {
+                        "to": ["doc@example.com"],
+                        "subject": "Summary",
+                        "body": "Patient: John",
+                    },
+                )
+            ],
             stop_reason="tool_calls",
         ),
         # Final answer
@@ -173,12 +230,38 @@ async def test_agent_runs_three_tool_sequence() -> None:
     assert result.success is True
     assert result.final_answer == "All 3 steps completed successfully."
     assert len(result.steps) == 3
-    assert result.steps[0].tool_called == "fhir_cerner_read_patient"
-    assert result.steps[1].tool_called == "google_drive_upload_file"
-    assert result.steps[2].tool_called == "smtp_send_email"
+    assert result.steps[0].tool_called == "fhir_cerner.read_patient"
+    assert result.steps[1].tool_called == "google_drive.files.upload"
+    assert result.steps[2].tool_called == "smtp.send_email"
 
     # Verify MCP was called exactly 3 times
     assert mock_mcp.call_tool.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_agent_id_first_turn_calls_read_patient_with_resource_id() -> None:
+    """Document ID-first flow: Cerner read uses canonical resource_id (not search_patients)."""
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(content="Patient retrieved.", tool_calls=[], stop_reason="stop"),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.return_value = '{"success": true}'
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=10)
+    result = await agent.run("Patient ID 12724066 — fetch from Cerner")
+
+    assert result.success is True
+    mock_mcp.call_tool.assert_awaited_once()
+    call = mock_mcp.call_tool.await_args
+    assert call[0][0] == "fhir_cerner.read_patient"
+    assert call[0][1]["resource_id"] == "12724066"
 
 
 @pytest.mark.asyncio
@@ -187,7 +270,7 @@ async def test_agent_respects_max_steps() -> None:
     # LLM always returns a tool call — never finishes
     infinite_response = LLMResponse(
         content=None,
-        tool_calls=[_tool_call("fhir_cerner_read_patient", {"patient_id": "x"})],
+        tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "x"})],
         stop_reason="tool_calls",
     )
     provider = _MockLLMProvider([infinite_response])
@@ -211,7 +294,7 @@ async def test_agent_handles_tool_error_gracefully() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("fhir_cerner_read_patient", {"patient_id": "bad"})],
+            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "bad"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(content="Unable to fetch patient — error recorded.", tool_calls=[], stop_reason="stop"),
@@ -244,100 +327,150 @@ async def test_agent_fails_when_mcp_unreachable() -> None:
     assert "Failed to list MCP tools" in (result.error or "")
 
 
+@pytest.mark.asyncio
+async def test_agent_stops_after_repeated_tool_failures() -> None:
+    """After max_tool_failures for the same tool, stop without further LLM steps."""
+    fail_msg = "Input validation error: bad args"
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("google_drive.files.upload", {"name": "a.txt"})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("google_drive.files.upload", {"name": "a.txt"})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(content="should not run", tool_calls=[], stop_reason="stop"),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.return_value = fail_msg
+
+    agent = ToolHiveAgent(
+        mcp_client=mock_mcp,
+        llm_provider=provider,
+        max_steps=10,
+        max_tool_failures=2,
+    )
+    result = await agent.run("Upload to Drive")
+
+    assert result.success is False
+    assert len(result.steps) == 2
+    assert "google_drive.files.upload" in (result.error or "")
+    assert "failed 2 times" in (result.final_answer or result.error or "").lower()
+    assert mock_mcp.call_tool.await_count == 2
+    assert provider._call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_agent_success_then_two_failures_same_tool_aborts() -> None:
+    """Failures only increment on failed tool results; abort after second failure."""
+    ok = '{"success": true, "data": {}}'
+    fail_msg = "Input validation error: x"
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("google_drive.files.upload", {})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("google_drive.files.upload", {})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("google_drive.files.upload", {})],
+            stop_reason="tool_calls",
+        ),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.side_effect = [ok, fail_msg, fail_msg]
+
+    agent = ToolHiveAgent(
+        mcp_client=mock_mcp,
+        llm_provider=provider,
+        max_steps=10,
+        max_tool_failures=2,
+    )
+    result = await agent.run("x")
+
+    assert result.success is False
+    assert len(result.steps) == 3
+    assert mock_mcp.call_tool.await_count == 3
+
+
 # ---------------------------------------------------------------------------
 # MCP entrypoint smoke test
 # ---------------------------------------------------------------------------
 
-def test_mcp_entrypoint_registers_eight_tools() -> None:
-    """The FastMCP server should expose the full FHIR + integration tool surface."""
-    # We patch all external deps before importing the module to avoid side effects
-    with (
-        patch("bindings.factory.ConnectorFactory") as mock_factory_cls,
-        patch("connectors.auto_register"),
-        patch("mcp.server.fastmcp.FastMCP", autospec=False) as mock_fastmcp_cls,
-    ):
-        mock_factory = MagicMock()
-        mock_factory._connectors = {
-            "fhir_cerner": MagicMock(),
-            "fhir_epic": MagicMock(),
-            "google_drive": MagicMock(),
-            "smtp": MagicMock(),
-        }
-        mock_factory_cls.return_value = mock_factory
+def test_mcp_entrypoint_exposes_manifest_tools() -> None:
+    """Unified MCP server lists all connectors enabled for MCP in config."""
+    from bindings.mcp_server.server import McpServer
 
-        mock_mcp_instance = MagicMock()
-        registered_tools: List[str] = []
-
-        def fake_tool(*args: Any, **kwargs: Any):
-            name = kwargs.get("name") or (args[0] if args else "unknown")
-            registered_tools.append(name)
-            return lambda fn: fn  # decorator passthrough
-
-        mock_mcp_instance.tool = fake_tool
-        mock_fastmcp_cls.return_value = mock_mcp_instance
-
-        # Import inside the test to ensure it picks up the mocks
-        from agents.mcp_entrypoint import _make_server
-        _make_server()
-
-    assert len(registered_tools) == 8
-    assert "fhir_cerner_read_patient" in registered_tools
-    assert "fhir_cerner_search_patients" in registered_tools
-    assert "fhir_cerner_search_encounters" in registered_tools
-    assert "fhir_epic_read_patient" in registered_tools
-    assert "fhir_epic_search_patients" in registered_tools
-    assert "fhir_epic_search_encounters" in registered_tools
-    assert "google_drive_upload_file" in registered_tools
-    assert "smtp_send_email" in registered_tools
+    server = McpServer(server_name="node-wire")
+    names = {t["name"] for t in server.list_tools()}
+    assert "fhir_cerner.read_patient" in names
+    assert "fhir_epic.read_patient" in names
+    assert "google_drive.files.upload" in names
+    assert "smtp.send_email" in names
+    assert "stripe.charge" in names
+    assert "http_generic.request" in names
+    # Broader surface than the old 8 FastMCP tools
+    assert len(names) >= 18
 
 
 # ---------------------------------------------------------------------------
-# Individual MCP server smoke tests
+# Individual MCP entrypoint modules (thin wrappers)
 # ---------------------------------------------------------------------------
 
-def _make_server_smoke(module_path: str, expected_tool: str) -> None:
-    """Helper: verify a per-connector _make_server() registers exactly one tool."""
-    with (
-        patch("bindings.factory.ConnectorFactory") as mock_factory_cls,
-        patch("connectors.auto_register"),
-        patch("mcp.server.fastmcp.FastMCP", autospec=False) as mock_fastmcp_cls,
-    ):
-        mock_factory = MagicMock()
-        mock_factory._connectors = {}
-        mock_factory_cls.return_value = mock_factory
 
-        mock_mcp_instance = MagicMock()
-        registered_tools: List[str] = []
+def test_fhir_cerner_mcp_main_callable() -> None:
+    from agents.fhir_cerner_mcp import main
 
-        def fake_tool(*args: Any, **kwargs: Any):
-            name = kwargs.get("name") or (args[0] if args else "unknown")
-            registered_tools.append(name)
-            return lambda fn: fn
-
-        mock_mcp_instance.tool = fake_tool
-        mock_fastmcp_cls.return_value = mock_mcp_instance
-
-        import importlib
-        mod = importlib.import_module(module_path)
-        mod._make_server()
-
-    assert registered_tools == [expected_tool], (
-        f"{module_path}: expected [{expected_tool}], got {registered_tools}"
-    )
+    assert callable(main)
 
 
-def test_fhir_cerner_mcp_registers_one_tool() -> None:
-    """fhir_cerner_mcp._make_server() should expose exactly fhir_cerner_read_patient."""
-    _make_server_smoke("agents.fhir_cerner_mcp", "fhir_cerner_read_patient")
+def test_fhir_epic_mcp_main_callable() -> None:
+    from agents.fhir_epic_mcp import main
+
+    assert callable(main)
 
 
-def test_fhir_epic_mcp_registers_one_tool() -> None:
-    """fhir_epic_mcp._make_server() should expose exactly fhir_epic_read_patient."""
-    _make_server_smoke("agents.fhir_epic_mcp", "fhir_epic_read_patient")
+def test_google_drive_mcp_main_callable() -> None:
+    from agents.google_drive_mcp import main
+
+    assert callable(main)
 
 
-def test_google_drive_mcp_registers_one_tool() -> None:
-    """google_drive_mcp._make_server() should expose exactly google_drive_upload_file."""
-    _make_server_smoke("agents.google_drive_mcp", "google_drive_upload_file")
+def test_smtp_mcp_main_callable() -> None:
+    from agents.smtp_mcp import main
+
+    assert callable(main)
+
+
+def test_mcp_server_matches_per_connector_entrypoints() -> None:
+    """Per-connector scripts use connector_ids filter; tool prefixes must match."""
+    from bindings.mcp_server.server import McpServer
+
+    full = {t["name"] for t in McpServer().list_tools()}
+
+    cerner = {t["name"] for t in McpServer(connector_ids=["fhir_cerner"]).list_tools()}
+    assert cerner == {n for n in full if n.startswith("fhir_cerner.")}
+
+    epic = {t["name"] for t in McpServer(connector_ids=["fhir_epic"]).list_tools()}
+    assert epic == {n for n in full if n.startswith("fhir_epic.")}
+
+    drive = {t["name"] for t in McpServer(connector_ids=["google_drive"]).list_tools()}
+    assert drive == {n for n in full if n.startswith("google_drive.")}
+    assert "google_drive.files.upload" in drive
+
+    smtp = {t["name"] for t in McpServer(connector_ids=["smtp"]).list_tools()}
+    assert smtp == {"smtp.send_email"}
 
 

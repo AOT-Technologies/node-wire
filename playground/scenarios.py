@@ -1108,13 +1108,19 @@ class AgentChatResponse(BaseModel):
 AGENT_GUARDRAIL_PROMPT = (
     "You are a healthcare data assistant. You have access to tools for fetching "
     "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
-    "emails via SMTP.\n\n"
+    "emails via SMTP.\n"
+    "Tool names are `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, "
+    "`fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`). "
+    "Use exactly the names and JSON-schema arguments from tools/list.\n\n"
     "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
     "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
-    "  1. First turn: Search for the patient. (If you have a Patient ID, you DO NOT need their name or birthdate).\n"
-    "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call the search tool with a guessed or hallucinated ID like '12345'.\n"
+    "  1. First turn: Obtain patient demographics from the EHR.\n"
+    "     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{\"resource_id\": \"<id>\"}` (use Epic when the ID starts with 'e'). Do NOT use search_patients for a known ID.\n"
+    "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
+    "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
+    "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
     "  2. Second turn: Once you have the patient data from step 1, create a file on Google Drive containing the masked patient summary. Do NOT use placeholder content.\n"
-    "  3. Third turn: Once step 2 returns a 'web_view_link', send an email with that exact link. Do NOT call the email tool until you have the link.\n"
+    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive.files.upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
     "     CRITICAL: You MUST ask the user for the recipient email address if they haven't provided it. DO NOT guess email addresses like 'recipient_email@example.com'.\n"
     "     CRITICAL: In the email body, you MUST insert the actual URL string returned from step 2 (e.g. 'https://drive.google.com/...'). Do NOT literally write the text '<web_view_link>'.\n\n"
     "DATA PRIVACY & MASKING — follow these strictly:\n"
@@ -1124,7 +1130,7 @@ AGENT_GUARDRAIL_PROMPT = (
     "  - NEVER use the placeholder values ('1990-05-12', '12724066', or 'Name') in your reports - always use the real patient data masked accordingly.\n"
     "- EMAIL WORKFLOW: When sending patient details to an email recipient:\n"
     "  1. ALWAYS upload the masked patient summary to Google Drive first.\n"
-    "  2. Use the 'web_view_link' returned by the google_drive_upload_file tool.\n"
+    "  2. Use `data.raw.webViewLink` from the `google_drive.files.upload` tool result.\n"
     "  3. In the email body, provide that link instead of the actual data.\n"
     "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
     "GUARDRAILS:\n"
@@ -1172,6 +1178,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             ToolHiveMcpClient,
             StdioMcpClient,
             resolve_mcp_urls,
+            resolve_max_tool_failures,
         )
 
         provider_name = os.environ.get("LLM_PROVIDER", "groq")
@@ -1206,7 +1213,12 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     mcp_client = ToolHiveMcpClient(urls[0])
                 else:
                     mcp_client = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
-                agent = ToolHiveAgent(mcp_client, llm_provider, max_steps=10)
+                agent = ToolHiveAgent(
+                    mcp_client,
+                    llm_provider,
+                    max_steps=10,
+                    max_tool_failures=resolve_max_tool_failures(None),
+                )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
                 # Fallback to local stdio if:
@@ -1232,7 +1244,12 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             logger.info("Agent Chat | using local stdio MCP transport")
             cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
             async with StdioMcpClient(cmd) as mcp_client:
-                agent = ToolHiveAgent(mcp_client, llm_provider, max_steps=10)
+                agent = ToolHiveAgent(
+                    mcp_client,
+                    llm_provider,
+                    max_steps=10,
+                    max_tool_failures=resolve_max_tool_failures(None),
+                )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
 

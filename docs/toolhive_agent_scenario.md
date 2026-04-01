@@ -36,10 +36,10 @@ This guide walks you through running the platform as an MCP server using ToolHiv
 ```
 ToolHive UI  ──────────────────────────────────────────────────────
 │  MCP Server (Docker): node-wire                     │
-│  ├── Tool: fhir_cerner_read_patient   ← fetch patient from Cerner │
-│  ├── Tool: fhir_epic_read_patient     ← fetch patient from Epic   │
-│  ├── Tool: google_drive_upload_file   ← write file to Drive       │
-│  └── Tool: smtp_send_email            ← email the summary         │
+│  ├── Tool: fhir_cerner.read_patient   ← fetch patient from Cerner │
+│  ├── Tool: fhir_epic.read_patient     ← fetch patient from Epic   │
+│  ├── Tool: google_drive.files.upload  ← write file to Drive       │
+│  └── Tool: smtp.send_email            ← email the summary         │
 │                         ↕ stdio → HTTP proxy                      │
 ──────────────────────────────────────────────────────────────────
          ↕ MCP JSON-RPC over HTTP
@@ -86,10 +86,10 @@ When running as an MCP server, the platform exposes 4 tools that AI agents can d
 
 | Tool | Description |
 |---|---|
-| `fhir_cerner_read_patient` | Fetch a patient's record from a Cerner FHIR R4 endpoint |
-| `fhir_epic_read_patient` | Fetch a patient's record from an Epic FHIR R4 endpoint |
-| `google_drive_upload_file` | Create and upload a text file to Google Drive |
-| `smtp_send_email` | Send an email via SMTP |
+| `fhir_cerner.read_patient` | Fetch a patient's record from a Cerner FHIR R4 endpoint |
+| `fhir_epic.read_patient` | Fetch a patient's record from an Epic FHIR R4 endpoint |
+| `google_drive.files.upload` | Create and upload a text file to Google Drive |
+| `smtp.send_email` | Send an email via SMTP |
 
 The agent uses an LLM's tool-calling capability to decide which tools to call, in what order, and with what parameters.
 
@@ -317,7 +317,7 @@ In the ToolHive UI under **Installed**, you should see:
 |---|---|
 | Name | `node-wire-connectors` |
 | Status | `Running` |
-| Tools | `fhir_cerner_read_patient`, `fhir_epic_read_patient`, `google_drive_upload_file`, `smtp_send_email` |
+| Tools | Manifest-driven `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, `fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`; unified server also lists Stripe, HTTP generic, and other MCP-enabled connectors) |
 | Endpoint | `http://localhost:<auto-port>/sse` |
 
 ---
@@ -404,11 +404,11 @@ I have completed all three steps:
 3. Sent a summary email to your-email@example.com with a link to the file.
 
 Steps executed (3):
-  ✓ Step 1: fhir_cerner_read_patient
+  ✓ Step 1: fhir_cerner.read_patient
        result : {"patient_id": "123*****", "full_name": "Nancy Smart", ...}
-  ✓ Step 2: google_drive_upload_file
+  ✓ Step 2: google_drive.files.upload
        result : {"file_id": "1XYZ...", "web_view_link": "https://docs.google.com/..."}
-  ✓ Step 3: smtp_send_email
+  ✓ Step 3: smtp.send_email
        result : {"sent": true}
 ```
 
@@ -545,7 +545,7 @@ connector-platform/
 └── src/
     └── agents/
         ├── __init__.py
-        ├── mcp_entrypoint.py               ← FastMCP server (4 tools)
+        ├── mcp_entrypoint.py               ← MCP stdio server (manifest; all MCP connectors)
         ├── toolhive.py                     ← ReAct agent + CLI
         ├── llm_factory.py                  ← Provider factory
         └── providers/

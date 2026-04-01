@@ -17,7 +17,7 @@ COPY config/ ./config/
 RUN pip install --no-cache-dir -e ".[agents]"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD \
-    python -c "from agents.fhir_epic_mcp import _make_server; print('ok')" || exit 1
+    python -c "from agents.fhir_epic_mcp import main; assert callable(main); print('ok')" || exit 1
 
 CMD ["python", "-m", "agents.fhir_epic_mcp"]
 

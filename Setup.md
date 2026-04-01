@@ -194,7 +194,7 @@ Supported configurations:
 Add to your `.env`:
 
 ```env
-stripe_api_key=sk_test_your_key_here
+STRIPE_API_KEY=sk_test_your_key_here
 ```
 
 Use a **test key** (`sk_test_...`) during development. Switch to a live key (`sk_live_...`) for production.
@@ -272,15 +272,24 @@ The platform exposes connector tools for AI agents via the MCP (Model Context Pr
 Each connector runs as its own independent MCP server. This is the preferred approach for modular, scalable deployments.
 
 
-| Image                   | Tool exposed               | Docker image                     |
-| ----------------------- | -------------------------- | -------------------------------- |
-| `nw-google-drive`       | `google_drive_upload_file` | `docker/google-drive/Dockerfile` |
-| `nw-smartonfhir-epic`   | `fhir_epic_read_patient`   | `docker/fhir-epic/Dockerfile`    |
-| `nw-smartonfhir-cerner` | `fhir_cerner_read_patient` | `docker/fhir-cerner/Dockerfile`  |
-| `nw-smtp`               | `smtp_send_email`          | `docker/smtp/Dockerfile`         |
+| Image                   | MCP tools (manifest) | Docker image                     |
+| ----------------------- | -------------------- | -------------------------------- |
+| `nw-google-drive`       | All `google_drive.<action>` (e.g. `google_drive.files.upload`) | `docker/google-drive/Dockerfile` |
+| `nw-smartonfhir-epic`   | All `fhir_epic.<action>` (e.g. `fhir_epic.read_patient`) | `docker/fhir-epic/Dockerfile`    |
+| `nw-smartonfhir-cerner` | All `fhir_cerner.<action>` (e.g. `fhir_cerner.read_patient`) | `docker/fhir-cerner/Dockerfile`  |
+| `nw-smtp`               | `smtp.send_email`    | `docker/smtp/Dockerfile`         |
 
 
 **Full guide (build, env config, ToolHive registration, multi-server agent usage):** [docs/mcp-servers.md](docs/mcp-servers.md)
+
+**FHIR tool arguments (Cerner / Epic)** — tool names are `fhir_cerner.<action>` and `fhir_epic.<action>`. Use field names from `tools/list` / the connector manifest. Typical payloads:
+
+| Action | When to use | Example arguments |
+| ------ | ----------- | ------------------- |
+| `read_patient` | You have a Patient id | `{"resource_id": "12724066"}` (Epic ids often start with `e`) |
+| `search_patients` | No id, or name-based search | `{"resource_ids": ["id1"]}` or `{"given_name": "...", "family_name": "..."}` or `{"search_params": {"identifier": "...", "family": "..."}}` (FHIR search param names) |
+
+The MCP server normalizes common LLM/legacy aliases (`patientId` / `patient_id` → `resource_id`; `patientId` inside `search_params` → `identifier`) before validation. Prefer canonical fields above when authoring prompts or clients.
 
 Quick start:
 

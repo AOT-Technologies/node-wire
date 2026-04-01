@@ -43,10 +43,12 @@ flowchart TD
 
 | Connector | Python entrypoint | Docker image | ToolHive name | MCP tool(s) exposed |
 |---|---|---|---|---|
-| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | `google_drive_upload_file` |
-| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | `fhir_epic_read_patient` |
-| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | `fhir_cerner_read_patient` |
-| SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp_send_email` |
+| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | All manifest actions for `google_drive` (names `google_drive.<action>`, e.g. `google_drive.files.upload`) |
+| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
+| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
+| SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
+
+The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
 
 ---
 
@@ -118,7 +120,7 @@ Register your application at the [Cerner Developer Portal](https://code.cerner.c
 
 #### `nw-smtp`
 
-The SMTP MCP server exposes one tool: `smtp_send_email`. When running under ToolHive, inject these as secrets:
+The SMTP MCP server exposes one tool: `smtp.send_email`. When running under ToolHive, inject these as secrets:
 
 | Variable | Description |
 |---|---|

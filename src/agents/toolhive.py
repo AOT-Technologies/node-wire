@@ -4,9 +4,9 @@ ToolHive Agent
 A ReAct-style AI agent that connects to an MCP server running in ToolHive,
 discovers its tools, and orchestrates a healthcare workflow:
 
-  1. Fetch patient details via fhir_cerner_read_patient or fhir_epic_read_patient
-  2. Write a patient summary file via google_drive_upload_file
-  3. Email the summary via smtp_send_email
+  1. Fetch patient details via fhir_cerner.read_patient / fhir_epic.read_patient (or search_* tools)
+  2. Write a patient summary file via google_drive.files.upload
+  3. Email the summary via smtp.send_email
 
 The LLM backend is fully configurable via the LLM_PROVIDER env var.
 
@@ -23,6 +23,7 @@ Usage::
 Environment variables:
     TOOLHIVE_MCP_URL : MCP proxy URL from ToolHive UI (e.g. http://localhost:PORT/mcp)
     TOOLHIVE_MCP_URLS: Comma-separated MCP proxy URLs (multi-server)
+    TOOLHIVE_MAX_TOOL_FAILURES: Stop after this many failed invocations per tool name (default: 2)
     LLM_PROVIDER     : groq | openai | gemini | anthropic  (default: groq)
     GROQ_API_KEY     : (when using groq)
     OPENAI_API_KEY   : (when using openai)
@@ -50,6 +51,77 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("agents.toolhive")
+
+
+def truncate_tool_result_for_llm(text: str) -> str:
+    """
+    Cap tool output size sent to the LLM so providers with strict limits (e.g. Groq
+    on-demand TPM) do not fail with 413 / oversized requests after large FHIR payloads.
+
+    Full raw output remains in AgentStep.tool_result for logging; only the message
+    passed back into the chat is truncated.
+
+    Override with env TOOLHIVE_MAX_TOOL_RESULT_CHARS (default 12000). Use 0 to disable.
+    """
+    raw = (os.environ.get("TOOLHIVE_MAX_TOOL_RESULT_CHARS") or "12000").strip()
+    try:
+        max_chars = int(raw)
+    except ValueError:
+        max_chars = 12000
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    omitted = len(text) - max_chars
+    return (
+        text[:max_chars]
+        + "\n\n[... truncated "
+        + str(omitted)
+        + " characters for LLM context limits; use visible fields for next steps.]"
+    )
+
+
+def resolve_max_tool_failures(override: Optional[int] = None) -> int:
+    """
+    Max failed tool invocations per tool name before aborting the agent run.
+    ``override`` wins; otherwise ``TOOLHIVE_MAX_TOOL_FAILURES`` (default 2). Minimum 1.
+    """
+    if override is not None:
+        return max(1, int(override))
+    raw = (os.environ.get("TOOLHIVE_MAX_TOOL_FAILURES") or "2").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 2
+    return max(1, n)
+
+
+def _is_tool_failure(tool_result: str) -> bool:
+    """True if MCP/connector reported a failed tool outcome (not empty success)."""
+    if not tool_result or not tool_result.strip():
+        return False
+    t = tool_result.strip()
+    if t.startswith("ERROR:"):
+        return True
+    low = t.lower()
+    if "input validation error" in low:
+        return True
+    if "validation error" in low and "input" in low:
+        return True
+    if t.startswith("{"):
+        try:
+            data = json.loads(t)
+            if isinstance(data, dict) and data.get("success") is False:
+                return True
+        except json.JSONDecodeError:
+            pass
+    return False
+
+
+def _tool_failure_abort_message(tool_name: str, max_failures: int) -> str:
+    return (
+        f'The tool "{tool_name}" failed {max_failures} times in a row. '
+        "Please check the parameters against the schema from tools/list, "
+        "or tell me if I should use a different tool or approach."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +378,7 @@ class ToolHiveAgent:
     2. Enters a ReAct loop: send task + tools to LLM → if tool call →
        invoke tool → append result → repeat.
     3. Stops when the LLM returns a final answer (no tool calls) or
-       ``max_steps`` is reached.
+       ``max_steps`` is reached, or the same tool fails ``max_tool_failures`` times.
     """
 
     def __init__(
@@ -314,20 +386,30 @@ class ToolHiveAgent:
         mcp_client: McpClient,
         llm_provider: Any,  # BaseLLMProvider
         max_steps: int = 10,
+        max_tool_failures: Optional[int] = None,
     ) -> None:
         self._mcp = mcp_client
         self._llm = llm_provider
         self._max_steps = max_steps
+        self._max_tool_failures = resolve_max_tool_failures(max_tool_failures)
         self._system_prompt: str = (
             "You are a healthcare data assistant. You have access to tools for fetching "
             "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
-            "emails via SMTP.\n\n"
+            "emails via SMTP.\n"
+            "Tool names are `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, "
+            "`fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`). "
+            "Use exactly the names and JSON-schema arguments from tools/list.\n\n"
             "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
             "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
-            "  1. First turn: Search for the patient. (If you have a Patient ID, you DO NOT need their name or birthdate).\n"
-            "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call the search tool with a guessed or hallucinated ID like '12345'.\n"
+            "  1. First turn: Obtain patient demographics from the EHR.\n"
+            "     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{\"resource_id\": \"<id>\"}` (use Epic when the ID starts with 'e'). Do NOT use search_patients for a known ID.\n"
+            "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
+            "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
+            "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
             "  2. Second turn: Once you have the patient data from step 1, create a file on Google Drive containing the masked patient summary. Do NOT use placeholder content.\n"
-            "  3. Third turn: Once step 2 returns a 'web_view_link', send an email with that exact link. Do NOT call the email tool until you have the link.\n"
+            "     For `google_drive.files.upload`, pass a flat JSON object: `name`, `mime_type` (snake_case — not `mimeType`), `parents`, and `content` (or `content_base64`). "
+            "If you include `action`, it must be exactly `files.upload`. Do not nest fields under a `file` object. Do NOT pass `media` / `media_body`.\n"
+            "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive.files.upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
             "     CRITICAL: You MUST ask the user for the recipient email address if they haven't provided it. DO NOT guess email addresses like 'recipient_email@example.com'.\n"
             "     CRITICAL: In the email body, you MUST insert the actual URL string returned from step 2 (e.g. 'https://drive.google.com/...'). Do NOT literally write the text '<web_view_link>'.\n\n"
             "DATA PRIVACY & MASKING — follow these strictly:\n"
@@ -337,7 +419,7 @@ class ToolHiveAgent:
             "  - NEVER use the placeholder values ('1990-05-12', '12724066', or 'Name') in your reports - always use the real patient data masked accordingly.\n"
             "- EMAIL WORKFLOW: When sending patient details to an email recipient:\n"
             "  1. ALWAYS upload the masked patient summary to Google Drive first.\n"
-            "  2. Use the 'web_view_link' returned by the google_drive_upload_file tool.\n"
+            "  2. Use `data.raw.webViewLink` from the `google_drive.files.upload` tool result.\n"
             "  3. In the email body, provide that link instead of the actual data.\n"
             "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
             "GUARDRAILS:\n"
@@ -383,6 +465,9 @@ class ToolHiveAgent:
         ]
 
         # 3. ReAct loop
+        tool_failures: Dict[str, int] = {}
+        abort_after_tool_failures = False
+
         for step_num in range(1, self._max_steps + 1):
             logger.info("Agent step %d / %d", step_num, self._max_steps)
 
@@ -428,12 +513,34 @@ class ToolHiveAgent:
                 agent_step.tool_result = tool_result_str
                 result.steps.append(agent_step)
 
+                llm_tool_content = truncate_tool_result_for_llm(tool_result_str)
+                if len(llm_tool_content) < len(tool_result_str):
+                    logger.info(
+                        "Tool %s result truncated for LLM: %d -> %d chars",
+                        tc.name,
+                        len(tool_result_str),
+                        len(llm_tool_content),
+                    )
+
                 messages.append(LLMMessage(
                     role="tool",
-                    content=tool_result_str,
+                    content=llm_tool_content,
                     tool_call_id=tc.id,
                     name=tc.name,
                 ))
+
+                if _is_tool_failure(tool_result_str):
+                    tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
+                    if tool_failures[tc.name] >= self._max_tool_failures:
+                        msg = _tool_failure_abort_message(tc.name, self._max_tool_failures)
+                        result.error = msg
+                        result.final_answer = msg
+                        logger.warning("Stopping agent: %s", msg)
+                        abort_after_tool_failures = True
+                        break
+
+            if abort_after_tool_failures:
+                break
         else:
             # Hit max_steps without a final answer
             result.error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
@@ -474,10 +581,20 @@ async def _run_agent(args: argparse.Namespace) -> None:
     # Use the client (handle async context for stdio)
     if isinstance(mcp_client_context, StdioMcpClient):
         async with mcp_client_context as mcp_client:
-            agent = ToolHiveAgent(mcp_client, provider, max_steps=args.max_steps)
+            agent = ToolHiveAgent(
+                mcp_client,
+                provider,
+                max_steps=args.max_steps,
+                max_tool_failures=args.max_tool_failures,
+            )
             await _execute_task(agent, args, llm_provider_name, "local-stdio")
     else:
-        agent = ToolHiveAgent(mcp_client_context, provider, max_steps=args.max_steps)
+        agent = ToolHiveAgent(
+            mcp_client_context,
+            provider,
+            max_steps=args.max_steps,
+            max_tool_failures=args.max_tool_failures,
+        )
         await _execute_task(agent, args, llm_provider_name, ",".join(urls))
 
 
@@ -535,6 +652,12 @@ def main() -> None:
     parser.add_argument("--recipient-email", required=True, help="Email address to send the summary to")
     parser.add_argument("--drive-folder-id", default=os.environ.get("GOOGLE_DRIVE_FOLDER_ID", ""), help="Google Drive folder ID (optional)")
     parser.add_argument("--max-steps", type=int, default=10, help="Maximum agent steps (default: 10)")
+    parser.add_argument(
+        "--max-tool-failures",
+        type=int,
+        default=None,
+        help="Stop after this many failed calls per tool name (default: env TOOLHIVE_MAX_TOOL_FAILURES or 2)",
+    )
     parser.add_argument("--local", action="store_true", help="Run against local server via stdio (no proxy)")
     args = parser.parse_args()
 

@@ -10,12 +10,12 @@ For dependency management use any tool that understands `pyproject.toml` (e.g. `
 
 Each connector can run as its own independent MCP server (Docker image).
 
-| Image                   | Tool exposed               | Docker image                     |
-| ----------------------- | -------------------------- | -------------------------------- |
-| `nw-google-drive`       | `google_drive_upload_file` | `docker/google-drive/Dockerfile` |
-| `nw-smartonfhir-epic`   | `fhir_epic_read_patient`   | `docker/fhir-epic/Dockerfile`    |
-| `nw-smartonfhir-cerner` | `fhir_cerner_read_patient` | `docker/fhir-cerner/Dockerfile`  |
-| `nw-smtp`               | `smtp_send_email`          | `docker/smtp/Dockerfile`         |
+| Image                   | MCP tools (manifest) | Docker image                     |
+| ----------------------- | -------------------- | -------------------------------- |
+| `nw-google-drive`       | All `google_drive.<action>` (e.g. `google_drive.files.upload`) | `docker/google-drive/Dockerfile` |
+| `nw-smartonfhir-epic`   | All `fhir_epic.<action>` (e.g. `fhir_epic.read_patient`) | `docker/fhir-epic/Dockerfile`    |
+| `nw-smartonfhir-cerner` | All `fhir_cerner.<action>` (e.g. `fhir_cerner.read_patient`) | `docker/fhir-cerner/Dockerfile`  |
+| `nw-smtp`               | `smtp.send_email`    | `docker/smtp/Dockerfile`         |
 
 See [docs/mcp-servers.md](docs/mcp-servers.md) for build, env config, docker-compose, and ToolHive registration.
 

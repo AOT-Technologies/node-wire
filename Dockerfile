@@ -1,6 +1,6 @@
 # Node Wire — Docker Image
 # ========================
-# This image packages the connector platform as a FastMCP server.
+# This image packages the connector platform as an MCP stdio server (manifest-driven).
 # ToolHive runs it as a container, injects secrets as env vars,
 # and proxies the stdio MCP transport to HTTP/SSE.
 #
@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir -e ".[agents]"
 
 # Healthcheck: verify the package is importable
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD \
-    python -c "from agents.mcp_entrypoint import _make_server; print('ok')" || exit 1
+    python -c "from agents.mcp_entrypoint import main; assert callable(main); print('ok')" || exit 1
 
-# Default entrypoint: run the FastMCP server on stdio
+# Default entrypoint: run the MCP server on stdio
 CMD ["python", "-m", "agents.mcp_entrypoint"]
