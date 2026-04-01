@@ -41,7 +41,7 @@ flowchart TD
 
 ## Naming conventions
 
-| Connector | Python entrypoint | Docker image | ToolHive name | MCP tool(s) exposed |
+| Connector | Python entrypoint | Docker image | ToolHive name | MCP tools exposed |
 |---|---|---|---|---|
 | Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | All manifest actions for `google_drive` (names `google_drive.<action>`, e.g. `google_drive.files.upload`) |
 | SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
