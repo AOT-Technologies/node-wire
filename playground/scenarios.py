@@ -185,51 +185,53 @@ async def execute_with_retry(action: Any, input_data: Any, trace_id: str, step: 
                 raise last_exception
 
 
+# Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
+_playground_factory: Optional[Any] = None
+
+
+def get_playground_factory() -> Any:
+    """Lazily load connector config once; same pattern as bindings REST `get_factory`."""
+    global _playground_factory
+    if _playground_factory is None:
+        from bindings.factory import ConnectorFactory
+        from connectors import auto_register
+
+        _playground_factory = ConnectorFactory()
+        auto_register()
+        _playground_factory.load()
+    return _playground_factory
+
+
+def resolve_connector(connector_id: str, action: Optional[str] = None) -> Any:
+    """Resolve a connector via public factory API (protocol-aware)."""
+    factory = get_playground_factory()
+    return factory.get_for_protocol(connector_id, "rest", action=action)
+
+
 def get_fhir_connector() -> FhirEpicConnector:
-    # Use global accessor instead of circular import
-    from bindings.factory import ConnectorFactory
-    factory = ConnectorFactory()
-    from connectors import auto_register
-    auto_register()
-    factory.load()
-    
-    connector = factory._connectors.get("fhir_epic")
+    connector = resolve_connector("fhir_epic")
     if not connector:
         raise HTTPException(status_code=500, detail="FHIR Epic connector not configured")
-    return connector
+    return connector  # type: ignore[return-value]
+
 
 def get_http_connector():
-    from bindings.factory import ConnectorFactory
-    factory = ConnectorFactory()
-    from connectors import auto_register
-    auto_register()
-    factory.load()
-    
-    connector = factory._connectors.get("http_generic")
+    # Manifest action for http_generic is "request"; pass it for parity with REST routing.
+    connector = resolve_connector("http_generic", action="request")
     if not connector:
         raise HTTPException(status_code=500, detail="Generic HTTP connector not configured")
     return connector
 
-def get_cerner_connector():
-    from bindings.factory import ConnectorFactory
-    factory = ConnectorFactory()
-    from connectors import auto_register
-    auto_register()
-    factory.load()
 
-    connector = factory._connectors.get("fhir_cerner")
+def get_cerner_connector():
+    connector = resolve_connector("fhir_cerner")
     if not connector:
         raise HTTPException(status_code=500, detail="FHIR Cerner connector not configured")
     return connector
 
-def get_google_drive_connector():
-    from bindings.factory import ConnectorFactory
-    factory = ConnectorFactory()
-    from connectors import auto_register
-    auto_register()
-    factory.load()
 
-    connector = factory._connectors.get("google_drive")
+def get_google_drive_connector():
+    connector = resolve_connector("google_drive")
     if not connector:
         raise HTTPException(status_code=500, detail="Google Drive connector not configured")
     return connector
@@ -250,12 +252,10 @@ async def post_consultation_scenario(
     # STEP 1: Patient Discovery
     add_step("Patient Discovery", "pending", display_name="Identify Patient")
     try:
-        patient_action = connector.get_action("read_patient")
-        
         if payload.patient_id:
             logger.info(f"Performing direct Patient ID lookup: {payload.patient_id}")
             p_res = await execute_with_retry(
-                patient_action,
+                connector,
                 FhirPatientReadInput(resource_id=payload.patient_id),
                 trace_id,
                 steps[-1]
@@ -269,7 +269,7 @@ async def post_consultation_scenario(
             }
             logger.info(f"Searching for patient: {patient_search_params}")
             p_res = await execute_with_retry(
-                patient_action,
+                connector,
                 FhirPatientReadInput(search_params=patient_search_params),
                 trace_id,
                 steps[-1]
@@ -297,20 +297,19 @@ async def post_consultation_scenario(
             enc_status = "verified"
         else:
             visit_date = payload.visit_date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            encounter_action = connector.get_action("search_encounter")
             logger.info(f"Searching for encounter... patient={patient_id}, date={visit_date}", extra={"trace_id": trace_id})
             enc_res = await execute_with_retry(
-                encounter_action,
+                connector,
                 FhirEncounterSearchInput(search_params={"patient": patient_id, "status": "finished", "date": visit_date}),
                 trace_id,
                 steps[-1]
             )
-            
+
             resources = enc_res.resources
             if not resources:
                 # Fallback to any finished encounter
                 enc_res = await execute_with_retry(
-                    encounter_action,
+                    connector,
                     FhirEncounterSearchInput(search_params={"patient": patient_id, "status": "finished"}),
                     trace_id,
                     steps[-1]
@@ -355,20 +354,18 @@ async def post_consultation_scenario(
             context={"encounter": [{"reference": f"Encounter/{encounter_id}"}]}
         )
         
-        doc_action = connector.get_action("create_document_reference")
-        doc_res = await execute_with_retry(doc_action, doc_input, trace_id, steps[-1])
-        
+        doc_res = await execute_with_retry(connector, doc_input, trace_id, steps[-1])
+
         steps[-1].status = "success"
         steps[-1].details = f"EHR Updated. ID: {doc_res.resource_id}"
         steps[-1].display_name = "Note Synced Successfully"
         steps[-1].data = {"resource_id": doc_res.resource_id, "raw": doc_res.resource if (hasattr(doc_res, 'resource') and doc_res.resource) else {"id": doc_res.resource_id, "status": "created", "note": "Resource payload not returned by Epic integration."}}
-        
+
         # STEP 4: Verification / Visualization
         add_step("Document Verification", "pending", display_name="Verify EHR Update")
         try:
-            doc_search_action = connector.get_action("search_document_reference")
             verify_res = await execute_with_retry(
-                doc_search_action,
+                connector,
                 FhirDocumentReferenceSearchInput(search_params={"patient": patient_id, "_id": doc_res.resource_id}),
                 trace_id,
                 steps[-1]
@@ -567,12 +564,10 @@ async def cerner_post_consultation_scenario(
     # STEP 1: Patient Discovery
     add_step("Patient Discovery", "pending", display_name="Identify Patient")
     try:
-        patient_action = connector.get_action("read_patient")
-
         if payload.patient_id:
             logger.info(f"Cerner: direct Patient ID lookup: {payload.patient_id}")
             p_res = await execute_with_retry(
-                patient_action,
+                connector,
                 FhirCernerPatientReadInput(resource_id=payload.patient_id),
                 trace_id,
                 steps[-1]
@@ -586,7 +581,7 @@ async def cerner_post_consultation_scenario(
             }.items() if v}
             logger.info(f"Cerner: searching for patient: {search_params}")
             p_res = await execute_with_retry(
-                patient_action,
+                connector,
                 FhirCernerPatientReadInput(search_params=search_params),
                 trace_id,
                 steps[-1]
@@ -617,9 +612,8 @@ async def cerner_post_consultation_scenario(
             selected_enc = {"id": encounter_id, "note": "Manual ID used"}
         else:
             visit_date = payload.visit_date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            encounter_action = connector.get_action("search_encounter")
             enc_res = await execute_with_retry(
-                encounter_action,
+                connector,
                 FhirCernerEncounterSearchInput(
                     search_params={"patient": patient_id, "status": "finished", "date": visit_date}
                 ),
@@ -631,7 +625,7 @@ async def cerner_post_consultation_scenario(
             if not resources:
                 # Fallback: any finished encounter for this patient
                 enc_res = await execute_with_retry(
-                    encounter_action,
+                    connector,
                     FhirCernerEncounterSearchInput(
                         search_params={"patient": patient_id, "status": "finished"}
                     ),
@@ -668,7 +662,7 @@ async def cerner_post_consultation_scenario(
         # Cerner requires CodeSet 72 proprietary system — NOT a raw LOINC system URL.
         # The tenant ID is embedded in the connector's FHIR base URL path segment.
         try:
-            base_url_secret = connector._secret_provider.get_secret("cerner_fhir_base_url")
+            base_url_secret = connector.secret_provider.get_secret("cerner_fhir_base_url")
             # Extract tenant from URL: .../r4/{tenant_id} or similar
             parts = [p for p in base_url_secret.rstrip("/").split("/") if p]
             tenant_id = parts[-1] if parts else "your-tenant-id"
@@ -708,8 +702,7 @@ async def cerner_post_consultation_scenario(
             },
         )
 
-        doc_action = connector.get_action("create_document_reference")
-        doc_res = await execute_with_retry(doc_action, doc_input, trace_id, steps[-1])
+        doc_res = await execute_with_retry(connector, doc_input, trace_id, steps[-1])
 
         steps[-1].status = "success"
         steps[-1].details = f"Cerner EHR Updated. ID: {doc_res.resource_id}"
@@ -723,9 +716,8 @@ async def cerner_post_consultation_scenario(
         # STEP 4: Verification
         add_step("Document Verification", "pending", display_name="Verify EHR Update")
         try:
-            doc_search_action = connector.get_action("search_document_reference")
             verify_res = await execute_with_retry(
-                doc_search_action,
+                connector,
                 FhirCernerDocumentReferenceSearchInput(
                     search_params={"_id": doc_res.resource_id}
                 ),
@@ -826,7 +818,9 @@ async def gdrive_archival_scenario(
                 fields=fields,
             )
             list_input = GoogleDriveOperationInput.model_validate(list_op.model_dump(exclude_none=True))
-            res = await execute_with_retry(connector, list_input, trace_id, steps[-1])
+            res = await execute_with_retry(
+                connector, list_input, trace_id, steps[-1]
+            )
             n = len(res.raw.get("files") or [])
             steps[-1].status = "success"
             steps[-1].details = f"Retrieved {n} file(s) (page_size={page_size})"
@@ -855,7 +849,9 @@ async def gdrive_archival_scenario(
                 fields=gf,
             )
             get_input = GoogleDriveOperationInput.model_validate(get_op.model_dump(exclude_none=True))
-            res = await execute_with_retry(connector, get_input, trace_id, steps[-1])
+            res = await execute_with_retry(
+                connector, get_input, trace_id, steps[-1]
+            )
             got_id = res.raw.get("id") or fid
             name = res.raw.get("name", "")
             steps[-1].status = "success"
@@ -916,7 +912,9 @@ async def gdrive_archival_scenario(
 
         add_step("Drive Update", "pending", display_name="Apply file update")
         try:
-            res = await execute_with_retry(connector, upd_input, trace_id, steps[-1])
+            res = await execute_with_retry(
+                connector, upd_input, trace_id, steps[-1]
+            )
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update failed")
 
@@ -937,7 +935,9 @@ async def gdrive_archival_scenario(
             get_input = GoogleDriveOperationInput.model_validate(
                 get_op.model_dump(exclude_none=True)
             )
-            get_res = await execute_with_retry(connector, get_input, trace_id, steps[-1])
+            get_res = await execute_with_retry(
+                connector, get_input, trace_id, steps[-1]
+            )
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update verify failed")
 
@@ -1000,7 +1000,9 @@ async def gdrive_archival_scenario(
 
         upload_input = GoogleDriveOperationInput.model_validate(op_payload)
 
-        res = await execute_with_retry(connector, upload_input, trace_id, steps[-1])
+        res = await execute_with_retry(
+            connector, upload_input, trace_id, steps[-1]
+        )
         file_id = res.raw.get("id")
         
         if not file_id:
@@ -1025,7 +1027,9 @@ async def gdrive_archival_scenario(
                 type="user"
             )
         )
-        perm_res = await execute_with_retry(connector, perm_input, trace_id, steps[-1])
+        perm_res = await execute_with_retry(
+            connector, perm_input, trace_id, steps[-1]
+        )
         
         steps[-1].status = "success"
         steps[-1].details = f"Read access granted to {payload.recipient_email}"
@@ -1044,7 +1048,9 @@ async def gdrive_archival_scenario(
                 fields="id, name, mimeType, webViewLink, size, createdTime, owners"
             )
         )
-        get_res = await connector.internal_execute(get_input, trace_id=trace_id)
+        get_res = await execute_with_retry(
+            connector, get_input, trace_id, steps[-1]
+        )
         file_metadata = get_res.raw
         
         beautiful_data = {
