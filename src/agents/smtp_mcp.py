@@ -1,7 +1,8 @@
 """
 FastMCP Server Entrypoint — SMTP
 ================================
-Standalone MCP server exposing only the SMTP email tool.
+Standalone MCP server exposing the SMTP email tool:
+  • smtp_send_email
 
 Usage:
     python -m agents.smtp_mcp
@@ -56,7 +57,8 @@ def _make_server():
         name="smtp_send_email",
         description=(
             "Send an email to a recipient via SMTP. "
-            "Credentials are picked up from environment variables."
+            "Credentials are picked up from environment variables. "
+            "You can specify multiple recipients mapped to a single comma separated string."
         ),
     )
     async def smtp_send_email(
@@ -84,9 +86,9 @@ def _make_server():
             ).strip(" '\"")
 
         sender = _extract_email(sender)
-        recipient = _extract_email(to_email)
+        recipients = [_extract_email(addr.strip()) for addr in to_email.split(",") if addr.strip()]
 
-        logger.info("SMTP Tool | from=%s to=%s subject=%s", sender, recipient, subject)
+        logger.info("SMTP Tool | from=%s to=%s subject=%s", sender, recipients, subject)
 
         params = SmtpSendInput(
             host=smtp_host,
@@ -95,13 +97,14 @@ def _make_server():
             username_secret_key="SMTP_USERNAME",
             password_secret_key="SMTP_PASSWORD",
             from_email=sender,
-            to=[recipient],
+            to=recipients,
             subject=subject,
             body=body,
         )
         result = await smtp.internal_execute(params, trace_id=trace_id)
         return {"sent": result.sent, "message_id": getattr(result, "message_id", None)}
 
+    logger.info("Registered 1 SMTP MCP tools")
     return mcp
 
 
@@ -113,4 +116,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
