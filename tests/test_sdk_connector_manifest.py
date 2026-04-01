@@ -394,3 +394,42 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
     assert captured["payload"]["action"] == "files.upload"
     assert "mimeType" not in captured["payload"]
     assert "media" not in captured["payload"]
+
+
+def test_mcp_server_invoke_tool_malformed_name() -> None:
+    import asyncio
+
+    from bindings.mcp_server.server import McpServer
+
+    async def _run() -> None:
+        server = McpServer()
+        with pytest.raises(ValueError, match="Tool name must be in the form"):
+            await server.invoke_tool("no_dot_separator", {})
+
+    asyncio.run(_run())
+
+
+def test_mcp_server_invoke_tool_connector_not_in_filter() -> None:
+    import asyncio
+
+    from bindings.mcp_server.server import McpServer
+
+    async def _run() -> None:
+        server = McpServer(connector_ids=["fhir_cerner"])
+        with pytest.raises(ValueError, match="not allowed on this MCP server"):
+            await server.invoke_tool("fhir_epic.read_patient", {"resource_id": "x"})
+
+    asyncio.run(_run())
+
+
+def test_mcp_server_invoke_tool_unknown_connector_id() -> None:
+    import asyncio
+
+    from bindings.mcp_server.server import McpServer
+
+    async def _run() -> None:
+        server = McpServer()
+        with pytest.raises(ValueError, match="not available via MCP"):
+            await server.invoke_tool("unknown_connector_xyz.read_patient", {})
+
+    asyncio.run(_run())

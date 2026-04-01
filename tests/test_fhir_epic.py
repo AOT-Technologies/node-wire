@@ -380,3 +380,24 @@ async def test_fhir_epic_search_document_reference():
 
     assert result.total == 1
     assert result.resources[0]["id"] == "doc-789"
+
+
+# ---------------------------------------------------------------------------
+# Auth: token response without access_token
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_auth_missing_access_token() -> None:
+    c = _connector()
+    from connectors.fhir_epic.schema import FhirPatientReadInput
+
+    params = FhirPatientReadInput(action="read_patient", resource_id="eXYZ123")
+    token_empty = MagicMock()
+    token_empty.status_code = 200
+    token_empty.json.return_value = {}
+
+    with patch("connectors.fhir_epic.logic.jwt.encode", return_value="dummy-jwt"), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=token_empty):
+        with pytest.raises(ValueError, match="did not contain an access_token"):
+            await c.internal_execute(params, trace_id="test-trace")

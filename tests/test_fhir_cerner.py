@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from connectors.fhir_cerner.logic import FhirCernerConnector
@@ -452,4 +453,94 @@ async def test_fhir_cerner_create_document_reference_validation():
     with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
         with pytest.raises(ValueError, match="Cerner requires the proprietary CodeSet 72 system"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# Auth: malformed token URL (/hosts/)
+# ---------------------------------------------------------------------------
+
+
+class MalformedCernerTokenUrlProvider(SecretProvider):
+    """Token URL containing ``/hosts/`` triggers a clear configuration error."""
+
+    def __init__(self) -> None:
+        self._defaults = MockSecretProvider()
+
+    def get_secret(self, key: str) -> str:
+        if key == "cerner_token_url":
+            return (
+                "https://authorization.cerner.com/tenants/x/hosts/fhir-ehr-code.cerner.com/"
+                "protocols/oauth2/profiles/smart-v1/token"
+            )
+        return self._defaults.get_secret(key)
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_auth_rejects_malformed_token_url_with_hosts_segment() -> None:
+    c = FhirCernerConnector(secret_provider=MalformedCernerTokenUrlProvider())
+    from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
+
+    params = FhirCernerPatientReadInput(action="read_patient", resource_id="123")
+    with pytest.raises(ValueError, match="/hosts/"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# create_document_reference: OperationOutcome on HTTP error
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_create_document_reference_operation_outcome_error() -> None:
+    c = _connector()
+    from connectors.fhir_cerner.schema import FhirCernerDocumentReferenceCreateInput
+
+    params = FhirCernerDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        doc_status="final",
+        type={
+            "coding": [{
+                "system": "urn:oid:4.5.6",
+                "code": "18100",
+                "display": "Employer Group Scan",
+                "userSelected": True,
+            }],
+            "text": "Employer Group Scan",
+        },
+        subject="Patient/12724066",
+        data="dGVzdA==",
+        attachment_title="Document",
+        author=[{"reference": "Practitioner/p1"}],
+        context={
+            "encounter": [{"reference": "Encounter/enc-1"}],
+            "period": {"start": "2024-01-01T00:00:00Z", "end": "2024-01-01T01:00:00Z"},
+        },
+    )
+
+    post_req = httpx.Request("POST", "https://fhir.example/DocumentReference")
+    err_resp = httpx.Response(
+        400,
+        request=post_req,
+        json={
+            "resourceType": "OperationOutcome",
+            "issue": [
+                {"severity": "error", "code": "invalid", "diagnostics": "Cerner rejected payload"}
+            ],
+        },
+    )
+
+    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response | MagicMock:
+        post_side_effect.calls += 1
+        if post_side_effect.calls == 1:
+            return _token_mock()
+        return err_resp
+
+    post_side_effect.calls = 0
+
+    with patch("connectors.fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=post_side_effect):
+        with pytest.raises(ValueError, match="Cerner rejected payload"):
             await c.internal_execute(params, trace_id="test-trace")

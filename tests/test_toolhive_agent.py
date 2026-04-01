@@ -131,9 +131,7 @@ class _MockLLMProvider(BaseLLMProvider):
 def test_llm_factory_groq_created() -> None:
     """LLMProviderFactory.create('groq') should return a GroqProvider instance."""
     from agents.llm_factory import LLMProviderFactory
-    import agents.providers.groq_provider
-    print(f"\nDEBUG: gp file: {agents.providers.groq_provider.__file__}")
-    print(f"DEBUG: gp dir: {dir(agents.providers.groq_provider)}")
+
     with patch("agents.providers.groq_provider.Groq"):
         provider = LLMProviderFactory.create("groq", api_key="test-key", model="llama3-8b-8192")
     from agents.providers.groq_provider import GroqProvider
