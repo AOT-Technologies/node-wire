@@ -96,6 +96,8 @@ The platform is split into three layers:
 
 ### Connector-specific documentation
 
+**Architecture (BaseConnector vs SDKConnector, factory, examples):** [docs/connectors.md](docs/connectors.md).
+
 **Details for each connector**—operations, request/response bodies, examples, and error handling—**are documented in that connector’s folder.**
 
 Examples: Google Drive has a full doc at `src/connectors/google_drive/README.md`; FHIR connectors are documented at `src/connectors/fhir_epic/README.md` and `src/connectors/fhir_cerner/README.md`. Other connectors may have a similar `.md` in their folder or document behavior in code and docstrings; always check the connector’s folder for up-to-date details.

@@ -137,6 +137,9 @@ All responses use the same standard shape:
 
 ## Connectors Overview
 
+**Developer guide (BaseConnector vs SDKConnector, config, examples):** [docs/connectors.md](docs/connectors.md).
+
+
 
 | Connector        | What It Does                               | Credentials Needed                     | Setup Guide                                                                                   |
 | ---------------- | ------------------------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------- |
