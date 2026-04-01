@@ -123,14 +123,14 @@ Examples: Google Drive has a full doc at `src/connectors/google_drive/README.md`
 ### gRPC / MCP
 
 - **gRPC:** Started when `MODE=GRPC`; server listens on port 50051.
-- **MCP:** Started when `MODE=MCP`; server exposes tools for discovery and invocation.
+- **MCP:** `MODE=MCP` starts a minimal MCP-style placeholder server (sufficient for local, manual inspection), but it is not the full stdio MCP server used for ToolHive and the agent layer.
 
 ### Entrypoint
 
 - Run with `python -m bindings_entrypoint` (or the `node-wire` script after install). The **MODE** environment variable selects:
   - **API** (default) – REST API on port 8000.
   - **GRPC** – gRPC server on port 50051.
-  - **MCP** – MCP server.
+  - **MCP** – minimal MCP-style placeholder server (see note above).
 
 ---
 
@@ -193,3 +193,11 @@ $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
 ## Dependencies
 
 All dependencies are declared in `pyproject.toml` (Python >=3.11). They include: pydantic, FastAPI, uvicorn, tenacity, pybreaker, OpenTelemetry, grpcio, and connector-specific libraries (httpx, aiosmtplib, stripe, google-auth, google-api-python-client, etc.). See `pyproject.toml` for the full list and versions.
+
+---
+
+## Setup and development docs
+
+- Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
+- Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
+- Creating a new connector: [docs/creating-a-connector.md](docs/creating-a-connector.md)

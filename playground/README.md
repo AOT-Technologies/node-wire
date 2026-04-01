@@ -97,8 +97,8 @@ The demo is pre-configured with mock/sandbox endpoints for immediate use. To tes
 To test the Google Drive integration manually, follow these specialized setup steps:
 1.  **Service Account**: Create a Service Account in the Google Cloud Console with the **Google Drive API** enabled. Download the JSON key.
 2.  **Secret Configuration**:
-    *   Place the JSON key file in your project directory (e.g., `D:\connector-platform\service_account.json`).
-    *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=D:\connector-platform\service_account.json`. 
+    *   Place the JSON key file somewhere safe on your machine (e.g., `<PATH_TO_FILE>/service_account.json`).
+    *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=<PATH_TO_FILE>/service_account.json`.
     *   *Note: The platform now supports direct file paths for easier local configuration.*
 3.  **Permissions**: If using a specific **Vault Folder ID**, ensure that folder is shared with the Service Account's email address (found in the JSON) with "Editor" or "Manager" permissions.
 4.  **Workflow Verification**:
@@ -110,7 +110,7 @@ To test the Google Drive integration manually, follow these specialized setup st
 To enable the AI Agent chat, you need to configure an LLM provider:
 1.  **Select Provider**: Set `LLM_PROVIDER` to `groq` (default) or `openai` in your `.env`.
 2.  **Add API Key**: Provide the corresponding key, e.g., `GROQ_API_KEY=your_key_here`.
-3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) to enable the agent to send emails.
+3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
 4.  **MCP URL**: (Optional) If running the MCP server in a separate container, set `TOOLHIVE_MCP_URL` to point to the MCP proxy.
 
 ---
@@ -119,8 +119,14 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 
 1.  Navigate to the project root.
 2.  Start the FastAPI server:
-    ```bash
-    set MODE=API&& python -m bindings_entrypoint 
-    ```
+    
+```bash
+# Recommended
+uv run node-wire
+
+# Equivalent (no uv)
+MODE=API python -m bindings_entrypoint
+```
+
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).
 4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive Vault**, and **AI Agent** tabs to explore the different workflows.
