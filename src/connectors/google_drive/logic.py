@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import base64
 import json
 import logging
 from typing import Any
@@ -9,41 +7,36 @@ from typing import Any
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaInMemoryUpload
 
-from runtime import SDKConnector, sdk_action
+from runtime import SDKConnector
 from runtime.models import ErrorCategory
+from runtime.sdk_action_spec import execute_spec_in_thread
 
+from .action_spec import DEFAULT_LIST_FIELDS, GOOGLE_DRIVE_ACTION_SPECS
 from .exceptions import (
     GoogleDriveAuthError,
     GoogleDriveBusinessError,
     GoogleDriveFatalError,
     GoogleDriveRateLimitError,
 )
-from .schema import (
-    FilesCreateOperation,
-    FilesDeleteOperation,
-    FilesGetOperation,
-    FilesListOperation,
-    FilesUpdateOperation,
-    FilesUploadOperation,
-    GoogleDriveOperationOutput,
-    PermissionsCreateOperation,
-)
+from .schema import GoogleDriveOperationOutput
 
 logger = logging.getLogger("connectors.google_drive")
 
-DEFAULT_LIST_FIELDS = "nextPageToken, files(id, name, mimeType, webViewLink)"
+# Re-export for tests and callers that imported from logic.
+__all__ = ["DEFAULT_LIST_FIELDS", "GoogleDriveConnector"]
 
 
 class GoogleDriveConnector(SDKConnector):
     """
-    Google Drive connector: each Drive operation is an @sdk_action method.
+    Google Drive connector: Drive API v3 operations are driven by action specs
+    (see action_spec.py) and thin @sdk_action handlers for logging and dispatch.
     """
 
     connector_id = "google_drive"
     action = "execute"
     output_model = GoogleDriveOperationOutput
+    action_specs = GOOGLE_DRIVE_ACTION_SPECS
 
     error_map = {
         GoogleDriveAuthError: (ErrorCategory.AUTH, "GDRIVE_AUTH"),
@@ -89,203 +82,26 @@ class GoogleDriveConnector(SDKConnector):
 
         raise GoogleDriveFatalError(f"Unhandled HttpError status {status}") from exc
 
-    @sdk_action("files.create")
-    async def files_create(
-        self, params: FilesCreateOperation, *, trace_id: str
+    async def _execute_action_spec(
+        self,
+        action_name: str,
+        params: Any,
+        *,
+        trace_id: str,
+        log_extra: dict[str, Any] | None = None,
     ) -> GoogleDriveOperationOutput:
-        logger.info("Google Drive files.create", extra={"trace_id": trace_id})
+        spec = GOOGLE_DRIVE_ACTION_SPECS.get(action_name)
+        if spec is None:
+            raise ValueError(f"No action spec registered for {action_name!r}")
         drive = self.get_client()
-        body = {k: v for k, v in {
-            "name": params.name,
-            "mimeType": params.mime_type,
-            "parents": params.parents,
-        }.items() if v is not None}
+        extra = {"trace_id": trace_id, **(log_extra or {})}
+        logger.info("Google Drive %s", action_name, extra=extra)
         try:
-            result = await asyncio.to_thread(
-                lambda: drive.files().create(
-                    body=body,
-                    fields="id, name, webViewLink",
-                    supportsAllDrives=True,
-                ).execute()
-            )
+            raw = await execute_spec_in_thread(drive, spec, params)
         except HttpError as exc:
             self._translate_and_raise_http_error(exc)
         return GoogleDriveOperationOutput(
-            raw=result, description="Successfully executed files.create"
+            raw=raw,
+            description=f"Successfully executed {action_name}",
         )
 
-    @sdk_action("files.list")
-    async def files_list(
-        self, params: FilesListOperation, *, trace_id: str
-    ) -> GoogleDriveOperationOutput:
-        logger.info("Google Drive files.list", extra={"trace_id": trace_id})
-        drive = self.get_client()
-        fields = params.fields or DEFAULT_LIST_FIELDS
-        try:
-            result = await asyncio.to_thread(
-                lambda: drive.files().list(
-                    pageSize=params.page_size,
-                    q=params.query,
-                    fields=fields,
-                    pageToken=params.page_token,
-                    supportsAllDrives=True,
-                    includeItemsFromAllDrives=True,
-                ).execute()
-            )
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw=result, description="Successfully executed files.list"
-        )
-
-    @sdk_action("files.get")
-    async def files_get(
-        self, params: FilesGetOperation, *, trace_id: str
-    ) -> GoogleDriveOperationOutput:
-        logger.info(
-            "Google Drive files.get",
-            extra={"trace_id": trace_id, "file_id": params.file_id},
-        )
-        drive = self.get_client()
-        fields = params.fields or "id,name,mimeType,parents"
-        try:
-            result = await asyncio.to_thread(
-                lambda: drive.files().get(
-                    fileId=params.file_id,
-                    fields=fields,
-                    supportsAllDrives=True,
-                ).execute()
-            )
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw=result, description="Successfully executed files.get"
-        )
-
-    @sdk_action("files.update")
-    async def files_update(
-        self, params: FilesUpdateOperation, *, trace_id: str
-    ) -> GoogleDriveOperationOutput:
-        logger.info(
-            "Google Drive files.update",
-            extra={"trace_id": trace_id, "file_id": params.file_id},
-        )
-        drive = self.get_client()
-        body: dict[str, Any] = {}
-        if params.name is not None:
-            body["name"] = params.name
-        if params.mime_type is not None:
-            body["mimeType"] = params.mime_type
-        kwargs: dict[str, Any] = {}
-        if params.add_parents:
-            kwargs["addParents"] = ",".join(params.add_parents)
-        if params.remove_parents:
-            kwargs["removeParents"] = ",".join(params.remove_parents)
-        try:
-            result = await asyncio.to_thread(
-                lambda: drive.files().update(
-                    fileId=params.file_id,
-                    body=body,
-                    supportsAllDrives=True,
-                    **kwargs,
-                ).execute()
-            )
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw=result, description="Successfully executed files.update"
-        )
-
-    @sdk_action("files.upload")
-    async def files_upload(
-        self, params: FilesUploadOperation, *, trace_id: str
-    ) -> GoogleDriveOperationOutput:
-        logger.info("Google Drive files.upload", extra={"trace_id": trace_id})
-        drive = self.get_client()
-        body = {k: v for k, v in {
-            "name": params.name,
-            "mimeType": params.mime_type,
-            "parents": params.parents,
-        }.items() if v is not None}
-        if params.content_base64 is not None:
-            media_bytes = base64.b64decode(params.content_base64)
-        elif params.content is not None:
-            media_bytes = params.content.encode("utf-8")
-        else:
-            raise ValueError(
-                "Either content or content_base64 must be provided for files.upload"
-            )
-        media = MediaInMemoryUpload(
-            media_bytes,
-            mimetype=params.mime_type,
-            resumable=False,
-        )
-        try:
-            result = await asyncio.to_thread(
-                lambda: drive.files().create(
-                    body=body,
-                    media_body=media,
-                    fields="id, name, webViewLink",
-                    supportsAllDrives=True,
-                ).execute()
-            )
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw=result, description="Successfully executed files.upload"
-        )
-
-    @sdk_action("files.delete")
-    async def files_delete(
-        self, params: FilesDeleteOperation, *, trace_id: str
-    ) -> GoogleDriveOperationOutput:
-        logger.info(
-            "Google Drive files.delete",
-            extra={"trace_id": trace_id, "file_id": params.file_id},
-        )
-        drive = self.get_client()
-        try:
-            await asyncio.to_thread(
-                lambda: drive.files().update(
-                    fileId=params.file_id,
-                    body={"trashed": True},
-                    supportsAllDrives=True,
-                ).execute()
-            )
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw={"file_id": params.file_id, "status": "deleted"},
-            description="Successfully executed files.delete",
-        )
-
-    @sdk_action("permissions.create")
-    async def permissions_create(
-        self, params: PermissionsCreateOperation, *, trace_id: str
-    ) -> GoogleDriveOperationOutput:
-        logger.info(
-            "Google Drive permissions.create",
-            extra={"trace_id": trace_id, "file_id": params.file_id},
-        )
-        drive = self.get_client()
-        body: dict[str, Any] = {
-            "role": params.role,
-            "type": params.type,
-        }
-        if params.email_address:
-            body["emailAddress"] = params.email_address
-        if params.domain:
-            body["domain"] = params.domain
-        try:
-            result = await asyncio.to_thread(
-                lambda: drive.permissions().create(
-                    fileId=params.file_id,
-                    body=body,
-                    supportsAllDrives=True,
-                ).execute()
-            )
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw=result, description="Successfully executed permissions.create"
-        )

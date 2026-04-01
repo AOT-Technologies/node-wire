@@ -22,11 +22,86 @@ from .base import BaseConnector
 from .errors import ErrorMapper
 from .models import ErrorCategory
 from .secrets import SecretProvider
+from .sdk_action_spec import SdkActionSpec
 
 logger = logging.getLogger("runtime.sdk_connector")
 
 # Populated by SDKConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["SDKConnector"]] = {}
+
+
+def _make_spec_handler(
+    action_name: str,
+    input_model: Any,
+    output_model: Any,
+    cls_qualname: str,
+    cls_module: str,
+) -> Any:
+    """
+    Build a single async handler function for one action_specs entry.
+    Using a factory function (rather than a loop + default-arg trick) ensures
+    action_name is captured by value in the closure and does not appear in the
+    method signature seen by inspect.signature / get_type_hints.
+    """
+    fn_name = action_name.replace(".", "_").replace("-", "_")
+
+    async def _handler(self, params, *, trace_id: str):
+        return await self._execute_action_spec(action_name, params, trace_id=trace_id)
+
+    _handler.__name__ = fn_name
+    _handler.__qualname__ = f"{cls_qualname}.{fn_name}"
+    _handler.__module__ = cls_module
+    # Set actual type objects (not strings) so get_type_hints() resolves correctly
+    # even when `from __future__ import annotations` is active in the connector module.
+    _handler.__annotations__ = {"params": input_model, "return": output_model}
+    _handler._sdk_action_name = action_name
+    return _handler
+
+
+def _generate_methods_from_action_specs(cls: type) -> None:
+    """
+    For each entry in cls.action_specs, generate an async @sdk_action method and
+    attach it to cls. Called at the top of SDKConnector.__init_subclass__ so the
+    existing discovery loop picks up the generated methods.
+
+    Opt-in: only triggers when the class defines action_specs in its own __dict__.
+    """
+    specs = cls.__dict__.get("action_specs")
+    if specs is None:
+        return
+
+    fallback_output = getattr(cls, "output_model", None)
+
+    for action_name, spec in specs.items():
+        if not isinstance(spec, SdkActionSpec):
+            raise TypeError(
+                f"{cls.__name__}: action_specs[{action_name!r}] must be a SdkActionSpec instance"
+            )
+        input_model = spec.input_model
+        if not (isinstance(input_model, type) and issubclass(input_model, BaseModel)):
+            raise TypeError(
+                f"{cls.__name__}: action_specs[{action_name!r}] requires "
+                "input_model=<BaseModel subclass>"
+            )
+
+        output_model = spec.output_model if spec.output_model is not None else fallback_output
+        if not (isinstance(output_model, type) and issubclass(output_model, BaseModel)):
+            raise TypeError(
+                f"{cls.__name__}: action_specs[{action_name!r}] has no resolvable "
+                "output_model — set it on the SdkActionSpec or define cls.output_model"
+            )
+
+        fn_name = action_name.replace(".", "_").replace("-", "_")
+        if fn_name in cls.__dict__:
+            raise TypeError(
+                f"{cls.__name__}: action_specs[{action_name!r}] conflicts with "
+                f"existing method {fn_name!r}"
+            )
+
+        handler = _make_spec_handler(
+            action_name, input_model, output_model, cls.__qualname__, cls.__module__
+        )
+        setattr(cls, fn_name, handler)
 
 
 def sdk_action(name: str):
@@ -78,6 +153,10 @@ class SDKConnector(BaseConnector):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+
+        # Phase 0: auto-generate @sdk_action methods from action_specs (opt-in).
+        # Must run before the dir(cls) discovery loop below.
+        _generate_methods_from_action_specs(cls)
 
         registry: Dict[str, SdkActionMeta] = {}
         for attr_name in dir(cls):

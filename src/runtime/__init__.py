@@ -4,6 +4,12 @@ from .base import BaseConnector
 from .secrets import SecretProvider
 from .policy import PolicyHook, PolicyDenied
 from .sdk_connector import SDKConnector, sdk_action, _CONNECTOR_REGISTRY
+from .sdk_action_spec import (
+    SdkActionSpec,
+    default_build_kwargs,
+    execute_spec_in_thread,
+    navigate_resource,
+)
 
 __all__ = [
     "ConnectorResponse",
@@ -16,4 +22,8 @@ __all__ = [
     "SDKConnector",
     "sdk_action",
     "_CONNECTOR_REGISTRY",
+    "SdkActionSpec",
+    "default_build_kwargs",
+    "execute_spec_in_thread",
+    "navigate_resource",
 ]

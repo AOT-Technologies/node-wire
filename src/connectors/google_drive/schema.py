@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Dict, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 
 class BaseDriveOperation(BaseModel):
@@ -42,6 +42,13 @@ class PermissionsCreateOperation(BaseDriveOperation):
     email_address: Optional[str] = None
     type: Literal["user", "group", "domain", "anyone"]
     domain: Optional[str] = Field(None, description="G Suite domain when type is domain.")
+
+    @field_validator("email_address", "domain", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @model_validator(mode="after")
     def require_fields_for_perm_type(self) -> "PermissionsCreateOperation":
