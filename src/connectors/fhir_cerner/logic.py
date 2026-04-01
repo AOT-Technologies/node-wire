@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import jwt
 
-from runtime import BaseConnector, SecretProvider
+from runtime import SDKConnector, sdk_action
 
 from . import registration
 from .schema import (
@@ -21,7 +21,6 @@ from .schema import (
     FhirCernerDocumentReferenceSearchOutput,
     FhirCernerEncounterSearchInput,
     FhirCernerEncounterSearchOutput,
-    FhirCernerOperationInput,
     FhirCernerOperationOutput,
     FhirCernerPatientReadInput,
     FhirCernerPatientReadOutput,
@@ -32,44 +31,56 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_cerner")
 
 
-class FhirCernerConnector(BaseConnector[FhirCernerOperationInput, FhirCernerOperationOutput]):
+class FhirCernerConnector(SDKConnector):
     """
-    Single FHIR/Cerner connector.
+    FHIR/Cerner connector: SMART Backend Services (private_key_jwt), RS384.
 
-    Authentication uses Cerner's SMART Backend Services (private_key_jwt) flow,
-    identical to Epic's implementation — RS384-signed JWT exchanged for an
-    OAuth2 access token at the configured token endpoint.
-
-    Required secrets (configured via SecretProvider):
-      - cerner_fhir_base_url  : Cerner FHIR R4 base URL
-      - cerner_private_key    : RSA private key PEM (newlines may be escaped)
-      - cerner_kid            : Key ID registered in the Cerner code console
-      - cerner_client_id      : Client ID from Cerner app registration
-      - cerner_token_url      : OAuth2 token endpoint URL (from .well-known/smart-configuration
-                                or the Cerner code console)
+    Required secrets: cerner_fhir_base_url, cerner_private_key, cerner_kid,
+    cerner_client_id, cerner_token_url (optional cerner_scopes).
     """
 
     connector_id = "fhir_cerner"
     action = "execute"
+    output_model = FhirCernerOperationOutput
 
-    def __init__(self, *, secret_provider: SecretProvider) -> None:
-        super().__init__(FhirCernerOperationInput, FhirCernerOperationOutput, secret_provider=secret_provider)
-        self._secret_provider = secret_provider
+    @sdk_action("read_patient")
+    async def read_patient(
+        self, params: FhirCernerPatientReadInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._read_patient(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resource=out.resource)
 
-    async def internal_execute(self, params: Any, *, trace_id: str) -> Any:
-        # Back-compat: allow calling with either the RootModel union or a concrete action input model.
-        op = params.root if hasattr(params, "root") else params
-        if op.action == "read_patient":
-            return await self._read_patient(op, trace_id=trace_id)
-        if op.action == "search_patients":
-            return await self._search_patients(op, trace_id=trace_id)
-        if op.action == "search_encounter":
-            return await self._search_encounter(op, trace_id=trace_id)
-        if op.action == "create_document_reference":
-            return await self._create_document_reference(op, trace_id=trace_id)
-        if op.action == "search_document_reference":
-            return await self._search_document_reference(op, trace_id=trace_id)
-        raise ValueError(f"Unsupported action: {op.action!r}")
+    @sdk_action("search_patients")
+    async def search_patients(
+        self, params: FhirCernerPatientSearchInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._search_patients(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(
+            resources=out.resources,
+            total=out.total,
+            errors=out.errors,
+        )
+
+    @sdk_action("search_encounter")
+    async def search_encounter(
+        self, params: FhirCernerEncounterSearchInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._search_encounter(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resources=out.resources, total=out.total)
+
+    @sdk_action("create_document_reference")
+    async def create_document_reference(
+        self, params: FhirCernerDocumentReferenceCreateInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._create_document_reference(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resource_id=out.resource_id, resource=out.resource)
+
+    @sdk_action("search_document_reference")
+    async def search_document_reference(
+        self, params: FhirCernerDocumentReferenceSearchInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._search_document_reference(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
     # Shared authentication helpers

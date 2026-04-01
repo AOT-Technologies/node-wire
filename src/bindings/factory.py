@@ -7,24 +7,15 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from connectors.fhir_epic.logic import FhirEpicConnector
-from connectors.fhir_cerner.logic import FhirCernerConnector
 from connectors.http_generic.logic import HttpGenericConnector
 from connectors.http_generic.schema import HttpRequestInput, HttpResponseOutput
-from connectors.google_drive.logic import GoogleDriveConnector
-from connectors.google_drive.schema import (
-    GoogleDriveOperationInput,
-    GoogleDriveOperationOutput,
-)
 from connectors.smtp.logic import SmtpConnector
 from connectors.smtp.schema import SmtpSendInput, SmtpSendOutput
-from connectors.stripe.logic import StripeChargeConnector
-from connectors.stripe.schema import ChargeInput, ChargeOutput
 from runtime import BaseConnector, SecretProvider
+from runtime.sdk_connector import _CONNECTOR_REGISTRY
 
 logger = logging.getLogger("bindings.factory")
 
-# Resolve default config relative to platform root so it works from any cwd.
 _PLATFORM_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_CONFIG_PATH = _PLATFORM_ROOT / "config" / "connectors.yaml"
 
@@ -38,11 +29,7 @@ class ConnectorConfig:
 
 
 class EnvSecretProvider(SecretProvider):
-    """
-    Simple SecretProvider implementation backed by environment variables.
-
-    Keys are looked up directly from os.environ for the POC.
-    """
+    """SecretProvider backed by environment variables."""
 
     def __init__(self) -> None:
         import os
@@ -56,16 +43,13 @@ class EnvSecretProvider(SecretProvider):
         val = self._env.get(key.upper())
         if val is not None:
             return val.strip(" '\"")
-        # Return empty string instead of raising RuntimeError for zero-config/local testing.
         return ""
 
 
 class ConnectorFactory:
     """
-    Factory responsible for:
-    - Loading connector configuration from config/connectors.yaml
-    - Instantiating connector adapters
-    - Enforcing exposed_via rules per protocol
+    Loads config/connectors.yaml, instantiates connectors from the SDK registry
+    or legacy explicit constructors.
     """
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -74,7 +58,6 @@ class ConnectorFactory:
         elif _DEFAULT_CONFIG_PATH.is_file():
             self._config_path = str(_DEFAULT_CONFIG_PATH)
         else:
-            # Fallback when run from platform dir (e.g. package installed from wheel)
             cwd_config = Path.cwd() / "config" / "connectors.yaml"
             self._config_path = str(cwd_config)
         self._secret_provider: SecretProvider = EnvSecretProvider()
@@ -114,22 +97,22 @@ class ConnectorFactory:
             self._connectors[connector_id] = self._instantiate(connector_id)
 
     def _instantiate(self, connector_id: str) -> Any:
+        sdk_cls = _CONNECTOR_REGISTRY.get(connector_id)
+        if sdk_cls is not None:
+            return sdk_cls(secret_provider=self._secret_provider)
+
         if connector_id == "http_generic":
-            return HttpGenericConnector(HttpRequestInput, HttpResponseOutput, secret_provider=self._secret_provider)
-        if connector_id == "smtp":
-            return SmtpConnector(SmtpSendInput, SmtpSendOutput, secret_provider=self._secret_provider)
-        if connector_id == "stripe":
-            return StripeChargeConnector(ChargeInput, ChargeOutput, secret_provider=self._secret_provider)
-        if connector_id == "google_drive":
-            return GoogleDriveConnector(
-                GoogleDriveOperationInput,
-                GoogleDriveOperationOutput,
+            return HttpGenericConnector(
+                HttpRequestInput,
+                HttpResponseOutput,
                 secret_provider=self._secret_provider,
             )
-        if connector_id == "fhir_epic":
-            return FhirEpicConnector(secret_provider=self._secret_provider)
-        if connector_id == "fhir_cerner":
-            return FhirCernerConnector(secret_provider=self._secret_provider)
+        if connector_id == "smtp":
+            return SmtpConnector(
+                SmtpSendInput,
+                SmtpSendOutput,
+                secret_provider=self._secret_provider,
+            )
 
         raise ValueError(f"Unknown connector id {connector_id!r}")
 
@@ -164,7 +147,7 @@ class ConnectorFactory:
 
         if action:
             logger.debug(
-                "get_for_protocol resolved connector (action from URL is merged into payload by REST)",
+                "get_for_protocol resolved connector",
                 extra={"connector_id": connector_id, "protocol": protocol, "action": action},
             )
 

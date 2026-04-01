@@ -38,8 +38,6 @@ class HttpGenericConnector(BaseConnector[HttpRequestInput, HttpResponseOutput]):
             },
         )
 
-        print(f"trace_id: {trace_id} from node-wire-connector")
-
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.request(

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, RootModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -275,29 +275,11 @@ class FhirCernerDocumentReferenceSearchOutput(BaseModel):
     """Total number of results reported by the Bundle."""
 
 
-# ---------------------------------------------------------------------------
-# Unified operation input/output (one endpoint, multiple actions)
-# ---------------------------------------------------------------------------
-
-_FhirCernerOperationUnion = Annotated[
-    Union[
-        FhirCernerPatientReadInput,
-        FhirCernerPatientSearchInput,
-        FhirCernerEncounterSearchInput,
-        FhirCernerDocumentReferenceCreateInput,
-        FhirCernerDocumentReferenceSearchInput,
-    ],
-    Field(discriminator="action"),
-]
-
-FhirCernerOperationInput = RootModel[_FhirCernerOperationUnion]
-
-
 class FhirCernerOperationOutput(BaseModel):
     """
-    Combined output shape for schema documentation/manifest generation.
+    Unified output for all Cerner FHIR actions (SDKConnector single output_model).
 
-    Individual handlers still return their specific output models.
+    Fields are populated depending on the action; unused fields are None.
     """
 
     resource: Optional[Dict[str, Any]] = None

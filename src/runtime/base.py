@@ -74,7 +74,6 @@ class BaseConnector(ABC, Generic[InputModelT, OutputModelT]):
         - Maps exceptions into the standard error taxonomy
         """
         trace_id = str(uuid.uuid4())
-        print(f"trace_id: {trace_id} from runtime.base")
 
         with tracer.start_as_current_span(
             "connector.run",
@@ -97,7 +96,7 @@ class BaseConnector(ABC, Generic[InputModelT, OutputModelT]):
 
             try:
                 try:
-                    input_model = self._input_model_cls(**raw_input)
+                    input_model = self._input_model_cls.model_validate(raw_input)
                 except ValidationError as exc:
                     logger.error(
                         "Input validation failed",

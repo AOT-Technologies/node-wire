@@ -6,7 +6,6 @@ from typing import Any, Dict
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, create_model
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environmental variables from .env
@@ -14,7 +13,7 @@ load_dotenv()  # Load environmental variables from .env
 from bindings.factory import ConnectorFactory
 from connectors import auto_register
 from connectors.manifest import build_manifest
-from runtime import ConnectorResponse, ErrorCategory
+from runtime import ConnectorResponse, ErrorCategory, SDKConnector
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -35,9 +34,6 @@ tracer = trace.get_tracer("bindings.rest_api")
 
 app = FastAPI(title="Node Wire - REST API")
 FastAPIInstrumentor.instrument_app(app)
-
-import os
-from pathlib import Path
 
 # Include the professional scenarios orchestrator
 app.include_router(scenarios_router)
@@ -73,9 +69,6 @@ def _http_status_for_category(category: ErrorCategory | None) -> int:
         return 503
     return 500
 
-_FHIR_REST_IDS = frozenset({"fhir_cerner", "fhir_epic"})
-
-
 def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         payload: Dict[str, Any],
@@ -93,7 +86,7 @@ def _make_endpoint(cid: str, act: str) -> Any:
         if connector is None:
             raise HTTPException(status_code=404, detail="Connector not available for REST")
         run_payload = dict(payload)
-        if cid in _FHIR_REST_IDS:
+        if isinstance(connector, SDKConnector):
             run_payload.setdefault("action", act)
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.

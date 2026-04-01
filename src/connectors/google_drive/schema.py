@@ -11,9 +11,6 @@ class BaseDriveOperation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-# --- Specific Operation Schemas ---
-
-
 class FilesCreateOperation(BaseDriveOperation):
     action: Literal["files.create"]
     name: str = Field(..., description="The name of the file.")
@@ -31,6 +28,10 @@ class FilesListOperation(BaseDriveOperation):
             "Optional fields mask for the list response. If omitted, the connector "
             "uses a performant default: nextPageToken, files(id, name, mimeType, webViewLink)."
         ),
+    )
+    page_token: Optional[str] = Field(
+        None,
+        description="Token for the next page of results from a previous files.list response.",
     )
 
 
@@ -91,11 +92,7 @@ class FilesDeleteOperation(BaseDriveOperation):
     file_id: str
 
 
-# --- The Envelope ---
-# The runtime validates against this single type. Pydantic automatically
-# routes the validation to the correct sub-model based on the "action" field.
-# RootModel accepts **raw_input in __init__ so BaseConnector's _input_model_cls(**raw_input) works.
-_OperationUnion = Annotated[
+_GoogleDriveOperationUnion = Annotated[
     Union[
         FilesCreateOperation,
         FilesListOperation,
@@ -108,7 +105,8 @@ _OperationUnion = Annotated[
     Field(discriminator="action"),
 ]
 
-GoogleDriveOperationInput = RootModel[_OperationUnion]
+# Discriminated union for tests/agents; must stay aligned with GoogleDriveConnector @sdk_action set.
+GoogleDriveOperationInput = RootModel[_GoogleDriveOperationUnion]
 
 
 class GoogleDriveOperationOutput(BaseModel):

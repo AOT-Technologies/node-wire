@@ -8,8 +8,7 @@ from connectors.http_generic.logic import HttpGenericConnector
 from connectors.http_generic.schema import HttpRequestInput, HttpResponseOutput
 from connectors.smtp.logic import SmtpConnector
 from connectors.smtp.schema import SmtpSendInput, SmtpSendOutput
-from connectors.stripe.logic import StripeChargeConnector
-from connectors.stripe.schema import ChargeInput, ChargeOutput
+from connectors.stripe.logic import StripeConnector
 from runtime import ConnectorResponse, ErrorCategory, SecretProvider
 from connectors import auto_register
 
@@ -25,6 +24,7 @@ class DummySecretProvider(SecretProvider):
 def test_auto_register_runs_without_error():
     imported = auto_register()
     assert any("http_generic.registration" in name for name in imported)
+    assert any("google_drive.logic" in name for name in imported)
 
 
 def test_http_connector_instantiation_only():
@@ -40,7 +40,7 @@ def test_smtp_connector_instantiation_only():
 
 
 def test_stripe_connector_instantiation_only():
-    connector = StripeChargeConnector(ChargeInput, ChargeOutput, secret_provider=DummySecretProvider())
+    connector = StripeConnector(secret_provider=DummySecretProvider())
     assert connector.connector_id == "stripe"
     assert connector.action == "charge"
 
