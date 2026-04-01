@@ -41,11 +41,11 @@ flowchart TD
 
 ## Naming conventions
 
-| Connector | Python entrypoint | Docker image | ToolHive name | MCP tool(s) exposed |
+| Connector | Python entrypoint | Docker image | ToolHive name | MCP tools exposed |
 |---|---|---|---|---|
-| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | `google_drive_upload_file` |
-| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | `fhir_epic_read_patient` |
-| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | `fhir_cerner_read_patient` |
+| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | `google_drive_files_create`, `google_drive_files_list`, `google_drive_permissions_create`, `google_drive_files_get`, `google_drive_files_update`, `google_drive_files_upload`, `google_drive_files_delete` |
+| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | `fhir_epic_read_patient`, `fhir_epic_search_patients`, `fhir_epic_search_encounter`, `fhir_epic_create_document_reference`, `fhir_epic_search_document_reference` |
+| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | `fhir_cerner_read_patient`, `fhir_cerner_search_patients`, `fhir_cerner_search_encounter`, `fhir_cerner_create_document_reference`, `fhir_cerner_search_document_reference` |
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp_send_email` |
 
 ---
