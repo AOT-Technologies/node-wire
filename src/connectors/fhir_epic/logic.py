@@ -12,6 +12,12 @@ import httpx
 import jwt
 
 from runtime import BaseConnector, sdk_action
+from runtime.fhir_encounter import assert_encounter_query_has_patient
+from runtime.mcp_normalizers import (
+    normalize_fhir_read_patient,
+    normalize_fhir_search_encounter,
+    normalize_fhir_search_patients,
+)
 
 from .schema import (
     FhirDocumentReferenceCreateInput,
@@ -37,14 +43,22 @@ class FhirEpicConnector(BaseConnector):
     action = "execute"
     output_model = FhirEpicOperationOutput
 
-    @sdk_action("read_patient")
+    @sdk_action(
+        "read_patient",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_read_patient,
+    )
     async def read_patient(
         self, params: FhirPatientReadInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
         out = await self._read_patient(params, trace_id=trace_id)
         return FhirEpicOperationOutput(resource=out.resource)
 
-    @sdk_action("search_patients")
+    @sdk_action(
+        "search_patients",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_patients,
+    )
     async def search_patients(
         self, params: FhirPatientSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
@@ -55,7 +69,11 @@ class FhirEpicConnector(BaseConnector):
             errors=out.errors,
         )
 
-    @sdk_action("search_encounter")
+    @sdk_action(
+        "search_encounter",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_encounter,
+    )
     async def search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
@@ -367,7 +385,6 @@ class FhirEpicConnector(BaseConnector):
         self, params: FhirEncounterSearchInput, *, trace_id: str
     ) -> FhirEncounterSearchOutput:
         base_url = self._get_base_url()
-        auth_header = await self._get_auth_header()
 
         if params.patient_id or params.status or params.date:
             query_params = self._build_encounter_search_params(
@@ -385,6 +402,10 @@ class FhirEpicConnector(BaseConnector):
             )
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
+
+        assert_encounter_query_has_patient(query_params)
+
+        auth_header = await self._get_auth_header()
 
         try:
             async with httpx.AsyncClient() as client:

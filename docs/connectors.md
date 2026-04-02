@@ -289,7 +289,9 @@ Content-Type: application/json
 { "city": "Tokyo", "units": "metric" }
 ```
 
-The `action` field in the body is optional for REST — the binding injects it from the URL path. The runtime then performs full Pydantic validation and returns a `ConnectorResponse`.
+The `action` field in the body is optional for REST — the binding injects it from the URL path (see `src/runtime/ingress.py`). Per-action **argument normalizers** (`mcp_normalize` on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an `action` field, it **must** match the path segment; otherwise the API returns **400**.
+
+The runtime then performs full Pydantic validation and returns a `ConnectorResponse`.
 
 **Response envelope:**
 
@@ -319,17 +321,25 @@ HTTP status codes are mapped from `ErrorCategory`:
 
 The MCP server calls `connector.run(args_dict)` and serialises the `ConnectorResponse` as the tool result.
 
+The **tool name** (`<connector_id>.<action>`) is authoritative: after normalizers run, the binding sets `action` from the tool name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/runtime/ingress.py`).
+
+Optional per-action **argument normalizers** (`mcp_normalize` on `@sdk_action` / `SdkActionSpec`) run before `connector.run` to map LLM aliases to canonical fields. Actions default to **strict** JSON Schema (`additionalProperties: false`); set `alias_tolerant=True` only where extra keys must pass MCP SDK validation before normalization.
+
+Published **`input_schema` omits the `action` property** (manifest contract v2+): clients must not rely on sending `action` inside tool arguments; the MCP tool name (or REST path) is authoritative.
+
+**FHIR `search_encounter` (Epic/Cerner):** normalizers map root-level `patient` / `patientId` to `patient_id`, and `sort` → `_sort` (via `search_params`). Encounter search **requires** a patient filter (`patient_id` or `patient` in `search_params`) before any outbound FHIR call.
+
 ### Manifest
 
-`build_manifest(connectors)` is the single source of truth for both bindings. It returns one entry per `@sdk_action`:
+`build_manifest(connectors)` is the single source of truth for both bindings (by default it strips `action` from each entry’s `input_schema`). It returns one entry per `@sdk_action`:
 
 ```python
 [
   {
     "connector_id": "weather",
     "action": "current_weather",
-    "input_schema": { ... },   # JSON Schema from CurrentWeatherInput
-    "output_schema": { ... },  # JSON Schema from WeatherOutput
+    "input_schema": { ... },   # JSON Schema from CurrentWeatherInput (action not required)
+    "output_schema": { ... },  # ConnectorResponse envelope; data typed to the action output model (nullable on errors)
   },
   {
     "connector_id": "weather",

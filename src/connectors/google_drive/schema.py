@@ -93,6 +93,17 @@ class FilesUploadOperation(BaseDriveOperation):
     content: Optional[str] = Field(None, description="UTF-8 text content to upload.")
     content_base64: Optional[str] = Field(None, description="Base64 encoded binary content to upload.")
 
+    @model_validator(mode="after")
+    def exactly_one_of_content_or_base64(self) -> "FilesUploadOperation":
+        """Match Drive upload semantics: exactly one body source (aligned with action_spec)."""
+        has_text = self.content is not None
+        has_b64 = self.content_base64 is not None
+        if not has_text and not has_b64:
+            raise ValueError("Provide exactly one of 'content' or 'content_base64'.")
+        if has_text and has_b64:
+            raise ValueError("Provide exactly one of 'content' or 'content_base64', not both.")
+        return self
+
 
 class FilesDeleteOperation(BaseDriveOperation):
     action: Literal["files.delete"]

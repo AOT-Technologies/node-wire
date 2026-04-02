@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import (
     Annotated,
     Any,
+    Callable,
     ClassVar,
     Dict,
     Optional,
@@ -42,6 +43,8 @@ def _make_spec_handler(
     output_model: Any,
     cls_qualname: str,
     cls_module: str,
+    alias_tolerant: bool = False,
+    mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Any:
     """
     Build a single async handler function for one action_specs entry.
@@ -61,6 +64,8 @@ def _make_spec_handler(
     # even when `from __future__ import annotations` is active in the connector module.
     _handler.__annotations__ = {"params": input_model, "return": output_model}
     _handler._sdk_action_name = action_name
+    _handler._alias_tolerant = alias_tolerant
+    _handler._mcp_normalize = mcp_normalize
     return _handler
 
 
@@ -105,21 +110,35 @@ def _generate_methods_from_action_specs(cls: type) -> None:
             )
 
         handler = _make_spec_handler(
-            action_name, input_model, output_model, cls.__qualname__, cls.__module__
+            action_name, input_model, output_model, cls.__qualname__, cls.__module__,
+            alias_tolerant=spec.alias_tolerant,
+            mcp_normalize=spec.mcp_normalize,
         )
         setattr(cls, fn_name, handler)
 
 
-def sdk_action(name: str):
+def sdk_action(
+    name: str,
+    *,
+    alias_tolerant: bool = False,
+    mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None,
+):
     """
     Mark a connector method as a named, auto-discoverable action.
 
     The decorated method must be async and have full type annotations for its
     params (first arg after self) and return type.
+
+    Set alias_tolerant=True for actions whose MCP input schema should accept
+    extra/alias fields (e.g. LLM-generated aliases) before normalization runs.
+
+    Optional mcp_normalize mutates tool argument dicts in place before connector.run.
     """
 
     def decorator(fn: Any) -> Any:
         fn._sdk_action_name = name
+        fn._alias_tolerant = alias_tolerant
+        fn._mcp_normalize = mcp_normalize
         return fn
 
     return decorator
@@ -133,6 +152,8 @@ class SdkActionMeta:
     fn_name: str
     input_model: Type[BaseModel]
     output_model: Type[BaseModel]
+    alias_tolerant: bool = False
+    mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None
 
 
 class BaseConnector(ABC):
@@ -213,6 +234,8 @@ class BaseConnector(ABC):
                 fn_name=attr_name,
                 input_model=input_model,
                 output_model=output_model,
+                alias_tolerant=getattr(method, '_alias_tolerant', False),
+                mcp_normalize=getattr(method, '_mcp_normalize', None),
             )
 
         cls._action_registry = registry

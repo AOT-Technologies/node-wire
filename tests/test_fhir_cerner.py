@@ -323,6 +323,17 @@ async def test_fhir_cerner_search_encounter():
 
 
 @pytest.mark.asyncio
+async def test_fhir_cerner_search_encounter_rejects_unscoped_query():
+    """Status-only encounter search must not call the FHIR server (enterprise guard)."""
+    c = _connector()
+    from connectors.fhir_cerner.schema import FhirCernerEncounterSearchInput
+
+    params = FhirCernerEncounterSearchInput(action="search_encounter", status="finished")
+    with pytest.raises(ValueError, match="patient-scoped"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
 async def test_fhir_cerner_search_encounter_by_patient():
     c = _connector()
     from connectors.fhir_cerner.schema import FhirCernerEncounterSearchInput

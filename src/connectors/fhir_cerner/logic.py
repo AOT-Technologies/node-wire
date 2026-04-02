@@ -12,6 +12,12 @@ import httpx
 import jwt
 
 from runtime import BaseConnector, sdk_action
+from runtime.fhir_encounter import assert_encounter_query_has_patient
+from runtime.mcp_normalizers import (
+    normalize_fhir_read_patient,
+    normalize_fhir_search_encounter,
+    normalize_fhir_search_patients,
+)
 
 from . import registration
 from .schema import (
@@ -43,14 +49,22 @@ class FhirCernerConnector(BaseConnector):
     action = "execute"
     output_model = FhirCernerOperationOutput
 
-    @sdk_action("read_patient")
+    @sdk_action(
+        "read_patient",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_read_patient,
+    )
     async def read_patient(
         self, params: FhirCernerPatientReadInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
         out = await self._read_patient(params, trace_id=trace_id)
         return FhirCernerOperationOutput(resource=out.resource)
 
-    @sdk_action("search_patients")
+    @sdk_action(
+        "search_patients",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_patients,
+    )
     async def search_patients(
         self, params: FhirCernerPatientSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
@@ -61,7 +75,11 @@ class FhirCernerConnector(BaseConnector):
             errors=out.errors,
         )
 
-    @sdk_action("search_encounter")
+    @sdk_action(
+        "search_encounter",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_encounter,
+    )
     async def search_encounter(
         self, params: FhirCernerEncounterSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
@@ -404,7 +422,6 @@ class FhirCernerConnector(BaseConnector):
         self, params: FhirCernerEncounterSearchInput, *, trace_id: str
     ) -> FhirCernerEncounterSearchOutput:
         base_url = self._get_base_url()
-        auth_header = await self._get_auth_header()
 
         if params.patient_id or params.status or params.date:
             query_params = self._build_encounter_search_params(
@@ -416,6 +433,10 @@ class FhirCernerConnector(BaseConnector):
             logger.info("FHIR Encounter search by raw params", extra={"trace_id": trace_id, "search_params": params.search_params})
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
+
+        assert_encounter_query_has_patient(query_params)
+
+        auth_header = await self._get_auth_header()
 
         try:
             async with httpx.AsyncClient() as client:
