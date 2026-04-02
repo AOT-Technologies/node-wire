@@ -2,7 +2,7 @@ from .models import ConnectorResponse, ErrorCategory
 from .errors import ErrorMapper
 from .secrets import SecretProvider
 from .policy import PolicyHook, PolicyDenied
-from .base_connector import BaseConnector, nw_action, _CONNECTOR_REGISTRY
+from .base_connector import BaseConnector, nw_action, sdk_action, _CONNECTOR_REGISTRY
 from .sdk_action_spec import (
     SdkActionSpec,
     default_build_kwargs,
@@ -18,6 +18,7 @@ __all__ = [
     "PolicyHook",
     "PolicyDenied",
     "BaseConnector",
+    "sdk_action",
     "nw_action",
     "_CONNECTOR_REGISTRY",
     "SdkActionSpec",

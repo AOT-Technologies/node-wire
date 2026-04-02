@@ -353,6 +353,8 @@ Request body:
 }
 ```
 
+For **MCP** (`google_drive.files.upload`), omit `action` in the tool arguments object; the server injects `files.upload` from the tool name. The published `inputSchema` does not include an `action` property.
+
 Fields:
 
 - `name` (string, required).
@@ -361,7 +363,11 @@ Fields:
 - `content` (string, optional): UTF-8 text content that will be uploaded.
 - `content_base64` (string, optional): base64-encoded binary content (e.g. PDFs, images).
 
-Exactly one of `content` or `content_base64` must be provided.\n+\n+Content is uploaded using `MediaInMemoryUpload`; this is suitable for small payloads.\n+\n+> For MCP callers (e.g. ToolHive): use canonical fields (`content` / `content_base64`). Legacy `media` / `media_body` shapes are not part of the public schema and should not be relied upon.
+Exactly one of `content` or `content_base64` must be provided (enforced at validation).
+
+Content is uploaded using `MediaInMemoryUpload`; this is suitable for small payloads.
+
+> For MCP callers (e.g. ToolHive): use canonical fields (`content` / `content_base64`). Legacy `media` / `media_body` shapes are normalized when possible but are not part of the public schema. Legacy `action: "upload"` in the payload is deprecated; set `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD=reject` to hard-fail during rollout.
 
 #### files.delete
 

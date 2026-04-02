@@ -82,7 +82,7 @@ You can think of it as a local "MCP server manager" — you register your server
 
 ## What does the Node Wire MCP server expose?
 
-When running as an MCP server, the platform exposes 4 tools that AI agents can discover and call:
+When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see **four** tools (Cerner read patient, Epic read patient, Drive upload, SMTP send). The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every connector enabled for MCP in `config/connectors.yaml` (often 18+ tools). This section describes the **four-tool** happy path; see [mcp-servers.md](mcp-servers.md) for the full surface.
 
 | Tool | Description |
 |---|---|
@@ -504,7 +504,7 @@ In Cursor's MCP settings, add the same endpoint URL. The tools will appear in th
 | `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
 | `SMTP authentication failed` | Wrong username or password | For Gmail, use an App Password not your regular password; confirm `SMTP_USERNAME` includes `@` |
 | `groq SDK not installed` | Missing optional dependency | `pip install -e ".[agents]"` |
-| Agent loops forever without completing | LLM reasoning issue | Try increasing `--max-steps`; try a different LLM provider; check that all four tools are visible in ToolHive |
+| Agent loops forever without completing | LLM reasoning issue | Try increasing `--max-steps`; try a different LLM provider; check that the expected tools are visible in ToolHive (`tools/list`); refresh after MCP image upgrades |
 | `docker: Cannot connect to the Docker daemon` | Docker not running | Start Docker Desktop |
 | Container starts but shows 0 tools | MCP server failed to start | Check container logs: `docker logs <container-id>`; verify the image built successfully |
 

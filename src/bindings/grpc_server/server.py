@@ -11,6 +11,7 @@ import grpc
 from bindings.factory import ConnectorFactory
 from connectors import auto_register
 from runtime import ConnectorResponse, ErrorCategory
+from runtime.ingress import normalize_mcp_tool_arguments
 
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
 
@@ -37,6 +38,9 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         payload: Any = {}
         if request.payload_json:
             payload = json.loads(request.payload_json)
+
+        if isinstance(payload, dict) and payload.get("action"):
+            normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
 
         response: ConnectorResponse = await connector.run(payload)
 
