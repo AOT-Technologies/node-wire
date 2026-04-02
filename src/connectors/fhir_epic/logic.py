@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import jwt
 
-from runtime import BaseConnector, sdk_action
+from runtime import BaseConnector, nw_action
 
 from .schema import (
     FhirDocumentReferenceCreateInput,
@@ -31,20 +31,20 @@ logger = logging.getLogger("connectors.fhir_epic")
 
 
 class FhirEpicConnector(BaseConnector):
-    """FHIR/Epic connector: one @sdk_action per operation."""
+    """FHIR/Epic connector: one @nw_action per operation."""
 
     connector_id = "fhir_epic"
     action = "execute"
     output_model = FhirEpicOperationOutput
 
-    @sdk_action("read_patient")
+    @nw_action("read_patient")
     async def read_patient(
         self, params: FhirPatientReadInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
         out = await self._read_patient(params, trace_id=trace_id)
         return FhirEpicOperationOutput(resource=out.resource)
 
-    @sdk_action("search_patients")
+    @nw_action("search_patients")
     async def search_patients(
         self, params: FhirPatientSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
@@ -55,21 +55,21 @@ class FhirEpicConnector(BaseConnector):
             errors=out.errors,
         )
 
-    @sdk_action("search_encounter")
+    @nw_action("search_encounter")
     async def search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
         out = await self._search_encounter(params, trace_id=trace_id)
         return FhirEpicOperationOutput(resources=out.resources, total=out.total)
 
-    @sdk_action("create_document_reference")
+    @nw_action("create_document_reference")
     async def create_document_reference(
         self, params: FhirDocumentReferenceCreateInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
         out = await self._create_document_reference(params, trace_id=trace_id)
         return FhirEpicOperationOutput(resource_id=out.resource_id, resource=out.resource)
 
-    @sdk_action("search_document_reference")
+    @nw_action("search_document_reference")
     async def search_document_reference(
         self, params: FhirDocumentReferenceSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:

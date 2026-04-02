@@ -5,7 +5,7 @@ from email.message import EmailMessage
 
 import aiosmtplib
 
-from runtime import BaseConnector, sdk_action
+from runtime import BaseConnector, nw_action
 
 from .schema import SmtpSendInput, SmtpSendOutput
 
@@ -20,7 +20,7 @@ class SmtpConnector(BaseConnector):
     connector_id = "smtp"
     output_model = SmtpSendOutput
 
-    @sdk_action("send_email")
+    @nw_action("send_email")
     async def send_email(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
         logger.info(
             "Preparing SMTP message",

@@ -17,7 +17,7 @@ def test_registry_contains_base_connectors():
     assert "fhir_epic" in _CONNECTOR_REGISTRY
 
 
-def test_manifest_emits_per_sdk_action():
+def test_manifest_emits_per_action():
     auto_register()
     factory = ConnectorFactory()
     factory.load()
@@ -30,14 +30,14 @@ def test_manifest_emits_per_sdk_action():
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     mcp_actions = {(e["connector_id"], e["action"]) for e in mcp_manifest}
     assert ("stripe", "charge") in mcp_actions
-    # Per-action input schema should not be the full union for SDK connectors
+    # Per-action input schema should expose that action's fields (not only a buried union)
     for entry in mcp_manifest:
         if entry["connector_id"] == "stripe":
             props = entry["input_schema"].get("properties", {})
             assert "amount" in props
 
 
-def test_stripe_connector_is_sdk_and_accepts_charge_payload():
+def test_stripe_connector_accepts_charge_payload():
     auto_register()
     factory = ConnectorFactory()
     factory.load()
@@ -332,7 +332,7 @@ def test_normalize_mcp_tool_arguments_google_drive_canonical_mime_type_wins_over
 
 @pytest.mark.asyncio
 async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run() -> None:
-    """invoke_tool should apply normalization before BaseConnector.run (SDK action)."""
+    """invoke_tool should apply normalization before BaseConnector.run."""
     from bindings.mcp_server.server import McpServer
     from runtime.models import ConnectorResponse
 

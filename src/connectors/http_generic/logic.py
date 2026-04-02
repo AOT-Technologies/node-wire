@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from runtime import BaseConnector, sdk_action
+from runtime import BaseConnector, nw_action
 
 from .schema import HttpRequestInput, HttpResponseOutput
 
@@ -20,7 +20,7 @@ class HttpGenericConnector(BaseConnector):
     connector_id = "http_generic"
     output_model = HttpResponseOutput
 
-    @sdk_action("request")
+    @nw_action("request")
     async def request(self, params: HttpRequestInput, *, trace_id: str) -> HttpResponseOutput:
         """
         Perform an HTTP request using httpx.

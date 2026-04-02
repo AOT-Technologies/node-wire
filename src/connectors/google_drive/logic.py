@@ -30,7 +30,7 @@ __all__ = ["DEFAULT_LIST_FIELDS", "GoogleDriveConnector"]
 class GoogleDriveConnector(BaseConnector):
     """
     Google Drive connector: Drive API v3 operations are driven by action specs
-    (see action_spec.py) and thin @sdk_action handlers for logging and dispatch.
+    (see action_spec.py) and thin @nw_action handlers for logging and dispatch.
     """
 
     connector_id = "google_drive"

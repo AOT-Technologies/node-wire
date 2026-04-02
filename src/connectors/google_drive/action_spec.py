@@ -27,7 +27,7 @@ from .schema import (
 
 DEFAULT_LIST_FIELDS = "nextPageToken, files(id, name, mimeType, webViewLink)"
 
-# Action name -> SdkActionSpec (matches @sdk_action("...") strings)
+# Action name -> SdkActionSpec (matches @nw_action("...") strings)
 GOOGLE_DRIVE_ACTION_SPECS: Dict[str, SdkActionSpec] = {}
 
 

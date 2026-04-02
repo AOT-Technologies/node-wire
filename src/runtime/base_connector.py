@@ -60,13 +60,13 @@ def _make_spec_handler(
     # Set actual type objects (not strings) so get_type_hints() resolves correctly
     # even when `from __future__ import annotations` is active in the connector module.
     _handler.__annotations__ = {"params": input_model, "return": output_model}
-    _handler._sdk_action_name = action_name
+    _handler._nw_action_name = action_name
     return _handler
 
 
 def _generate_methods_from_action_specs(cls: type) -> None:
     """
-    For each entry in cls.action_specs, generate an async @sdk_action method and
+    For each entry in cls.action_specs, generate an async @nw_action method and
     attach it to cls. Called at the top of BaseConnector.__init_subclass__ so the
     existing discovery loop picks up the generated methods.
 
@@ -110,7 +110,7 @@ def _generate_methods_from_action_specs(cls: type) -> None:
         setattr(cls, fn_name, handler)
 
 
-def sdk_action(name: str):
+def nw_action(name: str):
     """
     Mark a connector method as a named, auto-discoverable action.
 
@@ -119,15 +119,15 @@ def sdk_action(name: str):
     """
 
     def decorator(fn: Any) -> Any:
-        fn._sdk_action_name = name
+        fn._nw_action_name = name
         return fn
 
     return decorator
 
 
 @dataclass
-class SdkActionMeta:
-    """Metadata for one @sdk_action method."""
+class NwActionMeta:
+    """Metadata for one @nw_action method."""
 
     name: str
     fn_name: str
@@ -145,7 +145,7 @@ class BaseConnector(ABC):
       - error_map: optional mapping of exception -> (ErrorCategory, code)
       - build_client() / get_client() for vendor SDK lifecycle
 
-    Actions are declared with @sdk_action("resource.operation") on async methods.
+    Actions are declared with @nw_action("resource.operation") on async methods.
     """
 
     connector_id: str
@@ -154,20 +154,20 @@ class BaseConnector(ABC):
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {}
     output_model: ClassVar[Type[BaseModel]]
 
-    _action_registry: ClassVar[Dict[str, SdkActionMeta]]
+    _action_registry: ClassVar[Dict[str, NwActionMeta]]
     _union_input_model: ClassVar[Type[RootModel[Any]]]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
 
-        # Phase 0: auto-generate @sdk_action methods from action_specs (opt-in).
+        # Phase 0: auto-generate @nw_action methods from action_specs (opt-in).
         # Must run before the dir(cls) discovery loop below.
         _generate_methods_from_action_specs(cls)
 
-        registry: Dict[str, SdkActionMeta] = {}
+        registry: Dict[str, NwActionMeta] = {}
         for attr_name in dir(cls):
             method = getattr(cls, attr_name, None)
-            if not callable(method) or not hasattr(method, "_sdk_action_name"):
+            if not callable(method) or not hasattr(method, "_nw_action_name"):
                 continue
 
             try:
@@ -187,7 +187,7 @@ class BaseConnector(ABC):
 
             if not input_param_name:
                 raise TypeError(
-                    f"{cls.__name__}.{attr_name}: @sdk_action method must have a params argument "
+                    f"{cls.__name__}.{attr_name}: @nw_action method must have a params argument "
                     "after self"
                 )
 
@@ -207,8 +207,8 @@ class BaseConnector(ABC):
                     f"{cls.__name__}.{attr_name}: missing or invalid return type hint"
                 )
 
-            action_name = method._sdk_action_name
-            registry[action_name] = SdkActionMeta(
+            action_name = method._nw_action_name
+            registry[action_name] = NwActionMeta(
                 name=action_name,
                 fn_name=attr_name,
                 input_model=input_model,
@@ -219,7 +219,7 @@ class BaseConnector(ABC):
 
         valid_models = [m.input_model for m in registry.values()]
         if not valid_models:
-            raise TypeError(f"{cls.__name__}: BaseConnector must define at least one @sdk_action")
+            raise TypeError(f"{cls.__name__}: BaseConnector must define at least one @nw_action")
 
         if len(valid_models) == 1:
             root_type = valid_models[0]
@@ -402,7 +402,7 @@ class BaseConnector(ABC):
                 )
 
     @classmethod
-    def sdk_action_metas(cls) -> Dict[str, SdkActionMeta]:
+    def nw_action_metas(cls) -> Dict[str, NwActionMeta]:
         """Registry of action name -> metadata (for manifest)."""
         return dict(cls._action_registry)
 
@@ -416,7 +416,7 @@ class BaseConnector(ABC):
         return self._client
 
     async def internal_execute(self, params: Any, *, trace_id: str) -> Any:
-        """Dispatch to the @sdk_action method matching the validated input."""
+        """Dispatch to the @nw_action method matching the validated input."""
         root = params.root if hasattr(params, "root") else params
         action_key = getattr(root, "action", None)
         if action_key is None:

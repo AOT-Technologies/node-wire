@@ -44,7 +44,7 @@ class EnvSecretProvider(SecretProvider):
 
 class ConnectorFactory:
     """
-    Loads config/connectors.yaml and instantiates connectors from the SDK registry.
+    Loads config/connectors.yaml and instantiates connectors from the connector registry.
     """
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -92,9 +92,9 @@ class ConnectorFactory:
             self._connectors[connector_id] = self._instantiate(connector_id)
 
     def _instantiate(self, connector_id: str) -> BaseConnector:
-        sdk_cls = _CONNECTOR_REGISTRY.get(connector_id)
-        if sdk_cls is not None:
-            return sdk_cls(secret_provider=self._secret_provider)
+        connector_cls = _CONNECTOR_REGISTRY.get(connector_id)
+        if connector_cls is not None:
+            return connector_cls(secret_provider=self._secret_provider)
 
         raise ValueError(f"Unknown connector id {connector_id!r}")
 

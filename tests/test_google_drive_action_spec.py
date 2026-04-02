@@ -22,9 +22,9 @@ def _connector() -> GoogleDriveConnector:
     return GoogleDriveConnector(secret_provider=MockSecretProvider())
 
 
-def test_action_spec_registry_covers_all_sdk_actions():
-    """Every @sdk_action on GoogleDriveConnector must have a spec entry."""
-    metas = GoogleDriveConnector.sdk_action_metas()
+def test_action_spec_registry_covers_all_nw_actions():
+    """Every @nw_action on GoogleDriveConnector must have a spec entry."""
+    metas = GoogleDriveConnector.nw_action_metas()
     for action_name in metas:
         assert action_name in GOOGLE_DRIVE_ACTION_SPECS, f"missing spec for {action_name}"
 
