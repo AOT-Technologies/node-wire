@@ -10,7 +10,7 @@ Each connector lives in its own subpackage:
       logic.py
       registration.py  (optional — legacy connectors)
 
-SDKConnector-based connectors self-register when their `logic` module is
+BaseConnector-based connectors self-register when their `logic` module is
 imported. Legacy connectors may still use `registration.py` for ErrorMapper.
 """
 
@@ -23,7 +23,7 @@ def auto_register() -> List[str]:
     """
     Import connector subpackages so SDK connectors register and legacy mappings apply.
 
-    Imports `logic` first (triggers SDKConnector.__init_subclass__), then
+    Imports `logic` first (triggers BaseConnector.__init_subclass__), then
     `registration` when present.
     """
     imported: List[str] = []

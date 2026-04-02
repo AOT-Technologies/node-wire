@@ -6,11 +6,11 @@ from bindings.factory import ConnectorFactory
 from connectors import auto_register
 from connectors.manifest import build_manifest
 from connectors.stripe.schema import ChargeInput
-from runtime import SDKConnector
-from runtime.sdk_connector import _CONNECTOR_REGISTRY
+from runtime import BaseConnector
+from runtime.base_connector import _CONNECTOR_REGISTRY
 
 
-def test_registry_contains_sdk_connectors():
+def test_registry_contains_base_connectors():
     auto_register()
     assert "google_drive" in _CONNECTOR_REGISTRY
     assert "stripe" in _CONNECTOR_REGISTRY
@@ -43,7 +43,7 @@ def test_stripe_connector_is_sdk_and_accepts_charge_payload():
     factory.load()
     connector = factory.get_for_protocol("stripe", "grpc")
     assert connector is not None
-    assert isinstance(connector, SDKConnector)
+    assert isinstance(connector, BaseConnector)
     validated = ChargeInput.model_validate(
         {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
     )

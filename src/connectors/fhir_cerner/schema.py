@@ -277,7 +277,7 @@ class FhirCernerDocumentReferenceSearchOutput(BaseModel):
 
 class FhirCernerOperationOutput(BaseModel):
     """
-    Unified output for all Cerner FHIR actions (SDKConnector single output_model).
+    Unified output for all Cerner FHIR actions (BaseConnector single output_model).
 
     Fields are populated depending on the action; unused fields are None.
     """

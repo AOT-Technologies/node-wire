@@ -1,9 +1,8 @@
 from .models import ConnectorResponse, ErrorCategory
 from .errors import ErrorMapper
-from .base import BaseConnector
 from .secrets import SecretProvider
 from .policy import PolicyHook, PolicyDenied
-from .sdk_connector import SDKConnector, sdk_action, _CONNECTOR_REGISTRY
+from .base_connector import BaseConnector, sdk_action, _CONNECTOR_REGISTRY
 from .sdk_action_spec import (
     SdkActionSpec,
     default_build_kwargs,
@@ -15,11 +14,10 @@ __all__ = [
     "ConnectorResponse",
     "ErrorCategory",
     "ErrorMapper",
-    "BaseConnector",
     "SecretProvider",
     "PolicyHook",
     "PolicyDenied",
-    "SDKConnector",
+    "BaseConnector",
     "sdk_action",
     "_CONNECTOR_REGISTRY",
     "SdkActionSpec",

@@ -13,7 +13,7 @@ load_dotenv()  # Load environmental variables from .env
 from bindings.factory import ConnectorFactory
 from connectors import auto_register
 from connectors.manifest import build_manifest
-from runtime import ConnectorResponse, ErrorCategory, SDKConnector
+from runtime import ConnectorResponse, ErrorCategory
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -86,8 +86,7 @@ def _make_endpoint(cid: str, act: str) -> Any:
         if connector is None:
             raise HTTPException(status_code=404, detail="Connector not available for REST")
         run_payload = dict(payload)
-        if isinstance(connector, SDKConnector):
-            run_payload.setdefault("action", act)
+        run_payload.setdefault("action", act)
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.
         response: ConnectorResponse = await connector.run(run_payload)

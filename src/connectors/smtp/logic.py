@@ -5,28 +5,29 @@ from email.message import EmailMessage
 
 import aiosmtplib
 
-from runtime import BaseConnector
+from runtime import BaseConnector, sdk_action
 
 from .schema import SmtpSendInput, SmtpSendOutput
 
 logger = logging.getLogger("connectors.smtp")
 
 
-class SmtpConnector(BaseConnector[SmtpSendInput, SmtpSendOutput]):
+class SmtpConnector(BaseConnector):
     """
     SMTP connector for sending emails via aiosmtplib.
     """
 
     connector_id = "smtp"
-    action = "send_email"
+    output_model = SmtpSendOutput
 
-    async def internal_execute(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
+    @sdk_action("send_email")
+    async def send_email(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
         logger.info(
             "Preparing SMTP message",
             extra={
                 "trace_id": trace_id,
                 "connector_id": self.connector_id,
-                "action": self.action,
+                "action": "send_email",
                 "host": params.host,
                 "port": params.port,
                 "from_email": str(params.from_email),
@@ -61,7 +62,7 @@ class SmtpConnector(BaseConnector[SmtpSendInput, SmtpSendOutput]):
                 extra={
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
-                    "action": self.action,
+                    "action": "send_email",
                     "host": params.host,
                     "port": params.port,
                     "error_type": type(exc).__name__,
@@ -75,7 +76,7 @@ class SmtpConnector(BaseConnector[SmtpSendInput, SmtpSendOutput]):
             extra={
                 "trace_id": trace_id,
                 "connector_id": self.connector_id,
-                "action": self.action,
+                "action": "send_email",
                 "host": params.host,
                 "port": params.port,
                 "response": str(response),
@@ -84,4 +85,3 @@ class SmtpConnector(BaseConnector[SmtpSendInput, SmtpSendOutput]):
 
         # aiosmtplib returns (code, message) tuple; message-id is not guaranteed, keep output simple.
         return SmtpSendOutput(sent=True)
-

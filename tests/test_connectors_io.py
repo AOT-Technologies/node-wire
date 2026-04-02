@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import httpx
 
 from connectors.http_generic.logic import HttpGenericConnector
-from connectors.http_generic.schema import HttpRequestInput, HttpResponseOutput
+from connectors.http_generic.schema import HttpRequestInput
 from connectors.smtp.logic import SmtpConnector
-from connectors.smtp.schema import SmtpSendInput, SmtpSendOutput
+from connectors.smtp.schema import SmtpSendInput
 from connectors.stripe.logic import StripeConnector
 from runtime.secrets import SecretProvider
 
@@ -30,7 +30,7 @@ def test_smtp_internal_execute_calls_aiosmtplib_send() -> None:
 
     async def _run() -> None:
         with patch("connectors.smtp.logic.aiosmtplib.send", new=fake_send):
-            c = SmtpConnector(SmtpSendInput, SmtpSendOutput, secret_provider=secrets)
+            c = SmtpConnector(secret_provider=secrets)
             inp = SmtpSendInput(
                 host="localhost",
                 port=1025,
@@ -64,7 +64,7 @@ def test_http_generic_internal_execute() -> None:
 
     async def _run() -> None:
         with patch("connectors.http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()):
-            c = HttpGenericConnector(HttpRequestInput, HttpResponseOutput)
+            c = HttpGenericConnector()
             inp = HttpRequestInput(url="http://example.com/path", method="GET")
             out = await c.internal_execute(inp, trace_id="t-2")
         assert out.status_code == 200

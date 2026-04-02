@@ -5,7 +5,7 @@ import logging
 
 import stripe
 
-from runtime import SDKConnector, sdk_action
+from runtime import BaseConnector, sdk_action
 from runtime.models import ErrorCategory
 
 from .schema import ChargeInput, ChargeOutput
@@ -13,7 +13,7 @@ from .schema import ChargeInput, ChargeOutput
 logger = logging.getLogger("connectors.stripe")
 
 
-class StripeConnector(SDKConnector):
+class StripeConnector(BaseConnector):
     """Stripe connector: charges and future SDK operations as @sdk_action methods."""
 
     connector_id = "stripe"

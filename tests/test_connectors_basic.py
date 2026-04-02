@@ -5,11 +5,9 @@ import asyncio
 from pydantic import BaseModel
 
 from connectors.http_generic.logic import HttpGenericConnector
-from connectors.http_generic.schema import HttpRequestInput, HttpResponseOutput
 from connectors.smtp.logic import SmtpConnector
-from connectors.smtp.schema import SmtpSendInput, SmtpSendOutput
 from connectors.stripe.logic import StripeConnector
-from runtime import ConnectorResponse, ErrorCategory, SecretProvider
+from runtime import ConnectorResponse, ErrorCategory, BaseConnector, SecretProvider
 from connectors import auto_register
 
 
@@ -28,19 +26,18 @@ def test_auto_register_runs_without_error():
 
 
 def test_http_connector_instantiation_only():
-    connector = HttpGenericConnector(HttpRequestInput, HttpResponseOutput)
+    connector = HttpGenericConnector()
     assert connector.connector_id == "http_generic"
-    assert connector.action == "request"
+    assert isinstance(connector, BaseConnector)
 
 
 def test_smtp_connector_instantiation_only():
-    connector = SmtpConnector(SmtpSendInput, SmtpSendOutput, secret_provider=DummySecretProvider())
+    connector = SmtpConnector(secret_provider=DummySecretProvider())
     assert connector.connector_id == "smtp"
-    assert connector.action == "send_email"
+    assert isinstance(connector, BaseConnector)
 
 
 def test_stripe_connector_instantiation_only():
     connector = StripeConnector(secret_provider=DummySecretProvider())
     assert connector.connector_id == "stripe"
     assert connector.action == "charge"
-

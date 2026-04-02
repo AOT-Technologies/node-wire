@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 import uuid
+from abc import ABC
 from dataclasses import dataclass
 from typing import (
     Annotated,
@@ -16,18 +17,23 @@ from typing import (
     get_type_hints,
 )
 
-from pydantic import BaseModel, Field, RootModel
+from opentelemetry import trace
+from opentelemetry.trace import Tracer
+from pybreaker import CircuitBreaker
+from pydantic import BaseModel, Field, RootModel, ValidationError
 
-from .base import BaseConnector
 from .errors import ErrorMapper
-from .models import ErrorCategory
+from .models import ConnectorResponse, ErrorCategory
+from .policy import PolicyContext, PolicyHook, PolicyDenied
+from .resilience import with_resilience
 from .secrets import SecretProvider
 from .sdk_action_spec import SdkActionSpec
 
-logger = logging.getLogger("runtime.sdk_connector")
+logger = logging.getLogger("runtime.base_connector")
+tracer: Tracer = trace.get_tracer("runtime")
 
-# Populated by SDKConnector.__init_subclass__
-_CONNECTOR_REGISTRY: Dict[str, Type["SDKConnector"]] = {}
+# Populated by BaseConnector.__init_subclass__
+_CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
 
 
 def _make_spec_handler(
@@ -61,7 +67,7 @@ def _make_spec_handler(
 def _generate_methods_from_action_specs(cls: type) -> None:
     """
     For each entry in cls.action_specs, generate an async @sdk_action method and
-    attach it to cls. Called at the top of SDKConnector.__init_subclass__ so the
+    attach it to cls. Called at the top of BaseConnector.__init_subclass__ so the
     existing discovery loop picks up the generated methods.
 
     Opt-in: only triggers when the class defines action_specs in its own __dict__.
@@ -106,7 +112,7 @@ def _generate_methods_from_action_specs(cls: type) -> None:
 
 def sdk_action(name: str):
     """
-    Mark a connector method as a named, auto-discoverable SDK action.
+    Mark a connector method as a named, auto-discoverable action.
 
     The decorated method must be async and have full type annotations for its
     params (first arg after self) and return type.
@@ -129,9 +135,9 @@ class SdkActionMeta:
     output_model: Type[BaseModel]
 
 
-class SDKConnector(BaseConnector):
+class BaseConnector(ABC):
     """
-    Base class for SDK-backed connectors.
+    Base class for all connectors.
 
     Subclasses define:
       - connector_id: str
@@ -213,7 +219,7 @@ class SDKConnector(BaseConnector):
 
         valid_models = [m.input_model for m in registry.values()]
         if not valid_models:
-            raise TypeError(f"{cls.__name__}: SDKConnector must define at least one @sdk_action")
+            raise TypeError(f"{cls.__name__}: BaseConnector must define at least one @sdk_action")
 
         if len(valid_models) == 1:
             root_type = valid_models[0]
@@ -233,18 +239,167 @@ class SDKConnector(BaseConnector):
         if "connector_id" in cls.__dict__:
             _CONNECTOR_REGISTRY[cls.connector_id] = cls
             logger.debug(
-                "Registered SDKConnector subclass",
+                "Registered BaseConnector subclass",
                 extra={"connector_id": cls.connector_id},
             )
 
-    def __init__(self, *, secret_provider: Optional[SecretProvider] = None) -> None:
+    def __init__(self, *, secret_provider: Optional[SecretProvider] = None, policy_hook: Optional[PolicyHook] = None) -> None:
         cls = type(self)
-        super().__init__(
-            cls._union_input_model,
-            cls.output_model,
-            secret_provider=secret_provider,
+        self._input_model_cls = cls._union_input_model
+        self._output_model_cls = cls.output_model
+        self._secret_provider = secret_provider
+        self._policy_hook = policy_hook
+        self._breaker = CircuitBreaker(
+            fail_max=5,
+            reset_timeout=30,
+            name=f"{cls.__name__}_breaker",
         )
         self._client: Any = None
+
+    @property
+    def secret_provider(self) -> SecretProvider:
+        if self._secret_provider is None:
+            raise RuntimeError("SecretProvider has not been configured for this connector.")
+        return self._secret_provider
+
+    async def run(
+        self,
+        raw_input: Dict[str, Any],
+        principal: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+    ) -> ConnectorResponse:
+        """
+        Public execution entrypoint.
+
+        - Generates a trace ID
+        - Starts an OpenTelemetry span
+        - Validates input
+        - Executes policy hook
+        - Wraps internal execution with retries and circuit breaking
+        - Maps exceptions into the standard error taxonomy
+        """
+        trace_id = str(uuid.uuid4())
+
+        with tracer.start_as_current_span(
+            "connector.run",
+            attributes={
+                "connector.id": self.connector_id,
+                "connector.action": self.action,
+                "tenant.id": tenant_id or "",
+                "principal.id": principal or "",
+                "trace.id": trace_id,
+            },
+        ):
+            logger.info(
+                "Starting connector execution",
+                extra={
+                    "trace_id": trace_id,
+                    "connector_id": self.connector_id,
+                    "action": self.action,
+                },
+            )
+
+            try:
+                try:
+                    input_model = self._input_model_cls.model_validate(raw_input)
+                except ValidationError as exc:
+                    logger.error(
+                        "Input validation failed",
+                        extra={
+                            "trace_id": trace_id,
+                            "connector_id": self.connector_id,
+                            "action": self.action,
+                            "error_type": type(exc).__name__,
+                            "error_message": str(exc),
+                        },
+                    )
+                    details = [
+                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]}
+                        for e in exc.errors()
+                    ]
+                    return ConnectorResponse(
+                        success=False,
+                        error_code="VALIDATION_ERROR",
+                        error_category=ErrorCategory.BUSINESS,
+                        message="Input validation failed; please check the request payload.",
+                        trace_id=trace_id,
+                        details=details,
+                    )
+
+                # Policy hook
+                if self._policy_hook is not None:
+                    context = PolicyContext(
+                        connector_id=self.connector_id,
+                        action=self.action,
+                        input_payload=input_model.model_dump(),
+                        principal=principal,
+                        tenant_id=tenant_id,
+                    )
+                    try:
+                        self._policy_hook.check(context)
+                    except PolicyDenied as exc:
+                        logger.warning(
+                            "Execution blocked by policy hook",
+                            extra={
+                                "trace_id": trace_id,
+                                "connector_id": self.connector_id,
+                                "action": self.action,
+                                "error_type": type(exc).__name__,
+                                "error_message": str(exc),
+                            },
+                        )
+                        mapped = ErrorMapper.resolve(exc)
+                        return ConnectorResponse(
+                            success=False,
+                            error_code=mapped.code,
+                            error_category=mapped.category,
+                            message=str(exc),
+                            trace_id=trace_id,
+                        )
+
+                execute_with_resilience = with_resilience(self._breaker)
+
+                @execute_with_resilience
+                async def _do_execute(*, trace_id: str) -> Any:
+                    return await self.internal_execute(input_model, trace_id=trace_id)
+
+                output_model = await _do_execute(trace_id=trace_id)
+
+                logger.info(
+                    "Connector execution completed successfully",
+                    extra={
+                        "trace_id": trace_id,
+                        "connector_id": self.connector_id,
+                        "action": self.action,
+                    },
+                )
+
+                return ConnectorResponse(
+                    success=True,
+                    data=output_model.model_dump(),
+                    trace_id=trace_id,
+                )
+            except Exception as exc:  # noqa: BLE001
+                mapped = ErrorMapper.resolve(exc)
+                logger.error(
+                    "Connector execution failed",
+                    extra={
+                        "trace_id": trace_id,
+                        "connector_id": self.connector_id,
+                        "action": self.action,
+                        "error_code": mapped.code,
+                        "error_category": mapped.category.value,
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc),
+                    },
+                )
+                return ConnectorResponse(
+                    success=False,
+                    error_code=mapped.code,
+                    error_category=mapped.category,
+                    message=str(exc),
+                    trace_id=trace_id,
+                )
 
     @classmethod
     def sdk_action_metas(cls) -> Dict[str, SdkActionMeta]:
@@ -275,7 +430,7 @@ class SDKConnector(BaseConnector):
             )
         fn = getattr(self, meta.fn_name)
         logger.debug(
-            "Dispatching sdk_action",
+            "Dispatching action",
             extra={
                 "connector_id": self.connector_id,
                 "action": action_key,

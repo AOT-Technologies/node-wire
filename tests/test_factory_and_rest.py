@@ -55,8 +55,7 @@ def test_rest_post_connector_success() -> None:
     stub = mock_factory.get_for_protocol.return_value
     stub.run.assert_awaited_once()
     call_payload = stub.run.await_args[0][0]
-    # http_generic is BaseConnector, not SDKConnector — REST does not inject ``action``.
-    assert "action" not in call_payload
+    assert call_payload["action"] == "request"
     assert call_payload["method"] == "GET"
 
 

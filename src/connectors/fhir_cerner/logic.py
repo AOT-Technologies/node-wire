@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import jwt
 
-from runtime import SDKConnector, sdk_action
+from runtime import BaseConnector, sdk_action
 
 from . import registration
 from .schema import (
@@ -31,7 +31,7 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_cerner")
 
 
-class FhirCernerConnector(SDKConnector):
+class FhirCernerConnector(BaseConnector):
     """
     FHIR/Cerner connector: SMART Backend Services (private_key_jwt), RS384.
 

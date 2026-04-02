@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Literal
 
 from pydantic import BaseModel
 
-from runtime import BaseConnector, ConnectorResponse, ErrorCategory, ErrorMapper
+from runtime import BaseConnector, sdk_action, ConnectorResponse, ErrorCategory, ErrorMapper
 
 
 class InputModel(BaseModel):
+    action: Literal["double"] = "double"
     value: int
 
 
@@ -15,18 +17,19 @@ class OutputModel(BaseModel):
     doubled: int
 
 
-class TestConnector(BaseConnector[InputModel, OutputModel]):
-    connector_id = "test"
-    action = "double"
+class DoubleConnector(BaseConnector):
+    connector_id = "test_double"
+    output_model = OutputModel
 
-    async def internal_execute(self, params: InputModel, *, trace_id: str) -> OutputModel:
+    @sdk_action("double")
+    async def double(self, params: InputModel, *, trace_id: str) -> OutputModel:
         return OutputModel(doubled=params.value * 2)
 
 
 def test_successful_execution():
-    connector = TestConnector(InputModel, OutputModel)
+    connector = DoubleConnector()
 
-    response: ConnectorResponse = asyncio.run(connector.run({"value": 2}))
+    response: ConnectorResponse = asyncio.run(connector.run({"action": "double", "value": 2}))
 
     assert response.success is True
     assert response.data == {"doubled": 4}
@@ -39,18 +42,24 @@ class CustomError(Exception):
     pass
 
 
-class FailingConnector(BaseConnector[InputModel, OutputModel]):
-    connector_id = "test"
-    action = "fail"
+class FailInputModel(BaseModel):
+    action: Literal["fail"] = "fail"
+    value: int
 
-    async def internal_execute(self, params: InputModel, *, trace_id: str) -> OutputModel:
+
+class FailingConnector(BaseConnector):
+    connector_id = "test_fail"
+    output_model = OutputModel
+
+    @sdk_action("fail")
+    async def fail(self, params: FailInputModel, *, trace_id: str) -> OutputModel:
         raise CustomError("boom")
 
 
 def test_error_mapping_defaults_to_fatal():
-    connector = FailingConnector(InputModel, OutputModel)
+    connector = FailingConnector()
 
-    response: ConnectorResponse = asyncio.run(connector.run({"value": 1}))
+    response: ConnectorResponse = asyncio.run(connector.run({"action": "fail", "value": 1}))
 
     assert response.success is False
     assert response.error_code == "CustomError"
@@ -59,11 +68,10 @@ def test_error_mapping_defaults_to_fatal():
 
 def test_error_mapping_custom_category():
     ErrorMapper.register(CustomError, ErrorCategory.RETRYABLE, code="CUSTOM_RETRYABLE")
-    connector = FailingConnector(InputModel, OutputModel)
+    connector = FailingConnector()
 
-    response: ConnectorResponse = asyncio.run(connector.run({"value": 1}))
+    response: ConnectorResponse = asyncio.run(connector.run({"action": "fail", "value": 1}))
 
     assert response.success is False
     assert response.error_code == "CUSTOM_RETRYABLE"
     assert response.error_category == ErrorCategory.RETRYABLE
-

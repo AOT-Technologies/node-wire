@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import jwt
 
-from runtime import SDKConnector, sdk_action
+from runtime import BaseConnector, sdk_action
 
 from .schema import (
     FhirDocumentReferenceCreateInput,
@@ -30,7 +30,7 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_epic")
 
 
-class FhirEpicConnector(SDKConnector):
+class FhirEpicConnector(BaseConnector):
     """FHIR/Epic connector: one @sdk_action per operation."""
 
     connector_id = "fhir_epic"

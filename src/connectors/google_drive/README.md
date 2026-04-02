@@ -2,7 +2,7 @@
 
 > **Platform:** Node Wire
 > **Connector ID:** `google_drive`
-> **REST:** One route per operation, e.g. `POST /connectors/google_drive/files.list` (the `action` field is still set on the body for `SDKConnector` dispatch).
+> **REST:** One route per operation, e.g. `POST /connectors/google_drive/files.list` (the `action` field is still set on the body for `BaseConnector` dispatch).
 > **Discriminator:** `action` field (discriminated-union payload)
 > **Source:** `connectors/google_drive/`
 
@@ -20,11 +20,11 @@ The runtime validates requests against the discriminated union in `schema.py`, t
 | [`logic.py`](logic.py) | Client build, `_translate_and_raise_http_error`, `_execute_action_spec`, thin `@sdk_action` methods. |
 | [`runtime/sdk_action_spec.py`](../../runtime/sdk_action_spec.py) | Reusable primitives: `SdkActionSpec`, `default_build_kwargs`, `execute_spec_in_thread`. |
 
-**Adding a new operation:** Add a Pydantic variant in `schema.py` (with an `action` discriminator literal), extend the `GoogleDriveOperationInput` union, and add an entry to `GOOGLE_DRIVE_ACTION_SPECS` in `action_spec.py` (or a `build_kwargs` hook for non-generic cases such as multipart upload). `SDKConnector.__init_subclass__` auto-generates the handler — do **not** also add an `@sdk_action` method for the same action name, as that will raise a `TypeError` at class-definition time.
+**Adding a new operation:** Add a Pydantic variant in `schema.py` (with an `action` discriminator literal), extend the `GoogleDriveOperationInput` union, and add an entry to `GOOGLE_DRIVE_ACTION_SPECS` in `action_spec.py` (or a `build_kwargs` hook for non-generic cases such as multipart upload). `BaseConnector.__init_subclass__` auto-generates the handler — do **not** also add an `@sdk_action` method for the same action name, as that will raise a `TypeError` at class-definition time.
 
 ### Migrating other SDK connectors
 
-Use the same pattern: put declarative mapping in a connector-local `*_action_spec` module; `SDKConnector.__init_subclass__` auto-generates `@sdk_action`-equivalent handlers from `action_specs`, so no manual `@sdk_action` decorators are needed for spec-driven actions. Use `SdkActionSpec.build_kwargs` when the vendor API needs custom assembly (uploads, explicit `None` args, etc.).
+Use the same pattern: put declarative mapping in a connector-local `*_action_spec` module; `BaseConnector.__init_subclass__` auto-generates `@sdk_action`-equivalent handlers from `action_specs`, so no manual `@sdk_action` decorators are needed for spec-driven actions. Use `SdkActionSpec.build_kwargs` when the vendor API needs custom assembly (uploads, explicit `None` args, etc.).
 
 ### Available Operations
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, model_validator
 
@@ -23,6 +23,7 @@ class SmtpSendInput(BaseModel):
     so MCP/REST callers only need to, subject, body.
     """
 
+    action: Literal["send_email"] = "send_email"
     host: str = ""
     port: int = 0
     use_tls: bool = True

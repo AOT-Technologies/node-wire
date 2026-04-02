@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from runtime import SDKConnector
+from runtime import BaseConnector
 from runtime.models import ErrorCategory
 from runtime.sdk_action_spec import execute_spec_in_thread
 
@@ -27,7 +27,7 @@ logger = logging.getLogger("connectors.google_drive")
 __all__ = ["DEFAULT_LIST_FIELDS", "GoogleDriveConnector"]
 
 
-class GoogleDriveConnector(SDKConnector):
+class GoogleDriveConnector(BaseConnector):
     """
     Google Drive connector: Drive API v3 operations are driven by action specs
     (see action_spec.py) and thin @sdk_action handlers for logging and dispatch.

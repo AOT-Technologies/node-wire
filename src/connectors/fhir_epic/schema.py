@@ -184,7 +184,7 @@ class FhirDocumentReferenceSearchOutput(BaseModel):
 
 class FhirEpicOperationOutput(BaseModel):
     """
-    Unified output for all Epic FHIR actions (SDKConnector single output_model).
+    Unified output for all Epic FHIR actions (BaseConnector single output_model).
 
     Fields are populated depending on the action; unused fields are None.
     """

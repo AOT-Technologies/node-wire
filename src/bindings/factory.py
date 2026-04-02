@@ -7,12 +7,8 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from connectors.http_generic.logic import HttpGenericConnector
-from connectors.http_generic.schema import HttpRequestInput, HttpResponseOutput
-from connectors.smtp.logic import SmtpConnector
-from connectors.smtp.schema import SmtpSendInput, SmtpSendOutput
 from runtime import BaseConnector, SecretProvider
-from runtime.sdk_connector import _CONNECTOR_REGISTRY
+from runtime.base_connector import _CONNECTOR_REGISTRY
 
 logger = logging.getLogger("bindings.factory")
 
@@ -48,8 +44,7 @@ class EnvSecretProvider(SecretProvider):
 
 class ConnectorFactory:
     """
-    Loads config/connectors.yaml, instantiates connectors from the SDK registry
-    or legacy explicit constructors.
+    Loads config/connectors.yaml and instantiates connectors from the SDK registry.
     """
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -96,29 +91,16 @@ class ConnectorFactory:
 
             self._connectors[connector_id] = self._instantiate(connector_id)
 
-    def _instantiate(self, connector_id: str) -> Any:
+    def _instantiate(self, connector_id: str) -> BaseConnector:
         sdk_cls = _CONNECTOR_REGISTRY.get(connector_id)
         if sdk_cls is not None:
             return sdk_cls(secret_provider=self._secret_provider)
-
-        if connector_id == "http_generic":
-            return HttpGenericConnector(
-                HttpRequestInput,
-                HttpResponseOutput,
-                secret_provider=self._secret_provider,
-            )
-        if connector_id == "smtp":
-            return SmtpConnector(
-                SmtpSendInput,
-                SmtpSendOutput,
-                secret_provider=self._secret_provider,
-            )
 
         raise ValueError(f"Unknown connector id {connector_id!r}")
 
     def get_for_protocol(
         self, connector_id: str, protocol: str, action: Optional[str] = None
-    ) -> Optional[BaseConnector[Any, Any]]:
+    ) -> Optional[BaseConnector]:
         cfg = self._configs.get(connector_id)
         if cfg is None:
             logger.warning(
@@ -153,8 +135,8 @@ class ConnectorFactory:
 
         return connector  # type: ignore[return-value]
 
-    def list_for_protocol(self, protocol: str) -> List[BaseConnector[Any, Any]]:
-        result: List[BaseConnector[Any, Any]] = []
+    def list_for_protocol(self, protocol: str) -> List[BaseConnector]:
+        result: List[BaseConnector] = []
         for connector_id, connector in self._connectors.items():
             if protocol in self._configs[connector_id].exposed_via:
                 result.append(connector)  # type: ignore[arg-type]

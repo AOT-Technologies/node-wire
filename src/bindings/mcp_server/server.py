@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 from bindings.factory import ConnectorFactory
 from connectors import auto_register
 from connectors.manifest import build_manifest
-from runtime import SDKConnector
 
 logger = logging.getLogger("bindings.mcp_server")
 
@@ -226,8 +225,7 @@ class McpServer:
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
 
         run_args = normalize_mcp_tool_arguments(connector_id, action, arguments)
-        if isinstance(connector, SDKConnector):
-            run_args.setdefault("action", action)
+        run_args.setdefault("action", action)
 
         response = await connector.run(run_args)
         return response.model_dump()
