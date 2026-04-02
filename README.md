@@ -96,7 +96,7 @@ The platform is split into three layers:
 
 ### Connector-specific documentation
 
-**Architecture (BaseConnector vs SDKConnector, factory, examples):** [docs/connectors.md](docs/connectors.md).
+**Connectors guide (`BaseConnector`, factory, manifest):** [docs/connectors.md](docs/connectors.md).
 
 **Details for each connector**—operations, request/response bodies, examples, and error handling—**are documented in that connector’s folder.**
 

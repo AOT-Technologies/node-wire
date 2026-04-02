@@ -112,7 +112,7 @@ _GoogleDriveOperationUnion = Annotated[
     Field(discriminator="action"),
 ]
 
-# Discriminated union for tests/agents; must stay aligned with GoogleDriveConnector @sdk_action set.
+# Discriminated union for tests/agents; must stay aligned with GoogleDriveConnector @nw_action set.
 GoogleDriveOperationInput = RootModel[_GoogleDriveOperationUnion]
 
 

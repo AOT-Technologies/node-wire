@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 import jwt
 
-from runtime import BaseConnector, sdk_action
+from runtime import BaseConnector, nw_action
 
 from . import registration
 from .schema import (
@@ -43,14 +43,14 @@ class FhirCernerConnector(BaseConnector):
     action = "execute"
     output_model = FhirCernerOperationOutput
 
-    @sdk_action("read_patient")
+    @nw_action("read_patient")
     async def read_patient(
         self, params: FhirCernerPatientReadInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
         out = await self._read_patient(params, trace_id=trace_id)
         return FhirCernerOperationOutput(resource=out.resource)
 
-    @sdk_action("search_patients")
+    @nw_action("search_patients")
     async def search_patients(
         self, params: FhirCernerPatientSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
@@ -61,21 +61,21 @@ class FhirCernerConnector(BaseConnector):
             errors=out.errors,
         )
 
-    @sdk_action("search_encounter")
+    @nw_action("search_encounter")
     async def search_encounter(
         self, params: FhirCernerEncounterSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
         out = await self._search_encounter(params, trace_id=trace_id)
         return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
-    @sdk_action("create_document_reference")
+    @nw_action("create_document_reference")
     async def create_document_reference(
         self, params: FhirCernerDocumentReferenceCreateInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
         out = await self._create_document_reference(params, trace_id=trace_id)
         return FhirCernerOperationOutput(resource_id=out.resource_id, resource=out.resource)
 
-    @sdk_action("search_document_reference")
+    @nw_action("search_document_reference")
     async def search_document_reference(
         self, params: FhirCernerDocumentReferenceSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:

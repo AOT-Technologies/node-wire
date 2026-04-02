@@ -137,7 +137,7 @@ All responses use the same standard shape:
 
 ## Connectors Overview
 
-**Developer guide (BaseConnector vs SDKConnector, config, examples):** [docs/connectors.md](docs/connectors.md).
+**Developer guide (`BaseConnector`, config, factory):** [docs/connectors.md](docs/connectors.md).
 
 
 

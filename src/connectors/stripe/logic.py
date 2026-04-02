@@ -5,7 +5,7 @@ import logging
 
 import stripe
 
-from runtime import BaseConnector, sdk_action
+from runtime import BaseConnector, nw_action
 from runtime.models import ErrorCategory
 
 from .schema import ChargeInput, ChargeOutput
@@ -14,7 +14,7 @@ logger = logging.getLogger("connectors.stripe")
 
 
 class StripeConnector(BaseConnector):
-    """Stripe connector: charges and future SDK operations as @sdk_action methods."""
+    """Stripe connector: charges and future SDK operations as @nw_action methods."""
 
     connector_id = "stripe"
     action = "charge"
@@ -29,7 +29,7 @@ class StripeConnector(BaseConnector):
         stripe.error.StripeError: (ErrorCategory.FATAL, "STRIPE_ERROR"),
     }
 
-    @sdk_action("charge")
+    @nw_action("charge")
     async def charge(self, params: ChargeInput, *, trace_id: str) -> ChargeOutput:
         api_key = self.secret_provider.get_secret("stripe_api_key")
 

@@ -13,12 +13,12 @@ def _schema_for(model: Type[BaseModel]) -> Dict[str, Any]:
 
 def build_manifest(connectors: List[BaseConnector]) -> List[Dict[str, Any]]:
     """
-    One manifest entry per SDK @sdk_action (specific input/output schemas).
+    One manifest entry per @nw_action (action-specific input/output schemas).
     """
     manifest: List[Dict[str, Any]] = []
     for connector in connectors:
         cid = connector.connector_id
-        for action_name, meta in type(connector).sdk_action_metas().items():
+        for action_name, meta in type(connector).nw_action_metas().items():
             manifest.append(
                 {
                     "connector_id": cid,

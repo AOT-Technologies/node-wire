@@ -21,7 +21,7 @@ from typing import List
 
 def auto_register() -> List[str]:
     """
-    Import connector subpackages so SDK connectors register and legacy mappings apply.
+    Import connector subpackages so BaseConnector subclasses register and legacy mappings apply.
 
     Imports `logic` first (triggers BaseConnector.__init_subclass__), then
     `registration` when present.
