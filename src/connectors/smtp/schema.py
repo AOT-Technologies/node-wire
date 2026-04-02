@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, List, Literal, Optional
+from typing import Any, List, Literal, Optional, Union
 
 from pydantic import BaseModel, EmailStr, model_validator
 
@@ -29,8 +29,8 @@ class SmtpSendInput(BaseModel):
     use_tls: bool = True
     username_secret_key: str = "SMTP_USERNAME"
     password_secret_key: str = "SMTP_PASSWORD"
-    from_email: EmailStr
-    to: List[EmailStr]
+    from_email: Optional[EmailStr] = None
+    to: Union[str, List[EmailStr]]
     subject: str
     body: str
 
@@ -53,6 +53,9 @@ class SmtpSendInput(BaseModel):
             values["username_secret_key"] = "SMTP_USERNAME"
         if not values.get("password_secret_key"):
             values["password_secret_key"] = "SMTP_PASSWORD"
+
+        if "from" in values and not values.get("from_email"):
+            values["from_email"] = values.pop("from")
 
         fe = values.get("from_email")
         if fe is None or not str(fe).strip():

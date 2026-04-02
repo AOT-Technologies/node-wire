@@ -50,6 +50,18 @@ flowchart TD
 
 The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
 
+### Tool arguments and security
+
+- Tool name (`<connector_id>.<action>`) determines the routed action; do not rely on a separate `action` field in the JSON body to select a different operation.
+- Per-action normalizers in `src/runtime/mcp_normalizers.py` map common LLM mistakes to canonical schema fields; see also `src/runtime/ingress.py` for shared MCP/REST behavior.
+- **`tools/list` input schemas** omit the `action` field (manifest contract v2+). Pass only the fields shown in `inputSchema`; the server injects `action` from the tool name.
+
+**Legacy rollout (Google Drive `google_drive.files.upload` only):**
+
+| Variable | Values | Purpose |
+|----------|--------|---------|
+| `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD` | `warn` (default), `allow` (same mapping, no deprecation log), `reject` | Legacy payload `action: "upload"` for `google_drive.files.upload`. Use `reject` once all clients omit `action` or use canonical `files.upload` only in pre-invoke validation paths. |
+
 ---
 
 ## Environment configuration

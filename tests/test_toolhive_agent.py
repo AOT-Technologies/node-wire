@@ -64,46 +64,36 @@ def test_resolve_max_tool_failures_env_and_override(monkeypatch: pytest.MonkeyPa
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Fixtures (manifest-driven — must match production tools/list)
 # ---------------------------------------------------------------------------
 
-SAMPLE_TOOLS = [
-    {
-        "name": "fhir_cerner.read_patient",
-        "description": "Fetch a patient from Cerner FHIR",
-        "input_schema": {
-            "type": "object",
-            "properties": {"resource_id": {"type": "string"}},
-            "required": ["resource_id"],
-        },
-    },
-    {
-        "name": "google_drive.files.upload",
-        "description": "Upload a file to Google Drive",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "mime_type": {"type": "string"},
-                "content": {"type": "string"},
-            },
-            "required": ["name", "mime_type", "content"],
-        },
-    },
-    {
-        "name": "smtp.send_email",
-        "description": "Send an email via SMTP",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "to": {"type": "array", "items": {"type": "string"}},
-                "subject": {"type": "string"},
-                "body": {"type": "string"},
-            },
-            "required": ["to", "subject", "body"],
-        },
-    },
-]
+def _mcp_tools_subset_from_manifest() -> List[Dict[str, Any]]:
+    """Same input_schema as McpServer.list_tools for a stable agent-test subset."""
+    from bindings.factory import ConnectorFactory
+    from connectors import auto_register
+    from connectors.manifest import build_manifest
+
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()
+    manifest = build_manifest(factory.list_for_protocol("mcp"))
+    want = {"fhir_cerner.read_patient", "google_drive.files.upload", "smtp.send_email"}
+    out: List[Dict[str, Any]] = []
+    for entry in manifest:
+        name = f"{entry['connector_id']}.{entry['action']}"
+        if name in want:
+            out.append(
+                {
+                    "name": name,
+                    "description": f"{entry['connector_id']} {entry['action']}",
+                    "input_schema": entry["input_schema"],
+                }
+            )
+    assert {t["name"] for t in out} == want
+    return sorted(out, key=lambda t: t["name"])
+
+
+SAMPLE_TOOLS = _mcp_tools_subset_from_manifest()
 
 
 def _tool_call(name: str, args: Dict[str, Any]) -> ToolCall:

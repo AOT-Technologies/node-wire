@@ -13,6 +13,7 @@ from typing import Any, Dict
 from googleapiclient.http import MediaInMemoryUpload
 from pydantic import BaseModel
 
+from runtime.mcp_normalizers import normalize_google_drive_files_upload
 from runtime.sdk_action_spec import SdkActionSpec
 
 from .schema import (
@@ -140,6 +141,8 @@ def _register_files_upload() -> None:
         method_name="create",
         build_kwargs=_build_upload_kwargs,
         input_model=FilesUploadOperation,
+        alias_tolerant=True,
+        mcp_normalize=normalize_google_drive_files_upload,
     )
 
 

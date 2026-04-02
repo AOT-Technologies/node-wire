@@ -59,6 +59,27 @@ def test_rest_post_connector_success() -> None:
     assert call_payload["method"] == "GET"
 
 
+def test_rest_post_connector_rejects_conflicting_action_in_body() -> None:
+    """Body action must match URL path segment (same as MCP tool name authority)."""
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={}, trace_id="t")
+    )
+
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        r = client.post(
+            "/connectors/http_generic/request",
+            json={"action": "wrong_action", "method": "GET", "url": "https://example.com"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert r.status_code == 400
+    assert "does not match" in r.json()["detail"]
+
+
 @pytest.mark.parametrize(
     ("category", "expected_status"),
     [

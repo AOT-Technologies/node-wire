@@ -14,7 +14,11 @@ from connectors.google_drive.exceptions import (
     GoogleDriveRateLimitError,
 )
 from connectors.google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnector
-from connectors.google_drive.schema import GoogleDriveOperationInput, GoogleDriveOperationOutput
+from connectors.google_drive.schema import (
+    FilesUploadOperation,
+    GoogleDriveOperationInput,
+    GoogleDriveOperationOutput,
+)
 from runtime import SecretProvider
 
 
@@ -35,6 +39,35 @@ class DummyHttpError(Exception):
 
 def _connector() -> GoogleDriveConnector:
     return GoogleDriveConnector(secret_provider=MockSecretProvider())
+
+
+def test_files_upload_operation_requires_exactly_one_body_source() -> None:
+    FilesUploadOperation.model_validate(
+        {
+            "action": "files.upload",
+            "name": "a.txt",
+            "mime_type": "text/plain",
+            "content": "hello",
+        }
+    )
+    with pytest.raises(ValidationError):
+        FilesUploadOperation.model_validate(
+            {
+                "action": "files.upload",
+                "name": "a.txt",
+                "mime_type": "text/plain",
+            }
+        )
+    with pytest.raises(ValidationError):
+        FilesUploadOperation.model_validate(
+            {
+                "action": "files.upload",
+                "name": "a.txt",
+                "mime_type": "text/plain",
+                "content": "a",
+                "content_base64": "Zg==",
+            }
+        )
 
 
 def test_google_drive_internal_execute_files_list_happy_path():
