@@ -11,7 +11,8 @@
 #   thv run --name node-wire-connectors --transport stdio \
 #     --secret ... node-wire:latest
 
-FROM python:3.12-slim
+# Digest-pinned base (update when bumping tag). See .github/workflows/docker-policy.yml.
+FROM python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4
 
 # Install system deps needed by some connector libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,6 +28,12 @@ COPY config/ ./config/
 
 # Install platform + agents extras
 RUN pip install --no-cache-dir -e ".[agents]"
+
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --home /app app \
+    && chown -R app:app /app
+
+USER app
 
 # Expose nothing — ToolHive manages the stdio proxy port internally
 # MCP_PORT / FASTMCP_PORT will be set by ToolHive if ever needed

@@ -52,6 +52,18 @@ agents = [
   "anthropic>=0.28.0",             # Claude SDK
 ]
 
+# Development entry points — register all connectors so auto_register() works
+# in the dev editable install (pip install -e .).
+# Each published connector package also declares its own entry point in its
+# packages/connectors/{name}/pyproject.toml.
+[project.entry-points."node_wire.connectors"]
+http_generic = "node_wire_http_generic.logic"
+smtp         = "node_wire_smtp.logic"
+stripe       = "node_wire_stripe.logic"
+google_drive = "node_wire_google_drive.logic"
+fhir_epic    = "node_wire_fhir_epic.logic"
+fhir_cerner  = "node_wire_fhir_cerner.logic"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

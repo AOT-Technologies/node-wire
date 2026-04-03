@@ -1,12 +1,12 @@
-# Connectors guide (`src/connectors`)
+# Connectors guide (`src/node_wire_*`)
 
-This guide explains how **connectors** fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under `src/connectors/`; the shared base class lives at **`src/runtime/base_connector.py`**.
+This guide explains how **connectors** fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under `src/node_wire_<connector_id>/` (e.g. `src/node_wire_google_drive/`); the shared base class lives at **`src/node_wire_runtime/base_connector.py`**.
 
 ---
 
 ## Package layout and registration
 
-Each connector is a **subpackage** of `connectors`:
+Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epic`):
 
 | File | Role |
 |------|------|
@@ -16,13 +16,13 @@ Each connector is a **subpackage** of `connectors`:
 | `registration.py` | Optional: registers connector-specific exceptions with `ErrorMapper`. |
 | `exceptions.py` | Optional: custom exception types. |
 
-At startup, call **`connectors.auto_register()`** (see [`src/connectors/__init__.py`](../src/connectors/__init__.py)): it imports each subpackage's `logic` module, which triggers `BaseConnector.__init_subclass__` and adds the class to `_CONNECTOR_REGISTRY`. Any `registration.py` is imported afterwards.
+At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors`, imports each connector's `logic` module (triggering `BaseConnector.__init_subclass__` and `_CONNECTOR_REGISTRY`), then imports optional `registration.py` for `ErrorMapper` side effects.
 
 ---
 
 ## The unified `BaseConnector`
 
-There is one base class for all connectors: **`BaseConnector`** (`src/runtime/base_connector.py`). It handles:
+There is one base class for all connectors: **`BaseConnector`** (`src/node_wire_runtime/base_connector.py`). It handles:
 
 - Input validation via a Pydantic **discriminated union** (the `action` field selects the right model)
 - Optional **policy hook** enforcement
@@ -448,8 +448,19 @@ connectors:
 
 ---
 
+## Security (REST, plugins, secrets)
+
+**REST API (`bindings.rest_api`)** — `GET /health` is unauthenticated. All other routes (`/connectors/...`, `/playground/...`, `/scenarios/...`, OpenAPI) require **`NW_REST_API_KEY`** via `Authorization: Bearer <key>` or `X-API-Key: <key>`, optional **`NW_REST_JWT_SECRET`** for HS256 JWTs. Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
+
+**Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
+
+**Secrets** — `EnvSecretProvider` raises **`SecretNotFoundError`** when a variable is missing (fail-closed). Set **`NW_ENV_SECRET_LEGACY_EMPTY=true`** only if you need legacy empty-string behaviour. **`NW_SECRET_BACKEND=aws_env`** with **`NW_AWS_SECRETS_MANAGER_SECRET_ID`** composes AWS Secrets Manager JSON + env fallback via `ChainedSecretProvider` (see `bindings.factory._build_secret_provider`).
+
+---
+
 ## Related documentation
 
+- [packaging.md](packaging.md) — Wheel build lifecycle, PyPI publish flow, client install model, secrets config, and pre-publish checklist.
 - [mcp-servers.md](mcp-servers.md) — MCP images, ToolHive, env vars.
 - [google_drive_connector.md](google_drive_connector.md) — Drive REST API and setup.
-- Per-connector READMEs under `src/connectors/*/README.md` where present.
+- Per-connector READMEs under `src/node_wire_*/README.md` where present.

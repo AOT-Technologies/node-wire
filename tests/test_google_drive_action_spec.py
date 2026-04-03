@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import MagicMock, patch
 
-from connectors.google_drive.action_spec import GOOGLE_DRIVE_ACTION_SPECS
-from connectors.google_drive.logic import GoogleDriveConnector
-from connectors.google_drive.schema import GoogleDriveOperationInput
-from runtime import SecretProvider
+from node_wire_google_drive.action_spec import GOOGLE_DRIVE_ACTION_SPECS
+from node_wire_google_drive.logic import GoogleDriveConnector
+from node_wire_google_drive.schema import GoogleDriveOperationInput
+from node_wire_runtime import SecretProvider
 
 
 class MockSecretProvider(SecretProvider):

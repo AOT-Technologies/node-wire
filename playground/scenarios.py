@@ -13,25 +13,25 @@ import os
 
 load_dotenv()
 
-from runtime.errors import ErrorMapper
-from runtime.models import ErrorCategory
+from node_wire_runtime.errors import ErrorMapper
+from node_wire_runtime.models import ErrorCategory
 
 ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
 
-from connectors.fhir_epic.logic import FhirEpicConnector
-from connectors.fhir_epic.schema import (
+from node_wire_fhir_epic.logic import FhirEpicConnector
+from node_wire_fhir_epic.schema import (
     FhirDocumentReferenceCreateInput,
     FhirDocumentReferenceSearchInput,
     FhirEncounterSearchInput,
     FhirPatientReadInput,
 )
-from connectors.fhir_cerner.schema import (
+from node_wire_fhir_cerner.schema import (
     FhirCernerDocumentReferenceCreateInput,
     FhirCernerDocumentReferenceSearchInput,
     FhirCernerEncounterSearchInput,
     FhirCernerPatientReadInput,
 )
-from connectors.google_drive.schema import (
+from node_wire_google_drive.schema import (
     GoogleDriveOperationInput,
     FilesUploadOperation,
     PermissionsCreateOperation,
@@ -133,8 +133,8 @@ class ScenarioResponse(BaseModel):
 
 
 def _safe_error_return(e: Exception, steps: List[ScenarioStep], trace_id: str, step_msg: str) -> ScenarioResponse:
-    from runtime.errors import ErrorMapper
-    from runtime.models import ErrorCategory
+    from node_wire_runtime.errors import ErrorMapper
+    from node_wire_runtime.models import ErrorCategory
     import logging
     import asyncio
     log = logging.getLogger("playground.scenarios")
@@ -194,7 +194,7 @@ def get_playground_factory() -> Any:
     global _playground_factory
     if _playground_factory is None:
         from bindings.factory import ConnectorFactory
-        from connectors import auto_register
+        from node_wire_runtime.connector_registry import auto_register
 
         _playground_factory = ConnectorFactory()
         auto_register()
@@ -479,7 +479,7 @@ async def report_incident_scenario(
     # STEP 2: Dispatch Webhook
     add_step("Dispatch Webhook", "pending", display_name="Dispatch Webhook")
     try:
-        from connectors.http_generic.schema import HttpRequestInput
+        from node_wire_http_generic.schema import HttpRequestInput
         
         # Using httpbin.org to simulate a real REST endpoint
         request_input = HttpRequestInput(

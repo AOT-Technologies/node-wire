@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from bindings.factory import ConnectorFactory
 from bindings.rest_api.app import app, get_factory
-from runtime.models import ConnectorResponse, ErrorCategory
+from node_wire_runtime.models import ConnectorResponse, ErrorCategory
 
 
 def test_factory_loads_config():
@@ -26,6 +26,67 @@ def test_health_endpoint():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={}, trace_id="t")
+    )
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert r.status_code == 401
+    assert "Authentication" in r.json()["detail"]
+
+
+def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={"ok": True}, trace_id="t-rest")
+    )
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        r = client.post(
+            "/connectors/http_generic/request",
+            json={"method": "GET", "url": "https://example.com"},
+            headers={"Authorization": "Bearer unit-test-secret"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert r.status_code == 200
+
+
+def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
+
+    client = TestClient(app)
+    r = client.post("/connectors/http_generic/request", json={})
+    assert r.status_code == 503
+    assert "not configured" in r.json()["detail"].lower()
+
+
+def test_health_public_when_auth_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+
+    client = TestClient(app)
+    assert client.get("/health").status_code == 200
 
 
 def _stub_connector(response: ConnectorResponse) -> MagicMock:

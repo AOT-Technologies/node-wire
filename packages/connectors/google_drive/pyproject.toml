@@ -1,0 +1,23 @@
+[project]
+name = "node-wire-google-drive"
+version = "0.1.0"
+description = "Node Wire connector — Google Drive API v3 (files and permissions)"
+requires-python = ">=3.11"
+authors = [{ name = "AOT", email = "dev@aot.local" }]
+
+dependencies = [
+    "node-wire-runtime>=0.1.0",
+    "google-auth>=2.0.0",
+    "google-api-python-client>=2.100.0",
+]
+
+[project.entry-points."node_wire.connectors"]
+google_drive = "node_wire_google_drive.logic"
+
+[build-system]
+requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["../../../src"]
+include = ["node_wire_google_drive*"]

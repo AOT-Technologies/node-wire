@@ -3,25 +3,29 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+import os
+import sys
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environmental variables from .env
+# Production: set NW_REST_LOAD_DOTENV=false to rely on injected env only (no .env file).
+if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+    load_dotenv()
 
 from bindings.factory import ConnectorFactory
-from connectors import auto_register
-from connectors.manifest import build_manifest
-from runtime import ConnectorResponse, ErrorCategory
-from runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime.manifest import build_manifest
+from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-import os
-import sys
-from pathlib import Path
+from bindings.rest_api.auth import RestAuthMiddleware
 
 # Add project root to sys.path to allow importing from 'playground' package
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -35,6 +39,8 @@ tracer = trace.get_tracer("bindings.rest_api")
 
 app = FastAPI(title="Node Wire - REST API")
 FastAPIInstrumentor.instrument_app(app)
+# Auth runs outermost (added last): protects /connectors/*, /playground/*, /scenarios/*; /health is public.
+app.add_middleware(RestAuthMiddleware)
 
 # Include the professional scenarios orchestrator
 app.include_router(scenarios_router)

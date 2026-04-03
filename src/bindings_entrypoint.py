@@ -7,7 +7,7 @@ import uvicorn
 
 from bindings.rest_api.app import app as rest_app
 from bindings.mcp_server.server import McpServer
-from runtime.observability import init_observability
+from node_wire_runtime.observability import init_observability
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bindings.entrypoint")

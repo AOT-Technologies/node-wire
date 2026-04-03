@@ -1,0 +1,22 @@
+[project]
+name = "node-wire-stripe"
+version = "0.1.0"
+description = "Node Wire connector — Stripe payments"
+requires-python = ">=3.11"
+authors = [{ name = "AOT", email = "dev@aot.local" }]
+
+dependencies = [
+    "node-wire-runtime>=0.1.0",
+    "stripe>=10.0.0",
+]
+
+[project.entry-points."node_wire.connectors"]
+stripe = "node_wire_stripe.logic"
+
+[build-system]
+requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["../../../src"]
+include = ["node_wire_stripe*"]

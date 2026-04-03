@@ -4,11 +4,11 @@ import asyncio
 
 from pydantic import BaseModel
 
-from connectors.http_generic.logic import HttpGenericConnector
-from connectors.smtp.logic import SmtpConnector
-from connectors.stripe.logic import StripeConnector
-from runtime import ConnectorResponse, ErrorCategory, BaseConnector, SecretProvider
-from connectors import auto_register
+from node_wire_http_generic.logic import HttpGenericConnector
+from node_wire_smtp.logic import SmtpConnector
+from node_wire_stripe.logic import StripeConnector
+from node_wire_runtime import ConnectorResponse, ErrorCategory, BaseConnector, SecretProvider
+from node_wire_runtime.connector_registry import auto_register
 
 
 class DummySecretProvider(SecretProvider):

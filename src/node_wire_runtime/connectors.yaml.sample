@@ -1,0 +1,56 @@
+# connectors.yaml — Node Wire connector configuration
+#
+# Copy this file to your deployment root and set:
+#   export NW_CONFIG_PATH=/path/to/connectors.yaml
+#
+# SECURITY RULE: This file must never contain secrets.
+#   - Non-sensitive config (base_url, host, port, from_email) → here, safe to version-control
+#   - Secrets (client_id, private_key, api_key, password) → environment variables or a
+#     cloud secrets backend (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, GCP SM)
+#
+# Environment variable interpolation: ${VAR_NAME} is replaced at load time.
+# Defaults can be specified: ${VAR_NAME:default_value}
+#
+# Secret keys used by each connector (populate these in your secrets backend):
+#   fhir_epic:    epic_client_id, epic_private_key, epic_kid, epic_token_url, epic_fhir_base_url
+#   fhir_cerner:  cerner_client_id, cerner_private_key, cerner_kid, cerner_token_url,
+#                 cerner_fhir_base_url, cerner_scopes
+#   google_drive: GOOGLE_DRIVE_SA_JSON
+#   smtp:         SMTP_USERNAME, SMTP_PASSWORD
+#   stripe:       stripe_api_key
+
+connectors:
+  fhir_epic:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # Non-sensitive endpoint config — safe in YAML
+    base_url: "${EPIC_FHIR_BASE_URL:https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4}"
+    oauth_token_url: "${EPIC_TOKEN_URL:https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token}"
+
+  fhir_cerner:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
+    oauth_token_url: "${CERNER_TOKEN_URL:https://authorization.cerner.com/tenants/your-tenant-id/protocols/oauth2/profiles/smart-v1/token}"
+
+  google_drive:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # Optional: restrict uploads to a specific folder (leave empty for root)
+    folder_id: "${GDRIVE_FOLDER_ID:}"
+
+  smtp:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # Non-sensitive SMTP server config — safe in YAML
+    host: "smtp.example.com"
+    port: 587
+    from_email: "noreply@example.com"
+
+  stripe:
+    enabled: false
+    exposed_via: [grpc, mcp]
+
+  http_generic:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
