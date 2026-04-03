@@ -136,7 +136,7 @@ Below is the full set of environment variables used by the connector platform an
 | `GROQ_API_KEY` | LLM (Groq) | Your Groq API key |
 | `GROQ_MODEL` | LLM | Example: `openai/gpt-oss-120b` |
 | `MCP_TRANSPORT` | ToolHive / local | `stdio` when running in ToolHive container |
-| `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `d:\connector-platform\src` locally |
+| `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `**/node-wire/src` locally |
 | `SMTP_HOST` | SMTP connector | Example: `sandbox.smtp.mailtrap.io` |
 | `SMTP_PORT` | SMTP connector | Example: `2525` |
 | `SMTP_USERNAME` | SMTP connector | Mailtrap / SMTP user |
@@ -161,7 +161,7 @@ Option A — Recommended: ToolHive UI (no code)
 
 Option B — Local quick run (Windows PowerShell)
 
-Prerequisite: Install Python 3.10+ and Git. If you cannot install, ask an administrator to run Option A.
+Prerequisite: Install Python 3.11+ and Git. If you cannot install, ask an administrator to run Option A.
 
 1. Open PowerShell and clone or navigate to the project folder.
 2. Create a simple `.env` file in the project root (replace placeholder values):
@@ -205,8 +205,6 @@ Notes for non-developers:
 From the root of the repository:
 
 ```bash
-cd node-wire
-
 docker build -t node-wire:latest .
 ```
 

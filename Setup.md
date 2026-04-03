@@ -23,10 +23,11 @@ Node Wire is a Python framework that runs connector adapters (Google Drive, SMTP
 
 | Requirement | Version | Notes                                   |
 | ----------- | ------- | --------------------------------------- |
-| Python      | 3.12+   | `python --version` to check             |
+| Python      | 3.11+   | `python --version` to check             |
 | pip or uv   | Latest  | `pip install --upgrade pip`             |
 | Git         | Any     | To clone the repo                       |
 | Docker      | Latest  | Only needed for ToolHive MCP deployment |
+| Node.js     | Any LTS | Only needed for `npx @modelcontextprotocol/inspector` |
 
 
 ---
@@ -45,6 +46,8 @@ uv sync --extra agents
 uv run node-wire --help
 ```
 
+> **Install uv:** See the official installer docs at `https://docs.astral.sh/uv/`.
+>
 > **REST/gRPC only** (no AI agent features): `uv sync` without the extra is sufficient.
 >
 > **Alternative (pip):** If you’re not using `uv`, install editable deps with pip:
@@ -68,6 +71,8 @@ cp sample.env .env
 ```
 
 You only need to fill in the sections for the connectors you plan to use. The platform starts successfully even if some credentials are missing — those connectors will simply return an error when called.
+
+> **Doc convention:** Environment variable names in the docs follow `sample.env`. Some legacy keys (like `stripe_api_key`) are intentionally lower-case because that is what the connector reads.
 
 ### Environment Variable Sections
 
@@ -97,6 +102,19 @@ The platform supports three modes. Set the `MODE` environment variable to switch
 | **gRPC**               | `MODE=GRPC uv run node-wire`      | `50051`      | gRPC clients                        |
 | **MCP (stdio)**        | `python -m agents.mcp_entrypoint` | stdio        | AI agents, ToolHive, Claude Desktop |
 
+> **Important:** `MODE=MCP` for `node-wire` / `python -m bindings_entrypoint` starts a minimal MCP-style placeholder server, not the full stdio MCP server used with ToolHive and the agent layer. For ToolHive/Inspector/agents, use `python -m agents.mcp_entrypoint` (or the per-connector MCP servers in `docs/mcp-servers.md`).
+
+### Configuration file (`config/connectors.yaml`)
+
+Connectors are loaded from `config/connectors.yaml`. Each connector has:
+
+- `enabled`: whether the connector is instantiated at startup
+- `exposed_via`: which protocols can access it (`rest`, `grpc`, `mcp`)
+
+If a connector is disabled (or not exposed for a protocol), requests to it will fail with “not configured / not available” even if your `.env` is correct.
+
+For details on adding a new connector to the runtime, see `docs/creating-a-connector.md`.
+
 
 ### REST API Quick Start
 
@@ -112,6 +130,12 @@ PORT=8001 uv run node-wire
 ```
 
 **Production / secured REST:** set `NW_REST_API_KEY` and send `Authorization: Bearer <key>` or `X-API-Key: <key>` on every route except `GET /health`. Set `NW_REST_LOAD_DOTENV=false` so secrets are not loaded from a `.env` file. See [docs/connectors.md](docs/connectors.md) (Security section).
+
+Equivalent entrypoint (without `uv`):
+
+```bash
+MODE=API python -m bindings_entrypoint
+```
 
 Once running:
 
@@ -334,6 +358,12 @@ npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
 # Or test the combined server
 npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
 ```
+
+### Troubleshooting quick hits
+
+- **Port 8000 in use**: set `PORT=8001` (or any free port) when starting the REST API.
+- **Connector “not configured”**: confirm it is `enabled: true` (and exposed for your protocol) in `config/connectors.yaml`.
+- **ToolHive + Google Drive auth failure**: inside ToolHive, `GOOGLE_DRIVE_SA_JSON` must be the JSON **contents** (not a file path). Locally, it can be an absolute file path (see `docs/mcp-servers.md`).
 
 ---
 
