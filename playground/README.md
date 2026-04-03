@@ -9,7 +9,7 @@ The demo provides a modern, interactive web interface to trigger, monitor, and v
 ### Core Technologies
 - **Frontend**: Vanilla HTML5, CSS3 (Glassmorphism), and Javascript.
 - **Backend API**: FastAPI (Python) serving orchestration logic via `playground/scenarios.py`.
-- **Connector Layer**: Integrated with `connectors` using the `fhir_epic`, `fhir_cerner`, and `http_generic` bindings.
+- **Connector layer**: Uses Node Wire connectors (`fhir_epic`, `fhir_cerner`, `http_generic`, and others) via the platform REST API and `ConnectorFactory` (see [docs/connectors.md](docs/connectors.md)).
 
 ---
 

@@ -2,6 +2,13 @@
 
 This guide explains how **connectors** fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under `src/node_wire_<connector_id>/` (e.g. `src/node_wire_google_drive/`); the shared base class lives at **`src/node_wire_runtime/base_connector.py`**.
 
+## How connectors fit into the platform
+
+- **Layer B — Connectors** (`src/node_wire_<connector_id>/`): adapter packages (schemas, logic, optional `registration.py`).
+- **Layer C — Bindings** (`src/bindings/`): REST, gRPC, and MCP servers plus `ConnectorFactory` loading from `config/connectors.yaml`.
+
+At startup, bindings call **`node_wire_runtime.connector_registry.auto_register()`**, which loads connector entry points, imports each connector’s `logic` module (registering the class), then imports optional `registration.py` for `ErrorMapper` side effects. **`ConnectorFactory`** resolves connectors from the registry — **do not add per-connector branches in `src/bindings/factory.py`.**
+
 ---
 
 ## Package layout and registration
@@ -220,14 +227,15 @@ connectors:
     enabled: true
     exposed_via:
       - rest
+      - grpc
       - mcp
 ```
 
-`exposed_via` controls which bindings surface the connector. Available values: `rest`, `mcp`.
+`exposed_via` controls which bindings surface the connector. Use any subset of **`rest`**, **`grpc`**, and **`mcp`** (omit protocols you do not need).
 
 ### Step 5 — Auto-registration (nothing extra needed)
 
-`BaseConnector.__init_subclass__` adds your class to `_CONNECTOR_REGISTRY[connector_id]` as soon as `logic.py` is imported. `connectors.auto_register()` handles that import at startup. **No manual factory branch is required.**
+`BaseConnector.__init_subclass__` adds your class to `_CONNECTOR_REGISTRY[connector_id]` as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
 
 ---
 
@@ -319,7 +327,11 @@ async def upload_then_describe(
 
 ## Integrating with binding layers
 
-The factory and manifest drive all bindings. Once a connector is registered and `load()` is called, every binding (REST, MCP) discovers it automatically.
+The factory and manifest drive all bindings. Once a connector is registered and `load()` is called, REST, gRPC, and MCP discover enabled connectors according to `exposed_via`.
+
+### Optional: MCP under `src/agents/` (ToolHive / stdio)
+
+The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`; see **[mcp-servers.md](mcp-servers.md)** for images, env, and registration. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image — follow **mcp-servers.md** when you need a dedicated MCP deployment.
 
 ### REST binding
 
@@ -434,6 +446,7 @@ connectors:
     enabled: true          # false → connector not instantiated
     exposed_via:           # controls which bindings surface this connector
       - rest
+      - grpc
       - mcp
     # connector-specific keys passed via SecretProvider or connector __init__
 ```
@@ -454,7 +467,7 @@ connectors:
 
 **Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
 
-**Secrets** — `EnvSecretProvider` raises **`SecretNotFoundError`** when a variable is missing (fail-closed). Set **`NW_ENV_SECRET_LEGACY_EMPTY=true`** only if you need legacy empty-string behaviour. **`NW_SECRET_BACKEND=aws_env`** with **`NW_AWS_SECRETS_MANAGER_SECRET_ID`** composes AWS Secrets Manager JSON + env fallback via `ChainedSecretProvider` (see `bindings.factory._build_secret_provider`).
+**Secrets** — `EnvSecretProvider` looks up the key **as given**, then **`key.upper()`** (e.g. `my_key` then `MY_KEY`). It raises **`SecretNotFoundError`** when a variable is missing (fail-closed). Set **`NW_ENV_SECRET_LEGACY_EMPTY=true`** only if you need legacy empty-string behaviour. **`NW_SECRET_BACKEND=aws_env`** with **`NW_AWS_SECRETS_MANAGER_SECRET_ID`** composes AWS Secrets Manager JSON + env fallback via `ChainedSecretProvider` (see `bindings.factory._build_secret_provider`).
 
 ---
 

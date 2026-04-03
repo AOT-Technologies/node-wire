@@ -37,7 +37,7 @@ Node Wire is a Python framework that runs connector adapters (Google Drive, SMTP
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd node-wire
+cd <repository-directory>   # the folder git creates (rename if you like)
 
 # 2. Install dependencies (recommended: uv)
 uv sync --extra agents
@@ -113,7 +113,7 @@ Connectors are loaded from `config/connectors.yaml`. Each connector has:
 
 If a connector is disabled (or not exposed for a protocol), requests to it will fail with “not configured / not available” even if your `.env` is correct.
 
-For details on adding a new connector to the runtime, see `docs/creating-a-connector.md`.
+For details on adding a new connector to the runtime, see [docs/connectors.md](docs/connectors.md).
 
 
 ### REST API Quick Start
@@ -273,7 +273,7 @@ EPIC_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY
 
 You obtain these credentials by registering a backend application in the [Epic App Orchard](https://appmarket.epic.com/) (or your organization's Epic sandbox).
 
-**Available actions:** `read_patient`, `search_encounter`, `create_document_reference`, `search_document_reference`
+**Available actions:** `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference`
 
 ---
 
@@ -294,7 +294,7 @@ CERNER_SCOPES="system/Patient.read system/Encounter.read system/DocumentReferenc
 
 Register your application in the [Cerner Developer Portal](https://code.cerner.com/) to obtain these credentials.
 
-**Available actions:** `read_patient`, `search_encounter`, `create_document_reference`, `search_document_reference`
+**Available actions:** `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference`
 
 ---
 
