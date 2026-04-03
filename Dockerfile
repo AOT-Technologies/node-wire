@@ -22,12 +22,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy source (build context = repo root)
-COPY pyproject.toml ./
 COPY src/ ./src/
 COPY config/ ./config/
+COPY packages/runtime/dist/*.whl /wheels/
+COPY packages/connectors/http_generic/dist/*.whl /wheels/
+COPY packages/connectors/stripe/dist/*.whl /wheels/
+COPY packages/connectors/smtp/dist/*.whl /wheels/
+COPY packages/connectors/google_drive/dist/*.whl /wheels/
+COPY packages/connectors/fhir_cerner/dist/*.whl /wheels/
+COPY packages/connectors/fhir_epic/dist/*.whl /wheels/
 
-# Install platform + agents extras
-RUN pip install --no-cache-dir -e ".[agents]"
+ENV PYTHONPATH=/app/src
+
+# Install runtime + connector packages using local wheel artifacts
+RUN pip install --no-cache-dir --find-links=/wheels \
+    node-wire-runtime \
+    node-wire-http-generic \
+    node-wire-stripe \
+    node-wire-smtp \
+    node-wire-google-drive \
+    node-wire-fhir-cerner \
+    node-wire-fhir-epic \
+    "mcp>=1.6.0" \
+    && rm -rf /wheels
 
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home /app app \

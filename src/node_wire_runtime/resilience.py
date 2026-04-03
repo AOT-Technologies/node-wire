@@ -15,6 +15,14 @@ logger = logging.getLogger("runtime.resilience")
 T = TypeVar("T")
 
 
+class _AbortRetry(BaseException):
+    """Wraps a non-retryable exception to escape tenacity's retry loop."""
+
+    def __init__(self, cause: Exception) -> None:
+        self.cause = cause
+        super().__init__(str(cause))
+
+
 def with_resilience(
     breaker: CircuitBreaker,
     max_attempts: int = 3,
@@ -50,43 +58,46 @@ def with_resilience(
                     # Fall back to a direct call until pybreaker is upgraded to >= 1.0.
                     return await fn(*args, **kwargs)
 
-            async for attempt in AsyncRetrying(
-                retry=retry_if_exception_type(Exception),
-                stop=stop_after_attempt(max_attempts),
-                wait=wait_exponential(multiplier=base_wait, max=max_wait),
-                reraise=True,
-            ):
-                with attempt:
-                    try:
-                        return await _call()
-                    except Exception as exc:  # noqa: BLE001
-                        mapped = ErrorMapper.resolve(exc)
-                        if mapped.category is not ErrorCategory.RETRYABLE:
-                            # Non-retryable: log and re-raise without further retries.
-                            logger.error(
-                                "Non-retryable error during execution",
+            try:
+                async for attempt in AsyncRetrying(
+                    retry=retry_if_exception_type(Exception),
+                    stop=stop_after_attempt(max_attempts),
+                    wait=wait_exponential(multiplier=base_wait, max=max_wait),
+                    reraise=True,
+                ):
+                    with attempt:
+                        try:
+                            return await _call()
+                        except Exception as exc:  # noqa: BLE001
+                            mapped = ErrorMapper.resolve(exc)
+                            if mapped.category is not ErrorCategory.RETRYABLE:
+                                # Non-retryable: log, then escape the retry loop entirely.
+                                logger.error(
+                                    "Non-retryable error during execution",
+                                    extra={
+                                        "trace_id": trace_id,
+                                        "error_code": mapped.code,
+                                        "error_category": mapped.category.value,
+                                        "error_type": type(exc).__name__,
+                                        "error_message": str(exc),
+                                    },
+                                )
+                                raise _AbortRetry(exc)
+
+                            logger.warning(
+                                "Retryable error during execution; will retry",
                                 extra={
                                     "trace_id": trace_id,
                                     "error_code": mapped.code,
                                     "error_category": mapped.category.value,
+                                    "attempt_number": attempt.retry_state.attempt_number,
                                     "error_type": type(exc).__name__,
                                     "error_message": str(exc),
                                 },
                             )
                             raise
-
-                        logger.warning(
-                            "Retryable error during execution; will retry",
-                            extra={
-                                "trace_id": trace_id,
-                                "error_code": mapped.code,
-                                "error_category": mapped.category.value,
-                                "attempt_number": attempt.retry_state.attempt_number,
-                                "error_type": type(exc).__name__,
-                                "error_message": str(exc),
-                            },
-                        )
-                        raise
+            except _AbortRetry as abort:
+                raise abort.cause
 
             # Should not be reached because reraise=True ensures RetryError is propagated.
             raise RetryError("Exhausted retries without success")

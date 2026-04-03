@@ -56,14 +56,18 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
+            schema_desc = entry["input_schema"].get("description", "")
+            tool_desc = (
+                f"{schema_desc}\n" if schema_desc else ""
+            ) + (
+                f"Pass fields from inputSchema only; do not include an action field "
+                f"(it is injected from the tool name). "
+                f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+            )
             tools.append(
                 {
                     "name": f"{cid}.{entry['action']}",
-                    "description": (
-                        f"{cid} {entry['action']}: pass fields from inputSchema only; "
-                        f"do not send action (injected from tool name). "
-                        f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
-                    ),
+                    "description": tool_desc,
                     "input_schema": entry["input_schema"],
                     "output_schema": entry["output_schema"],
                 }

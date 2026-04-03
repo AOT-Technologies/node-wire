@@ -10,11 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
 COPY src/ ./src/
 COPY config/ ./config/
+COPY packages/runtime/dist/*.whl /wheels/
+COPY packages/connectors/google_drive/dist/*.whl /wheels/
 
-RUN pip install --no-cache-dir -e ".[agents]"
+ENV PYTHONPATH=/app/src \
+    NW_ALLOWED_CONNECTORS=google_drive
+
+RUN pip install --no-cache-dir --find-links=/wheels \
+    node-wire-runtime node-wire-google-drive "mcp>=1.6.0" \
+    && rm -rf /wheels
 
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home /app app \
