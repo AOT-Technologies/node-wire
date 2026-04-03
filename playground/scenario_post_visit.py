@@ -9,13 +9,13 @@ from typing import Any, Dict, Optional
 # Add 'src' to sys.path so we can import core components if running from root
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
-from connectors.fhir_epic.logic import FhirEpicConnector
-from connectors.fhir_epic.schema import (
+from node_wire_fhir_epic.logic import FhirEpicConnector
+from node_wire_fhir_epic.schema import (
     FhirPatientReadInput,
     FhirEncounterSearchInput,
     FhirDocumentReferenceCreateInput
 )
-from runtime import SecretProvider
+from node_wire_runtime import SecretProvider
 
 # Set up basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

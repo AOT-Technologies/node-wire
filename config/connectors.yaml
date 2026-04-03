@@ -1,3 +1,17 @@
+# Connector enable/list — see docs/connectors.md
+#
+# REST API auth (not stored here; set in environment):
+#   NW_REST_API_KEY — required for /connectors, /playground, /scenarios unless NW_REST_AUTH_DISABLED=true
+#   NW_REST_LOAD_DOTENV=false — recommended in production (no .env file)
+#
+# Plugin allowlist (optional):
+#   NW_ALLOWED_CONNECTORS=fhir_epic,http_generic,...
+#   NW_CONNECTOR_MODULE_PREFIX=node_wire_
+#
+# Secrets backend (optional):
+#   NW_SECRET_BACKEND=env | aws_env
+#   NW_AWS_SECRETS_MANAGER_SECRET_ID=...  (when aws_env)
+#
 connectors:
   http_generic:
     enabled: true

@@ -1,0 +1,23 @@
+[project]
+name = "node-wire-fhir-cerner"
+version = "0.1.0"
+description = "Node Wire connector — Cerner FHIR R4 (read/search patients and encounters)"
+requires-python = ">=3.11"
+authors = [{ name = "AOT", email = "dev@aot.local" }]
+
+dependencies = [
+    "node-wire-runtime>=0.1.0",
+    "httpx[http2]>=0.27.0,<0.28.0",
+    "PyJWT[crypto]>=2.8.0",
+]
+
+[project.entry-points."node_wire.connectors"]
+fhir_cerner = "node_wire_fhir_cerner.logic"
+
+[build-system]
+requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["../../../src"]
+include = ["node_wire_fhir_cerner*"]

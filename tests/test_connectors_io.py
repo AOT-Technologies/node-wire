@@ -6,12 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 
-from connectors.http_generic.logic import HttpGenericConnector
-from connectors.http_generic.schema import HttpRequestInput
-from connectors.smtp.logic import SmtpConnector
-from connectors.smtp.schema import SmtpSendInput
-from connectors.stripe.logic import StripeConnector
-from runtime.secrets import SecretProvider
+from node_wire_http_generic.logic import HttpGenericConnector
+from node_wire_http_generic.schema import HttpRequestInput
+from node_wire_smtp.logic import SmtpConnector
+from node_wire_smtp.schema import SmtpSendInput
+from node_wire_stripe.logic import StripeConnector
+from node_wire_runtime.secrets import SecretProvider
 
 
 class _MapSecrets(SecretProvider):
@@ -29,7 +29,7 @@ def test_smtp_internal_execute_calls_aiosmtplib_send() -> None:
         return (250, "OK")
 
     async def _run() -> None:
-        with patch("connectors.smtp.logic.aiosmtplib.send", new=fake_send):
+        with patch("node_wire_smtp.logic.aiosmtplib.send", new=fake_send):
             c = SmtpConnector(secret_provider=secrets)
             inp = SmtpSendInput(
                 host="localhost",
@@ -63,7 +63,7 @@ def test_http_generic_internal_execute() -> None:
             return mock_resp
 
     async def _run() -> None:
-        with patch("connectors.http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()):
+        with patch("node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()):
             c = HttpGenericConnector()
             inp = HttpRequestInput(url="http://example.com/path", method="GET")
             out = await c.internal_execute(inp, trace_id="t-2")
@@ -76,7 +76,7 @@ def test_http_generic_internal_execute() -> None:
 def test_stripe_charge_via_run() -> None:
     secrets = _MapSecrets({"stripe_api_key": "sk_test_dummy"})
 
-    with patch("connectors.stripe.logic.stripe.Charge") as mock_charge:
+    with patch("node_wire_stripe.logic.stripe.Charge") as mock_charge:
         mock_charge.create.return_value = {"id": "ch_123", "receipt_url": "https://pay.example/r"}
         c = StripeConnector(secret_provider=secrets)
 

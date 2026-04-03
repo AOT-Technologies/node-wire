@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from runtime import BaseConnector, nw_action, ConnectorResponse, ErrorCategory, ErrorMapper
+from node_wire_runtime import BaseConnector, nw_action, ConnectorResponse, ErrorCategory, ErrorMapper
 
 
 class InputModel(BaseModel):

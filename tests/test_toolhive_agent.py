@@ -70,8 +70,8 @@ def test_resolve_max_tool_failures_env_and_override(monkeypatch: pytest.MonkeyPa
 def _mcp_tools_subset_from_manifest() -> List[Dict[str, Any]]:
     """Same input_schema as McpServer.list_tools for a stable agent-test subset."""
     from bindings.factory import ConnectorFactory
-    from connectors import auto_register
-    from connectors.manifest import build_manifest
+    from node_wire_runtime.connector_registry import auto_register
+    from node_wire_runtime.manifest import build_manifest
 
     auto_register()
     factory = ConnectorFactory()

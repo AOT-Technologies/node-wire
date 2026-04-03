@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from connectors.manifest import MCP_MANIFEST_CONTRACT_VERSION
+from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION
 
 
 def test_manifest_contract_version_is_exported() -> None:
@@ -12,7 +12,7 @@ def test_manifest_contract_version_is_exported() -> None:
 
 def test_per_connector_tool_names_are_subsets_of_unified() -> None:
     from bindings.factory import ConnectorFactory
-    from connectors import auto_register
+    from node_wire_runtime.connector_registry import auto_register
 
     auto_register()
     factory = ConnectorFactory()

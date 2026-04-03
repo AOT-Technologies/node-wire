@@ -52,6 +52,8 @@ uv run node-wire --help
 > - `pip install -e ".[agents]"` (includes MCP/LLM agent dependencies)
 > - `pip install -e .` (REST/gRPC only, no agent dependencies)
 
+> **Installing from PyPI wheels instead of source?** See [docs/packaging.md](docs/packaging.md) for the wheel build lifecycle, client install model, and pre-publish validation checklist.
+
 ---
 
 ## Configuration
@@ -99,6 +101,9 @@ The platform supports three modes. Set the `MODE` environment variable to switch
 ### REST API Quick Start
 
 ```bash
+# Local development: disable REST auth (do not use in production)
+export NW_REST_AUTH_DISABLED=true
+
 # Default port 8000
 uv run node-wire
 
@@ -106,16 +111,19 @@ uv run node-wire
 PORT=8001 uv run node-wire
 ```
 
+**Production / secured REST:** set `NW_REST_API_KEY` and send `Authorization: Bearer <key>` or `X-API-Key: <key>` on every route except `GET /health`. Set `NW_REST_LOAD_DOTENV=false` so secrets are not loaded from a `.env` file. See [docs/connectors.md](docs/connectors.md) (Security section).
+
 Once running:
 
-- **Health check:** `GET http://localhost:8000/health`
-- **Interactive docs (Swagger UI):** `http://localhost:8000/docs`
+- **Health check (no auth):** `GET http://localhost:8000/health`
+- **Interactive docs (Swagger UI):** `http://localhost:8000/docs` (requires API key when auth is enabled)
 - **Call a connector:** `POST http://localhost:8000/connectors/{connector_id}/{action}`
 
-Example — send an HTTP request via the generic connector:
+Example — send an HTTP request via the generic connector (with auth enabled):
 
 ```bash
 curl -X POST http://localhost:8000/connectors/http_generic/request \
+  -H "Authorization: Bearer $NW_REST_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://httpbin.org/get", "method": "GET"}'
 ```

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import runtime.observability as obs
+import node_wire_runtime.observability as obs
 
 
 @contextmanager
@@ -54,13 +54,13 @@ def _observability_test_patches():
     with _ensure_traceloop_stub_modules():
         with (
             patch("opentelemetry.trace.set_tracer_provider"),
-            patch("runtime.observability.OTLPSpanExporter") as span_exp,
-            patch("runtime.observability.OTLPLogExporter") as log_exp,
-            patch("runtime.observability.BatchSpanProcessor"),
-            patch("runtime.observability.BatchLogRecordProcessor"),
-            patch("runtime.observability.set_logger_provider"),
+            patch("node_wire_runtime.observability.OTLPSpanExporter") as span_exp,
+            patch("node_wire_runtime.observability.OTLPLogExporter") as log_exp,
+            patch("node_wire_runtime.observability.BatchSpanProcessor"),
+            patch("node_wire_runtime.observability.BatchLogRecordProcessor"),
+            patch("node_wire_runtime.observability.set_logger_provider"),
             patch(
-                "runtime.observability.LoggingHandler",
+                "node_wire_runtime.observability.LoggingHandler",
                 side_effect=lambda **kwargs: logging.NullHandler(),
             ),
             patch("traceloop.sdk.Traceloop") as mock_tl,
