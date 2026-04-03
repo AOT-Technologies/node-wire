@@ -10,7 +10,7 @@
 #   scripts/build-packages.sh --all packages/runtime
 #
 # Prerequisites (default mode):
-#   pip install build cython wheel
+#   python3 or python on PATH; pip install build cython wheel
 #   docker (for Linux wheels)
 #
 # Prerequisites (--all mode):
@@ -200,9 +200,12 @@ echo "=== Node Wire — building ${#PACKAGES[@]} package(s) (host + linux) ==="
 FAILED=()
 
 if command -v python3 >/dev/null 2>&1; then
-  PY_CHECK=python3
+  PYTHON_HOST=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON_HOST=python
 else
-  PY_CHECK=python
+  echo "ERROR: python3 or python is required on the host to build wheels but neither was found in PATH." >&2
+  exit 1
 fi
 
 # Validate paths first so typos fail without Docker installed or running.
@@ -244,7 +247,7 @@ for PKG in "${PACKAGES[@]}"; do
 
   (
     cd "$PKG"
-    python -m build --wheel --no-isolation
+    "$PYTHON_HOST" -m build --wheel --no-isolation
   )
 
   docker run --rm \
@@ -266,7 +269,7 @@ for PKG in "${PACKAGES[@]}"; do
     continue
   fi
 
-  if ! verify_wheels_no_py "$PY_CHECK" "${WHEELS[@]}"; then
+  if ! verify_wheels_no_py "$PYTHON_HOST" "${WHEELS[@]}"; then
     FAILED+=("$PKG (.py leak)")
     continue
   fi

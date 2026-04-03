@@ -48,14 +48,14 @@ flowchart LR
 
 ## Building a connector (Google Drive SDK example)
 
-The production **Google Drive** connector (`src/connectors/google_drive/`) is a good template for wrapping a **vendor Python SDK** (here `googleapiclient` / Drive API v3): service-account auth in `build_client()`, a discriminated union of operations in `schema.py`, and **`action_specs`** so each API surface becomes a manifest action without duplicating boilerplate.
+The production **Google Drive** connector (`src/node_wire_google_drive/`) is a good template for wrapping a **vendor Python SDK** (here `googleapiclient` / Drive API v3): service-account auth in `build_client()`, a discriminated union of operations in `schema.py`, and **`action_specs`** so each API surface becomes a manifest action without duplicating boilerplate.
 
 ### Step 1 — Define your schemas (`schema.py`)
 
 Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. Those models are combined into a **discriminated union** (and often wrapped in `RootModel` for a single top-level validator), which the runtime uses to pick the correct handler.
 
 ```python
-# src/connectors/google_drive/schema.py (conceptual excerpt)
+# src/node_wire_google_drive/schema.py (conceptual excerpt)
 from __future__ import annotations
 
 from typing import Annotated, Literal, Optional, Union
@@ -107,11 +107,11 @@ When a connector only has **one** action, the `action` field is still required �
 
 ### Step 2 — Map operations to the SDK (`action_spec.py`)
 
-**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/connectors/google_drive/action_spec.py`](../src/connectors/google_drive/action_spec.py).
+**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/node_wire_google_drive/action_spec.py`](../src/node_wire_google_drive/action_spec.py).
 
 ```python
-# src/connectors/google_drive/action_spec.py (illustrative)
-from runtime.sdk_action_spec import SdkActionSpec
+# src/node_wire_google_drive/action_spec.py (illustrative)
+from node_wire_runtime.sdk_action_spec import SdkActionSpec
 
 from .schema import FilesCreateOperation, FilesListOperation
 
@@ -143,7 +143,7 @@ GOOGLE_DRIVE_ACTION_SPECS: dict[str, SdkActionSpec] = {
 Subclass `BaseConnector`, set **`connector_id`**, **`output_model`**, and **`action_specs`**. The base class **generates** one async `@nw_action` handler per spec. Override **`_execute_action_spec`** to add logging, thread offload, and translation of vendor exceptions (e.g. `HttpError` → your `error_map` types).
 
 ```python
-# src/connectors/google_drive/logic.py (conceptual excerpt)
+# src/node_wire_google_drive/logic.py (conceptual excerpt)
 from __future__ import annotations
 
 import json
@@ -153,9 +153,9 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from runtime import BaseConnector
-from runtime.models import ErrorCategory
-from runtime.sdk_action_spec import execute_spec_in_thread
+from node_wire_runtime import BaseConnector
+from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.sdk_action_spec import execute_spec_in_thread
 
 from .action_spec import GOOGLE_DRIVE_ACTION_SPECS
 from .exceptions import GoogleDriveAuthError, GoogleDriveRateLimitError  # + other mapped types
@@ -210,7 +210,7 @@ Key points:
 - **`action_specs`** — each key becomes a manifest action (e.g. `files.list`). Do **not** also add a manual `@nw_action` with the same name.
 - **`_execute_action_spec`** — **required** when using **`action_specs`**: each generated handler delegates here. Typically call **`execute_spec_in_thread`** for blocking SDKs (such as `googleapiclient`). Connectors that only use hand-written `@nw_action` methods do not implement this hook.
 
-**Adding a new Drive operation:** add a Pydantic variant and extend the union in `schema.py`, register a new `SdkActionSpec` in `action_spec.py`, and rely on auto-generated handlers (see [`src/connectors/google_drive/README.md`](../src/connectors/google_drive/README.md)).
+**Adding a new Drive operation:** add a Pydantic variant and extend the union in `schema.py`, register a new `SdkActionSpec` in `action_spec.py`, and rely on auto-generated handlers (see [`src/node_wire_google_drive/README.md`](../src/node_wire_google_drive/README.md)).
 
 ### Step 4 — Register in `config/connectors.yaml`
 
@@ -236,7 +236,7 @@ connectors:
 A connector with one action is identical in structure — just add one `@nw_action` method:
 
 ```python
-# src/connectors/sms/schema.py
+# src/node_wire_sms/schema.py
 from __future__ import annotations
 from typing import Literal
 from pydantic import BaseModel
@@ -252,10 +252,10 @@ class SmsSendOutput(BaseModel):
 ```
 
 ```python
-# src/connectors/sms/logic.py
+# src/node_wire_sms/logic.py
 from __future__ import annotations
 
-from runtime import BaseConnector, nw_action
+from node_wire_runtime import BaseConnector, nw_action
 from .schema import SmsSendInput, SmsSendOutput
 
 
@@ -277,7 +277,7 @@ class SmsConnector(BaseConnector):
 Use `connector.run(dict)` for the full pipeline (validation, policy, retries, error mapping):
 
 ```python
-from connectors import auto_register
+from node_wire_runtime.connector_registry import auto_register
 from bindings.factory import ConnectorFactory
 
 auto_register()
@@ -298,7 +298,7 @@ else:
 For composing actions within a connector, use **`self.call_action`** (returns the action’s output model, not `ConnectorResponse`):
 
 ```python
-from runtime import BaseConnector, nw_action
+from node_wire_runtime import BaseConnector, nw_action
 
 @nw_action("upload_then_describe")
 async def upload_then_describe(
@@ -332,7 +332,7 @@ Content-Type: application/json
 { "page_size": 10, "query": "name contains 'report'" }
 ```
 
-The `action` field in the body is optional for REST — the binding injects it from the URL path (see `src/runtime/ingress.py`). Per-action **argument normalizers** (`mcp_normalize` on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an `action` field, it **must** match the path segment; otherwise the API returns **400**.
+The `action` field in the body is optional for REST — the binding injects it from the URL path (see `src/node_wire_runtime/ingress.py`). Per-action **argument normalizers** (`mcp_normalize` on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an `action` field, it **must** match the path segment; otherwise the API returns **400**.
 
 The runtime then performs full Pydantic validation and returns a `ConnectorResponse`.
 
@@ -367,7 +367,7 @@ HTTP status codes are mapped from `ErrorCategory`:
 
 The MCP server calls `connector.run(args_dict)` and serialises the `ConnectorResponse` as the tool result.
 
-The **tool name** (`<connector_id>.<action>`) is authoritative: after normalizers run, the binding sets `action` from the tool name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/runtime/ingress.py`).
+The **tool name** (`<connector_id>.<action>`) is authoritative: after normalizers run, the binding sets `action` from the tool name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/node_wire_runtime/ingress.py`).
 
 Optional per-action **argument normalizers** (`mcp_normalize` on `@sdk_action` / `SdkActionSpec`) run before `connector.run` to map LLM aliases to canonical fields. Actions default to **strict** JSON Schema (`additionalProperties: false`); set `alias_tolerant=True` only where extra keys must pass MCP SDK validation before normalization.
 
@@ -414,7 +414,7 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 
 ## Adding a new connector (checklist)
 
-1. Create `src/connectors/<connector_id>/` with `schema.py` and `logic.py`.
+1. Create `src/node_wire_<connector_id>/` with `schema.py` and `logic.py`.
 2. In `schema.py`: define one Pydantic input model per action, each with `action: Literal["<name>"]`, and one or more output models (union + `RootModel` if you validate a single envelope).
 3. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then either add `@nw_action` methods with full type annotations or wire **`action_specs`** (and optionally `_execute_action_spec`) like Google Drive.
 4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.

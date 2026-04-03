@@ -36,7 +36,7 @@ Node Wire is a Python framework that runs connector adapters (Google Drive, SMTP
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd connector-platform
+cd node-wire
 
 # 2. Install dependencies (recommended: uv)
 uv sync --extra agents
@@ -76,7 +76,7 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 | ---------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------- |
 | **FHIR Epic**    | `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY`                            | Epic EHR integration   |
 | **FHIR Cerner**  | `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`, `CERNER_SCOPES` | Cerner EHR integration |
-| **Google Drive** | `google_drive_sa_json`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
+| **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
 | **SMTP**         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`                                                          | Sending emails         |
 | **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
 | **ToolHive**     | `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (comma-separated, multi-server)                                  | ToolHive MCP proxy     |
@@ -227,7 +227,7 @@ Quick summary of what you'll need:
 Add to your `.env`:
 
 ```env
-google_drive_sa_json=/absolute/path/to/service-account.json
+GOOGLE_DRIVE_SA_JSON=/absolute/path/to/service-account.json
 GOOGLE_DRIVE_FOLDER_ID=your-folder-id-from-drive-url
 ```
 
@@ -305,10 +305,10 @@ The MCP server normalizes common LLM/legacy aliases (`patientId` / `patient_id` 
 Quick start:
 
 ```bash
-# Build all three images
+# Build all four images
 ./scripts/build-mcp-images.sh
 
-# Start all three locally
+# Start all four locally
 docker compose -f docker-compose.mcp.yml up
 ```
 

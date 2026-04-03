@@ -4,7 +4,7 @@
 > **Standard:** FHIR R4
 > **Auth Method:** SMART Backend Services — RS384 JWT / OAuth2
 > **Actions:** `read_patient` · `search_encounter` · `create_document_reference` · `search_document_reference`
-> **Source:** `src/connectors/fhir_epic/`
+> **Source:** `src/node_wire_fhir_epic/`
 > **Test Collection:** `postman_fhir_epic_collection.json`
 
 ---
@@ -123,8 +123,8 @@ A Postman collection is provided at the root: `postman_fhir_epic_collection.json
 
 | File / Path | Purpose |
 |---|---|
-| `src/connectors/fhir_epic/logic.py` | Core logic and action dispatch |
-| `src/connectors/fhir_epic/schema.py` | Pydantic input/output models |
+| `src/node_wire_fhir_epic/logic.py` | Core logic and action dispatch |
+| `src/node_wire_fhir_epic/schema.py` | Pydantic input/output models |
 | `src/bindings/factory.py` | Connector instantiation logic |
 | `src/bindings/rest_api/app.py` | REST API routing |
 | `tests/test_fhir_epic.py` | Comprehensive test suite |

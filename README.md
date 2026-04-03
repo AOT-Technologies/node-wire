@@ -27,9 +27,9 @@ See [docs/mcp-servers.md](docs/mcp-servers.md) for build, env config, docker-com
 
 The platform is split into three layers:
 
-- **Layer A – Runtime** (`runtime`): The engine that every connector runs inside. It defines the execution contract, a standard error taxonomy, retries and circuit breaking, and telemetry.
-- **Layer B – Connectors** (`connectors`): Adapters that implement that contract and call external systems (HTTP Generic, SMTP, Stripe, Google Drive, FHIR Epic, FHIR Cerner). Each connector has its own input/output schema and business logic.
-- **Layer C – Bindings** (`bindings`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and how connectors are loaded from configuration (ConnectorFactory + `config/connectors.yaml`).
+- **Layer A – Runtime** (`src/node_wire_runtime/`): The engine that every connector runs inside. It defines the execution contract, a standard error taxonomy, retries and circuit breaking, and telemetry.
+- **Layer B – Connectors** (`src/node_wire_<connector>/`): Adapters that implement that contract and call external systems (HTTP Generic, SMTP, Stripe, Google Drive, FHIR Epic, FHIR Cerner). Each connector has its own input/output schema and business logic.
+- **Layer C – Bindings** (`src/bindings/`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and how connectors are loaded from configuration (ConnectorFactory + `config/connectors.yaml`).
 
 **Data flow (simplified):** A request arrives via REST, gRPC, or MCP → the factory resolves the right connector → the runtime runs it (validate input → optional policy check → retry/circuit-breaker wrapper → execute) → the response is returned in a standard shape (`ConnectorResponse`).
 
@@ -146,7 +146,7 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
   - `exposed_via`: list of protocols (`rest`, `grpc`, `mcp`). Only listed protocols expose that connector.
 
 - **Secrets**  
-  Supplied via environment variables. The factory uses `EnvSecretProvider`; keys are connector-specific (e.g. Google Drive expects a variable documented in `src/connectors/google_drive/README.md`).
+  Supplied via environment variables. The factory uses `EnvSecretProvider`; keys are connector-specific (e.g. Google Drive expects a variable documented in `src/node_wire_google_drive/README.md`).
 
 ### Google Drive service account setup (quick)
 

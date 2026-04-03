@@ -53,7 +53,7 @@ The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connect
 ### Tool arguments and security
 
 - Tool name (`<connector_id>.<action>`) determines the routed action; do not rely on a separate `action` field in the JSON body to select a different operation.
-- Per-action normalizers in `src/runtime/mcp_normalizers.py` map common LLM mistakes to canonical schema fields; see also `src/runtime/ingress.py` for shared MCP/REST behavior.
+- Per-action normalizers in `src/node_wire_runtime/mcp_normalizers.py` map common LLM mistakes to canonical schema fields; see also `src/node_wire_runtime/ingress.py` for shared MCP/REST behavior.
 - **`tools/list` input schemas** omit the `action` field (manifest contract v2+). Pass only the fields shown in `inputSchema`; the server injects `action` from the tool name.
 
 **Legacy rollout (Google Drive `google_drive.files.upload` only):**
@@ -224,7 +224,7 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
 
 ## Run with docker-compose
 
-`docker-compose.mcp.yml` starts all three MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
+`docker-compose.mcp.yml` starts all four MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
 
 ```bash
 # Ensure your .env is populated, then:

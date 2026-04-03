@@ -62,6 +62,7 @@ For modular deployments, each connector can be run as an independent MCP server 
 - `nw-google-drive` (Google Drive)
 - `nw-smartonfhir-epic` (Epic SMART on FHIR)
 - `nw-smartonfhir-cerner` (Cerner SMART on FHIR)
+- `nw-smtp` (SMTP email)
 
 When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS`** (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.
 
@@ -204,7 +205,7 @@ Notes for non-developers:
 From the root of the repository:
 
 ```bash
-cd connector-platform
+cd node-wire
 
 docker build -t node-wire:latest .
 ```
@@ -538,7 +539,7 @@ tests/test_toolhive_agent.py::test_mcp_entrypoint_registers_three_to PASSED
 ## File layout (`agents`)
 
 ```
-connector-platform/
+node-wire/
 ├── Dockerfile                              ← Docker image for ToolHive
 ├── pyproject.toml                          ← [agents] extras added
 ├── sample.env                              ← env var reference

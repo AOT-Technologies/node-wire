@@ -1,8 +1,8 @@
-# 🤖 Node Wire Agents & MCP Orchestration
+# Node Wire Agents & MCP Orchestration
 
 This folder contains the core intelligence and orchestration layer of **Node Wire**, enabling autonomous AI agents to interact with healthcare systems and cloud services via the **Model Context Protocol (MCP)**.
 
-## 🚀 Overview
+## Overview
 
 The `agents` module transforms static connectors (EHR, Google Drive, SMTP) into dynamic, discoverable tools for Large Language Models (LLMs). By following the MCP standard, we provide a unified interface for "ReAct" style agents to perform end-to-end clinical workflows through natural language instructions.
 
@@ -13,7 +13,7 @@ The `agents` module transforms static connectors (EHR, Google Drive, SMTP) into 
 
 ---
 
-## 🏗️ Core Architecture
+## Core Architecture
 
 ### 1. **MCP Server (`mcp_entrypoint.py`)**
 Stdio MCP server using the official [Model Context Protocol Python SDK](https://github.com/modelcontextprotocol/python-sdk).
@@ -35,7 +35,7 @@ A modular factory system supporting diverse LLM backends:
 
 ---
 
-## 🛠️ MCP tool naming
+## MCP tool naming
 
 Tools are named **`{connector_id}.{action}`** as defined by each connector’s manifest (see `connectors/manifest.py` and `bindings/mcp_server/server.py`). Examples:
 
@@ -71,14 +71,14 @@ TOOLHIVE_MCP_URL=http://localhost:8000/mcp
 
 # Connector Secrets (Injected into MCP Server)
 CERNER_CLIENT_ID=...
-GOOGLE_DRIVE_SA_JSON=D:\connector-platform\service_account.json
+GOOGLE_DRIVE_SA_JSON=/path/to/service_account.json
 SMTP_USERNAME=...
 SMTP_PASSWORD=...
 ```
 
 ---
 
-## 🏃 Usage Guide
+## Usage Guide
 
 ### **1. Launch the MCP Server (Local)**
 To verify tool discovery and execution via `stdio`:
