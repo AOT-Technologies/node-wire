@@ -179,6 +179,8 @@ GROQ_API_KEY=your-groq-api-key
 
 ## Build images
 
+Before building images, build local wheels first. See [docs/local-packages-to-images.md](local-packages-to-images.md) for the full package -> image workflow and required wheel artifacts per image.
+
 All four images are built from the repository root using the automation script:
 
 ```bash
