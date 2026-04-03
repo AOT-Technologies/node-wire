@@ -36,6 +36,16 @@ The script iterates every `pyproject.toml` under `packages/`, runs `python -m bu
 bash scripts/build-packages.sh packages/connectors/stripe
 ```
 
+### Optional: cibuildwheel (`--all`)
+
+For additional platform wheels locally (depends on host and `cibuildwheel`), install `cibuildwheel` and run:
+
+```bash
+bash scripts/build-packages.sh --all
+```
+
+For the full Linux/macOS/Windows matrix, use CI (`.github/workflows/publish.yml`).
+
 ### Inspect wheel contents
 
 After building, confirm no source leaks:
