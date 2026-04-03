@@ -160,6 +160,8 @@ pip install "node-wire-runtime[gcp]"    # google-cloud-secret-manager
 
 The `docker/*/Dockerfile` images are **demonstration templates** for packaging a single connector as a standalone MCP server. They are not production orchestration artefacts.
 
+For a local end-to-end walkthrough (build wheels first, then build Docker images that consume those wheels), see [docs/local-packages-to-images.md](local-packages-to-images.md).
+
 ```bash
 docker build -f docker/smtp/Dockerfile -t nw-smtp .
 docker build -f docker/google-drive/Dockerfile -t nw-google-drive .
