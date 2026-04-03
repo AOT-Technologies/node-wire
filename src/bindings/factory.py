@@ -119,14 +119,20 @@ class ConnectorFactory:
                 )
                 continue
 
-            self._connectors[connector_id] = self._instantiate(connector_id)
+            instance = self._instantiate(connector_id)
+            if instance is not None:
+                self._connectors[connector_id] = instance
 
-    def _instantiate(self, connector_id: str) -> BaseConnector:
+    def _instantiate(self, connector_id: str) -> BaseConnector | None:
         connector_cls = _CONNECTOR_REGISTRY.get(connector_id)
         if connector_cls is not None:
             return connector_cls(secret_provider=self._secret_provider)
 
-        raise ValueError(f"Unknown connector id {connector_id!r}")
+        logger.warning(
+            "Connector %r is enabled in config but not registered (filtered by NW_ALLOWED_CONNECTORS or not installed) — skipping",
+            connector_id,
+        )
+        return None
 
     def get_for_protocol(
         self, connector_id: str, protocol: str, action: Optional[str] = None

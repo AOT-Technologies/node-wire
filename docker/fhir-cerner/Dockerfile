@@ -10,11 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
 COPY src/ ./src/
 COPY config/ ./config/
+COPY packages/runtime/dist/*.whl /wheels/
+COPY packages/connectors/fhir_cerner/dist/*.whl /wheels/
 
-RUN pip install --no-cache-dir -e ".[agents]"
+ENV PYTHONPATH=/app/src \
+    NW_ALLOWED_CONNECTORS=fhir_cerner
+
+RUN pip install --no-cache-dir --find-links=/wheels \
+    node-wire-runtime node-wire-fhir-cerner "mcp>=1.6.0" \
+    && rm -rf /wheels
 
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home /app app \

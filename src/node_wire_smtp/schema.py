@@ -19,8 +19,10 @@ def _extract_email(value: str) -> str:
 
 class SmtpSendInput(BaseModel):
     """
-    SMTP send payload. Connection settings default from environment when omitted
-    so MCP/REST callers only need to, subject, body.
+    Send an email via SMTP. Only `to`, `subject`, and `body` are required —
+    connection settings (host, port, use_tls) and credentials (username, password)
+    are pre-configured on the server via environment variables and do NOT need to
+    be supplied by the caller.
     """
 
     action: Literal["send_email"] = "send_email"
