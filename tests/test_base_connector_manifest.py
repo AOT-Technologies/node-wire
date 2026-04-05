@@ -6,11 +6,11 @@ from typing import Any, Dict
 import pytest
 
 from bindings.factory import ConnectorFactory
-from connectors import auto_register
-from connectors.manifest import build_manifest
-from connectors.stripe.schema import ChargeInput
-from runtime import BaseConnector
-from runtime.base_connector import _CONNECTOR_REGISTRY
+from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime.manifest import build_manifest
+from node_wire_stripe.schema import ChargeInput
+from node_wire_runtime import BaseConnector
+from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
 
 
 def _normalize_for_mcp(connector_id: str, action: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -31,7 +31,7 @@ def test_registry_contains_base_connectors():
     assert "fhir_epic" in _CONNECTOR_REGISTRY
 
 
-def test_manifest_emits_per_sdk_action():
+def test_manifest_emits_per_action():
     auto_register()
     factory = ConnectorFactory()
     factory.load()
@@ -44,14 +44,14 @@ def test_manifest_emits_per_sdk_action():
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     mcp_actions = {(e["connector_id"], e["action"]) for e in mcp_manifest}
     assert ("stripe", "charge") in mcp_actions
-    # Per-action input schema should not be the full union for SDK connectors
+    # Per-action input schema should expose that action's fields (not only a buried union)
     for entry in mcp_manifest:
         if entry["connector_id"] == "stripe":
             props = entry["input_schema"].get("properties", {})
             assert "amount" in props
 
 
-def test_stripe_connector_is_sdk_and_accepts_charge_payload():
+def test_stripe_connector_accepts_charge_payload():
     auto_register()
     factory = ConnectorFactory()
     factory.load()
@@ -114,8 +114,8 @@ def test_mcp_server_run_stdio_smoke():
 
 
 def test_normalize_mcp_tool_arguments_read_patient_maps_legacy_ids():
-    from connectors.fhir_cerner.schema import FhirCernerPatientReadInput
-    from connectors.fhir_epic.schema import FhirPatientReadInput as FhirEpicPatientReadInput
+    from node_wire_fhir_cerner.schema import FhirCernerPatientReadInput
+    from node_wire_fhir_epic.schema import FhirPatientReadInput as FhirEpicPatientReadInput
 
     for cid in ("fhir_cerner", "fhir_epic"):
         out = _normalize_for_mcp(
@@ -146,7 +146,7 @@ def test_normalize_mcp_tool_arguments_read_patient_maps_legacy_ids():
 
 
 def test_normalize_mcp_tool_arguments_search_patients_maps_legacy():
-    from connectors.fhir_cerner.schema import FhirCernerPatientSearchInput
+    from node_wire_fhir_cerner.schema import FhirCernerPatientSearchInput
 
     out = _normalize_for_mcp(
         "fhir_cerner",
@@ -169,7 +169,7 @@ def test_normalize_mcp_tool_arguments_search_patients_maps_legacy():
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_mime_type_alias():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -187,7 +187,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_mime_type_alias(
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_action_upload():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -204,7 +204,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_action_upload():
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_nested_file():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -226,7 +226,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_nested_file():
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_string_maps_to_content():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -243,7 +243,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_string_map
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_object_text_alias_maps_to_content():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -260,7 +260,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_object_tex
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_object_base64_maps_to_content_base64():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -277,7 +277,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_object_bas
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_metadata_aliases_are_used_when_missing():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -300,7 +300,7 @@ def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_metadata_a
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_canonical_content_wins_over_media_alias():
-    from connectors.google_drive.schema import FilesUploadOperation
+    from node_wire_google_drive.schema import FilesUploadOperation
 
     out = _normalize_for_mcp(
         "google_drive",
@@ -334,9 +334,9 @@ def test_normalize_mcp_tool_arguments_google_drive_canonical_mime_type_wins_over
 
 @pytest.mark.asyncio
 async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run() -> None:
-    """invoke_tool should apply normalization before BaseConnector.run (SDK action)."""
+    """invoke_tool should apply normalization before BaseConnector.run."""
     from bindings.mcp_server.server import McpServer
-    from runtime.models import ConnectorResponse
+    from node_wire_runtime.models import ConnectorResponse
 
     server = McpServer(connector_ids=["fhir_cerner"])
     cerner = server._factory.get_for_protocol("fhir_cerner", "mcp")
@@ -363,7 +363,7 @@ async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run
 async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() -> None:
     """invoke_tool should normalize Drive upload aliases before connector.run."""
     from bindings.mcp_server.server import McpServer
-    from runtime.models import ConnectorResponse
+    from node_wire_runtime.models import ConnectorResponse
 
     server = McpServer(connector_ids=["google_drive"])
     gdrive = server._factory.get_for_protocol("google_drive", "mcp")
@@ -458,7 +458,7 @@ def test_normalize_fhir_search_encounter_maps_llm_aliases():
 
 
 def test_normalize_mcp_tool_arguments_smtp_send_email_from_alias():
-    from connectors.smtp.schema import SmtpSendInput
+    from node_wire_smtp.schema import SmtpSendInput
 
     out = _normalize_for_mcp(
         "smtp",
@@ -497,7 +497,7 @@ def test_normalize_mcp_tool_arguments_smtp_send_email_canonical_wins():
 
 
 def test_normalize_mcp_tool_arguments_smtp_send_email_to_string_to_list():
-    from connectors.smtp.schema import SmtpSendInput
+    from node_wire_smtp.schema import SmtpSendInput
 
     out = _normalize_for_mcp(
         "smtp",
@@ -512,7 +512,7 @@ def test_normalize_mcp_tool_arguments_smtp_send_email_to_string_to_list():
 async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
     """invoke_tool should normalize SMTP aliases before connector.run."""
     from bindings.mcp_server.server import McpServer
-    from runtime.models import ConnectorResponse
+    from node_wire_runtime.models import ConnectorResponse
 
     server = McpServer(connector_ids=["smtp"])
     smtp = server._factory.get_for_protocol("smtp", "mcp")
@@ -607,8 +607,8 @@ def test_mcp_server_list_tools_output_schema_is_connector_response_envelope():
 
 def test_connector_response_schema_embeds_output_model_in_data():
     """_connector_response_schema must inline the output model schema as data, no $ref/$defs."""
-    from connectors.manifest import _connector_response_schema
-    from connectors.smtp.schema import SmtpSendOutput
+    from node_wire_runtime.manifest import _connector_response_schema
+    from node_wire_smtp.schema import SmtpSendOutput
 
     schema = _connector_response_schema(SmtpSendOutput)
     assert schema["title"] == "ConnectorResponse"
@@ -623,7 +623,7 @@ def test_connector_response_schema_embeds_output_model_in_data():
     # error_category must inline the enum from runtime (no $ref to avoid $defs leakage)
     ec = props["error_category"]
     enum_values = ec["anyOf"][0]["enum"]
-    from runtime.models import ErrorCategory
+    from node_wire_runtime.models import ErrorCategory
 
     assert set(enum_values) == {e.value for e in ErrorCategory}
     assert "$ref" not in str(ec)
@@ -691,8 +691,8 @@ def test_sdk_action_meta_alias_tolerant_propagates():
 
 def test_manifest_error_category_enum_matches_runtime_error_category():
     """Emitted JSON Schema enum must stay in sync with ErrorCategory."""
-    from connectors.manifest import _error_category_json_schema
-    from runtime.models import ErrorCategory
+    from node_wire_runtime.manifest import _error_category_json_schema
+    from node_wire_runtime.models import ErrorCategory
 
     schema = _error_category_json_schema()
     assert set(schema["enum"]) == {e.value for e in ErrorCategory}
@@ -722,7 +722,7 @@ def test_sdk_action_meta_mcp_normalize_propagates():
 async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shape() -> None:
     """Error ConnectorResponse (data=None) matches manifest output_schema (nullable data)."""
     from bindings.mcp_server.server import McpServer
-    from runtime.models import ConnectorResponse, ErrorCategory
+    from node_wire_runtime.models import ConnectorResponse, ErrorCategory
 
     server = McpServer(connector_ids=["smtp"])
     smtp = server._factory.get_for_protocol("smtp", "mcp")

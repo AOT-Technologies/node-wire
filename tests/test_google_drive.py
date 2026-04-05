@@ -7,19 +7,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from connectors.google_drive.exceptions import (
+from node_wire_google_drive.exceptions import (
     GoogleDriveAuthError,
     GoogleDriveBusinessError,
     GoogleDriveFatalError,
     GoogleDriveRateLimitError,
 )
-from connectors.google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnector
-from connectors.google_drive.schema import (
+from node_wire_google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnector
+from node_wire_google_drive.schema import (
     FilesUploadOperation,
     GoogleDriveOperationInput,
     GoogleDriveOperationOutput,
 )
-from runtime import SecretProvider
+from node_wire_runtime import SecretProvider
 
 
 class MockSecretProvider(SecretProvider):

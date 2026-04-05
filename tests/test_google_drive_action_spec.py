@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import MagicMock, patch
 
-from connectors.google_drive.action_spec import GOOGLE_DRIVE_ACTION_SPECS
-from connectors.google_drive.logic import GoogleDriveConnector
-from connectors.google_drive.schema import GoogleDriveOperationInput
-from runtime import SecretProvider
+from node_wire_google_drive.action_spec import GOOGLE_DRIVE_ACTION_SPECS
+from node_wire_google_drive.logic import GoogleDriveConnector
+from node_wire_google_drive.schema import GoogleDriveOperationInput
+from node_wire_runtime import SecretProvider
 
 
 class MockSecretProvider(SecretProvider):
@@ -22,9 +22,9 @@ def _connector() -> GoogleDriveConnector:
     return GoogleDriveConnector(secret_provider=MockSecretProvider())
 
 
-def test_action_spec_registry_covers_all_sdk_actions():
-    """Every @sdk_action on GoogleDriveConnector must have a spec entry."""
-    metas = GoogleDriveConnector.sdk_action_metas()
+def test_action_spec_registry_covers_all_nw_actions():
+    """Every @nw_action on GoogleDriveConnector must have a spec entry."""
+    metas = GoogleDriveConnector.nw_action_metas()
     for action_name in metas:
         assert action_name in GOOGLE_DRIVE_ACTION_SPECS, f"missing spec for {action_name}"
 

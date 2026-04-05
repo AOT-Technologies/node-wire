@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from runtime import BaseConnector, sdk_action, ConnectorResponse, ErrorCategory, ErrorMapper
+from node_wire_runtime import BaseConnector, nw_action, ConnectorResponse, ErrorCategory, ErrorMapper
 
 
 class InputModel(BaseModel):
@@ -21,7 +21,7 @@ class DoubleConnector(BaseConnector):
     connector_id = "test_double"
     output_model = OutputModel
 
-    @sdk_action("double")
+    @nw_action("double")
     async def double(self, params: InputModel, *, trace_id: str) -> OutputModel:
         return OutputModel(doubled=params.value * 2)
 
@@ -51,7 +51,7 @@ class FailingConnector(BaseConnector):
     connector_id = "test_fail"
     output_model = OutputModel
 
-    @sdk_action("fail")
+    @nw_action("fail")
     async def fail(self, params: FailInputModel, *, trace_id: str) -> OutputModel:
         raise CustomError("boom")
 

@@ -1,19 +1,73 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
 
-from runtime import BaseConnector, SecretProvider
-from runtime.base_connector import _CONNECTOR_REGISTRY
+from node_wire_runtime import BaseConnector, SecretProvider
+from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
+from node_wire_runtime.secrets import ChainedSecretProvider, EnvSecretProvider
 
 logger = logging.getLogger("bindings.factory")
 
 _PLATFORM_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_CONFIG_PATH = _PLATFORM_ROOT / "config" / "connectors.yaml"
+
+
+def _resolve_config_path(explicit: str | Path | None) -> str:
+    """Resolve connector config path with NW_CONFIG_PATH env var support.
+
+    Priority order (first match wins):
+    1. Explicit argument passed to ConnectorFactory()
+    2. NW_CONFIG_PATH environment variable
+    3. <repo-root>/config/connectors.yaml  (existing default — no breakage)
+    4. <cwd>/config/connectors.yaml        (existing fallback — no breakage)
+    """
+    if explicit is not None:
+        return str(explicit)
+    env_path = os.getenv("NW_CONFIG_PATH")
+    if env_path:
+        return env_path
+    if _DEFAULT_CONFIG_PATH.is_file():
+        return str(_DEFAULT_CONFIG_PATH)
+    return str(Path.cwd() / "config" / "connectors.yaml")
+
+
+def _build_secret_provider() -> SecretProvider:
+    """Compose secret providers from ``NW_SECRET_BACKEND`` (default: ``env``).
+
+    - ``env`` — :class:`EnvSecretProvider` only (fail-closed unless ``NW_ENV_SECRET_LEGACY_EMPTY``).
+    - ``aws_env`` — :class:`ChainedSecretProvider`(
+        :class:`~node_wire_runtime.secrets.aws.AwsSecretsManagerProvider`,
+        :class:`EnvSecretProvider`) for JSON bundle in AWS SM then env fallback.
+
+    Environment for ``aws_env``:
+        ``NW_AWS_SECRETS_MANAGER_SECRET_ID`` — Secrets Manager secret id or ARN
+        ``AWS_REGION`` — optional, default ``us-east-1``
+    """
+    mode = os.environ.get("NW_SECRET_BACKEND", "env").strip().lower()
+    if mode in ("", "env"):
+        return EnvSecretProvider()
+    if mode == "aws_env":
+        secret_id = os.environ.get("NW_AWS_SECRETS_MANAGER_SECRET_ID")
+        if not secret_id:
+            raise ValueError(
+                "NW_SECRET_BACKEND=aws_env requires NW_AWS_SECRETS_MANAGER_SECRET_ID to be set"
+            )
+        from node_wire_runtime.secrets.aws import AwsSecretsManagerProvider
+
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        return ChainedSecretProvider(
+            AwsSecretsManagerProvider(secret_name=secret_id, region=region),
+            EnvSecretProvider(),
+        )
+    raise ValueError(
+        f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env."
+    )
 
 
 @dataclass
@@ -24,38 +78,14 @@ class ConnectorConfig:
     raw: Dict[str, Any]
 
 
-class EnvSecretProvider(SecretProvider):
-    """SecretProvider backed by environment variables."""
-
-    def __init__(self) -> None:
-        import os
-
-        self._env = os.environ
-
-    def get_secret(self, key: str) -> str:
-        val = self._env.get(key)
-        if val is not None:
-            return val.strip(" '\"")
-        val = self._env.get(key.upper())
-        if val is not None:
-            return val.strip(" '\"")
-        return ""
-
-
 class ConnectorFactory:
     """
-    Loads config/connectors.yaml and instantiates connectors from the SDK registry.
+    Loads connectors.yaml and instantiates connectors from the connector registry.
     """
 
     def __init__(self, config_path: str | Path | None = None) -> None:
-        if config_path is not None:
-            self._config_path = str(config_path)
-        elif _DEFAULT_CONFIG_PATH.is_file():
-            self._config_path = str(_DEFAULT_CONFIG_PATH)
-        else:
-            cwd_config = Path.cwd() / "config" / "connectors.yaml"
-            self._config_path = str(cwd_config)
-        self._secret_provider: SecretProvider = EnvSecretProvider()
+        self._config_path = _resolve_config_path(config_path)
+        self._secret_provider: SecretProvider = _build_secret_provider()
         self._connectors: Dict[str, Any] = {}
         self._configs: Dict[str, ConnectorConfig] = {}
 
@@ -89,14 +119,20 @@ class ConnectorFactory:
                 )
                 continue
 
-            self._connectors[connector_id] = self._instantiate(connector_id)
+            instance = self._instantiate(connector_id)
+            if instance is not None:
+                self._connectors[connector_id] = instance
 
-    def _instantiate(self, connector_id: str) -> BaseConnector:
-        sdk_cls = _CONNECTOR_REGISTRY.get(connector_id)
-        if sdk_cls is not None:
-            return sdk_cls(secret_provider=self._secret_provider)
+    def _instantiate(self, connector_id: str) -> BaseConnector | None:
+        connector_cls = _CONNECTOR_REGISTRY.get(connector_id)
+        if connector_cls is not None:
+            return connector_cls(secret_provider=self._secret_provider)
 
-        raise ValueError(f"Unknown connector id {connector_id!r}")
+        logger.warning(
+            "Connector %r is enabled in config but not registered (filtered by NW_ALLOWED_CONNECTORS or not installed) — skipping",
+            connector_id,
+        )
+        return None
 
     def get_for_protocol(
         self, connector_id: str, protocol: str, action: Optional[str] = None

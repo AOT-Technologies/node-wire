@@ -5,10 +5,10 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from bindings.factory import ConnectorFactory
-from connectors import auto_register
-from connectors.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from runtime import BaseConnector
-from runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
+from node_wire_runtime import BaseConnector
+from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 
 logger = logging.getLogger("bindings.mcp_server")
 
@@ -56,14 +56,18 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
+            schema_desc = entry["input_schema"].get("description", "")
+            tool_desc = (
+                f"{schema_desc}\n" if schema_desc else ""
+            ) + (
+                f"Pass fields from inputSchema only; do not include an action field "
+                f"(it is injected from the tool name). "
+                f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+            )
             tools.append(
                 {
                     "name": f"{cid}.{entry['action']}",
-                    "description": (
-                        f"{cid} {entry['action']}: pass fields from inputSchema only; "
-                        f"do not send action (injected from tool name). "
-                        f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
-                    ),
+                    "description": tool_desc,
                     "input_schema": entry["input_schema"],
                     "output_schema": entry["output_schema"],
                 }

@@ -19,6 +19,8 @@ Each connector can run as its own independent MCP server (Docker image).
 
 See [docs/mcp-servers.md](docs/mcp-servers.md) for build, env config, docker-compose, and ToolHive registration.
 
+**Packaging & Publishing (PyPI wheels, CI publish flow, secrets config):** [docs/packaging.md](docs/packaging.md).
+
 ---
 
 ## High-level architecture
@@ -37,7 +39,7 @@ The platform is split into three layers:
 
 **Purpose:** Provide shared execution and reliability so every connector behaves in a consistent way (validation, errors, retries, telemetry) without each connector reimplementing the same plumbing.
 
-**Location:** `src/runtime/` (base.py, models.py, errors.py, resilience.py, secrets.py, policy.py).
+**Location:** `src/node_wire_runtime/` (base_connector.py, models.py, errors.py, resilience.py, policy.py, observability.py, connector_registry.py, manifest.py).
 
 ### Main pieces
 
@@ -74,7 +76,7 @@ The platform is split into three layers:
 
 **Purpose:** System adapters that talk to external services. Each connector defines input/output models and implements `internal_execute` (and optionally registers its own exceptions with the ErrorMapper).
 
-**Location:** `src/connectors/`. Each connector lives in its own subpackage (e.g. `google_drive/`, `smtp/`, `stripe/`, `http_generic/`).
+**Location:** `src/node_wire_<name>/` (e.g. `src/node_wire_google_drive/`, `src/node_wire_smtp/`, `src/node_wire_stripe/`, `src/node_wire_http_generic/`).
 
 ### Common structure per connector
 
@@ -96,11 +98,11 @@ The platform is split into three layers:
 
 ### Connector-specific documentation
 
-**Architecture (BaseConnector vs SDKConnector, factory, examples):** [docs/connectors.md](docs/connectors.md).
+**Connectors guide (`BaseConnector`, factory, manifest):** [docs/connectors.md](docs/connectors.md).
 
 **Details for each connector**—operations, request/response bodies, examples, and error handling—**are documented in that connector’s folder.**
 
-Examples: Google Drive has a full doc at `src/connectors/google_drive/README.md`; FHIR connectors are documented at `src/connectors/fhir_epic/README.md` and `src/connectors/fhir_cerner/README.md`. Other connectors may have a similar `.md` in their folder or document behavior in code and docstrings; always check the connector’s folder for up-to-date details.
+Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`; FHIR connectors are documented at `src/node_wire_fhir_epic/README.md` and `src/node_wire_fhir_cerner/README.md`. Other connectors may have a similar `.md` in their folder or document behavior in code and docstrings; always check the connector’s folder for up-to-date details.
 
 ---
 

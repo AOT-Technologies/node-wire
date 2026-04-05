@@ -9,9 +9,9 @@ from typing import Any
 import grpc
 
 from bindings.factory import ConnectorFactory
-from connectors import auto_register
-from runtime import ConnectorResponse, ErrorCategory
-from runtime.ingress import normalize_mcp_tool_arguments
+from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
 
