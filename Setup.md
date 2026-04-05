@@ -129,6 +129,8 @@ uv run node-wire
 PORT=8001 uv run node-wire
 ```
 
+Equivalent entrypoint (without `uv`):
+
 ```bash
 MODE=API python -m bindings_entrypoint
 ```
