@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, HttpUrl
 
 
 class HttpRequestInput(BaseModel):
+    action: Literal["request"] = "request"
     url: HttpUrl
     method: str
     headers: Optional[Dict[str, str]] = None

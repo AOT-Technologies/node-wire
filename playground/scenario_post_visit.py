@@ -61,10 +61,9 @@ async def run_scenario():
     logger.info(f"Searching for patient: {patient_search_params}")
     
     try:
-        patient_action = connector.get_action("read_patient")
-        patient_result = await patient_action.internal_execute(
-            FhirPatientReadInput(search_params=patient_search_params),
-            trace_id=trace_id
+        patient_result = await connector.internal_execute(
+            FhirPatientReadInput(action="read_patient", search_params=patient_search_params),
+            trace_id=trace_id,
         )
         patient_id = patient_result.resource.get("id")
         logger.info(f"Found Patient ID: {patient_id}")
@@ -82,17 +81,19 @@ async def run_scenario():
     logger.info(f"Finding encounter for patient {patient_id} on {today}")
     
     try:
-        encounter_action = connector.get_action("search_encounter")
-        enc_result = await encounter_action.internal_execute(
-            FhirEncounterSearchInput(search_params=encounter_params),
-            trace_id=trace_id
+        enc_result = await connector.internal_execute(
+            FhirEncounterSearchInput(action="search_encounter", search_params=encounter_params),
+            trace_id=trace_id,
         )
-        
+
         if not enc_result.resources:
             logger.warning("No encounters found for this patient today. Falling back to most recent.")
-            enc_result = await encounter_action.internal_execute(
-                FhirEncounterSearchInput(search_params={"patient": patient_id, "status": "finished"}),
-                trace_id=trace_id
+            enc_result = await connector.internal_execute(
+                FhirEncounterSearchInput(
+                    action="search_encounter",
+                    search_params={"patient": patient_id, "status": "finished"},
+                ),
+                trace_id=trace_id,
             )
         
         if not enc_result.resources:
@@ -110,6 +111,7 @@ async def run_scenario():
     encoded_note = base64.b64encode(note_content.encode('utf-8')).decode('utf-8')
     
     doc_input = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
         identifier=[{"system": "urn:oid:1.2.3", "value": f"NOTE-{datetime.now().timestamp()}"}],
         status="current",
         type={"coding": [{"system": "http://loinc.org", "code": "11506-3", "display": "Progress Note"}]},
@@ -125,8 +127,7 @@ async def run_scenario():
     
     logger.info(f"Uploading clinical note for Encounter {encounter_id}")
     try:
-        doc_action = connector.get_action("create_document_reference")
-        doc_result = await doc_action.internal_execute(doc_input, trace_id=trace_id)
+        doc_result = await connector.internal_execute(doc_input, trace_id=trace_id)
         logger.info(f"SUCCESS! Created DocumentReference: {doc_result.resource_id}")
         print(f"\nWorkflow Complete. Resource Created: {doc_result.resource_id}")
     except Exception as e:

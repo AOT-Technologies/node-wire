@@ -5,7 +5,7 @@ This document covers the Google Drive connector under `connectors/google_drive` 
 1. **[Google Drive service account setup](#google-drive-service-account-setup)** — Create a GCP service account, enable the Drive API, configure `.env`, share a folder, and verify connectivity.
 2. **[REST API reference](#rest-api-reference)** — The `execute` action, all seven operations, request/response shapes, and the platform error taxonomy.
 
-For **MCP** (e.g. ToolHive), the connector is exposed as the `google_drive_upload_file` tool. End-to-end agent setup is documented in [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+For **MCP** (e.g. ToolHive), tools are named `google_drive.<action>` from the connector manifest (e.g. `google_drive.files.upload`). End-to-end agent setup is documented in [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 
@@ -339,7 +339,7 @@ The service account must have edit permission on the file.
 
 #### files.upload
 
-Create a new file with text content.
+Create a new file with content (text or binary).
 
 Request body:
 
@@ -353,14 +353,21 @@ Request body:
 }
 ```
 
+For **MCP** (`google_drive.files.upload`), omit `action` in the tool arguments object; the server injects `files.upload` from the tool name. The published `inputSchema` does not include an `action` property.
+
 Fields:
 
 - `name` (string, required).
 - `mime_type` (string, required).
 - `parents` (array of string, optional).
-- `content` (string, required): UTF-8 text content that will be uploaded.
+- `content` (string, optional): UTF-8 text content that will be uploaded.
+- `content_base64` (string, optional): base64-encoded binary content (e.g. PDFs, images).
 
-Content is uploaded using `MediaInMemoryUpload`; this is suitable for small text payloads.
+Exactly one of `content` or `content_base64` must be provided (enforced at validation).
+
+Content is uploaded using `MediaInMemoryUpload`; this is suitable for small payloads.
+
+> For MCP callers (e.g. ToolHive): use canonical fields (`content` / `content_base64`). Legacy `media` / `media_body` shapes are normalized when possible but are not part of the public schema. Legacy `action: "upload"` in the payload is deprecated; set `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD=reject` to hard-fail during rollout.
 
 #### files.delete
 

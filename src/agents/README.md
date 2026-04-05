@@ -16,10 +16,10 @@ The `agents` module transforms static connectors (EHR, Google Drive, SMTP) into 
 ## 🏗️ Core Architecture
 
 ### 1. **MCP Server (`mcp_entrypoint.py`)**
-A high-performance server built on the [FastMCP](https://github.com/modelcontextprotocol/python-sdk) framework.
-- **Dynamic Bindings**: Uses the `ConnectorFactory` to load platform connectors and expose them as MCP tools.
-- **Data Protection**: Automatically extracts and summarizes raw FHIR resources to protect patient privacy and reduce LLM token consumption.
-- **Flexible Transport**: Defaults to `stdio` transport for seamless integration with ToolHive, Claude Desktop, or custom proxies.
+Stdio MCP server using the official [Model Context Protocol Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+- **Manifest-driven tools**: `McpServer` builds the tool list from connector metadata (`<connector_id>.<action>`) and dispatches via `connector.run()`.
+- **Unified entrypoint**: `python -m agents.mcp_entrypoint` exposes every connector enabled for MCP in `config/connectors.yaml`.
+- **Per-connector images**: `fhir_cerner_mcp`, `fhir_epic_mcp`, `google_drive_mcp`, and `smtp_mcp` run the same server with a `connector_ids` filter.
 
 ### 2. **ToolHive Agent (`toolhive.py`)**
 A reference implementation of a ReAct-style agent designed for the **ToolHive** ecosystem.
@@ -35,14 +35,18 @@ A modular factory system supporting diverse LLM backends:
 
 ---
 
-## 🛠️ Available MCP Tools
+## 🛠️ MCP tool naming
 
-| Tool Name | Description | Connector |
-| :--- | :--- | :--- |
-| `fhir_cerner_read_patient` | Fetches patient demographics (Name, DOB, ID) from Cerner FHIR R4. | `fhir_cerner` |
-| `fhir_epic_read_patient`   | Fetches patient demographics from Epic FHIR R4. (IDs usually start with 'e'). | `fhir_epic` |
-| `google_drive_upload_file` | Securely uploads text summaries or reports to a designated folder. | `google_drive` |
-| `smtp_send_email` | Dispatches notifications or clinical summaries via secure SMTP. | `smtp` |
+Tools are named **`{connector_id}.{action}`** as defined by each connector’s manifest (see `connectors/manifest.py` and `bindings/mcp_server/server.py`). Examples:
+
+| Example tool name | Connector |
+| :--- | :--- |
+| `fhir_cerner.read_patient` | Cerner FHIR |
+| `fhir_epic.read_patient` | Epic FHIR |
+| `google_drive.files.upload` | Google Drive |
+| `smtp.send_email` | SMTP |
+
+Use **`tools/list`** for the exact names and JSON Schemas your deployment exposes.
 
 ---
 

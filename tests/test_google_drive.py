@@ -14,7 +14,11 @@ from connectors.google_drive.exceptions import (
     GoogleDriveRateLimitError,
 )
 from connectors.google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnector
-from connectors.google_drive.schema import GoogleDriveOperationInput, GoogleDriveOperationOutput
+from connectors.google_drive.schema import (
+    FilesUploadOperation,
+    GoogleDriveOperationInput,
+    GoogleDriveOperationOutput,
+)
 from runtime import SecretProvider
 
 
@@ -34,11 +38,36 @@ class DummyHttpError(Exception):
 
 
 def _connector() -> GoogleDriveConnector:
-    return GoogleDriveConnector(
-        input_model=GoogleDriveOperationInput,
-        output_model=GoogleDriveOperationOutput,
-        secret_provider=MockSecretProvider(),
+    return GoogleDriveConnector(secret_provider=MockSecretProvider())
+
+
+def test_files_upload_operation_requires_exactly_one_body_source() -> None:
+    FilesUploadOperation.model_validate(
+        {
+            "action": "files.upload",
+            "name": "a.txt",
+            "mime_type": "text/plain",
+            "content": "hello",
+        }
     )
+    with pytest.raises(ValidationError):
+        FilesUploadOperation.model_validate(
+            {
+                "action": "files.upload",
+                "name": "a.txt",
+                "mime_type": "text/plain",
+            }
+        )
+    with pytest.raises(ValidationError):
+        FilesUploadOperation.model_validate(
+            {
+                "action": "files.upload",
+                "name": "a.txt",
+                "mime_type": "text/plain",
+                "content": "a",
+                "content_base64": "Zg==",
+            }
+        )
 
 
 def test_google_drive_internal_execute_files_list_happy_path():
@@ -50,7 +79,7 @@ def test_google_drive_internal_execute_files_list_happy_path():
     list_call = files_api.list.return_value
     list_call.execute.return_value = {"files": [{"id": "f-1", "name": "Report"}]}
 
-    with patch.object(connector, "_build_client", return_value=drive):
+    with patch.object(connector, "get_client", return_value=drive):
         result = asyncio.run(connector.internal_execute(params, trace_id="test-trace"))
 
     assert result.raw == {"files": [{"id": "f-1", "name": "Report"}]}
@@ -59,6 +88,7 @@ def test_google_drive_internal_execute_files_list_happy_path():
         pageSize=5,
         q=None,
         fields=DEFAULT_LIST_FIELDS,
+        pageToken=None,
         supportsAllDrives=True,
         includeItemsFromAllDrives=True,
     )

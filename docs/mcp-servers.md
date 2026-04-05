@@ -43,10 +43,24 @@ flowchart TD
 
 | Connector | Python entrypoint | Docker image | ToolHive name | MCP tools exposed |
 |---|---|---|---|---|
-| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | `google_drive_files_create`, `google_drive_files_list`, `google_drive_permissions_create`, `google_drive_files_get`, `google_drive_files_update`, `google_drive_files_upload`, `google_drive_files_delete` |
-| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | `fhir_epic_read_patient`, `fhir_epic_search_patients`, `fhir_epic_search_encounter`, `fhir_epic_create_document_reference`, `fhir_epic_search_document_reference` |
-| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | `fhir_cerner_read_patient`, `fhir_cerner_search_patients`, `fhir_cerner_search_encounter`, `fhir_cerner_create_document_reference`, `fhir_cerner_search_document_reference` |
-| SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp_send_email` |
+| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | All manifest actions for `google_drive` (names `google_drive.<action>`, e.g. `google_drive.files.upload`) |
+| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
+| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
+| SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
+
+The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
+
+### Tool arguments and security
+
+- Tool name (`<connector_id>.<action>`) determines the routed action; do not rely on a separate `action` field in the JSON body to select a different operation.
+- Per-action normalizers in `src/runtime/mcp_normalizers.py` map common LLM mistakes to canonical schema fields; see also `src/runtime/ingress.py` for shared MCP/REST behavior.
+- **`tools/list` input schemas** omit the `action` field (manifest contract v2+). Pass only the fields shown in `inputSchema`; the server injects `action` from the tool name.
+
+**Legacy rollout (Google Drive `google_drive.files.upload` only):**
+
+| Variable | Values | Purpose |
+|----------|--------|---------|
+| `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD` | `warn` (default), `allow` (same mapping, no deprecation log), `reject` | Legacy payload `action: "upload"` for `google_drive.files.upload`. Use `reject` once all clients omit `action` or use canonical `files.upload` only in pre-invoke validation paths. |
 
 ---
 
@@ -118,7 +132,7 @@ Register your application at the [Cerner Developer Portal](https://code.cerner.c
 
 #### `nw-smtp`
 
-The SMTP MCP server exposes one tool: `smtp_send_email`. When running under ToolHive, inject these as secrets:
+The SMTP MCP server exposes one tool: `smtp.send_email`. When running under ToolHive, inject these as secrets:
 
 | Variable | Description |
 |---|---|

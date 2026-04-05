@@ -7,24 +7,11 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from connectors.fhir_epic.logic import FhirEpicConnector
-from connectors.fhir_cerner.logic import FhirCernerConnector
-from connectors.http_generic.logic import HttpGenericConnector
-from connectors.http_generic.schema import HttpRequestInput, HttpResponseOutput
-from connectors.google_drive.logic import GoogleDriveConnector
-from connectors.google_drive.schema import (
-    GoogleDriveOperationInput,
-    GoogleDriveOperationOutput,
-)
-from connectors.smtp.logic import SmtpConnector
-from connectors.smtp.schema import SmtpSendInput, SmtpSendOutput
-from connectors.stripe.logic import StripeChargeConnector
-from connectors.stripe.schema import ChargeInput, ChargeOutput
 from runtime import BaseConnector, SecretProvider
+from runtime.base_connector import _CONNECTOR_REGISTRY
 
 logger = logging.getLogger("bindings.factory")
 
-# Resolve default config relative to platform root so it works from any cwd.
 _PLATFORM_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_CONFIG_PATH = _PLATFORM_ROOT / "config" / "connectors.yaml"
 
@@ -38,11 +25,7 @@ class ConnectorConfig:
 
 
 class EnvSecretProvider(SecretProvider):
-    """
-    Simple SecretProvider implementation backed by environment variables.
-
-    Keys are looked up directly from os.environ for the POC.
-    """
+    """SecretProvider backed by environment variables."""
 
     def __init__(self) -> None:
         import os
@@ -56,16 +39,12 @@ class EnvSecretProvider(SecretProvider):
         val = self._env.get(key.upper())
         if val is not None:
             return val.strip(" '\"")
-        # Return empty string instead of raising RuntimeError for zero-config/local testing.
         return ""
 
 
 class ConnectorFactory:
     """
-    Factory responsible for:
-    - Loading connector configuration from config/connectors.yaml
-    - Instantiating connector adapters
-    - Enforcing exposed_via rules per protocol
+    Loads config/connectors.yaml and instantiates connectors from the SDK registry.
     """
 
     def __init__(self, config_path: str | Path | None = None) -> None:
@@ -74,7 +53,6 @@ class ConnectorFactory:
         elif _DEFAULT_CONFIG_PATH.is_file():
             self._config_path = str(_DEFAULT_CONFIG_PATH)
         else:
-            # Fallback when run from platform dir (e.g. package installed from wheel)
             cwd_config = Path.cwd() / "config" / "connectors.yaml"
             self._config_path = str(cwd_config)
         self._secret_provider: SecretProvider = EnvSecretProvider()
@@ -113,27 +91,16 @@ class ConnectorFactory:
 
             self._connectors[connector_id] = self._instantiate(connector_id)
 
-    def _instantiate(self, connector_id: str) -> Any:
-        if connector_id == "http_generic":
-            return HttpGenericConnector(HttpRequestInput, HttpResponseOutput, secret_provider=self._secret_provider)
-        if connector_id == "smtp":
-            return SmtpConnector(SmtpSendInput, SmtpSendOutput, secret_provider=self._secret_provider)
-        if connector_id == "stripe":
-            return StripeChargeConnector(ChargeInput, ChargeOutput, secret_provider=self._secret_provider)
-        if connector_id == "google_drive":
-            return GoogleDriveConnector(
-                GoogleDriveOperationInput,
-                GoogleDriveOperationOutput,
-                secret_provider=self._secret_provider,
-            )
-        if connector_id == "fhir_epic":
-            return FhirEpicConnector(secret_provider=self._secret_provider)
-        if connector_id == "fhir_cerner":
-            return FhirCernerConnector(secret_provider=self._secret_provider)
+    def _instantiate(self, connector_id: str) -> BaseConnector:
+        sdk_cls = _CONNECTOR_REGISTRY.get(connector_id)
+        if sdk_cls is not None:
+            return sdk_cls(secret_provider=self._secret_provider)
 
         raise ValueError(f"Unknown connector id {connector_id!r}")
 
-    def get_for_protocol(self, connector_id: str, protocol: str, action: Optional[str] = None) -> Optional[BaseConnector[Any, Any]]:
+    def get_for_protocol(
+        self, connector_id: str, protocol: str, action: Optional[str] = None
+    ) -> Optional[BaseConnector]:
         cfg = self._configs.get(connector_id)
         if cfg is None:
             logger.warning(
@@ -160,19 +127,17 @@ class ConnectorFactory:
         if connector is None:
             return None
 
-        # Multi-action connectors (e.g. fhir_epic) expose a get_action() helper.
-        if action and hasattr(connector, "get_action"):
-            return connector.get_action(action)
+        if action:
+            logger.debug(
+                "get_for_protocol resolved connector",
+                extra={"connector_id": connector_id, "protocol": protocol, "action": action},
+            )
 
         return connector  # type: ignore[return-value]
 
-    def list_for_protocol(self, protocol: str) -> List[BaseConnector[Any, Any]]:
-        result: List[BaseConnector[Any, Any]] = []
+    def list_for_protocol(self, protocol: str) -> List[BaseConnector]:
+        result: List[BaseConnector] = []
         for connector_id, connector in self._connectors.items():
             if protocol in self._configs[connector_id].exposed_via:
-                # Multi-action connectors expose all their actions via list_actions().
-                if hasattr(connector, "list_actions"):
-                    result.extend(connector.list_actions())
-                else:
-                    result.append(connector)  # type: ignore[arg-type]
+                result.append(connector)  # type: ignore[arg-type]
         return result

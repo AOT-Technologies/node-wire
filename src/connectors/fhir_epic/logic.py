@@ -6,12 +6,18 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import jwt
 
-from runtime import BaseConnector, SecretProvider
+from runtime import BaseConnector, sdk_action
+from runtime.fhir_encounter import assert_encounter_query_has_patient
+from runtime.mcp_normalizers import (
+    normalize_fhir_read_patient,
+    normalize_fhir_search_encounter,
+    normalize_fhir_search_patients,
+)
 
 from .schema import (
     FhirDocumentReferenceCreateInput,
@@ -20,6 +26,7 @@ from .schema import (
     FhirDocumentReferenceSearchOutput,
     FhirEncounterSearchInput,
     FhirEncounterSearchOutput,
+    FhirEpicOperationOutput,
     FhirPatientReadInput,
     FhirPatientReadOutput,
     FhirPatientSearchInput,
@@ -29,126 +36,94 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_epic")
 
 
-class _FhirAction(BaseConnector[Any, Any]):
-    """
-    Lightweight BaseConnector that delegates execution to a FhirEpicConnector
-    instance method.  One of these is created per action so that the manifest
-    and REST router can discover each action's schema and route automatically.
-    """
+class FhirEpicConnector(BaseConnector):
+    """FHIR/Epic connector: one @sdk_action per operation."""
 
     connector_id = "fhir_epic"
+    action = "execute"
+    output_model = FhirEpicOperationOutput
 
-    def __init__(
-        self,
-        action: str,
-        input_model: type,
-        output_model: type,
-        handler: Callable,
-        *,
-        secret_provider: Optional[SecretProvider] = None,
-    ) -> None:
-        super().__init__(input_model, output_model, secret_provider=secret_provider)
-        self.action = action        # instance attribute, overrides absent class-level action
-        self._handler = handler
+    @sdk_action(
+        "read_patient",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_read_patient,
+    )
+    async def read_patient(
+        self, params: FhirPatientReadInput, *, trace_id: str
+    ) -> FhirEpicOperationOutput:
+        out = await self._read_patient(params, trace_id=trace_id)
+        return FhirEpicOperationOutput(resource=out.resource)
 
-    async def internal_execute(self, params: Any, *, trace_id: str) -> Any:
-        return await self._handler(params, trace_id=trace_id)
+    @sdk_action(
+        "search_patients",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_patients,
+    )
+    async def search_patients(
+        self, params: FhirPatientSearchInput, *, trace_id: str
+    ) -> FhirEpicOperationOutput:
+        out = await self._search_patients(params, trace_id=trace_id)
+        return FhirEpicOperationOutput(
+            resources=out.resources,
+            total=out.total,
+            errors=out.errors,
+        )
 
+    @sdk_action(
+        "search_encounter",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_encounter,
+    )
+    async def search_encounter(
+        self, params: FhirEncounterSearchInput, *, trace_id: str
+    ) -> FhirEpicOperationOutput:
+        out = await self._search_encounter(params, trace_id=trace_id)
+        return FhirEpicOperationOutput(resources=out.resources, total=out.total)
 
-class FhirEpicConnector:
-    """
-    Single FHIR/Epic connector.
+    @sdk_action("create_document_reference")
+    async def create_document_reference(
+        self, params: FhirDocumentReferenceCreateInput, *, trace_id: str
+    ) -> FhirEpicOperationOutput:
+        out = await self._create_document_reference(params, trace_id=trace_id)
+        return FhirEpicOperationOutput(resource_id=out.resource_id, resource=out.resource)
 
-    ``connector_id = "fhir_epic"``.  All authentication helpers and action
-    implementations live here.  The factory registers ONE instance of this
-    class; ``list_actions()`` and ``get_action()`` are used by the factory to
-    expose each action to the manifest and REST router.
-
-    Supported actions:
-      • read_patient          — fetch a single Patient by ID or name search
-      • search_patients       — fetch multiple Patients by list of IDs or name search
-      • search_encounter
-      • create_document_reference
-      • search_document_reference
-
-    Name-based search parameters (``given_name``, ``family_name``, ``name``,
-    ``birthdate``) are prioritised over the raw ``search_params`` dict and are
-    normalised (stripped, lowercased for ``name`` token search).
-    """
-
-    connector_id = "fhir_epic"
-
-    def __init__(self, *, secret_provider: SecretProvider) -> None:
-        self._secret_provider = secret_provider
-
-        self._actions: Dict[str, _FhirAction] = {
-            "read_patient": _FhirAction(
-                "read_patient", FhirPatientReadInput, FhirPatientReadOutput,
-                self._read_patient, secret_provider=secret_provider,
-            ),
-            "search_patients": _FhirAction(
-                "search_patients", FhirPatientSearchInput, FhirPatientSearchOutput,
-                self._search_patients, secret_provider=secret_provider,
-            ),
-            "search_encounter": _FhirAction(
-                "search_encounter", FhirEncounterSearchInput, FhirEncounterSearchOutput,
-                self._search_encounter, secret_provider=secret_provider,
-            ),
-            "create_document_reference": _FhirAction(
-                "create_document_reference", FhirDocumentReferenceCreateInput, FhirDocumentReferenceCreateOutput,
-                self._create_document_reference, secret_provider=secret_provider,
-            ),
-            "search_document_reference": _FhirAction(
-                "search_document_reference", FhirDocumentReferenceSearchInput, FhirDocumentReferenceSearchOutput,
-                self._search_document_reference, secret_provider=secret_provider,
-            ),
-        }
-
-    # ------------------------------------------------------------------
-    # Action discovery — consumed by ConnectorFactory
-    # ------------------------------------------------------------------
-
-    def list_actions(self) -> List[_FhirAction]:
-        """Return all registered action connectors (used by list_for_protocol)."""
-        return list(self._actions.values())
-
-    def get_action(self, name: str) -> Optional[_FhirAction]:
-        """Return the action connector for the given action name."""
-        return self._actions.get(name)
+    @sdk_action("search_document_reference")
+    async def search_document_reference(
+        self, params: FhirDocumentReferenceSearchInput, *, trace_id: str
+    ) -> FhirEpicOperationOutput:
+        out = await self._search_document_reference(params, trace_id=trace_id)
+        return FhirEpicOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
     # Shared authentication helpers
     # ------------------------------------------------------------------
 
     def _get_base_url(self) -> str:
-        return self._secret_provider.get_secret("epic_fhir_base_url").rstrip("/")
+        return self.secret_provider.get_secret("epic_fhir_base_url").rstrip("/")
 
     async def _get_auth_header(self) -> Dict[str, str]:
-        """
-        Obtain an access token via Epic's SMART Backend Services (private_key_jwt)
-        and return ready-to-use request headers.
-
-        Algorithm: RS384. Token lifetime: 5 minutes (Epic maximum).
-        Reference: https://fhir.epic.com/Documentation?docId=oauth2tutorial&section=cloud-based-app
-        """
         headers = {
             "Content-Type": "application/fhir+json",
             "Accept": "application/fhir+json",
         }
 
-        private_key_str = self._secret_provider.get_secret("epic_private_key")
-        kid = self._secret_provider.get_secret("epic_kid")
-        client_id = self._secret_provider.get_secret("epic_client_id")
-        token_url = self._secret_provider.get_secret("epic_token_url")
+        private_key_str = self.secret_provider.get_secret("epic_private_key")
+        kid = self.secret_provider.get_secret("epic_kid")
+        client_id = self.secret_provider.get_secret("epic_client_id")
+        token_url = self.secret_provider.get_secret("epic_token_url")
 
-        # Environment variables sometimes store newlines as escape sequences.
         private_key_pem = codecs.decode(private_key_str, "unicode_escape")
 
         now = int(datetime.now(tz=timezone.utc).timestamp())
         jwt_token = jwt.encode(
             {
-                "iss": client_id, "sub": client_id, "aud": token_url,
-                "jti": str(uuid.uuid4()), "iat": now, "nbf": now, "exp": now + 300,
+                "iss": client_id,
+                "sub": client_id,
+                "aud": token_url,
+                "jti": str(uuid.uuid4()),
+                "iat": now,
+                "nbf": now,
+                "exp": now + 300,
             },
             private_key_pem,
             algorithm="RS384",
@@ -170,7 +145,8 @@ class FhirEpicConnector:
             if token_response.status_code != 200:
                 logger.error(
                     "OAuth token exchange failed | status=%s | body=%s",
-                    token_response.status_code, token_response.text,
+                    token_response.status_code,
+                    token_response.text,
                 )
                 token_response.raise_for_status()
             token_data = token_response.json()
@@ -182,10 +158,6 @@ class FhirEpicConnector:
         headers["Authorization"] = f"Bearer {access_token}"
         return headers
 
-    # ------------------------------------------------------------------
-    # Internal name-field helpers
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _build_name_search_params(
         given_name: Optional[str],
@@ -194,22 +166,13 @@ class FhirEpicConnector:
         birthdate: Optional[str],
         extra: Optional[Dict[str, str]] = None,
     ) -> Dict[str, str]:
-        """Build a FHIR search params dict from explicit name/date fields.
-
-        Priority: given_name/family_name > name > (nothing).
-        The ``extra`` dict (raw search_params) is merged at lowest priority so
-        callers can pass additional filters without overriding name fields.
-        """
         params: Dict[str, str] = dict(extra or {})
 
-        # Normalize: strip whitespace; FHIR name search is typically case-insensitive
-        # on compliant servers but we preserve original case per FHIR spec.
         if given_name and given_name.strip():
             params["given"] = given_name.strip()
         if family_name and family_name.strip():
             params["family"] = family_name.strip()
         if name and name.strip() and "given" not in params and "family" not in params:
-            # Only fall back to the combined 'name' token when no split fields given
             params["name"] = name.strip()
         if birthdate and birthdate.strip():
             params["birthdate"] = birthdate.strip()
@@ -223,7 +186,6 @@ class FhirEpicConnector:
         date: Optional[str],
         extra: Optional[Dict[str, str]] = None,
     ) -> Dict[str, str]:
-        """Build a FHIR search params dict for Encounter from explicit fields."""
         params: Dict[str, str] = dict(extra or {})
 
         if patient_id and patient_id.strip():
@@ -235,10 +197,6 @@ class FhirEpicConnector:
 
         return params
 
-    # ------------------------------------------------------------------
-    # Action: read_patient
-    # ------------------------------------------------------------------
-
     async def _read_patient(
         self, params: FhirPatientReadInput, *, trace_id: str
     ) -> FhirPatientReadOutput:
@@ -248,18 +206,30 @@ class FhirEpicConnector:
         if params.resource_id:
             url = f"{base_url}/Patient/{params.resource_id}"
             query_params: Optional[Dict[str, str]] = None
-            logger.info("FHIR Patient read by ID", extra={"trace_id": trace_id, "resource_id": params.resource_id})
+            logger.info(
+                "FHIR Patient read by ID",
+                extra={"trace_id": trace_id, "resource_id": params.resource_id},
+            )
         elif params.given_name or params.family_name or params.name:
             url = f"{base_url}/Patient"
             query_params = self._build_name_search_params(
-                params.given_name, params.family_name, params.name,
-                params.birthdate, params.search_params,
+                params.given_name,
+                params.family_name,
+                params.name,
+                params.birthdate,
+                params.search_params,
             )
-            logger.info("FHIR Patient read by name fields", extra={"trace_id": trace_id, "query_params": query_params})
+            logger.info(
+                "FHIR Patient read by name fields",
+                extra={"trace_id": trace_id, "query_params": query_params},
+            )
         elif params.search_params:
             url = f"{base_url}/Patient"
             query_params = params.search_params
-            logger.info("FHIR Patient read by search", extra={"trace_id": trace_id, "search_params": params.search_params})
+            logger.info(
+                "FHIR Patient read by search",
+                extra={"trace_id": trace_id, "search_params": params.search_params},
+            )
         else:
             raise ValueError(
                 "Provide resource_id, or name fields (given_name/family_name/name), "
@@ -268,10 +238,17 @@ class FhirEpicConnector:
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=auth_header, params=query_params, timeout=30.0)
+                response = await client.get(
+                    url, headers=auth_header, params=query_params, timeout=30.0
+                )
                 response.raise_for_status()
         except Exception as exc:
-            logger.error("FHIR Patient read failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR Patient read failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         data = response.json()
@@ -283,12 +260,11 @@ class FhirEpicConnector:
         else:
             resource = data
 
-        logger.info("FHIR Patient read completed", extra={"trace_id": trace_id, "status_code": response.status_code})
+        logger.info(
+            "FHIR Patient read completed",
+            extra={"trace_id": trace_id, "status_code": response.status_code},
+        )
         return FhirPatientReadOutput(resource=resource)
-
-    # ------------------------------------------------------------------
-    # Action: search_patients (multi-ID fan-out OR name search)
-    # ------------------------------------------------------------------
 
     async def _search_patients(
         self, params: FhirPatientSearchInput, *, trace_id: str
@@ -296,7 +272,6 @@ class FhirEpicConnector:
         base_url = self._get_base_url()
         auth_header = await self._get_auth_header()
 
-        # ---- Mode 1: Multi-ID fan-out ----
         if params.resource_ids:
             ids = [rid.strip() for rid in params.resource_ids if rid.strip()]
             if not ids:
@@ -309,7 +284,6 @@ class FhirEpicConnector:
             )
 
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
-                """Return (rid, resource_or_None, error_or_None)."""
                 try:
                     async with httpx.AsyncClient() as client:
                         resp = await client.get(
@@ -322,7 +296,8 @@ class FhirEpicConnector:
                 except Exception as exc:
                     logger.warning(
                         "FHIR Patient fetch failed | resource_id=%s | error=%s",
-                        rid, str(exc),
+                        rid,
+                        str(exc),
                         extra={"trace_id": trace_id},
                     )
                     return rid, None, str(exc)
@@ -339,15 +314,20 @@ class FhirEpicConnector:
 
             logger.info(
                 "FHIR Patient multi-ID lookup completed | found=%s | errors=%s",
-                len(resources), len(errors),
+                len(resources),
+                len(errors),
                 extra={"trace_id": trace_id},
             )
-            return FhirPatientSearchOutput(resources=resources, total=len(resources), errors=errors)
+            return FhirPatientSearchOutput(
+                resources=resources, total=len(resources), errors=errors
+            )
 
-        # ---- Mode 2: Name-based search (returns Bundle) ----
         name_params = self._build_name_search_params(
-            params.given_name, params.family_name, params.name,
-            params.birthdate, params.search_params,
+            params.given_name,
+            params.family_name,
+            params.name,
+            params.birthdate,
+            params.search_params,
         )
         if not name_params:
             raise ValueError(
@@ -373,63 +353,84 @@ class FhirEpicConnector:
         except httpx.HTTPStatusError as exc:
             logger.error(
                 "FHIR Patient name search failed | status=%s | body=%s",
-                exc.response.status_code, exc.response.text,
+                exc.response.status_code,
+                exc.response.text,
                 extra={"trace_id": trace_id},
             )
             raise
         except Exception as exc:
             logger.error(
                 "FHIR Patient name search failed | error=%s: %s",
-                type(exc).__name__, str(exc),
+                type(exc).__name__,
+                str(exc),
                 extra={"trace_id": trace_id},
             )
             raise
 
         data = response.json()
-        resources = []
+        resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
             resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
         logger.info(
             "FHIR Patient name search completed | found=%s | total=%s",
-            len(resources), total,
+            len(resources),
+            total,
             extra={"trace_id": trace_id},
         )
         return FhirPatientSearchOutput(resources=resources, total=total)
-
-    # ------------------------------------------------------------------
-    # Action: search_encounter
-    # ------------------------------------------------------------------
 
     async def _search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str
     ) -> FhirEncounterSearchOutput:
         base_url = self._get_base_url()
-        auth_header = await self._get_auth_header()
 
         if params.patient_id or params.status or params.date:
             query_params = self._build_encounter_search_params(
                 params.patient_id, params.status, params.date, params.search_params
             )
-            logger.info("FHIR Encounter search by explicit fields", extra={"trace_id": trace_id, "query_params": query_params})
+            logger.info(
+                "FHIR Encounter search by explicit fields",
+                extra={"trace_id": trace_id, "query_params": query_params},
+            )
         elif params.search_params:
             query_params = params.search_params
-            logger.info("FHIR Encounter search by raw params", extra={"trace_id": trace_id, "search_params": params.search_params})
+            logger.info(
+                "FHIR Encounter search by raw params",
+                extra={"trace_id": trace_id, "search_params": params.search_params},
+            )
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
+
+        assert_encounter_query_has_patient(query_params)
+
+        auth_header = await self._get_auth_header()
 
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{base_url}/Encounter", headers=auth_header, params=query_params, timeout=30.0,
+                    f"{base_url}/Encounter",
+                    headers=auth_header,
+                    params=query_params,
+                    timeout=30.0,
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error("FHIR Encounter search failed | status=%s | body=%s", exc.response.status_code, exc.response.text, extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR Encounter search failed | status=%s | body=%s",
+                exc.response.status_code,
+                exc.response.text,
+                extra={"trace_id": trace_id},
+            )
             raise
         except Exception as exc:
-            logger.error("FHIR Encounter search failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR Encounter search failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         data = response.json()
@@ -438,12 +439,12 @@ class FhirEpicConnector:
         if data.get("resourceType") == "Bundle" and data.get("entry"):
             resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
-        logger.info("FHIR Encounter search completed | found=%s", len(resources), extra={"trace_id": trace_id})
+        logger.info(
+            "FHIR Encounter search completed | found=%s",
+            len(resources),
+            extra={"trace_id": trace_id},
+        )
         return FhirEncounterSearchOutput(resources=resources, total=total)
-
-    # ------------------------------------------------------------------
-    # Action: create_document_reference
-    # ------------------------------------------------------------------
 
     async def _create_document_reference(
         self, params: FhirDocumentReferenceCreateInput, *, trace_id: str
@@ -458,7 +459,14 @@ class FhirEpicConnector:
             "type": params.type,
             "subject": {"reference": params.subject},
             "date": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "content": [{"attachment": {"contentType": params.content_type or "text/plain", "data": params.data}}],
+            "content": [
+                {
+                    "attachment": {
+                        "contentType": params.content_type or "text/plain",
+                        "data": params.data,
+                    }
+                }
+            ],
         }
         if params.category:
             doc_ref["category"] = params.category
@@ -476,7 +484,10 @@ class FhirEpicConnector:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{base_url}/DocumentReference", json=doc_ref, headers=auth_header, timeout=30.0,
+                    f"{base_url}/DocumentReference",
+                    json=doc_ref,
+                    headers=auth_header,
+                    timeout=30.0,
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -493,13 +504,19 @@ class FhirEpicConnector:
 
             logger.error(
                 "FHIR DocumentReference create failed | status=%s | epic_error=%s | sent_payload=%s",
-                exc.response.status_code, error_detail, json.dumps(doc_ref),
+                exc.response.status_code,
+                error_detail,
+                json.dumps(doc_ref),
                 extra={"trace_id": trace_id},
             )
-            # Raise a more descriptive error for the API to catch
             raise ValueError(f"Epic Error: {error_detail}") from exc
         except Exception as exc:
-            logger.error("FHIR DocumentReference create failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR DocumentReference create failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         resource_id: Optional[str] = None
@@ -508,7 +525,11 @@ class FhirEpicConnector:
         location = response.headers.get("Location", "")
         if location:
             history_marker = location.find("/_history/")
-            resource_id = location[:history_marker].split("/")[-1] if history_marker != -1 else location.split("/")[-1]
+            resource_id = (
+                location[:history_marker].split("/")[-1]
+                if history_marker != -1
+                else location.split("/")[-1]
+            )
 
         if not resource_id:
             content_length = response.headers.get("content-length", "0")
@@ -525,12 +546,14 @@ class FhirEpicConnector:
                 f"Status: {response.status_code}, Location: {location!r}, Body: {response.text[:200]!r}"
             )
 
-        logger.info("FHIR DocumentReference create completed | resource_id=%s", resource_id, extra={"trace_id": trace_id})
-        return FhirDocumentReferenceCreateOutput(resource_id=resource_id, resource=body if body else None)
-
-    # ------------------------------------------------------------------
-    # Action: search_document_reference
-    # ------------------------------------------------------------------
+        logger.info(
+            "FHIR DocumentReference create completed | resource_id=%s",
+            resource_id,
+            extra={"trace_id": trace_id},
+        )
+        return FhirDocumentReferenceCreateOutput(
+            resource_id=resource_id, resource=body if body else None
+        )
 
     async def _search_document_reference(
         self, params: FhirDocumentReferenceSearchInput, *, trace_id: str
@@ -538,19 +561,35 @@ class FhirEpicConnector:
         base_url = self._get_base_url()
         auth_header = await self._get_auth_header()
 
-        logger.info("FHIR DocumentReference search", extra={"trace_id": trace_id, "search_params": params.search_params})
+        logger.info(
+            "FHIR DocumentReference search",
+            extra={"trace_id": trace_id, "search_params": params.search_params},
+        )
 
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{base_url}/DocumentReference", headers=auth_header, params=params.search_params, timeout=30.0,
+                    f"{base_url}/DocumentReference",
+                    headers=auth_header,
+                    params=params.search_params,
+                    timeout=30.0,
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error("FHIR DocumentReference search failed | status=%s | body=%s", exc.response.status_code, exc.response.text, extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR DocumentReference search failed | status=%s | body=%s",
+                exc.response.status_code,
+                exc.response.text,
+                extra={"trace_id": trace_id},
+            )
             raise
         except Exception as exc:
-            logger.error("FHIR DocumentReference search failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR DocumentReference search failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         data = response.json()

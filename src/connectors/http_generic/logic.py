@@ -5,22 +5,23 @@ from typing import Any
 
 import httpx
 
-from runtime import BaseConnector
+from runtime import BaseConnector, sdk_action
 
 from .schema import HttpRequestInput, HttpResponseOutput
 
 logger = logging.getLogger("connectors.http_generic")
 
 
-class HttpGenericConnector(BaseConnector[HttpRequestInput, HttpResponseOutput]):
+class HttpGenericConnector(BaseConnector):
     """
     Lightweight HTTP connector for generic REST integrations.
     """
 
     connector_id = "http_generic"
-    action = "request"
+    output_model = HttpResponseOutput
 
-    async def internal_execute(self, params: HttpRequestInput, *, trace_id: str) -> HttpResponseOutput:
+    @sdk_action("request")
+    async def request(self, params: HttpRequestInput, *, trace_id: str) -> HttpResponseOutput:
         """
         Perform an HTTP request using httpx.
 
@@ -32,13 +33,11 @@ class HttpGenericConnector(BaseConnector[HttpRequestInput, HttpResponseOutput]):
             extra={
                 "trace_id": trace_id,
                 "connector_id": self.connector_id,
-                "action": self.action,
+                "action": "request",
                 "method": params.method,
                 "url": str(params.url),
             },
         )
-
-        print(f"trace_id: {trace_id} from node-wire-connector")
 
         try:
             async with httpx.AsyncClient() as client:
@@ -58,7 +57,7 @@ class HttpGenericConnector(BaseConnector[HttpRequestInput, HttpResponseOutput]):
                 extra={
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
-                    "action": self.action,
+                    "action": "request",
                     "method": params.method,
                     "url": str(params.url),
                     "error_type": type(exc).__name__,
@@ -72,7 +71,7 @@ class HttpGenericConnector(BaseConnector[HttpRequestInput, HttpResponseOutput]):
             extra={
                 "trace_id": trace_id,
                 "connector_id": self.connector_id,
-                "action": self.action,
+                "action": "request",
                 "method": params.method,
                 "url": str(params.url),
                 "status_code": response.status_code,
@@ -87,4 +86,3 @@ class HttpGenericConnector(BaseConnector[HttpRequestInput, HttpResponseOutput]):
             headers=headers,
             body=response.text,
         )
-

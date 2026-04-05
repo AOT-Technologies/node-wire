@@ -6,7 +6,6 @@ from typing import Any, Dict
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, create_model
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environmental variables from .env
@@ -15,6 +14,7 @@ from bindings.factory import ConnectorFactory
 from connectors import auto_register
 from connectors.manifest import build_manifest
 from runtime import ConnectorResponse, ErrorCategory
+from runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -35,9 +35,6 @@ tracer = trace.get_tracer("bindings.rest_api")
 
 app = FastAPI(title="Node Wire - REST API")
 FastAPIInstrumentor.instrument_app(app)
-
-import os
-from pathlib import Path
 
 # Include the professional scenarios orchestrator
 app.include_router(scenarios_router)
@@ -73,7 +70,7 @@ def _http_status_for_category(category: ErrorCategory | None) -> int:
         return 503
     return 500
 
-def _make_endpoint(cid: str, act: str) -> Any: 
+def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         payload: Dict[str, Any],
         factory_dep: ConnectorFactory = Depends(get_factory),
@@ -89,9 +86,16 @@ def _make_endpoint(cid: str, act: str) -> Any:
         connector = factory_dep.get_for_protocol(cid, "rest", action=act)
         if connector is None:
             raise HTTPException(status_code=404, detail="Connector not available for REST")
+        run_payload = dict(payload)
+        run_payload = normalize_mcp_tool_arguments(connector, act, run_payload)
+        try:
+            enforce_authoritative_action(run_payload, act)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        run_payload["action"] = act
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.
-        response: ConnectorResponse = await connector.run(payload)
+        response: ConnectorResponse = await connector.run(run_payload)
         status = _http_status_for_category(response.error_category)
 
         if not response.success:

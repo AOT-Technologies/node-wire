@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# Patient – Read (single patient by ID or name search)
+# Patient – Read
 # ---------------------------------------------------------------------------
 
 class FhirCernerPatientReadInput(BaseModel):
-    """Input for reading a single FHIR Patient resource from Cerner."""
+    """Input for reading a FHIR Patient resource from Cerner."""
+
+    action: Literal["read_patient"] = "read_patient"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     resource_id: Optional[str] = None
     """Direct Patient ID lookup (e.g. '12345678')."""
@@ -23,21 +26,13 @@ class FhirCernerPatientReadInput(BaseModel):
     """Patient family / last name (used in name-based search)."""
 
     name: Optional[str] = None
-    """Full or partial name string — mapped to FHIR 'name' search parameter.
-
-    Use this when you only have a single combined name string.  When both
-    ``name`` and ``given_name``/``family_name`` are set, the explicit given/
-    family fields take precedence.
-    """
+    """Full or partial name string — mapped to FHIR 'name' search parameter."""
 
     birthdate: Optional[str] = None
     """Date of birth in YYYY-MM-DD format — used alongside name search."""
 
     search_params: Optional[Dict[str, str]] = None
-    """Raw FHIR search parameters (e.g. {\"family\": \"Smith\", \"given\": \"John\"}).
-
-    Lowest priority — used only when no ID or explicit name fields are set.
-    """
+    """Raw FHIR search parameters (e.g. {"family": "Smith", "given": "John"})."""
 
 
 class FhirCernerPatientReadOutput(BaseModel):
@@ -52,65 +47,27 @@ class FhirCernerPatientReadOutput(BaseModel):
 # ---------------------------------------------------------------------------
 
 class FhirCernerPatientSearchInput(BaseModel):
-    """Input for searching / fetching multiple FHIR Patient resources from Cerner.
+    """Input for searching / fetching multiple FHIR Patient resources from Cerner."""
 
-    Two modes are supported:
-
-    1. **Multi-ID lookup** — pass ``resource_ids`` (list of Patient IDs).
-       Each ID is fetched concurrently; partial failures are captured in
-       ``FhirCernerPatientSearchOutput.errors`` rather than raising globally.
-
-    2. **Name-based search** — pass ``given_name``, ``family_name``, ``name``,
-       and/or ``birthdate``.  A single FHIR search request is issued and all
-       matching Bundle entries are returned.
-
-    Only one mode should be used per request.  If ``resource_ids`` is set it
-    takes priority over the name/search fields.
-
-    .. note::
-        Cerner's sandbox name search is case-sensitive.  Use the exact
-        capitalisation stored in the system (e.g. ``family_name="Smith"`` not
-        ``"smith"``).  The ``name`` parameter maps to the standard FHIR
-        ``name`` token which Cerner supports as a partial-match.
-    """
+    action: Literal["search_patients"] = "search_patients"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     resource_ids: Optional[List[str]] = None
-    """List of Cerner Patient IDs to fetch concurrently (e.g. ['12345678', '87654321'])."""
+    """List of Cerner Patient IDs to fetch concurrently."""
 
     given_name: Optional[str] = None
-    """Patient given / first name."""
-
     family_name: Optional[str] = None
-    """Patient family / last name."""
-
     name: Optional[str] = None
-    """Full or partial name string — mapped to FHIR 'name' search parameter."""
-
     birthdate: Optional[str] = None
-    """Date of birth in YYYY-MM-DD format."""
-
     search_params: Optional[Dict[str, str]] = None
-    """Additional raw FHIR search parameters merged with the name fields."""
 
 
 class FhirCernerPatientSearchOutput(BaseModel):
     """Output for searching multiple FHIR Patient resources from Cerner."""
 
     resources: List[Dict[str, Any]]
-    """List of successfully retrieved FHIR Patient JSON objects."""
-
     total: Optional[int] = None
-    """Total number of matches reported by the server Bundle (name-search mode)."""
-
-    errors: List[Dict[str, Any]] = []
-    """Per-ID errors encountered during multi-ID fan-out.
-
-    Each entry has the shape::
-
-        {"resource_id": "<id>", "error": "<message>"}
-
-    An empty list means all lookups succeeded.
-    """
+    errors: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +76,9 @@ class FhirCernerPatientSearchOutput(BaseModel):
 
 class FhirCernerEncounterSearchInput(BaseModel):
     """Input for searching FHIR Encounter resources in Cerner."""
+
+    action: Literal["search_encounter"] = "search_encounter"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     patient_id: Optional[str] = None
     """Cerner Patient ID to find encounters for (maps to 'patient' FHIR param)."""
@@ -149,6 +109,9 @@ class FhirCernerEncounterSearchOutput(BaseModel):
 
 class FhirCernerDocumentReferenceCreateInput(BaseModel):
     """Input for creating a FHIR DocumentReference resource in Cerner."""
+
+    action: Literal["create_document_reference"] = "create_document_reference"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
 
     identifier: Optional[list[Dict[str, Any]]] = None
     """Document identifier.
@@ -295,8 +258,11 @@ class FhirCernerDocumentReferenceCreateOutput(BaseModel):
 class FhirCernerDocumentReferenceSearchInput(BaseModel):
     """Input for searching FHIR DocumentReference resources in Cerner."""
 
+    action: Literal["search_document_reference"] = "search_document_reference"
+    """Action discriminator (one endpoint, multiple actions pattern)."""
+
     search_params: Dict[str, str]
-    """Search parameters (e.g. {\"patient\": \"12345678\"})."""
+    """Search parameters (e.g. {"patient": "12345678"})."""
 
 
 class FhirCernerDocumentReferenceSearchOutput(BaseModel):
@@ -307,3 +273,17 @@ class FhirCernerDocumentReferenceSearchOutput(BaseModel):
 
     total: Optional[int] = None
     """Total number of results reported by the Bundle."""
+
+
+class FhirCernerOperationOutput(BaseModel):
+    """
+    Unified output for all Cerner FHIR actions (BaseConnector single output_model).
+
+    Fields are populated depending on the action; unused fields are None.
+    """
+
+    resource: Optional[Dict[str, Any]] = None
+    resources: Optional[list[Dict[str, Any]]] = None
+    total: Optional[int] = None
+    resource_id: Optional[str] = None
+    errors: Optional[list[Dict[str, Any]]] = None

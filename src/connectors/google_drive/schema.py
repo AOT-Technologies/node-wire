@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Dict, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, field_validator, model_validator
 
 
 class BaseDriveOperation(BaseModel):
     """Base config to strictly forbid unexpected payload fields."""
 
     model_config = ConfigDict(extra="forbid")
-
-
-# --- Specific Operation Schemas ---
 
 
 class FilesCreateOperation(BaseDriveOperation):
@@ -32,6 +29,10 @@ class FilesListOperation(BaseDriveOperation):
             "uses a performant default: nextPageToken, files(id, name, mimeType, webViewLink)."
         ),
     )
+    page_token: Optional[str] = Field(
+        None,
+        description="Token for the next page of results from a previous files.list response.",
+    )
 
 
 class PermissionsCreateOperation(BaseDriveOperation):
@@ -41,6 +42,13 @@ class PermissionsCreateOperation(BaseDriveOperation):
     email_address: Optional[str] = None
     type: Literal["user", "group", "domain", "anyone"]
     domain: Optional[str] = Field(None, description="G Suite domain when type is domain.")
+
+    @field_validator("email_address", "domain", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     @model_validator(mode="after")
     def require_fields_for_perm_type(self) -> "PermissionsCreateOperation":
@@ -85,17 +93,24 @@ class FilesUploadOperation(BaseDriveOperation):
     content: Optional[str] = Field(None, description="UTF-8 text content to upload.")
     content_base64: Optional[str] = Field(None, description="Base64 encoded binary content to upload.")
 
+    @model_validator(mode="after")
+    def exactly_one_of_content_or_base64(self) -> "FilesUploadOperation":
+        """Match Drive upload semantics: exactly one body source (aligned with action_spec)."""
+        has_text = self.content is not None
+        has_b64 = self.content_base64 is not None
+        if not has_text and not has_b64:
+            raise ValueError("Provide exactly one of 'content' or 'content_base64'.")
+        if has_text and has_b64:
+            raise ValueError("Provide exactly one of 'content' or 'content_base64', not both.")
+        return self
+
 
 class FilesDeleteOperation(BaseDriveOperation):
     action: Literal["files.delete"]
     file_id: str
 
 
-# --- The Envelope ---
-# The runtime validates against this single type. Pydantic automatically
-# routes the validation to the correct sub-model based on the "action" field.
-# RootModel accepts **raw_input in __init__ so BaseConnector's _input_model_cls(**raw_input) works.
-_OperationUnion = Annotated[
+_GoogleDriveOperationUnion = Annotated[
     Union[
         FilesCreateOperation,
         FilesListOperation,
@@ -108,7 +123,8 @@ _OperationUnion = Annotated[
     Field(discriminator="action"),
 ]
 
-GoogleDriveOperationInput = RootModel[_OperationUnion]
+# Discriminated union for tests/agents; must stay aligned with GoogleDriveConnector @sdk_action set.
+GoogleDriveOperationInput = RootModel[_GoogleDriveOperationUnion]
 
 
 class GoogleDriveOperationOutput(BaseModel):

@@ -6,12 +6,18 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 import jwt
 
-from runtime import BaseConnector, SecretProvider
+from runtime import BaseConnector, sdk_action
+from runtime.fhir_encounter import assert_encounter_query_has_patient
+from runtime.mcp_normalizers import (
+    normalize_fhir_read_patient,
+    normalize_fhir_search_encounter,
+    normalize_fhir_search_patients,
+)
 
 from . import registration
 from .schema import (
@@ -21,6 +27,7 @@ from .schema import (
     FhirCernerDocumentReferenceSearchOutput,
     FhirCernerEncounterSearchInput,
     FhirCernerEncounterSearchOutput,
+    FhirCernerOperationOutput,
     FhirCernerPatientReadInput,
     FhirCernerPatientReadOutput,
     FhirCernerPatientSearchInput,
@@ -30,108 +37,68 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_cerner")
 
 
-class _FhirCernerAction(BaseConnector[Any, Any]):
+class FhirCernerConnector(BaseConnector):
     """
-    Lightweight BaseConnector that delegates execution to a FhirCernerConnector
-    instance method.  One of these is created per action so that the manifest
-    and REST router can discover each action's schema and route automatically.
-    """
+    FHIR/Cerner connector: SMART Backend Services (private_key_jwt), RS384.
 
-    connector_id = "fhir_cerner"
-
-    def __init__(
-        self,
-        action: str,
-        input_model: type,
-        output_model: type,
-        handler: Callable,
-        *,
-        secret_provider: Optional[SecretProvider] = None,
-    ) -> None:
-        super().__init__(input_model, output_model, secret_provider=secret_provider)
-        self.action = action
-        self._handler = handler
-
-    async def internal_execute(self, params: Any, *, trace_id: str) -> Any:
-        return await self._handler(params, trace_id=trace_id)
-
-
-class FhirCernerConnector:
-    """
-    Single FHIR/Cerner connector.
-
-    ``connector_id = "fhir_cerner"``.  All authentication helpers and action
-    implementations live here.  The factory registers ONE instance of this
-    class; ``list_actions()`` and ``get_action()`` are used by the factory to
-    expose each action to the manifest and REST router.
-
-    Authentication uses Cerner's SMART Backend Services (private_key_jwt) flow,
-    identical to Epic's implementation — RS384-signed JWT exchanged for an
-    OAuth2 access token at the configured token endpoint.
-
-    Supported actions:
-      • read_patient          — fetch a single Patient by ID or name search
-      • search_patients       — fetch multiple Patients by list of IDs or name search
-      • search_encounter
-      • create_document_reference
-      • search_document_reference
-
-    Name-based search parameters (``given_name``, ``family_name``, ``name``,
-    ``birthdate``) are prioritised over the raw ``search_params`` dict.
-
-    .. note::
-        Cerner's sandbox name search is case-sensitive.  Supply names exactly
-        as stored in the system.  Special characters in search values should be
-        URL-encoded (httpx handles this automatically).
-
-    Required secrets (configured via SecretProvider):
-      - cerner_fhir_base_url  : Cerner FHIR R4 base URL
-      - cerner_private_key    : RSA private key PEM (newlines may be escaped)
-      - cerner_kid            : Key ID registered in the Cerner code console
-      - cerner_client_id      : Client ID from Cerner app registration
-      - cerner_token_url      : OAuth2 token endpoint URL (from .well-known/smart-configuration
-                                or the Cerner code console)
+    Required secrets: cerner_fhir_base_url, cerner_private_key, cerner_kid,
+    cerner_client_id, cerner_token_url (optional cerner_scopes).
     """
 
     connector_id = "fhir_cerner"
+    action = "execute"
+    output_model = FhirCernerOperationOutput
 
-    def __init__(self, *, secret_provider: SecretProvider) -> None:
-        self._secret_provider = secret_provider
+    @sdk_action(
+        "read_patient",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_read_patient,
+    )
+    async def read_patient(
+        self, params: FhirCernerPatientReadInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._read_patient(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resource=out.resource)
 
-        self._actions: Dict[str, _FhirCernerAction] = {
-            "read_patient": _FhirCernerAction(
-                "read_patient", FhirCernerPatientReadInput, FhirCernerPatientReadOutput,
-                self._read_patient, secret_provider=secret_provider,
-            ),
-            "search_patients": _FhirCernerAction(
-                "search_patients", FhirCernerPatientSearchInput, FhirCernerPatientSearchOutput,
-                self._search_patients, secret_provider=secret_provider,
-            ),
-            "search_encounter": _FhirCernerAction(
-                "search_encounter", FhirCernerEncounterSearchInput, FhirCernerEncounterSearchOutput,
-                self._search_encounter, secret_provider=secret_provider,
-            ),
-            "create_document_reference": _FhirCernerAction(
-                "create_document_reference", FhirCernerDocumentReferenceCreateInput, FhirCernerDocumentReferenceCreateOutput,
-                self._create_document_reference, secret_provider=secret_provider,
-            ),
-            "search_document_reference": _FhirCernerAction(
-                "search_document_reference", FhirCernerDocumentReferenceSearchInput, FhirCernerDocumentReferenceSearchOutput,
-                self._search_document_reference, secret_provider=secret_provider,
-            ),
-        }
+    @sdk_action(
+        "search_patients",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_patients,
+    )
+    async def search_patients(
+        self, params: FhirCernerPatientSearchInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._search_patients(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(
+            resources=out.resources,
+            total=out.total,
+            errors=out.errors,
+        )
 
-    # ------------------------------------------------------------------
-    # Action discovery — consumed by ConnectorFactory
-    # ------------------------------------------------------------------
+    @sdk_action(
+        "search_encounter",
+        alias_tolerant=True,
+        mcp_normalize=normalize_fhir_search_encounter,
+    )
+    async def search_encounter(
+        self, params: FhirCernerEncounterSearchInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._search_encounter(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
-    def list_actions(self) -> List[_FhirCernerAction]:
-        """Return all registered action connectors (used by list_for_protocol)."""
-        return list(self._actions.values())
+    @sdk_action("create_document_reference")
+    async def create_document_reference(
+        self, params: FhirCernerDocumentReferenceCreateInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._create_document_reference(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resource_id=out.resource_id, resource=out.resource)
 
-    def get_action(self, name: str) -> Optional[_FhirCernerAction]:
-        """Return the action connector for the given action name."""
-        return self._actions.get(name)
+    @sdk_action("search_document_reference")
+    async def search_document_reference(
+        self, params: FhirCernerDocumentReferenceSearchInput, *, trace_id: str
+    ) -> FhirCernerOperationOutput:
+        out = await self._search_document_reference(params, trace_id=trace_id)
+        return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
     # Shared authentication helpers
@@ -251,15 +218,7 @@ class FhirCernerConnector:
         birthdate: Optional[str],
         extra: Optional[Dict[str, str]] = None,
     ) -> Dict[str, str]:
-        """Build a FHIR search params dict from explicit name/date fields.
-
-        Priority: given_name/family_name > name > (nothing).
-        The ``extra`` dict (raw search_params) is merged at lowest priority.
-
-        .. note::
-            Cerner's sandbox name matching is case-sensitive — supply names
-            with the same capitalisation as stored in the system.
-        """
+        """Build a FHIR search params dict from explicit name/date fields."""
         params: Dict[str, str] = dict(extra or {})
 
         if given_name and given_name.strip():
@@ -443,7 +402,7 @@ class FhirCernerConnector:
             raise
 
         data = response.json()
-        resources = []
+        resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
             resources = [e["resource"] for e in data["entry"] if "resource" in e]
@@ -463,7 +422,6 @@ class FhirCernerConnector:
         self, params: FhirCernerEncounterSearchInput, *, trace_id: str
     ) -> FhirCernerEncounterSearchOutput:
         base_url = self._get_base_url()
-        auth_header = await self._get_auth_header()
 
         if params.patient_id or params.status or params.date:
             query_params = self._build_encounter_search_params(
@@ -475,6 +433,10 @@ class FhirCernerConnector:
             logger.info("FHIR Encounter search by raw params", extra={"trace_id": trace_id, "search_params": params.search_params})
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
+
+        assert_encounter_query_has_patient(query_params)
+
+        auth_header = await self._get_auth_header()
 
         try:
             async with httpx.AsyncClient() as client:
@@ -508,19 +470,13 @@ class FhirCernerConnector:
         base_url = self._get_base_url()
         auth_header = await self._get_auth_header()
 
-        # Validate context early so callers get the most actionable error.
-        if params.context:
-            ctx = dict(params.context)
-            if ctx.get("encounter") and not ctx.get("period"):
-                raise ValueError("Cerner requires 'context.period' when 'context.encounter' is provided.")
-
         # Cerner sandbox strictly requires a charset (lowercase, no space) for text types.
         # Failing to provide it results in: "a character set must be specified" (422).
         content_type = (params.content_type or "text/plain").strip().lower()
         if content_type.startswith("text/"):
+            content_type = content_type.replace(" ", "")
             if "charset=" not in content_type:
-                # Match the formatting expected by tests and common HTTP conventions.
-                content_type = f"{content_type}; charset=UTF-8"
+                content_type = f"{content_type};charset=utf-8"
 
         attachment: Dict[str, Any] = {"contentType": content_type}
         if params.data:
@@ -530,8 +486,12 @@ class FhirCernerConnector:
         else:
             raise ValueError("Either 'text' or 'data' must be provided")
 
-        # Some Cerner tenants require title/creation; default safely when omitted.
-        attachment["title"] = params.attachment_title or "Document"
+        # Cerner requires title and creation on the attachment
+        if not params.attachment_title:
+            raise ValueError(
+                "Cerner requires 'attachment_title' on DocumentReference create."
+            )
+        attachment["title"] = params.attachment_title
         attachment["creation"] = params.attachment_creation or datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
         doc_ref: Dict[str, Any] = {
@@ -593,7 +553,22 @@ class FhirCernerConnector:
         # Note: 'description' is intentionally omitted by default 
         # as Cerner can reject it depending on tenant configuration.
         if params.context:
-            doc_ref["context"] = dict(params.context)
+            context = dict(params.context)
+            # Cerner REQUIRES context.period whenever context.encounter is set.
+            # Auto-inject a period using the document date if the caller didn't supply one.
+            if context.get("encounter") and not context.get("period"):
+                # Force .000Z precision and provide a 1-hour clinical window
+                start_dt = datetime.now(tz=timezone.utc)
+                end_dt = start_dt + timedelta(hours=1)
+                context["period"] = {
+                    "start": start_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "end": end_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                }
+                logger.debug(
+                    "Auto-injected context.period (required by Cerner when encounter is set)",
+                    extra={"trace_id": trace_id},
+                )
+            doc_ref["context"] = context
         if params.additional_fields:
             doc_ref.update(params.additional_fields)
 
@@ -602,9 +577,12 @@ class FhirCernerConnector:
         for field in ["text", "data", "content_type", "attachment_title", "attachment_creation", "doc_status"]:
             doc_ref.pop(field, None)
 
-        # Note: Some Cerner tenants require author/authenticator. The connector does not
-        # enforce those fields universally; tenants that require them will return 4xx
-        # with OperationOutcome diagnostics.
+        # Cerner requires at least one author for clinical note document types.
+        if not params.author:
+            raise ValueError(
+                "Cerner requires 'author' for clinical note document types. "
+                "Provide at least one author reference, e.g. [{'reference': 'Practitioner/{id}'}]"
+            )
 
         logger.info("FHIR DocumentReference create", extra={"trace_id": trace_id})
 
