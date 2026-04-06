@@ -518,19 +518,7 @@ pip install -e ".[dev,agents]"
 pytest tests/test_toolhive_agent.py -v
 ```
 
-Expected output (all 9 tests passing):
-
-```
-tests/test_toolhive_agent.py::test_llm_factory_groq_created          PASSED
-tests/test_toolhive_agent.py::test_llm_factory_openai_created        PASSED
-tests/test_toolhive_agent.py::test_llm_factory_unknown_raises        PASSED
-tests/test_toolhive_agent.py::test_llm_factory_case_insensitive      PASSED
-tests/test_toolhive_agent.py::test_agent_runs_three_tool_sequence    PASSED
-tests/test_toolhive_agent.py::test_agent_respects_max_steps          PASSED
-tests/test_toolhive_agent.py::test_agent_handles_tool_error_graceful PASSED
-tests/test_toolhive_agent.py::test_agent_fails_when_mcp_unreachable  PASSED
-tests/test_toolhive_agent.py::test_mcp_entrypoint_registers_three_to PASSED
-```
+Expect every test collected from `tests/test_toolhive_agent.py` to pass (names and count change as the suite evolves). If a test fails, re-run with `-v` and compare against the current definitions in that file.
 
 ---
 

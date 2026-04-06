@@ -1,0 +1,38 @@
+# Enforce baseline container hygiene: digest-pinned base image and non-root USER.
+name: Docker policy
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "Dockerfile"
+      - "docker/**"
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "docker/**"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Verify Dockerfiles use digest-pinned FROM and non-root USER
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(Dockerfile docker/*/Dockerfile)
+          for f in "${files[@]}"; do
+            echo "Checking $f"
+            if ! grep -qE '^FROM [^[:space:]]+@sha256:[a-f0-9]{64}' "$f"; then
+              echo "ERROR: $f must use FROM image@sha256:<64-hex-digest>" >&2
+              exit 1
+            fi
+            if ! grep -qE '^USER[[:space:]]' "$f"; then
+              echo "ERROR: $f must end with a non-root USER directive" >&2
+              exit 1
+            fi
+          done
+          echo "PASS: all Dockerfiles pinned and non-root"

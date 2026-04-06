@@ -4,7 +4,7 @@
 > **Standard:** FHIR R4
 > **Auth Method:** SMART Backend Services — `private_key_jwt` (RS384)
 > **Actions:** `read_patient` · `search_encounter` · `create_document_reference` · `search_document_reference`
-> **Source:** `src/connectors/fhir_cerner/`
+> **Source:** `src/node_wire_fhir_cerner/`
 > **Test Collection:** `postman_fhir_cerner_collection.json`
 
 ---
@@ -109,9 +109,9 @@ Cerner's FHIR implementation (especially in the sandbox) has several unique requ
 
 | File / Path | Purpose |
 |---|---|
-| `src/connectors/fhir_cerner/logic.py` | Core logic, authentication, and action dispatch |
-| `src/connectors/fhir_cerner/schema.py` | Pydantic input/output models and field-level documentation |
-| `src/connectors/fhir_cerner/registration.py` | Error mapping and exception handling specifically for Cerner API errors |
+| `src/node_wire_fhir_cerner/logic.py` | Core logic, authentication, and action dispatch |
+| `src/node_wire_fhir_cerner/schema.py` | Pydantic input/output models and field-level documentation |
+| `src/node_wire_fhir_cerner/registration.py` | Error mapping and exception handling specifically for Cerner API errors |
 | `postman_fhir_cerner_collection.json` | Pre-configured requests to test endpoints end-to-end (at repo root) |
 
 ---

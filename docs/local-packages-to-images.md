@@ -40,10 +40,12 @@ bash scripts/build-packages.sh \
   packages/connectors/smtp
 ```
 
-The script:
-- builds host wheels and Linux-compatible wheels,
+The script (`scripts/build-packages.sh` in default mode, not `--all`):
+- builds host wheels and Linux-compatible wheels (via Docker),
 - writes artifacts under each package's `dist/` folder,
 - fails if any `.py` source files leak into a wheel.
+
+For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [docs/packaging.md](packaging.md).
 
 ---
 
@@ -134,6 +136,6 @@ bash scripts/build-packages.sh packages/runtime packages/connectors/smtp
 docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 
 # 3) Verify image exists
-docker images | rg "nw-smtp"
+docker images --filter reference=nw-smtp
 ```
 

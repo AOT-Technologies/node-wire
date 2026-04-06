@@ -27,9 +27,9 @@ See [docs/mcp-servers.md](docs/mcp-servers.md) for build, env config, docker-com
 
 The platform is split into three layers:
 
-- **Layer A – Runtime** (`runtime`): The engine that every connector runs inside. It defines the execution contract, a standard error taxonomy, retries and circuit breaking, and telemetry.
-- **Layer B – Connectors** (`connectors`): Adapters that implement that contract and call external systems (HTTP Generic, SMTP, Stripe, Google Drive, FHIR Epic, FHIR Cerner). Each connector has its own input/output schema and business logic.
-- **Layer C – Bindings** (`bindings`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and how connectors are loaded from configuration (ConnectorFactory + `config/connectors.yaml`).
+- **Layer A – Runtime** (`src/node_wire_runtime/`): The engine that every connector runs inside. It defines the execution contract, a standard error taxonomy, retries and circuit breaking, and telemetry.
+- **Layer B – Connectors** (`src/node_wire_<connector>/`): Adapters that implement that contract and call external systems (HTTP Generic, SMTP, Stripe, Google Drive, FHIR Epic, FHIR Cerner). Each connector has its own input/output schema and business logic.
+- **Layer C – Bindings** (`src/bindings/`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and how connectors are loaded from configuration (ConnectorFactory + `config/connectors.yaml`).
 
 **Data flow (simplified):** A request arrives via REST, gRPC, or MCP → the factory resolves the right connector → the runtime runs it (validate input → optional policy check → retry/circuit-breaker wrapper → execute) → the response is returned in a standard shape (`ConnectorResponse`).
 
@@ -93,8 +93,8 @@ The platform is split into three layers:
 | **smtp**        | Send email via SMTP                              | `send_email`  | rest, grpc, mcp             |
 | **stripe**      | Stripe charge                                    | `charge`      | grpc, mcp (no rest in config)|
 | **google_drive**| Google Drive (list, create, get, update, upload, delete, permissions) | `execute` (payload discriminator) | rest, grpc, mcp |
-| **fhir_epic**   | FHIR R4 integration for Epic (multi-action)      | `read_patient`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
-| **fhir_cerner** | FHIR R4 integration for Cerner (multi-action)    | `read_patient`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
+| **fhir_epic**   | FHIR R4 integration for Epic (multi-action)      | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
+| **fhir_cerner** | FHIR R4 integration for Cerner (multi-action)    | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
 
 ### Connector-specific documentation
 
@@ -110,7 +110,7 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
 
 **Purpose:** Expose connectors over different protocols and load them from configuration. No business logic lives here—only routing, config, and protocol translation.
 
-**Location:** `src/bindings/` (factory.py, rest_api/app.py, grpc_server/, mcp_server/), and the entrypoint `bindings_entrypoint.py` at the package root.
+**Location:** `src/bindings/` (factory.py, rest_api/app.py, grpc_server/, mcp_server/). The CLI entrypoint is the `node-wire` script, which maps to module **`bindings_entrypoint`** in `src/bindings_entrypoint.py` (run as `python -m bindings_entrypoint`).
 
 ### ConnectorFactory
 
@@ -146,7 +146,7 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
   - `exposed_via`: list of protocols (`rest`, `grpc`, `mcp`). Only listed protocols expose that connector.
 
 - **Secrets**  
-  Supplied via environment variables. The factory uses `EnvSecretProvider`; keys are connector-specific (e.g. Google Drive expects a variable documented in `src/connectors/google_drive/README.md`).
+  Supplied via environment variables. The factory uses `EnvSecretProvider`; keys are connector-specific (e.g. Google Drive expects a variable documented in `src/node_wire_google_drive/README.md`).
 
 ### Google Drive service account setup (quick)
 
@@ -178,6 +178,7 @@ $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
    ```bash
    pip install .
    ```
+   For agents, ToolHive, or the stdio MCP server (`python -m agents.mcp_entrypoint`), install with optional dependencies, e.g. `pip install -e ".[agents]"`, or follow **[Setup.md](Setup.md)** for the full install matrix.
 
 2. **Start the REST API** (default):
    - **Windows (cmd):** `set MODE=API && python -m bindings_entrypoint`  
@@ -204,4 +205,4 @@ All dependencies are declared in `pyproject.toml` (Python >=3.11). They include:
 
 - Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
-- Creating a new connector: [docs/creating-a-connector.md](docs/creating-a-connector.md)
+- Creating a new connector: [docs/connectors.md](docs/connectors.md)

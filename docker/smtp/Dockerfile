@@ -2,7 +2,7 @@ FROM python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dc
 
 LABEL org.opencontainers.image.title="nw-smtp" \
       org.opencontainers.image.description="Node Wire — SMTP MCP server" \
-      org.opencontainers.image.source="https://github.com/AOT-Technologies/connector-platform"
+      org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \

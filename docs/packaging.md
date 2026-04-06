@@ -22,13 +22,26 @@ Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject
 
 ## Python package build lifecycle
 
-### Build all packages
+### Build all packages (default)
 
 ```bash
 bash scripts/build-packages.sh
 ```
 
-The script iterates every `pyproject.toml` under `packages/`, runs `python -m build --wheel` for each, and then verifies that zero `.py` files appear in the resulting wheels. It exits non-zero if any `.py` file leaks.
+Default mode builds each of the **seven** known package paths (see inventory above): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
+
+Prerequisites: `pip install build cython wheel` (and a usable `python` on the host). Run `bash scripts/build-packages.sh --help` for usage.
+
+### Artifact layout and safe command usage
+
+`scripts/build-packages.sh` writes wheels per package under `packages/**/dist/` (there is no single repo-root `dist/` output).
+
+Before using wildcard wheel commands, clear old wheel artifacts so commands do not accidentally match stale versions:
+
+```bash
+rm -f packages/runtime/dist/*.whl
+rm -f packages/connectors/stripe/dist/*.whl
+```
 
 ### Build a single package
 
@@ -36,12 +49,24 @@ The script iterates every `pyproject.toml` under `packages/`, runs `python -m bu
 bash scripts/build-packages.sh packages/connectors/stripe
 ```
 
+### Optional: broader wheels with cibuildwheel (`--all`)
+
+For additional platform wheels from your **current machine** (whatever `cibuildwheel` can target there), install it and use the same script:
+
+```bash
+python -m pip install 'cibuildwheel>=2.16.0'
+bash scripts/build-packages.sh --all
+bash scripts/build-packages.sh --all packages/runtime
+```
+
+`CIBW_BUILD` / `CIBW_SKIP` default to the same patterns as `.github/workflows/publish.yml` unless you override them in the environment. Full Linux + macOS + Windows coverage is still best done in CI, not guaranteed from one laptop.
+
 ### Inspect wheel contents
 
 After building, confirm no source leaks:
 
 ```bash
-unzip -l dist/node_wire_stripe-*.whl
+unzip -l packages/connectors/stripe/dist/node_wire_stripe-*.whl
 # Must show .so/.pyd files only — no .py files
 ```
 
@@ -49,7 +74,9 @@ unzip -l dist/node_wire_stripe-*.whl
 
 ```bash
 # Install into an active (clean) virtual env
-pip install dist/node_wire_runtime-*.whl dist/node_wire_stripe-*.whl
+pip install \
+  packages/runtime/dist/node_wire_runtime-*.whl \
+  packages/connectors/stripe/dist/node_wire_stripe-*.whl
 
 # Confirm entry points registered
 python -c "
@@ -175,10 +202,10 @@ For compose and ToolHive registration see `docs/mcp-servers.md`.
 
 ## Pre-PyPI local validation checklist
 
-Run these gates before triggering the CI publish workflow:
+Run these gates before triggering the CI publish workflow (default `build-packages.sh` is enough; `--all` is optional for broader local wheels):
 
 - [ ] `bash scripts/build-packages.sh` exits 0
-- [ ] `unzip -l dist/<pkg>-*.whl` shows no `.py` files
+- [ ] `unzip -l packages/<pkg>/dist/*.whl` shows no `.py` files
 - [ ] Install wheels into a clean venv; confirm entry points resolve
 - [ ] `auto_register()` loads expected connectors
 - [ ] `pytest tests/test_connector_registry.py tests/test_connectors_basic.py` passes

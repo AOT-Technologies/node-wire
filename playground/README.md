@@ -9,7 +9,7 @@ The demo provides a modern, interactive web interface to trigger, monitor, and v
 ### Core Technologies
 - **Frontend**: Vanilla HTML5, CSS3 (Glassmorphism), and Javascript.
 - **Backend API**: FastAPI (Python) serving orchestration logic via `playground/scenarios.py`.
-- **Connector Layer**: Integrated with `connectors` using the `fhir_epic`, `fhir_cerner`, and `http_generic` bindings.
+- **Connector layer**: Uses Node Wire connectors (`fhir_epic`, `fhir_cerner`, `http_generic`, and others) via the platform REST API and `ConnectorFactory` (see [docs/connectors.md](docs/connectors.md)).
 
 ---
 
@@ -97,8 +97,8 @@ The demo is pre-configured with mock/sandbox endpoints for immediate use. To tes
 To test the Google Drive integration manually, follow these specialized setup steps:
 1.  **Service Account**: Create a Service Account in the Google Cloud Console with the **Google Drive API** enabled. Download the JSON key.
 2.  **Secret Configuration**:
-    *   Place the JSON key file somewhere safe on your machine (e.g., `<PATH_TO_FILE>/service_account.json`).
-    *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=<PATH_TO_FILE>/service_account.json`.
+    *   Place the JSON key file somewhere safe on your machine (e.g., `/path/to/service_account.json`).
+    *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=/path/to/service_account.json`.
     *   *Note: The platform now supports direct file paths for easier local configuration.*
 3.  **Permissions**: If using a specific **Vault Folder ID**, ensure that folder is shared with the Service Account's email address (found in the JSON) with "Editor" or "Manager" permissions.
 4.  **Workflow Verification**:

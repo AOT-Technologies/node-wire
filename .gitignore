@@ -11,3 +11,19 @@ dist/
 .coverage
 .coverage.*
 htmlcov/
+
+# GCP / cloud credentials
+connectorplatform-*.json
+*-service-account.json
+*credentials*.json
+
+# Grafana exports (auto-generated)
+grafana/*.json
+
+# Python lock files
+uv.lock
+
+# Temporary test/upload files
+upload-test.txt
+*-test.txt
+upload-*.txt
