@@ -33,7 +33,7 @@ class _OtelContextFilter(logging.Filter):
         return True
 
 
-def init_observability(app_name: str = "node_wire") -> None:
+def init_observability(app_name: str = "node-wire") -> None:
     """
     Initialize OpenTelemetry + OpenLLMetry/Traceloop for the process.
 

@@ -11,6 +11,7 @@ from node_wire_runtime.models import ErrorCategory
 from .schema import ChargeInput, ChargeOutput
 
 logger = logging.getLogger("connectors.stripe")
+_LOG_CTX = {"connector_id": "stripe", "connector_type": "stripe"}
 
 
 class StripeConnector(BaseConnector):
@@ -32,13 +33,12 @@ class StripeConnector(BaseConnector):
     @nw_action("charge")
     async def charge(self, params: ChargeInput, *, trace_id: str) -> ChargeOutput:
         api_key = self.secret_provider.get_secret("stripe_api_key")
+        log_extra = {**_LOG_CTX, "trace_id": trace_id, "action": "charge"}
 
         logger.info(
             "Creating Stripe charge",
             extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": "charge",
+                **log_extra,
                 "amount": params.amount,
                 "currency": params.currency,
             },
@@ -59,9 +59,7 @@ class StripeConnector(BaseConnector):
             logger.error(
                 "Stripe charge creation failed",
                 extra={
-                    "trace_id": trace_id,
-                    "connector_id": self.connector_id,
-                    "action": "charge",
+                    **log_extra,
                     "amount": params.amount,
                     "currency": params.currency,
                     "error_type": type(exc).__name__,
@@ -73,9 +71,7 @@ class StripeConnector(BaseConnector):
         logger.info(
             "Stripe charge created successfully",
             extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": "charge",
+                **log_extra,
                 "charge_id": charge.get("id"),
             },
         )

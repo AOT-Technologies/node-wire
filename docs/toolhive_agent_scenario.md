@@ -136,6 +136,10 @@ Below is the full set of environment variables used by the connector platform an
 | `GROQ_API_KEY` | LLM (Groq) | Your Groq API key |
 | `GROQ_MODEL` | LLM | Example: `openai/gpt-oss-120b` |
 | `MCP_TRANSPORT` | ToolHive / local | `stdio` when running in ToolHive container |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | ToolHive MCP servers (recommended) | Base OTLP HTTP endpoint reachable from the MCP container. On Windows/macOS Docker Desktop: `http://host.docker.internal:4318` |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | ToolHive MCP servers (recommended) | Explicit OTLP logs endpoint. Use `http://host.docker.internal:4318/v1/logs` on Windows/macOS Docker Desktop to avoid 404 path errors |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | ToolHive MCP servers (optional) | Explicit OTLP traces endpoint, e.g. `http://host.docker.internal:4318/v1/traces` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | ToolHive MCP servers (recommended) | Set to `http/protobuf` for OTLP HTTP exporters |
 | `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `**/node-wire/src` locally |
 | `SMTP_HOST` | SMTP connector | Example: `sandbox.smtp.mailtrap.io` |
 | `SMTP_PORT` | SMTP connector | Example: `2525` |
@@ -156,6 +160,11 @@ Option A — Recommended: ToolHive UI (no code)
 2. Build or pull the Docker image `node-wire:latest` (admins can do this for you), then Add a new Server / Container.
 3. Name it `node-wire-connectors`. Set Transport to `stdio`.
 4. In the server's Environment / Secrets section, add the variables from the table above. For `GOOGLE_DRIVE_SA_JSON` paste the entire service account JSON into the secret value (do NOT upload a file path here).
+   - For observability from ToolHive-managed MCP containers to Grafana/LGTM, also set:
+     - `OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318`
+     - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://host.docker.internal:4318/v1/logs`
+     - `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`
+   - Optional (traces): `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://host.docker.internal:4318/v1/traces`
 5. Start the server. ToolHive will show an Endpoint URL like `http://localhost:<PORT>/sse` or a proxy URL that contains `/sse` or `/mcp`.
 6. Copy the proxy URL and paste it into a local `.env` or give it to the person running the agent as `TOOLHIVE_MCP_URL`.
 
@@ -288,6 +297,29 @@ thv secret set SMTP_PORT
 5. Click **Start** or **Deploy**.
 
 ToolHive will start the container and set up a stdio-to-HTTP proxy on a local port.
+
+### Step 4.1: Add OTLP env vars per MCP server (important for Grafana logs)
+
+When you register **individual** MCP servers (for example `nw-google-drive`, `nw-smartonfhir-epic`, `nw-smartonfhir-cerner`, `nw-smtp`), set the OTLP variables on **each server** in ToolHive.
+
+Use these values on Windows/macOS Docker Desktop:
+
+```env
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
+OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://host.docker.internal:4318/v1/logs
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+Optional traces endpoint:
+
+```env
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://host.docker.internal:4318/v1/traces
+```
+
+Notes:
+- `host.docker.internal` must resolve from inside the MCP container.
+- If ToolHive runs on a different machine, use an OTLP URL reachable from that machine instead of `host.docker.internal`.
+- If you set `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` without `/v1/logs`, you can get exporter errors like `Failed to export logs batch code: 404, reason: Not Found`.
 
 ### Option B: ToolHive CLI
 
@@ -501,6 +533,8 @@ In Cursor's MCP settings, add the same endpoint URL. The tools will appear in th
 | `Failed to list MCP tools: Connection refused` | ToolHive server stopped | Re-start via ToolHive UI, or run `thv run ...` again; check `thv list` to see running servers |
 | `Secret 'CERNER_PRIVATE_KEY' is not configured` | Secret not stored in ToolHive | Run `thv secret set CERNER_PRIVATE_KEY` or add it via the ToolHive UI |
 | `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
+| `Failed to export logs batch code: 404, reason: Not Found` | OTLP logs endpoint is wrong (missing `/v1/logs` or incorrect path) | Set `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://host.docker.internal:4318/v1/logs` (Windows/macOS Docker Desktop) and restart the MCP server |
+| MCP works but no logs in Grafana | OTLP endpoint not reachable from ToolHive container | Set `OTEL_EXPORTER_OTLP_ENDPOINT` to a collector URL reachable from that container host; for local Docker Desktop use `http://host.docker.internal:4318` |
 | `SMTP authentication failed` | Wrong username or password | For Gmail, use an App Password not your regular password; confirm `SMTP_USERNAME` includes `@` |
 | `groq SDK not installed` | Missing optional dependency | `pip install -e ".[agents]"` |
 | Agent loops forever without completing | LLM reasoning issue | Try increasing `--max-steps`; try a different LLM provider; check that the expected tools are visible in ToolHive (`tools/list`); refresh after MCP image upgrades |

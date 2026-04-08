@@ -8,12 +8,16 @@ import pytest
 
 
 def test_mcp_entrypoint_main_calls_run_stdio() -> None:
-    with patch("bindings.mcp_server.server.McpServer") as MockServer:
+    with (
+        patch("node_wire_runtime.observability.init_observability") as mock_obs,
+        patch("bindings.mcp_server.server.McpServer") as MockServer,
+    ):
         from agents import mcp_entrypoint
 
         mcp_entrypoint.main()
-        MockServer.assert_called_once_with(server_name="node-wire")
-        MockServer.return_value.run_stdio.assert_called_once()
+    mock_obs.assert_called_once_with(app_name="node-wire")
+    MockServer.assert_called_once_with(server_name="node-wire")
+    MockServer.return_value.run_stdio.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -26,7 +30,10 @@ def test_mcp_entrypoint_main_calls_run_stdio() -> None:
     ],
 )
 def test_per_connector_mcp_main_calls_run_stdio(module_path: str) -> None:
-    with patch("bindings.mcp_server.server.McpServer") as MockServer:
+    with (
+        patch("node_wire_runtime.observability.init_observability"),
+        patch("bindings.mcp_server.server.McpServer") as MockServer,
+    ):
         mod = __import__(module_path, fromlist=["main"])
         mod.main()
         MockServer.return_value.run_stdio.assert_called_once()

@@ -11,9 +11,14 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agents.google_drive_mcp")
+logging.getLogger("opentelemetry.exporter.otlp.proto.http").setLevel(logging.DEBUG)
 
 
 def main() -> None:
+    from node_wire_runtime.observability import init_observability
+
+    init_observability(app_name="node-wire")
+
     from bindings.mcp_server.server import McpServer
 
     logger.info("Starting nw-google-drive MCP server (stdio, manifest-driven)")

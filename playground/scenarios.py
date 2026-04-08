@@ -167,23 +167,57 @@ def _safe_error_return(e: Exception, steps: List[ScenarioStep], trace_id: str, s
 
 import asyncio
 
-async def execute_with_retry(action: Any, input_data: Any, trace_id: str, step: ScenarioStep, max_retries: int = 3, base_delay: float = 1.0) -> Any:
+async def execute_with_retry(
+    action: Any,
+    input_data: Any,
+    trace_id: str,
+    step: ScenarioStep,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    connector_id: str = "unknown",
+) -> Any:
     last_exception = None
     delay = base_delay
+    
+    logger.info(
+        "Starting connector execution",
+        extra={"connector_id": connector_id, "trace_id": trace_id}
+    )
+    
     for attempt in range(max_retries + 1):
         try:
-            return await action.internal_execute(input_data, trace_id=trace_id)
+            result = await action.internal_execute(input_data, trace_id=trace_id)
+            logger.info(
+                "Connector execution completed successfully",
+                extra={"connector_id": connector_id, "trace_id": trace_id}
+            )
+            return result
         except Exception as e:
             last_exception = e
             if attempt < max_retries:
-                logger.warning(f"Action failed (attempt {attempt+1}/{max_retries+1}): {e}. Retrying in {delay}s...")
+                logger.warning(
+                    f"Action failed (attempt {attempt+1}/{max_retries+1}): {e}. Retrying in {delay}s...",
+                    extra={"connector_id": connector_id}
+                )
                 step.retries += 1
                 await asyncio.sleep(delay)
                 delay *= 2
             else:
-                logger.error(f"Action failed after {max_retries + 1} attempts: {e}")
+                logger.error(
+                    "Connector execution failed",
+                    extra={
+                        "connector_id": connector_id,
+                        "trace_id": trace_id,
+                        "error_type": type(last_exception).__name__,
+                        "error_message": str(last_exception),
+                        "attempts": max_retries + 1,
+                    },
+                )
+                logger.error(
+                    f"Action failed after {max_retries + 1} attempts: {last_exception}",
+                    extra={"connector_id": connector_id, "trace_id": trace_id},
+                )
                 raise last_exception
-
 
 # Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
 _playground_factory: Optional[Any] = None
@@ -258,7 +292,8 @@ async def post_consultation_scenario(
                 connector,
                 FhirPatientReadInput(resource_id=payload.patient_id),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_epic",
             )
             patient_id = payload.patient_id
         else:
@@ -272,7 +307,8 @@ async def post_consultation_scenario(
                 connector,
                 FhirPatientReadInput(search_params=patient_search_params),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_epic",
             )
             patient_id = p_res.resource.get("id")
 
@@ -302,7 +338,8 @@ async def post_consultation_scenario(
                 connector,
                 FhirEncounterSearchInput(search_params={"patient": patient_id, "status": "finished", "date": visit_date}),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_epic",
             )
 
             resources = enc_res.resources
@@ -312,7 +349,8 @@ async def post_consultation_scenario(
                     connector,
                     FhirEncounterSearchInput(search_params={"patient": patient_id, "status": "finished"}),
                     trace_id,
-                    steps[-1]
+                    steps[-1],
+                    connector_id="fhir_epic",
                 )
                 resources = enc_res.resources
 
@@ -354,7 +392,9 @@ async def post_consultation_scenario(
             context={"encounter": [{"reference": f"Encounter/{encounter_id}"}]}
         )
         
-        doc_res = await execute_with_retry(connector, doc_input, trace_id, steps[-1])
+        doc_res = await execute_with_retry(
+            connector, doc_input, trace_id, steps[-1], connector_id="fhir_epic"
+        )
 
         steps[-1].status = "success"
         steps[-1].details = f"EHR Updated. ID: {doc_res.resource_id}"
@@ -368,7 +408,8 @@ async def post_consultation_scenario(
                 connector,
                 FhirDocumentReferenceSearchInput(search_params={"patient": patient_id, "_id": doc_res.resource_id}),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_epic",
             )
             
             resources = verify_res.resources
@@ -490,7 +531,9 @@ async def report_incident_scenario(
         )
         
         http_action = connector
-        response = await execute_with_retry(http_action, request_input, trace_id, steps[-1])
+        response = await execute_with_retry(
+            http_action, request_input, trace_id, steps[-1], connector_id="http_generic"
+        )
         
         import json
         resp_body = json.loads(response.body)
@@ -570,7 +613,8 @@ async def cerner_post_consultation_scenario(
                 connector,
                 FhirCernerPatientReadInput(resource_id=payload.patient_id),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_cerner",
             )
             patient_id = payload.patient_id
         else:
@@ -584,7 +628,8 @@ async def cerner_post_consultation_scenario(
                 connector,
                 FhirCernerPatientReadInput(search_params=search_params),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_cerner",
             )
             patient_id = p_res.resource.get("id")
 
@@ -618,7 +663,8 @@ async def cerner_post_consultation_scenario(
                     search_params={"patient": patient_id, "status": "finished", "date": visit_date}
                 ),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_cerner",
             )
             resources = enc_res.resources
 
@@ -630,7 +676,8 @@ async def cerner_post_consultation_scenario(
                         search_params={"patient": patient_id, "status": "finished"}
                     ),
                     trace_id,
-                    steps[-1]
+                    steps[-1],
+                    connector_id="fhir_cerner",
                 )
                 resources = enc_res.resources
 
@@ -702,7 +749,9 @@ async def cerner_post_consultation_scenario(
             },
         )
 
-        doc_res = await execute_with_retry(connector, doc_input, trace_id, steps[-1])
+        doc_res = await execute_with_retry(
+            connector, doc_input, trace_id, steps[-1], connector_id="fhir_cerner"
+        )
 
         steps[-1].status = "success"
         steps[-1].details = f"Cerner EHR Updated. ID: {doc_res.resource_id}"
@@ -722,7 +771,8 @@ async def cerner_post_consultation_scenario(
                     search_params={"_id": doc_res.resource_id}
                 ),
                 trace_id,
-                steps[-1]
+                steps[-1],
+                connector_id="fhir_cerner",
             )
 
             resources = verify_res.resources
@@ -819,7 +869,7 @@ async def gdrive_archival_scenario(
             )
             list_input = GoogleDriveOperationInput.model_validate(list_op.model_dump(exclude_none=True))
             res = await execute_with_retry(
-                connector, list_input, trace_id, steps[-1]
+                connector, list_input, trace_id, steps[-1], connector_id="google_drive"
             )
             n = len(res.raw.get("files") or [])
             steps[-1].status = "success"
@@ -850,7 +900,7 @@ async def gdrive_archival_scenario(
             )
             get_input = GoogleDriveOperationInput.model_validate(get_op.model_dump(exclude_none=True))
             res = await execute_with_retry(
-                connector, get_input, trace_id, steps[-1]
+                connector, get_input, trace_id, steps[-1], connector_id="google_drive"
             )
             got_id = res.raw.get("id") or fid
             name = res.raw.get("name", "")
@@ -913,7 +963,7 @@ async def gdrive_archival_scenario(
         add_step("Drive Update", "pending", display_name="Apply file update")
         try:
             res = await execute_with_retry(
-                connector, upd_input, trace_id, steps[-1]
+                connector, upd_input, trace_id, steps[-1], connector_id="google_drive"
             )
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update failed")
@@ -936,7 +986,7 @@ async def gdrive_archival_scenario(
                 get_op.model_dump(exclude_none=True)
             )
             get_res = await execute_with_retry(
-                connector, get_input, trace_id, steps[-1]
+                connector, get_input, trace_id, steps[-1], connector_id="google_drive"
             )
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update verify failed")
@@ -1001,7 +1051,7 @@ async def gdrive_archival_scenario(
         upload_input = GoogleDriveOperationInput.model_validate(op_payload)
 
         res = await execute_with_retry(
-            connector, upload_input, trace_id, steps[-1]
+            connector, upload_input, trace_id, steps[-1], connector_id="google_drive"
         )
         file_id = res.raw.get("id")
         
@@ -1028,7 +1078,7 @@ async def gdrive_archival_scenario(
             )
         )
         perm_res = await execute_with_retry(
-            connector, perm_input, trace_id, steps[-1]
+            connector, perm_input, trace_id, steps[-1], connector_id="google_drive"
         )
         
         steps[-1].status = "success"
@@ -1049,7 +1099,7 @@ async def gdrive_archival_scenario(
             )
         )
         get_res = await execute_with_retry(
-            connector, get_input, trace_id, steps[-1]
+            connector, get_input, trace_id, steps[-1], connector_id="google_drive"
         )
         file_metadata = get_res.raw
         

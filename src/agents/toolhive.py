@@ -643,6 +643,10 @@ async def _execute_task(agent: ToolHiveAgent, args: argparse.Namespace, provider
 
 
 def main() -> None:
+    from node_wire_runtime.observability import init_observability
+
+    init_observability(app_name="node-wire")
+
     parser = argparse.ArgumentParser(
         description="ToolHive AI Agent — Cerner/Epic FHIR → Google Drive → Email"
     )

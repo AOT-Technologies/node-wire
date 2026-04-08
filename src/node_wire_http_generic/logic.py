@@ -10,6 +10,7 @@ from node_wire_runtime import BaseConnector, nw_action
 from .schema import HttpRequestInput, HttpResponseOutput
 
 logger = logging.getLogger("connectors.http_generic")
+_LOG_CTX = {"connector_id": "http_generic", "connector_type": "http_generic"}
 
 
 class HttpGenericConnector(BaseConnector):
@@ -28,12 +29,11 @@ class HttpGenericConnector(BaseConnector):
         All potential network errors are raised and mapped by the runtime's
         ErrorMapper, with detailed, human-readable logs at the connector level.
         """
+        log_extra = {**_LOG_CTX, "trace_id": trace_id, "action": "request"}
         logger.info(
             "Preparing HTTP request",
             extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": "request",
+                **log_extra,
                 "method": params.method,
                 "url": str(params.url),
             },
@@ -55,9 +55,7 @@ class HttpGenericConnector(BaseConnector):
             logger.error(
                 "HTTP request failed before receiving a response",
                 extra={
-                    "trace_id": trace_id,
-                    "connector_id": self.connector_id,
-                    "action": "request",
+                    **log_extra,
                     "method": params.method,
                     "url": str(params.url),
                     "error_type": type(exc).__name__,
@@ -69,9 +67,7 @@ class HttpGenericConnector(BaseConnector):
         logger.info(
             "HTTP request completed",
             extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": "request",
+                **log_extra,
                 "method": params.method,
                 "url": str(params.url),
                 "status_code": response.status_code,

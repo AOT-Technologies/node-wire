@@ -31,7 +31,17 @@
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "No data"
+                }
+              },
+              "type": "special"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -49,7 +59,10 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "none",
+          "decimals": 1,
+          "min": 0,
+          "max": 100
         },
         "overrides": []
       },
@@ -70,7 +83,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
+          "fields": "/^C$/",
           "values": false
         },
         "showPercentChange": false,
@@ -86,12 +99,35 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\" |= \"completed successfully\" [$__range])) / sum(count_over_time({service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\" |= \"Starting connector execution\" [$__range])) * 100",
-          "queryType": "range",
+          "expr": "sum(count_over_time({service_name=\"node-wire\"} | connector_id=~\"${connector_type:regex}\" |= \"Connector execution completed successfully\" [$__range])) or vector(0)",
+          "hide": true,
+          "queryType": "instant",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_name=\"node-wire\"} | connector_id=~\"${connector_type:regex}\" |= \"Starting connector execution\" [$__range])) or vector(0)",
+          "hide": true,
+          "queryType": "instant",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "($A / $B) * 100",
+          "hide": false,
+          "refId": "C",
+          "type": "math"
         }
       ],
-      "title": "Success Rate",
+      "title": "Success Rate %",
       "type": "stat"
     },
     {
@@ -190,7 +226,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\" |~ \"(?i)completed successfully\" [$__range]))",
+          "expr": "sum(count_over_time({service_name=\"node-wire\"} | connector_id=~\"${connector_type:regex}\" |= \"Connector execution completed successfully\" [$__range]))",
           "legendFormat": "Success",
           "queryType": "range",
           "refId": "A"
@@ -202,14 +238,111 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aot-connector-platform\"} |~ \"(?i)error\" [$__range]))",
+          "expr": "sum(count_over_time({service_name=\"node-wire\"} | connector_id=~\"${connector_type:regex}\" |= \"Connector execution failed\" [$__range]))",
           "legendFormat": "Error",
           "queryType": "range",
           "refId": "B"
         }
       ],
-      "title": "Success vs Error Rate",
+      "title": "Success vs Error Distribution",
       "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "executions / 5 min",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum",
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum by (connector_id) (count_over_time({service_name=\"node-wire\"} | connector_id=~\"${connector_type:regex}\" |= \"Starting connector execution\" [5m]))",
+          "legendFormat": "{{connector_id}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Connector Executions Over Time (per 5 min)",
+      "description": "Per-connector traffic. A flatline means the connector went silent — not the same as success/failure.",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -225,7 +358,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 14
       },
       "id": 3,
       "options": {
@@ -250,7 +383,7 @@
           },
           "direction": "backward",
           "editorMode": "code",
-          "expr": "{service_name=\"aot-connector-platform\"} | logfmt | connector_id =~ \"$connector_type.*\"",
+          "expr": "{service_name=\"node-wire\"} | connector_id=~\"${connector_type:regex}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -274,7 +407,7 @@
         "allowCustomValue": false,
         "current": {
           "text": [
-            "$__all"
+            "All"
           ],
           "value": [
             "$__all"
@@ -284,21 +417,57 @@
         "label": "Connector Type",
         "multi": true,
         "name": "connector_type",
-        "options": [],
-        "query": "fhir,google_drive",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "fhir_epic",
+            "value": "fhir_epic"
+          },
+          {
+            "selected": false,
+            "text": "google_drive",
+            "value": "google_drive"
+          },
+          {
+            "selected": false,
+            "text": "fhir_cerner",
+            "value": "fhir_cerner"
+          },
+          {
+            "selected": false,
+            "text": "smtp",
+            "value": "smtp"
+          },
+          {
+            "selected": false,
+            "text": "stripe",
+            "value": "stripe"
+          },
+          {
+            "selected": false,
+            "text": "http_generic",
+            "value": "http_generic"
+          }
+        ],
+        "query": "fhir_epic,fhir_cerner,google_drive,smtp,stripe,http_generic",
         "type": "custom",
         "valuesFormat": "csv"
       }
     ]
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Connector Logs & Status - Updated",
   "uid": "connector_logs_fixed",
-  "version": 17,
+  "version": 19,
   "weekStart": ""
 }

@@ -11,6 +11,7 @@ from node_wire_runtime.mcp_normalizers import normalize_smtp_send_email
 from .schema import SmtpSendInput, SmtpSendOutput
 
 logger = logging.getLogger("connectors.smtp")
+_LOG_CTX = {"connector_id": "smtp", "connector_type": "smtp"}
 
 
 class SmtpConnector(BaseConnector):
@@ -27,12 +28,11 @@ class SmtpConnector(BaseConnector):
         mcp_normalize=normalize_smtp_send_email,
     )
     async def send_email(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
+        log_extra = {**_LOG_CTX, "trace_id": trace_id, "action": "send_email"}
         logger.info(
             "Preparing SMTP message",
             extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": "send_email",
+                **log_extra,
                 "host": params.host,
                 "port": params.port,
                 "from_email": str(params.from_email),
@@ -65,9 +65,7 @@ class SmtpConnector(BaseConnector):
             logger.error(
                 "SMTP send failed",
                 extra={
-                    "trace_id": trace_id,
-                    "connector_id": self.connector_id,
-                    "action": "send_email",
+                    **log_extra,
                     "host": params.host,
                     "port": params.port,
                     "error_type": type(exc).__name__,
@@ -79,9 +77,7 @@ class SmtpConnector(BaseConnector):
         logger.info(
             "SMTP message sent",
             extra={
-                "trace_id": trace_id,
-                "connector_id": self.connector_id,
-                "action": "send_email",
+                **log_extra,
                 "host": params.host,
                 "port": params.port,
                 "response": str(response),

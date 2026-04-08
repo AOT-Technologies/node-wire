@@ -22,6 +22,7 @@ from .exceptions import (
 from .schema import GoogleDriveOperationOutput
 
 logger = logging.getLogger("connectors.google_drive")
+_LOG_CTX = {"connector_id": "google_drive", "connector_type": "google_drive"}
 
 # Re-export for tests and callers that imported from logic.
 __all__ = ["DEFAULT_LIST_FIELDS", "GoogleDriveConnector"]
@@ -94,7 +95,7 @@ class GoogleDriveConnector(BaseConnector):
         if spec is None:
             raise ValueError(f"No action spec registered for {action_name!r}")
         drive = self.get_client()
-        extra = {"trace_id": trace_id, **(log_extra or {})}
+        extra = {**_LOG_CTX, "trace_id": trace_id, "action": action_name, **(log_extra or {})}
         logger.info("Google Drive %s", action_name, extra=extra)
         try:
             raw = await execute_spec_in_thread(drive, spec, params)
