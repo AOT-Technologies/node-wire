@@ -40,8 +40,21 @@ class SmtpConnector(BaseConnector):
             },
         )
 
-        username = self.secret_provider.get_secret(params.username_secret_key)
-        password = self.secret_provider.get_secret(params.password_secret_key)
+        # Resolve credentials from AuthProvider (injected by factory).
+        # Falls back to environment variables for backward compatibility when
+        # the connector is instantiated without an explicit auth_provider.
+        creds = await self._auth_provider.get_client_credentials()
+        if creds is not None and isinstance(creds, (list, tuple)) and len(creds) == 2:
+            username, password = str(creds[0]), str(creds[1])
+        else:
+            # Fallback: resolve from environment / secret_provider directly.
+            try:
+                username = self.secret_provider.get_secret("SMTP_USERNAME")
+                password = self.secret_provider.get_secret("SMTP_PASSWORD")
+            except Exception:
+                import os as _os
+                username = _os.environ.get("SMTP_USERNAME", "")
+                password = _os.environ.get("SMTP_PASSWORD", "")
 
         message = EmailMessage()
         message["From"] = str(params.from_email)

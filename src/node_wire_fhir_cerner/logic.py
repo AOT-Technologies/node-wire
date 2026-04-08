@@ -4,7 +4,6 @@ import asyncio
 import base64
 import json
 import logging
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -101,110 +100,30 @@ class FhirCernerConnector(BaseConnector):
         return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
-    # Shared authentication helpers
+    # Shared helpers — base URL + auth headers via AuthProvider
     # ------------------------------------------------------------------
 
     def _get_base_url(self) -> str:
         return self._secret_provider.get_secret("cerner_fhir_base_url").rstrip("/")
 
     async def _get_auth_header(self) -> Dict[str, str]:
-        """
-        Obtain an access token via Cerner's SMART Backend Services (private_key_jwt)
-        and return ready-to-use request headers.
+        """Delegate to the runtime AuthProvider injected by the factory.
 
-        Algorithm: RS384. Token lifetime: 5 minutes.
-        Reference: https://code-console.cerner.com/
+        Returns ready-to-use FHIR request headers including the Bearer token.
+        Token acquisition, JWT construction, scope resolution and caching are
+        all handled by the provider — no duplication with fhir_epic.
         """
-        headers = {
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        }
-
-        private_key_str = self._secret_provider.get_secret("cerner_private_key")
-        kid = self._secret_provider.get_secret("cerner_kid")
-        client_id = self._secret_provider.get_secret("cerner_client_id")
+        # Cerner-specific safety check: if a token URL contains '/hosts/', 
+        # it is often a malformed sandbox URL that will return 401.
         token_url = self._secret_provider.get_secret("cerner_token_url")
-
-        # Validate required secrets are present and non-empty.
-        missing = [name for name, val in [
-            ("cerner_private_key", private_key_str),
-            ("cerner_kid", kid),
-            ("cerner_client_id", client_id),
-            ("cerner_token_url", token_url),
-        ] if not (val or "").strip()]
-        if missing:
-            raise ValueError(f"Missing or empty required Cerner secrets: {', '.join(missing)}")
-
-        # Guard against the malformed URL pattern that embeds the FHIR host inside the auth URL.
-        # Correct: .../tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token
-        # Wrong:   .../tenants/{tenant}/hosts/fhir-ehr-code.cerner.com/protocols/...
         if "/hosts/" in token_url:
             raise ValueError(
-                "cerner_token_url appears malformed — it contains a '/hosts/' segment which is not "
-                "valid for the Cerner authorization server. "
-                "Correct format: https://authorization.cerner.com/tenants/{tenant_id}/protocols/oauth2/profiles/smart-v1/token"
+                "Cerner token_url must not contain '/hosts/' (found in secret). "
+                "Ensure you are using the 'smart-v1/token' endpoint, e.g. "
+                "https://authorization.cerner.com/tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token"
             )
 
-        try:
-            scopes = (self._secret_provider.get_secret("cerner_scopes") or "").strip()
-        except Exception:
-            scopes = ""
-
-        if not scopes:
-            scopes = "system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write"
-
-        logger.debug("Cerner token request | token_url=%s | scopes=%r | client_id=%s", token_url, scopes, client_id)
-
-        # Decode escaped newlines in PEM key if stored as a single-line env var (e.g. "\\n" -> "\n").
-        # Avoid codecs.unicode_escape which can corrupt non-ASCII bytes in some PEM keys.
-        if "\\n" in private_key_str:
-            private_key_pem = private_key_str.replace("\\n", "\n")
-        else:
-            private_key_pem = private_key_str
-
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        jwt_token = jwt.encode(
-            {
-                "iss": client_id,
-                "sub": client_id,
-                "aud": token_url,
-                "jti": str(uuid.uuid4()),
-                "iat": now,
-                "exp": now + 300,
-                "scope": scopes,
-            },
-            private_key_pem,
-            algorithm="RS384",
-            headers={"alg": "RS384", "typ": "JWT", "kid": kid},
-        )
-
-        post_data = {
-            "grant_type": "client_credentials",
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "client_assertion": jwt_token,
-            "scope": scopes,
-        }
-
-        async with httpx.AsyncClient() as client:
-            token_response = await client.post(
-                token_url,
-                data=post_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if token_response.status_code != 200:
-                logger.error(
-                    "OAuth token exchange failed | status=%s | body=%s",
-                    token_response.status_code, token_response.text,
-                )
-                token_response.raise_for_status()
-            token_data = token_response.json()
-
-        access_token = token_data.get("access_token")
-        if not access_token:
-            raise ValueError("Cerner token response did not contain an access_token")
-
-        headers["Authorization"] = f"Bearer {access_token}"
-        return headers
+        return await self.get_auth_headers()
 
     # ------------------------------------------------------------------
     # Internal name-field helpers
