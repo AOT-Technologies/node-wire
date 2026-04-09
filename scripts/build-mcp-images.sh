@@ -66,4 +66,3 @@ docker build -f docker/smtp/Dockerfile \
   .
 
 echo "Done."
-

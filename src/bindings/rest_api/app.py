@@ -52,6 +52,7 @@ app.mount("/playground", StaticFiles(directory=str(DEMO_DIR), html=True), name="
 
 _factory: ConnectorFactory | None = None
 
+
 def get_factory() -> ConnectorFactory:
     global _factory
     if _factory is None:
@@ -65,6 +66,7 @@ def get_factory() -> ConnectorFactory:
 async def health() -> Dict[str, str]:
     return {"status": "ok"}
 
+
 def _http_status_for_category(category: ErrorCategory | None) -> int:
     if category is None:
         return 200
@@ -75,6 +77,7 @@ def _http_status_for_category(category: ErrorCategory | None) -> int:
     if category is ErrorCategory.RETRYABLE:
         return 503
     return 500
+
 
 def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
@@ -115,10 +118,12 @@ def _make_endpoint(cid: str, act: str) -> Any:
             status_code=status,
             content=response.model_dump(),
         )
+
     return endpoint
 
+
 def _build_dynamic_routes() -> None:
-    factory = get_factory() 
+    factory = get_factory()
 
     connectors = factory.list_for_protocol("rest")
     manifest = build_manifest(connectors)
@@ -130,7 +135,7 @@ def _build_dynamic_routes() -> None:
         # For REST, let the runtime perform full Pydantic validation.
         # We accept an arbitrary JSON object as the payload and forward it
         # directly to connector.run(...).
-        route_path = f"/connectors/{connector_id}/{action}"        
+        route_path = f"/connectors/{connector_id}/{action}"
         app.post(route_path, name=f"{connector_id}_{action}")(_make_endpoint(connector_id, action))
 
 

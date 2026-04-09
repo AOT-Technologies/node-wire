@@ -28,7 +28,9 @@ def test_health_endpoint():
     assert resp.json() == {"status": "ok"}
 
 
-def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rest_post_without_auth_returns_401_when_key_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
@@ -40,7 +42,9 @@ def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytes
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -70,7 +74,9 @@ def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.Mo
     assert r.status_code == 200
 
 
-def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_API_KEY", raising=False)
     monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
@@ -104,7 +110,9 @@ def test_rest_post_connector_success() -> None:
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -166,7 +174,9 @@ def test_rest_post_connector_error_category_http_status(
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -198,4 +208,3 @@ def test_http_status_for_category_direct() -> None:
     assert _http_status_for_category(ErrorCategory.AUTH) == 401
     assert _http_status_for_category(ErrorCategory.RETRYABLE) == 503
     assert _http_status_for_category(ErrorCategory.FATAL) == 500
-

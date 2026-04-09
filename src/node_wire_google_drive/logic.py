@@ -66,15 +66,11 @@ class GoogleDriveConnector(BaseConnector):
 
         if status in (401, 403):
             if "quotaExceeded" in content_str or "rateLimitExceeded" in content_str:
-                raise GoogleDriveRateLimitError(
-                    "Google Drive quota/rate limit exceeded"
-                ) from exc
+                raise GoogleDriveRateLimitError("Google Drive quota/rate limit exceeded") from exc
             raise GoogleDriveAuthError("Authentication or permissions failure") from exc
 
         if status == 429 or status >= 500:
-            raise GoogleDriveRateLimitError(
-                "Upstream service unavailable or rate limited"
-            ) from exc
+            raise GoogleDriveRateLimitError("Upstream service unavailable or rate limited") from exc
 
         if status in (400, 404, 409):
             reason = getattr(exc, "reason", str(exc))
@@ -104,4 +100,3 @@ class GoogleDriveConnector(BaseConnector):
             raw=raw,
             description=f"Successfully executed {action_name}",
         )
-

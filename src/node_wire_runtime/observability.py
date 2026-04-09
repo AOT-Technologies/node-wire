@@ -68,9 +68,9 @@ def init_observability(app_name: str = "node_wire") -> None:
     otlp_headers: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
 
     span_exporter = OTLPSpanExporter(
-        headers=dict(
-            header.split("=", 1) for header in otlp_headers.split(",")
-        ) if otlp_headers else None,
+        headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
+        if otlp_headers
+        else None,
     )
 
     span_processor = BatchSpanProcessor(span_exporter)
@@ -80,9 +80,9 @@ def init_observability(app_name: str = "node_wire") -> None:
     # Logs: export Python logging records via OTLP/HTTP to the local collector.
     # This enables Loki ingestion when using grafana/otel-lgtm.
     log_exporter = OTLPLogExporter(
-        headers=dict(
-            header.split("=", 1) for header in otlp_headers.split(",")
-        ) if otlp_headers else None,
+        headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
+        if otlp_headers
+        else None,
     )
     logger_provider = LoggerProvider(resource=resource)
     logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
@@ -98,11 +98,10 @@ def init_observability(app_name: str = "node_wire") -> None:
         from traceloop.sdk import Traceloop
 
         Traceloop.init(
-            app_name=app_name,            
+            app_name=app_name,
         )
     except Exception as exc:  # pragma: no cover - defensive; should not fail app startup
         logger.warning("Failed to initialize Traceloop/OpenLLMetry: %s", exc)
 
     _INITIALIZED = True
     logger.info("Observability initialized for app %s", app_name)
-

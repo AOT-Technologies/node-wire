@@ -8,6 +8,7 @@ Environment:
 
 Public (unauthenticated): ``GET /health`` only. OpenAPI UI requires auth.
 """
+
 from __future__ import annotations
 
 import os

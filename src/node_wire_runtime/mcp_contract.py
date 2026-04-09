@@ -36,5 +36,9 @@ def log_legacy_gdrive_action_upload_usage() -> None:
     """Structured log line for metrics/aggregation (no PII)."""
     logger.info(
         "mcp.legacy.alias | alias=action_upload | tool=google_drive.files.upload",
-        extra={"event": "mcp.legacy.alias", "alias": "action_upload", "tool": "google_drive.files.upload"},
+        extra={
+            "event": "mcp.legacy.alias",
+            "alias": "action_upload",
+            "tool": "google_drive.files.upload",
+        },
     )

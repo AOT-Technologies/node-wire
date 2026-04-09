@@ -1,4 +1,5 @@
 """LLM factory and provider unit tests (SDKs mocked)."""
+
 from __future__ import annotations
 
 import sys
@@ -30,10 +31,38 @@ def test_llm_factory_create_gemini_and_anthropic() -> None:
 @pytest.mark.parametrize(
     ("env_provider", "env_key", "env_val", "model_env", "model_val", "expected_cls_path"),
     [
-        ("groq", "GROQ_API_KEY", "gk", "GROQ_MODEL", "llama-x", "agents.providers.groq_provider.GroqProvider"),
-        ("openai", "OPENAI_API_KEY", "ok", "OPENAI_MODEL", "gpt-x", "agents.providers.openai_provider.OpenAIProvider"),
-        ("gemini", "GEMINI_API_KEY", "gk2", "GEMINI_MODEL", "gem-x", "agents.providers.gemini_provider.GeminiProvider"),
-        ("anthropic", "ANTHROPIC_API_KEY", "ak", "ANTHROPIC_MODEL", "claude-x", "agents.providers.anthropic_provider.AnthropicProvider"),
+        (
+            "groq",
+            "GROQ_API_KEY",
+            "gk",
+            "GROQ_MODEL",
+            "llama-x",
+            "agents.providers.groq_provider.GroqProvider",
+        ),
+        (
+            "openai",
+            "OPENAI_API_KEY",
+            "ok",
+            "OPENAI_MODEL",
+            "gpt-x",
+            "agents.providers.openai_provider.OpenAIProvider",
+        ),
+        (
+            "gemini",
+            "GEMINI_API_KEY",
+            "gk2",
+            "GEMINI_MODEL",
+            "gem-x",
+            "agents.providers.gemini_provider.GeminiProvider",
+        ),
+        (
+            "anthropic",
+            "ANTHROPIC_API_KEY",
+            "ak",
+            "ANTHROPIC_MODEL",
+            "claude-x",
+            "agents.providers.anthropic_provider.AnthropicProvider",
+        ),
     ],
 )
 def test_llm_factory_create_from_env(
@@ -176,7 +205,13 @@ def test_anthropic_provider_chat_with_tools() -> None:
         p = AnthropicProvider(api_key="k", model="m")
     out = p.chat_with_tools(
         [LLMMessage(role="user", content="x")],
-        [{"name": "fhir_cerner.read_patient", "description": "d", "input_schema": {"type": "object"}}],
+        [
+            {
+                "name": "fhir_cerner.read_patient",
+                "description": "d",
+                "input_schema": {"type": "object"},
+            }
+        ],
     )
     assert len(out.tool_calls) == 1
     assert out.tool_calls[0].name == "fhir_cerner.read_patient"
@@ -275,7 +310,13 @@ def test_gemini_provider_chat_with_tools() -> None:
             p = GeminiProvider(api_key="k", model="gemini-2.0-flash")
             out = p.chat_with_tools(
                 [LLMMessage(role="user", content="upload")],
-                [{"name": "google_drive.files.upload", "description": "d", "input_schema": {"type": "object"}}],
+                [
+                    {
+                        "name": "google_drive.files.upload",
+                        "description": "d",
+                        "input_schema": {"type": "object"},
+                    }
+                ],
             )
         assert len(out.tool_calls) == 1
         assert out.tool_calls[0].name == "google_drive.files.upload"

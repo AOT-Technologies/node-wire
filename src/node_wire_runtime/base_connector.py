@@ -112,7 +112,11 @@ def _generate_methods_from_action_specs(cls: type) -> None:
             )
 
         handler = _make_spec_handler(
-            action_name, input_model, output_model, cls.__qualname__, cls.__module__,
+            action_name,
+            input_model,
+            output_model,
+            cls.__qualname__,
+            cls.__module__,
             alias_tolerant=spec.alias_tolerant,
             mcp_normalize=spec.mcp_normalize,
         )
@@ -228,27 +232,29 @@ class BaseConnector(ABC):
 
             input_model = hints.get(input_param_name)
             output_model = hints.get("return")
-            if input_model is None or not isinstance(input_model, type) or not issubclass(
-                input_model, BaseModel
+            if (
+                input_model is None
+                or not isinstance(input_model, type)
+                or not issubclass(input_model, BaseModel)
             ):
                 raise TypeError(
                     f"{cls.__name__}.{attr_name}: missing or invalid type hint for "
                     f"parameter {input_param_name!r}"
                 )
-            if output_model is None or not isinstance(output_model, type) or not issubclass(
-                output_model, BaseModel
+            if (
+                output_model is None
+                or not isinstance(output_model, type)
+                or not issubclass(output_model, BaseModel)
             ):
-                raise TypeError(
-                    f"{cls.__name__}.{attr_name}: missing or invalid return type hint"
-                )
+                raise TypeError(f"{cls.__name__}.{attr_name}: missing or invalid return type hint")
 
             registry[action_name] = NwActionMeta(
                 name=action_name,
                 fn_name=attr_name,
                 input_model=input_model,
                 output_model=output_model,
-                alias_tolerant=getattr(method, '_alias_tolerant', False),
-                mcp_normalize=getattr(method, '_mcp_normalize', None),
+                alias_tolerant=getattr(method, "_alias_tolerant", False),
+                mcp_normalize=getattr(method, "_mcp_normalize", None),
             )
 
         cls._action_registry = registry
@@ -279,7 +285,12 @@ class BaseConnector(ABC):
                 extra={"connector_id": cls.connector_id},
             )
 
-    def __init__(self, *, secret_provider: Optional[SecretProvider] = None, policy_hook: Optional[PolicyHook] = None) -> None:
+    def __init__(
+        self,
+        *,
+        secret_provider: Optional[SecretProvider] = None,
+        policy_hook: Optional[PolicyHook] = None,
+    ) -> None:
         cls = type(self)
         self._input_model_cls = cls._union_input_model
         self._output_model_cls = cls.output_model
@@ -350,8 +361,7 @@ class BaseConnector(ABC):
                         },
                     )
                     details = [
-                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]}
-                        for e in exc.errors()
+                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()
                     ]
                     return ConnectorResponse(
                         success=False,

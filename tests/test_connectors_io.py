@@ -1,4 +1,5 @@
 """Unit tests for SMTP, HTTP generic, and Stripe connectors with mocked I/O."""
+
 from __future__ import annotations
 
 import asyncio
@@ -63,7 +64,9 @@ def test_http_generic_internal_execute() -> None:
             return mock_resp
 
     async def _run() -> None:
-        with patch("node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()):
+        with patch(
+            "node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()
+        ):
             c = HttpGenericConnector()
             inp = HttpRequestInput(url="http://example.com/path", method="GET")
             out = await c.internal_execute(inp, trace_id="t-2")

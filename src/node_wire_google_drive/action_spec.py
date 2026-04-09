@@ -51,9 +51,7 @@ def _register_files_create() -> None:
 
 def _build_files_list_kwargs(_drive: Any, model: BaseModel) -> Dict[str, Any]:
     """Match legacy behavior: pass q/pageToken explicitly even when None."""
-    p = model if isinstance(model, FilesListOperation) else FilesListOperation.model_validate(
-        model
-    )
+    p = model if isinstance(model, FilesListOperation) else FilesListOperation.model_validate(model)
     return {
         "pageSize": p.page_size,
         "q": p.query,
@@ -106,22 +104,26 @@ def _register_files_update() -> None:
 
 
 def _build_upload_kwargs(drive: Any, model: BaseModel) -> Dict[str, Any]:
-    params = model if isinstance(model, FilesUploadOperation) else FilesUploadOperation.model_validate(
+    params = (
         model
+        if isinstance(model, FilesUploadOperation)
+        else FilesUploadOperation.model_validate(model)
     )
-    body = {k: v for k, v in {
-        "name": params.name,
-        "mimeType": params.mime_type,
-        "parents": params.parents,
-    }.items() if v is not None}
+    body = {
+        k: v
+        for k, v in {
+            "name": params.name,
+            "mimeType": params.mime_type,
+            "parents": params.parents,
+        }.items()
+        if v is not None
+    }
     if params.content_base64 is not None:
         media_bytes = base64.b64decode(params.content_base64)
     elif params.content is not None:
         media_bytes = params.content.encode("utf-8")
     else:
-        raise ValueError(
-            "Either content or content_base64 must be provided for files.upload"
-        )
+        raise ValueError("Either content or content_base64 must be provided for files.upload")
     media = MediaInMemoryUpload(
         media_bytes,
         mimetype=params.mime_type,

@@ -24,7 +24,9 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         self._factory = ConnectorFactory()
         self._factory.load()
 
-    async def _invoke_async(self, request: connector_pb2.InvokeRequest) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined]
+    async def _invoke_async(
+        self, request: connector_pb2.InvokeRequest
+    ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined]
         connector = self._factory.get_for_protocol(request.connector_id, "grpc")
         if connector is None:
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
@@ -45,7 +47,9 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         response: ConnectorResponse = await connector.run(payload)
 
         data_json = json.dumps(response.data) if response.data is not None else ""
-        error_category = response.error_category.value if response.error_category is not None else ""
+        error_category = (
+            response.error_category.value if response.error_category is not None else ""
+        )
 
         return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
             success=response.success,
@@ -72,4 +76,3 @@ def serve(port: int = 50051) -> None:
 
 if __name__ == "__main__":
     serve()
-

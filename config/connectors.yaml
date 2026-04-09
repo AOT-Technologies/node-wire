@@ -36,4 +36,3 @@ connectors:
     base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
     oauth_token_url: "${CERNER_TOKEN_URL:https://authorization.cerner.com/tenants/your-tenant-id/protocols/oauth2/profiles/smart-v1/token}"
     scopes: "${CERNER_SCOPES:system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write}"
-

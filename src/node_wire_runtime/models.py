@@ -22,4 +22,6 @@ class ConnectorResponse(BaseModel):
     error_category: Optional[ErrorCategory] = None
     message: Optional[str] = None
     trace_id: str
-    details: Optional[Any] = None  # e.g. validation errors: [{"loc": ["url"], "msg": "...", "type": "..."}]
+    details: Optional[Any] = (
+        None  # e.g. validation errors: [{"loc": ["url"], "msg": "...", "type": "..."}]
+    )

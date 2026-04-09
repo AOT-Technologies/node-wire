@@ -318,9 +318,7 @@ class FhirEpicConnector(BaseConnector):
                 len(errors),
                 extra={"trace_id": trace_id},
             )
-            return FhirPatientSearchOutput(
-                resources=resources, total=len(resources), errors=errors
-            )
+            return FhirPatientSearchOutput(resources=resources, total=len(resources), errors=errors)
 
         name_params = self._build_name_search_params(
             params.given_name,

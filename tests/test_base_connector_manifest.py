@@ -163,9 +163,7 @@ def test_normalize_mcp_tool_arguments_search_patients_maps_legacy():
     assert out2["search_params"]["identifier"] == "12724066"
     assert "patientId" not in out2["search_params"]
 
-    FhirCernerPatientSearchInput.model_validate(
-        {**out2, "action": "search_patients"}
-    )
+    FhirCernerPatientSearchInput.model_validate({**out2, "action": "search_patients"})
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_mime_type_alias():
@@ -463,7 +461,12 @@ def test_normalize_mcp_tool_arguments_smtp_send_email_from_alias():
     out = _normalize_for_mcp(
         "smtp",
         "send_email",
-        {"from": "sender@example.com", "to": ["recipient@example.com"], "subject": "Hi", "body": "Hello"},
+        {
+            "from": "sender@example.com",
+            "to": ["recipient@example.com"],
+            "subject": "Hi",
+            "body": "Hello",
+        },
     )
     assert out["from_email"] == "sender@example.com"
     assert "from" not in out
@@ -529,7 +532,12 @@ async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
         smtp.run = fake_run
         await server.invoke_tool(
             "smtp.send_email",
-            {"from": "sender@example.com", "to": "recipient@example.com", "subject": "Test", "body": "Body"},
+            {
+                "from": "sender@example.com",
+                "to": "recipient@example.com",
+                "subject": "Test",
+                "body": "Body",
+            },
         )
     finally:
         smtp.run = orig_run
@@ -639,7 +647,8 @@ def test_manifest_strict_action_retains_additional_properties():
 
     # files.list uses BaseDriveOperation(extra="forbid") and is not alias_tolerant
     files_list = next(
-        e for e in mcp_manifest
+        e
+        for e in mcp_manifest
         if e["connector_id"] == "google_drive" and e["action"] == "files.list"
     )
     assert files_list["input_schema"].get("additionalProperties") is False

@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import asyncio
-
-from pydantic import BaseModel
 
 from node_wire_http_generic.logic import HttpGenericConnector
 from node_wire_smtp.logic import SmtpConnector
 from node_wire_stripe.logic import StripeConnector
-from node_wire_runtime import ConnectorResponse, ErrorCategory, BaseConnector, SecretProvider
+from node_wire_runtime import BaseConnector, SecretProvider
 from node_wire_runtime.connector_registry import auto_register
 
 

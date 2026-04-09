@@ -18,4 +18,3 @@ class HttpResponseOutput(BaseModel):
     status_code: int
     headers: Dict[str, str]
     body: Any
-

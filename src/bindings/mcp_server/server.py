@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from node_wire_runtime import BaseConnector
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 
 logger = logging.getLogger("bindings.mcp_server")
@@ -57,9 +56,7 @@ class McpServer:
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
             schema_desc = entry["input_schema"].get("description", "")
-            tool_desc = (
-                f"{schema_desc}\n" if schema_desc else ""
-            ) + (
+            tool_desc = (f"{schema_desc}\n" if schema_desc else "") + (
                 f"Pass fields from inputSchema only; do not include an action field "
                 f"(it is injected from the tool name). "
                 f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
@@ -81,9 +78,7 @@ class McpServer:
             raise ValueError("Tool name must be in the form '<connector>.<action>'")
 
         if self._connector_ids is not None and connector_id not in self._connector_ids:
-            raise ValueError(
-                f"Connector {connector_id!r} is not allowed on this MCP server."
-            )
+            raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
 
         connector = self._factory.get_for_protocol(connector_id, "mcp")
         if connector is None:
@@ -124,9 +119,7 @@ class McpServer:
             await low.run(
                 read_stream,
                 write_stream,
-                low.create_initialization_options(
-                    notification_options=NotificationOptions()
-                ),
+                low.create_initialization_options(notification_options=NotificationOptions()),
             )
 
     def run_stdio(self) -> None:

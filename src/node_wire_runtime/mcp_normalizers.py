@@ -146,11 +146,7 @@ def normalize_google_drive_files_upload(args: Dict[str, Any]) -> None:
             if _is_missing_or_blank(args.get("content_base64")) and _is_missing_or_blank(
                 args.get("content")
             ):
-                b64 = (
-                    media.get("content_base64")
-                    or media.get("base64")
-                    or media.get("data")
-                )
+                b64 = media.get("content_base64") or media.get("base64") or media.get("data")
                 if not _is_missing_or_blank(b64):
                     args["content_base64"] = b64
                 else:

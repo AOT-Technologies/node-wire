@@ -1,4 +1,5 @@
 """MCP Server — SMTP connector only. Usage: python -m agents.smtp_mcp"""
+
 from __future__ import annotations
 
 import logging
