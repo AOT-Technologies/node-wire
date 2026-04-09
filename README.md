@@ -206,3 +206,24 @@ All dependencies are declared in `pyproject.toml` (Python >=3.11). They include:
 - Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
+
+---
+
+## Code Quality (Linting & Formatting)
+
+This project uses **Ruff** for linting and formatting, and **Mypy** for static type checking. 
+
+These checks are configured to run automatically in CI on Pull Requests against the `main` branch.
+
+### Manual Usage for Developers
+Make sure you have dev dependencies installed (`pip install -e ".[dev]"`).
+
+* **Check formatting & linting errors:** `ruff check .`
+* **Auto-fix everything & format code:** `ruff check --fix . && ruff format .`
+* **Run static type validation:** `mypy .`
+
+### Pre-commit Hooks
+You can install our `.pre-commit-config.yaml` to ensure no poorly formatted code is committed:
+```bash
+pre-commit install
+```
