@@ -73,7 +73,7 @@ class StripeConnector(BaseConnector):
                     "amount": params.amount,
                     "currency": params.currency,
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
