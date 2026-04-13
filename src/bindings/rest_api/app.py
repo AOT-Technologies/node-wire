@@ -25,6 +25,8 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+
 from bindings.rest_api.auth import RestAuthMiddleware
 
 # Add project root to sys.path to allow importing from 'playground' package
@@ -62,6 +64,13 @@ def get_factory() -> ConnectorFactory:
     return _factory
 
 
+async def check_rate_limit() -> None:
+    try:
+        await global_rate_limiter.acquire()
+    except RateLimitExceeded as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+
+
 @app.get("/health", tags=["system"])
 async def health() -> Dict[str, str]:
     return {"status": "ok"}
@@ -83,6 +92,7 @@ def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         payload: Dict[str, Any],
         factory_dep: ConnectorFactory = Depends(get_factory),
+        _: None = Depends(check_rate_limit),
     ) -> JSONResponse:
         """
         Concrete endpoint for a specific connector/action, e.g.
