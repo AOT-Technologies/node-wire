@@ -9,6 +9,7 @@ from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import BaseConnector
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
 logger = logging.getLogger("bindings.mcp_server")
 
@@ -75,6 +76,11 @@ class McpServer:
         return tools
 
     async def invoke_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            await global_rate_limiter.acquire()
+        except RateLimitExceeded as e:
+            raise ValueError(str(e))
+
         try:
             connector_id, action = name.split(".", 1)
         except ValueError:
