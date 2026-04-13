@@ -81,12 +81,9 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
 def serve(port: int = 50051) -> None:
     interceptor = GrpcAuthInterceptor()
-    server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
-        interceptors=(interceptor,)
-    )
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(interceptor,))
     connector_pb2_grpc.add_ConnectorServiceServicer_to_server(ConnectorServiceServicer(), server)  # type: ignore[attr-defined]
-    
+
     cert_path = os.environ.get("NW_GRPC_TLS_CERT_PATH")
     key_path = os.environ.get("NW_GRPC_TLS_KEY_PATH")
 
@@ -97,17 +94,15 @@ def serve(port: int = 50051) -> None:
         with open(cert_path, "rb") as f:
             certificate_chain = f.read()
 
-        server_credentials = grpc.ssl_server_credentials(
-            ((private_key, certificate_chain),)
-        )
+        server_credentials = grpc.ssl_server_credentials(((private_key, certificate_chain),))
         server.add_secure_port(f"[::]:{port}", server_credentials)
         logger.info("Starting secure gRPC server (TLS enabled)", extra={"port": port})
     else:
         server.add_insecure_port(f"[::]:{port}")
         logger.warning(
             "Starting insecure gRPC server (no TLS credentials found). "
-            "Traffic will be unencrypted.", 
-            extra={"port": port}
+            "Traffic will be unencrypted.",
+            extra={"port": port},
         )
 
     server.start()
