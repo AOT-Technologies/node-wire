@@ -206,3 +206,4 @@ All dependencies are declared in `pyproject.toml` (Python >=3.11). They include:
 - Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
+- Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)
