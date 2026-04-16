@@ -64,7 +64,12 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                     trace_id="",
                 )
 
-        if isinstance(payload, dict) and payload.get("action"):
+        if isinstance(payload, dict):
+            # The payload MUST include the action for Pydantic discriminated union validation to succeed
+            if request.action:
+                payload["action"] = request.action
+            
+            if payload.get("action"):
             normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
 
         response: ConnectorResponse = await connector.run(payload)
