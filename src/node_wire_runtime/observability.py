@@ -10,9 +10,9 @@ from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
 logger = logging.getLogger("runtime.observability")
@@ -30,6 +30,56 @@ class _OtelContextFilter(logging.Filter):
         else:
             record.otel_trace_id = ""
             record.otel_span_id = ""
+        return True
+
+
+_SENSITIVE_KEYS = {"patient", "ssn", "secret", "password", "email", "phone", "dob", "encounter", "resourceid"}
+
+def _is_sensitive(key: str) -> bool:
+    k = key.lower().replace("_", "").replace("-", "").replace(" ", "")
+    for s in _SENSITIVE_KEYS:
+        if s in k:
+            return True
+    return False
+
+class SanitizingSpanExporter(SpanExporter):
+    def __init__(self, delegate: SpanExporter):
+        self._delegate = delegate
+
+    def export(self, spans):
+        for span in spans:
+            if hasattr(span, "_attributes") and span._attributes:
+                for k in list(span._attributes.keys()):
+                    if _is_sensitive(k):
+                        span._attributes[k] = "***REDACTED***"
+        return self._delegate.export(spans)
+
+    def shutdown(self):
+        return self._delegate.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000):
+        if hasattr(self._delegate, "force_flush"):
+            return self._delegate.force_flush(timeout_millis)
+        return True
+
+class SanitizingLogExporter(LogExporter):
+    def __init__(self, delegate: LogExporter):
+        self._delegate = delegate
+
+    def export(self, batch):
+        for record in batch:
+            if hasattr(record, "attributes") and record.attributes:
+                for k in list(record.attributes.keys()):
+                    if _is_sensitive(k):
+                        record.attributes[k] = "***REDACTED***"
+        return self._delegate.export(batch)
+
+    def shutdown(self):
+        return self._delegate.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000):
+        if hasattr(self._delegate, "force_flush"):
+            return self._delegate.force_flush(timeout_millis)
         return True
 
 
@@ -67,11 +117,11 @@ def init_observability(app_name: str = "node_wire") -> None:
 
     otlp_headers: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
 
-    span_exporter = OTLPSpanExporter(
+    span_exporter = SanitizingSpanExporter(OTLPSpanExporter(
         headers=dict(
             header.split("=", 1) for header in otlp_headers.split(",")
         ) if otlp_headers else None,
-    )
+    ))
 
     span_processor = BatchSpanProcessor(span_exporter)
     tracer_provider.add_span_processor(span_processor)
@@ -79,11 +129,11 @@ def init_observability(app_name: str = "node_wire") -> None:
 
     # Logs: export Python logging records via OTLP/HTTP to the local collector.
     # This enables Loki ingestion when using grafana/otel-lgtm.
-    log_exporter = OTLPLogExporter(
+    log_exporter = SanitizingLogExporter(OTLPLogExporter(
         headers=dict(
             header.split("=", 1) for header in otlp_headers.split(",")
         ) if otlp_headers else None,
-    )
+    ))
     logger_provider = LoggerProvider(resource=resource)
     logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
     set_logger_provider(logger_provider)
