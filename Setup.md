@@ -191,6 +191,11 @@ All responses use the same standard shape:
 
 No credentials required. Works out of the box.
 
+Security defaults:
+- Allowed methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (input is normalized to uppercase).
+- Internal targets are blocked: `localhost`, loopback, private/link-local IPs, and metadata endpoints.
+- Connector logs omit URL query strings and fragments (scheme/host/path only).
+
 ```bash
 curl -X POST http://localhost:8000/connectors/http_generic/request \
   -H "Content-Type: application/json" \
