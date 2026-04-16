@@ -16,6 +16,7 @@ from typing import (
     Type,
     Union,
     get_type_hints,
+    List,
 )
 
 from opentelemetry import trace
@@ -45,6 +46,10 @@ def _make_spec_handler(
     cls_module: str,
     alias_tolerant: bool = False,
     mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None,
+    requires_auth: bool = True,
+    scopes: Optional[List[str]] = None,
+    rate_limit: Optional[Dict[str, Any]] = None,
+    deprecated: bool = False,
 ) -> Any:
     """
     Build a single async handler function for one action_specs entry.
@@ -66,6 +71,10 @@ def _make_spec_handler(
     _handler._sdk_action_name = action_name
     _handler._alias_tolerant = alias_tolerant
     _handler._mcp_normalize = mcp_normalize
+    _handler._requires_auth = requires_auth
+    _handler._scopes = scopes
+    _handler._rate_limit = rate_limit
+    _handler._deprecated = deprecated
     # Backward-compatible alias for legacy callers/tests.
     _handler._nw_action_name = action_name
     return _handler
@@ -115,6 +124,10 @@ def _generate_methods_from_action_specs(cls: type) -> None:
             action_name, input_model, output_model, cls.__qualname__, cls.__module__,
             alias_tolerant=spec.alias_tolerant,
             mcp_normalize=spec.mcp_normalize,
+            requires_auth=spec.requires_auth,
+            scopes=spec.scopes,
+            rate_limit=spec.rate_limit,
+            deprecated=spec.deprecated,
         )
         setattr(cls, fn_name, handler)
 
@@ -124,6 +137,10 @@ def sdk_action(
     *,
     alias_tolerant: bool = False,
     mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None,
+    requires_auth: bool = True,
+    scopes: Optional[List[str]] = None,
+    rate_limit: Optional[Dict[str, Any]] = None,
+    deprecated: bool = False,
 ):
     """
     Mark a connector method as a named, auto-discoverable action.
@@ -141,6 +158,10 @@ def sdk_action(
         fn._sdk_action_name = name
         fn._alias_tolerant = alias_tolerant
         fn._mcp_normalize = mcp_normalize
+        fn._requires_auth = requires_auth
+        fn._scopes = scopes
+        fn._rate_limit = rate_limit
+        fn._deprecated = deprecated
         # Backward-compatible alias for legacy callers/tests.
         fn._nw_action_name = name
         return fn
@@ -163,6 +184,10 @@ class NwActionMeta:
     output_model: Type[BaseModel]
     alias_tolerant: bool = False
     mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None
+    requires_auth: bool = True
+    scopes: Optional[List[str]] = None
+    rate_limit: Optional[Dict[str, Any]] = None
+    deprecated: bool = False
 
 
 class BaseConnector(ABC):
@@ -249,6 +274,10 @@ class BaseConnector(ABC):
                 output_model=output_model,
                 alias_tolerant=getattr(method, '_alias_tolerant', False),
                 mcp_normalize=getattr(method, '_mcp_normalize', None),
+                requires_auth=getattr(method, '_requires_auth', True),
+                scopes=getattr(method, '_scopes', None),
+                rate_limit=getattr(method, '_rate_limit', None),
+                deprecated=getattr(method, '_deprecated', False),
             )
 
         cls._action_registry = registry

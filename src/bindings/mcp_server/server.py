@@ -58,9 +58,26 @@ class McpServer:
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
             schema_desc = entry["input_schema"].get("description", "")
+
+            security_lines = []
+            if entry.get("requires_auth"):
+                security_lines.append("- Requires Auth: Yes")
+            scopes = entry.get("scopes")
+            if scopes:
+                security_lines.append(f"- Scopes: {', '.join(scopes)}")
+            rate_limit = entry.get("rate_limit")
+            if rate_limit:
+                security_lines.append(f"- Rate Limit: {rate_limit}")
+            if entry.get("deprecated"):
+                security_lines.append("- DEPRECATED: True")
+
+            sec_block = "\n".join(security_lines)
+            if sec_block:
+                sec_block = f"\n\nSecurity & Limits:\n{sec_block}\n\n"
+
             tool_desc = (
                 f"{schema_desc}\n" if schema_desc else ""
-            ) + (
+            ) + sec_block + (
                 f"Pass fields from inputSchema only; do not include an action field "
                 f"(it is injected from the tool name). "
                 f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
