@@ -250,8 +250,10 @@ Quick summary of what you'll need:
 
 Add to your `.env`:
 
+`GOOGLE_DRIVE_SA_JSON` must be the **full service account JSON as a string** (not a filesystem path). For local development you can paste minified JSON on one line, or load the file into the variable in your shell (see [docs/google_drive_connector.md](docs/google_drive_connector.md)).
+
 ```env
-GOOGLE_DRIVE_SA_JSON=/absolute/path/to/service-account.json
+GOOGLE_DRIVE_SA_JSON={"type":"service_account",...}
 GOOGLE_DRIVE_FOLDER_ID=your-folder-id-from-drive-url
 ```
 
@@ -363,7 +365,7 @@ npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
 
 - **Port 8000 in use**: set `PORT=8001` (or any free port) when starting the REST API.
 - **Connector “not configured”**: confirm it is `enabled: true` (and exposed for your protocol) in `config/connectors.yaml`.
-- **ToolHive + Google Drive auth failure**: inside ToolHive, `GOOGLE_DRIVE_SA_JSON` must be the JSON **contents** (not a file path). Locally, it can be an absolute file path (see `docs/mcp-servers.md`).
+- **Google Drive auth failure**: `GOOGLE_DRIVE_SA_JSON` must be valid **inline JSON** (not a path). Use PowerShell `Get-Content -Raw` or equivalent to load a key file into the variable (see [docs/google_drive_connector.md](docs/google_drive_connector.md)).
 
 ---
 

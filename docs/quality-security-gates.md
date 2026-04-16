@@ -24,6 +24,11 @@ pre-commit install
 pre-commit run --all-files
 ```
 
+## Connector hardening (Google Drive)
+
+- **`GOOGLE_DRIVE_SA_JSON`**: the Google Drive connector accepts **inline service account JSON only** (no file-path fallback).
+- **`files.list` `query`**: validated for basic hygiene (length cap, no ASCII control characters); Google Drive still validates query syntax.
+
 ## Local Sonar scan with Docker
 
 After generating `coverage.xml`, run scanner from the repository root:

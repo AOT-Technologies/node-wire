@@ -49,15 +49,19 @@ class GoogleDriveConnector(BaseConnector):
         raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
         try:
             info = json.loads(raw_sa)
+        except json.JSONDecodeError:
+            raise GoogleDriveAuthError(
+                "GOOGLE_DRIVE_SA_JSON must contain valid service account JSON content"
+            ) from None
+        try:
             creds = service_account.Credentials.from_service_account_info(
                 info,
                 scopes=["https://www.googleapis.com/auth/drive"],
             )
-        except json.JSONDecodeError:
-            creds = service_account.Credentials.from_service_account_file(
-                raw_sa.strip(),
-                scopes=["https://www.googleapis.com/auth/drive"],
-            )
+        except Exception as exc:
+            raise GoogleDriveAuthError(
+                "GOOGLE_DRIVE_SA_JSON contains invalid service account JSON content"
+            ) from exc
         return build("drive", "v3", credentials=creds)
 
     def _translate_and_raise_http_error(self, exc: HttpError) -> None:

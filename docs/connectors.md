@@ -182,7 +182,7 @@ class GoogleDriveConnector(BaseConnector):
 
     def build_client(self) -> Any:
         raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
-        info = json.loads(raw_sa)  # or path to a JSON file — see production code
+        info = json.loads(raw_sa)  # production code: inline JSON only; see node_wire_google_drive.logic
         creds = service_account.Credentials.from_service_account_info(
             info,
             scopes=["https://www.googleapis.com/auth/drive"],

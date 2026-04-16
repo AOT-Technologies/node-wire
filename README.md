@@ -160,8 +160,7 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
 
 Set credential secret used by this platform (`GOOGLE_DRIVE_SA_JSON`):
 
-- **Option A (recommended for local):** set it to the absolute path of the JSON file.
-- **Option B:** set it to the full JSON content as a string.
+The connector expects the **full service account JSON as a string** (not a filesystem path).
 
 PowerShell example (load JSON content into env var for current shell):
 

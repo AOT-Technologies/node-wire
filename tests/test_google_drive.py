@@ -29,6 +29,14 @@ class MockSecretProvider(SecretProvider):
         }[key]
 
 
+class StaticSecretProvider(SecretProvider):
+    def __init__(self, secrets: dict[str, str]) -> None:
+        self._secrets = secrets
+
+    def get_secret(self, key: str) -> str:
+        return self._secrets[key]
+
+
 class DummyHttpError(Exception):
     def __init__(self, status: int, *, content: str = "", reason: str = "") -> None:
         super().__init__(reason or f"http {status}")
@@ -120,3 +128,61 @@ def test_google_drive_schema_discriminator_validation():
 
     with pytest.raises(ValidationError):
         GoogleDriveOperationInput.model_validate({"action": "files.unknown", "file_id": "abc123"})
+
+
+def test_google_drive_build_client_accepts_json_secret() -> None:
+    provider = StaticSecretProvider(
+        {"GOOGLE_DRIVE_SA_JSON": '{"type":"service_account","project_id":"dummy"}'}
+    )
+    connector = GoogleDriveConnector(secret_provider=provider)
+    creds_obj = object()
+    client_obj = object()
+
+    with (
+        patch(
+            "node_wire_google_drive.logic.service_account.Credentials.from_service_account_info",
+            return_value=creds_obj,
+        ) as mocked_from_info,
+        patch("node_wire_google_drive.logic.build", return_value=client_obj) as mocked_build,
+    ):
+        client = connector.build_client()
+
+    mocked_from_info.assert_called_once()
+    mocked_build.assert_called_once_with("drive", "v3", credentials=creds_obj)
+    assert client is client_obj
+
+
+def test_google_drive_build_client_rejects_non_json_secret() -> None:
+    provider = StaticSecretProvider({"GOOGLE_DRIVE_SA_JSON": "C:\\secrets\\gdrive-sa.json"})
+    connector = GoogleDriveConnector(secret_provider=provider)
+
+    with pytest.raises(GoogleDriveAuthError, match="must contain valid service account JSON"):
+        connector.build_client()
+
+
+def test_files_list_query_blank_normalizes_to_none() -> None:
+    parsed = GoogleDriveOperationInput.model_validate(
+        {"action": "files.list", "query": "   ", "page_size": 10}
+    )
+    assert parsed.root.query is None
+
+
+def test_files_list_query_rejects_control_chars() -> None:
+    with pytest.raises(ValidationError):
+        GoogleDriveOperationInput.model_validate(
+            {"action": "files.list", "query": "name contains 'abc'\n", "page_size": 10}
+        )
+
+
+def test_files_list_query_rejects_overlong_value() -> None:
+    with pytest.raises(ValidationError):
+        GoogleDriveOperationInput.model_validate(
+            {"action": "files.list", "query": "a" * 1025, "page_size": 10}
+        )
+
+
+def test_files_list_query_allows_normal_value() -> None:
+    parsed = GoogleDriveOperationInput.model_validate(
+        {"action": "files.list", "query": "name contains 'report'", "page_size": 10}
+    )
+    assert parsed.root.query == "name contains 'report'"

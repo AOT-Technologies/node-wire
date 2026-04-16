@@ -97,9 +97,8 @@ The demo is pre-configured with mock/sandbox endpoints for immediate use. To tes
 To test the Google Drive integration manually, follow these specialized setup steps:
 1.  **Service Account**: Create a Service Account in the Google Cloud Console with the **Google Drive API** enabled. Download the JSON key.
 2.  **Secret Configuration**:
-    *   Place the JSON key file somewhere safe on your machine (e.g., `/path/to/service_account.json`).
-    *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=/path/to/service_account.json`.
-    *   *Note: The platform now supports direct file paths for easier local configuration.*
+    *   Place the JSON key file somewhere safe on your machine.
+    *   Set `GOOGLE_DRIVE_SA_JSON` to the **full JSON content** (paste minified JSON in `.env`, or load the file into the variable in your shell — see [docs/google_drive_connector.md](../docs/google_drive_connector.md)).
 3.  **Permissions**: If using a specific **Vault Folder ID**, ensure that folder is shared with the Service Account's email address (found in the JSON) with "Editor" or "Manager" permissions.
 4.  **Workflow Verification**:
     *   **Direct Upload**: Drag a PDF or Image into the "Upload File" zone. Verify the file appears in the drive with correct metadata.

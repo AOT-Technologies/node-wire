@@ -78,15 +78,15 @@ cp sample.env .env
 
 | Variable | Description |
 |---|---|
-| `GOOGLE_DRIVE_SA_JSON` | Absolute path to the service account JSON key file **or** the full JSON content as a string |
+| `GOOGLE_DRIVE_SA_JSON` | Full service account JSON as a string (not a filesystem path) |
 | `GOOGLE_DRIVE_FOLDER_ID` | Drive folder ID (from the URL: `.../folders/<ID>`) |
 
 ```env
-GOOGLE_DRIVE_SA_JSON=/absolute/path/to/service-account.json
+GOOGLE_DRIVE_SA_JSON={"type":"service_account",...}
 GOOGLE_DRIVE_FOLDER_ID=your-google-drive-folder-id
 ```
 
-> **ToolHive note:** When running inside ToolHive, set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) because ToolHive injects secrets as string values, not files.
+> Load a key file into the variable in your shell if needed (see [docs/google_drive_connector.md](google_drive_connector.md)). ToolHive injects string secrets — paste JSON contents, not a path.
 
 #### `nw-smartonfhir-epic`
 
@@ -280,7 +280,7 @@ thv run --name nw-smtp --transport stdio \
   nw-smtp:latest
 ```
 
-> **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) when storing in ToolHive secrets, because ToolHive injects secrets as string values.
+> **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the full JSON string (the connector does not accept a filesystem path). ToolHive injects string secrets, not files.
 
 After registration, copy the proxy URLs from the ToolHive UI and set them in your `.env`:
 
@@ -353,7 +353,7 @@ python -m agents.toolhive --local --patient-id 12724066 --recipient-email you@ex
 |---|---|---|
 | `TOOLHIVE_MCP_URL(S) is not set` | Missing env var | Set `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (multi) in `.env` |
 | `Failed to list MCP tools: Connection refused` | ToolHive proxy stopped | Re-register with `thv run`; confirm the proxy URL matches what ToolHive UI shows |
-| Google Drive auth failures | Secret injected as a file path | For ToolHive, set `GOOGLE_DRIVE_SA_JSON` to JSON *contents* (not a path) |
+| Google Drive auth failures | `GOOGLE_DRIVE_SA_JSON` is empty, invalid JSON, or not the full key | Paste JSON contents into ToolHive secrets or `.env`; see [Google Drive setup](google_drive_connector.md) |
 | `fhir_epic connector not configured` | Missing Epic env vars | Ensure all `EPIC_*` variables are set and non-empty |
 | `fhir_cerner connector not configured` | Missing Cerner env vars | Ensure all `CERNER_*` variables are set and non-empty |
 | Docker build fails with `COPY src/ not found` | Wrong build context | Always run `docker build` from the **repository root**, not from `docker/<name>/` |

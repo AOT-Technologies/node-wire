@@ -321,6 +321,8 @@ The platform has a solid foundation: clean layered architecture (runtime → con
 | M6 | Validation | Drive query accepts arbitrary string | MEDIUM |
 | M7 | Path Safety | Service account file path not sandboxed | MEDIUM |
 | L1 | Privacy | SMTP logs full recipient email addresses | LOW |
+
+**Google Drive mitigations (M6/M7):** `GOOGLE_DRIVE_SA_JSON` is **inline JSON only** (no file-path reads). `files.list` `query` is bounded and rejects ASCII control characters; Google Drive still validates query syntax server-side.
 | L2 | MCP | Manifest lacks security metadata (scopes, auth) | LOW |
 | L3 | MCP | No MCP prompt templates defined | LOW |
 | L4 | MCP | No sampling/pagination limits in MCP binding | LOW |

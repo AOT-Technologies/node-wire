@@ -21,7 +21,11 @@ class FilesCreateOperation(BaseDriveOperation):
 class FilesListOperation(BaseDriveOperation):
     action: Literal["files.list"]
     page_size: int = Field(10, ge=1, le=100)
-    query: Optional[str] = Field(None, description="Search query string.")
+    query: Optional[str] = Field(
+        None,
+        max_length=1024,
+        description="Search query string.",
+    )
     fields: Optional[str] = Field(
         None,
         description=(
@@ -33,6 +37,20 @@ class FilesListOperation(BaseDriveOperation):
         None,
         description="Token for the next page of results from a previous files.list response.",
     )
+
+    @field_validator("query", mode="before")
+    @classmethod
+    def normalize_query(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            if any(ord(ch) < 32 for ch in v):
+                raise ValueError("query contains unsupported control characters")
+            query = v.strip()
+            if not query:
+                return None
+            return query
+        return v
 
 
 class PermissionsCreateOperation(BaseDriveOperation):

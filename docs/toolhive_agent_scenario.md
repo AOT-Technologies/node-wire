@@ -110,7 +110,7 @@ The MCP server automatically masks sensitive health information before any data 
 | [ToolHive UI](https://stacklok.com/toolhive) installed | Download for macOS / Linux / Windows |
 | Docker running | Only needed to build the image |
 | Cerner FHIR credentials | `client_id`, `kid`, private key, tenant URL |
-| Google Drive service account JSON | `service_account.json` or file path |
+| Google Drive service account JSON | Paste full JSON (not a filesystem path) |
 | SMTP credentials | Gmail App Password recommended |
 | Groq API key (free) | [console.groq.com](https://console.groq.com) |
 
@@ -142,7 +142,7 @@ Below is the full set of environment variables used by the connector platform an
 | `SMTP_USERNAME` | SMTP connector | Mailtrap / SMTP user |
 | `SMTP_PASSWORD` | SMTP connector | Mailtrap / SMTP password |
 | `SMTP_USE_TLS` | SMTP connector | `true` or `false` |
-| `GOOGLE_DRIVE_SA_JSON` | Google Drive | Either paste full JSON into ToolHive secret or provide absolute file path to the service account JSON |
+| `GOOGLE_DRIVE_SA_JSON` | Google Drive | Full service account JSON string (see [Google Drive setup](google_drive_connector.md#step-5-configure-the-connector)) |
 
 ---
 
@@ -500,7 +500,7 @@ In Cursor's MCP settings, add the same endpoint URL. The tools will appear in th
 | `TOOLHIVE_MCP_URL is not set` | Missing env var | Copy the endpoint URL from ToolHive UI → Installed → `node-wire-connectors` and add to `.env` |
 | `Failed to list MCP tools: Connection refused` | ToolHive server stopped | Re-start via ToolHive UI, or run `thv run ...` again; check `thv list` to see running servers |
 | `Secret 'CERNER_PRIVATE_KEY' is not configured` | Secret not stored in ToolHive | Run `thv secret set CERNER_PRIVATE_KEY` or add it via the ToolHive UI |
-| `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
+| `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is not valid JSON or is empty | Paste the full JSON string (or load it into the env var from a file per [Google Drive service account setup](google_drive_connector.md#step-5-configure-the-connector)) |
 | `SMTP authentication failed` | Wrong username or password | For Gmail, use an App Password not your regular password; confirm `SMTP_USERNAME` includes `@` |
 | `groq SDK not installed` | Missing optional dependency | `pip install -e ".[agents]"` |
 | Agent loops forever without completing | LLM reasoning issue | Try increasing `--max-steps`; try a different LLM provider; check that the expected tools are visible in ToolHive (`tools/list`); refresh after MCP image upgrades |
