@@ -5,6 +5,8 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
+from pydantic import ValidationError
 
 from node_wire_http_generic.logic import HttpGenericConnector
 from node_wire_http_generic.schema import HttpRequestInput
@@ -69,6 +71,72 @@ def test_http_generic_internal_execute() -> None:
             out = await c.internal_execute(inp, trace_id="t-2")
         assert out.status_code == 200
         assert out.body == "response-body"
+
+    asyncio.run(_run())
+
+
+def test_http_request_input_normalizes_method() -> None:
+    parsed = HttpRequestInput(url="https://example.com/path", method=" post ")
+    assert parsed.method == "POST"
+
+
+def test_http_request_input_rejects_unsupported_method() -> None:
+    with pytest.raises(ValidationError):
+        HttpRequestInput(url="https://example.com/path", method="TRACE")
+
+
+@pytest.mark.parametrize(
+    "blocked_url",
+    [
+        "http://localhost/health",
+        "http://127.0.0.1/internal",
+        "http://10.0.0.25/api",
+        "http://169.254.169.254/latest/meta-data",
+        "http://[::1]/health",
+        "http://metadata.google.internal/computeMetadata/v1",
+    ],
+)
+def test_http_request_input_rejects_internal_targets(blocked_url: str) -> None:
+    with pytest.raises(ValidationError):
+        HttpRequestInput(url=blocked_url, method="GET")
+
+
+def test_http_request_input_allows_public_url() -> None:
+    parsed = HttpRequestInput(url="https://example.com/path?q=1", method="GET")
+    assert str(parsed.url) == "https://example.com/path?q=1"
+
+
+def test_http_generic_logs_sanitized_url() -> None:
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.headers = httpx.Headers({})
+    mock_resp.text = "ok"
+
+    class _FakeAsyncClient:
+        async def __aenter__(self) -> "_FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def request(self, **kwargs: object) -> MagicMock:
+            return mock_resp
+
+    async def _run() -> None:
+        with (
+            patch("node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()),
+            patch("node_wire_http_generic.logic.logger.info") as mocked_info,
+        ):
+            c = HttpGenericConnector()
+            inp = HttpRequestInput(
+                url="https://example.com/path?token=secret&patient=123",
+                method="GET",
+            )
+            await c.internal_execute(inp, trace_id="t-log")
+        for call in mocked_info.call_args_list:
+            extra = call.kwargs.get("extra") or {}
+            if "url" in extra:
+                assert extra["url"] == "https://example.com/path"
 
     asyncio.run(_run())
 
