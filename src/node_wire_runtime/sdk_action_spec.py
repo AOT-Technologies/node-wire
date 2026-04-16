@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -90,6 +90,11 @@ class SdkActionSpec:
     alias_tolerant: bool = False
     # Optional: mutates MCP tool args dict in place before connector.run (see mcp_normalizers).
     mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None
+    # Security metadata
+    requires_auth: bool = True
+    scopes: Optional[List[str]] = None
+    rate_limit: Optional[Dict[str, Any]] = None
+    deprecated: bool = False
 
 
 def build_method_kwargs(spec: SdkActionSpec, client: Any, model: BaseModel) -> Dict[str, Any]:
