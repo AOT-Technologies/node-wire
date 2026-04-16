@@ -53,7 +53,16 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
         payload: Any = {}
         if request.payload_json:
+            try:
             payload = json.loads(request.payload_json)
+            except json.JSONDecodeError:
+                return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
+                    success=False,
+                    error_code="INVALID_JSON",
+                    error_category=ErrorCategory.BUSINESS.value,
+                    message="The payload_json provided was not fundamentally valid JSON.",
+                    trace_id="",
+                )
 
         if isinstance(payload, dict) and payload.get("action"):
             normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
