@@ -89,11 +89,14 @@ def test_http_request_input_rejects_unsupported_method() -> None:
     "blocked_url",
     [
         "http://localhost/health",
+        "http://LOCALHOST/health",
         "http://127.0.0.1/internal",
         "http://10.0.0.25/api",
+        "http://0.0.0.0/debug",
         "http://169.254.169.254/latest/meta-data",
         "http://[::1]/health",
         "http://metadata.google.internal/computeMetadata/v1",
+        "http://metadata.google.internal./computeMetadata/v1",
     ],
 )
 def test_http_request_input_rejects_internal_targets(blocked_url: str) -> None:
@@ -129,7 +132,7 @@ def test_http_generic_logs_sanitized_url() -> None:
         ):
             c = HttpGenericConnector()
             inp = HttpRequestInput(
-                url="https://example.com/path?token=secret&patient=123",
+                url="https://user:pass@example.com/path?token=secret&patient=123",
                 method="GET",
             )
             await c.internal_execute(inp, trace_id="t-log")
@@ -137,6 +140,8 @@ def test_http_generic_logs_sanitized_url() -> None:
             extra = call.kwargs.get("extra") or {}
             if "url" in extra:
                 assert extra["url"] == "https://example.com/path"
+                assert "secret" not in extra["url"]
+                assert "user:pass" not in extra["url"]
 
     asyncio.run(_run())
 

@@ -4,6 +4,7 @@ import inspect
 import logging
 import uuid
 from abc import ABC
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
     Annotated,
@@ -285,12 +286,22 @@ class BaseConnector(ABC):
         self._output_model_cls = cls.output_model
         self._secret_provider = secret_provider
         self._policy_hook = policy_hook
-        self._breaker = CircuitBreaker(
+        self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
+        self._client: Any = None
+
+    def _create_breaker(self) -> CircuitBreaker:
+        cls = type(self)
+        return CircuitBreaker(
             fail_max=5,
             reset_timeout=30,
             name=f"{cls.__name__}_breaker",
         )
-        self._client: Any = None
+
+    def _breaker_key(self, tenant_id: Optional[str]) -> str:
+        return tenant_id or "__default__"
+
+    def _breaker_for_tenant(self, tenant_id: Optional[str]) -> CircuitBreaker:
+        return self._breakers[self._breaker_key(tenant_id)]
 
     @property
     def secret_provider(self) -> SecretProvider:
@@ -393,7 +404,9 @@ class BaseConnector(ABC):
                             trace_id=trace_id,
                         )
 
-                execute_with_resilience = with_resilience(self._breaker)
+                execute_with_resilience = with_resilience(
+                    lambda: self._breaker_for_tenant(tenant_id)
+                )
 
                 @execute_with_resilience
                 async def _do_execute(*, trace_id: str) -> Any:
