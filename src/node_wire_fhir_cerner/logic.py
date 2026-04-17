@@ -37,6 +37,23 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_cerner")
 
 
+def _safe_doc_ref_log_summary(doc_ref: Dict[str, Any]) -> Dict[str, Any]:
+    attachment = {}
+    content_items = doc_ref.get("content")
+    if isinstance(content_items, list) and content_items:
+        first = content_items[0]
+        if isinstance(first, dict):
+            attachment = first.get("attachment", {}) if isinstance(first.get("attachment"), dict) else {}
+    data_value = attachment.get("data")
+    data_len = len(data_value) if isinstance(data_value, str) else 0
+    return {
+        "keys": sorted(doc_ref.keys()),
+        "content_items": len(content_items) if isinstance(content_items, list) else 0,
+        "attachment_content_type": attachment.get("contentType"),
+        "attachment_data_length": data_len,
+    }
+
+
 class FhirCernerConnector(BaseConnector):
     """
     FHIR/Cerner connector: SMART Backend Services (private_key_jwt), RS384.
@@ -606,13 +623,20 @@ class FhirCernerConnector(BaseConnector):
                         parts = [p for p in [severity, code, diag or detail_text] if p]
                         if parts:
                             diagnostics.append(" ".join(parts))
-                error_detail = " | ".join(diagnostics) if diagnostics else raw_body
+                error_detail = (
+                    " | ".join(diagnostics)
+                    if diagnostics
+                    else f"HTTP {exc.response.status_code} from Cerner FHIR endpoint"
+                )
             except Exception:
-                error_detail = raw_body
+                error_detail = f"HTTP {exc.response.status_code} from Cerner FHIR endpoint"
 
             logger.error(
-                "FHIR DocumentReference create failed | status=%s | cerner_error=%s | raw_body=%s | sent_payload=%s",
-                exc.response.status_code, error_detail, raw_body, json.dumps(doc_ref),
+                "FHIR DocumentReference create failed | status=%s | cerner_error=%s | body_length=%s | payload_summary=%s",
+                exc.response.status_code,
+                error_detail,
+                len(raw_body),
+                json.dumps(_safe_doc_ref_log_summary(doc_ref)),
                 extra={"trace_id": trace_id},
             )
             raise ValueError(f"Cerner Error: {error_detail}") from exc
