@@ -4,6 +4,7 @@ from importlib import import_module
 from typing import Any, Dict
 
 import pytest
+from pydantic import ValidationError
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
@@ -62,6 +63,29 @@ def test_stripe_connector_accepts_charge_payload():
         {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
     )
     assert validated.action == "charge"
+
+
+def test_stripe_connector_normalizes_uppercase_currency():
+    validated = ChargeInput.model_validate(
+        {"action": "charge", "amount": 100, "currency": "USD", "source": "tok_visa"}
+    )
+    assert validated.currency == "usd"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "charge", "amount": 0, "currency": "usd", "source": "tok_visa"},
+        {"action": "charge", "amount": -1, "currency": "usd", "source": "tok_visa"},
+        {"action": "charge", "amount": 100_000_000, "currency": "usd", "source": "tok_visa"},
+        {"action": "charge", "amount": 100, "currency": "US", "source": "tok_visa"},
+        {"action": "charge", "amount": 100, "currency": "USDT", "source": "tok_visa"},
+        {"action": "charge", "amount": 100, "currency": "us1", "source": "tok_visa"},
+    ],
+)
+def test_stripe_connector_rejects_invalid_charge_payload(payload):
+    with pytest.raises(ValidationError):
+        ChargeInput.model_validate(payload)
 
 
 def test_mcp_tool_invoke_sets_action():
