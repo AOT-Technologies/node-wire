@@ -45,12 +45,12 @@ class StripeConnector(BaseConnector):
         )
 
         def _create() -> stripe.Charge:
-            stripe.api_key = api_key
             return stripe.Charge.create(
                 amount=params.amount,
                 currency=params.currency,
                 source=params.source,
                 description=params.description,
+                api_key=api_key,
             )
 
         try:
