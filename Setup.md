@@ -72,6 +72,10 @@ cp sample.env .env
 
 You only need to fill in the sections for the connectors you plan to use. The platform starts successfully even if some credentials are missing — those connectors will simply return an error when called.
 
+> [!IMPORTANT]
+> **Connector Allowlist:** For security, Node Wire uses a fail-closed allowlist for connector entry points. You **must** set `NW_ALLOWED_CONNECTORS` in your `.env` file to a comma-separated list of the connectors you want to enable (e.g., `fhir_epic,http_generic`). If this variable is missing or empty, no connectors will be loaded even if they are enabled in `connectors.yaml`.
+
+
 > **Doc convention:** Environment variable names in the docs follow `sample.env`. Some legacy keys (like `stripe_api_key`) are intentionally lower-case because that is what the connector reads.
 
 ### Environment Variable Sections
@@ -86,6 +90,9 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 | **Slack**        | `SLACK_BOT_TOKEN`                                                                                                   | Sending Slack messages |
 | **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
 | **ToolHive / MCP**| `TOOLHIVE_MCP_URLS` (multi-server), `NW_MCP_TRANSPORT`, `NW_MCP_PORT`, `NW_STREAM_BUFFER_MS`               | AI agent / ToolHive    |
+| **ToolHive**     | `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (comma-separated, multi-server)                                  | ToolHive MCP proxy     |
+| **Plugin Allowlist** | `NW_ALLOWED_CONNECTORS` (comma-separated list of allowed connector names)                                         | **Required** for any connector to load |
+
 
 
 See `sample.env` for the full list with example values.

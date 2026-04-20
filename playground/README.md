@@ -165,6 +165,7 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 2.  **Add API Key**: Provide the corresponding key, e.g., `GROQ_API_KEY=your_key_here`.
 3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
 4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
+5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).
 
 ---
 

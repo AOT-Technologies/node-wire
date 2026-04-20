@@ -170,6 +170,9 @@ For the HTTP case, select `Streamable HTTP` in Inspector and connect to `http://
 - **Secrets**
   Supplied via environment variables. The factory uses `EnvSecretProvider`; keys are connector-specific (e.g. Google Drive expects a variable documented in `src/node_wire_google_drive/README.md`).
 
+- **Connector Allowlist (`NW_ALLOWED_CONNECTORS`)**  
+  **Required.** A comma-separated list of connector entry point names to load (e.g., `fhir_epic,http_generic`). Node Wire defaults to a fail-closed secure policy; if this variable is not set, no connectors will be registered.
+
 ### Google Drive service account setup (quick)
 
 1. In Google Cloud Console, select your project and enable **Google Drive API** (`APIs & Services` -> `Library`).

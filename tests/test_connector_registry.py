@@ -36,7 +36,7 @@ def test_auto_register_skips_bad_module_prefix() -> None:
         value="third_party_evil.logic",
         group="node_wire.connectors",
     )
-    assert connector_registry._should_skip_ep(fake_ep, None, "node_wire_") is True
+    assert connector_registry._should_skip_ep(fake_ep, {"evil"}, "node_wire_") is True
 
 
 def test_allowed_connector_not_skipped_when_prefix_matches() -> None:
@@ -45,7 +45,6 @@ def test_allowed_connector_not_skipped_when_prefix_matches() -> None:
         value="node_wire_http_generic.logic",
         group="node_wire.connectors",
     )
-    assert connector_registry._should_skip_ep(fake_ep, None, "node_wire_") is False
     assert connector_registry._should_skip_ep(fake_ep, {"http_generic"}, "node_wire_") is False
 
 
