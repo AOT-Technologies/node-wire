@@ -246,7 +246,7 @@ connectors:
   fhir_epic:
     enabled: true
     auth:
-      type: oauth2
+      provider: oauth2
       grant_method: private_key_jwt
       token_url_secret: EPIC_TOKEN_URL
       client_id_secret: EPIC_CLIENT_ID
@@ -257,7 +257,7 @@ connectors:
   stripe:
     enabled: true
     auth:
-      type: static_token
+      provider: static_token
       secret_key: STRIPE_API_KEY
 ```
 
