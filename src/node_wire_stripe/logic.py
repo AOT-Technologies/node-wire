@@ -79,9 +79,9 @@ class StripeConnector(BaseConnector):
             raise
 
         return StripeOperationOutput(
-            charge_id=charge.get("id"),
-            receipt_url=charge.get("receipt_url"),
-            status="succeeded" if charge.get("paid") else "failed",
+            charge_id=getattr(charge, "id", None),
+            receipt_url=getattr(charge, "receipt_url", None),
+            status="succeeded" if getattr(charge, "paid", False) else "failed",
         )
 
     @nw_action("create_payment_intent")
@@ -123,15 +123,15 @@ class StripeConnector(BaseConnector):
                     "connector_id": self.connector_id,
                     "action": "create_payment_intent",
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
 
         return StripeOperationOutput(
-            payment_intent_id=pi.get("id"),
-            client_secret=pi.get("client_secret"),
-            status=pi.get("status"),
+            payment_intent_id=getattr(pi, "id", None),
+            client_secret=getattr(pi, "client_secret", None),
+            status=getattr(pi, "status", None),
         )
 
     @nw_action("create_subscription")
@@ -185,25 +185,29 @@ class StripeConnector(BaseConnector):
                     "connector_id": self.connector_id,
                     "action": "create_subscription",
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
 
         # Subscription might have a setup_intent or latest_invoice.payment_intent
         client_secret = None
-        if sub.get("pending_setup_intent"):
-            si = stripe.SetupIntent.retrieve(sub.get("pending_setup_intent"), api_key=api_key)
-            client_secret = si.get("client_secret")
-        elif sub.get("latest_invoice"):
-            inv = stripe.Invoice.retrieve(sub.get("latest_invoice"), api_key=api_key)
-            if inv.get("payment_intent"):
-                pi = stripe.PaymentIntent.retrieve(inv.get("payment_intent"), api_key=api_key)
-                client_secret = pi.get("client_secret")
+        pending_setup_intent = getattr(sub, "pending_setup_intent", None)
+        latest_invoice_id = getattr(sub, "latest_invoice", None)
+        
+        if pending_setup_intent:
+            si = stripe.SetupIntent.retrieve(pending_setup_intent, api_key=api_key)
+            client_secret = getattr(si, "client_secret", None)
+        elif latest_invoice_id:
+            inv = stripe.Invoice.retrieve(latest_invoice_id, api_key=api_key)
+            pi_id = getattr(inv, "payment_intent", None)
+            if pi_id:
+                pi = stripe.PaymentIntent.retrieve(pi_id, api_key=api_key)
+                client_secret = getattr(pi, "client_secret", None)
 
         return StripeOperationOutput(
-            subscription_id=sub.get("id"),
-            status=sub.get("status"),
+            subscription_id=getattr(sub, "id", None),
+            status=getattr(sub, "status", None),
             client_secret=client_secret,
         )
 
@@ -244,14 +248,14 @@ class StripeConnector(BaseConnector):
                     "connector_id": self.connector_id,
                     "action": "cancel_subscription",
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
 
         return StripeOperationOutput(
-            subscription_id=sub.get("id"),
-            status=sub.get("status"),
+            subscription_id=getattr(sub, "id", None),
+            status=getattr(sub, "status", None),
         )
 
     @nw_action("issue_refund")
@@ -289,12 +293,12 @@ class StripeConnector(BaseConnector):
                     "connector_id": self.connector_id,
                     "action": "issue_refund",
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
 
         return StripeOperationOutput(
-            refund_id=refund.get("id"),
-            status=refund.get("status"),
+            refund_id=getattr(refund, "id", None),
+            status=getattr(refund, "status", None),
         )
