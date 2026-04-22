@@ -27,6 +27,8 @@ class SmtpConnector(BaseConnector):
         mcp_normalize=normalize_smtp_send_email,
     )
     async def send_email(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
+        # Derive a domain-only hint so the sender identity (PII) is never written to logs.
+        _sender_domain = str(params.from_email).split("@")[-1] if "@" in str(params.from_email) else "unknown"
         logger.info(
             "Preparing SMTP message",
             extra={
@@ -35,7 +37,7 @@ class SmtpConnector(BaseConnector):
                 "action": "send_email",
                 "host": params.host,
                 "port": params.port,
-                "from_email": str(params.from_email),
+                "sender_domain": _sender_domain,
                 "recipient_count": len(params.to),
             },
         )
@@ -97,6 +99,7 @@ class SmtpConnector(BaseConnector):
                 "action": "send_email",
                 "host": params.host,
                 "port": params.port,
+                "sender_domain": _sender_domain,
                 "response": str(response),
             },
         )
