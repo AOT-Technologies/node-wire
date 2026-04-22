@@ -30,11 +30,13 @@ flowchart TD
         Epic[nw-smartonfhir-epic]
         Cerner[nw-smartonfhir-cerner]
         SMTP[nw-smtp]
+        Slack[nw-slack]
     end
     Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
     Agent -->|"TOOLHIVE_MCP_URLS"| Epic
     Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
     Agent -->|"TOOLHIVE_MCP_URLS"| SMTP
+    Agent -->|"TOOLHIVE_MCP_URLS"| Slack
 ```
 
 ---
@@ -47,6 +49,7 @@ flowchart TD
 | SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
 | SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
+| Slack | `python -m agents.slack_mcp` | `nw-slack` | `nw-slack` | All manifest actions for `slack` (e.g. `slack.post_message`) |
 
 The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
 
@@ -152,6 +155,18 @@ SMTP_PASSWORD=your-gmail-app-password
 FROM_EMAIL=your-email@gmail.com
 ```
 
+#### `nw-slack`
+
+| Variable | Description |
+|---|---|
+| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token (`xoxb-...`) |
+| `NW_SLACK_ATTACHMENTS_DIR` | Optional: sandboxed directory for uploads (default: `/slack_attachments`) |
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+NW_SLACK_ATTACHMENTS_DIR=/slack_attachments
+```
+
 ### ToolHive / Agent settings
 
 | Variable | Description |
@@ -201,6 +216,7 @@ This produces images tagged as both `latest` and the version string:
 | `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
 | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
 | `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
+| `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
 
 To build a single image manually from the repo root:
 
@@ -216,6 +232,9 @@ docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
 
 # SMTP only
 docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
+
+# Slack only
+docker build -f docker/slack/Dockerfile -t nw-slack:latest .
 ```
 
 > **Note:** The build context must be the repository root (`.`) so the `COPY src/` and `COPY config/` instructions resolve correctly.
@@ -278,6 +297,11 @@ thv run --name nw-smtp --transport stdio \
   --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
   --secret FROM_EMAIL,target=FROM_EMAIL \
   nw-smtp:latest
+
+# Slack
+thv run --name nw-slack --transport stdio \
+  --secret SLACK_BOT_TOKEN,target=SLACK_BOT_TOKEN \
+  nw-slack:latest
 ```
 
 > **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) when storing in ToolHive secrets, because ToolHive injects secrets as string values.

@@ -33,6 +33,7 @@ ALL_PACKAGES=(
   packages/connectors/smtp
   packages/connectors/stripe
   packages/connectors/http_generic
+  packages/connectors/slack
 )
 
 usage() {

@@ -16,6 +16,7 @@ Images:
   - nw-smartonfhir-epic
   - nw-smartonfhir-cerner
   - nw-smtp
+  - nw-slack
 EOF
 }
 
@@ -38,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "${VERSION}" ]]; then
-  VERSION="$(python3 -c "import tomllib, pathlib; p=pathlib.Path('${ROOT_DIR}')/'pyproject.toml'; print(tomllib.loads(p.read_text())['project']['version'])")"
+  VERSION="$(grep "^version =" "${ROOT_DIR}/pyproject.toml" | head -n 1 | cut -d '"' -f 2)"
 fi
 
 echo "Building MCP images (version=${VERSION}) from ${ROOT_DIR}"
@@ -63,6 +64,11 @@ docker build -f docker/fhir-cerner/Dockerfile \
 docker build -f docker/smtp/Dockerfile \
   -t nw-smtp:latest \
   -t "nw-smtp:${VERSION}" \
+  .
+
+docker build -f docker/slack/Dockerfile \
+  -t nw-slack:latest \
+  -t "nw-slack:${VERSION}" \
   .
 
 echo "Done."

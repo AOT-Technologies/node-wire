@@ -419,6 +419,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 | `google_drive` | `files.list`, `files.upload`, … (see `action_specs`) |
 | `fhir_epic` | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
 | `fhir_cerner` | Same family as Epic with Cerner-specific schemas |
+| `slack` | `post_message`, `send_direct_message`, `upload_file` |
 
 MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). See [`docs/mcp-servers.md`](mcp-servers.md).
 
@@ -476,4 +477,5 @@ connectors:
 - [packaging.md](packaging.md) — Wheel build lifecycle, PyPI publish flow, client install model, secrets config, and pre-publish checklist.
 - [mcp-servers.md](mcp-servers.md) — MCP images, ToolHive, env vars.
 - [google_drive_connector.md](google_drive_connector.md) — Drive REST API and setup.
+- [slack_connector.md](slack_connector.md) — Slack bot token and setup.
 - Per-connector READMEs under `src/node_wire_*/README.md` where present.

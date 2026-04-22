@@ -83,6 +83,7 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 | **FHIR Cerner**  | `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`, `CERNER_SCOPES` | Cerner EHR integration |
 | **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
 | **SMTP**         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`                                                          | Sending emails         |
+| **Slack**        | `SLACK_BOT_TOKEN`                                                                                                   | Sending Slack messages |
 | **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
 | **ToolHive**     | `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (comma-separated, multi-server)                                  | ToolHive MCP proxy     |
 
@@ -181,6 +182,7 @@ All responses use the same standard shape:
 | **google_drive** | List, upload, download, manage Drive files | GCP service account JSON               | [Google Drive setup & API](docs/google_drive_connector.md#google-drive-service-account-setup) |
 | **fhir_epic**    | Read/write patient data from Epic EHR      | Epic SMART credentials + private key   | [FHIR Epic Setup](#fhir-epic)                                                                 |
 | **fhir_cerner**  | Read/write patient data from Cerner EHR    | Cerner SMART credentials + private key | [FHIR Cerner Setup](#fhir-cerner)                                                             |
+| **slack**        | Send messages and files to Slack channels  | Slack Bot OAuth Token                  | [Slack Setup](#slack)                                                                         |
 
 
 ---
@@ -298,6 +300,26 @@ Register your application in the [Cerner Developer Portal](https://code.cerner.c
 
 ---
 
+### Slack
+
+Add the bot token to your `.env`:
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+```
+
+1. Create a Slack App at [api.slack.com/apps](https://api.slack.com/apps).
+2. Go to **OAuth & Permissions** and add **Bot Token Scopes**:
+   - `chat:write` (to post messages)
+   - `files:write` (to upload files)
+   - `im:write` (to send direct messages)
+   - `conversations:open` (to resolve User IDs)
+3. Install the app to your workspace.
+4. Copy the **Bot User OAuth Token** (`xoxb-...`).
+5. Invite the bot to any private channels you want it to access.
+
+---
+
 ## MCP Server & ToolHive
 
 The platform exposes connector tools for AI agents via the MCP (Model Context Protocol). There are two deployment modes:
@@ -313,6 +335,7 @@ Each connector runs as its own independent MCP server. This is the preferred app
 | `nw-smartonfhir-epic`   | All `fhir_epic.<action>` (e.g. `fhir_epic.read_patient`) | `docker/fhir-epic/Dockerfile`    |
 | `nw-smartonfhir-cerner` | All `fhir_cerner.<action>` (e.g. `fhir_cerner.read_patient`) | `docker/fhir-cerner/Dockerfile`  |
 | `nw-smtp`               | `smtp.send_email`    | `docker/smtp/Dockerfile`         |
+| `nw-slack`              | All `slack.<action>` (e.g. `slack.post_message`)     | `docker/slack/Dockerfile`        |
 
 
 **Full guide (build, env config, ToolHive registration, multi-server agent usage):** [docs/mcp-servers.md](docs/mcp-servers.md)
