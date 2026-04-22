@@ -39,6 +39,7 @@ ToolHive UI  ──────────────────────�
 │  ├── Tool: fhir_cerner.read_patient   ← fetch patient from Cerner │
 │  ├── Tool: fhir_epic.read_patient     ← fetch patient from Epic   │
 │  ├── Tool: google_drive.files.upload  ← write file to Drive       │
+│  ├── Tool: stripe.charge              ← process payment           │
 │  └── Tool: smtp.send_email            ← email the summary         │
 │                         ↕ stdio → HTTP proxy                      │
 ──────────────────────────────────────────────────────────────────
@@ -90,6 +91,7 @@ When running **this scenario’s** minimal multi-connector stack (one MCP server
 | `fhir_cerner.read_patient` | Fetch a patient's record from a Cerner FHIR R4 endpoint |
 | `fhir_epic.read_patient` | Fetch a patient's record from an Epic FHIR R4 endpoint |
 | `google_drive.files.upload` | Create and upload a text file to Google Drive |
+| `stripe.charge` | Process a payment |
 | `smtp.send_email` | Send an email via SMTP |
 
 The agent uses an LLM's tool-calling capability to decide which tools to call, in what order, and with what parameters.

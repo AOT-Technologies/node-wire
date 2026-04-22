@@ -194,6 +194,7 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp .
 docker build -f docker/google-drive/Dockerfile -t nw-google-drive .
 docker build -f docker/fhir-epic/Dockerfile -t nw-smartonfhir-epic .
 docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner .
+docker build -f docker/stripe/Dockerfile -t nw-stripe .
 ```
 
 For compose and ToolHive registration see `docs/mcp-servers.md`.

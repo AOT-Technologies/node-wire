@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChargeInput(BaseModel):
     action: Literal["charge"] = "charge"
-    amount: int
-    currency: str
+    amount: int = Field(..., ge=1, le=99999999)
+    currency: str = Field(..., pattern=r"^[a-z]{3}$")
     source: str
     description: str | None = None
 
@@ -16,3 +16,77 @@ class ChargeInput(BaseModel):
 class ChargeOutput(BaseModel):
     charge_id: str
     receipt_url: str | None = None
+
+
+class CancelSubscriptionInput(BaseModel):
+    action: Literal["cancel_subscription"] = "cancel_subscription"
+    subscription_id: str
+    cancel_at_period_end: bool = False
+
+
+class CancelSubscriptionOutput(BaseModel):
+    subscription_id: str
+    status: str
+
+
+class CreatePaymentIntentInput(BaseModel):
+    action: Literal["create_payment_intent"] = "create_payment_intent"
+    amount: int = Field(..., ge=1, le=99999999)
+    currency: str = Field(..., pattern=r"^[a-z]{3}$")
+    customer_id: str | None = None
+    payment_method: str | None = None
+    confirm: bool = False
+    description: str | None = None
+    metadata: dict | None = None
+
+
+class CreatePaymentIntentOutput(BaseModel):
+    payment_intent_id: str
+    client_secret: str | None = None
+    status: str
+
+
+class CreateSubscriptionInput(BaseModel):
+    action: Literal["create_subscription"] = "create_subscription"
+    customer_id: str
+    price_id: str
+    payment_behavior: str = "default_incomplete"
+    default_payment_method: str | None = None
+    card_token: str | None = None
+    metadata: dict | None = None
+
+
+class CreateSubscriptionOutput(BaseModel):
+    subscription_id: str
+    client_secret: str | None = None
+    status: str
+
+
+class IssueRefundInput(BaseModel):
+    action: Literal["issue_refund"] = "issue_refund"
+    charge_id: str | None = None
+    payment_intent_id: str | None = None
+    amount: int | None = Field(None, ge=1, le=99999999)
+    reason: str | None = None
+    metadata: dict | None = None
+
+
+class IssueRefundOutput(BaseModel):
+    refund_id: str
+    status: str
+
+
+class StripeOperationOutput(BaseModel):
+    """
+    Unified output model for all Stripe actions.
+    The actual result will be contained in one or more of these fields.
+    """
+
+    charge_id: str | None = None
+    receipt_url: str | None = None
+    subscription_id: str | None = None
+    status: str | None = None
+    payment_intent_id: str | None = None
+    client_secret: str | None = None
+    refund_id: str | None = None
+    raw: dict[str, Any] | None = None
