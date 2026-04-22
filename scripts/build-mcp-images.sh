@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "${VERSION}" ]]; then
-  VERSION="$(grep "^version =" "${ROOT_DIR}/pyproject.toml" | head -n 1 | cut -d '"' -f 2)"
+  VERSION="$(python3 -c "import tomllib, pathlib; p=pathlib.Path('${ROOT_DIR}')/'pyproject.toml'; print(tomllib.loads(p.read_text())['project']['version'])")"
 fi
 
 echo "Building MCP images (version=${VERSION}) from ${ROOT_DIR}"
