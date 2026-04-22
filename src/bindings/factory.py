@@ -123,10 +123,91 @@ class ConnectorFactory:
             if instance is not None:
                 self._connectors[connector_id] = instance
 
-    def _instantiate(self, connector_id: str) -> BaseConnector | None:
+    def _build_auth_provider(self, connector_id: str, cfg: dict) -> Any:
+        """Construct the appropriate AuthProvider from the connector's YAML ``auth:`` block.
+
+        Falls back to :class:`NoAuthProvider` when the block is absent.
+        """
+        from node_wire_runtime.auth import (
+            NoAuthProvider,
+            OAuth2AuthProvider,
+            ServiceAccountAuthProvider,
+            StaticTokenAuthProvider,
+        )
+
+        auth_cfg = cfg.get("auth") or {}
+        provider_type = auth_cfg.get("provider", "none")
+
+        if provider_type in ("none", ""):
+            return NoAuthProvider()
+
+        if provider_type == "static_token":
+            return StaticTokenAuthProvider(
+                secret_provider=self._secret_provider,
+                secret_key=auth_cfg["secret_key"],
+                header_name=auth_cfg.get("header_name", "Authorization"),
+                prefix=auth_cfg.get("prefix", "Bearer"),
+                encoding=auth_cfg.get("encoding"),
+            )
+
+        if provider_type == "oauth2":
+            return OAuth2AuthProvider(
+                secret_provider=self._secret_provider,
+                grant_method=auth_cfg.get("grant_method", "private_key_jwt"),
+                token_url_secret=auth_cfg["token_url_secret"],
+                client_id_secret=auth_cfg["client_id_secret"],
+                algorithm=auth_cfg.get("algorithm", "RS384"),
+                private_key_secret=auth_cfg.get("private_key_secret"),
+                kid_secret=auth_cfg.get("kid_secret"),
+                client_secret_secret=auth_cfg.get("client_secret_secret"),
+                scopes=auth_cfg.get("scopes"),
+                scopes_secret=auth_cfg.get("scopes_secret"),
+                extra_content_type_headers=auth_cfg.get("extra_headers"),
+                buffer_secs=int(auth_cfg.get("buffer_secs", 60)),
+                jwt_ttl_secs=int(auth_cfg.get("jwt_ttl_secs", 300)),
+            )
+
+        if provider_type == "service_account":
+            return ServiceAccountAuthProvider(
+                secret_provider=self._secret_provider,
+                sa_json_secret=auth_cfg["sa_json_secret"],
+                scopes=auth_cfg.get("scopes"),
+            )
+
+        if provider_type == "static_credentials":
+            # SMTP-style: returns (username, password) tuple via get_client_credentials().
+            # We use a lightweight wrapper around StaticTokenAuthProvider pair.
+            username_secret = auth_cfg.get("username_secret", "SMTP_USERNAME")
+            password_secret = auth_cfg.get("password_secret", "SMTP_PASSWORD")
+            from node_wire_runtime.auth.base import AuthProvider
+
+            sp = self._secret_provider
+
+            class _SmtpCredentialsProvider(AuthProvider):  # type: ignore[misc]
+                async def get_headers(self) -> dict:
+                    return {}
+
+                async def get_client_credentials(self):  # type: ignore[override]
+                    return (sp.get_secret(username_secret), sp.get_secret(password_secret))
+
+            return _SmtpCredentialsProvider()
+
+        logger.warning(
+            "Unknown auth provider type %r for connector %r — defaulting to NoAuthProvider",
+            provider_type,
+            connector_id,
+        )
+        return NoAuthProvider()
+
+    def _instantiate(self, connector_id: str) -> "BaseConnector | None":
         connector_cls = _CONNECTOR_REGISTRY.get(connector_id)
         if connector_cls is not None:
-            return connector_cls(secret_provider=self._secret_provider)
+            cfg = self._configs[connector_id]
+            auth_provider = self._build_auth_provider(connector_id, cfg.raw)
+            return connector_cls(
+                secret_provider=self._secret_provider,
+                auth_provider=auth_provider,
+            )
 
         logger.warning(
             "Connector %r is enabled in config but not registered (filtered by NW_ALLOWED_CONNECTORS or not installed) — skipping",

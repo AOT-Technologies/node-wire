@@ -4,20 +4,43 @@
 #   export NW_CONFIG_PATH=/path/to/connectors.yaml
 #
 # SECURITY RULE: This file must never contain secrets.
-#   - Non-sensitive config (base_url, host, port, from_email) → here, safe to version-control
+#   - Non-sensitive config (base_url, host, port, from_email) → safe to version-control here
 #   - Secrets (client_id, private_key, api_key, password) → environment variables or a
 #     cloud secrets backend (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, GCP SM)
 #
-# Environment variable interpolation: ${VAR_NAME} is replaced at load time.
-# Defaults can be specified: ${VAR_NAME:default_value}
+# ----------------------------------------------------------------------------
+# auth: block reference
+# ----------------------------------------------------------------------------
+# Each connector optionally declares an auth: block that controls which
+# AuthProvider the runtime injects at startup. Supported provider types:
 #
-# Secret keys used by each connector (populate these in your secrets backend):
-#   fhir_epic:    epic_client_id, epic_private_key, epic_kid, epic_token_url, epic_fhir_base_url
-#   fhir_cerner:  cerner_client_id, cerner_private_key, cerner_kid, cerner_token_url,
-#                 cerner_fhir_base_url, cerner_scopes
-#   google_drive: GOOGLE_DRIVE_SA_JSON
-#   smtp:         SMTP_USERNAME, SMTP_PASSWORD
-#   stripe:       stripe_api_key
+#   provider: none              → NoAuthProvider (default — no auth headers)
+#   provider: static_token      → StaticTokenAuthProvider
+#     secret_key:   <env var holding the token>
+#     header_name:  Authorization          # optional, default: Authorization
+#     prefix:       Bearer                 # optional, default: Bearer; use "" for raw
+#     encoding:     base64                 # optional, for HTTP Basic auth
+#
+#   provider: oauth2            → OAuth2AuthProvider (token cached, Lock-protected)
+#     grant_method: private_key_jwt        # or client_secret_post
+#     token_url_secret:   <env var>        # token endpoint URL
+#     client_id_secret:   <env var>        # OAuth2 client_id
+#     algorithm:          RS384            # optional (private_key_jwt only)
+#     private_key_secret: <env var>        # PEM private key (private_key_jwt only)
+#     kid_secret:         <env var>        # JWT kid header (private_key_jwt only)
+#     client_secret_secret: <env var>      # client_secret (client_secret_post only)
+#     scopes_secret:      <env var>        # space-separated scope string (optional)
+#     scopes:             [...]            # static scope list (optional)
+#     buffer_secs:        60               # optional, expire buffer before expires_in
+#     jwt_ttl_secs:       300              # optional, JWT assertion lifetime
+#
+#   provider: service_account   → ServiceAccountAuthProvider (Google APIs)
+#     sa_json_secret: <env var holding service-account JSON or file path>
+#     scopes:         [...]                # optional, defaults to drive scope
+#
+#   provider: static_credentials → SMTP-style username+password pair
+#     username_secret: SMTP_USERNAME       # optional, defaults to SMTP_USERNAME
+#     password_secret: SMTP_PASSWORD       # optional, defaults to SMTP_PASSWORD
 
 connectors:
   fhir_epic:
@@ -25,19 +48,50 @@ connectors:
     exposed_via: [rest, grpc, mcp]
     # Non-sensitive endpoint config — safe in YAML
     base_url: "${EPIC_FHIR_BASE_URL:https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4}"
-    oauth_token_url: "${EPIC_TOKEN_URL:https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token}"
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: epic_token_url
+      client_id_secret: epic_client_id
+      private_key_secret: epic_private_key
+      kid_secret: epic_kid
+      algorithm: RS384
+      buffer_secs: 60
+      jwt_ttl_secs: 300
 
   fhir_cerner:
     enabled: false
     exposed_via: [rest, grpc, mcp]
     base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
-    oauth_token_url: "${CERNER_TOKEN_URL:https://authorization.cerner.com/tenants/your-tenant-id/protocols/oauth2/profiles/smart-v1/token}"
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: cerner_token_url
+      client_id_secret: cerner_client_id
+      private_key_secret: cerner_private_key
+      kid_secret: cerner_kid
+      algorithm: RS384
+      # Optional: override default scopes from a secret (space-separated)
+      scopes_secret: cerner_scopes
+      # Default scopes used when cerner_scopes secret is absent or empty:
+      scopes:
+        - system/Patient.read
+        - system/Encounter.read
+        - system/DocumentReference.read
+        - system/DocumentReference.write
+      buffer_secs: 60
+      jwt_ttl_secs: 300
 
   google_drive:
     enabled: false
     exposed_via: [rest, grpc, mcp]
     # Optional: restrict uploads to a specific folder (leave empty for root)
     folder_id: "${GDRIVE_FOLDER_ID:}"
+    auth:
+      provider: service_account
+      sa_json_secret: GOOGLE_DRIVE_SA_JSON
+      scopes:
+        - https://www.googleapis.com/auth/drive
 
   smtp:
     enabled: false
@@ -46,11 +100,22 @@ connectors:
     host: "smtp.example.com"
     port: 587
     from_email: "noreply@example.com"
+    auth:
+      provider: static_credentials
+      username_secret: SMTP_USERNAME
+      password_secret: SMTP_PASSWORD
 
   stripe:
     enabled: false
     exposed_via: [grpc, mcp]
+    auth:
+      provider: static_token
+      secret_key: stripe_api_key
+      header_name: Authorization
+      prefix: ""         # Stripe expects the raw key with no "Bearer" prefix
 
   http_generic:
     enabled: false
     exposed_via: [rest, grpc, mcp]
+    # auth: not set — defaults to NoAuthProvider
+

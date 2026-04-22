@@ -23,6 +23,7 @@ from opentelemetry.trace import Tracer
 from pybreaker import CircuitBreaker
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
+from .auth import AuthProvider, NoAuthProvider
 from .errors import ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
 from .policy import PolicyContext, PolicyHook, PolicyDenied
@@ -71,7 +72,7 @@ def _make_spec_handler(
     return _handler
 
 
-def _generate_methods_from_action_specs(cls: type) -> None:
+def _generate_methods_from_action_specs(cls: Any) -> None:
     """
     For each entry in cls.action_specs, generate an async @nw_action method and
     attach it to cls. Called at the top of BaseConnector.__init_subclass__ so the
@@ -279,12 +280,20 @@ class BaseConnector(ABC):
                 extra={"connector_id": cls.connector_id},
             )
 
-    def __init__(self, *, secret_provider: Optional[SecretProvider] = None, policy_hook: Optional[PolicyHook] = None) -> None:
+    def __init__(
+        self,
+        *,
+        secret_provider: Optional[SecretProvider] = None,
+        policy_hook: Optional[PolicyHook] = None,
+        auth_provider: Optional[AuthProvider] = None,
+    ) -> None:
         cls = type(self)
         self._input_model_cls = cls._union_input_model
         self._output_model_cls = cls.output_model
         self._secret_provider = secret_provider
         self._policy_hook = policy_hook
+        # Default to NoAuthProvider (null-object) so connectors never receive None.
+        self._auth_provider: AuthProvider = auth_provider if auth_provider is not None else NoAuthProvider()
         self._breaker = CircuitBreaker(
             fail_max=5,
             reset_timeout=30,
@@ -297,6 +306,28 @@ class BaseConnector(ABC):
         if self._secret_provider is None:
             raise RuntimeError("SecretProvider has not been configured for this connector.")
         return self._secret_provider
+
+    @property
+    def auth_provider(self) -> AuthProvider:
+        """The :class:`AuthProvider` configured for this connector.
+
+        Always returns a valid provider — defaults to :class:`NoAuthProvider`
+        when none was injected, so callers never need a ``None`` guard.
+        """
+        return self._auth_provider
+
+    async def get_auth_headers(self) -> Dict[str, str]:
+        """Return authentication headers from the configured :class:`AuthProvider`.
+
+        Connectors should call this instead of reading secrets directly::
+
+            headers = await self.get_auth_headers()
+            # merge with any connector-specific headers
+            headers.update({"Content-Type": "application/json"})
+
+        Returns an empty dict when the provider is :class:`NoAuthProvider`.
+        """
+        return await self._auth_provider.get_headers()
 
     async def run(
         self,
