@@ -20,7 +20,12 @@ class FilesCreateOperation(BaseDriveOperation):
 
 class FilesListOperation(BaseDriveOperation):
     action: Literal["files.list"]
-    page_size: int = Field(10, ge=1, le=100)
+    page_size: Optional[int] = Field(10, ge=1, le=100, description="Do not send null; omit if unsure.")
+
+    @field_validator("page_size", mode="before")
+    @classmethod
+    def _default_page_size(cls, v: Any) -> int:
+        return 10 if v is None else int(v)
     query: Optional[str] = Field(None, description="Search query string.")
     fields: Optional[str] = Field(
         None,
