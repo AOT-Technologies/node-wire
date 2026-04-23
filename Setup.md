@@ -84,7 +84,7 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 | **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
 | **SMTP**         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`                                                          | Sending emails         |
 | **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
-| **ToolHive**     | `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (comma-separated, multi-server)                                  | ToolHive MCP proxy     |
+| **ToolHive / MCP**| `TOOLHIVE_MCP_URLS` (multi-server), `NW_MCP_TRANSPORT`, `NW_MCP_PORT`               | AI agent / ToolHive    |
 
 
 See `sample.env` for the full list with example values.
@@ -100,7 +100,7 @@ The platform supports three modes. Set the `MODE` environment variable to switch
 | ---------------------- | --------------------------------- | ------------ | ----------------------------------- |
 | **REST API** (default) | `uv run node-wire`                | `8000`       | HTTP clients, Swagger UI, curl      |
 | **gRPC**               | `MODE=GRPC uv run node-wire`      | `50051`      | gRPC clients                        |
-| **MCP (stdio)**        | `python -m agents.mcp_entrypoint` | stdio        | AI agents, ToolHive, Claude Desktop |
+| **MCP**                | `python -m agents.mcp_entrypoint` | stdio / 8080 | AI agents, ToolHive, Claude Desktop |
 
 > **Important:** `MODE=MCP` for `node-wire` / `python -m bindings_entrypoint` starts a minimal MCP-style placeholder server, not the full stdio MCP server used with ToolHive and the agent layer. For ToolHive/Inspector/agents, use `python -m agents.mcp_entrypoint` (or the per-connector MCP servers in `docs/mcp-servers.md`).
 
@@ -298,7 +298,22 @@ Register your application in the [Cerner Developer Portal](https://code.cerner.c
 
 ---
 
-## MCP Server & ToolHive
+## MCP Transport Modes
+
+Node Wire supports two transport modes for AI agents. Switch between them using the `NW_MCP_TRANSPORT` environment variable:
+
+- **`stdio`** (Default): Communicates via standard I/O. Required for ToolHive and local CLI tools.
+- **`streamable-http`**: Native HTTP/SSE server. Exposes a direct endpoint on `NW_MCP_PORT`.
+
+**Example: Shift to HTTP mode on Port 8081**
+```powershell
+# Windows
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_PORT="8081"
+python -m agents.mcp_entrypoint
+```
+
+---
 
 The platform exposes connector tools for AI agents via the MCP (Model Context Protocol). There are two deployment modes:
 

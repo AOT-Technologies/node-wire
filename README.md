@@ -127,7 +127,10 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
 ### gRPC / MCP
 
 - **gRPC:** Started when `MODE=GRPC`; server listens on port 50051.
-- **MCP:** `MODE=MCP` starts a minimal MCP-style placeholder server (sufficient for local, manual inspection), but it is not the full stdio MCP server used for ToolHive and the agent layer.
+- **MCP:** `MODE=MCP` starts a minimal placeholder. For production agentic workflows, `python -m agents.mcp_entrypoint` supports:
+  - **stdio** (Default): Legacy transport for ToolHive/subprocesses.
+  - **streamable-http**: Native HTTP/SSE transport for first-class HTTP citizen integration.
+  (Configured via `NW_MCP_TRANSPORT` and `NW_MCP_PORT`).
 
 ### Entrypoint
 

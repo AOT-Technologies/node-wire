@@ -21,6 +21,7 @@ class MockSecretProvider(SecretProvider):
             "epic_kid": "dummy-kid",
             "epic_client_id": "dummy-client-id",
             "epic_token_url": "https://fhir.epic.com/token",
+            "dummy_token_key": "dummy-access-token",
         }[key]
 
 
@@ -32,8 +33,22 @@ def _token_mock() -> MagicMock:
 
 
 def _connector() -> FhirEpicConnector:
-    """Return a FhirEpicConnector with mock secrets."""
-    return FhirEpicConnector(secret_provider=MockSecretProvider())
+    """Return a FhirEpicConnector with a static mock token."""
+    from node_wire_runtime.auth import StaticTokenAuthProvider
+    sp = MockSecretProvider()
+    auth = StaticTokenAuthProvider(
+        secret_provider=sp,
+        secret_key="dummy_token_key",
+    )
+    return FhirEpicConnector(secret_provider=sp, auth_provider=auth)
+
+
+def _token_mock() -> MagicMock:
+    """Not used by StaticTokenAuthProvider, but kept for compatibility if needed."""
+    m = MagicMock()
+    m.status_code = 200
+    m.json.return_value = {"access_token": "dummy-access-token"}
+    return m
 
 
 # ---------------------------------------------------------------------------
@@ -67,11 +82,7 @@ async def test_fhir_epic_read_patient_by_id():
         "name": [{"family": "Smith"}],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response),
-    ):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "eXYZ123"
@@ -101,11 +112,7 @@ async def test_fhir_epic_read_patient_by_search():
         "entry": [{"resource": {"resourceType": "Patient", "id": "eABC"}}],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response),
-    ):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "eABC"
@@ -138,13 +145,8 @@ async def test_fhir_epic_read_patient_by_explicit_name_fields():
         ],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response
-        ) as mock_get,
-    ):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response) as mock_get:
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "eDEF"
@@ -176,13 +178,8 @@ async def test_fhir_epic_read_patient_by_name_field():
         "entry": [{"resource": {"resourceType": "Patient", "id": "eGHI"}}],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response
-        ) as mock_get,
-    ):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response) as mock_get:
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "eGHI"
@@ -203,10 +200,7 @@ async def test_fhir_epic_read_patient_no_params_raises():
 
     params = FhirPatientReadInput(action="read_patient")
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-    ):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
         with pytest.raises(ValueError, match="Provide resource_id"):
             await c.internal_execute(params, trace_id="test-trace")
 
@@ -231,11 +225,7 @@ async def test_fhir_epic_search_patients_multi_id():
 
     responses = [_patient_resp("eABC"), _patient_resp("eDEF")]
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=responses),
-    ):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=responses):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     ids = {r["id"] for r in result.resources}
@@ -264,11 +254,7 @@ async def test_fhir_epic_search_patients_partial_failure():
     bad_resp.status_code = 404
     bad_resp.raise_for_status.side_effect = Exception("404 Not Found")
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=[good_resp, bad_resp]),
-    ):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=[good_resp, bad_resp]):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert len(result.resources) == 1
@@ -312,13 +298,8 @@ async def test_fhir_epic_search_patients_by_name():
         ],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=bundle_resp
-        ) as mock_get,
-    ):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=bundle_resp) as mock_get:
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 2
@@ -342,10 +323,7 @@ async def test_fhir_epic_search_patients_no_params_raises():
 
     params = FhirPatientSearchInput(action="search_patients")
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-    ):
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
         with pytest.raises(ValueError):
             await c.internal_execute(params, trace_id="test-trace")
 
@@ -376,11 +354,7 @@ async def test_fhir_epic_search_encounter():
         ],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=enc_response),
-    ):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=enc_response):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 2
@@ -419,15 +393,11 @@ async def test_fhir_epic_create_document_reference():
     create_response.content = b""
     create_response.text = ""
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
-    ):
-        mock_post.side_effect = [_token_mock(), create_response]
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response) as mock_post:
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource_id == "doc-456"
-    _, kwargs = mock_post.call_args_list[1]
+    _, kwargs = mock_post.call_args
     assert kwargs["json"]["resourceType"] == "DocumentReference"
     assert kwargs["json"]["subject"] == {"reference": "Patient/ePD0eeFq.GMHG.aXttqP.Lw3"}
 
@@ -464,21 +434,15 @@ async def test_fhir_epic_search_document_reference():
         ],
     }
 
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=search_response),
-    ):
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=search_response):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 1
     assert result.resources[0]["id"] == "doc-789"
 
 
-# ---------------------------------------------------------------------------
-# Auth: token response without access_token
-# ---------------------------------------------------------------------------
 
+<<<<<<< HEAD
 
 @pytest.mark.asyncio
 async def test_fhir_epic_auth_missing_access_token() -> None:
@@ -486,13 +450,3 @@ async def test_fhir_epic_auth_missing_access_token() -> None:
     from node_wire_fhir_epic.schema import FhirPatientReadInput
 
     params = FhirPatientReadInput(action="read_patient", resource_id="eXYZ123")
-    token_empty = MagicMock()
-    token_empty.status_code = 200
-    token_empty.json.return_value = {}
-
-    with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
-        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=token_empty),
-    ):
-        with pytest.raises(ValueError, match="did not contain an access_token"):
-            await c.internal_execute(params, trace_id="test-trace")

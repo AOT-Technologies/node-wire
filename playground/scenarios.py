@@ -1358,7 +1358,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                         "Failed to list MCP tools" in run_result.error
                         or "not in request.tools" in run_result.error
                     )
-                ) or (run_result.success and not run_result.steps)
+                )
                 if proxy_incomplete:
                     logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
                     run_result = None
