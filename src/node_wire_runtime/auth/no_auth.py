@@ -8,6 +8,7 @@ Returns empty headers and ``None`` credentials. Acts as the safe default
 when no ``auth:`` block is present in ``connectors.yaml``, ensuring connectors
 never receive ``None`` and never need to guard against an unconfigured provider.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict

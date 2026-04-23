@@ -10,14 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
-
-load_dotenv()
-
+import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
-
-ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
-
 from node_wire_fhir_epic.logic import FhirEpicConnector
 from node_wire_fhir_epic.schema import (
     FhirDocumentReferenceCreateInput,
@@ -38,6 +33,12 @@ from node_wire_google_drive.schema import (
     FilesListOperation,
     FilesUpdateOperation,
 )
+
+load_dotenv()
+
+
+ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
+
 
 logger = logging.getLogger("playground.scenarios")
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -179,9 +180,6 @@ def _safe_error_return(
     return ScenarioResponse(success=False, steps=steps, trace_id=trace_id, error_message=step_msg)
 
 
-import asyncio
-
-
 async def execute_with_retry(
     action: Any,
     input_data: Any,
@@ -199,7 +197,7 @@ async def execute_with_retry(
             last_exception = e
             if attempt < max_retries:
                 logger.warning(
-                    f"Action failed (attempt {attempt+1}/{max_retries+1}): {e}. Retrying in {delay}s..."
+                    f"Action failed (attempt {attempt + 1}/{max_retries + 1}): {e}. Retrying in {delay}s..."
                 )
                 step.retries += 1
                 await asyncio.sleep(delay)

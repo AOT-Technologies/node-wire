@@ -16,6 +16,7 @@ provider instance. Because these secrets are long-lived and do not expire, no
 TTL or refresh mechanism is implemented — tear down and recreate the provider
 if the secret is rotated.
 """
+
 from __future__ import annotations
 
 import base64

@@ -154,7 +154,7 @@ class LLMProviderFactory:
         else:
             supported = ["groq", "openai", "gemini", "anthropic"]
             raise ValueError(
-                f"Unknown LLM provider {provider!r}. " f"Supported: {', '.join(supported)}"
+                f"Unknown LLM provider {provider!r}. Supported: {', '.join(supported)}"
             )
 
     @classmethod

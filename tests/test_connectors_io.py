@@ -94,14 +94,14 @@ def test_smtp_send_email_does_not_log_sender_address() -> None:
     for record in captured:
         # The full sender address must never appear anywhere in the serialised record.
         log_text = str(record.__dict__)
-        assert (
-            "sender@private.example.com" not in log_text
-        ), f"Sender PII leaked into log record: {log_text!r}"
+        assert "sender@private.example.com" not in log_text, (
+            f"Sender PII leaked into log record: {log_text!r}"
+        )
         # The domain-only hint MUST be present in at least the prepare record.
     domains = [r.__dict__.get("sender_domain") for r in captured if "sender_domain" in r.__dict__]
-    assert all(
-        d == "private.example.com" for d in domains
-    ), f"Unexpected sender_domain values: {domains}"
+    assert all(d == "private.example.com" for d in domains), (
+        f"Unexpected sender_domain values: {domains}"
+    )
 
 
 def test_http_generic_internal_execute() -> None:

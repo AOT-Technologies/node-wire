@@ -43,6 +43,7 @@ import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
+import re
 
 from dotenv import load_dotenv
 
@@ -53,8 +54,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agents.toolhive")
 
-
-import re
 
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _SMTP_EMAIL_FIELDS = {"from_email", "to", "cc", "bcc", "reply_to", "sender"}
