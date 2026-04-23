@@ -54,7 +54,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         payload: Any = {}
         if request.payload_json:
             try:
-            payload = json.loads(request.payload_json)
+                payload = json.loads(request.payload_json)
             except json.JSONDecodeError:
                 return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
                     success=False,
@@ -70,7 +70,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                 payload["action"] = request.action
             
             if payload.get("action"):
-            normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
+                normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
 
         response: ConnectorResponse = await connector.run(payload)
 
