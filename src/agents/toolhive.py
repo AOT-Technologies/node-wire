@@ -53,6 +53,37 @@ logging.basicConfig(
 logger = logging.getLogger("agents.toolhive")
 
 
+import re
+
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+_SMTP_EMAIL_FIELDS = {"from_email", "to", "cc", "bcc", "reply_to", "sender"}
+
+
+def _redact_tool_args_for_log(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return a copy of *args* safe for logging.
+
+    For SMTP tools only: replace any email address value with '[REDACTED]'
+    so that recipient and sender identifiers are never written to logs.
+    All other tool args pass through unchanged.
+    """
+    if not tool_name.startswith("smtp."):
+        return args
+
+    scrubbed: Dict[str, Any] = {}
+    for key, value in args.items():
+        if key in _SMTP_EMAIL_FIELDS:
+            if isinstance(value, list):
+                scrubbed[key] = ["[REDACTED]"] * len(value)
+            elif isinstance(value, str) and _EMAIL_RE.search(value):
+                scrubbed[key] = "[REDACTED]"
+            else:
+                scrubbed[key] = value
+        else:
+            scrubbed[key] = value
+    return scrubbed
+
+
 def truncate_tool_result_for_llm(text: str) -> str:
     """
     Cap tool output size sent to the LLM so providers with strict limits (e.g. Groq
@@ -494,7 +525,8 @@ class ToolHiveAgent:
 
             # Execute each tool call
             for tc in llm_resp.tool_calls:
-                logger.info("Calling tool: %s | args=%s", tc.name, tc.arguments)
+                scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
+                logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
                 agent_step = AgentStep(
                     step=step_num,
                     tool_called=tc.name,

@@ -31,7 +31,15 @@ class StripeConnector(BaseConnector):
 
     @nw_action("charge")
     async def charge(self, params: ChargeInput, *, trace_id: str) -> ChargeOutput:
-        api_key = self.secret_provider.get_secret("stripe_api_key")
+        # The factory injects a StaticTokenAuthProvider with the Stripe API key.
+        # We extract the raw key from the Authorization header value.
+        auth_headers = await self.get_auth_headers()
+        raw_auth = auth_headers.get("Authorization", "")
+        # Strip any prefix (e.g. "Bearer ") — Stripe expects the raw key.
+        api_key = raw_auth.split(" ", 1)[-1].strip() if raw_auth else ""
+        if not api_key:
+            # Backward-compatibility fallback: read directly from secret_provider.
+            api_key = self.secret_provider.get_secret("stripe_api_key")
 
         logger.info(
             "Creating Stripe charge",
@@ -65,7 +73,7 @@ class StripeConnector(BaseConnector):
                     "amount": params.amount,
                     "currency": params.currency,
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
