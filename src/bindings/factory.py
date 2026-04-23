@@ -10,6 +10,11 @@ import yaml
 
 from node_wire_runtime import BaseConnector, SecretProvider
 from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
+from node_wire_runtime.policy import PolicyHook
+from node_wire_runtime.policies.mcp_scope_policy import (
+    ScopePolicyHook,
+    load_scope_map_from_env,
+)
 from node_wire_runtime.secrets import ChainedSecretProvider, EnvSecretProvider
 
 logger = logging.getLogger("bindings.factory")
@@ -70,6 +75,13 @@ def _build_secret_provider() -> SecretProvider:
     )
 
 
+def _build_policy_hook() -> PolicyHook | None:
+    action_scope_map = load_scope_map_from_env()
+    if not action_scope_map:
+        return None
+    return ScopePolicyHook(action_scope_map)
+
+
 @dataclass
 class ConnectorConfig:
     id: str
@@ -86,6 +98,7 @@ class ConnectorFactory:
     def __init__(self, config_path: str | Path | None = None) -> None:
         self._config_path = _resolve_config_path(config_path)
         self._secret_provider: SecretProvider = _build_secret_provider()
+        self._policy_hook: PolicyHook | None = _build_policy_hook()
         self._connectors: Dict[str, Any] = {}
         self._configs: Dict[str, ConnectorConfig] = {}
 
@@ -207,6 +220,7 @@ class ConnectorFactory:
             return connector_cls(
                 secret_provider=self._secret_provider,
                 auth_provider=auth_provider,
+                policy_hook=self._policy_hook,
             )
 
         logger.warning(

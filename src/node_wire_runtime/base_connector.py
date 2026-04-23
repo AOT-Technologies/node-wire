@@ -33,6 +33,7 @@ from .sdk_action_spec import SdkActionSpec
 
 logger = logging.getLogger("runtime.base_connector")
 tracer: Tracer = trace.get_tracer("runtime")
+ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
 
 # Populated by BaseConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
@@ -334,6 +335,7 @@ class BaseConnector(ABC):
         raw_input: Dict[str, Any],
         principal: Optional[str] = None,
         tenant_id: Optional[str] = None,
+        scopes: Optional[tuple[str, ...]] = None,
     ) -> ConnectorResponse:
         """
         Public execution entrypoint.
@@ -395,12 +397,15 @@ class BaseConnector(ABC):
 
                 # Policy hook
                 if self._policy_hook is not None:
+                    input_payload = input_model.model_dump()
+                    policy_action = str(input_payload.get("action", self.action))
                     context = PolicyContext(
                         connector_id=self.connector_id,
-                        action=self.action,
-                        input_payload=input_model.model_dump(),
+                        action=policy_action,
+                        input_payload=input_payload,
                         principal=principal,
                         tenant_id=tenant_id,
+                        scopes=scopes,
                     )
                     try:
                         self._policy_hook.check(context)

@@ -344,7 +344,7 @@ async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"resource": {"id": "12724066"}}, trace_id="t")
 
@@ -371,7 +371,7 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"raw": {}}, trace_id="t")
 
@@ -520,7 +520,7 @@ async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"sent": True}, trace_id="t")
 
@@ -733,7 +733,7 @@ async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shap
     data_prop = schema["properties"]["data"]
     assert {"type": "null"} in data_prop["anyOf"]
 
-    async def fake_run(_raw_input):
+    async def fake_run(_raw_input, **_kwargs):
         return ConnectorResponse(
             success=False,
             data=None,
