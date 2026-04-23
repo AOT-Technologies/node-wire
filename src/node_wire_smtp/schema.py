@@ -19,18 +19,21 @@ def _extract_email(value: str) -> str:
 
 class SmtpSendInput(BaseModel):
     """
-    Send an email via SMTP. Only `to`, `subject`, and `body` are required —
-    connection settings (host, port, use_tls) and credentials (username, password)
-    are pre-configured on the server via environment variables and do NOT need to
-    be supplied by the caller.
+    Send an email via SMTP.
+
+    Only ``to``, ``subject``, and ``body`` are required — connection settings
+    (``host``, ``port``, ``use_tls``) fall back to server-side environment
+    variables when not supplied.
+
+    Credentials (username and password) are **not** part of this schema.
+    They are managed entirely by the :class:`AuthProvider` injected into the
+    connector by the factory, keeping secrets out of the request payload.
     """
 
     action: Literal["send_email"] = "send_email"
     host: str = ""
     port: int = 0
     use_tls: bool = True
-    username_secret_key: str = "SMTP_USERNAME"
-    password_secret_key: str = "SMTP_PASSWORD"
     from_email: Optional[EmailStr] = None
     to: Union[str, List[EmailStr]]
     subject: str
@@ -51,10 +54,6 @@ class SmtpSendInput(BaseModel):
             values["use_tls"] = (
                 os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
             )
-        if not values.get("username_secret_key"):
-            values["username_secret_key"] = "SMTP_USERNAME"
-        if not values.get("password_secret_key"):
-            values["password_secret_key"] = "SMTP_PASSWORD"
 
         if "from" in values and not values.get("from_email"):
             values["from_email"] = values.pop("from")
