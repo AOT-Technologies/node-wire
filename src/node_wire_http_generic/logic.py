@@ -80,6 +80,7 @@ class HttpGenericConnector(BaseConnector):
                     "method": params.method,
                     "url": safe_url,
                     "error_type": type(exc).__name__,
+                    "error_message": str(exc),
                 },
             )
             raise
