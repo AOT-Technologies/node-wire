@@ -225,7 +225,10 @@ class ToolHiveMcpClient:
             resp = await client.post(
                 self._base_url,
                 json=init_payload,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/event-stream",
+                },
             )
             resp.raise_for_status()
             session_id = resp.headers.get("Mcp-Session-Id")
@@ -237,7 +240,10 @@ class ToolHiveMcpClient:
 
             # Send the initialized notification (fire-and-forget; no id = notification)
             notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            headers: Dict[str, str] = {
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+            }
             if self._session_id:
                 headers["Mcp-Session-Id"] = self._session_id
             try:
@@ -261,7 +267,10 @@ class ToolHiveMcpClient:
         if params:
             payload["params"] = params
 
-        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        headers: Dict[str, str] = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
 

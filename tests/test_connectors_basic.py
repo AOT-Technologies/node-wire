@@ -19,7 +19,8 @@ class DummySecretProvider(SecretProvider):
         return self._store[key]
 
 
-def test_auto_register_runs_without_error():
+def test_auto_register_runs_without_error(monkeypatch):
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "fhir_cerner,fhir_epic,google_drive,smtp,stripe,http_generic")
     imported = auto_register()
     assert any("http_generic.registration" in name for name in imported)
     assert any("google_drive.logic" in name for name in imported)

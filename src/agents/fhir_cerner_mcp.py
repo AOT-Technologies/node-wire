@@ -16,11 +16,14 @@ logger = logging.getLogger("agents.fhir_cerner_mcp")
 def main() -> None:
     from bindings.mcp_server.server import McpServer
 
-    logger.info("Starting nw-smartonfhir-cerner MCP server (stdio, manifest-driven)")
+    transport = os.getenv("NW_MCP_TRANSPORT", "stdio").strip().lower()
+    logger.info(
+        f"Starting nw-smartonfhir-cerner MCP server (transport={transport}, manifest-driven)"
+    )
     McpServer(
         server_name="nw-smartonfhir-cerner",
         connector_ids=["fhir_cerner"],
-    ).run_stdio()
+    ).run(transport=transport)
 
 
 if __name__ == "__main__":

@@ -64,6 +64,53 @@ The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connect
 
 ---
 
+## Shifting between transport modes
+
+Node Wire now supports two ways to expose tools to AI agents. By default, it uses `stdio`, but you can easily shift to the native `streamable-http` mode for web-native deployments.
+
+### Comparison: stdio vs. streamable-http
+
+| Feature | stdio (Default) | streamable-http |
+|---|---|---|
+| **Best For** | ToolHive, Claude Desktop, local CLI tools | Direct web integration, persistent servers |
+| **Connectivity** | Standard Input/Output | HTTP POST (messages) + SSE (stream) |
+| **Port Management** | Not applicable | Requires an open port (default: 8080) |
+| **Reliability** | Process-bound | Robust ASGI/Starlette server |
+
+### How to configure and shift modes
+
+You can switch modes and ports instantly using environment variables. No code changes are required.
+
+#### 1. Running in stdio mode (Default)
+No extra variables are needed. This is the mode expected by the `stdio` transport in ToolHive.
+```bash
+python -m agents.mcp_entrypoint
+```
+
+#### 2. Shifting to native HTTP mode (Port 8081)
+To run as a standalone HTTP server on port 8081:
+
+**PowerShell (Windows):**
+```powershell
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_PORT="8081"
+python -m agents.mcp_entrypoint
+```
+
+**Bash (Linux/macOS):**
+```bash
+export NW_MCP_TRANSPORT="streamable-http"
+export NW_MCP_PORT="8081"
+python -m agents.mcp_entrypoint
+```
+
+### Protocol-level requirements
+When running in `streamable-http` mode, clients must comply with the strict MCP Streamable-HTTP specification:
+- **Headers**: Clients must send `Accept: application/json, text/event-stream` on all requests.
+- **Handshake**: The server will respond with a `Mcp-Session-Id` header which must be forwarded in all subsequent messages for that session.
+
+---
+
 ## Environment configuration
 
 Copy `sample.env` to `.env` and fill in the sections for the servers you plan to run. Each server only reads the env vars from its own section — you do not need to configure all connectors.

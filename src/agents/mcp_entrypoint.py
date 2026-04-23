@@ -16,8 +16,9 @@ logger = logging.getLogger("agents.mcp_entrypoint")
 def main() -> None:
     from bindings.mcp_server.server import McpServer
 
-    logger.info("Starting Node Wire MCP server (stdio, manifest-driven)")
-    McpServer(server_name="node-wire").run_stdio()
+    transport = os.getenv("NW_MCP_TRANSPORT", "stdio").strip().lower()
+    logger.info(f"Starting Node Wire MCP server (transport={transport}, manifest-driven)")
+    McpServer(server_name="node-wire").run(transport=transport)
 
 
 if __name__ == "__main__":

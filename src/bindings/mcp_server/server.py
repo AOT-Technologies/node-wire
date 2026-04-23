@@ -146,9 +146,8 @@ class McpServer:
         )
         return response.model_dump()
 
-    async def _run_stdio_async(self) -> None:
+    def _setup_lowlevel_server(self) -> Any:
         from mcp.server import NotificationOptions, Server as LowLevelServer
-        from mcp.server.stdio import stdio_server
         from mcp.types import Tool
 
         low = LowLevelServer(self._server_name)
@@ -223,6 +222,14 @@ class McpServer:
                 )
             return await self.invoke_tool(tool_name, arguments or {}, identity=identity)
 
+        return low
+
+    async def _run_stdio_async(self) -> None:
+        from mcp.server.stdio import stdio_server
+        from mcp.server import NotificationOptions
+
+        low = self._setup_lowlevel_server()
+
         async with stdio_server() as (read_stream, write_stream):
             await low.run(
                 read_stream,
@@ -236,6 +243,65 @@ class McpServer:
         import anyio
 
         anyio.run(self._run_stdio_async)
+
+    async def _run_streamable_http_async(self) -> None:
+        import os
+        from starlette.applications import Starlette
+        from starlette.routing import Mount, Route
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        import uvicorn
+        from contextlib import asynccontextmanager
+
+        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("NW_MCP_PORT", "8081"))
+        path = os.getenv("NW_MCP_PATH", "/mcp")
+
+        low = self._setup_lowlevel_server()
+        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+
+        @asynccontextmanager
+        async def lifespan(app: Starlette):
+            async with session_manager.run():
+                yield
+
+        # Use a wrapper class to ensure Starlette treats this as an ASGI app
+        # without the automatic redirection logic of Mount().
+        class _ASGIApp:
+            def __init__(self, handler):
+                self.handler = handler
+
+            async def __call__(self, scope, receive, send):
+                await self.handler(scope, receive, send)
+
+        starlette_app = Starlette(
+            lifespan=lifespan,
+            routes=[
+                Route(
+                    path,
+                    endpoint=_ASGIApp(session_manager.handle_request),
+                    methods=["GET", "POST"],
+                )
+            ],
+        )
+
+        logger.info(f"Starting MCP streamable-http server on {host}:{port}{path}")
+        config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+        server = uvicorn.Server(config)
+        await server.serve()
+
+    def run_streamable_http(self) -> None:
+        import anyio
+
+        anyio.run(self._run_streamable_http_async)
+
+    def run(self, transport: str = "stdio") -> None:
+        transport = transport.strip().lower()
+        if transport == "stdio":
+            self.run_stdio()
+        elif transport == "streamable-http":
+            self.run_streamable_http()
+        else:
+            raise ValueError(f"Unsupported MCP transport: {transport}")
 
 
 if __name__ == "__main__":

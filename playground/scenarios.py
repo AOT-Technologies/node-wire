@@ -1226,11 +1226,10 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                 # (b) agent "succeeded" but called zero tools (LLM gave up because
                 #     only a subset of tools was discoverable via the proxy)
                 proxy_incomplete = (
-                    (not run_result.success and run_result.error and (
+                    not run_result.success and run_result.error and (
                         "Failed to list MCP tools" in run_result.error
                         or "not in request.tools" in run_result.error
-                    ))
-                    or (run_result.success and not run_result.steps)
+                    )
                 )
                 if proxy_incomplete:
                     logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")

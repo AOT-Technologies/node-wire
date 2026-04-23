@@ -13,7 +13,7 @@ def test_mcp_entrypoint_main_calls_run_stdio() -> None:
 
         mcp_entrypoint.main()
         MockServer.assert_called_once_with(server_name="node-wire")
-        MockServer.return_value.run_stdio.assert_called_once()
+        MockServer.return_value.run.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -29,7 +29,7 @@ def test_per_connector_mcp_main_calls_run_stdio(module_path: str) -> None:
     with patch("bindings.mcp_server.server.McpServer") as MockServer:
         mod = __import__(module_path, fromlist=["main"])
         mod.main()
-        MockServer.return_value.run_stdio.assert_called_once()
+        MockServer.return_value.run.assert_called_once()
 
 
 def test_bindings_entrypoint_api_mode_default(monkeypatch: pytest.MonkeyPatch) -> None:
