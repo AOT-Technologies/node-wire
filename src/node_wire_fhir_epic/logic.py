@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import codecs
-import json
 import logging
 import os
 import uuid
@@ -11,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import jwt
+import json
 
 from node_wire_runtime import BaseConnector, nw_action, sdk_action
 from node_wire_runtime.fhir_encounter import assert_encounter_query_has_patient
@@ -96,7 +95,7 @@ class FhirEpicConnector(BaseConnector):
         return FhirEpicOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
-    # Shared authentication helpers
+    # Shared helpers — base URL + auth headers via AuthProvider
     # ------------------------------------------------------------------
 
     def _get_base_url(self) -> str:
@@ -155,9 +154,12 @@ class FhirEpicConnector(BaseConnector):
         access_token = token_data.get("access_token")
         if not access_token:
             raise ValueError("Epic token response did not contain an access_token")
+        """Delegate to the runtime AuthProvider injected by the factory.
 
-        headers["Authorization"] = f"Bearer {access_token}"
-        return headers
+        Returns ready-to-use FHIR request headers including the Bearer token.
+        Token acquisition and caching are handled by the provider.
+        """
+        return await self.get_auth_headers()
 
     @staticmethod
     def _build_name_search_params(

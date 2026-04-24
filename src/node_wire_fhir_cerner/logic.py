@@ -102,48 +102,27 @@ class FhirCernerConnector(BaseConnector):
         return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
-    # Shared authentication helpers
+    # Shared helpers — base URL + auth headers via AuthProvider
     # ------------------------------------------------------------------
 
     def _get_base_url(self) -> str:
         return self._secret_provider.get_secret("cerner_fhir_base_url").rstrip("/")
 
     async def _get_auth_header(self) -> Dict[str, str]:
-        """
-        Obtain an access token via Cerner's SMART Backend Services (private_key_jwt)
-        and return ready-to-use request headers.
+        """Delegate to the runtime AuthProvider injected by the factory.
 
-        Algorithm: RS384. Token lifetime: 5 minutes.
-        Reference: https://code-console.cerner.com/
+        Returns ready-to-use FHIR request headers including the Bearer token.
+        Token acquisition, JWT construction, scope resolution and caching are
+        all handled by the provider — no duplication with fhir_epic.
         """
-        headers = {
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        }
-
-        private_key_str = self._secret_provider.get_secret("cerner_private_key")
-        kid = self._secret_provider.get_secret("cerner_kid")
-        client_id = self._secret_provider.get_secret("cerner_client_id")
+        # Cerner-specific safety check: if a token URL contains '/hosts/', 
+        # it is often a malformed sandbox URL that will return 401.
         token_url = self._secret_provider.get_secret("cerner_token_url")
-
-        # Validate required secrets are present and non-empty.
-        missing = [name for name, val in [
-            ("cerner_private_key", private_key_str),
-            ("cerner_kid", kid),
-            ("cerner_client_id", client_id),
-            ("cerner_token_url", token_url),
-        ] if not (val or "").strip()]
-        if missing:
-            raise ValueError(f"Missing or empty required Cerner secrets: {', '.join(missing)}")
-
-        # Guard against the malformed URL pattern that embeds the FHIR host inside the auth URL.
-        # Correct: .../tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token
-        # Wrong:   .../tenants/{tenant}/hosts/fhir-ehr-code.cerner.com/protocols/...
         if "/hosts/" in token_url:
             raise ValueError(
-                "cerner_token_url appears malformed — it contains a '/hosts/' segment which is not "
-                "valid for the Cerner authorization server. "
-                "Correct format: https://authorization.cerner.com/tenants/{tenant_id}/protocols/oauth2/profiles/smart-v1/token"
+                "Cerner token_url must not contain '/hosts/' (found in secret). "
+                "Ensure you are using the 'smart-v1/token' endpoint, e.g. "
+                "https://authorization.cerner.com/tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token"
             )
 
         try:

@@ -1,39 +1,75 @@
-# Connector enable/list — see docs/connectors.md
+# connectors.yaml — Node Wire connector configuration
 #
 # REST API auth (not stored here; set in environment):
 #   NW_REST_API_KEY — required for /connectors, /playground, /scenarios unless NW_REST_AUTH_DISABLED=true
-#   NW_REST_LOAD_DOTENV=false — recommended in production (no .env file)
 #
-# Plugin allowlist (optional):
-#   NW_ALLOWED_CONNECTORS=fhir_epic,http_generic,...
-#   NW_CONNECTOR_MODULE_PREFIX=node_wire_
-#
-# Secrets backend (optional):
-#   NW_SECRET_BACKEND=env | aws_env
-#   NW_AWS_SECRETS_MANAGER_SECRET_ID=...  (when aws_env)
+# SECURITY RULE: This file must never contain secrets.
+#   - Non-sensitive config (base_url, host, port) → safe in YAML
+#   - Secrets (client_id, private_key, api_key) → environment variables (or cloud backend)
 #
 connectors:
   http_generic:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
+    # auth: not set — defaults to NoAuthProvider
+
   smtp:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
+    host: "smtp.example.com"
+    port: 587
+    from_email: "noreply@example.com"
+    auth:
+      provider: static_credentials
+      username_secret: SMTP_USERNAME
+      password_secret: SMTP_PASSWORD
+
   stripe:
     enabled: true
     exposed_via: ["grpc", "mcp"]
+    auth:
+      provider: static_token
+      secret_key: stripe_api_key
+      header_name: Authorization
+      prefix: ""         # Stripe expects raw key
+
   google_drive:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: service_account
+      sa_json_secret: GOOGLE_DRIVE_SA_JSON
+      scopes:
+        - https://www.googleapis.com/auth/drive
+
   fhir_epic:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
     base_url: "${EPIC_FHIR_BASE_URL:https://fhir.epic.sandbox/api/FHIR/R4}"
-    oauth_token_url: "${EPIC_TOKEN_URL:https://fhir.epic.sandbox/api/FHIR/R4/oauth/token}"
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: EPIC_TOKEN_URL
+      client_id_secret: EPIC_CLIENT_ID
+      private_key_secret: EPIC_PRIVATE_KEY
+      kid_secret: EPIC_KID
+      algorithm: RS384
+
   fhir_cerner:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
     base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
-    oauth_token_url: "${CERNER_TOKEN_URL:https://authorization.cerner.com/tenants/your-tenant-id/protocols/oauth2/profiles/smart-v1/token}"
-    scopes: "${CERNER_SCOPES:system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write}"
-
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: CERNER_TOKEN_URL
+      client_id_secret: CERNER_CLIENT_ID
+      private_key_secret: CERNER_PRIVATE_KEY
+      kid_secret: CERNER_KID
+      algorithm: RS384
+      scopes_secret: CERNER_SCOPES
+      scopes:
+        - system/Patient.read
+        - system/Encounter.read
+        - system/DocumentReference.read
+        - system/DocumentReference.write

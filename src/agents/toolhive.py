@@ -53,6 +53,37 @@ logging.basicConfig(
 logger = logging.getLogger("agents.toolhive")
 
 
+import re
+
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+_SMTP_EMAIL_FIELDS = {"from_email", "to", "cc", "bcc", "reply_to", "sender"}
+
+
+def _redact_tool_args_for_log(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return a copy of *args* safe for logging.
+
+    For SMTP tools only: replace any email address value with '[REDACTED]'
+    so that recipient and sender identifiers are never written to logs.
+    All other tool args pass through unchanged.
+    """
+    if not tool_name.startswith("smtp."):
+        return args
+
+    scrubbed: Dict[str, Any] = {}
+    for key, value in args.items():
+        if key in _SMTP_EMAIL_FIELDS:
+            if isinstance(value, list):
+                scrubbed[key] = ["[REDACTED]"] * len(value)
+            elif isinstance(value, str) and _EMAIL_RE.search(value):
+                scrubbed[key] = "[REDACTED]"
+            else:
+                scrubbed[key] = value
+        else:
+            scrubbed[key] = value
+    return scrubbed
+
+
 def truncate_tool_result_for_llm(text: str) -> str:
     """
     Cap tool output size sent to the LLM so providers with strict limits (e.g. Groq
@@ -194,7 +225,10 @@ class ToolHiveMcpClient:
             resp = await client.post(
                 self._base_url,
                 json=init_payload,
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/event-stream",
+                },
             )
             resp.raise_for_status()
             session_id = resp.headers.get("Mcp-Session-Id")
@@ -206,7 +240,10 @@ class ToolHiveMcpClient:
 
             # Send the initialized notification (fire-and-forget; no id = notification)
             notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            headers: Dict[str, str] = {
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+            }
             if self._session_id:
                 headers["Mcp-Session-Id"] = self._session_id
             try:
@@ -230,7 +267,10 @@ class ToolHiveMcpClient:
         if params:
             payload["params"] = params
 
-        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        headers: Dict[str, str] = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
 
@@ -494,7 +534,8 @@ class ToolHiveAgent:
 
             # Execute each tool call
             for tc in llm_resp.tool_calls:
-                logger.info("Calling tool: %s | args=%s", tc.name, tc.arguments)
+                scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
+                logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
                 agent_step = AgentStep(
                     step=step_num,
                     tool_called=tc.name,
