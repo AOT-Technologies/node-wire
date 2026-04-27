@@ -60,7 +60,10 @@ class StripeConnector(BaseConnector):
                 amount=params.amount,
                 currency=params.currency,
                 source=params.source,
+                customer=params.customer_id,
                 description=params.description,
+                metadata=params.metadata,
+                idempotency_key=params.idempotency_key or trace_id,
             )
 
         try:
@@ -111,6 +114,7 @@ class StripeConnector(BaseConnector):
                 confirm=params.confirm,
                 description=params.description,
                 metadata=params.metadata,
+                idempotency_key=params.idempotency_key or trace_id,
             )
 
         try:
@@ -173,6 +177,7 @@ class StripeConnector(BaseConnector):
                 payment_behavior=params.payment_behavior,
                 default_payment_method=payment_method_id,
                 metadata=params.metadata,
+                idempotency_key=params.idempotency_key or trace_id,
             )
 
         try:
@@ -231,11 +236,13 @@ class StripeConnector(BaseConnector):
                     params.subscription_id,
                     api_key=api_key,
                     cancel_at_period_end=True,
+                    idempotency_key=params.idempotency_key or trace_id,
                 )
             else:
                 return stripe.Subscription.cancel(
                     params.subscription_id,
                     api_key=api_key,
+                    idempotency_key=params.idempotency_key or trace_id,
                 )
 
         try:
@@ -281,6 +288,7 @@ class StripeConnector(BaseConnector):
                 amount=params.amount,
                 reason=params.reason,
                 metadata=params.metadata,
+                idempotency_key=params.idempotency_key or trace_id,
             )
 
         try:
