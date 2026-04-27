@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import codecs
 import logging
 import os
 import uuid
@@ -154,12 +155,9 @@ class FhirEpicConnector(BaseConnector):
         access_token = token_data.get("access_token")
         if not access_token:
             raise ValueError("Epic token response did not contain an access_token")
-        """Delegate to the runtime AuthProvider injected by the factory.
 
-        Returns ready-to-use FHIR request headers including the Bearer token.
-        Token acquisition and caching are handled by the provider.
-        """
-        return await self.get_auth_headers()
+        headers["Authorization"] = f"Bearer {access_token}"
+        return headers
 
     @staticmethod
     def _build_name_search_params(

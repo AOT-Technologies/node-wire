@@ -301,6 +301,7 @@ class BaseConnector(ABC):
             reset_timeout=30,
             name=f"{cls.__name__}_breaker",
         )
+        self._breakers: Dict[str, CircuitBreaker] = {}
         self._client: Any = None
 
     @property
@@ -435,16 +436,21 @@ class BaseConnector(ABC):
                         )
 
                 tenant_key = tenant_id or "default"
-                if tenant_key not in self._breakers:
+                breaker_cache = getattr(self, "_breakers", None)
+                if breaker_cache is None:
+                    breaker_cache = {}
+                    self._breakers = breaker_cache
+
+                if tenant_key not in breaker_cache:
                     fail_max = int(os.environ.get("AOT_CIRCUIT_BREAKER_FAIL_MAX", "5"))
                     reset_timeout = int(os.environ.get("AOT_CIRCUIT_BREAKER_RESET_TIMEOUT", "30"))
-                    self._breakers[tenant_key] = CircuitBreaker(
+                    breaker_cache[tenant_key] = CircuitBreaker(
                         fail_max=fail_max,
                         reset_timeout=reset_timeout,
                         name=f"{self.connector_id}_breaker_{tenant_key}",
                     )
                 
-                breaker = self._breakers[tenant_key]
+                breaker = breaker_cache[tenant_key]
                 execute_with_resilience = with_resilience(breaker)
 
                 @execute_with_resilience

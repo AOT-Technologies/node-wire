@@ -115,6 +115,10 @@ class FhirCernerConnector(BaseConnector):
         Token acquisition, JWT construction, scope resolution and caching are
         all handled by the provider — no duplication with fhir_epic.
         """
+        headers = {
+            "Content-Type": "application/fhir+json",
+            "Accept": "application/fhir+json",
+        }
         # Cerner-specific safety check: if a token URL contains '/hosts/', 
         # it is often a malformed sandbox URL that will return 401.
         token_url = self._secret_provider.get_secret("cerner_token_url")
@@ -132,6 +136,10 @@ class FhirCernerConnector(BaseConnector):
 
         if not scopes:
             scopes = "system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write"
+
+        private_key_str = self._secret_provider.get_secret("cerner_private_key")
+        kid = self._secret_provider.get_secret("cerner_kid")
+        client_id = self._secret_provider.get_secret("cerner_client_id")
 
         logger.debug("Cerner token request | token_url=%s | scopes=%r | client_id=%s", token_url, scopes, client_id)
 
