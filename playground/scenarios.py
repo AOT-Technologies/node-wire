@@ -1202,7 +1202,13 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
         else:
             task = payload.message
 
-        # Determine MCP transport — try proxy first, fallback to local stdio
+        # Determine MCP transport — try proxy first, optionally fallback to local stdio.
+        # Default behavior surfaces proxy/auth errors directly in the UI so demos can
+        # show MCP failures (instead of silently falling back to stdio).
+        fallback_to_stdio = (
+            (os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").strip().lower())
+            in {"1", "true", "yes", "on"}
+        )
         urls = resolve_mcp_urls()
         run_result = None
 
@@ -1232,11 +1238,30 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     )
                 )
                 if proxy_incomplete:
-                    logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
-                    run_result = None
+                    if fallback_to_stdio:
+                        logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
+                        run_result = None
+                    else:
+                        logger.warning(
+                            "Agent Chat | proxy incomplete, returning proxy error to UI "
+                            "(set PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO=true to fallback)"
+                        )
             except Exception as proxy_err:
-                logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)
-                run_result = None
+                if fallback_to_stdio:
+                    logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)
+                    run_result = None
+                else:
+                    logger.warning(
+                        "Agent Chat | proxy error: %s — returning error to UI "
+                        "(set PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO=true to fallback)",
+                        proxy_err,
+                    )
+                    return AgentChatResponse(
+                        reply=f"MCP proxy error: {proxy_err}",
+                        steps=[],
+                        trace_id=trace_id,
+                        success=False,
+                    )
 
         if run_result is None:
             # Use local stdio transport
