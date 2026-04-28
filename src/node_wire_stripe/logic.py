@@ -173,7 +173,7 @@ class StripeConnector(BaseConnector):
             return stripe.Subscription.create(
                 api_key=api_key,
                 customer=params.customer_id,
-                items=[{"price": params.price_id}],
+                items=[{"price": params.price_id}] if params.price_id else None,
                 payment_behavior=params.payment_behavior,
                 default_payment_method=payment_method_id,
                 metadata=params.metadata,
