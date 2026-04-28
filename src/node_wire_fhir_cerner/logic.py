@@ -161,6 +161,8 @@ class FhirCernerConnector(BaseConnector):
             private_key_pem = private_key_str.replace("\\n", "\n")
         else:
             private_key_pem = private_key_str
+        if not private_key_pem.strip().startswith("-----BEGIN"):
+            raise ValueError("Cerner private key must be a valid PEM format starting with -----BEGIN")
 
         now = int(datetime.now(tz=timezone.utc).timestamp())
         jwt_token = jwt.encode(
@@ -193,8 +195,8 @@ class FhirCernerConnector(BaseConnector):
             )
             if token_response.status_code != 200:
                 logger.error(
-                    "OAuth token exchange failed | status=%s | body=%s",
-                    token_response.status_code, token_response.text,
+                    "OAuth token exchange failed | status=%s",
+                    token_response.status_code,
                 )
                 token_response.raise_for_status()
             token_data = token_response.json()
@@ -611,8 +613,8 @@ class FhirCernerConnector(BaseConnector):
                 error_detail = raw_body
 
             logger.error(
-                "FHIR DocumentReference create failed | status=%s | cerner_error=%s | raw_body=%s | sent_payload=%s",
-                exc.response.status_code, error_detail, raw_body, json.dumps(doc_ref),
+                "FHIR DocumentReference create failed | status=%s | cerner_error=%s",
+                exc.response.status_code, error_detail,
                 extra={"trace_id": trace_id},
             )
             raise ValueError(f"Cerner Error: {error_detail}") from exc
