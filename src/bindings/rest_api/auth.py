@@ -32,10 +32,12 @@ def _is_public_path(path: str) -> bool:
 
 def _extract_bearer_or_api_key(request: Request) -> str | None:
     auth = request.headers.get("authorization")
-    if auth and auth.lower().startswith("bearer "):
-        return auth[7:].strip()
+    if auth:
+        auth_val = auth.strip()
+        if auth_val.lower().startswith("bearer "):
+            return auth_val[7:].strip()
     x = request.headers.get("x-api-key")
-    if x:
+    if x and x.strip():
         return x.strip()
     return None
 
