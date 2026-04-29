@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire
 
 This repository implements **Node Wire**: a three-layer Python platform that runs connector adapters over REST, gRPC, or MCP. Each connector talks to an external system (e.g. Google Drive, SMTP, Stripe); the runtime provides a consistent execution contract, error handling, and resilience. This is a POC—intended to validate the architecture and be understandable for developers new to the codebase.
@@ -206,3 +212,29 @@ All dependencies are declared in `pyproject.toml` (Python >=3.11). They include:
 - Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
+
+## Copyright Headers & Compliance
+
+This repository enforces open-source licensing compliance using [REUSE](https://reuse.software/). All first-party source files must contain the appropriate SPDX copyright and license headers.
+
+### Testing Compliance
+
+To verify that all files have the correct headers, run the `reuse` lint tool:
+
+```bash
+uv pip install reuse
+uv run reuse lint
+```
+
+### Adding Missing Headers
+
+If `reuse lint` reports missing headers on new files, you can automatically add them by running:
+
+```bash
+bash scripts/add-license-headers.sh
+```
+
+## License
+
+This project is licensed under the Apache License 2.0.
+See the LICENSE file for details.

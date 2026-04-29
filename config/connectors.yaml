@@ -1,3 +1,8 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # Connector enable/list — see docs/connectors.md
 #
 # REST API auth (not stored here; set in environment):

@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Shared pytest configuration.
 
 REST API tests default to ``NW_REST_AUTH_DISABLED=true`` so existing tests do not need

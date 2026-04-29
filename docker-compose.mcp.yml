@@ -1,3 +1,7 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
 services:
   nw-google-drive:
     image: nw-google-drive:latest

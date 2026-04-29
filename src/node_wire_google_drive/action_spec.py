@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Google Drive action specs: mapping from validated Pydantic inputs to Drive API v3 calls.
 

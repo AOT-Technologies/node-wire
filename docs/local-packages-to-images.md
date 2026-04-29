@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Local package -> Docker image workflow
 
 This guide walks through building Node Wire packages locally (as wheels) and using those wheels to build the Docker images in `docker/`.

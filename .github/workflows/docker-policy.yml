@@ -1,3 +1,8 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # Enforce baseline container hygiene: digest-pinned base image and non-root USER.
 name: Docker policy
 

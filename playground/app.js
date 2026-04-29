@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 AOT Technologies
+//
+// SPDX-License-Identifier: Apache-2.0
+
 document.addEventListener('DOMContentLoaded', () => {
     const escapeHTML = (str) => {
         if (str == null) return '';
