@@ -201,13 +201,13 @@ class StripeConnector(BaseConnector):
         latest_invoice_id = getattr(sub, "latest_invoice", None)
         
         if pending_setup_intent:
-            si = stripe.SetupIntent.retrieve(pending_setup_intent, api_key=api_key)
+            si = await asyncio.to_thread(stripe.SetupIntent.retrieve, pending_setup_intent, api_key=api_key)
             client_secret = getattr(si, "client_secret", None)
         elif latest_invoice_id:
-            inv = stripe.Invoice.retrieve(latest_invoice_id, api_key=api_key)
+            inv = await asyncio.to_thread(stripe.Invoice.retrieve, latest_invoice_id, api_key=api_key)
             pi_id = getattr(inv, "payment_intent", None)
             if pi_id:
-                pi = stripe.PaymentIntent.retrieve(pi_id, api_key=api_key)
+                pi = await asyncio.to_thread(stripe.PaymentIntent.retrieve, pi_id, api_key=api_key)
                 client_secret = getattr(pi, "client_secret", None)
 
         return StripeOperationOutput(
