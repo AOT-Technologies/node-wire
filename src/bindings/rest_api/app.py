@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 
 # Production: set NW_REST_LOAD_DOTENV=false to rely on injected env only (no .env file).
 if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
-    load_dotenv()
+    # Override inherited shell env so local .env edits are honored consistently.
+    load_dotenv(override=True)
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
