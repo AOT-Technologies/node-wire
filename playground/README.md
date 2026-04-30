@@ -62,8 +62,61 @@ This scenario demonstrates the platform's highest level of abstraction: an auton
     1.  **Autonomous Reasoning**: The agent parses user intent (e.g., "Get Nancy Smart's record and email it to her") using a Large Language Model (LLM).
     2.  **Dynamic Tool Selection**: Automatically selects and sequences tools from the **Node Wire MCP Server**, including Cerner FHIR, Google Drive, and SMTP.
     3.  **Guardrailed Execution**: Follows strict healthcare-specific guardrails, asking for missing patient IDs or confirmation before performing sensitive actions.
-    4.  **Real-time Interaction**: Provides a chat interface with live step-by-step visibility into the agent's thought process and tool execution.
+    4.  **Transport-aware Interaction**: Shows the active MCP transport in the chat panel and adjusts rendering behavior to match it.
 *   **Implementation**: Leverages the `agents` module, providing a unified interface for LLMs to interact with any connector in the platform via a standard MCP bridge.
+
+#### MCP transport behavior in the playground
+
+The Agentic Workflow panel displays the active transport as a pill:
+
+- `Transport: stdio`: the browser calls `/scenarios/agent-chat`. The UI shows the loader while the backend agent completes, then renders tool cards and the final response together.
+- `Transport: Streamable HTTP`: the browser calls `/scenarios/agent-chat-stream`. Tool cards appear as each MCP tool finishes, and the final answer is appended progressively as streamed chunks arrive.
+
+Set the mode before starting the REST API:
+
+```powershell
+# Buffered stdio mode
+$env:NW_MCP_TRANSPORT="stdio"
+python -m uv run node-wire
+```
+
+```powershell
+# Streamable HTTP mode
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
+python -m uv run node-wire
+```
+
+After changing `NW_MCP_TRANSPORT`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
+
+#### Testing the MCP server with Inspector
+
+Use MCP Inspector to validate tools outside the playground:
+
+```powershell
+npx @modelcontextprotocol/inspector
+```
+
+For stdio inspection:
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+```
+
+For streamable HTTP inspection, start the MCP server first:
+
+```powershell
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
+python -m agents.mcp_entrypoint
+```
+
+Then open Inspector, select `Streamable HTTP`, connect to `http://127.0.0.1:8081/mcp`, run `List Tools`, and call a safe tool with valid JSON arguments.
 
 ---
 
@@ -111,7 +164,7 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 1.  **Select Provider**: Set `LLM_PROVIDER` to `groq` (default) or `openai` in your `.env`.
 2.  **Add API Key**: Provide the corresponding key, e.g., `GROQ_API_KEY=your_key_here`.
 3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
-4.  **MCP URL**: (Optional) If running the MCP server in a separate container, set `TOOLHIVE_MCP_URL` to point to the MCP proxy.
+4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
 
 ---
 
@@ -122,10 +175,7 @@ To enable the AI Agent chat, you need to configure an LLM provider:
     
 ```bash
 # Recommended
-uv run node-wire
-
-# Equivalent (no uv)
-MODE=API python -m bindings_entrypoint
+python -m uv run node-wire
 ```
 
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).

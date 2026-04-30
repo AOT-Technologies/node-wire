@@ -28,6 +28,25 @@ def test_health_endpoint():
     assert resp.json() == {"status": "ok"}
 
 
+def test_agent_transport_defaults_to_stdio(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("NW_MCP_TRANSPORT", raising=False)
+    client = TestClient(app)
+    resp = client.get("/scenarios/agent-transport")
+    assert resp.status_code == 200
+    assert resp.json() == {"transport": "stdio", "label": "stdio"}
+
+
+def test_agent_transport_reports_streamable_http(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MCP_TRANSPORT", "streamable-http")
+    client = TestClient(app)
+    resp = client.get("/scenarios/agent-transport")
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "transport": "streamable-http",
+        "label": "Streamable HTTP",
+    }
+
+
 def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)

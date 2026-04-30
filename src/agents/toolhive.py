@@ -41,7 +41,7 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol
 
 from dotenv import load_dotenv
 
@@ -153,6 +153,25 @@ def _tool_failure_abort_message(tool_name: str, max_failures: int) -> str:
         "Please check the parameters against the schema from tools/list, "
         "or tell me if I should use a different tool or approach."
     )
+
+
+def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
+    """Split final assistant text into UI-friendly chunks."""
+    if not text:
+        return [""]
+
+    chunks: List[str] = []
+    current = ""
+    for part in text.split(" "):
+        candidate = f"{current} {part}".strip()
+        if current and len(candidate) > chunk_size:
+            chunks.append(current + " ")
+            current = part
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +607,112 @@ class ToolHiveAgent:
             logger.warning(result.error)
 
         return result
+
+    async def run_events(self, task: str) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Stream agent progress events as the ReAct loop runs.
+
+        The LLM providers currently return complete assistant messages, so final
+        answer chunks begin after the final LLM call completes. Tool-step events
+        are emitted immediately after each MCP tool call completes.
+        """
+        trace_id = str(uuid.uuid4())
+        logger.info("Streaming agent run started | trace_id=%s", trace_id)
+        logger.info("Task: %s", task)
+
+        from agents.llm_factory import LLMMessage
+
+        yield {"type": "meta", "trace_id": trace_id}
+
+        try:
+            tools = await self._mcp.list_tools()
+            logger.info("Discovered %d MCP tools", len(tools))
+            yield {"type": "status", "message": f"Discovered {len(tools)} MCP tools"}
+        except Exception as exc:
+            error = f"Failed to list MCP tools: {exc}"
+            logger.error(error)
+            yield {"type": "error", "trace_id": trace_id, "message": error}
+            yield {"type": "done", "trace_id": trace_id, "success": False}
+            return
+
+        messages: List[LLMMessage] = [
+            LLMMessage(role="system", content=self._system_prompt),
+            LLMMessage(role="user", content=task),
+        ]
+        tool_failures: Dict[str, int] = {}
+
+        for step_num in range(1, self._max_steps + 1):
+            logger.info("Streaming agent step %d / %d", step_num, self._max_steps)
+            yield {"type": "status", "message": f"Agent reasoning step {step_num}"}
+
+            try:
+                llm_resp = self._llm.chat_with_tools(messages, tools)
+            except Exception as exc:
+                error = f"LLM error at step {step_num}: {exc}"
+                logger.error(error)
+                yield {"type": "error", "trace_id": trace_id, "message": error}
+                yield {"type": "done", "trace_id": trace_id, "success": False}
+                return
+
+            messages.append(LLMMessage(
+                role="assistant",
+                content=llm_resp.content,
+                tool_calls=llm_resp.tool_calls,
+            ))
+
+            if not llm_resp.wants_tool_call:
+                final_answer = llm_resp.content or ""
+                for chunk in _chunk_agent_text(final_answer):
+                    yield {"type": "final_chunk", "content": chunk}
+                yield {"type": "done", "trace_id": trace_id, "success": True}
+                return
+
+            abort_message: Optional[str] = None
+            for tc in llm_resp.tool_calls:
+                scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
+                logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
+
+                try:
+                    tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
+                    logger.info("Tool %s returned: %.200s", tc.name, tool_result_str)
+                except Exception as exc:
+                    tool_result_str = f"ERROR: {exc}"
+                    logger.error("Tool %s failed: %s", tc.name, exc)
+
+                yield {
+                    "type": "step",
+                    "step": step_num,
+                    "tool": tc.name,
+                    "args": tc.arguments,
+                    "result": tool_result_str,
+                }
+
+                llm_tool_content = truncate_tool_result_for_llm(tool_result_str)
+                messages.append(LLMMessage(
+                    role="tool",
+                    content=llm_tool_content,
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                ))
+
+                if _is_tool_failure(tool_result_str):
+                    tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
+                    if tool_failures[tc.name] >= self._max_tool_failures:
+                        abort_message = _tool_failure_abort_message(tc.name, self._max_tool_failures)
+                        logger.warning("Stopping streaming agent: %s", abort_message)
+                        break
+
+            if abort_message:
+                for chunk in _chunk_agent_text(abort_message):
+                    yield {"type": "final_chunk", "content": chunk}
+                yield {"type": "done", "trace_id": trace_id, "success": False}
+                return
+
+        error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
+        logger.warning(error)
+        for chunk in _chunk_agent_text(error):
+            yield {"type": "final_chunk", "content": chunk}
+        yield {"type": "done", "trace_id": trace_id, "success": False}
 
 
 # ---------------------------------------------------------------------------

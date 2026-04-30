@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
@@ -1105,6 +1107,15 @@ class AgentChatResponse(BaseModel):
     success: bool
 
 
+@router.get("/agent-transport")
+async def agent_transport() -> Dict[str, str]:
+    transport = _current_agent_transport()
+    return {
+        "transport": transport,
+        "label": "Streamable HTTP" if transport == "streamable-http" else "stdio",
+    }
+
+
 AGENT_GUARDRAIL_PROMPT = (
     "You are a healthcare data assistant. You have access to tools for fetching "
     "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
@@ -1146,6 +1157,27 @@ AGENT_GUARDRAIL_PROMPT = (
 )
 
 
+def _build_agent_chat_task(payload: AgentChatInput) -> str:
+    history_text_parts = []
+    for msg in payload.history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        history_text_parts.append(f"{role.upper()}: {content}")
+
+    if history_text_parts:
+        return (
+            "Previous conversation:\n"
+            + "\n".join(history_text_parts)
+            + f"\n\nUSER (latest): {payload.message}"
+        )
+    return payload.message
+
+
+def _current_agent_transport() -> str:
+    transport = os.environ.get("NW_MCP_TRANSPORT", "stdio").strip().lower() or "stdio"
+    return transport if transport in {"stdio", "streamable-http"} else "stdio"
+
+
 
 
 @router.post("/agent-chat", response_model=AgentChatResponse)
@@ -1185,25 +1217,11 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
         logger.info("Agent Chat | creating LLM provider: %s", provider_name)
         llm_provider = LLMProviderFactory.create_from_env()
 
-        # Build the task from the conversation history + current message
-        # The agent will see the full context
-        history_text_parts = []
-        for msg in payload.history:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            history_text_parts.append(f"{role.upper()}: {content}")
-
-        if history_text_parts:
-            task = (
-                "Previous conversation:\n"
-                + "\n".join(history_text_parts)
-                + f"\n\nUSER (latest): {payload.message}"
-            )
-        else:
-            task = payload.message
+        task = _build_agent_chat_task(payload)
 
         # Determine MCP transport — try proxy first, fallback to local stdio
-        urls = resolve_mcp_urls()
+        transport = _current_agent_transport()
+        urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
 
         if urls:
@@ -1278,3 +1296,88 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             trace_id=trace_id,
             success=False,
         )
+
+
+@router.post("/agent-chat-stream")
+async def agent_chat_stream(payload: AgentChatInput) -> Any:
+    """
+    Stream agent progress and final answer chunks to the playground UI.
+
+    Tool steps are emitted as each tool finishes. The final assistant answer is
+    emitted as chunks instead of waiting for the browser to receive one large
+    buffered JSON payload.
+    """
+
+    async def stream_events():
+        try:
+            import sys
+
+            from agents.llm_factory import LLMProviderFactory
+            from agents.toolhive import (
+                MultiMcpClient,
+                StdioMcpClient,
+                ToolHiveAgent,
+                ToolHiveMcpClient,
+                resolve_mcp_urls,
+                resolve_max_tool_failures,
+            )
+
+            if not payload.message.strip():
+                yield json.dumps({
+                    "type": "final_chunk",
+                    "content": "Please type a message to get started.",
+                }) + "\n"
+                yield json.dumps({
+                    "type": "done",
+                    "trace_id": str(uuid.uuid4()),
+                    "success": False,
+                }) + "\n"
+                return
+
+            llm_provider = LLMProviderFactory.create_from_env()
+            task = _build_agent_chat_task(payload)
+            transport = _current_agent_transport()
+            urls = resolve_mcp_urls() if transport == "streamable-http" else []
+
+            if urls:
+                if len(urls) == 1:
+                    mcp_client = ToolHiveMcpClient(urls[0])
+                else:
+                    mcp_client = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
+                agent = ToolHiveAgent(
+                    mcp_client,
+                    llm_provider,
+                    max_steps=10,
+                    max_tool_failures=resolve_max_tool_failures(None),
+                )
+                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                async for event in agent.run_events(task):
+                    yield json.dumps(event) + "\n"
+                return
+
+            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
+            async with StdioMcpClient(cmd) as mcp_client:
+                agent = ToolHiveAgent(
+                    mcp_client,
+                    llm_provider,
+                    max_steps=10,
+                    max_tool_failures=resolve_max_tool_failures(None),
+                )
+                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                async for event in agent.run_events(task):
+                    yield json.dumps(event) + "\n"
+
+        except Exception as exc:
+            logger.error("Agent Chat stream failed: %s", exc, exc_info=True)
+            trace_id = str(uuid.uuid4())
+            yield json.dumps({
+                "type": "final_chunk",
+                "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
+            }) + "\n"
+            yield json.dumps({
+                "type": "done",
+                "trace_id": trace_id,
+                "success": False,
+            }) + "\n"
+
+    return StreamingResponse(stream_events(), media_type="application/x-ndjson")
