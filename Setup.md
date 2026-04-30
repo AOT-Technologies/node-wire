@@ -43,7 +43,7 @@ cd <repository-directory>   # the folder git creates (rename if you like)
 uv sync --extra agents
 
 # 3. Verify the install
-uv run node-wire --help
+python -m uv run node-wire --help
 ```
 
 > **Install uv:** See the official installer docs at `https://docs.astral.sh/uv/`.
@@ -98,8 +98,8 @@ The platform supports three modes. Set the `MODE` environment variable to switch
 
 | Mode                   | Command                           | Default Port | Use Case                            |
 | ---------------------- | --------------------------------- | ------------ | ----------------------------------- |
-| **REST API** (default) | `uv run node-wire`                | `8000`       | HTTP clients, Swagger UI, curl      |
-| **gRPC**               | `MODE=GRPC uv run node-wire`      | `50051`      | gRPC clients                        |
+| **REST API** (default) | `python -m uv run node-wire`                | `8000`       | HTTP clients, Swagger UI, curl      |
+| **gRPC**               | `MODE=GRPC python -m uv run node-wire`      | `50051`      | gRPC clients                        |
 | **MCP**                | `python -m agents.mcp_entrypoint` | stdio / 8080 | AI agents, ToolHive, Claude Desktop |
 
 > **Important:** `MODE=MCP` for `node-wire` / `python -m bindings_entrypoint` starts a minimal MCP-style placeholder server, not the full stdio MCP server used with ToolHive and the agent layer. For ToolHive/Inspector/agents, use `python -m agents.mcp_entrypoint` (or the per-connector MCP servers in `docs/mcp-servers.md`).
@@ -123,19 +123,13 @@ For details on adding a new connector to the runtime, see [docs/connectors.md](d
 export NW_REST_AUTH_DISABLED=true
 
 # Default port 8000
-uv run node-wire
+python -m uv run node-wire
 
 # If port 8000 is in use, override with PORT
-PORT=8001 uv run node-wire
+PORT=8001 python -m uv run node-wire
 ```
 
 **Production / secured REST:** set `NW_REST_API_KEY` and send `Authorization: Bearer <key>` or `X-API-Key: <key>` on every route except `GET /health`. Set `NW_REST_LOAD_DOTENV=false` so secrets are not loaded from a `.env` file. See [docs/connectors.md](docs/connectors.md) (Security section).
-
-Equivalent entrypoint (without `uv`):
-
-```bash
-MODE=API python -m bindings_entrypoint
-```
 
 Once running:
 
@@ -302,16 +296,69 @@ Register your application in the [Cerner Developer Portal](https://code.cerner.c
 
 Node Wire supports two transport modes for AI agents. Switch between them using the `NW_MCP_TRANSPORT` environment variable:
 
-- **`stdio`** (Default): Communicates via standard I/O. Required for ToolHive and local CLI tools.
-- **`streamable-http`**: Native HTTP/SSE server. Exposes a direct endpoint on `NW_MCP_PORT`.
+- **`stdio`** (Default): Communicates via standard I/O. Best for local development, subprocess-based clients, and ToolHive-style wrapping. The playground uses buffered agent responses in this mode.
+- **`streamable-http`**: Native HTTP MCP server. Exposes a direct endpoint on `NW_MCP_HOST`, `NW_MCP_PORT`, and `NW_MCP_PATH`. The playground streams tool progress and final answer chunks in this mode.
+
+**Example: stdio mode**
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+python -m agents.mcp_entrypoint
+```
 
 **Example: Shift to HTTP mode on Port 8081**
 ```powershell
 # Windows
 $env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
 python -m agents.mcp_entrypoint
 ```
+
+The HTTP MCP endpoint is then:
+
+```text
+http://127.0.0.1:8081/mcp
+```
+
+When the REST playground is running, the Agentic Workflow panel displays the active transport by reading `/scenarios/agent-transport`:
+
+- `Transport: stdio`: the UI waits for the complete backend agent result.
+- `Transport: Streamable HTTP`: tool cards appear as tools finish, and the final answer renders progressively as chunks arrive.
+
+### Testing with MCP Inspector
+
+MCP Inspector can be launched with `npx`:
+
+```powershell
+npx @modelcontextprotocol/inspector
+```
+
+For stdio testing, let Inspector launch the server:
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+```
+
+For streamable HTTP testing, start the server first:
+
+```powershell
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
+python -m agents.mcp_entrypoint
+```
+
+Then run Inspector:
+
+```powershell
+npx @modelcontextprotocol/inspector
+```
+
+In Inspector, choose `Streamable HTTP`, enter `http://127.0.0.1:8081/mcp`, connect, then use `Tools -> List Tools` and run a safe tool call with valid JSON arguments.
 
 ---
 
@@ -374,6 +421,8 @@ npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
 npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
 ```
 
+For native streamable HTTP testing, use the `streamable-http` setup above and connect Inspector to `http://127.0.0.1:8081/mcp`.
+
 ### Troubleshooting quick hits
 
 - **Port 8000 in use**: set `PORT=8001` (or any free port) when starting the REST API.
@@ -409,7 +458,7 @@ The repository includes an interactive web playground that showcases 5 orchestra
 
 ```bash
 # Start the REST API (if not already running)
-uv run node-wire
+python -m uv run node-wire
 
 # Open in your browser
 open http://localhost:8000/playground/

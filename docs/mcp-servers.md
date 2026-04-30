@@ -8,6 +8,8 @@ This document covers everything needed to build, run, configure, and integrate t
 
 - [Architecture](#architecture)
 - [Naming conventions](#naming-conventions)
+- [Shifting between transport modes](#shifting-between-transport-modes)
+- [Testing with MCP Inspector](#testing-with-mcp-inspector)
 - [Environment configuration](#environment-configuration)
 - [Build images](#build-images)
 - [Run with docker-compose](#run-with-docker-compose)
@@ -72,19 +74,27 @@ Node Wire now supports two ways to expose tools to AI agents. By default, it use
 
 | Feature | stdio (Default) | streamable-http |
 |---|---|---|
-| **Best For** | ToolHive, Claude Desktop, local CLI tools | Direct web integration, persistent servers |
-| **Connectivity** | Standard Input/Output | HTTP POST (messages) + SSE (stream) |
-| **Port Management** | Not applicable | Requires an open port (default: 8080) |
-| **Reliability** | Process-bound | Robust ASGI/Starlette server |
+| **Best For** | ToolHive, local development, subprocess-based clients | Direct web integration, persistent servers, remote MCP clients |
+| **Connectivity** | Standard input/output | HTTP POST plus server streaming support |
+| **Port Management** | Not applicable | Requires an open port (default: 8081) |
+| **Playground behavior** | Buffered agent response after the backend finishes | Tool steps appear as they complete; final answer streams into the UI |
 
 ### How to configure and shift modes
 
 You can switch modes and ports instantly using environment variables. No code changes are required.
 
 #### 1. Running in stdio mode (Default)
-No extra variables are needed. This is the mode expected by the `stdio` transport in ToolHive.
+No extra variables are needed. This is the mode expected by local stdio clients and ToolHive-style stdio wrapping.
+
 ```bash
 python -m agents.mcp_entrypoint
+```
+
+PowerShell:
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+python -m uv run node-wire
 ```
 
 #### 2. Shifting to native HTTP mode (Port 8081)
@@ -93,21 +103,108 @@ To run as a standalone HTTP server on port 8081:
 **PowerShell (Windows):**
 ```powershell
 $env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
-python -m agents.mcp_entrypoint
+$env:NW_MCP_PATH="/mcp"
+python -m uv run node-wire
 ```
 
 **Bash (Linux/macOS):**
 ```bash
 export NW_MCP_TRANSPORT="streamable-http"
+export NW_MCP_HOST="127.0.0.1"
 export NW_MCP_PORT="8081"
-python -m agents.mcp_entrypoint
+export NW_MCP_PATH="/mcp"
+python -m uv run node-wire
+```
+
+The native HTTP endpoint will be:
+
+```text
+http://127.0.0.1:8081/mcp
 ```
 
 ### Protocol-level requirements
 When running in `streamable-http` mode, clients must comply with the strict MCP Streamable-HTTP specification:
 - **Headers**: Clients must send `Accept: application/json, text/event-stream` on all requests.
 - **Handshake**: The server will respond with a `Mcp-Session-Id` header which must be forwarded in all subsequent messages for that session.
+
+### Playground transport indicator
+
+The browser playground reads `/scenarios/agent-transport` and displays the current mode in the Agentic Workflow panel:
+
+- `Transport: stdio`: chat uses the buffered `/scenarios/agent-chat` endpoint. Tool cards and the final answer appear after the backend agent run completes.
+- `Transport: Streamable HTTP`: chat uses `/scenarios/agent-chat-stream`. Tool cards appear as each MCP tool finishes, and the final answer is appended to the assistant bubble as streamed chunks.
+
+If you switch `NW_MCP_TRANSPORT`, restart the API server and hard refresh the browser so the latest `app.js` is loaded.
+
+---
+
+## Testing with MCP Inspector
+
+MCP Inspector is the official browser-based developer tool for testing and debugging MCP servers. It runs with `npx` and opens a local UI, usually at `http://localhost:6274`.
+
+### Inspect stdio mode
+
+Use stdio mode when you want Inspector to launch the Python MCP server process itself:
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+```
+
+Per-connector examples:
+
+```powershell
+npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
+npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
+npx @modelcontextprotocol/inspector python -m agents.fhir_cerner_mcp
+npx @modelcontextprotocol/inspector python -m agents.smtp_mcp
+```
+
+In the Inspector UI:
+
+1. Select `stdio` transport if it is not already selected.
+2. Click `Connect`.
+3. Open the `Tools` tab.
+4. Click `List Tools`.
+5. Pick a safe tool and run it with valid JSON arguments.
+
+### Inspect streamable-http mode
+
+Start the MCP server first:
+
+```powershell
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
+python -m agents.mcp_entrypoint
+```
+
+Then start Inspector in another terminal:
+
+```powershell
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector UI:
+
+1. Set transport type to `Streamable HTTP`.
+2. Set URL to `http://127.0.0.1:8081/mcp`.
+3. Click `Connect`.
+4. Open `Tools`.
+5. Click `List Tools`.
+6. Run a tool call with valid arguments.
+
+For reusable client config, a streamable HTTP server entry should look like:
+
+```json
+{
+  "type": "streamable-http",
+  "url": "http://127.0.0.1:8081/mcp"
+}
+```
 
 ---
 
