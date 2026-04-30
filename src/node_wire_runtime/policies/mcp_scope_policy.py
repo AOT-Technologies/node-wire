@@ -20,6 +20,19 @@ class ScopePolicyHook(PolicyHook):
     def check(self, context: PolicyContext) -> None:
         action_key = f"{context.connector_id}.{context.action}"
         required = self._map.get(action_key)
+        scopes = tuple(context.scopes or ())
+        # Defer transport-specific authz until caller identity is propagated.
+        # This prevents non-identity paths (e.g. current gRPC) from being
+        # denied solely because MCP scope map is configured.
+        if required and not context.principal and not scopes:
+            logger.info(
+                "Scope policy bypassed due to missing caller identity",
+                extra={
+                    "action_key": action_key,
+                    "required_scope": required,
+                },
+            )
+            return
         logger.info(
             "Scope policy evaluating action",
             extra={
@@ -27,13 +40,13 @@ class ScopePolicyHook(PolicyHook):
                 "required_scope": required or "",
                 "principal": context.principal or "",
                 "tenant_id": context.tenant_id or "",
-                "scopes": list(context.scopes or ()),
+                "scopes": list(scopes),
             },
         )
         if not required:
             return
-        scopes = set(context.scopes or ())
-        if required in scopes or "*" in scopes:
+        scope_set = set(scopes)
+        if required in scope_set or "*" in scope_set:
             return
         raise PolicyDenied(f"Missing required scope: {required}")
 

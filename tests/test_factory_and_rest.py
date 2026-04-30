@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -87,6 +88,69 @@ def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.Mo
         app.dependency_overrides.clear()
 
     assert r.status_code == 200
+
+
+def test_rest_post_propagates_api_key_identity_to_connector_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={}, trace_id="t-p")
+    )
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        client.post(
+            "/connectors/http_generic/request",
+            json={"method": "GET", "url": "https://example.com"},
+            headers={"Authorization": "Bearer unit-test-secret"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    stub = mock_factory.get_for_protocol.return_value
+    kwargs = stub.run.await_args.kwargs
+    assert kwargs["principal"] == "api-key-user"
+    assert kwargs["tenant_id"] is None
+    assert kwargs["scopes"] == ("*",)
+
+
+def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    secret = "rest-jwt-test-secret-at-least-32bytes!!"
+    monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
+
+    tok = jwt.encode(
+        {"sub": "alice", "tenant_id": "t-1", "scopes": ["mcp:test.scope"]},
+        secret,
+        algorithm="HS256",
+    )
+
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={}, trace_id="t-j")
+    )
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        client.post(
+            "/connectors/http_generic/request",
+            json={"method": "GET", "url": "https://example.com"},
+            headers={"Authorization": f"Bearer {tok}"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    stub = mock_factory.get_for_protocol.return_value
+    kw = stub.run.await_args.kwargs
+    assert kw["principal"] == "alice"
+    assert kw["tenant_id"] == "t-1"
+    assert kw["scopes"] == ("mcp:test.scope",)
 
 
 def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:

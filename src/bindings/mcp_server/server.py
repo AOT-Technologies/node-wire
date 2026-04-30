@@ -6,11 +6,8 @@ import uuid
 from typing import Any, Dict, List, Mapping, Optional
 
 from bindings.factory import ConnectorFactory
-from bindings.mcp_server.auth import (
-    McpAuthError,
-    McpIdentity,
-    authenticate_mcp_request,
-)
+from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
+from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
@@ -54,7 +51,7 @@ class McpServer:
             _pkg_ver,
         )
 
-    def list_tools(self, *, identity: McpIdentity | None = None) -> List[Dict[str, Any]]:
+    def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
         self._ensure_identity(identity=identity)
         return self._list_tools_impl()
 
@@ -87,9 +84,9 @@ class McpServer:
     def _ensure_identity(
         self,
         *,
-        identity: McpIdentity | None,
+        identity: CallerIdentity | None,
         meta: Mapping[str, Any] | None = None,
-    ) -> McpIdentity | None:
+    ) -> CallerIdentity | None:
         if identity is not None:
             return identity
         return authenticate_mcp_request(meta=meta)
@@ -117,7 +114,7 @@ class McpServer:
         name: str,
         arguments: Dict[str, Any],
         *,
-        identity: McpIdentity | None = None,
+        identity: CallerIdentity | None = None,
     ) -> Dict[str, Any]:
         identity = self._ensure_identity(identity=identity)
         try:
