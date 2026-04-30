@@ -1269,6 +1269,77 @@ textarea:focus {
     margin-top: 0.5rem;
 }
 
+.transport-status-bar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin: -0.75rem 0 1rem;
+    padding: 0.7rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+}
+
+.transport-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--brand-accent);
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.5rem 0.85rem;
+    font-weight: 700;
+    font-size: 0.78rem;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.transport-status-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+}
+
+.streaming-bubble p {
+    white-space: pre-wrap;
+}
+
+.stream-tail-loader {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.stream-end-message {
+    align-self: flex-start;
+    max-width: 85%;
+    font-family: monospace;
+    font-size: 0.68rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.45rem;
+    border: 1px solid rgba(59, 130, 246, 0.12);
+    background: rgba(59, 130, 246, 0.06);
+    color: var(--text-muted);
+}
+
+.stream-end-message.success {
+    border-color: rgba(16, 185, 129, 0.18);
+    background: rgba(16, 185, 129, 0.08);
+    color: #047857;
+}
+
+.stream-end-message.error {
+    border-color: rgba(244, 63, 94, 0.18);
+    background: rgba(244, 63, 94, 0.08);
+    color: var(--error);
+}
+
 /* Final Responsive Overrides */
 @media (max-width: 1100px) {
     .playground-layout {
