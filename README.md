@@ -234,6 +234,25 @@ If `reuse lint` reports missing headers on new files, you can automatically add 
 bash scripts/add-license-headers.sh
 ```
 
+## Dependency Inventory & Compliance
+
+To maintain an open-source compliant ecosystem, we track all third-party dependencies and their licenses.
+
+### License Classification Criteria
+Dependencies are strictly evaluated against the following criteria:
+* **✅ Safe (Permissive):** MIT, Apache-2.0, BSD, PSF. Universally safe for our Apache 2.0 release.
+* **⚠️ Needs Review:** Custom or obscure licenses require manual review to ensure no conflicting obligations.
+* **⛔ Risky (Copyleft):** GPLv2, GPLv3, AGPL. Strictly prohibited in the runtime application. Permitted *only* as isolated, non-distributed Development/Linting tools.
+
+### Updating the Dependency Inventory
+When a new package is added to the project, you must update the `DEPENDENCIES.md` file.
+
+To automatically generate and update the dependency inventory table, run:
+```bash
+bash scripts/generate-dependency-inventory.sh
+```
+This script will scan the environment and regenerate `DEPENDENCIES.md` with the latest license information.
+
 ## License
 
 This project is licensed under the Apache License 2.0.
