@@ -3,13 +3,15 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
-# Generates DEPENDENCIES.md using pip-licenses
+# Runs security, dependency, and open-source compliance checks.
 
 set -e
 
 cd "$(dirname "$0")/.."
 
-echo "Generating DEPENDENCIES.md..."
+echo "====================================="
+echo "1. Generating DEPENDENCIES.md..."
+echo "====================================="
 
 cat << 'EOF' > DEPENDENCIES.md
 # Node Wire Open Source Dependencies
@@ -27,5 +29,20 @@ To maintain open-source compliance, dependencies are evaluated against the follo
 EOF
 
 uv run pip-licenses --format=markdown --with-urls >> DEPENDENCIES.md
-
 echo "DEPENDENCIES.md generated successfully!"
+
+echo ""
+echo "====================================="
+echo "2. Running Bandit (SAST Scanner)..."
+echo "====================================="
+# We allow medium/low severity but want to output findings.
+uv run bandit -r src/ packages/ playground/ tests/ -ll || true
+
+echo ""
+echo "====================================="
+echo "3. Running pip-audit (Vulnerability Scanner)..."
+echo "====================================="
+uv run pip-audit || true
+
+echo ""
+echo "Compliance checks finished!"

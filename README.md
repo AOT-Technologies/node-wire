@@ -244,14 +244,18 @@ Dependencies are strictly evaluated against the following criteria:
 * **⚠️ Needs Review:** Custom or obscure licenses require manual review to ensure no conflicting obligations.
 * **⛔ Risky (Copyleft):** GPLv2, GPLv3, AGPL. Strictly prohibited in the runtime application. Permitted *only* as isolated, non-distributed Development/Linting tools.
 
-### Updating the Dependency Inventory
-When a new package is added to the project, you must update the `DEPENDENCIES.md` file.
+### Updating the Dependency Inventory & Security Checks
+When a new package is added to the project, or before creating a release, you must run the unified compliance script.
 
-To automatically generate and update the dependency inventory table, run:
+This script will:
+1. Generate the `DEPENDENCIES.md` inventory.
+2. Run **Bandit** for Static Application Security Testing (SAST).
+3. Run **pip-audit** for vulnerability scanning across all dependencies.
+
+To automatically run these checks, execute:
 ```bash
-bash scripts/generate-dependency-inventory.sh
+bash scripts/run-compliance-checks.sh
 ```
-This script will scan the environment and regenerate `DEPENDENCIES.md` with the latest license information.
 
 ## License
 
