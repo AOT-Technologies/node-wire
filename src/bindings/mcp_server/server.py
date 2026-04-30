@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional
 
 from bindings.factory import ConnectorFactory
@@ -17,6 +18,11 @@ from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 
 logger = logging.getLogger("bindings.mcp_server")
+
+_http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
+    "mcp_http_request_headers",
+    default=None,
+)
 
 
 class McpServer:
@@ -92,7 +98,10 @@ class McpServer:
     ) -> McpIdentity | None:
         if identity is not None:
             return identity
-        return authenticate_mcp_request(meta=meta)
+        return authenticate_mcp_request(
+            headers=_http_request_headers.get(),
+            meta=meta,
+        )
 
     def _request_meta_from_context(self) -> Mapping[str, Any] | None:
         try:
@@ -271,7 +280,15 @@ class McpServer:
                 self.handler = handler
 
             async def __call__(self, scope, receive, send):
-                await self.handler(scope, receive, send)
+                headers = {
+                    key.decode("latin-1"): value.decode("latin-1")
+                    for key, value in scope.get("headers", [])
+                }
+                token = _http_request_headers.set(headers)
+                try:
+                    await self.handler(scope, receive, send)
+                finally:
+                    _http_request_headers.reset(token)
 
         starlette_app = Starlette(
             lifespan=lifespan,
