@@ -32,8 +32,10 @@ ALL_PACKAGES=(
   packages/connectors/fhir_cerner
   packages/connectors/smtp
   packages/connectors/stripe
+  packages/connectors/salesforce
   packages/connectors/http_generic
 )
+
 
 usage() {
   cat <<'USAGE'

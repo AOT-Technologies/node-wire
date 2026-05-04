@@ -178,8 +178,10 @@ class ConnectorFactory:
                 private_key_secret=auth_cfg.get("private_key_secret"),
                 kid_secret=auth_cfg.get("kid_secret"),
                 client_secret_secret=auth_cfg.get("client_secret_secret"),
+                refresh_token_secret=auth_cfg.get("refresh_token_secret"),
                 scopes=auth_cfg.get("scopes"),
                 scopes_secret=auth_cfg.get("scopes_secret"),
+
                 extra_content_type_headers=auth_cfg.get("extra_headers"),
                 buffer_secs=int(auth_cfg.get("buffer_secs", 60)),
                 jwt_ttl_secs=int(auth_cfg.get("jwt_ttl_secs", 300)),
