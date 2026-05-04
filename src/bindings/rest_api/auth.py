@@ -7,6 +7,9 @@ Environment:
   NW_REST_AUTH_DISABLED — if ``true``/``1``/``yes``, skip auth (local dev only; do not use in production).
 
 Public (unauthenticated): ``GET /health`` only. OpenAPI UI requires auth.
+
+After successful auth, normalized caller identity (principal / tenant_id / scopes) is stored on
+``request.state.nw_rest_caller_identity`` and forwarded to ``connector.run`` for policy hooks.
 """
 from __future__ import annotations
 
@@ -17,6 +20,16 @@ import jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+
+from node_wire_runtime.caller_identity import CallerIdentity, build_caller_identity
+
+
+REST_CALLER_STATE_KEY = "nw_rest_caller_identity"
+
+
+def get_rest_caller_identity(request: Request) -> CallerIdentity | None:
+    """Return JWT/API-key caller identity attached by middleware, if any."""
+    return getattr(request.state, REST_CALLER_STATE_KEY, None)
 
 
 def _truthy(val: str | None) -> bool:
@@ -42,16 +55,32 @@ def _extract_bearer_or_api_key(request: Request) -> str | None:
     return None
 
 
-def _verify_token(token: str, *, api_key: str | None, jwt_secret: str | None) -> bool:
+def verify_rest_token_and_identity(
+    token: str,
+    *,
+    api_key: str | None,
+    jwt_secret: str | None,
+) -> tuple[bool, CallerIdentity | None]:
+    """
+    Validate REST bearer/API-key token and build caller identity (same shape as MCP).
+
+    Shared API key behaves like MCP: wildcard scopes for ScopePolicyHook compatibility.
+    """
     if api_key and token == api_key:
-        return True
+        ident = build_caller_identity(
+            {"sub": "api-key-user", "tenant_id": None, "scopes": ["*"]},
+            auth_type="rest_api_key",
+        )
+        return True, ident
+
     if jwt_secret and token.count(".") == 2:
         try:
-            jwt.decode(token, jwt_secret, algorithms=["HS256"])
-            return True
+            claims = jwt.decode(token, jwt_secret, algorithms=["HS256"])
         except jwt.PyJWTError:
-            return False
-    return False
+            return False, None
+        return True, build_caller_identity(claims, auth_type="jwt")
+
+    return False, None
 
 
 class RestAuthMiddleware(BaseHTTPMiddleware):
@@ -91,11 +120,13 @@ class RestAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": 'Bearer realm="node-wire"'},
             )
 
-        if not _verify_token(token, api_key=api_key, jwt_secret=jwt_secret):
+        ok, identity = verify_rest_token_and_identity(token, api_key=api_key, jwt_secret=jwt_secret)
+        if not ok or identity is None:
             return JSONResponse(
                 status_code=403,
                 content={"detail": "Invalid API key or token"},
                 headers={"WWW-Authenticate": 'Bearer realm="node-wire"'},
             )
 
+        setattr(request.state, REST_CALLER_STATE_KEY, identity)
         return await call_next(request)

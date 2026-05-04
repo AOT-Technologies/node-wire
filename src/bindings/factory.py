@@ -78,7 +78,12 @@ def _build_secret_provider() -> SecretProvider:
 def _build_policy_hook() -> PolicyHook | None:
     action_scope_map = load_scope_map_from_env()
     if not action_scope_map:
+        logger.info("Policy hook disabled (no action scope map)")
         return None
+    logger.info(
+        "Policy hook enabled",
+        extra={"scope_map_entries": len(action_scope_map)},
+    )
     return ScopePolicyHook(action_scope_map)
 
 

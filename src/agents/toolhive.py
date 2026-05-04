@@ -23,6 +23,8 @@ Usage::
 Environment variables:
     TOOLHIVE_MCP_URL : MCP proxy URL from ToolHive UI (e.g. http://localhost:PORT/mcp)
     TOOLHIVE_MCP_URLS: Comma-separated MCP proxy URLs (multi-server)
+    TOOLHIVE_MCP_API_KEY: Optional inbound MCP auth key (sent as Bearer + X-API-Key)
+    TOOLHIVE_MCP_BEARER_TOKEN: Optional inbound MCP bearer token (JWT/API key)
     TOOLHIVE_MAX_TOOL_FAILURES: Stop after this many failed invocations per tool name (default: 2)
     LLM_PROVIDER     : groq | openai | gemini | anthropic  (default: groq)
     GROQ_API_KEY     : (when using groq)
@@ -225,6 +227,43 @@ class ToolHiveMcpClient:
         self._base_url = base_url.rstrip("/")
         self._session_id: Optional[str] = None
         self._initialized: bool = False
+        self._auth_token: Optional[str] = (
+            os.environ.get("TOOLHIVE_MCP_BEARER_TOKEN")
+            or os.environ.get("TOOLHIVE_MCP_API_KEY")
+        )
+
+    def _build_request_headers(self) -> Dict[str, str]:
+        headers: Dict[str, str] = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        # For MCP auth-gated servers, send both forms for compatibility.
+        if self._auth_token:
+            headers["Authorization"] = f"Bearer {self._auth_token}"
+            headers["X-API-Key"] = self._auth_token
+        return headers
+
+    def _inject_auth_meta(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self._auth_token:
+            return dict(params)
+        out = dict(params)
+        meta = out.get("_meta")
+        if isinstance(meta, dict):
+            merged_meta = dict(meta)
+        else:
+            merged_meta = {}
+        # Include common aliases to maximize compatibility with MCP servers.
+        merged_meta.setdefault("authorization", f"Bearer {self._auth_token}")
+        merged_meta.setdefault("Authorization", f"Bearer {self._auth_token}")
+        merged_meta.setdefault("x-api-key", self._auth_token)
+        merged_meta.setdefault("X-API-Key", self._auth_token)
+        merged_meta.setdefault("token", self._auth_token)
+        merged_meta.setdefault("api_key", self._auth_token)
+        merged_meta.setdefault("apiKey", self._auth_token)
+        out["_meta"] = merged_meta
+        return out
 
     async def _initialize(self) -> None:
         """Send MCP initialize + initialized handshake; store session ID."""
@@ -244,10 +283,7 @@ class ToolHiveMcpClient:
             resp = await client.post(
                 self._base_url,
                 json=init_payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json, text/event-stream",
-                },
+                headers=self._build_request_headers(),
             )
             resp.raise_for_status()
             session_id = resp.headers.get("Mcp-Session-Id")
@@ -259,14 +295,8 @@ class ToolHiveMcpClient:
 
             # Send the initialized notification (fire-and-forget; no id = notification)
             notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-            headers: Dict[str, str] = {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            }
-            if self._session_id:
-                headers["Mcp-Session-Id"] = self._session_id
             try:
-                await client.post(self._base_url, json=notif, headers=headers)
+                await client.post(self._base_url, json=notif, headers=self._build_request_headers())
             except Exception:
                 pass  # Notifications have no response; ignore transport errors
 
@@ -283,19 +313,14 @@ class ToolHiveMcpClient:
             "id": str(uuid.uuid4()),
             "method": method,
         }
-        if params:
-            payload["params"] = params
-
-        headers: Dict[str, str] = {
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        }
-        if self._session_id:
-            headers["Mcp-Session-Id"] = self._session_id
+        # Always include params when auth token is present so _meta is sent even
+        # for methods like tools/list that otherwise pass {}.
+        if params or self._auth_token:
+            payload["params"] = self._inject_auth_meta(params)
 
         url = self._base_url
         async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+            resp = await client.post(url, json=payload, headers=self._build_request_headers())
             resp.raise_for_status()
             data = resp.json()
             if "error" in data:

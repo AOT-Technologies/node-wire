@@ -12,7 +12,7 @@ from bindings.mcp_server.server import McpServer
 
 
 def test_mcp_auth_missing_token_returns_401(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -23,7 +23,7 @@ def test_mcp_auth_missing_token_returns_401(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_mcp_auth_invalid_token_returns_403(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -34,7 +34,7 @@ def test_mcp_auth_invalid_token_returns_403(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_mcp_auth_valid_token_allows_tools_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -48,7 +48,7 @@ def test_mcp_auth_valid_token_allows_tools_list(monkeypatch: pytest.MonkeyPatch)
 
 @pytest.mark.asyncio
 async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.setenv(
@@ -85,7 +85,7 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
 async def test_mcp_execution_passes_principal_and_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
