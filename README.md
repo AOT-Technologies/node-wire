@@ -110,7 +110,7 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
 
 **Purpose:** Expose connectors over different protocols and load them from configuration. No business logic lives here—only routing, config, and protocol translation.
 
-**Location:** `src/bindings/` (factory.py, rest_api/app.py, grpc_server/, mcp_server/). The CLI entrypoint is the `node-wire` script, which maps to module **`bindings_entrypoint`** in `src/bindings_entrypoint.py` (run as `python -m bindings_entrypoint`).
+**Location:** `src/bindings/` (factory.py, rest_api/app.py, grpc_server/, mcp_server/). The CLI entrypoint is the `node-wire` script, which maps to module **`bindings_entrypoint`** in `src/bindings_entrypoint.py` (run locally as `python -m uv run node-wire`).
 
 ### ConnectorFactory
 
@@ -132,9 +132,24 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
   - **streamable-http**: Native HTTP/SSE transport for first-class HTTP citizen integration.
   (Configured via `NW_MCP_TRANSPORT` and `NW_MCP_PORT`).
 
+The playground reads `NW_MCP_TRANSPORT` through `/scenarios/agent-transport` and displays the active mode in the Agentic Workflow panel. In `stdio` mode, chat responses are buffered until the backend agent run completes. In `streamable-http` mode, tool cards and final-answer chunks render progressively.
+
+Use MCP Inspector for local validation:
+
+```bash
+# stdio
+npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+
+# streamable-http
+NW_MCP_TRANSPORT=streamable-http NW_MCP_HOST=127.0.0.1 NW_MCP_PORT=8081 NW_MCP_PATH=/mcp python -m agents.mcp_entrypoint
+npx @modelcontextprotocol/inspector
+```
+
+For the HTTP case, select `Streamable HTTP` in Inspector and connect to `http://127.0.0.1:8081/mcp`. See [docs/mcp-servers.md](docs/mcp-servers.md) for the full Inspector walkthrough.
+
 ### Entrypoint
 
-- Run with `python -m bindings_entrypoint` (or the `node-wire` script after install). The **MODE** environment variable selects:
+- Run with `python -m uv run node-wire`. The **MODE** environment variable selects:
   - **API** (default) – REST API on port 8000.
   - **GRPC** – gRPC server on port 50051.
   - **MCP** – minimal MCP-style placeholder server (see note above).
@@ -184,17 +199,16 @@ $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
    For agents, ToolHive, or the stdio MCP server (`python -m agents.mcp_entrypoint`), install with optional dependencies, e.g. `pip install -e ".[agents]"`, or follow **[Setup.md](Setup.md)** for the full install matrix.
 
 2. **Start the REST API** (default):
-   - **Windows (cmd):** `set MODE=API && python -m bindings_entrypoint`  
-     (Or omit `MODE`; API is the default.)
-   - **Windows (PowerShell):** `$env:MODE="API"; python -m bindings_entrypoint`
-   - **Linux/macOS:** `MODE=API python -m bindings_entrypoint`
+   ```powershell
+   python -m uv run node-wire
+   ```
 
    Then open:
    - **Health:** http://localhost:8000/health  
    - **Swagger:** http://localhost:8000/docs  
 
 3. **Start gRPC or MCP**  
-   Set `MODE=GRPC` or `MODE=MCP` using your shell’s syntax (same as above for Windows).
+   Set `MODE=GRPC` or `MODE=MCP` before running `python -m uv run node-wire`.
 
 ---
 
@@ -209,3 +223,4 @@ All dependencies are declared in `pyproject.toml` (Python >=3.11). They include:
 - Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
+

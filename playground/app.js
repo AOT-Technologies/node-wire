@@ -929,6 +929,34 @@ document.addEventListener('DOMContentLoaded', () => {
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
+    async function readNdjsonStream(response, handlers) {
+        if (!response.body) throw new Error('Browser did not expose a readable response stream');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let pending = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            pending += decoder.decode(value, { stream: true });
+            const lines = pending.split('\n');
+            pending = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const event = JSON.parse(line);
+                if (handlers[event.type]) handlers[event.type](event);
+            }
+        }
+
+        if (pending.trim()) {
+            const event = JSON.parse(pending);
+            if (handlers[event.type]) handlers[event.type](event);
+        }
+    }
+
     async function sendAgentMessage() {
         const message = agentInput.value.trim();
         if (!message || agentBusy) return;

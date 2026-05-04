@@ -1178,6 +1178,27 @@ AGENT_GUARDRAIL_PROMPT = (
 )
 
 
+def _build_agent_chat_task(payload: AgentChatInput) -> str:
+    history_text_parts = []
+    for msg in payload.history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        history_text_parts.append(f"{role.upper()}: {content}")
+
+    if history_text_parts:
+        return (
+            "Previous conversation:\n"
+            + "\n".join(history_text_parts)
+            + f"\n\nUSER (latest): {payload.message}"
+        )
+    return payload.message
+
+
+def _current_agent_transport() -> str:
+    transport = os.environ.get("NW_MCP_TRANSPORT", "stdio").strip().lower() or "stdio"
+    return transport if transport in {"stdio", "streamable-http"} else "stdio"
+
+
 
 
 @router.post("/agent-chat", response_model=AgentChatResponse)
@@ -1250,11 +1271,30 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     )
                 )
                 if proxy_incomplete:
-                    logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
-                    run_result = None
+                    if fallback_to_stdio:
+                        logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
+                        run_result = None
+                    else:
+                        logger.warning(
+                            "Agent Chat | proxy incomplete, returning proxy error to UI "
+                            "(set PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO=true to fallback)"
+                        )
             except Exception as proxy_err:
-                logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)
-                run_result = None
+                if fallback_to_stdio:
+                    logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)
+                    run_result = None
+                else:
+                    logger.warning(
+                        "Agent Chat | proxy error: %s — returning error to UI "
+                        "(set PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO=true to fallback)",
+                        proxy_err,
+                    )
+                    return AgentChatResponse(
+                        reply=f"MCP proxy error: {proxy_err}",
+                        steps=[],
+                        trace_id=trace_id,
+                        success=False,
+                    )
 
         if run_result is None:
             # Use local stdio transport
