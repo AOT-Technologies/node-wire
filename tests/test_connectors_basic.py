@@ -41,4 +41,13 @@ def test_smtp_connector_instantiation_only():
 def test_stripe_connector_instantiation_only():
     connector = StripeConnector(secret_provider=DummySecretProvider())
     assert connector.connector_id == "stripe"
-    assert connector.action == "charge"
+    assert connector.action == "execute"
+
+
+def test_salesforce_connector_instantiation_only():
+    store = {"salesforce_instance_url": "https://test.salesforce.com"}
+    provider = type("Mock", (), {"get_secret": lambda s, k: store[k]})()
+    connector = BaseConnector.get_registry()["salesforce"](secret_provider=provider)
+    assert connector.connector_id == "salesforce"
+    assert "create_lead" in connector._nw_actions
+

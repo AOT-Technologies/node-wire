@@ -47,6 +47,9 @@ flowchart TD
 | SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
 | SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
+| Stripe | `python -m agents.stripe_mcp` | `nw-stripe` | `nw-stripe` | All manifest actions for `stripe` (e.g., `stripe.charge`) |
+| Salesforce | `python -m agents.salesforce_mcp` | `nw-salesforce` | `nw-salesforce` | All manifest actions for `salesforce` (e.g., `salesforce.create_lead`) |
+
 
 The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
 
@@ -198,6 +201,26 @@ SMTP_USERNAME=your-email@gmail.com
 SMTP_PASSWORD=your-gmail-app-password
 FROM_EMAIL=your-email@gmail.com
 ```
+
+
+#### `nw-salesforce`
+
+| Variable | Description |
+|---|---|
+| `SALESFORCE_INSTANCE_URL` | Your Salesforce instance URL (e.g., `https://domain.my.salesforce.com`) |
+| `SALESFORCE_TOKEN_URL` | OAuth2 token endpoint (usually `https://login.salesforce.com/services/oauth2/token`) |
+| `SALESFORCE_CLIENT_ID` | Connected App Client ID |
+| `SALESFORCE_CLIENT_SECRET` | Connected App Client Secret |
+| `SALESFORCE_REFRESH_TOKEN` | Refresh token with `refresh_token` and `api` scopes |
+
+```env
+SALESFORCE_INSTANCE_URL=https://nodenet.my.salesforce.com
+SALESFORCE_TOKEN_URL=https://login.salesforce.com/services/oauth2/token
+SALESFORCE_CLIENT_ID=your-client-id
+SALESFORCE_CLIENT_SECRET=your-client-secret
+SALESFORCE_REFRESH_TOKEN=your-refresh-token
+```
+
 
 ### ToolHive / Agent settings
 

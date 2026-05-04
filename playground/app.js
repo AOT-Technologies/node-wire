@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentSubMode = 'file';
     const connectorStatus = document.getElementById('connector-status');
+
     const brandLabel = document.querySelector('.brand-text h1 span.accent');
     const tagline = document.querySelector('.tagline');
     const layoutMain = document.querySelector('.layout-main');
@@ -102,7 +103,34 @@ document.addEventListener('DOMContentLoaded', () => {
             "Apply file update",
             "Verify file metadata",
             "Complete update"
+        ],
+        salesforce_create_lead: [
+            "Initialize CRM Sync",
+            "Create Lead Record",
+            "Verify Lead Status"
+        ],
+        salesforce_create_contact: [
+            "Initialize CRM Sync",
+            "Create Contact Record",
+            "Verify Contact Status"
+        ],
+        salesforce_read: [
+            "Authenticate CRM",
+            "Fetch Record Metadata",
+            "Verify Data Integrity"
+        ],
+        salesforce_update: [
+            "Authenticate CRM",
+            "Apply Partial Update",
+            "Verify State Change"
+        ],
+        salesforce_delete: [
+            "Authenticate CRM",
+            "Execute Soft Delete",
+            "Verify Termination"
         ]
+
+
     };
 
     const nodes = [
@@ -329,6 +357,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    function salesforcePipelineLabelOverride() {
+        if (currentSalesforceSubMode.startsWith('create')) return pipelineLabels.salesforce_create_lead;
+        if (currentSalesforceSubMode.startsWith('read')) return pipelineLabels.salesforce_read;
+        if (currentSalesforceSubMode.startsWith('update')) return pipelineLabels.salesforce_update;
+        if (currentSalesforceSubMode.startsWith('delete')) return pipelineLabels.salesforce_delete;
+        return pipelineLabels.salesforce_create_lead;
+    }
+
+    function syncSalesforceActionForm() {
+        Object.values(salesforceSections).forEach(sec => {
+            if (sec) sec.classList.add('hidden');
+        });
+        const activeSec = salesforceSections[currentSalesforceSubMode] || salesforceSections['create_lead'];
+        if (activeSec) activeSec.classList.remove('hidden');
+        
+        // Handle record ID field visibility in Lead/Contact sections
+        const idFields = document.querySelectorAll('#salesforce-form .id-field');
+        idFields.forEach(f => {
+            if (currentSalesforceSubMode.startsWith('update')) {
+                f.classList.remove('hidden');
+            } else {
+                f.classList.add('hidden');
+            }
+        });
+
+        // Handle generic ID label for read/delete
+        const idLabel = document.getElementById('sf-resource-id-label');
+        if (idLabel) {
+            if (currentSalesforceSubMode.includes('lead')) {
+                idLabel.textContent = 'Lead Record ID';
+            } else {
+                idLabel.textContent = 'Contact Record ID';
+            }
+        }
+
+        if (salesforceActionSelect) {
+            salesforceActionSelect.value = currentSalesforceSubMode;
+        }
+    }
+
     function setMode(mode) {
         currentMode = mode;
         
@@ -337,8 +406,10 @@ document.addEventListener('DOMContentLoaded', () => {
         itopsPanel.classList.add('hidden');
         cernerPanel.classList.add('hidden');
         gdrivePanel.classList.add('hidden');
+        salesforcePanel.classList.add('hidden');
 
         if (mode === 'ehr') {
+
             ehrPanel.classList.remove('hidden');
             connectorStatus.textContent = 'Epic R4 Online';
             tagline.textContent = 'Enterprise EHR Orchestration';
@@ -362,13 +433,23 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Secure Vault Orchestration';
             document.documentElement.style.setProperty('--brand-accent', '#10b981');
             log('Switched to Secure Document Archival mode (Google Drive)', 'system');
+        } else if (mode === 'salesforce') {
+            salesforcePanel.classList.remove('hidden');
+            connectorStatus.textContent = 'Salesforce Online';
+            tagline.textContent = 'CRM Orchestration';
+            document.documentElement.style.setProperty('--brand-accent', '#00A1E0');
+            log('Switched to Salesforce CRM Orchestration mode', 'system');
         }
         if (mode === 'gdrive') {
             syncGdriveActionForm();
             resetUI(gdrivePipelineLabelOverride());
+        } else if (mode === 'salesforce') {
+            syncSalesforceActionForm();
+            resetUI(salesforcePipelineLabelOverride());
         } else {
             resetUI();
         }
+
     }
 
     // Root Tab Switching (MCP Orchestration vs Connectors)
@@ -642,6 +723,78 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = Object.fromEntries(formData.entries());
         await handleSubmission(payload, '/scenarios/cerner-post-consultation', cernerRunBtn, cernerBtnText, cernerSpinner, 'Sync to Cerner Chart');
     });
+
+
+    salesforceForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(salesforceForm);
+        const payload = Object.fromEntries(formData.entries());
+        
+        let endpoint = '/scenarios/salesforce-create-lead';
+        let submitPayload = {};
+        
+        if (currentSalesforceSubMode === 'create_lead') {
+            submitPayload = {
+                first_name: payload.lead_first_name || undefined,
+                last_name: payload.lead_last_name,
+                company: payload.lead_company,
+                email: payload.lead_email || undefined
+            };
+            endpoint = '/scenarios/salesforce-create-lead';
+        } else if (currentSalesforceSubMode === 'update_lead') {
+            submitPayload = {
+                record_id: payload.lead_id,
+                first_name: payload.lead_first_name || undefined,
+                last_name: payload.lead_last_name || undefined,
+                company: payload.lead_company || undefined,
+                email: payload.lead_email || undefined
+            };
+            endpoint = '/scenarios/salesforce-update-lead';
+        } else if (currentSalesforceSubMode === 'read_lead') {
+            submitPayload = { record_id: payload.generic_record_id };
+            endpoint = '/scenarios/salesforce-read-lead';
+        } else if (currentSalesforceSubMode === 'delete_lead') {
+            submitPayload = { record_id: payload.generic_record_id };
+            endpoint = '/scenarios/salesforce-delete-lead';
+        } else if (currentSalesforceSubMode === 'create_contact') {
+            submitPayload = {
+                first_name: payload.contact_first_name || undefined,
+                last_name: payload.contact_last_name,
+                email: payload.contact_email || undefined,
+                account_id: payload.contact_account_id || undefined
+            };
+            endpoint = '/scenarios/salesforce-create-contact';
+        } else if (currentSalesforceSubMode === 'update_contact') {
+            submitPayload = {
+                record_id: payload.contact_id,
+                first_name: payload.contact_first_name || undefined,
+                last_name: payload.contact_last_name || undefined,
+                email: payload.contact_email || undefined,
+                account_id: payload.contact_account_id || undefined
+            };
+            endpoint = '/scenarios/salesforce-update-contact';
+        } else if (currentSalesforceSubMode === 'read_contact') {
+            submitPayload = { record_id: payload.generic_record_id };
+            endpoint = '/scenarios/salesforce-read-contact';
+        } else if (currentSalesforceSubMode === 'delete_contact') {
+            submitPayload = { record_id: payload.generic_record_id };
+            endpoint = '/scenarios/salesforce-delete-contact';
+        }
+
+        await handleSubmission(submitPayload, endpoint, salesforceRunBtn, salesforceBtnText, salesforceSpinner, 'Execute Action');
+    });
+
+
+    if (salesforceActionSelect) {
+        salesforceActionSelect.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            if (mode === currentSalesforceSubMode) return;
+            currentSalesforceSubMode = mode;
+            syncSalesforceActionForm();
+            resetUI(salesforcePipelineLabelOverride());
+            log(`Switched to Salesforce mode [${currentSalesforceSubMode}]`);
+        });
+    }
 
     // File Preview Logic
     if (gdriveFileInput && fileChosenPreview && previewName && fileDropZone) {
