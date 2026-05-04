@@ -65,7 +65,7 @@ class HttpGenericConnector(BaseConnector):
                     "method": params.method,
                     "url": str(params.url),
                     "error_type": type(exc).__name__,
-                    "message": str(exc),
+                    "error_message": str(exc),
                 },
             )
             raise
