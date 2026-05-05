@@ -176,12 +176,13 @@ def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
 
 
 def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
-    status = "completed" if success else "failed"
+    from node_wire_runtime.streaming import stream_completion_log
+    stream_completion_log(trace_id, success, connector_id="agent", action="run_events")
     return {
         "type": "done",
         "trace_id": trace_id,
         "success": success,
-        "message": f"Streaming {status}. trace_id={trace_id}",
+        "message": f"Streaming completed. trace_id={trace_id}",
     }
 
 
@@ -640,9 +641,25 @@ class ToolHiveAgent:
             result.error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
             logger.warning(result.error)
 
+        from node_wire_runtime.streaming import stream_completion_log
+        stream_completion_log(trace_id, result.success, connector_id="agent", action="run")
         return result
 
     async def run_events(self, task: str) -> AsyncIterator[Dict[str, Any]]:
+        trace_id = str(uuid.uuid4())
+        from node_wire_runtime.streaming import resolve_stream_buffer_ms, BufferedStreamIterator
+        
+        buffer_ms = resolve_stream_buffer_ms()
+        iterator = self._run_events_inner(task, trace_id)
+        
+        if buffer_ms > 0:
+            async for item in BufferedStreamIterator(iterator, buffer_ms, trace_id, connector_id="agent", action="run_events"):
+                yield item
+        else:
+            async for item in iterator:
+                yield item
+
+    async def _run_events_inner(self, task: str, trace_id: str) -> AsyncIterator[Dict[str, Any]]:
         """
         Stream agent progress events for web clients.
 
@@ -660,7 +677,6 @@ class ToolHiveAgent:
         answer chunks begin after the final LLM call completes. Tool-step events
         are emitted immediately after each MCP tool call completes.
         """
-        trace_id = str(uuid.uuid4())
         logger.info("Streaming agent run started | trace_id=%s", trace_id)
         logger.info("Task: %s", task)
 

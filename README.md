@@ -130,7 +130,9 @@ Examples: Google Drive has a full doc at `src/node_wire_google_drive/README.md`;
 - **MCP:** `MODE=MCP` starts a minimal placeholder. For production agentic workflows, `python -m agents.mcp_entrypoint` supports:
   - **stdio** (Default): Legacy transport for ToolHive/subprocesses.
   - **streamable-http**: Native HTTP/SSE transport for first-class HTTP citizen integration.
-  (Configured via `NW_MCP_TRANSPORT` and `NW_MCP_PORT`).
+  (Configured via `NW_MCP_TRANSPORT`, `NW_MCP_PORT`, and optionally `NW_STREAM_BUFFER_MS` for stream buffering).
+
+The core runtime also emits structured completion logs when streaming ends so headless consumers can easily detect completion.
 
 The playground reads `NW_MCP_TRANSPORT` through `/scenarios/agent-transport` and displays the active mode in the Agentic Workflow panel. In `stdio` mode, chat responses are buffered until the backend agent run completes. In `streamable-http` mode, tool cards and final-answer chunks render progressively.
 

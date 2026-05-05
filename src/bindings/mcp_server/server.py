@@ -13,6 +13,7 @@ from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
 
@@ -144,13 +145,19 @@ class McpServer:
         enforce_authoritative_action(run_args, action)
         run_args["action"] = action
 
-        response = await connector.run(
-            run_args,
-            principal=identity.principal if identity else None,
-            tenant_id=identity.tenant_id if identity else None,
-            scopes=identity.scopes if identity else None,
-        )
-        return response.model_dump()
+        trace_id = run_args.get("trace_id") or str(uuid.uuid4())
+        try:
+            response = await connector.run(
+                run_args,
+                principal=identity.principal if identity else None,
+                tenant_id=identity.tenant_id if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+            stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
+            return response.model_dump()
+        except Exception as exc:
+            stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
+            raise
 
     def _setup_lowlevel_server(self) -> Any:
         from mcp.server import NotificationOptions, Server as LowLevelServer

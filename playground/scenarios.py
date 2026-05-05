@@ -1244,6 +1244,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
         transport = _current_agent_transport()
         urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
+        fallback_to_stdio = os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
 
         if urls:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
