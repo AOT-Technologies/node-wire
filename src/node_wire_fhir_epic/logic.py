@@ -103,61 +103,21 @@ class FhirEpicConnector(BaseConnector):
         return self.secret_provider.get_secret("epic_fhir_base_url").rstrip("/")
 
     async def _get_auth_header(self) -> Dict[str, str]:
-        headers = {
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        }
+        """Delegate to the runtime AuthProvider injected by the factory.
 
-        private_key_str = self.secret_provider.get_secret("epic_private_key")
-        kid = self.secret_provider.get_secret("epic_kid")
-        client_id = self.secret_provider.get_secret("epic_client_id")
-        token_url = self.secret_provider.get_secret("epic_token_url")
+        Returns ready-to-use FHIR request headers including the Bearer token.
+        Token acquisition, JWT construction, scope resolution and caching are
+        all handled by the provider.
+        """
+        headers = await self.get_auth_headers()
+        # Ensure FHIR content types are present if the provider didn't include them (e.g. StaticTokenAuthProvider).
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/fhir+json"
+        if "Accept" not in headers:
+            headers["Accept"] = "application/fhir+json"
 
-        private_key_pem = codecs.decode(private_key_str, "unicode_escape")
-
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        jwt_token = jwt.encode(
-            {
-                "iss": client_id,
-                "sub": client_id,
-                "aud": token_url,
-                "jti": str(uuid.uuid4()),
-                "iat": now,
-                "nbf": now,
-                "exp": now + 300,
-            },
-            private_key_pem,
-            algorithm="RS384",
-            headers={"alg": "RS384", "typ": "JWT", "kid": kid},
-        )
-
-        logger.debug("Exchanging JWT for Epic access token", extra={"token_url": token_url})
-
-        async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
-            token_response = await client.post(
-                token_url,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-                    "client_assertion": jwt_token,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if token_response.status_code != 200:
-                logger.error(
-                    "OAuth token exchange failed | status=%s | body=%s",
-                    token_response.status_code,
-                    token_response.text,
-                )
-                token_response.raise_for_status()
-            token_data = token_response.json()
-
-        access_token = token_data.get("access_token")
-        if not access_token:
-            raise ValueError("Epic token response did not contain an access_token")
-
-        headers["Authorization"] = f"Bearer {access_token}"
         return headers
+
 
     @staticmethod
     def _build_name_search_params(

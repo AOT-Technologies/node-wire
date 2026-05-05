@@ -113,86 +113,32 @@ class FhirCernerConnector(BaseConnector):
 
         Returns ready-to-use FHIR request headers including the Bearer token.
         Token acquisition, JWT construction, scope resolution and caching are
-        all handled by the provider — no duplication with fhir_epic.
+        all handled by the provider.
         """
-        headers = {
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        }
         # Cerner-specific safety check: if a token URL contains '/hosts/', 
         # it is often a malformed sandbox URL that will return 401.
-        token_url = self._secret_provider.get_secret("cerner_token_url")
-        if "/hosts/" in token_url:
+        try:
+            token_url = self._secret_provider.get_secret("cerner_token_url")
+        except Exception:
+            token_url = None
+
+        if token_url and "/hosts/" in token_url:
             raise ValueError(
                 "Cerner token_url must not contain '/hosts/' (found in secret). "
                 "Ensure you are using the 'smart-v1/token' endpoint, e.g. "
                 "https://authorization.cerner.com/tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token"
             )
 
-        try:
-            scopes = (self._secret_provider.get_secret("cerner_scopes") or "").strip()
-        except Exception:
-            scopes = ""
 
-        if not scopes:
-            scopes = "system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write"
+        headers = await self.get_auth_headers()
+        # Ensure FHIR content types are present if the provider didn't include them (e.g. StaticTokenAuthProvider).
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/fhir+json"
+        if "Accept" not in headers:
+            headers["Accept"] = "application/fhir+json"
 
-        private_key_str = self._secret_provider.get_secret("cerner_private_key")
-        kid = self._secret_provider.get_secret("cerner_kid")
-        client_id = self._secret_provider.get_secret("cerner_client_id")
-
-        logger.debug("Cerner token request | token_url=%s | scopes=%r | client_id=%s", token_url, scopes, client_id)
-
-        # Decode escaped newlines in PEM key if stored as a single-line env var (e.g. "\\n" -> "\n").
-        # Avoid codecs.unicode_escape which can corrupt non-ASCII bytes in some PEM keys.
-        if "\\n" in private_key_str:
-            private_key_pem = private_key_str.replace("\\n", "\n")
-        else:
-            private_key_pem = private_key_str
-
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        jwt_token = jwt.encode(
-            {
-                "iss": client_id,
-                "sub": client_id,
-                "aud": token_url,
-                "jti": str(uuid.uuid4()),
-                "iat": now,
-                "exp": now + 300,
-                "scope": scopes,
-            },
-            private_key_pem,
-            algorithm="RS384",
-            headers={"alg": "RS384", "typ": "JWT", "kid": kid},
-        )
-
-        post_data = {
-            "grant_type": "client_credentials",
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "client_assertion": jwt_token,
-            "scope": scopes,
-        }
-
-        async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
-            token_response = await client.post(
-                token_url,
-                data=post_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            if token_response.status_code != 200:
-                logger.error(
-                    "OAuth token exchange failed | status=%s | body=%s",
-                    token_response.status_code, token_response.text,
-                )
-                token_response.raise_for_status()
-            token_data = token_response.json()
-
-        access_token = token_data.get("access_token")
-        if not access_token:
-            raise ValueError("Cerner token response did not contain an access_token")
-
-        headers["Authorization"] = f"Bearer {access_token}"
         return headers
+
 
     # ------------------------------------------------------------------
     # Internal name-field helpers
