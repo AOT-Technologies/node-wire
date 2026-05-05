@@ -91,7 +91,7 @@ The platform is split into three layers:
 |----------------|--------------------------------------------------|---------------|-----------------------------|
 | **http_generic** | Generic HTTP request (any URL, method, headers)   | `request`     | rest, grpc, mcp             |
 | **smtp**        | Send email via SMTP                              | `send_email`  | rest, grpc, mcp             |
-| **stripe**      | Stripe charge                                    | `charge`      | grpc, mcp (no rest in config)|
+| **stripe**      | Multi-action: `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` | `rest`, `grpc`, `mcp` |
 | **google_drive**| Google Drive (list, create, get, update, upload, delete, permissions) | `execute` (payload discriminator) | rest, grpc, mcp |
 | **fhir_epic**   | FHIR R4 integration for Epic (multi-action)      | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
 | **fhir_cerner** | FHIR R4 integration for Cerner (multi-action)    | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |

@@ -19,7 +19,7 @@ def test_factory_loads_config():
     assert http_connector is not None
 
     stripe_rest = factory.get_for_protocol("stripe", "rest")
-    assert stripe_rest is None  # stripe not exposed via REST per config
+    assert stripe_rest is not None  # stripe exposed via REST
 
 
 def test_health_endpoint():

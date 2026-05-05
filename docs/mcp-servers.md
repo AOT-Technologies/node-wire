@@ -49,8 +49,9 @@ flowchart TD
 | SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
 | SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
+| Stripe | `python -m agents.stripe_mcp` | `nw-stripe` | `nw-stripe` | All manifest actions for `stripe` (e.g., `stripe.charge`) |
 
-The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
+The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, `stripe.create_payment_intent`, `stripe.create_subscription`, `stripe.cancel_subscription`, `stripe.issue_refund`, plus the rows above).
 
 ### Tool arguments and security
 
@@ -294,6 +295,16 @@ SMTP_USE_TLS=true
 SMTP_USERNAME=your-email@gmail.com
 SMTP_PASSWORD=your-gmail-app-password
 FROM_EMAIL=your-email@gmail.com
+```
+
+#### `nw-stripe`
+
+| Variable | Description |
+|---|---|
+| `STRIPE_API_KEY` | Your Stripe secret API key (starts with `sk_test_` or `sk_live_`) |
+
+```env
+STRIPE_API_KEY=sk_test_4eC39HqLyjWDarjtT1zdp7dc
 ```
 
 ### ToolHive / Agent settings

@@ -50,7 +50,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewName = fileChosenPreview?.querySelector('.preview-name');
     const removeFileBtn = fileChosenPreview?.querySelector('.remove-file-btn');
 
+    const stripeForm = document.getElementById('stripe-form');
+    const stripeRunBtn = document.getElementById('stripe-run-btn');
+    const stripeSpinner = stripeRunBtn.querySelector('.loading-spinner');
+    const stripeBtnText = stripeRunBtn.querySelector('.btn-lbl');
+    const stripePanel = document.getElementById('stripe-panel');
+
+    const stripeActionSelect = document.getElementById('stripe-action-select');
+    const stripeSections = {
+        charge: document.getElementById('stripe-section-charge'),
+        payment_intent: document.getElementById('stripe-section-pi'),
+        subscription: document.getElementById('stripe-section-sub'),
+        cancel_subscription: document.getElementById('stripe-section-cancel'),
+        refund: document.getElementById('stripe-section-refund')
+    };
+
     let currentSubMode = 'file';
+    let currentStripeSubMode = 'charge';
     const connectorStatus = document.getElementById('connector-status');
     const brandLabel = document.querySelector('.brand-text h1 span.accent');
     const tagline = document.querySelector('.tagline');
@@ -104,6 +120,31 @@ document.addEventListener('DOMContentLoaded', () => {
             "Apply file update",
             "Verify file metadata",
             "Complete update"
+        ],
+        stripe_charge: [
+            "Initialize Payment",
+            "Process Charge",
+            "Verify Transaction"
+        ],
+        stripe_payment_intent: [
+            "Initialize Session",
+            "Create Payment Intent",
+            "Verify Allocation"
+        ],
+        stripe_subscription: [
+            "Validate Customer",
+            "Create Subscription",
+            "Verify Provisioning"
+        ],
+        stripe_cancel_subscription: [
+            "Locate Resource",
+            "Cancel Subscription",
+            "Verify Termination"
+        ],
+        stripe_refund: [
+            "Validate Charge",
+            "Process Refund",
+            "Verify Refund"
         ]
     };
 
@@ -331,6 +372,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function stripePipelineLabelOverride() {
+        if (currentStripeSubMode === 'charge') return pipelineLabels.stripe_charge;
+        if (currentStripeSubMode === 'payment_intent') return pipelineLabels.stripe_payment_intent;
+        if (currentStripeSubMode === 'subscription') return pipelineLabels.stripe_subscription;
+        if (currentStripeSubMode === 'cancel_subscription') return pipelineLabels.stripe_cancel_subscription;
+        if (currentStripeSubMode === 'refund') return pipelineLabels.stripe_refund;
+        return pipelineLabels.stripe_charge;
+    }
+
+    function syncStripeActionForm() {
+        Object.values(stripeSections).forEach(sec => {
+            if (sec) sec.classList.add('hidden');
+        });
+        const activeSec = stripeSections[currentStripeSubMode] || stripeSections['charge'];
+        if (activeSec) activeSec.classList.remove('hidden');
+        
+        if (stripeActionSelect) {
+            stripeActionSelect.value = currentStripeSubMode;
+        }
+    }
+
     function setMode(mode) {
         currentMode = mode;
         
@@ -339,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         itopsPanel.classList.add('hidden');
         cernerPanel.classList.add('hidden');
         gdrivePanel.classList.add('hidden');
+        stripePanel.classList.add('hidden');
 
         if (mode === 'ehr') {
             ehrPanel.classList.remove('hidden');
@@ -364,10 +427,19 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Secure Vault Orchestration';
             document.documentElement.style.setProperty('--brand-accent', '#10b981');
             log('Switched to Secure Document Archival mode (Google Drive)', 'system');
+        } else if (mode === 'stripe') {
+            stripePanel.classList.remove('hidden');
+            connectorStatus.textContent = 'Stripe Online';
+            tagline.textContent = 'Financial Infrastructure';
+            document.documentElement.style.setProperty('--brand-accent', '#635bff');
+            log('Switched to Stripe Payment Orchestration mode', 'system');
         }
         if (mode === 'gdrive') {
             syncGdriveActionForm();
             resetUI(gdrivePipelineLabelOverride());
+        } else if (mode === 'stripe') {
+            syncStripeActionForm();
+            resetUI(stripePipelineLabelOverride());
         } else {
             resetUI();
         }
@@ -644,6 +716,66 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = Object.fromEntries(formData.entries());
         await handleSubmission(payload, '/scenarios/cerner-post-consultation', cernerRunBtn, cernerBtnText, cernerSpinner, 'Sync to Cerner Chart');
     });
+
+    stripeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(stripeForm);
+        const payload = Object.fromEntries(formData.entries());
+        
+        let endpoint = '/scenarios/stripe-charge';
+        let submitPayload = {};
+        
+        if (currentStripeSubMode === 'charge' || !currentStripeSubMode) {
+            submitPayload = {
+                amount: parseInt(payload.charge_amount, 10),
+                currency: payload.charge_currency,
+                description: payload.charge_description
+            };
+            endpoint = '/scenarios/stripe-charge';
+        } else if (currentStripeSubMode === 'payment_intent') {
+            submitPayload = {
+                amount: parseInt(payload.pi_amount, 10),
+                currency: payload.pi_currency,
+                customer_id: payload.pi_customer || undefined,
+                payment_method: payload.pi_payment_method || undefined,
+                confirm: payload.pi_confirm === 'on'
+            };
+            endpoint = '/scenarios/stripe-payment-intent';
+        } else if (currentStripeSubMode === 'subscription') {
+            submitPayload = {
+                customer_id: payload.sub_customer,
+                price_id: payload.sub_price,
+                card_token: payload.sub_token || undefined
+            };
+            endpoint = '/scenarios/stripe-subscription';
+        } else if (currentStripeSubMode === 'cancel_subscription') {
+            submitPayload = {
+                subscription_id: payload.cancel_sub_id
+            };
+            endpoint = '/scenarios/stripe-cancel-subscription';
+        } else if (currentStripeSubMode === 'refund') {
+            const isPI = payload.refund_target_id.startsWith('pi_');
+            submitPayload = {
+                charge_id: !isPI && payload.refund_target_id ? payload.refund_target_id : undefined,
+                payment_intent_id: isPI ? payload.refund_target_id : undefined,
+                amount: payload.refund_amount ? parseInt(payload.refund_amount, 10) : undefined
+            };
+            endpoint = '/scenarios/stripe-refund';
+        }
+
+        await handleSubmission(submitPayload, endpoint, stripeRunBtn, stripeBtnText, stripeSpinner, 'Process Action');
+    });
+
+    if (stripeActionSelect) {
+        stripeActionSelect.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            if (mode === currentStripeSubMode) return;
+            currentStripeSubMode = mode;
+            syncStripeActionForm();
+            resetUI(stripePipelineLabelOverride());
+            log(`Switched to Stripe mode [${currentStripeSubMode}]`);
+        });
+    }
 
     // File Preview Logic
     if (gdriveFileInput && fileChosenPreview && previewName && fileDropZone) {

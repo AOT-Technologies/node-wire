@@ -41,4 +41,4 @@ def test_smtp_connector_instantiation_only():
 def test_stripe_connector_instantiation_only():
     connector = StripeConnector(secret_provider=DummySecretProvider())
     assert connector.connector_id == "stripe"
-    assert connector.action == "charge"
+    assert connector.action == "execute"

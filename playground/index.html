@@ -205,8 +205,21 @@
                                 <p>Secure clinical document archival with IAM-governed access and encryption.</p>
                             </div>
                         </div>
+
+                        <div class="connector-card" data-mode="stripe">
+                            <div class="connector-icon bg-stripe">
+                                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <rect width="80" height="80" rx="16" fill="#635BFF"/>
+                                  <path d="M48.5 32.2c0-4.1-2.9-5.7-7.3-5.7-4.7 0-9.2 1.5-9.2 1.5v6.4s3.7-1.3 7.3-1.3c2 0 3 .6 3 1.5 0 3.2-10.7 1.3-10.7 9.4 0 4.6 3.7 6.4 8.1 6.4 5 0 10-1.8 10-1.8v-7.1s-4 1.7-7.7 1.7c-2.4 0-3.3-.6-3.3-1.5 0-3.6 10.7-1.8 10.7-9.5z" fill="white"/>
+                                </svg>
+                            </div>
+                            <div class="connector-details">
+                                <h3>Stripe</h3>
+                                <p>Financial transaction and subscription management infrastructure.</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </div>               
 
                 <div id="playground-view" class="hidden">
                     <div class="playground-layout">
@@ -504,6 +517,112 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
             
                                     <button type="submit" id="gdrive-run-btn" class="action-btn">
                                         <span class="btn-lbl">Encrypt &amp; Archive</span>
+                                        <div class="loading-spinner hidden"></div>
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div id="stripe-panel" class="glass-card main-form-card hidden">
+                                <div class="card-title">
+                                    <h2>Stripe Payments</h2>
+                                    <span class="info-tip">Process Charges & Subscriptions</span>
+                                </div>
+
+            
+                                <form id="stripe-form">
+                                    <div class="input-section" style="padding-bottom: 0;">
+                                        <div class="field-group">
+                                            <label>Stripe Target Action</label>
+                                            <select name="action" id="stripe-action-select" autocomplete="off" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-primary); margin-bottom: 0.5rem; color: var(--text-primary);">
+                                                <option value="charge">Process Legacy Charge</option>
+                                                <option value="payment_intent">Create Payment Intent</option>
+                                                <option value="subscription">Create Subscription</option>
+                                                <option value="cancel_subscription">Cancel Subscription</option>
+                                                <option value="refund">Issue Refund</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="input-section" id="stripe-section-charge">
+                                        <h3 class="section-label">Charge Details</h3>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>Amount (cents)</label>
+                                                <input type="number" name="charge_amount" value="2000" placeholder="Amount in cents...">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Currency</label>
+                                                <input type="text" name="charge_currency" value="usd" placeholder="Currency...">
+                                            </div>
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Description (optional)</label>
+                                            <input type="text" name="charge_description" value="Demo Charge" placeholder="Description...">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="input-section hidden" id="stripe-section-pi">
+                                        <h3 class="section-label">Payment Intent Details</h3>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>Amount (cents)</label>
+                                                <input type="number" name="pi_amount" value="5000">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Currency</label>
+                                                <input type="text" name="pi_currency" value="usd">
+                                            </div>
+                                        </div>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>Customer ID (optional)</label>
+                                                <input type="text" name="pi_customer" value="" placeholder="cus_...">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Payment Method</label>
+                                                <input type="text" name="pi_payment_method" value="pm_card_visa" placeholder="pm_...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="input-section hidden" id="stripe-section-sub">
+                                        <h3 class="section-label">Subscription Details</h3>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>Customer ID</label>
+                                                <input type="text" name="sub_customer" value="" placeholder="cus_...">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Price ID</label>
+                                                <input type="text" name="sub_price" value="" placeholder="price_...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="input-section hidden" id="stripe-section-cancel">
+                                        <h3 class="section-label">Cancel Subscription</h3>
+                                        <div class="field-group">
+                                            <label>Subscription ID</label>
+                                            <input type="text" name="cancel_sub_id" value="" placeholder="sub_...">
+                                        </div>
+                                    </div>
+
+                                    <div class="input-section hidden" id="stripe-section-refund">
+                                        <h3 class="section-label">Issue Refund</h3>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>Payment Intent/Charge ID</label>
+                                                <input type="text" name="refund_target_id" value="" placeholder="pi_... or ch_...">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Amount (Optional)</label>
+                                                <input type="number" name="refund_amount" value="" placeholder="Leave empty for full">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="submit" id="stripe-run-btn" class="action-btn" style="background: #635bff;">
+                                        <span class="btn-lbl">Process Action</span>
                                         <div class="loading-spinner hidden"></div>
                                     </button>
                                 </form>
