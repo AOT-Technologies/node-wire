@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from email.message import EmailMessage
 
 import aiosmtplib
@@ -74,7 +75,7 @@ class SmtpConnector(BaseConnector):
                 password=password,
                 use_tls=use_implicit,
                 start_tls=params.use_tls and not use_implicit,
-                timeout=30.0,
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
             )
         except Exception as exc:  # noqa: BLE001
             logger.error(

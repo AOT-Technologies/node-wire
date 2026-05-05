@@ -12,6 +12,7 @@ class PolicyContext:
     input_payload: Mapping[str, Any]
     principal: Optional[str] = None
     tenant_id: Optional[str] = None
+    scopes: Optional[tuple[str, ...]] = None
 
 
 class PolicyDenied(Exception):

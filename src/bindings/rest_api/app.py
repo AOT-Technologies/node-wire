@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 
 # Production: set NW_REST_LOAD_DOTENV=false to rely on injected env only (no .env file).
 if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
-    load_dotenv()
+    # Override inherited shell env so local .env edits are honored consistently.
+    load_dotenv(override=True)
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
@@ -25,8 +26,8 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from bindings.rest_api.auth import RestAuthMiddleware, get_request_identity_key
 from bindings.rest_api.rate_limit import InMemoryRateLimiter
+from bindings.rest_api.auth import RestAuthMiddleware, get_rest_caller_identity, get_request_identity_key
 
 # Add project root to sys.path to allow importing from 'playground' package
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -106,6 +107,7 @@ def _get_rate_limiter() -> InMemoryRateLimiter:
 
 def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
+        request: Request,
         payload: Dict[str, Any],
         request: Request,
         factory_dep: ConnectorFactory = Depends(get_factory),
@@ -141,7 +143,13 @@ def _make_endpoint(cid: str, act: str) -> Any:
         run_payload["action"] = act
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.
-        response: ConnectorResponse = await connector.run(run_payload)
+        rest_id = get_rest_caller_identity(request)
+        response: ConnectorResponse = await connector.run(
+            run_payload,
+            principal=rest_id.principal if rest_id else None,
+            tenant_id=rest_id.tenant_id if rest_id else None,
+            scopes=rest_id.scopes if rest_id else None,
+        )
         status = _http_status_for_category(response.error_category)
 
         if not response.success:

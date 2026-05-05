@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -59,7 +60,11 @@ class HttpGenericConnector(BaseConnector):
         )
 
         try:
+<<<<<<< CNP-45-identified-issues-in-ci
             async with httpx.AsyncClient(trust_env=False) as client:
+=======
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+>>>>>>> main
                 response = await client.request(
                     method=params.method,
                     url=str(params.url),
@@ -67,7 +72,7 @@ class HttpGenericConnector(BaseConnector):
                     params=params.params,
                     json=params.body if isinstance(params.body, (dict, list)) else None,
                     content=None if isinstance(params.body, (dict, list)) else params.body,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
         except Exception as exc:  # noqa: BLE001
             # Let ErrorMapper classify the exception, but log clear context here.
