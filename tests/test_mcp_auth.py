@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import jwt
 import pytest
+from fastapi.testclient import TestClient
+from starlette.responses import JSONResponse
 
 from bindings.mcp_server.auth import (
     McpAuthInvalidError,
@@ -275,3 +279,96 @@ def test_mcp_api_key_explicit_star_scope_lists_tool(monkeypatch: pytest.MonkeyPa
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
     assert any(t["name"] == "smtp.send_email" for t in tools)
+
+
+class _FakeStreamableSessionManager:
+    @asynccontextmanager
+    async def run(self):
+        yield
+
+    async def handle_request(self, scope, receive, send):
+        response = JSONResponse({"ok": True})
+        await response(scope, receive, send)
+
+
+def test_streamable_http_edge_auth_rejects_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    server = McpServer(connector_ids=["smtp"])
+    app = server._build_streamable_http_app(
+        session_manager=_FakeStreamableSessionManager(),
+        path="/mcp",
+    )
+    client = TestClient(app)
+    response = client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"})
+
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "MCP_AUTH_REQUIRED"
+
+
+def test_streamable_http_edge_auth_rejects_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    server = McpServer(connector_ids=["smtp"])
+    app = server._build_streamable_http_app(
+        session_manager=_FakeStreamableSessionManager(),
+        path="/mcp",
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"},
+        headers={"Authorization": "Bearer wrong-secret"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "MCP_AUTH_INVALID"
+
+
+def test_streamable_http_edge_auth_accepts_valid_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    server = McpServer(connector_ids=["smtp"])
+    app = server._build_streamable_http_app(
+        session_manager=_FakeStreamableSessionManager(),
+        path="/mcp",
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"},
+        headers={"Authorization": "Bearer unit-test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_identity_context_is_used_by_mcp_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    server = McpServer(connector_ids=["smtp"])
+    identity = authenticate_mcp_request(meta={"token": "unit-test-secret"})
+    assert identity is not None
+
+    from bindings.mcp_server.server import _streamable_http_identity_ctx
+
+    token = _streamable_http_identity_ctx.set(identity)
+    try:
+        resolved = server._ensure_identity(identity=None, meta=None)
+    finally:
+        _streamable_http_identity_ctx.reset(token)
+
+    assert resolved is not None
+    assert resolved.principal == "api-key-user"

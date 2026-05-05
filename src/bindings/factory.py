@@ -80,7 +80,32 @@ def _build_secret_provider() -> SecretProvider:
 def _build_policy_hook() -> PolicyHook | None:
     action_scope_map = load_scope_map_from_env()
     default_mode = load_scope_policy_default_from_env()
+    strict_mode = os.environ.get("NW_MCP_SCOPE_POLICY_STRICT", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    logger.info(
+        "Evaluated MCP scope policy configuration",
+        extra={
+            "scope_map_entries": len(action_scope_map),
+            "default_mode": default_mode,
+            "strict_mode": strict_mode,
+        },
+    )
     if not action_scope_map and default_mode != DEFAULT_SCOPE_MODE_DENY:
+        msg = (
+            "MCP scope policy is effectively disabled "
+            "(NW_MCP_ACTION_SCOPE_MAP_JSON empty and NW_MCP_SCOPE_POLICY_DEFAULT=allow). "
+            "Set NW_MCP_SCOPE_POLICY_DEFAULT=deny for production."
+        )
+        if strict_mode:
+            raise ValueError(
+                msg
+                + " Strict mode is enabled via NW_MCP_SCOPE_POLICY_STRICT=true."
+            )
+        logger.warning(msg)
         logger.info("Policy hook disabled (no action scope map; default is allow)")
         return None
     logger.info(

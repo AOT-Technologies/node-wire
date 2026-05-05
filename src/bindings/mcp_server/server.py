@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import uuid
@@ -19,6 +20,10 @@ from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 
 logger = logging.getLogger("bindings.mcp_server")
+_streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = contextvars.ContextVar(
+    "nw_streamable_http_identity",
+    default=None,
+)
 
 
 class McpServer:
@@ -109,6 +114,9 @@ class McpServer:
     ) -> CallerIdentity | None:
         if identity is not None:
             return identity
+        request_identity = _streamable_http_identity_ctx.get()
+        if request_identity is not None:
+            return request_identity
         return authenticate_mcp_request(meta=meta)
 
     def _request_meta_from_context(self) -> Mapping[str, Any] | None:
@@ -261,25 +269,42 @@ class McpServer:
 
         anyio.run(self._run_stdio_async)
 
-    async def _run_streamable_http_async(self) -> None:
-        import os
-        from starlette.applications import Starlette
-        from starlette.routing import Mount, Route
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-        import uvicorn
+    def _build_streamable_http_app(self, *, session_manager: Any, path: str) -> Any:
         from contextlib import asynccontextmanager
 
-        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
-        port = int(os.getenv("NW_MCP_PORT", "8081"))
-        path = os.getenv("NW_MCP_PATH", "/mcp")
-
-        low = self._setup_lowlevel_server()
-        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+        from starlette.applications import Starlette
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
 
         @asynccontextmanager
         async def lifespan(app: Starlette):
             async with session_manager.run():
                 yield
+
+        class StreamableHttpAuthMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+                if request.url.path != path:
+                    return await call_next(request)
+                try:
+                    identity = authenticate_mcp_request(headers=request.headers)
+                except McpAuthError as exc:
+                    headers: Dict[str, str] = {}
+                    if exc.www_authenticate:
+                        headers["WWW-Authenticate"] = exc.www_authenticate
+                    return JSONResponse(
+                        status_code=exc.status_code,
+                        content=exc.to_payload(),
+                        headers=headers,
+                    )
+
+                setattr(request.state, "nw_mcp_identity", identity)
+                token = _streamable_http_identity_ctx.set(identity)
+                try:
+                    return await call_next(request)
+                finally:
+                    _streamable_http_identity_ctx.reset(token)
 
         # Use a wrapper class to ensure Starlette treats this as an ASGI app
         # without the automatic redirection logic of Mount().
@@ -300,6 +325,21 @@ class McpServer:
                 )
             ],
         )
+        starlette_app.add_middleware(StreamableHttpAuthMiddleware)
+        return starlette_app
+
+    async def _run_streamable_http_async(self) -> None:
+        import os
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        import uvicorn
+
+        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("NW_MCP_PORT", "8081"))
+        path = os.getenv("NW_MCP_PATH", "/mcp")
+
+        low = self._setup_lowlevel_server()
+        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+        starlette_app = self._build_streamable_http_app(session_manager=session_manager, path=path)
 
         logger.info(f"Starting MCP streamable-http server on {host}:{port}{path}")
         config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")

@@ -283,3 +283,26 @@ def test_http_status_for_category_direct() -> None:
     assert _http_status_for_category(ErrorCategory.RETRYABLE) == 503
     assert _http_status_for_category(ErrorCategory.FATAL) == 500
 
+
+def test_factory_scope_policy_strict_mode_requires_deny_or_map(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_STRICT", "true")
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+    monkeypatch.setenv("NW_MCP_ACTION_SCOPE_MAP_JSON", "{}")
+
+    with pytest.raises(ValueError) as exc_info:
+        ConnectorFactory()
+    assert "MCP scope policy is effectively disabled" in str(exc_info.value)
+
+
+def test_factory_scope_policy_default_deny_without_map_enables_hook(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_SCOPE_POLICY_STRICT", raising=False)
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
+
+    factory = ConnectorFactory()
+    assert factory._policy_hook is not None
+
