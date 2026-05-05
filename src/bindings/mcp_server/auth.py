@@ -8,7 +8,11 @@ from typing import Any, Mapping
 import jwt
 from dotenv import load_dotenv
 
-from node_wire_runtime.caller_identity import CallerIdentity, build_caller_identity
+from node_wire_runtime.caller_identity import (
+    CallerIdentity,
+    build_caller_identity,
+    parse_api_key_scopes_from_env,
+)
 
 logger = logging.getLogger("bindings.mcp_server.auth")
 
@@ -145,7 +149,8 @@ def verify_mcp_token(token: str) -> tuple[dict[str, Any], str]:
     jwt_secret = os.getenv("NW_MCP_JWT_SECRET")
 
     if api_key and token == api_key:
-        return ({"sub": "api-key-user", "tenant_id": None, "scopes": ["*"]}, "api_key")
+        scopes = list(parse_api_key_scopes_from_env("NW_MCP_API_KEY_SCOPES"))
+        return ({"sub": "api-key-user", "tenant_id": None, "scopes": scopes}, "api_key")
 
     if jwt_secret and token.count(".") == 2:
         try:

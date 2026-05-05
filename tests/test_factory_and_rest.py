@@ -95,6 +95,7 @@ def test_rest_post_propagates_api_key_identity_to_connector_run(
 ) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY_SCOPES", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
 
     mock_factory = MagicMock()
@@ -116,7 +117,7 @@ def test_rest_post_propagates_api_key_identity_to_connector_run(
     kwargs = stub.run.await_args.kwargs
     assert kwargs["principal"] == "api-key-user"
     assert kwargs["tenant_id"] is None
-    assert kwargs["scopes"] == ("*",)
+    assert kwargs["scopes"] == ()
 
 
 def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -8,6 +8,11 @@ from typing import Any, Dict, List, Mapping, Optional
 from bindings.factory import ConnectorFactory
 from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
 from node_wire_runtime.caller_identity import CallerIdentity
+from node_wire_runtime.policies.mcp_scope_policy import (
+    action_allowed_for_identity_scopes,
+    load_scope_map_from_env,
+    load_scope_policy_default_from_env,
+)
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
@@ -52,10 +57,14 @@ class McpServer:
         )
 
     def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
-        self._ensure_identity(identity=identity)
-        return self._list_tools_impl()
+        identity = self._ensure_identity(identity=identity)
+        return self._list_tools_impl(identity=identity)
 
-    def _list_tools_impl(self) -> List[Dict[str, Any]]:
+    def _list_tools_impl(
+        self, *, identity: CallerIdentity | None = None
+    ) -> List[Dict[str, Any]]:
+        scope_map = load_scope_map_from_env()
+        default_mode = load_scope_policy_default_from_env()
         connectors = self._factory.list_for_protocol("mcp")
         manifest = build_manifest(connectors)
         tools: List[Dict[str, Any]] = []
@@ -63,6 +72,17 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
+            if identity is not None:
+                if not action_allowed_for_identity_scopes(
+                    connector_id=cid,
+                    action=str(entry["action"]),
+                    principal=identity.principal,
+                    tenant_id=identity.tenant_id,
+                    scopes=identity.scopes,
+                    action_scope_map=scope_map,
+                    default_mode=default_mode,
+                ):
+                    continue
             schema_desc = entry["input_schema"].get("description", "")
             tool_desc = (
                 f"{schema_desc}\n" if schema_desc else ""
@@ -173,7 +193,7 @@ class McpServer:
                     },
                 )
             out: list[Tool] = []
-            for t in self._list_tools_impl():
+            for t in self._list_tools_impl(identity=identity):
                 kwargs: Dict[str, Any] = {
                     "name": t["name"],
                     "description": t["description"],
