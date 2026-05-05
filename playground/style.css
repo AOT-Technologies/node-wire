@@ -1601,3 +1601,52 @@ textarea:focus {
     width: 16px;
     height: 16px;
 }
+
+.transport-status-bar {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 1rem;
+    margin: -0.75rem 0 1rem;
+    padding: 0.7rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+}
+
+.transport-status-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--brand-accent);
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.5rem 0.85rem;
+    font-weight: 700;
+    font-size: 0.78rem;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.transport-status-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+}
+
+.streaming-bubble p {
+    white-space: pre-wrap;
+}
+
+@media (max-width: 768px) {
+    .transport-status-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .transport-status-pill {
+        justify-content: center;
+    }
+}

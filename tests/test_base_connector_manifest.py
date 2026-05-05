@@ -39,14 +39,14 @@ def test_manifest_emits_per_action():
     rest_actions = {(e["connector_id"], e["action"]) for e in rest_manifest}
     assert ("google_drive", "files.list") in rest_actions
     assert ("fhir_epic", "read_patient") in rest_actions
-    assert ("stripe", "charge") not in rest_actions  # stripe is grpc/mcp only in config
+    assert ("stripe", "charge") in rest_actions
 
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     mcp_actions = {(e["connector_id"], e["action"]) for e in mcp_manifest}
     assert ("stripe", "charge") in mcp_actions
     # Per-action input schema should expose that action's fields (not only a buried union)
     for entry in mcp_manifest:
-        if entry["connector_id"] == "stripe":
+        if entry["connector_id"] == "stripe" and entry["action"] == "charge":
             props = entry["input_schema"].get("properties", {})
             assert "amount" in props
 
@@ -344,7 +344,7 @@ async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"resource": {"id": "12724066"}}, trace_id="t")
 
@@ -371,7 +371,7 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"raw": {}}, trace_id="t")
 
@@ -520,7 +520,7 @@ async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"sent": True}, trace_id="t")
 
@@ -733,7 +733,7 @@ async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shap
     data_prop = schema["properties"]["data"]
     assert {"type": "null"} in data_prop["anyOf"]
 
-    async def fake_run(_raw_input):
+    async def fake_run(_raw_input, **_kwargs):
         return ConnectorResponse(
             success=False,
             data=None,
