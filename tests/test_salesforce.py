@@ -10,6 +10,10 @@ from pydantic import ValidationError
 from node_wire_runtime import SecretProvider
 from node_wire_salesforce.logic import SalesforceConnector, SalesforceTransientError
 from node_wire_salesforce.schema import (
+    CreateLeadInput,
+    ReadLeadInput,
+    UpdateLeadInput,
+    DeleteLeadInput,
     CreateContactInput,
     ReadContactInput,
     UpdateContactInput,
@@ -170,4 +174,78 @@ async def test_salesforce_delete_contact_happy_path():
     assert result.success is True
     assert result.resource_id == "003123456789012"
     mock_request.assert_called_once()
+    assert mock_request.call_args[0][0] == "DELETE"
+
+
+# ---------------------------------------------------------------------------
+# Lead Operations
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_salesforce_create_lead_happy_path():
+    connector = _connector()
+    params = CreateLeadInput(LastName="Smith", Company="Acme Corp", Email="smith@acme.com")
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 201
+    mock_response.content = b'{"id": "00Q123456789012", "success": true}'
+    mock_response.json.return_value = {"id": "00Q123456789012", "success": True}
+    mock_response.text = '{"id": "00Q123456789012", "success": true}'
+
+    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+        result = await connector.create_lead(params, trace_id="test-trace")
+
+    assert result.success is True
+    assert result.resource_id == "00Q123456789012"
+    assert "LastName" in mock_request.call_args[1]["json"]
+    assert mock_request.call_args[1]["json"]["LastName"] == "Smith"
+
+@pytest.mark.asyncio
+async def test_salesforce_read_lead_happy_path():
+    connector = _connector()
+    params = ReadLeadInput(record_id="00Q123456789012")
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.content = b'{"Id": "00Q123456789012", "LastName": "Smith"}'
+    mock_response.json.return_value = {"Id": "00Q123456789012", "LastName": "Smith"}
+
+    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+        result = await connector.read_lead(params, trace_id="test-trace")
+
+    assert result.success is True
+    assert result.resource_id == "00Q123456789012"
+    assert result.data["LastName"] == "Smith"
+
+@pytest.mark.asyncio
+async def test_salesforce_update_lead_happy_path():
+    connector = _connector()
+    params = UpdateLeadInput(record_id="00Q123456789012", fields={"Company": "New Acme"})
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 204
+    mock_response.content = b""
+
+    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+        result = await connector.update_lead(params, trace_id="test-trace")
+
+    assert result.success is True
+    assert result.resource_id == "00Q123456789012"
+    assert mock_request.call_args[0][0] == "PATCH"
+    assert mock_request.call_args[1]["json"]["Company"] == "New Acme"
+
+@pytest.mark.asyncio
+async def test_salesforce_delete_lead_happy_path():
+    connector = _connector()
+    params = DeleteLeadInput(record_id="00Q123456789012")
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 204
+    mock_response.content = b""
+
+    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+        result = await connector.delete_lead(params, trace_id="test-trace")
+
+    assert result.success is True
+    assert result.resource_id == "00Q123456789012"
     assert mock_request.call_args[0][0] == "DELETE"

@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 import re
 
 SALESFORCE_ID_REGEX = re.compile(r"^[a-zA-Z0-9]{15,18}$")
@@ -40,8 +40,7 @@ class CreateLeadInput(BaseModel):
     industry: Optional[str] = Field(None, alias="Industry")
     annual_revenue: Optional[float] = Field(None, alias="AnnualRevenue")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class CreateContactInput(BaseModel):
     action: Literal["create_contact"] = "create_contact"
@@ -69,8 +68,7 @@ class CreateContactInput(BaseModel):
     lead_source: Optional[str] = Field(None, alias="LeadSource")
     department: Optional[str] = Field(None, alias="Department")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Read/Delete Models

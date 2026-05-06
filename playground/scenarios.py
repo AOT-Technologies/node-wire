@@ -1847,7 +1847,7 @@ async def salesforce_update_lead_scenario(
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
     add_step("Update Lead", "pending", "Updating Lead Record")
-    fields = {k: v for k, v in payload.dict().items() if v is not None and k != "record_id"}
+    fields = {k: v for k, v in payload.model_dump().items() if v is not None and k != "record_id"}
     # Map to SF internal names
     sf_fields = {}
     if "first_name" in fields: sf_fields["FirstName"] = fields["first_name"]
@@ -1924,7 +1924,7 @@ async def salesforce_update_contact_scenario(
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
     add_step("Update Contact", "pending", "Updating Contact Record")
-    fields = {k: v for k, v in payload.dict().items() if v is not None and k != "record_id"}
+    fields = {k: v for k, v in payload.model_dump().items() if v is not None and k != "record_id"}
     sf_fields = {}
     if "first_name" in fields: sf_fields["FirstName"] = fields["first_name"]
     if "last_name" in fields: sf_fields["LastName"] = fields["last_name"]
