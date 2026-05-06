@@ -71,4 +71,10 @@ docker build -f docker/stripe/Dockerfile \
   -t "nw-stripe:${VERSION}" \
   .
 
+docker build -f docker/salesforce/Dockerfile \
+  -t nw-salesforce:latest \
+  -t "nw-salesforce:${VERSION}" \
+  .
+
+
 echo "Done."

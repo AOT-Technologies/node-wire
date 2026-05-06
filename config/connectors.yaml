@@ -73,3 +73,15 @@ connectors:
         - system/Encounter.read
         - system/DocumentReference.read
         - system/DocumentReference.write
+
+  salesforce:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    # instance_url is typically https://yourdomain.my.salesforce.com
+    auth:
+      provider: oauth2
+      grant_method: refresh_token
+      token_url_secret: SALESFORCE_TOKEN_URL
+      client_id_secret: SALESFORCE_CLIENT_ID
+      client_secret_secret: SALESFORCE_CLIENT_SECRET
+      refresh_token_secret: SALESFORCE_REFRESH_TOKEN
