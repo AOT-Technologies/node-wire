@@ -496,6 +496,11 @@ class BaseConnector(ABC):
                 )
 
     @classmethod
+    def get_registry(cls) -> Dict[str, Type[BaseConnector]]:
+        """Public access to the global connector registry."""
+        return dict(_CONNECTOR_REGISTRY)
+
+    @classmethod
     def sdk_action_metas(cls) -> Dict[str, NwActionMeta]:
         """Registry of action name -> metadata (for manifest/ingress)."""
         return dict(cls._action_registry)

@@ -218,6 +218,20 @@
                                 <p>Financial transaction and subscription management infrastructure.</p>
                             </div>
                         </div>
+
+                        <div class="connector-card" data-mode="salesforce">
+                            <div class="connector-icon bg-salesforce">
+                                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <rect width="80" height="80" rx="16" fill="#00A1E0"/>
+                                  <path d="M44.4 25.5c-4-6.5-10.8-10.5-18.5-10.5-7.7 0-14.5 4-18.5 10.5C2.8 27.2 0 31.2 0 35.7 0 41.5 4.7 46.2 10.5 46.2h29.2c5.8 0 10.5-4.7 10.5-10.5 0-4.5-2.8-8.5-6.8-10.2z" transform="translate(15, 12)" fill="white"/>
+                                </svg>
+                            </div>
+                            <div class="connector-details">
+                                <h3>Salesforce</h3>
+                                <p>Lead and contact management for CRM-driven enterprise workflows.</p>
+                            </div>
+                        </div>
+
                     </div>
                 </div>               
 
@@ -627,7 +641,105 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                     </button>
                                 </form>
                             </div>
+
+                            <div id="salesforce-panel" class="glass-card main-form-card hidden">
+                                <div class="card-title">
+                                    <h2>CRM Synchronization</h2>
+                                    <span class="info-tip">Salesforce Lead & Contact Management</span>
+                                </div>
+
+                                <div class="stripe-sub-nav">
+                                    <select id="salesforce-action-select" class="action-dropdown" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; margin-bottom: 1.5rem;">
+                                        <option value="create_lead">Create Lead</option>
+                                        <option value="read_lead">Read Lead</option>
+                                        <option value="update_lead">Update Lead</option>
+                                        <option value="delete_lead">Delete Lead</option>
+                                        <option value="create_contact">Create Contact</option>
+                                        <option value="read_contact">Read Contact</option>
+                                        <option value="update_contact">Update Contact</option>
+                                        <option value="delete_contact">Delete Contact</option>
+                                    </select>
+                                </div>
+
+                                <form id="salesforce-form">
+                                    <!-- Lead Create/Update Details -->
+                                    <div id="salesforce-section-lead" class="hidden">
+                                        <div class="input-section">
+                                            <h3 class="section-label">Lead Details</h3>
+                                            <div class="field-group id-field hidden">
+                                                <label>Lead ID</label>
+                                                <input type="text" name="lead_id" placeholder="00Q...">
+                                            </div>
+                                            <div class="input-row">
+                                                <div class="field-group">
+                                                    <label>First Name</label>
+                                                    <input type="text" name="lead_first_name" placeholder="John">
+                                                </div>
+                                                <div class="field-group">
+                                                    <label>Last Name</label>
+                                                    <input type="text" name="lead_last_name" placeholder="Doe">
+                                                </div>
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Company</label>
+                                                <input type="text" name="lead_company" placeholder="Acme Corp">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Email</label>
+                                                <input type="email" name="lead_email" placeholder="john.doe@example.com">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contact Create/Update Details -->
+                                    <div id="salesforce-section-contact" class="hidden">
+                                        <div class="input-section">
+                                            <h3 class="section-label">Contact Details</h3>
+                                            <div class="field-group id-field hidden">
+                                                <label>Contact ID</label>
+                                                <input type="text" name="contact_id" placeholder="003...">
+                                            </div>
+                                            <div class="input-row">
+                                                <div class="field-group">
+                                                    <label>First Name</label>
+                                                    <input type="text" name="contact_first_name" placeholder="Jane">
+                                                </div>
+                                                <div class="field-group">
+                                                    <label>Last Name</label>
+                                                    <input type="text" name="contact_last_name" placeholder="Smith">
+                                                </div>
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Email</label>
+                                                <input type="email" name="contact_email" placeholder="jane.smith@example.com">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Account ID (Optional)</label>
+                                                <input type="text" name="contact_account_id" placeholder="001...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Generic ID-only Section (Read/Delete) -->
+                                    <div id="salesforce-section-id-only" class="hidden">
+                                        <div class="input-section">
+                                            <h3 class="section-label">Resource Identification</h3>
+                                            <div class="field-group">
+                                                <label id="sf-resource-id-label">Record ID</label>
+                                                <input type="text" name="generic_record_id" placeholder="Enter Salesforce ID...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" id="salesforce-run-btn" class="action-btn" style="background: #00A1E0;">
+                                        <span class="btn-lbl">Execute Action</span>
+                                        <div class="loading-spinner hidden"></div>
+                                    </button>
+                                </form>
+
+                            </div>
                         </div>
+
 
                         <div class="col-progress" id="col-progress">
                             <div class="glass-card pipeline-card">

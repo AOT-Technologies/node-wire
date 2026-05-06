@@ -88,16 +88,17 @@ class OAuth2AuthProvider(AuthProvider):
         private_key_secret: Optional[str] = None,
         kid_secret: Optional[str] = None,
         client_secret_secret: Optional[str] = None,
+        refresh_token_secret: Optional[str] = None,
         scopes: Optional[List[str]] = None,
         scopes_secret: Optional[str] = None,
         extra_content_type_headers: Optional[Dict[str, str]] = None,
         buffer_secs: int = _DEFAULT_BUFFER_SECS,
         jwt_ttl_secs: int = 300,
     ) -> None:
-        if grant_method not in ("private_key_jwt", "client_secret_post"):
+        if grant_method not in ("private_key_jwt", "client_secret_post", "refresh_token"):
             raise ValueError(
                 f"Unsupported grant_method {grant_method!r}. "
-                "Use 'private_key_jwt' or 'client_secret_post'."
+                "Use 'private_key_jwt', 'client_secret_post', or 'refresh_token'."
             )
         self._sp = secret_provider
         self._grant_method = grant_method
@@ -107,6 +108,8 @@ class OAuth2AuthProvider(AuthProvider):
         self._private_key_secret = private_key_secret
         self._kid_secret = kid_secret
         self._client_secret_secret = client_secret_secret
+        self._refresh_token_secret = refresh_token_secret
+
         self._static_scopes = scopes
         self._scopes_secret = scopes_secret
         self._extra_headers: Dict[str, str] = (
@@ -224,7 +227,45 @@ class OAuth2AuthProvider(AuthProvider):
         """Dispatch to the appropriate grant method implementation."""
         if self._grant_method == "private_key_jwt":
             return await self._fetch_private_key_jwt()
+        if self._grant_method == "refresh_token":
+            return await self._fetch_refresh_token()
         return await self._fetch_client_secret_post()
+
+    async def _fetch_refresh_token(self) -> Dict[str, Any]:
+        """Exchange refresh_token for a new access token."""
+        if not self._refresh_token_secret:
+            raise ValueError(
+                "OAuth2AuthProvider (refresh_token): "
+                "'refresh_token_secret' must be configured."
+            )
+
+        client_id = self._sp.get_secret(self._client_id_secret)
+        client_secret = (
+            self._sp.get_secret(self._client_secret_secret)
+            if self._client_secret_secret
+            else None
+        )
+        refresh_token = self._sp.get_secret(self._refresh_token_secret)
+        token_url = self._sp.get_secret(self._token_url_secret)
+
+        post_data: Dict[str, str] = {
+            "grant_type": "refresh_token",
+            "client_id": client_id,
+            "refresh_token": refresh_token,
+        }
+        if client_secret:
+            post_data["client_secret"] = client_secret
+
+        scope = self._resolve_scopes()
+        if scope:
+            post_data["scope"] = scope
+
+        logger.debug(
+            "OAuth2AuthProvider: refresh_token token request",
+            extra={"token_url": token_url},
+        )
+        return await self._post_token(token_url, post_data)
+
 
     async def _fetch_private_key_jwt(self) -> Dict[str, Any]:
         """

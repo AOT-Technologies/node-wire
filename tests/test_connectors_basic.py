@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from node_wire_http_generic.logic import HttpGenericConnector
 from node_wire_smtp.logic import SmtpConnector
 from node_wire_stripe.logic import StripeConnector
+from node_wire_salesforce.logic import SalesforceConnector
 from node_wire_runtime import ConnectorResponse, ErrorCategory, BaseConnector, SecretProvider
 from node_wire_runtime.connector_registry import auto_register
 
@@ -42,3 +43,12 @@ def test_stripe_connector_instantiation_only():
     connector = StripeConnector(secret_provider=DummySecretProvider())
     assert connector.connector_id == "stripe"
     assert connector.action == "execute"
+
+
+def test_salesforce_connector_instantiation_only():
+    store = {"salesforce_instance_url": "https://test.salesforce.com"}
+    provider = type("Mock", (), {"get_secret": lambda s, k: store[k]})()
+    connector = BaseConnector.get_registry()["salesforce"](secret_provider=provider)
+    assert connector.connector_id == "salesforce"
+    assert "create_lead" in connector._action_registry
+
