@@ -20,6 +20,7 @@ Images:
   - nw-smartonfhir-epic
   - nw-smartonfhir-cerner
   - nw-smtp
+  - nw-stripe
 EOF
 }
 
@@ -67,6 +68,11 @@ docker build -f docker/fhir-cerner/Dockerfile \
 docker build -f docker/smtp/Dockerfile \
   -t nw-smtp:latest \
   -t "nw-smtp:${VERSION}" \
+  .
+
+docker build -f docker/stripe/Dockerfile \
+  -t nw-stripe:latest \
+  -t "nw-stripe:${VERSION}" \
   .
 
 echo "Done."
