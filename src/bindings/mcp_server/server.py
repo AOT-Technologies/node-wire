@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional
@@ -127,7 +128,9 @@ class McpServer:
     ) -> Dict[str, Any]:
         identity = self._ensure_identity(identity=identity)
         try:
-            await global_rate_limiter.acquire()
+            # Skip rate limiting if disabled
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+                await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
             raise ValueError(str(e))
 

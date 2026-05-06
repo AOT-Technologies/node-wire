@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from importlib import import_module
 from typing import Any, Dict
 
@@ -375,6 +376,10 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
 
     orig_run = gdrive.run
     try:
+        # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
+        old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
+        os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
+        
         gdrive.run = fake_run
         await server.invoke_tool(
             "google_drive.files.upload",
@@ -387,6 +392,10 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
                 "action": "upload",
             },
         )
+        
+        # Restore original rate limit value
+        if old_rate_limit is not None:
+            os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
     finally:
         gdrive.run = orig_run
 
@@ -431,13 +440,22 @@ async def test_mcp_server_invoke_rejects_conflicting_action() -> None:
     """Tool name action must match payload after normalization (no action spoofing)."""
     from bindings.mcp_server.server import McpServer
 
-    server = McpServer(connector_ids=["google_drive"])
+    # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
+    old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
+    os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
+    
+    try:
+        server = McpServer(connector_ids=["google_drive"])
 
-    with pytest.raises(ValueError, match="does not match"):
-        await server.invoke_tool(
-            "google_drive.files.upload",
-            {"name": "x.txt", "mime_type": "text/plain", "content": "a", "action": "files.list"},
-        )
+        with pytest.raises(ValueError, match="does not match"):
+            await server.invoke_tool(
+                "google_drive.files.upload",
+                {"name": "x.txt", "mime_type": "text/plain", "content": "a", "action": "files.list"},
+            )
+    finally:
+        # Restore original rate limit value
+        if old_rate_limit is not None:
+            os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
 
 
 def test_normalize_fhir_search_encounter_maps_llm_aliases():

@@ -67,7 +67,9 @@ def get_factory() -> ConnectorFactory:
 
 async def check_rate_limit() -> None:
     try:
-        await global_rate_limiter.acquire()
+        # Skip rate limiting if disabled
+        if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+            await global_rate_limiter.acquire()
     except RateLimitExceeded as exc:
         raise HTTPException(status_code=429, detail=str(exc))
 
