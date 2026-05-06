@@ -19,7 +19,7 @@ class _Output(BaseModel):
 
 
 class _PolicyTestConnector(BaseConnector):
-    connector_id = "fhir_epic"
+    connector_id = "policy_test_fhir_epic"
     output_model = _Output
 
     @nw_action("read_patient")
@@ -29,7 +29,7 @@ class _PolicyTestConnector(BaseConnector):
 
 def _connector_with_scope_map() -> _PolicyTestConnector:
     return _PolicyTestConnector(
-        policy_hook=ScopePolicyHook({"fhir_epic.read_patient": "mcp:fhir.read_patient"})
+        policy_hook=ScopePolicyHook({"policy_test_fhir_epic.read_patient": "mcp:fhir.read_patient"})
     )
 
 

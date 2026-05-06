@@ -1121,13 +1121,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return bubble;
     }
 
-    function appendStreamingBubble(label = 'Agent') {
+    function appendStreamingBubble(label = 'Agent Streaming') {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble assistant streaming-bubble';
-        bubble.innerHTML = `<div class="bubble-content"><span class="bubble-role">${escapeHTML(label)}</span><p></p></div>`;
+        bubble.innerHTML = `
+            <div class="bubble-content">
+                <span class="bubble-role">${escapeHTML(label)}</span>
+                <p class="streaming-text"></p>
+                <div class="stream-tail-loader">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span>Streaming response...</span>
+                </div>
+            </div>
+        `;
         agentChatHistory.appendChild(bubble);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
-        return bubble.querySelector('p');
+        return {
+            bubble,
+            text: bubble.querySelector('.streaming-text'),
+            loader: bubble.querySelector('.stream-tail-loader'),
+        };
     }
 
     function appendTraceBadge(traceId, transportLabel = '') {
@@ -1137,6 +1152,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const suffix = transportLabel ? ` | ${transportLabel}` : '';
         badge.textContent = `TRC-${traceId.toUpperCase().slice(0, 8)}${suffix}`;
         agentChatHistory.appendChild(badge);
+        agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
+    }
+
+    function appendStreamEndMessage(message, success = true) {
+        const end = document.createElement('div');
+        end.className = `stream-end-message ${success ? 'success' : 'error'}`;
+        end.textContent = message || (success ? 'Streaming completed.' : 'Streaming ended with an error.');
+        agentChatHistory.appendChild(end);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
@@ -1157,6 +1180,33 @@ document.addEventListener('DOMContentLoaded', () => {
             log(`Transport status unavailable; using stdio UI mode (${error.message})`, 'system');
         }
         updateAgentTransportStatus();
+    }
+
+    async function readNdjsonStream(response, handlers) {
+        if (!response.body) throw new Error('Browser did not expose a readable response stream');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let pending = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            pending += decoder.decode(value, { stream: true });
+            const lines = pending.split('\n');
+            pending = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const event = JSON.parse(line);
+                if (handlers[event.type]) handlers[event.type](event);
+            }
+        }
+
+        if (pending.trim()) {
+            const event = JSON.parse(pending);
+            if (handlers[event.type]) handlers[event.type](event);
+        }
     }
 
     function appendStepCard(step) {
@@ -1247,7 +1297,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let finalText = '';
                 let traceId = '';
                 let success = true;
-                let streamedText = null;
+                let doneMessage = '';
+                let streamView = null;
 
                 await readNdjsonStream(response, {
                     meta: (event) => {
@@ -1263,36 +1314,52 @@ document.addEventListener('DOMContentLoaded', () => {
                             args: event.args || {},
                             result: event.result || ''
                         });
+                        if (!streamView) {
+                            streamView = appendStreamingBubble();
+                        } else {
+                            agentChatHistory.appendChild(streamView.bubble);
+                            agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
+                        }
                     },
                     final_chunk: (event) => {
                         agentTyping.classList.add('hidden');
-                        if (!streamedText) streamedText = appendStreamingBubble('Agent Streaming');
+                        if (!streamView) streamView = appendStreamingBubble();
                         finalText += event.content || '';
-                        streamedText.textContent = finalText;
+                        streamView.text.textContent = finalText;
                         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
                     },
                     error: (event) => {
                         success = false;
                         agentTyping.classList.add('hidden');
-                        if (!streamedText) streamedText = appendStreamingBubble('Agent Streaming');
+                        if (!streamView) streamView = appendStreamingBubble();
                         finalText += event.message || '';
-                        streamedText.textContent = finalText;
+                        streamView.text.textContent = finalText;
                     },
                     done: (event) => {
                         traceId = event.trace_id || traceId;
                         success = Boolean(event.success);
+                        doneMessage = event.message || `Streaming ${success ? 'completed' : 'failed'}. trace_id=${traceId}`;
+                        if (!streamView) streamView = appendStreamingBubble();
+                        streamView.loader.classList.add('hidden');
+                        appendStreamEndMessage(doneMessage, success);
                     }
                 });
 
                 agentTyping.classList.add('hidden');
-                if (!streamedText && !finalText) {
-                    streamedText = appendStreamingBubble('Agent Streaming');
-                    finalText = success ? 'Completed.' : 'The streamed run ended before a final answer was returned.';
-                    streamedText.textContent = finalText;
+                if (!doneMessage) {
+                    if (!streamView) streamView = appendStreamingBubble();
+                    streamView.loader.classList.add('hidden');
+                    doneMessage = `Streaming connection closed before done event. trace_id=${traceId || 'unknown'}`;
+                    appendStreamEndMessage(doneMessage, false);
+                    success = false;
+                }
+                if (!finalText) {
+                    finalText = success ? 'Completed.' : 'The stream ended before a final answer was returned.';
+                    if (streamView) streamView.text.textContent = finalText;
                 }
                 agentConversationHistory.push({ role: 'assistant', content: finalText });
                 appendTraceBadge(traceId, 'streamable-http');
-                log(`Agent Chat: ${success ? 'Stream complete' : 'Stream failed'}`, success ? 'success' : 'error');
+                log(`Agent Chat: ${success ? 'Stream complete' : 'Stream failed'} | ${doneMessage}`, success ? 'success' : 'error');
                 return;
             }
 

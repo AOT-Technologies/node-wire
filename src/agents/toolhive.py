@@ -158,10 +158,9 @@ def _tool_failure_abort_message(tool_name: str, max_failures: int) -> str:
 
 
 def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
-    """Split final assistant text into UI-friendly chunks."""
+    """Split final assistant text into UI-friendly chunks for stream consumers."""
     if not text:
         return [""]
-
     chunks: List[str] = []
     current = ""
     for part in text.split(" "):
@@ -174,6 +173,17 @@ def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
     if current:
         chunks.append(current)
     return chunks
+
+
+def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
+    from node_wire_runtime.streaming import stream_completion_log
+    stream_completion_log(trace_id, success, connector_id="agent", action="run_events")
+    return {
+        "type": "done",
+        "trace_id": trace_id,
+        "success": success,
+        "message": f"Streaming completed. trace_id={trace_id}",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -631,17 +641,42 @@ class ToolHiveAgent:
             result.error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
             logger.warning(result.error)
 
+        from node_wire_runtime.streaming import stream_completion_log
+        stream_completion_log(trace_id, result.success, connector_id="agent", action="run")
         return result
 
     async def run_events(self, task: str) -> AsyncIterator[Dict[str, Any]]:
+        trace_id = str(uuid.uuid4())
+        from node_wire_runtime.streaming import resolve_stream_buffer_ms, BufferedStreamIterator
+        
+        buffer_ms = resolve_stream_buffer_ms()
+        iterator = self._run_events_inner(task, trace_id)
+        
+        if buffer_ms > 0:
+            async for item in BufferedStreamIterator(iterator, buffer_ms, trace_id, connector_id="agent", action="run_events"):
+                yield item
+        else:
+            async for item in iterator:
+                yield item
+
+    async def _run_events_inner(self, task: str, trace_id: str) -> AsyncIterator[Dict[str, Any]]:
         """
+        Stream agent progress events for web clients.
+
+        Contract:
+        - ``meta``: emitted once with ``trace_id``.
+        - ``status``: informational progress text.
+        - ``step``: emitted after each MCP tool call completes.
+        - ``final_chunk``: chunks of the final assistant answer.
+        - ``error``: recoverable terminal error text.
+        - ``done``: always emitted at terminal completion; clients should stop
+          loaders when this event arrives.
         Stream agent progress events as the ReAct loop runs.
 
         The LLM providers currently return complete assistant messages, so final
         answer chunks begin after the final LLM call completes. Tool-step events
         are emitted immediately after each MCP tool call completes.
         """
-        trace_id = str(uuid.uuid4())
         logger.info("Streaming agent run started | trace_id=%s", trace_id)
         logger.info("Task: %s", task)
 
@@ -657,7 +692,7 @@ class ToolHiveAgent:
             error = f"Failed to list MCP tools: {exc}"
             logger.error(error)
             yield {"type": "error", "trace_id": trace_id, "message": error}
-            yield {"type": "done", "trace_id": trace_id, "success": False}
+            yield _stream_done_event(trace_id, success=False)
             return
 
         messages: List[LLMMessage] = [
@@ -676,7 +711,7 @@ class ToolHiveAgent:
                 error = f"LLM error at step {step_num}: {exc}"
                 logger.error(error)
                 yield {"type": "error", "trace_id": trace_id, "message": error}
-                yield {"type": "done", "trace_id": trace_id, "success": False}
+                yield _stream_done_event(trace_id, success=False)
                 return
 
             messages.append(LLMMessage(
@@ -686,10 +721,9 @@ class ToolHiveAgent:
             ))
 
             if not llm_resp.wants_tool_call:
-                final_answer = llm_resp.content or ""
-                for chunk in _chunk_agent_text(final_answer):
+                for chunk in _chunk_agent_text(llm_resp.content or ""):
                     yield {"type": "final_chunk", "content": chunk}
-                yield {"type": "done", "trace_id": trace_id, "success": True}
+                yield _stream_done_event(trace_id, success=True)
                 return
 
             abort_message: Optional[str] = None
@@ -712,10 +746,9 @@ class ToolHiveAgent:
                     "result": tool_result_str,
                 }
 
-                llm_tool_content = truncate_tool_result_for_llm(tool_result_str)
                 messages.append(LLMMessage(
                     role="tool",
-                    content=llm_tool_content,
+                    content=truncate_tool_result_for_llm(tool_result_str),
                     tool_call_id=tc.id,
                     name=tc.name,
                 ))
@@ -730,14 +763,14 @@ class ToolHiveAgent:
             if abort_message:
                 for chunk in _chunk_agent_text(abort_message):
                     yield {"type": "final_chunk", "content": chunk}
-                yield {"type": "done", "trace_id": trace_id, "success": False}
+                yield _stream_done_event(trace_id, success=False)
                 return
 
         error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
         logger.warning(error)
         for chunk in _chunk_agent_text(error):
             yield {"type": "final_chunk", "content": chunk}
-        yield {"type": "done", "trace_id": trace_id, "success": False}
+        yield _stream_done_event(trace_id, success=False)
 
 
 # ---------------------------------------------------------------------------

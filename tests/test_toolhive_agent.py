@@ -227,6 +227,34 @@ async def test_agent_runs_three_tool_sequence() -> None:
 
 
 @pytest.mark.asyncio
+async def test_agent_run_events_emits_done_message_with_trace_id() -> None:
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(content="All done.", tool_calls=[], stop_reason="stop"),
+    ]
+    provider = _MockLLMProvider(responses)
+
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.return_value = '{"status": "ok"}'
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=5)
+    events = [event async for event in agent.run_events("Fetch patient 12724066")]
+
+    assert events[0]["type"] == "meta"
+    assert any(event["type"] == "step" for event in events)
+    assert any(event["type"] == "final_chunk" for event in events)
+    assert events[-1]["type"] == "done"
+    assert events[-1]["success"] is True
+    assert events[-1]["trace_id"] == events[0]["trace_id"]
+    assert events[-1]["message"] == f"Streaming completed. trace_id={events[0]['trace_id']}"
+
+
+@pytest.mark.asyncio
 async def test_agent_id_first_turn_calls_read_patient_with_resource_id() -> None:
     """Document ID-first flow: Cerner read uses canonical resource_id (not search_patients)."""
     responses = [

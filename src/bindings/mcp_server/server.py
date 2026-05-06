@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional
 
 from bindings.factory import ConnectorFactory
@@ -12,8 +13,14 @@ from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
+
+_http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
+    "mcp_http_request_headers",
+    default=None,
+)
 
 
 class McpServer:
@@ -89,7 +96,10 @@ class McpServer:
     ) -> CallerIdentity | None:
         if identity is not None:
             return identity
-        return authenticate_mcp_request(meta=meta)
+        return authenticate_mcp_request(
+            headers=_http_request_headers.get(),
+            meta=meta,
+        )
 
     def _request_meta_from_context(self) -> Mapping[str, Any] | None:
         try:
@@ -135,13 +145,19 @@ class McpServer:
         enforce_authoritative_action(run_args, action)
         run_args["action"] = action
 
-        response = await connector.run(
-            run_args,
-            principal=identity.principal if identity else None,
-            tenant_id=identity.tenant_id if identity else None,
-            scopes=identity.scopes if identity else None,
-        )
-        return response.model_dump()
+        trace_id = run_args.get("trace_id") or str(uuid.uuid4())
+        try:
+            response = await connector.run(
+                run_args,
+                principal=identity.principal if identity else None,
+                tenant_id=identity.tenant_id if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+            stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
+            return response.model_dump()
+        except Exception as exc:
+            stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
+            raise
 
     def _setup_lowlevel_server(self) -> Any:
         from mcp.server import NotificationOptions, Server as LowLevelServer
@@ -268,7 +284,15 @@ class McpServer:
                 self.handler = handler
 
             async def __call__(self, scope, receive, send):
-                await self.handler(scope, receive, send)
+                headers = {
+                    key.decode("latin-1"): value.decode("latin-1")
+                    for key, value in scope.get("headers", [])
+                }
+                token = _http_request_headers.set(headers)
+                try:
+                    await self.handler(scope, receive, send)
+                finally:
+                    _http_request_headers.reset(token)
 
         starlette_app = Starlette(
             lifespan=lifespan,

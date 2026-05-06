@@ -84,7 +84,7 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 | **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
 | **SMTP**         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`                                                          | Sending emails         |
 | **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
-| **ToolHive / MCP**| `TOOLHIVE_MCP_URLS` (multi-server), `NW_MCP_TRANSPORT`, `NW_MCP_PORT`               | AI agent / ToolHive    |
+| **ToolHive / MCP**| `TOOLHIVE_MCP_URLS` (multi-server), `NW_MCP_TRANSPORT`, `NW_MCP_PORT`, `NW_STREAM_BUFFER_MS`               | AI agent / ToolHive    |
 
 
 See `sample.env` for the full list with example values.
@@ -298,6 +298,10 @@ Node Wire supports two transport modes for AI agents. Switch between them using 
 
 - **`stdio`** (Default): Communicates via standard I/O. Best for local development, subprocess-based clients, and ToolHive-style wrapping. The playground uses buffered agent responses in this mode.
 - **`streamable-http`**: Native HTTP MCP server. Exposes a direct endpoint on `NW_MCP_HOST`, `NW_MCP_PORT`, and `NW_MCP_PATH`. The playground streams tool progress and final answer chunks in this mode.
+
+### Streaming Features
+- **Configurable Buffering (`NW_STREAM_BUFFER_MS`)**: When streaming, output can be buffered to reduce event spam. Set to the duration in milliseconds (e.g. `2000` for a 2-second batching window). Default is `0` (no buffering).
+- **Completion Signals**: The core runtime emits structured "done" signals (`stream_completion_log`) via Python logging when streaming ends, allowing package consumers to easily detect when a stream finishes.
 
 **Example: stdio mode**
 

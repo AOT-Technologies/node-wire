@@ -1449,6 +1449,27 @@ class AgentChatResponse(BaseModel):
     success: bool
 
 
+def _current_agent_transport() -> str:
+    transport = os.environ.get("NW_MCP_TRANSPORT", "stdio").strip().lower() or "stdio"
+    return transport if transport in {"stdio", "streamable-http"} else "stdio"
+
+
+def _build_agent_chat_task(payload: AgentChatInput) -> str:
+    history_text_parts = []
+    for msg in payload.history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        history_text_parts.append(f"{role.upper()}: {content}")
+
+    if history_text_parts:
+        return (
+            "Previous conversation:\n"
+            + "\n".join(history_text_parts)
+            + f"\n\nUSER (latest): {payload.message}"
+        )
+    return payload.message
+
+
 @router.get("/agent-transport")
 async def agent_transport() -> Dict[str, str]:
     transport = _current_agent_transport()
@@ -1561,15 +1582,11 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
         task = _build_agent_chat_task(payload)
 
-        # Determine MCP transport — try proxy first, optionally fallback to local stdio.
-        # Default behavior surfaces proxy/auth errors directly in the UI so demos can
-        # show MCP failures (instead of silently falling back to stdio).
-        fallback_to_stdio = (
-            (os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").strip().lower())
-            in {"1", "true", "yes", "on"}
-        )
-        urls = resolve_mcp_urls()
+        # Determine MCP transport — try proxy first, fallback to local stdio
+        transport = _current_agent_transport()
+        urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
+        fallback_to_stdio = os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
 
         if urls:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
@@ -1667,11 +1684,10 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 @router.post("/agent-chat-stream")
 async def agent_chat_stream(payload: AgentChatInput) -> Any:
     """
-    Stream agent progress and final answer chunks to the playground UI.
+    Stream agent progress and final-answer chunks to web clients.
 
-    Tool steps are emitted as each tool finishes. The final assistant answer is
-    emitted as chunks instead of waiting for the browser to receive one large
-    buffered JSON payload.
+    The terminal ``done`` event includes ``trace_id`` and ``message``. Clients
+    should stop their streaming loader only when that event arrives.
     """
 
     async def stream_events():
@@ -1689,14 +1705,16 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
             )
 
             if not payload.message.strip():
+                trace_id = str(uuid.uuid4())
                 yield json.dumps({
                     "type": "final_chunk",
                     "content": "Please type a message to get started.",
                 }) + "\n"
                 yield json.dumps({
                     "type": "done",
-                    "trace_id": str(uuid.uuid4()),
+                    "trace_id": trace_id,
                     "success": False,
+                    "message": f"Streaming failed. trace_id={trace_id}",
                 }) + "\n"
                 return
 
@@ -1744,6 +1762,7 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                 "type": "done",
                 "trace_id": trace_id,
                 "success": False,
+                "message": f"Streaming failed. trace_id={trace_id}",
             }) + "\n"
 
     return StreamingResponse(stream_events(), media_type="application/x-ndjson")
