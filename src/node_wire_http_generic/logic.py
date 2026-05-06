@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import httpx
@@ -40,7 +41,7 @@ class HttpGenericConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.request(
                     method=params.method,
                     url=str(params.url),
@@ -48,7 +49,7 @@ class HttpGenericConnector(BaseConnector):
                     params=params.params,
                     json=params.body if isinstance(params.body, (dict, list)) else None,
                     content=None if isinstance(params.body, (dict, list)) else params.body,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
         except Exception as exc:  # noqa: BLE001
             # Let ErrorMapper classify the exception, but log clear context here.

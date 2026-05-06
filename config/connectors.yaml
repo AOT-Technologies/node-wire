@@ -26,7 +26,7 @@ connectors:
 
   stripe:
     enabled: true
-    exposed_via: ["grpc", "mcp"]
+    exposed_via: ["rest", "grpc", "mcp"]
     auth:
       provider: static_token
       secret_key: stripe_api_key

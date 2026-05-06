@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextvars
 import inspect
 import logging
+import os
 import uuid
 from abc import ABC
 from dataclasses import dataclass
@@ -331,6 +332,7 @@ class BaseConnector(ABC):
             reset_timeout=30,
             name=f"{cls.__name__}_breaker",
         )
+        self._breakers: Dict[str, CircuitBreaker] = {}
         self._client: Any = None
 
     @property
@@ -426,19 +428,42 @@ class BaseConnector(ABC):
                         details=details,
                     )
 
-                token = _caller_execution_ctx.set((principal, tenant_id, scopes))
-                try:
-                    # Policy hook
-                    if self._policy_hook is not None:
-                        input_payload = input_model.model_dump()
-                        policy_action = str(input_payload.get("action", self.action))
-                        context = PolicyContext(
-                            connector_id=self.connector_id,
-                            action=policy_action,
-                            input_payload=input_payload,
-                            principal=principal,
-                            tenant_id=tenant_id,
-                            scopes=scopes,
+                # Policy hook
+                if self._policy_hook is not None:
+                    input_payload = input_model.model_dump()
+                    policy_action = str(input_payload.get("action", self.action))
+                    context = PolicyContext(
+                        connector_id=self.connector_id,
+                        action=policy_action,
+                        input_payload=input_payload,
+                        principal=principal,
+                        tenant_id=tenant_id,
+                        scopes=scopes,
+                    )
+                    try:
+                        self._policy_hook.check(context)
+                    except PolicyDenied as exc:
+                        logger.warning(
+                            "AUDIT: Execution blocked by policy hook",
+                            extra={
+                                "trace_id": trace_id,
+                                "connector_id": self.connector_id,
+                                "action": self.action,
+                                "error_type": type(exc).__name__,
+                                "error_message": str(exc),
+                                "audit": True,
+                                "audit_event": "policy_denial",
+                                "tenant_id": tenant_id,
+                                "principal": principal,
+                            },
+                        )
+                        mapped = ErrorMapper.resolve(exc)
+                        return ConnectorResponse(
+                            success=False,
+                            error_code=mapped.code,
+                            error_category=mapped.category,
+                            message=str(exc),
+                            trace_id=trace_id,
                         )
                         try:
                             self._policy_hook.check(context)
@@ -490,6 +515,32 @@ class BaseConnector(ABC):
                 nested = exc.response
                 logger.warning(
                     "Nested connector action failed via call_action",
+                tenant_key = tenant_id or "default"
+                breaker_cache = getattr(self, "_breakers", None)
+                if breaker_cache is None:
+                    breaker_cache = {}
+                    self._breakers = breaker_cache
+
+                if tenant_key not in breaker_cache:
+                    fail_max = int(os.environ.get("AOT_CIRCUIT_BREAKER_FAIL_MAX", "5"))
+                    reset_timeout = int(os.environ.get("AOT_CIRCUIT_BREAKER_RESET_TIMEOUT", "30"))
+                    breaker_cache[tenant_key] = CircuitBreaker(
+                        fail_max=fail_max,
+                        reset_timeout=reset_timeout,
+                        name=f"{self.connector_id}_breaker_{tenant_key}",
+                    )
+                
+                breaker = breaker_cache[tenant_key]
+                execute_with_resilience = with_resilience(breaker)
+
+                @execute_with_resilience
+                async def _do_execute(*, trace_id: str) -> Any:
+                    return await self.internal_execute(input_model, trace_id=trace_id)
+
+                output_model = await _do_execute(trace_id=trace_id)
+
+                logger.info(
+                    "Connector execution completed successfully",
                     extra={
                         "trace_id": trace_id,
                         "connector_id": self.connector_id,
