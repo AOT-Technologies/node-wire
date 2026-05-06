@@ -2,13 +2,8 @@ from .models import ConnectorResponse, ErrorCategory
 from .errors import ErrorMapper
 from .secrets import SecretProvider, EnvSecretProvider, SecretNotFoundError, SecretProviderError
 from .policy import PolicyHook, PolicyDenied
-from .auth import (
-    AuthProvider,
-    NoAuthProvider,
-    StaticTokenAuthProvider,
-    OAuth2AuthProvider,
-    ServiceAccountAuthProvider,
-)
+from .caller_identity import CallerIdentity, build_caller_identity
+from .auth import AuthProvider, NoAuthProvider, StaticTokenAuthProvider, OAuth2AuthProvider, ServiceAccountAuthProvider
 from .base_connector import BaseConnector, nw_action, sdk_action, _CONNECTOR_REGISTRY
 from .sdk_action_spec import (
     SdkActionSpec,
@@ -27,6 +22,8 @@ __all__ = [
     "SecretProviderError",
     "PolicyHook",
     "PolicyDenied",
+    "CallerIdentity",
+    "build_caller_identity",
     "AuthProvider",
     "NoAuthProvider",
     "StaticTokenAuthProvider",

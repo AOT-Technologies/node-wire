@@ -39,14 +39,14 @@ def test_manifest_emits_per_action():
     rest_actions = {(e["connector_id"], e["action"]) for e in rest_manifest}
     assert ("google_drive", "files.list") in rest_actions
     assert ("fhir_epic", "read_patient") in rest_actions
-    assert ("stripe", "charge") not in rest_actions  # stripe is grpc/mcp only in config
+    assert ("stripe", "charge") in rest_actions
 
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     mcp_actions = {(e["connector_id"], e["action"]) for e in mcp_manifest}
     assert ("stripe", "charge") in mcp_actions
     # Per-action input schema should expose that action's fields (not only a buried union)
     for entry in mcp_manifest:
-        if entry["connector_id"] == "stripe":
+        if entry["connector_id"] == "stripe" and entry["action"] == "charge":
             props = entry["input_schema"].get("properties", {})
             assert "amount" in props
 

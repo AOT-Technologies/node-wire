@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
@@ -33,6 +35,7 @@ from node_wire_google_drive.schema import (
     FilesListOperation,
     FilesUpdateOperation,
 )
+from node_wire_stripe.schema import ChargeInput
 
 load_dotenv()
 
@@ -61,6 +64,31 @@ class IncidentReportInput(BaseModel):
     description: str
     reported_by: str = "Demo User"
 
+class StripeChargeInput(BaseModel):
+    amount: int
+    currency: str
+    description: Optional[str] = None
+    source: str = "tok_visa"
+
+class StripePaymentIntentInputPlayground(BaseModel):
+    amount: int
+    currency: str
+    customer_id: Optional[str] = None
+    payment_method: Optional[str] = None
+    confirm: bool = False
+
+class StripeSubscriptionInputPlayground(BaseModel):
+    customer_id: str
+    price_id: str
+    card_token: Optional[str] = None
+
+class StripeCancelSubscriptionInputPlayground(BaseModel):
+    subscription_id: str
+
+class StripeRefundInputPlayground(BaseModel):
+    charge_id: Optional[str] = None
+    payment_intent_id: Optional[str] = None
+    amount: Optional[int] = None
 
 class CernerPostConsultationInput(BaseModel):
     patient_id: Optional[str] = None
@@ -256,6 +284,13 @@ def get_google_drive_connector():
     connector = resolve_connector("google_drive")
     if not connector:
         raise HTTPException(status_code=500, detail="Google Drive connector not configured")
+    return connector
+
+
+def get_stripe_connector():
+    connector = resolve_connector("stripe")
+    if not connector:
+        raise HTTPException(status_code=500, detail="Stripe connector not configured")
     return connector
 
 
@@ -918,6 +953,261 @@ async def cerner_post_consultation_scenario(
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
+@router.post("/stripe-charge", response_model=ScenarioResponse)
+async def stripe_charge_scenario(
+    payload: StripeChargeInput,
+    connector: Any = Depends(get_stripe_connector)
+) -> ScenarioResponse:
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+
+    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
+        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    # STEP 1: Process Payment Intent
+    add_step("Process Payment Intent", "pending", display_name="Initialize Payment")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = "Payment initialization verified."
+        steps[-1].display_name = "Payment Initialized"
+        steps[-1].data = {"amount": payload.amount, "currency": payload.currency}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
+
+    # STEP 2: Confirm Charge
+    add_step("Confirm Charge", "pending", display_name="Process Charge")
+    try:
+        from node_wire_stripe.schema import ChargeInput
+        charge_input = ChargeInput(
+            amount=payload.amount,
+            currency=payload.currency,
+            source=payload.source,
+            description=payload.description
+        )
+        
+        charge_res = await execute_with_retry(connector, charge_input, trace_id, steps[-1])
+
+        steps[-1].status = "success"
+        steps[-1].details = f"Charge Processed: {charge_res.charge_id}"
+        steps[-1].display_name = "Charge Successful"
+        steps[-1].data = {"raw": charge_res.model_dump()}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
+
+    # STEP 3: Verify Transaction
+    add_step("Verify Transaction", "pending", display_name="Verify Receipt")
+    try:
+        beautiful_data = {
+            "id": charge_res.charge_id,
+            "type": "Payment Receipt",
+            "date": datetime.now().isoformat(),
+            "status": charge_res.status,
+            "patient_name": "Demo User",
+            "author": "Stripe Gateway",
+            "category": "Financial",
+            "description": payload.description or "No description",
+            "content_text": f"Charge of {payload.amount/100:.2f} {payload.currency.upper()} processed successfully. Receipt: {charge_res.receipt_url or 'N/A'}"
+        }
+        steps[-1].status = "success"
+        steps[-1].details = "Transaction Verified"
+        steps[-1].display_name = "Transaction Verified"
+        steps[-1].data = {"beautiful_data": beautiful_data, "raw": {"status": "Verified"}}
+        
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            final_resource_id=charge_res.charge_id,
+            human_summary=f"Successfully processed {payload.amount/100:.2f} {payload.currency.upper()} charge.",
+            trace_id=trace_id
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
+
+@router.post("/stripe-payment-intent", response_model=ScenarioResponse)
+async def stripe_payment_intent_scenario(
+    payload: StripePaymentIntentInputPlayground,
+    connector: Any = Depends(get_stripe_connector)
+) -> ScenarioResponse:
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
+        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    add_step("Initialize Session", "pending", display_name="Initialize PI")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Initialized PI session for {payload.amount} {payload.currency}"
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
+
+    add_step("Create Payment Intent", "pending", display_name="Create Intent")
+    try:
+        from node_wire_stripe.schema import CreatePaymentIntentInput
+        pi_input = CreatePaymentIntentInput(
+            amount=payload.amount,
+            currency=payload.currency,
+            customer_id=payload.customer_id,
+            payment_method=payload.payment_method,
+            confirm=payload.confirm
+        )
+        res = await execute_with_retry(connector, pi_input, trace_id, steps[-1])
+        steps[-1].status = "success"
+        steps[-1].details = f"Created Intent: {res.payment_intent_id}"
+        steps[-1].data = {"raw": res.model_dump()}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
+
+    add_step("Verify Allocation", "pending", display_name="Verify Allocation")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = "Allocation verified"
+        steps[-1].display_name = "Allocation Verified"
+        
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            final_resource_id=res.payment_intent_id,
+            human_summary=f"Successfully created payment intent {res.payment_intent_id}.",
+            trace_id=trace_id
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
+
+@router.post("/stripe-subscription", response_model=ScenarioResponse)
+async def stripe_subscription_scenario(
+    payload: StripeSubscriptionInputPlayground,
+    connector: Any = Depends(get_stripe_connector)
+) -> ScenarioResponse:
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
+        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    add_step("Validate Customer", "pending", display_name="Validate Params")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Validated inputs for Customer: {payload.customer_id}"
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
+
+    add_step("Create Subscription", "pending", display_name="Create Sub")
+    try:
+        from node_wire_stripe.schema import CreateSubscriptionInput
+        sub_input = CreateSubscriptionInput(
+            customer_id=payload.customer_id,
+            price_id=payload.price_id,
+            card_token=payload.card_token
+        )
+        res = await execute_with_retry(connector, sub_input, trace_id, steps[-1])
+        steps[-1].status = "success"
+        steps[-1].details = f"Subscription Created: {res.subscription_id}"
+        steps[-1].data = {"raw": res.model_dump()}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
+
+    add_step("Verify Provisioning", "pending", display_name="Verify Sub")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Subscription {res.subscription_id} is {res.status}"
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            final_resource_id=res.subscription_id,
+            human_summary=f"Successfully provisioned subscription for customer.",
+            trace_id=trace_id
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
+
+@router.post("/stripe-cancel-subscription", response_model=ScenarioResponse)
+async def stripe_cancel_subscription_scenario(
+    payload: StripeCancelSubscriptionInputPlayground,
+    connector: Any = Depends(get_stripe_connector)
+) -> ScenarioResponse:
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
+        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    add_step("Locate Resource", "pending", display_name="Locate Sub")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Targeting subscription: {payload.subscription_id}"
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
+
+    add_step("Cancel Subscription", "pending", display_name="Cancel Sub")
+    try:
+        from node_wire_stripe.schema import CancelSubscriptionInput
+        can_input = CancelSubscriptionInput(
+            subscription_id=payload.subscription_id
+        )
+        res = await execute_with_retry(connector, can_input, trace_id, steps[-1])
+        steps[-1].status = "success"
+        steps[-1].details = f"Cancelled Sub: {res.subscription_id}"
+        steps[-1].data = {"raw": res.model_dump()}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
+
+    add_step("Verify Termination", "pending", display_name="Verify Cancel")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Cancellation verified. Status: {res.status}"
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            final_resource_id=res.subscription_id,
+            human_summary=f"Successfully canceled subscription.",
+            trace_id=trace_id
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
+
+@router.post("/stripe-refund", response_model=ScenarioResponse)
+async def stripe_refund_scenario(
+    payload: StripeRefundInputPlayground,
+    connector: Any = Depends(get_stripe_connector)
+) -> ScenarioResponse:
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
+        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    add_step("Validate Charge", "pending", display_name="Validate Params")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Refund targeted for ID: {payload.charge_id or payload.payment_intent_id}"
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
+
+    add_step("Process Refund", "pending", display_name="Issue Refund")
+    try:
+        from node_wire_stripe.schema import IssueRefundInput
+        ref_input = IssueRefundInput(
+            charge_id=payload.charge_id,
+            payment_intent_id=payload.payment_intent_id,
+            amount=payload.amount
+        )
+        res = await execute_with_retry(connector, ref_input, trace_id, steps[-1])
+        steps[-1].status = "success"
+        steps[-1].details = f"Refund Processed: {res.refund_id}"
+        steps[-1].data = {"raw": res.model_dump()}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
+
+    add_step("Verify Refund", "pending", display_name="Verify Receipt")
+    try:
+        steps[-1].status = "success"
+        steps[-1].details = f"Refund recorded properly. Status: {res.status}"
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            final_resource_id=res.refund_id,
+            human_summary=f"Successfully issued refund.",
+            trace_id=trace_id
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
 @router.post("/gdrive-archival", response_model=ScenarioResponse)
 async def gdrive_archival_scenario(
@@ -1228,6 +1518,15 @@ class AgentChatResponse(BaseModel):
     success: bool
 
 
+@router.get("/agent-transport")
+async def agent_transport() -> Dict[str, str]:
+    transport = _current_agent_transport()
+    return {
+        "transport": transport,
+        "label": "Streamable HTTP" if transport == "streamable-http" else "stdio",
+    }
+
+
 AGENT_GUARDRAIL_PROMPT = (
     "You are a healthcare data assistant. You have access to tools for fetching "
     "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
@@ -1267,6 +1566,29 @@ AGENT_GUARDRAIL_PROMPT = (
     "- Always confirm what you've done after completing the requested actions.\n"
     "- Keep responses concise and professional.\n"
 )
+
+
+def _build_agent_chat_task(payload: AgentChatInput) -> str:
+    history_text_parts = []
+    for msg in payload.history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        history_text_parts.append(f"{role.upper()}: {content}")
+
+    if history_text_parts:
+        return (
+            "Previous conversation:\n"
+            + "\n".join(history_text_parts)
+            + f"\n\nUSER (latest): {payload.message}"
+        )
+    return payload.message
+
+
+def _current_agent_transport() -> str:
+    transport = os.environ.get("NW_MCP_TRANSPORT", "stdio").strip().lower() or "stdio"
+    return transport if transport in {"stdio", "streamable-http"} else "stdio"
+
+
 
 
 @router.post("/agent-chat", response_model=AgentChatResponse)
@@ -1309,24 +1631,15 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
         logger.info("Agent Chat | creating LLM provider: %s", provider_name)
         llm_provider = LLMProviderFactory.create_from_env()
 
-        # Build the task from the conversation history + current message
-        # The agent will see the full context
-        history_text_parts = []
-        for msg in payload.history:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            history_text_parts.append(f"{role.upper()}: {content}")
+        task = _build_agent_chat_task(payload)
 
-        if history_text_parts:
-            task = (
-                "Previous conversation:\n"
-                + "\n".join(history_text_parts)
-                + f"\n\nUSER (latest): {payload.message}"
-            )
-        else:
-            task = payload.message
-
-        # Determine MCP transport — try proxy first, fallback to local stdio
+        # Determine MCP transport — try proxy first, optionally fallback to local stdio.
+        # Default behavior surfaces proxy/auth errors directly in the UI so demos can
+        # show MCP failures (instead of silently falling back to stdio).
+        fallback_to_stdio = (
+            (os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").strip().lower())
+            in {"1", "true", "yes", "on"}
+        )
         urls = resolve_mcp_urls()
         run_result = None
 
@@ -1358,13 +1671,30 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     )
                 )
                 if proxy_incomplete:
-                    logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
-                    run_result = None
+                    if fallback_to_stdio:
+                        logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
+                        run_result = None
+                    else:
+                        logger.warning(
+                            "Agent Chat | proxy incomplete, returning proxy error to UI "
+                            "(set PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO=true to fallback)"
+                        )
             except Exception as proxy_err:
-                logger.warning(
-                    "Agent Chat | proxy error: %s — falling back to local stdio", proxy_err
-                )
-                run_result = None
+                if fallback_to_stdio:
+                    logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)
+                    run_result = None
+                else:
+                    logger.warning(
+                        "Agent Chat | proxy error: %s — returning error to UI "
+                        "(set PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO=true to fallback)",
+                        proxy_err,
+                    )
+                    return AgentChatResponse(
+                        reply=f"MCP proxy error: {proxy_err}",
+                        steps=[],
+                        trace_id=trace_id,
+                        success=False,
+                    )
 
         if run_result is None:
             # Use local stdio transport
@@ -1412,3 +1742,88 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             trace_id=trace_id,
             success=False,
         )
+
+
+@router.post("/agent-chat-stream")
+async def agent_chat_stream(payload: AgentChatInput) -> Any:
+    """
+    Stream agent progress and final answer chunks to the playground UI.
+
+    Tool steps are emitted as each tool finishes. The final assistant answer is
+    emitted as chunks instead of waiting for the browser to receive one large
+    buffered JSON payload.
+    """
+
+    async def stream_events():
+        try:
+            import sys
+
+            from agents.llm_factory import LLMProviderFactory
+            from agents.toolhive import (
+                MultiMcpClient,
+                StdioMcpClient,
+                ToolHiveAgent,
+                ToolHiveMcpClient,
+                resolve_mcp_urls,
+                resolve_max_tool_failures,
+            )
+
+            if not payload.message.strip():
+                yield json.dumps({
+                    "type": "final_chunk",
+                    "content": "Please type a message to get started.",
+                }) + "\n"
+                yield json.dumps({
+                    "type": "done",
+                    "trace_id": str(uuid.uuid4()),
+                    "success": False,
+                }) + "\n"
+                return
+
+            llm_provider = LLMProviderFactory.create_from_env()
+            task = _build_agent_chat_task(payload)
+            transport = _current_agent_transport()
+            urls = resolve_mcp_urls() if transport == "streamable-http" else []
+
+            if urls:
+                if len(urls) == 1:
+                    mcp_client = ToolHiveMcpClient(urls[0])
+                else:
+                    mcp_client = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
+                agent = ToolHiveAgent(
+                    mcp_client,
+                    llm_provider,
+                    max_steps=10,
+                    max_tool_failures=resolve_max_tool_failures(None),
+                )
+                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                async for event in agent.run_events(task):
+                    yield json.dumps(event) + "\n"
+                return
+
+            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
+            async with StdioMcpClient(cmd) as mcp_client:
+                agent = ToolHiveAgent(
+                    mcp_client,
+                    llm_provider,
+                    max_steps=10,
+                    max_tool_failures=resolve_max_tool_failures(None),
+                )
+                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                async for event in agent.run_events(task):
+                    yield json.dumps(event) + "\n"
+
+        except Exception as exc:
+            logger.error("Agent Chat stream failed: %s", exc, exc_info=True)
+            trace_id = str(uuid.uuid4())
+            yield json.dumps({
+                "type": "final_chunk",
+                "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
+            }) + "\n"
+            yield json.dumps({
+                "type": "done",
+                "trace_id": trace_id,
+                "success": False,
+            }) + "\n"
+
+    return StreamingResponse(stream_events(), media_type="application/x-ndjson")

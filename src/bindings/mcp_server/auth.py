@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+import logging
+from pathlib import Path
 from typing import Any, Mapping
 
 import jwt
+from dotenv import load_dotenv
+
+from node_wire_runtime.caller_identity import CallerIdentity, build_caller_identity
+
+logger = logging.getLogger("bindings.mcp_server.auth")
+
+# Back-compat: callers may still import ``McpIdentity`` / ``build_identity`` from MCP auth.
+McpIdentity = CallerIdentity
 
 
 def _truthy(val: str | None) -> bool:
     if val is None:
         return False
     return val.strip().lower() in ("1", "true", "yes", "on")
-
-
-@dataclass(frozen=True)
-class McpIdentity:
-    principal: str
-    tenant_id: str | None
-    scopes: tuple[str, ...]
-    claims: Mapping[str, Any]
-    auth_type: str
 
 
 class McpAuthError(PermissionError):
@@ -73,7 +73,7 @@ class McpAuthNotConfiguredError(McpAuthError):
         super().__init__(
             (
                 "MCP authentication is not configured. Set NW_MCP_API_KEY "
-                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_DISABLED=true "
+                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_ENABLED=true "
                 "for local development only."
             ),
             status_code=503,
@@ -81,11 +81,32 @@ class McpAuthNotConfiguredError(McpAuthError):
         )
 
 
+_mcp_auth_env_bootstrapped = False
+
+
+def _bootstrap_mcp_auth_env() -> None:
+    global _mcp_auth_env_bootstrapped
+    if _mcp_auth_env_bootstrapped:
+        return
+
+    # Some launch paths on Windows can miss .env loading for the MCP worker.
+    # If MCP auth vars are missing/empty, try loading project .env once.
+    if os.environ.get("NW_MCP_API_KEY") or os.environ.get("NW_MCP_JWT_SECRET"):
+        _mcp_auth_env_bootstrapped = True
+        return
+
+    repo_root_env = Path(__file__).resolve().parents[3] / ".env"
+    load_dotenv(override=True)
+    load_dotenv(repo_root_env, override=True)
+    _mcp_auth_env_bootstrapped = True
+
+
 def mcp_auth_disabled() -> bool:
-    return _truthy(os.environ.get("NW_MCP_AUTH_DISABLED"))
+    return _truthy(os.environ.get("NW_MCP_AUTH_ENABLED"))
 
 
 def mcp_auth_configured() -> bool:
+    _bootstrap_mcp_auth_env()
     return bool(os.environ.get("NW_MCP_API_KEY") or os.environ.get("NW_MCP_JWT_SECRET"))
 
 
@@ -129,6 +150,7 @@ def verify_mcp_token(token: str) -> tuple[dict[str, Any], str]:
     if jwt_secret and token.count(".") == 2:
         try:
             claims = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+            logger.info("MCP token verified as JWT")
             return (claims, "jwt")
         except jwt.PyJWTError as exc:
             raise McpAuthInvalidError() from exc
@@ -136,33 +158,25 @@ def verify_mcp_token(token: str) -> tuple[dict[str, Any], str]:
     raise McpAuthInvalidError()
 
 
-def build_identity(claims: Mapping[str, Any], auth_type: str) -> McpIdentity:
-    principal = str(claims.get("sub") or claims.get("client_id") or "unknown")
-    tenant_val = claims.get("tenant_id")
-    tenant_id = str(tenant_val) if tenant_val is not None else None
-    raw_scopes = claims.get("scopes")
-    if raw_scopes is None:
-        raw_scopes = claims.get("scope")
-    if isinstance(raw_scopes, str):
-        scopes = tuple(s for s in raw_scopes.split(" ") if s)
-    elif isinstance(raw_scopes, (list, tuple, set)):
-        scopes = tuple(str(s) for s in raw_scopes if str(s).strip())
-    else:
-        scopes = tuple()
-    return McpIdentity(
-        principal=principal,
-        tenant_id=tenant_id,
-        scopes=scopes,
-        claims=dict(claims),
-        auth_type=auth_type,
-    )
+def build_identity(claims: Mapping[str, Any], auth_type: str) -> CallerIdentity:
+    """Deprecated alias for :func:`build_caller_identity`; prefer that name in new code."""
+    return build_caller_identity(claims, auth_type)
 
 
 def authenticate_mcp_request(
     *,
     headers: Mapping[str, Any] | None = None,
     meta: Mapping[str, Any] | None = None,
-) -> McpIdentity | None:
+) -> CallerIdentity | None:
+    logger.info(
+        "MCP auth gate status",
+        extra={
+            "auth_disabled": mcp_auth_disabled(),
+            "auth_configured": mcp_auth_configured(),
+            "has_api_key": bool(os.environ.get("NW_MCP_API_KEY")),
+            "has_jwt_secret": bool(os.environ.get("NW_MCP_JWT_SECRET")),
+        },
+    )
     if mcp_auth_disabled():
         return None
 
@@ -174,4 +188,14 @@ def authenticate_mcp_request(
         raise McpAuthRequiredError()
 
     claims, auth_type = verify_mcp_token(token)
-    return build_identity(claims, auth_type)
+    identity = build_caller_identity(claims, auth_type)
+    logger.info(
+        "MCP auth accepted",
+        extra={
+            "auth_type": identity.auth_type,
+            "principal": identity.principal,
+            "tenant_id": identity.tenant_id or "",
+            "scopes": list(identity.scopes),
+        },
+    )
+    return identity

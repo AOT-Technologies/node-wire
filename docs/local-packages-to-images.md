@@ -37,7 +37,8 @@ Build only specific packages (faster when iterating):
 ```bash
 bash scripts/build-packages.sh \
   packages/runtime \
-  packages/connectors/smtp
+  packages/connectors/smtp \
+  packages/connectors/stripe
 ```
 
 The script (`scripts/build-packages.sh` in default mode, not `--all`):
@@ -56,6 +57,7 @@ Quick check (example for SMTP):
 ```bash
 ls packages/runtime/dist/*.whl
 ls packages/connectors/smtp/dist/*.whl
+ls packages/connectors/stripe/dist/*.whl
 ```
 
 If `ls` fails, rebuild that package before continuing.
@@ -81,6 +83,7 @@ This builds:
 - `nw-smartonfhir-epic`
 - `nw-smartonfhir-cerner`
 - `nw-smtp`
+- `nw-stripe`
 
 ### Build one image manually
 
@@ -100,6 +103,7 @@ Each Dockerfile expects specific wheel files to exist in `dist/`:
 | `docker/google-drive/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/google_drive/dist/*.whl` |
 | `docker/fhir-epic/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/fhir_epic/dist/*.whl` |
 | `docker/fhir-cerner/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/fhir_cerner/dist/*.whl` |
+| `docker/stripe/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/stripe/dist/*.whl` |
 | `Dockerfile` (unified MCP server) | runtime + all connector wheels (`http_generic`, `stripe`, `smtp`, `google_drive`, `fhir_epic`, `fhir_cerner`) |
 
 ---

@@ -4,10 +4,14 @@ import logging
 import os
 
 import uvicorn
+from dotenv import load_dotenv
 
 from bindings.rest_api.app import app as rest_app
 from bindings.mcp_server.server import McpServer
 from node_wire_runtime.observability import init_observability
+
+# Load project .env early so all modes (API/GRPC/MCP) see consistent config.
+load_dotenv(override=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bindings.entrypoint")
