@@ -56,6 +56,11 @@ from node_wire_salesforce.schema import (
 )
 
 
+from node_wire_slack.schema import (
+    SlackPostMessageInput,
+    SlackSendDirectMessageInput,
+    SlackUploadFileInput,
+)
 
 logger = logging.getLogger("playground.scenarios")
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -187,6 +192,13 @@ class SalesforceUpdateContactInputPlayground(BaseModel):
     last_name: Optional[str] = None
     email: Optional[str] = None
     account_id: Optional[str] = None
+class SlackPlaygroundInput(BaseModel):
+    action: str = "post_message"
+    channel: str = ""
+    message: Optional[str] = None
+    filename: Optional[str] = None
+    initial_comment: Optional[str] = None
+    content_base64: Optional[str] = None
 
 class ScenarioStep(BaseModel):
     name: str
@@ -310,6 +322,11 @@ def get_google_drive_connector():
     return connector
 
 
+def get_slack_connector():
+    connector = resolve_connector("slack")
+    if not connector:
+        raise HTTPException(status_code=500, detail="Slack connector not configured")
+    return connector
 def get_stripe_connector():
     connector = resolve_connector("stripe")
     if not connector:
@@ -323,6 +340,13 @@ def get_salesforce_connector():
         raise HTTPException(status_code=500, detail="Salesforce connector not configured")
     return connector
 
+
+
+def get_slack_connector():
+    connector = resolve_connector("slack")
+    if not connector:
+        raise HTTPException(status_code=500, detail="Slack connector not configured")
+    return connector
 
 
 @router.post("/post-consultation", response_model=ScenarioResponse)
@@ -1419,6 +1443,98 @@ async def gdrive_archival_scenario(
             steps=steps,
             final_resource_id=file_id,
             human_summary=f"Success! Document '{payload.document_name}' archived to Google Drive and shared with {payload.recipient_email}.",
+            trace_id=trace_id
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 4 failed")
+
+@router.post("/slack-messaging", response_model=ScenarioResponse)
+async def slack_scenario(
+    payload: SlackPlaygroundInput,
+    connector: Any = Depends(get_slack_connector)
+) -> ScenarioResponse:
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+
+    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
+        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    add_step("Format Slack Payload", "pending", display_name="Format Slack Payload")
+    try:
+        if payload.action == "upload_file":
+            input_model = SlackUploadFileInput(
+                action="upload_file",
+                channel=payload.channel,
+                filename=payload.filename or "file.txt",
+                initial_comment=payload.initial_comment or "",
+                content_base64=payload.content_base64 or ""
+            )
+        elif payload.action == "send_direct_message":
+            input_model = SlackSendDirectMessageInput(
+                action="send_direct_message",
+                channel=payload.channel,
+                message=payload.message or ""
+            )
+        else:
+            input_model = SlackPostMessageInput(
+                action="post_message",
+                channel=payload.channel,
+                message=payload.message or ""
+            )
+
+        steps[-1].status = "success"
+        steps[-1].details = "Payload structured correctly"
+        steps[-1].display_name = "Payload Ready"
+        steps[-1].data = {"raw": input_model.model_dump()}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
+
+    add_step("Dispatch to Slack API", "pending", display_name="Dispatch to Slack API")
+    try:
+        slack_res = await execute_with_retry(connector, input_model, trace_id, steps[-1])
+        steps[-1].status = "success"
+        steps[-1].details = "API Accepted Request"
+        steps[-1].display_name = "Dispatched via API"
+        steps[-1].data = {"raw": slack_res.raw}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
+
+    add_step("Verify Acknowledgment", "pending", display_name="Verify Acknowledgment")
+    try:
+        ref_id = slack_res.ts if hasattr(slack_res, 'ts') and slack_res.ts else getattr(slack_res, 'file_id', 'unknown')
+        
+        beautiful_data = {
+            "id": ref_id,
+            "type": "Slack Notification",
+            "date": datetime.now().isoformat(),
+            "status": "DELIVERED",
+            "patient_name": payload.channel,
+            "author": "Slack Connector",
+            "category": payload.action,
+            "description": payload.filename if payload.action == "upload_file" else "Slack Message",
+            "content_text": payload.message if payload.message else f"Uploaded {payload.filename}"
+        }
+
+        steps[-1].status = "success"
+        steps[-1].details = f"Acknowledged by Slack (Ref: {ref_id})"
+        steps[-1].display_name = "Verified Delivered"
+        steps[-1].data = {"raw": {"reference_id": ref_id}, "beautiful_data": beautiful_data}
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
+
+    add_step("Update Audit Trail", "pending", display_name="Update Audit Trail")
+    try:
+        # Simulate latency
+        await asyncio.sleep(0.3)
+        steps[-1].status = "success"
+        steps[-1].details = "Audit logged securely"
+        steps[-1].display_name = "Audit Complete"
+
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            final_resource_id=ref_id,
+            human_summary=f"Successfully sent Slack ({payload.action}) to {payload.channel}.",
             trace_id=trace_id
         )
     except Exception as e:

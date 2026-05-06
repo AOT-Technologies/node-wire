@@ -26,12 +26,12 @@ connectors:
 
   stripe:
     enabled: true
-    exposed_via: ["rest", "grpc", "mcp"]
+    exposed_via: ["rest", "grpc", "mcp"]  # keeping REST unless you explicitly want to remove it
     auth:
       provider: static_token
       secret_key: stripe_api_key
       header_name: Authorization
-      prefix: ""         # Stripe expects raw key
+      prefix: ""  # Stripe expects raw key
 
   google_drive:
     enabled: true
@@ -77,11 +77,17 @@ connectors:
   salesforce:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
-    # instance_url is typically https://yourdomain.my.salesforce.com
     auth:
       provider: oauth2
       grant_method: refresh_token
       token_url_secret: SALESFORCE_TOKEN_URL
       client_id_secret: SALESFORCE_CLIENT_ID
       client_secret_secret: SALESFORCE_CLIENT_SECRET
-      refresh_token_secret: SALESFORCE_REFRESH_TOKEN
+      refresh_token_secret: SALESFORCE_REFRESH_TOKEN
+
+  slack:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: static_token
+      secret_key: SLACK_BOT_TOKEN
