@@ -206,6 +206,18 @@
                             </div>
                         </div>
 
+                        <div class="connector-card" data-mode="slack">
+                            <div class="connector-icon bg-slack">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.523 2.528 2.528 0 0 1 2.521 2.523v6.313a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521v-6.313zM8.835 5.042a2.528 2.528 0 0 1-2.523-2.52A2.528 2.528 0 0 1 8.835 0a2.527 2.527 0 0 1 2.52 2.522v2.52h-2.52zm0 1.271a2.527 2.527 0 0 1 2.523 2.521 2.528 2.528 0 0 1-2.523 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.313zM18.958 8.835a2.528 2.528 0 0 1 2.52-2.523A2.528 2.528 0 0 1 24 8.835a2.527 2.527 0 0 1-2.522 2.52h-2.52v-2.52zm-1.271 0a2.527 2.527 0 0 1-2.521 2.523 2.528 2.528 0 0 1-2.521-2.523V2.522A2.528 2.528 0 0 1 15.165.001a2.528 2.528 0 0 1 2.521 2.521v6.313zM15.165 18.958a2.528 2.528 0 0 1 2.523 2.52A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.52h2.52zm0-1.271a2.527 2.527 0 0 1-2.523-2.521 2.528 2.528 0 0 1 2.523-2.521h6.313A2.528 2.528 0 0 1 24 15.166a2.528 2.528 0 0 1-2.522 2.521h-6.313z" fill="#fff"/>
+                                </svg>
+                            </div>
+                            <div class="connector-details">
+                                <h3>Slack</h3>
+                                <p>Intelligent Team Notifications & File Uploads.</p>
+                            </div>
+                        </div>
+
                         <div class="connector-card" data-mode="stripe">
                             <div class="connector-icon bg-stripe">
                                 <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -231,7 +243,6 @@
                                 <p>Lead and contact management for CRM-driven enterprise workflows.</p>
                             </div>
                         </div>
-
                     </div>
                 </div>               
 
@@ -535,19 +546,85 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                     </button>
                                 </form>
                             </div>
+                            <div id="slack-panel" class="glass-card main-form-card hidden">
+                                <div class="card-title">
+                                    <h2>Slack Orchestration</h2>
+                                    <span class="info-tip">Team Collaboration &amp; Notifications</span>
+                                </div>
+            
+                                <form id="slack-form">
+                                    <div class="input-section">
+                                        <h3 class="section-label">Slack Action</h3>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>Action</label>
+                                                <select name="action" id="slack-action-select" autocomplete="off">
+                                                    <option value="post_message">Post Message</option>
+                                                    <option value="send_direct_message">Send Direct Message</option>
+                                                    <option value="upload_file">Upload File</option>
+                                                </select>
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Target Channel/User</label>
+                                                <input type="text" name="channel" value="#general"
+                                                    placeholder="Target channel or user id...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="input-section" id="slack-message-section">
+                                        <h3 class="section-label">Message Details</h3>
+                                        <div class="field-group">
+                                            <label>Message Content</label>
+                                            <textarea name="message" rows="4">Hello from Node-Wire! The system is operating normally.</textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="input-section hidden" id="slack-file-section">
+                                        <h3 class="section-label">File Upload Params</h3>
+                                        <div class="field-group">
+                                            <label>Filename</label>
+                                            <input type="text" name="filename" value="report.txt" placeholder="Display filename...">
+                                        </div>
+                                        <div class="field-group" style="margin-top: 1rem;">
+                                            <label>Message / Initial Comment</label>
+                                            <input type="text" name="initial_comment" value="Here is the requested report." placeholder="Optional comment attached to file...">
+                                        </div>
+                                        <div class="field-group" style="margin-top: 1rem;">
+                                            <div class="file-upload-zone" id="slack-file-drop-zone">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                                <div class="zone-text">
+                                                    <span class="primary-text">Click to Upload File</span>
+                                                    <span class="secondary-text">or drag and drop a file</span>
+                                                </div>
+                                                <input type="file" id="slack-file" class="hidden-file-input" accept="*/*">
+                                            </div>
+                                            <div id="slack-file-chosen-preview" class="file-preview hidden">
+                                                <div class="preview-icon">📄</div>
+                                                <span class="preview-name">No file selected</span>
+                                                <button type="button" class="remove-file-btn">&times;</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" id="slack-run-btn" class="action-btn">
+                                        <span class="btn-lbl">Send to Slack</span>
+                                        <div class="loading-spinner hidden"></div>
+                                    </button>
+                                </form>
+                            </div>
 
                             <div id="stripe-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
                                     <h2>Stripe Payments</h2>
                                     <span class="info-tip">Process Charges & Subscriptions</span>
                                 </div>
-
             
                                 <form id="stripe-form">
                                     <div class="input-section" style="padding-bottom: 0;">
                                         <div class="field-group">
                                             <label>Stripe Target Action</label>
-                                            <select name="action" id="stripe-action-select" autocomplete="off" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-primary); margin-bottom: 0.5rem; color: var(--text-primary);">
+                                            <select name="action" id="stripe-action-select" autocomplete="off" style="width: 100%; padding: 0.75rem; border-radius: 6px; border: 1px solid #e2e8f0; background: white; margin-bottom: 0.5rem; color: var(--text-main);">
                                                 <option value="charge">Process Legacy Charge</option>
                                                 <option value="payment_intent">Create Payment Intent</option>
                                                 <option value="subscription">Create Subscription</option>
@@ -648,8 +725,8 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                     <span class="info-tip">Salesforce Lead & Contact Management</span>
                                 </div>
 
-                                <div class="stripe-sub-nav">
-                                    <select id="salesforce-action-select" class="action-dropdown" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; margin-bottom: 1.5rem;">
+                                <div class="salesforce-action-container">
+                                    <select id="salesforce-action-select" class="action-dropdown" style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0; background: white; color: var(--text-main); margin-bottom: 1.5rem;">
                                         <option value="create_lead">Create Lead</option>
                                         <option value="read_lead">Read Lead</option>
                                         <option value="update_lead">Update Lead</option>

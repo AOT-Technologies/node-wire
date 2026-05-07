@@ -16,6 +16,7 @@ Each connector can run as its own independent MCP server (Docker image).
 | `nw-smartonfhir-epic`   | All `fhir_epic.<action>` (e.g. `fhir_epic.read_patient`) | `docker/fhir-epic/Dockerfile`    |
 | `nw-smartonfhir-cerner` | All `fhir_cerner.<action>` (e.g. `fhir_cerner.read_patient`) | `docker/fhir-cerner/Dockerfile`  |
 | `nw-smtp`               | `smtp.send_email`    | `docker/smtp/Dockerfile`         |
+| `nw-slack`              | All `slack.<action>` (e.g. `slack.post_message`)     | `docker/slack/Dockerfile`        |
 
 See [docs/mcp-servers.md](docs/mcp-servers.md) for build, env config, docker-compose, and ToolHive registration.
 
@@ -95,6 +96,7 @@ The platform is split into three layers:
 | **google_drive**| Google Drive (list, create, get, update, upload, delete, permissions) | `execute` (payload discriminator) | rest, grpc, mcp |
 | **fhir_epic**   | FHIR R4 integration for Epic (multi-action)      | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
 | **fhir_cerner** | FHIR R4 integration for Cerner (multi-action)    | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | rest, grpc, mcp |
+| **slack**       | Slack (messaging, files)                         | `post_message`, `send_direct_message`, `upload_file` | rest, mcp       |
 
 ### Connector-specific documentation
 

@@ -1412,7 +1412,11 @@ textarea:focus {
 
 .bg-agent { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
 .bg-connectors { background: linear-gradient(135deg, #2563EB, #1D4ED8); }
-
+.bg-epic { background: #2B5BE0; }
+.bg-itops { background: #6366F1; }
+.bg-cerner { background: #C74634; }
+.bg-gdrive { background: #ffffff; border: 1px solid rgba(0,0,0,0.07); }
+.bg-slack { background: #4A154B; }
 .selection-details h3 {
     font-family: "Outfit", sans-serif;
     font-size: 1.75rem;

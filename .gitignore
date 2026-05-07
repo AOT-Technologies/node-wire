@@ -11,11 +11,12 @@ dist/
 .coverage
 .coverage.*
 htmlcov/
-
+*.gitattributes
 # GCP / cloud credentials
 connectorplatform-*.json
 *-service-account.json
 *credentials*.json
+service_account.json
 
 # Grafana exports (auto-generated)
 grafana/*.json
