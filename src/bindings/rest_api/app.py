@@ -29,12 +29,15 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
 from bindings.rest_api.auth import RestAuthMiddleware, get_rest_caller_identity
-from playground.scenarios import router as scenarios_router
 
 # Add project root to sys.path to allow importing from 'playground' package
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
+    
+from playground.scenarios import router as scenarios_router
+
+
 
 
 logger = logging.getLogger("bindings.rest_api")
