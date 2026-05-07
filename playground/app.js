@@ -45,6 +45,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const gdriveUploadOnly = document.getElementById('gdrive-upload-only');
     const gdriveListOnly = document.getElementById('gdrive-list-only');
     const gdriveSubNav = document.getElementById('gdrive-sub-nav');
+    const slackForm = document.getElementById('slack-form');
+    const slackRunBtn = document.getElementById('slack-run-btn');
+    const slackSpinner = slackRunBtn?.querySelector('.loading-spinner');
+    const slackBtnText = slackRunBtn?.querySelector('.btn-lbl');
+    const slackPanel = document.getElementById('slack-panel');
+    const slackActionSelect = document.getElementById('slack-action-select');
+    const slackMessageSection = document.getElementById('slack-message-section');
+    const slackFileSection = document.getElementById('slack-file-section');
+    const slackFileInput = document.getElementById('slack-file');
+    const slackFileDropZone = document.getElementById('slack-file-drop-zone');
+    const slackFileChosenPreview = document.getElementById('slack-file-chosen-preview');
+    const slackPreviewName = slackFileChosenPreview?.querySelector('.preview-name');
+    const slackRemoveFileBtn = slackFileChosenPreview?.querySelector('.remove-file-btn');
     const fileDropZone = document.getElementById('file-drop-zone');
     const fileChosenPreview = document.getElementById('file-chosen-preview');
     const previewName = fileChosenPreview?.querySelector('.preview-name');
@@ -142,25 +155,31 @@ document.addEventListener('DOMContentLoaded', () => {
             "Verify file metadata",
             "Complete update"
         ],
+        slack: [
+            "Format Slack Payload",
+            "Dispatch to Slack API",
+            "Verify Acknowledgment",
+            "Update Audit Trail",
+        ],
         stripe_charge: [
             "Initialize Payment",
             "Process Charge",
-            "Verify Transaction"
+            "Verify Transaction",
         ],
         stripe_payment_intent: [
             "Initialize Session",
             "Create Payment Intent",
-            "Verify Allocation"
+            "Verify Allocation",
         ],
         stripe_subscription: [
             "Validate Customer",
             "Create Subscription",
-            "Verify Provisioning"
+            "Verify Provisioning",
         ],
         stripe_cancel_subscription: [
             "Locate Resource",
             "Cancel Subscription",
-            "Verify Termination"
+            "Verify Termination",
         ],
         stripe_refund: [
             "Validate Charge",
@@ -191,9 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "Authenticate CRM",
             "Execute Soft Delete",
             "Verify Termination"
-        ]
-
-
+        ],
     };
 
     const nodes = [
@@ -493,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gdrivePanel.classList.add('hidden');
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
+        if (slackPanel) slackPanel.classList.add('hidden');
 
         if (mode === 'ehr') {
 
@@ -531,6 +549,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'CRM Orchestration';
             document.documentElement.style.setProperty('--brand-accent', '#00A1E0');
             log('Switched to Salesforce CRM Orchestration mode', 'system');
+        } else if (mode === 'slack') {
+            if (slackPanel) slackPanel.classList.remove('hidden');
+            connectorStatus.textContent = 'Slack Online';
+            tagline.textContent = 'Team Collaboration & Notifications';
+            document.documentElement.style.setProperty('--brand-accent', '#4A154B');
+            log('Switched to Slack Operations mode', 'system');
         }
         if (mode === 'gdrive') {
             syncGdriveActionForm();
@@ -1106,6 +1130,107 @@ document.addEventListener('DOMContentLoaded', () => {
             await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
         }
     });
+
+    if (slackActionSelect) {
+        slackActionSelect.addEventListener('change', () => {
+            const action = slackActionSelect.value;
+            if (action === 'upload_file') {
+                if (slackMessageSection) slackMessageSection.classList.add('hidden');
+                if (slackFileSection) slackFileSection.classList.remove('hidden');
+            } else {
+                if (slackMessageSection) slackMessageSection.classList.remove('hidden');
+                if (slackFileSection) slackFileSection.classList.add('hidden');
+            }
+        });
+    }
+
+    if (slackFileInput && slackFileChosenPreview && slackPreviewName && slackFileDropZone) {
+        slackFileInput.addEventListener('change', () => {
+            if (slackFileInput.files.length > 0) {
+                const fileName = slackFileInput.files[0].name;
+                slackPreviewName.textContent = fileName;
+                slackFileChosenPreview.classList.remove('hidden');
+                slackFileDropZone.classList.add('hidden');
+            }
+        });
+    }
+
+    if (slackRemoveFileBtn && slackFileInput && slackFileChosenPreview && slackFileDropZone) {
+        slackRemoveFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            slackFileInput.value = '';
+            slackFileChosenPreview.classList.add('hidden');
+            slackFileDropZone.classList.remove('hidden');
+        });
+    }
+
+    if (slackFileDropZone) {
+        slackFileDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            slackFileDropZone.style.borderColor = 'var(--brand-accent)';
+            slackFileDropZone.style.background = 'rgba(255, 255, 255, 0.08)';
+        });
+
+        slackFileDropZone.addEventListener('dragleave', () => {
+            slackFileDropZone.style.borderColor = '';
+            slackFileDropZone.style.background = '';
+        });
+
+        slackFileDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            slackFileDropZone.style.borderColor = '';
+            slackFileDropZone.style.background = '';
+            if (slackFileInput && e.dataTransfer.files.length > 0) {
+                slackFileInput.files = e.dataTransfer.files;
+                slackFileInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    if (slackForm) {
+        slackForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(slackForm);
+            const payload = Object.fromEntries(formData.entries());
+            
+            if (payload.action === 'upload_file' && slackFileInput && slackFileInput.files.length > 0) {
+                const file = slackFileInput.files[0];
+                const reader = new FileReader();
+                
+                resetUI();
+                if (slackRunBtn) slackRunBtn.disabled = true;
+                if (slackSpinner) slackSpinner.classList.remove('hidden');
+                if (slackBtnText) slackBtnText.textContent = 'Formatting payload...';
+                
+                reader.onload = async (event) => {
+                    try {
+                        const base64Data = event.target.result.split(',')[1];
+                        payload.content_base64 = base64Data;
+                        // Always override filename with actual file name if uploaded directly
+                        payload.filename = file.name;
+                        
+                        await handleSubmission(payload, '/scenarios/slack-messaging', slackRunBtn, slackBtnText, slackSpinner, 'Send to Slack');
+                    } catch (error) {
+                        log(`File parsing error: ${error.message}`, 'error');
+                        if (slackBtnText) slackBtnText.textContent = 'System Error';
+                        if (slackRunBtn) slackRunBtn.disabled = false;
+                        if (slackSpinner) slackSpinner.classList.add('hidden');
+                    }
+                };
+                
+                reader.onerror = () => {
+                    log('Failed to read binary file from memory.', 'error');
+                    if (slackBtnText) slackBtnText.textContent = 'System Error';
+                    if (slackRunBtn) slackRunBtn.disabled = false;
+                    if (slackSpinner) slackSpinner.classList.add('hidden');
+                };
+                
+                reader.readAsDataURL(file);
+            } else {
+                await handleSubmission(payload, '/scenarios/slack-messaging', slackRunBtn, slackBtnText, slackSpinner, 'Send to Slack');
+            }
+        });
+    }
 
     // ======================================================
     // AI Agent Chat Logic
