@@ -62,6 +62,12 @@ load_dotenv()
 ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
 
 
+load_dotenv()
+
+
+ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
+
+
 logger = logging.getLogger("playground.scenarios")
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
