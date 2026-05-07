@@ -222,6 +222,12 @@ Copy `sample.env` to `.env` and fill in the sections for the servers you plan to
 cp sample.env .env
 ```
 
+### Shared Required Variables
+
+| Variable | Description |
+|---|---|
+| `NW_ALLOWED_CONNECTORS` | **Required.** Comma-separated list of allowed connector names (e.g. `fhir_epic,google_drive`). Individual servers still check this allowlist before loading. |
+
 ### Per-server required variables
 
 #### `nw-google-drive`

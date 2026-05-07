@@ -12,7 +12,8 @@ from bindings.rest_api.app import app, get_factory
 from node_wire_runtime.models import ConnectorResponse, ErrorCategory
 
 
-def test_factory_loads_config():
+def test_factory_loads_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", lambda self, cid: MagicMock())
     factory = ConnectorFactory()
     factory.load()
 

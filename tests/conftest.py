@@ -7,7 +7,11 @@ Tests that assert authentication behavior override these env vars.
 
 from __future__ import annotations
 
+import os
 import pytest
+
+# Ensure tests can import app.py which builds dynamic routes via factory (needs allowed connectors to not crash M3 fail-fast)
+os.environ["NW_ALLOWED_CONNECTORS"] = "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner"
 
 
 @pytest.fixture(autouse=True)
