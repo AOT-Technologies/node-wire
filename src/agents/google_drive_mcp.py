@@ -1,4 +1,5 @@
 """MCP Server — Google Drive connector only. Usage: python -m agents.google_drive_mcp"""
+
 from __future__ import annotations
 
 import logging
@@ -17,9 +18,7 @@ def main() -> None:
     from bindings.mcp_server.server import McpServer
 
     transport = os.getenv("NW_MCP_TRANSPORT", "stdio").strip().lower()
-    logger.info(
-        f"Starting nw-google-drive MCP server (transport={transport}, manifest-driven)"
-    )
+    logger.info(f"Starting nw-google-drive MCP server (transport={transport}, manifest-driven)")
     McpServer(
         server_name="nw-google-drive",
         connector_ids=["google_drive"],

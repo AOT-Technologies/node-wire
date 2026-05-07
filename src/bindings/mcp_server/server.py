@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
+from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional
 
 from bindings.factory import ConnectorFactory
@@ -15,10 +17,17 @@ from node_wire_runtime.policies.mcp_scope_policy import (
 )
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from node_wire_runtime import BaseConnector, ConnectorResponse, ErrorCategory
+from node_wire_runtime import ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
+
+_http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
+    "mcp_http_request_headers",
+    default=None,
+)
 
 
 class McpServer:
@@ -84,9 +93,7 @@ class McpServer:
                 ):
                     continue
             schema_desc = entry["input_schema"].get("description", "")
-            tool_desc = (
-                f"{schema_desc}\n" if schema_desc else ""
-            ) + (
+            tool_desc = (f"{schema_desc}\n" if schema_desc else "") + (
                 f"Pass fields from inputSchema only; do not include an action field "
                 f"(it is injected from the tool name). "
                 f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
@@ -109,7 +116,10 @@ class McpServer:
     ) -> CallerIdentity | None:
         if identity is not None:
             return identity
-        return authenticate_mcp_request(meta=meta)
+        return authenticate_mcp_request(
+            headers=_http_request_headers.get(),
+            meta=meta,
+        )
 
     def _request_meta_from_context(self) -> Mapping[str, Any] | None:
         try:
@@ -138,14 +148,19 @@ class McpServer:
     ) -> Dict[str, Any]:
         identity = self._ensure_identity(identity=identity)
         try:
+            # Skip rate limiting if disabled
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+                await global_rate_limiter.acquire()
+        except RateLimitExceeded as e:
+            raise ValueError(str(e))
+
+        try:
             connector_id, action = name.split(".", 1)
         except ValueError:
             raise ValueError("Tool name must be in the form '<connector>.<action>'")
 
         if self._connector_ids is not None and connector_id not in self._connector_ids:
-            raise ValueError(
-                f"Connector {connector_id!r} is not allowed on this MCP server."
-            )
+            raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
 
         connector = self._factory.get_for_protocol(connector_id, "mcp")
         if connector is None:
@@ -155,16 +170,22 @@ class McpServer:
         enforce_authoritative_action(run_args, action)
         run_args["action"] = action
 
-        response = await connector.run(
-            run_args,
-            principal=identity.principal if identity else None,
-            tenant_id=identity.tenant_id if identity else None,
-            scopes=identity.scopes if identity else None,
-        )
-        return response.model_dump()
+        trace_id = run_args.get("trace_id") or str(uuid.uuid4())
+        try:
+            response = await connector.run(
+                run_args,
+                principal=identity.principal if identity else None,
+                tenant_id=identity.tenant_id if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+            stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
+            return response.model_dump()
+        except Exception as exc:
+            stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
+            raise
 
     def _setup_lowlevel_server(self) -> Any:
-        from mcp.server import NotificationOptions, Server as LowLevelServer
+        from mcp.server import Server as LowLevelServer
         from mcp.types import Tool
 
         low = LowLevelServer(self._server_name)
@@ -251,9 +272,7 @@ class McpServer:
             await low.run(
                 read_stream,
                 write_stream,
-                low.create_initialization_options(
-                    notification_options=NotificationOptions()
-                ),
+                low.create_initialization_options(notification_options=NotificationOptions()),
             )
 
     def run_stdio(self) -> None:
@@ -264,7 +283,7 @@ class McpServer:
     async def _run_streamable_http_async(self) -> None:
         import os
         from starlette.applications import Starlette
-        from starlette.routing import Mount, Route
+        from starlette.routing import Route
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
         import uvicorn
         from contextlib import asynccontextmanager
@@ -288,7 +307,15 @@ class McpServer:
                 self.handler = handler
 
             async def __call__(self, scope, receive, send):
-                await self.handler(scope, receive, send)
+                headers = {
+                    key.decode("latin-1"): value.decode("latin-1")
+                    for key, value in scope.get("headers", [])
+                }
+                token = _http_request_headers.set(headers)
+                try:
+                    await self.handler(scope, receive, send)
+                finally:
+                    _http_request_headers.reset(token)
 
         starlette_app = Starlette(
             lifespan=lifespan,

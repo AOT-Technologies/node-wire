@@ -17,7 +17,6 @@ from node_wire_google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnect
 from node_wire_google_drive.schema import (
     FilesUploadOperation,
     GoogleDriveOperationInput,
-    GoogleDriveOperationOutput,
 )
 from node_wire_runtime import SecretProvider
 

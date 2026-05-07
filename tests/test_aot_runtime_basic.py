@@ -5,7 +5,13 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from node_wire_runtime import BaseConnector, nw_action, ConnectorResponse, ErrorCategory, ErrorMapper
+from node_wire_runtime import (
+    BaseConnector,
+    nw_action,
+    ConnectorResponse,
+    ErrorCategory,
+    ErrorMapper,
+)
 
 
 class InputModel(BaseModel):
@@ -36,6 +42,31 @@ def test_successful_execution():
     assert response.error_code is None
     assert response.error_category is None
     assert isinstance(response.trace_id, str)
+
+
+def test_successful_execution_uses_tenant_breaker_cache():
+    connector = DoubleConnector()
+
+    response: ConnectorResponse = asyncio.run(
+        connector.run({"action": "double", "value": 3}, tenant_id="tenant-a")
+    )
+
+    assert response.success is True
+    assert response.data == {"doubled": 6}
+    assert "tenant-a" in connector._breakers
+
+
+def test_successful_execution_rebuilds_missing_breaker_cache():
+    connector = DoubleConnector()
+    del connector._breakers
+
+    response: ConnectorResponse = asyncio.run(
+        connector.run({"action": "double", "value": 4}, tenant_id="tenant-b")
+    )
+
+    assert response.success is True
+    assert response.data == {"doubled": 8}
+    assert "tenant-b" in connector._breakers
 
 
 class CustomError(Exception):

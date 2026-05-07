@@ -4,12 +4,19 @@ REST API tests default to ``NW_REST_AUTH_DISABLED=true`` so existing tests do no
 headers. MCP tests default to ``NW_MCP_AUTH_ENABLED=true`` for the same reason.
 Tests that assert authentication behavior override these env vars.
 """
+
 from __future__ import annotations
 
 import importlib
+import os
 import warnings
 
 import pytest
+
+# Ensure tests can import app.py which builds dynamic routes via factory (needs allowed connectors to not crash M3 fail-fast)
+os.environ["NW_ALLOWED_CONNECTORS"] = (
+    "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack"
+)
 
 
 def _preload_connector_logic_modules() -> None:
@@ -25,6 +32,8 @@ def _preload_connector_logic_modules() -> None:
         "node_wire_google_drive.logic",
         "node_wire_fhir_epic.logic",
         "node_wire_fhir_cerner.logic",
+        "node_wire_salesforce.logic",
+        "node_wire_slack.logic",
     ):
         try:
             importlib.import_module(mod)
@@ -47,3 +56,6 @@ _preload_connector_logic_modules()
 def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
     monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "true")
+    monkeypatch.setenv("NW_RATE_LIMIT_BURST", "1000")  # Increase for tests
+    monkeypatch.setenv("NW_RATE_LIMIT_REFILL_RATE", "100.0")  # Increase for tests
+    monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for tests

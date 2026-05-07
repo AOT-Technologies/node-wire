@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Type
+from typing import Dict, Optional, Type
 
 from .models import ErrorCategory
 
@@ -22,7 +22,9 @@ class ErrorMapper:
     _registry: Dict[Type[BaseException], MappedError] = {}
 
     @classmethod
-    def register(cls, exc_type: Type[BaseException], category: ErrorCategory, code: Optional[str] = None) -> None:
+    def register(
+        cls, exc_type: Type[BaseException], category: ErrorCategory, code: Optional[str] = None
+    ) -> None:
         """
         Register an exception type with a category and optional stable error code.
         """

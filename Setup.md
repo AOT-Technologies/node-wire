@@ -72,6 +72,10 @@ cp sample.env .env
 
 You only need to fill in the sections for the connectors you plan to use. The platform starts successfully even if some credentials are missing — those connectors will simply return an error when called.
 
+> [!IMPORTANT]
+> **Connector Allowlist:** For security, Node Wire uses a fail-closed allowlist for connector entry points. You **must** set `NW_ALLOWED_CONNECTORS` in your `.env` file to a comma-separated list of the connectors you want to enable (e.g., `fhir_epic,http_generic`). If this variable is missing or empty, no connectors will be loaded even if they are enabled in `connectors.yaml`.
+
+
 > **Doc convention:** Environment variable names in the docs follow `sample.env`. Some legacy keys (like `stripe_api_key`) are intentionally lower-case because that is what the connector reads.
 
 ### Environment Variable Sections
@@ -83,8 +87,12 @@ You only need to fill in the sections for the connectors you plan to use. The pl
 | **FHIR Cerner**  | `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`, `CERNER_SCOPES` | Cerner EHR integration |
 | **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`                                                                    | Google Drive connector |
 | **SMTP**         | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`                                                          | Sending emails         |
+| **Slack**        | `SLACK_BOT_TOKEN`                                                                                                   | Sending Slack messages |
 | **LLM / Agent**  | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key)                                                              | AI agent / ToolHive    |
-| **ToolHive / MCP**| `TOOLHIVE_MCP_URLS` (multi-server), `NW_MCP_TRANSPORT`, `NW_MCP_PORT`               | AI agent / ToolHive    |
+| **ToolHive / MCP**| `TOOLHIVE_MCP_URLS` (multi-server), `NW_MCP_TRANSPORT`, `NW_MCP_PORT`, `NW_STREAM_BUFFER_MS`               | AI agent / ToolHive    |
+| **ToolHive**     | `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (comma-separated, multi-server)                                  | ToolHive MCP proxy     |
+| **Plugin Allowlist** | `NW_ALLOWED_CONNECTORS` (comma-separated list of allowed connector names)                                         | **Required** for any connector to load |
+
 
 
 See `sample.env` for the full list with example values.
@@ -175,6 +183,7 @@ All responses use the same standard shape:
 | **google_drive** | List, upload, download, manage Drive files | GCP service account JSON               | [Google Drive setup & API](docs/google_drive_connector.md#google-drive-service-account-setup) |
 | **fhir_epic**    | Read/write patient data from Epic EHR      | Epic SMART credentials + private key   | [FHIR Epic Setup](#fhir-epic)                                                                 |
 | **fhir_cerner**  | Read/write patient data from Cerner EHR    | Cerner SMART credentials + private key | [FHIR Cerner Setup](#fhir-cerner)                                                             |
+| **slack**        | Send messages and files to Slack channels  | Slack Bot OAuth Token                  | [Slack Setup](#slack)                                                                         |
 
 
 ---
@@ -299,6 +308,10 @@ Node Wire supports two transport modes for AI agents. Switch between them using 
 - **`stdio`** (Default): Communicates via standard I/O. Best for local development, subprocess-based clients, and ToolHive-style wrapping. The playground uses buffered agent responses in this mode.
 - **`streamable-http`**: Native HTTP MCP server. Exposes a direct endpoint on `NW_MCP_HOST`, `NW_MCP_PORT`, and `NW_MCP_PATH`. The playground streams tool progress and final answer chunks in this mode.
 
+### Streaming Features
+- **Configurable Buffering (`NW_STREAM_BUFFER_MS`)**: When streaming, output can be buffered to reduce event spam. Set to the duration in milliseconds (e.g. `2000` for a 2-second batching window). Default is `0` (no buffering).
+- **Completion Signals**: The core runtime emits structured "done" signals (`stream_completion_log`) via Python logging when streaming ends, allowing package consumers to easily detect when a stream finishes.
+
 **Example: stdio mode**
 
 ```powershell
@@ -361,6 +374,27 @@ npx @modelcontextprotocol/inspector
 In Inspector, choose `Streamable HTTP`, enter `http://127.0.0.1:8081/mcp`, connect, then use `Tools -> List Tools` and run a safe tool call with valid JSON arguments.
 
 ---
+### Slack
+
+Add the bot token to your `.env`:
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+```
+
+1. Create a Slack App at [api.slack.com/apps](https://api.slack.com/apps).
+2. Go to **OAuth & Permissions** and add **Bot Token Scopes**:
+   - `chat:write` (to post messages)
+   - `files:write` (to upload files)
+   - `im:write` (to send direct messages)
+   - `conversations:open` (to resolve User IDs)
+3. Install the app to your workspace.
+4. Copy the **Bot User OAuth Token** (`xoxb-...`).
+5. Invite the bot to any private channels you want it to access.
+
+---
+
+## MCP Server & ToolHive
 
 The platform exposes connector tools for AI agents via the MCP (Model Context Protocol). There are two deployment modes:
 
@@ -375,6 +409,7 @@ Each connector runs as its own independent MCP server. This is the preferred app
 | `nw-smartonfhir-epic`   | All `fhir_epic.<action>` (e.g. `fhir_epic.read_patient`) | `docker/fhir-epic/Dockerfile`    |
 | `nw-smartonfhir-cerner` | All `fhir_cerner.<action>` (e.g. `fhir_cerner.read_patient`) | `docker/fhir-cerner/Dockerfile`  |
 | `nw-smtp`               | `smtp.send_email`    | `docker/smtp/Dockerfile`         |
+| `nw-slack`              | All `slack.<action>` (e.g. `slack.post_message`)     | `docker/slack/Dockerfile`        |
 
 
 **Full guide (build, env config, ToolHive registration, multi-server agent usage):** [docs/mcp-servers.md](docs/mcp-servers.md)

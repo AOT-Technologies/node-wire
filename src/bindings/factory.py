@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -23,6 +24,24 @@ logger = logging.getLogger("bindings.factory")
 
 _PLATFORM_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_CONFIG_PATH = _PLATFORM_ROOT / "config" / "connectors.yaml"
+
+
+def _resolve_env_vars(data: Any) -> Any:
+    if isinstance(data, dict):
+        return {k: _resolve_env_vars(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_resolve_env_vars(item) for item in data]
+    elif isinstance(data, str):
+        def replacer(match: Any) -> str:
+            var_name = match.group(1)
+            default = match.group(3)
+            if var_name in os.environ:
+                return os.environ[var_name]
+            elif default is not None:
+                return default
+            return match.group(0)
+        return re.sub(r'\$\{([A-Za-z0-9_]+)(:(.*?))?\}', replacer, data)
+    return data
 
 
 def _resolve_config_path(explicit: str | Path | None) -> str:
@@ -72,9 +91,7 @@ def _build_secret_provider() -> SecretProvider:
             AwsSecretsManagerProvider(secret_name=secret_id, region=region),
             EnvSecretProvider(),
         )
-    raise ValueError(
-        f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env."
-    )
+    raise ValueError(f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env.")
 
 
 def _build_policy_hook() -> PolicyHook | None:
@@ -123,6 +140,8 @@ class ConnectorFactory:
         with open(path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}
 
+        raw = _resolve_env_vars(raw)
+
         connectors_cfg: Dict[str, Any] = raw.get("connectors", {})
 
         for connector_id, cfg in connectors_cfg.items():
@@ -144,8 +163,7 @@ class ConnectorFactory:
                 continue
 
             instance = self._instantiate(connector_id)
-            if instance is not None:
-                self._connectors[connector_id] = instance
+            self._connectors[connector_id] = instance
 
     def _build_auth_provider(self, connector_id: str, cfg: dict) -> Any:
         """Construct the appropriate AuthProvider from the connector's YAML ``auth:`` block.
@@ -184,8 +202,10 @@ class ConnectorFactory:
                 private_key_secret=auth_cfg.get("private_key_secret"),
                 kid_secret=auth_cfg.get("kid_secret"),
                 client_secret_secret=auth_cfg.get("client_secret_secret"),
+                refresh_token_secret=auth_cfg.get("refresh_token_secret"),
                 scopes=auth_cfg.get("scopes"),
                 scopes_secret=auth_cfg.get("scopes_secret"),
+
                 extra_content_type_headers=auth_cfg.get("extra_headers"),
                 buffer_secs=int(auth_cfg.get("buffer_secs", 60)),
                 jwt_ttl_secs=int(auth_cfg.get("jwt_ttl_secs", 300)),
@@ -234,11 +254,10 @@ class ConnectorFactory:
                 policy_hook=self._policy_hook,
             )
 
-        logger.warning(
-            "Connector %r is enabled in config but not registered (filtered by NW_ALLOWED_CONNECTORS or not installed) — skipping",
-            connector_id,
+        raise RuntimeError(
+            f"Connector {connector_id!r} is enabled in config but not registered "
+            "(filtered by NW_ALLOWED_CONNECTORS or not installed)"
         )
-        return None
 
     def get_for_protocol(
         self, connector_id: str, protocol: str, action: Optional[str] = None

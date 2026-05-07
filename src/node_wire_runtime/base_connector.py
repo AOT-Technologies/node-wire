@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextvars
 import inspect
 import logging
+import os
 import uuid
 from abc import ABC
 from dataclasses import dataclass
@@ -145,7 +146,11 @@ def _generate_methods_from_action_specs(cls: Any) -> None:
             )
 
         handler = _make_spec_handler(
-            action_name, input_model, output_model, cls.__qualname__, cls.__module__,
+            action_name,
+            input_model,
+            output_model,
+            cls.__qualname__,
+            cls.__module__,
             alias_tolerant=spec.alias_tolerant,
             mcp_normalize=spec.mcp_normalize,
         )
@@ -261,27 +266,29 @@ class BaseConnector(ABC):
 
             input_model = hints.get(input_param_name)
             output_model = hints.get("return")
-            if input_model is None or not isinstance(input_model, type) or not issubclass(
-                input_model, BaseModel
+            if (
+                input_model is None
+                or not isinstance(input_model, type)
+                or not issubclass(input_model, BaseModel)
             ):
                 raise TypeError(
                     f"{cls.__name__}.{attr_name}: missing or invalid type hint for "
                     f"parameter {input_param_name!r}"
                 )
-            if output_model is None or not isinstance(output_model, type) or not issubclass(
-                output_model, BaseModel
+            if (
+                output_model is None
+                or not isinstance(output_model, type)
+                or not issubclass(output_model, BaseModel)
             ):
-                raise TypeError(
-                    f"{cls.__name__}.{attr_name}: missing or invalid return type hint"
-                )
+                raise TypeError(f"{cls.__name__}.{attr_name}: missing or invalid return type hint")
 
             registry[action_name] = NwActionMeta(
                 name=action_name,
                 fn_name=attr_name,
                 input_model=input_model,
                 output_model=output_model,
-                alias_tolerant=getattr(method, '_alias_tolerant', False),
-                mcp_normalize=getattr(method, '_mcp_normalize', None),
+                alias_tolerant=getattr(method, "_alias_tolerant", False),
+                mcp_normalize=getattr(method, "_mcp_normalize", None),
             )
 
         cls._action_registry = registry
@@ -325,12 +332,15 @@ class BaseConnector(ABC):
         self._secret_provider = secret_provider
         self._policy_hook = policy_hook
         # Default to NoAuthProvider (null-object) so connectors never receive None.
-        self._auth_provider: AuthProvider = auth_provider if auth_provider is not None else NoAuthProvider()
+        self._auth_provider: AuthProvider = (
+            auth_provider if auth_provider is not None else NoAuthProvider()
+        )
         self._breaker = CircuitBreaker(
             fail_max=5,
             reset_timeout=30,
             name=f"{cls.__name__}_breaker",
         )
+        self._breakers: Dict[str, CircuitBreaker] = {}
         self._client: Any = None
 
     @property
@@ -414,8 +424,7 @@ class BaseConnector(ABC):
                         },
                     )
                     details = [
-                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]}
-                        for e in exc.errors()
+                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()
                     ]
                     return ConnectorResponse(
                         success=False,
@@ -444,13 +453,17 @@ class BaseConnector(ABC):
                             self._policy_hook.check(context)
                         except PolicyDenied as exc:
                             logger.warning(
-                                "Execution blocked by policy hook",
+                                "AUDIT: Execution blocked by policy hook",
                                 extra={
                                     "trace_id": trace_id,
                                     "connector_id": self.connector_id,
-                                    "action": self.action,
+                                    "action": policy_action,
                                     "error_type": type(exc).__name__,
                                     "error_message": str(exc),
+                                    "audit": True,
+                                    "audit_event": "policy_denial",
+                                    "tenant_id": tenant_id,
+                                    "principal": principal,
                                 },
                             )
                             mapped = ErrorMapper.resolve(exc)
@@ -462,7 +475,21 @@ class BaseConnector(ABC):
                                 trace_id=trace_id,
                             )
 
-                    execute_with_resilience = with_resilience(self._breaker)
+                    tenant_key = tenant_id or "default"
+                    breaker = self._breakers.get(tenant_key)
+                    if breaker is None:
+                        fail_max = int(os.environ.get("AOT_CIRCUIT_BREAKER_FAIL_MAX", "5"))
+                        reset_timeout = int(
+                            os.environ.get("AOT_CIRCUIT_BREAKER_RESET_TIMEOUT", "30")
+                        )
+                        breaker = CircuitBreaker(
+                            fail_max=fail_max,
+                            reset_timeout=reset_timeout,
+                            name=f"{self.connector_id}_breaker_{tenant_key}",
+                        )
+                        self._breakers[tenant_key] = breaker
+
+                    execute_with_resilience = with_resilience(breaker)
 
                     @execute_with_resilience
                     async def _do_execute(*, trace_id: str) -> Any:
@@ -526,6 +553,11 @@ class BaseConnector(ABC):
                     message=str(exc),
                     trace_id=trace_id,
                 )
+
+    @classmethod
+    def get_registry(cls) -> Dict[str, Type[BaseConnector]]:
+        """Public access to the global connector registry."""
+        return dict(_CONNECTOR_REGISTRY)
 
     @classmethod
     def sdk_action_metas(cls) -> Dict[str, NwActionMeta]:
