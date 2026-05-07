@@ -1,0 +1,62 @@
+name: Build Wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build from (branch, tag, or SHA). Defaults to main."
+        required: false
+        default: "main"
+
+      package:
+        description: |
+          Package path to build (e.g. packages/connectors/stripe).
+          Leave empty to build ALL packages.
+        required: false
+        default: ""
+
+jobs:
+  build:
+    name: Build wheels
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout selected ref
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.inputs.ref || 'main' }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build cython wheel setuptools
+
+      - name: Build wheels
+        run: |
+          PKG="${{ github.event.inputs.package }}"
+
+          if [[ -n "$PKG" ]]; then
+            echo "Building single package: $PKG"
+            bash scripts/build-packages.sh "$PKG"
+          else
+            echo "Building all packages"
+            bash scripts/build-packages.sh
+          fi
+
+      - name: Collect wheels
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          find packages -name "*.whl" -exec cp {} dist/ \;
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
+        with:
+          name: wheels
+          path: dist/*.whl
+          if-no-files-found: error
