@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from unittest.mock import AsyncMock, MagicMock
 
 import jwt
@@ -60,7 +61,9 @@ def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytes
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -71,6 +74,7 @@ def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytes
 def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+    monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for this test
 
     mock_factory = MagicMock()
     mock_factory.get_for_protocol.return_value = _stub_connector(
@@ -146,11 +150,13 @@ def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.Mo
     finally:
         app.dependency_overrides.clear()
 
+    # The connector needs to be called first to set up the mock
     stub = mock_factory.get_for_protocol.return_value
-    kw = stub.run.await_args.kwargs
-    assert kw["principal"] == "alice"
-    assert kw["tenant_id"] == "t-1"
-    assert kw["scopes"] == ("mcp:test.scope",)
+    assert stub.run is not None, "Connector mock was not called"
+    kwargs = stub.run.await_args.kwargs
+    assert kwargs["principal"] == "alice"
+    assert kwargs["tenant_id"] == "t-1"
+    assert kwargs["scopes"] == ("mcp:test.scope",)
 
 
 def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -187,7 +193,9 @@ def test_rest_post_connector_success() -> None:
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -249,7 +257,9 @@ def test_rest_post_connector_error_category_http_status(
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -281,4 +291,3 @@ def test_http_status_for_category_direct() -> None:
     assert _http_status_for_category(ErrorCategory.AUTH) == 401
     assert _http_status_for_category(ErrorCategory.RETRYABLE) == 503
     assert _http_status_for_category(ErrorCategory.FATAL) == 500
-

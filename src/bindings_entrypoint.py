@@ -38,7 +38,10 @@ def main() -> None:
         # For the POC we just start a simple process that can be interacted
         # with manually or via a thin wrapper; a full JSON-RPC loop is out of scope.
         server = McpServer()
-        logger.info("MCP server ready (list_tools available)", extra={"tool_count": len(server.list_tools())})
+        logger.info(
+            "MCP server ready (list_tools available)",
+            extra={"tool_count": len(server.list_tools())},
+        )
         import time
 
         while True:
@@ -49,4 +52,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

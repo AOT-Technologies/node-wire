@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 # Patient – Read
 # ---------------------------------------------------------------------------
 
+
 class FhirPatientReadInput(BaseModel):
     """Input for reading a FHIR Patient resource."""
 
@@ -38,6 +39,7 @@ class FhirPatientReadOutput(BaseModel):
 # Patient – Search (multi-ID fan-out OR name search returning multiple results)
 # ---------------------------------------------------------------------------
 
+
 class FhirPatientSearchInput(BaseModel):
     """Input for searching / fetching multiple FHIR Patient resources from Epic."""
 
@@ -64,6 +66,7 @@ class FhirPatientSearchOutput(BaseModel):
 # Encounter – Search
 # ---------------------------------------------------------------------------
 
+
 class FhirEncounterSearchInput(BaseModel):
     """Input for searching FHIR Encounter resources."""
 
@@ -89,6 +92,7 @@ class FhirEncounterSearchOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # DocumentReference – Create
 # ---------------------------------------------------------------------------
+
 
 class FhirDocumentReferenceCreateInput(BaseModel):
     """Input for creating a FHIR DocumentReference resource."""
@@ -161,6 +165,7 @@ class FhirDocumentReferenceCreateOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # DocumentReference – Search
 # ---------------------------------------------------------------------------
+
 
 class FhirDocumentReferenceSearchInput(BaseModel):
     """Input for searching FHIR DocumentReference resources."""

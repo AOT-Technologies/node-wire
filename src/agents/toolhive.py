@@ -32,6 +32,7 @@ Environment variables:
     GEMINI_API_KEY   : (when using gemini)
     ANTHROPIC_API_KEY: (when using anthropic)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,6 +45,7 @@ import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, List, Optional, Protocol
+import re
 
 from dotenv import load_dotenv
 
@@ -54,8 +56,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agents.toolhive")
 
-
-import re
 
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _SMTP_EMAIL_FIELDS = {"from_email", "to", "cc", "bcc", "reply_to", "sender"}
@@ -190,6 +190,7 @@ def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
 # Result model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AgentStep:
     step: int
@@ -211,6 +212,7 @@ class AgentRunResult:
 # ---------------------------------------------------------------------------
 # Lightweight async MCP client (SSE / streamable-HTTP transport)
 # ---------------------------------------------------------------------------
+
 
 class McpClient(Protocol):
     async def list_tools(self) -> List[Dict[str, Any]]: ...
@@ -389,7 +391,9 @@ class MultiMcpClient:
 
         logger.info(
             "MultiMcpClient: %d/%d clients reachable, %d tools discovered",
-            success_count, len(self._clients), len(merged),
+            success_count,
+            len(self._clients),
+            len(merged),
         )
         self._tool_to_client_idx = tool_to_idx
         return merged
@@ -449,7 +453,10 @@ class StdioMcpClient:
             raise RuntimeError("Client not initialised. Use 'async with'")
         resp = await self._session.list_tools()
         # Convert to simple tool list
-        return [{"name": t.name, "description": t.description, "input_schema": t.inputSchema} for t in resp.tools]
+        return [
+            {"name": t.name, "description": t.description, "input_schema": t.inputSchema}
+            for t in resp.tools
+        ]
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
         if not self._session:
@@ -462,6 +469,7 @@ class StdioMcpClient:
 # ---------------------------------------------------------------------------
 # The Agent
 # ---------------------------------------------------------------------------
+
 
 class ToolHiveAgent:
     """
@@ -496,7 +504,7 @@ class ToolHiveAgent:
             "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
             "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
             "  1. First turn: Obtain patient demographics from the EHR.\n"
-            "     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{\"resource_id\": \"<id>\"}` (use Epic when the ID starts with 'e'). Do NOT use search_patients for a known ID.\n"
+            '     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
             "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
             "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
             "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
@@ -527,8 +535,6 @@ class ToolHiveAgent:
             "- Always confirm what you've done after completing the requested actions.\n"
             "- Keep responses concise and professional.\n"
         )
-
-
 
     async def run(self, task: str) -> AgentRunResult:
         trace_id = str(uuid.uuid4())
@@ -573,11 +579,13 @@ class ToolHiveAgent:
                 return result
 
             # Track the assistant turn
-            messages.append(LLMMessage(
-                role="assistant",
-                content=llm_resp.content,
-                tool_calls=llm_resp.tool_calls,
-            ))
+            messages.append(
+                LLMMessage(
+                    role="assistant",
+                    content=llm_resp.content,
+                    tool_calls=llm_resp.tool_calls,
+                )
+            )
 
             if not llm_resp.wants_tool_call:
                 # LLM finished
@@ -617,12 +625,14 @@ class ToolHiveAgent:
                         len(llm_tool_content),
                     )
 
-                messages.append(LLMMessage(
-                    role="tool",
-                    content=llm_tool_content,
-                    tool_call_id=tc.id,
-                    name=tc.name,
-                ))
+                messages.append(
+                    LLMMessage(
+                        role="tool",
+                        content=llm_tool_content,
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                    )
+                )
 
                 if _is_tool_failure(tool_result_str):
                     tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
@@ -638,7 +648,9 @@ class ToolHiveAgent:
                 break
         else:
             # Hit max_steps without a final answer
-            result.error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
+            result.error = (
+                f"Agent reached max_steps ({self._max_steps}) without completing the task."
+            )
             logger.warning(result.error)
 
         from node_wire_runtime.streaming import stream_completion_log
@@ -777,6 +789,7 @@ class ToolHiveAgent:
 # CLI entrypoint
 # ---------------------------------------------------------------------------
 
+
 async def _run_agent(args: argparse.Namespace) -> None:
     from agents.llm_factory import LLMProviderFactory
 
@@ -822,19 +835,23 @@ async def _run_agent(args: argparse.Namespace) -> None:
         await _execute_task(agent, args, llm_provider_name, ",".join(urls))
 
 
-async def _execute_task(agent: ToolHiveAgent, args: argparse.Namespace, provider_name: str, mcp_info: str) -> None:
-
+async def _execute_task(
+    agent: ToolHiveAgent, args: argparse.Namespace, provider_name: str, mcp_info: str
+) -> None:
     # Build the task prompt
     task_parts = [
         f"Patient ID: {args.patient_id}" if args.patient_id else "",
-        f"Patient name — family: {args.patient_family}, given: {args.patient_given}" if args.patient_family else "",
-        f"Please:",
-        f"1. Fetch the patient's details from Cerner FHIR or Epic FHIR (if the ID starts with 'e').",
+        f"Patient name — family: {args.patient_family}, given: {args.patient_given}"
+        if args.patient_family
+        else "",
+        "Please:",
+        "1. Fetch the patient's details from Cerner FHIR or Epic FHIR (if the ID starts with 'e').",
         f"2. Create a text file named 'patient_summary_{args.patient_id or args.patient_family}.txt' in Google Drive"
-        + (f" in folder {args.drive_folder_id}" if args.drive_folder_id else "") + ".",
+        + (f" in folder {args.drive_folder_id}" if args.drive_folder_id else "")
+        + ".",
         f"3. Send an email to {args.recipient_email} with the subject "
         f"'Patient Summary' and the patient details in the body.",
-        f"After completing all steps, confirm what was done.",
+        "After completing all steps, confirm what was done.",
     ]
     task = "\n".join(p for p in task_parts if p)
 
@@ -873,22 +890,31 @@ def main() -> None:
     parser.add_argument("--patient-id", default="", help="Cerner or Epic FHIR Patient ID")
     parser.add_argument("--patient-family", default="", help="Patient family name (for search)")
     parser.add_argument("--patient-given", default="", help="Patient given name (for search)")
-    parser.add_argument("--recipient-email", required=True, help="Email address to send the summary to")
-    parser.add_argument("--drive-folder-id", default=os.environ.get("GOOGLE_DRIVE_FOLDER_ID", ""), help="Google Drive folder ID (optional)")
-    parser.add_argument("--max-steps", type=int, default=10, help="Maximum agent steps (default: 10)")
+    parser.add_argument(
+        "--recipient-email", required=True, help="Email address to send the summary to"
+    )
+    parser.add_argument(
+        "--drive-folder-id",
+        default=os.environ.get("GOOGLE_DRIVE_FOLDER_ID", ""),
+        help="Google Drive folder ID (optional)",
+    )
+    parser.add_argument(
+        "--max-steps", type=int, default=10, help="Maximum agent steps (default: 10)"
+    )
     parser.add_argument(
         "--max-tool-failures",
         type=int,
         default=None,
         help="Stop after this many failed calls per tool name (default: env TOOLHIVE_MAX_TOOL_FAILURES or 2)",
     )
-    parser.add_argument("--local", action="store_true", help="Run against local server via stdio (no proxy)")
+    parser.add_argument(
+        "--local", action="store_true", help="Run against local server via stdio (no proxy)"
+    )
     args = parser.parse_args()
 
     if not args.patient_id and not args.patient_family:
         parser.error("Provide either --patient-id or --patient-family")
 
-    import sys
     asyncio.run(_run_agent(args))
 
 

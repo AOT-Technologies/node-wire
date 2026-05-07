@@ -1,4 +1,5 @@
 """MCP Server — Epic FHIR connector only. Usage: python -m agents.fhir_epic_mcp"""
+
 from __future__ import annotations
 
 import logging
@@ -17,9 +18,7 @@ def main() -> None:
     from bindings.mcp_server.server import McpServer
 
     transport = os.getenv("NW_MCP_TRANSPORT", "stdio").strip().lower()
-    logger.info(
-        f"Starting nw-smartonfhir-epic MCP server (transport={transport}, manifest-driven)"
-    )
+    logger.info(f"Starting nw-smartonfhir-epic MCP server (transport={transport}, manifest-driven)")
     McpServer(
         server_name="nw-smartonfhir-epic",
         connector_ids=["fhir_epic"],

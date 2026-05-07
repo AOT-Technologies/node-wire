@@ -51,7 +51,7 @@
             </div>
         </header>
 
-        <div id="root-selection-view" class="root-selection-view">            
+        <div id="root-selection-view" class="root-selection-view">
             <div class="selection-grid">
                 <div class="selection-card card-mcp" data-target="agent">
                     <div class="card-inner">
@@ -145,7 +145,7 @@
                         <h2>System Connectors</h2>
                         <span class="info-tip">Pre-built Enterprise Integrations</span>
                     </div>
-                    
+
                     <div class="connector-grid">
                         <div class="connector-card" data-mode="ehr">
                             <div class="connector-icon bg-epic">
@@ -259,7 +259,7 @@
                                     <h2>Consultation Summary</h2>
                                     <span class="info-tip">Automated Post-Visit Sync</span>
                                 </div>
-            
+
                                 <form id="scenario-form">
                                     <div class="input-section">
                                         <h3 class="section-label">Patient Identification</h3>
@@ -286,30 +286,30 @@
                                             </div>
                                         </div>
                                     </div>
-            
+
                                     <div class="input-section">
                                         <h3 class="section-label">Clinical Documentation</h3>
                                         <div class="field-group">
                                             <label>Clinical Findings & Plan</label>
-                                            <textarea name="note_text" rows="6">Patient presented for follow-up regarding hypertension. 
-Current BP: 142/92 (Stage 2). 
+                                            <textarea name="note_text" rows="6">Patient presented for follow-up regarding hypertension.
+Current BP: 142/92 (Stage 2).
 Plan: Increase Lisinopril to 20mg once daily. Schedule follow-up in 2 weeks for BP check.</textarea>
                                         </div>
                                     </div>
-            
+
                                     <button type="submit" id="run-btn" class="action-btn">
                                         <span class="btn-lbl">Sync to Patient Chart</span>
                                         <div class="loading-spinner hidden"></div>
                                     </button>
                                 </form>
                             </div>
-            
+
                             <div id="itops-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
                                     <h2>System Incident Report</h2>
                                     <span class="info-tip">Standard IT Webhook Sync</span>
                                 </div>
-            
+
                                 <form id="itops-form">
                                     <div class="input-section">
                                         <h3 class="section-label">Incident Details</h3>
@@ -338,7 +338,7 @@ Plan: Increase Lisinopril to 20mg once daily. Schedule follow-up in 2 weeks for 
                                             </div>
                                         </div>
                                     </div>
-            
+
                                     <div class="input-section">
                                         <h3 class="section-label">Documentation</h3>
                                         <div class="field-group">
@@ -350,20 +350,20 @@ Plan: Increase Lisinopril to 20mg once daily. Schedule follow-up in 2 weeks for 
                                             <textarea name="description" rows="4">Observed 500ms spike in P99 latency across all EU-West regions. Automatic scaling triggered but failing to stabilize.</textarea>
                                         </div>
                                     </div>
-            
+
                                     <button type="submit" id="itops-run-btn" class="action-btn">
                                         <span class="btn-lbl">Submit IT Ticket</span>
                                         <div class="loading-spinner hidden"></div>
                                     </button>
                                 </form>
                             </div>
-            
+
                             <div id="cerner-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
                                     <h2>Cerner Consultation Summary</h2>
                                     <span class="info-tip">Automated Post-Visit Note &#8212; Cerner FHIR R4</span>
                                 </div>
-            
+
                                 <form id="cerner-form">
                                     <div class="input-section">
                                         <h3 class="section-label">Patient Identification</h3>
@@ -390,7 +390,7 @@ Plan: Increase Lisinopril to 20mg once daily. Schedule follow-up in 2 weeks for 
                                             </div>
                                         </div>
                                     </div>
-            
+
                                     <div class="input-section">
                                         <h3 class="section-label">Clinical Documentation</h3>
                                         <div class="field-group">
@@ -400,25 +400,25 @@ Fasting glucose: 148 mg/dL (above target). HbA1c: 7.9%.
 Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in 4 weeks for labs.</textarea>
                                         </div>
                                     </div>
-            
+
                                     <button type="submit" id="cerner-run-btn" class="action-btn">
                                         <span class="btn-lbl">Sync to Cerner Chart</span>
                                         <div class="loading-spinner hidden"></div>
                                     </button>
                                 </form>
                             </div>
-                            
+
                             <div id="gdrive-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
                                     <h2>Secure Document Archival</h2>
                                     <span class="info-tip">Google Drive &amp; IAM Vault</span>
                                 </div>
-            
+
                                 <!-- <div class="sub-nav" id="gdrive-sub-nav">
                                     <button class="sub-tab active" data-submode="file">Upload File</button>
                                     <button class="sub-tab" data-submode="note">Write Note</button>
                                 </div> -->
-            
+
                                 <form id="gdrive-form">
                                     <div class="input-section">
                                         <h3 class="section-label">Archival Metadata</h3>
@@ -520,7 +520,7 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                             </div>
                                         </div>
                                     </div>
-            
+
                                     <div class="input-section" id="gdrive-file-section">
                                         <h3 class="section-label">Vault Payload</h3>
                                         <div class="field-group">
@@ -539,7 +539,7 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                             </div>
                                         </div>
                                     </div>
-            
+
                                     <button type="submit" id="gdrive-run-btn" class="action-btn">
                                         <span class="btn-lbl">Encrypt &amp; Archive</span>
                                         <div class="loading-spinner hidden"></div>
@@ -880,7 +880,7 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                         </div>
                                     </div>
                                 </div>
-            
+
                                 <div id="final-result" class="completion-card hidden">
                                     <div class="completion-icon">
                                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -895,7 +895,7 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                     </div>
                                 </div>
                             </div>
-            
+
                             <div class="glass-card logs-card">
                                 <div class="logs-header">
                                     <h3>Technical Audit</h3>

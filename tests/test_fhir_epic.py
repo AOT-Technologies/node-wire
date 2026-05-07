@@ -12,6 +12,7 @@ from node_wire_runtime import SecretProvider
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
         return {
@@ -34,6 +35,7 @@ def _token_mock() -> MagicMock:
 def _connector() -> FhirEpicConnector:
     """Return a FhirEpicConnector with a static mock token."""
     from node_wire_runtime.auth import StaticTokenAuthProvider
+
     sp = MockSecretProvider()
     auth = StaticTokenAuthProvider(
         secret_provider=sp,
@@ -54,6 +56,7 @@ def _token_mock() -> MagicMock:
 # Sanity: unified connector (single execute entrypoint)
 # ---------------------------------------------------------------------------
 
+
 def test_fhir_epic_connector_is_unified_execute():
     c = _connector()
     assert c.connector_id == "fhir_epic"
@@ -64,15 +67,21 @@ def test_fhir_epic_connector_is_unified_execute():
 # read_patient — by ID
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_read_patient_by_id():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientReadInput
+
     params = FhirPatientReadInput(action="read_patient", resource_id="eXYZ123")
 
     patient_response = MagicMock()
     patient_response.status_code = 200
-    patient_response.json.return_value = {"resourceType": "Patient", "id": "eXYZ123", "name": [{"family": "Smith"}]}
+    patient_response.json.return_value = {
+        "resourceType": "Patient",
+        "id": "eXYZ123",
+        "name": [{"family": "Smith"}],
+    }
 
     with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response):
         result = await c.internal_execute(params, trace_id="test-trace")
@@ -85,10 +94,12 @@ async def test_fhir_epic_read_patient_by_id():
 # read_patient — by raw search_params dict (backward-compat)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_read_patient_by_search():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientReadInput
+
     params = FhirPatientReadInput(
         action="read_patient",
         search_params={"family": "Smith", "given": "John"},
@@ -97,7 +108,8 @@ async def test_fhir_epic_read_patient_by_search():
     patient_response = MagicMock()
     patient_response.status_code = 200
     patient_response.json.return_value = {
-        "resourceType": "Bundle", "total": 1,
+        "resourceType": "Bundle",
+        "total": 1,
         "entry": [{"resource": {"resourceType": "Patient", "id": "eABC"}}],
     }
 
@@ -111,26 +123,35 @@ async def test_fhir_epic_read_patient_by_search():
 # read_patient — by explicit given_name / family_name fields
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_read_patient_by_explicit_name_fields():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientReadInput
+
     params = FhirPatientReadInput(
         action="read_patient",
         given_name="  John  ",
         family_name="Smith",
         birthdate="1980-01-01",
     )
- 
+
     patient_response = MagicMock()
     patient_response.status_code = 200
     patient_response.json.return_value = {
-        "resourceType": "Bundle", "total": 1,
-        "entry": [{"resource": {"resourceType": "Patient", "id": "eDEF", "birthDate": "1980-01-01"}}],
+        "resourceType": "Bundle",
+        "total": 1,
+        "entry": [
+            {"resource": {"resourceType": "Patient", "id": "eDEF", "birthDate": "1980-01-01"}}
+        ],
     }
- 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
-         patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response) as mock_get:
+
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
+        patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response
+        ) as mock_get,
+    ):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "eDEF"
@@ -146,21 +167,28 @@ async def test_fhir_epic_read_patient_by_explicit_name_fields():
 # read_patient — by 'name' convenience field
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_read_patient_by_name_field():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientReadInput
+
     params = FhirPatientReadInput(action="read_patient", name="Johnson")
- 
+
     patient_response = MagicMock()
     patient_response.status_code = 200
     patient_response.json.return_value = {
-        "resourceType": "Bundle", "total": 1,
+        "resourceType": "Bundle",
+        "total": 1,
         "entry": [{"resource": {"resourceType": "Patient", "id": "eGHI"}}],
     }
- 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
-         patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response) as mock_get:
+
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
+        patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response
+        ) as mock_get,
+    ):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource["id"] == "eGHI"
@@ -173,10 +201,12 @@ async def test_fhir_epic_read_patient_by_name_field():
 # read_patient — no params raises ValueError
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_read_patient_no_params_raises():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientReadInput
+
     params = FhirPatientReadInput(action="read_patient")
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
@@ -188,10 +218,12 @@ async def test_fhir_epic_read_patient_no_params_raises():
 # search_patients — multi-ID, all succeed
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_search_patients_multi_id():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
     params = FhirPatientSearchInput(action="search_patients", resource_ids=["eABC", "eDEF"])
 
     def _patient_resp(pid: str) -> MagicMock:
@@ -215,10 +247,12 @@ async def test_fhir_epic_search_patients_multi_id():
 # search_patients — multi-ID, partial failure
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_search_patients_partial_failure():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
     params = FhirPatientSearchInput(action="search_patients", resource_ids=["eGOOD", "eBAD"])
 
     good_resp = MagicMock()
@@ -242,10 +276,12 @@ async def test_fhir_epic_search_patients_partial_failure():
 # search_patients — name-based search returning multiple entries
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_search_patients_by_name():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
     params = FhirPatientSearchInput(action="search_patients", family_name="Smith")
 
     bundle_resp = MagicMock()
@@ -254,13 +290,29 @@ async def test_fhir_epic_search_patients_by_name():
         "resourceType": "Bundle",
         "total": 2,
         "entry": [
-            {"resource": {"resourceType": "Patient", "id": "e001", "name": [{"family": "Smith", "given": ["Alice"]}]}},
-            {"resource": {"resourceType": "Patient", "id": "e002", "name": [{"family": "Smith", "given": ["Bob"]}]}},
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "e001",
+                    "name": [{"family": "Smith", "given": ["Alice"]}],
+                }
+            },
+            {
+                "resource": {
+                    "resourceType": "Patient",
+                    "id": "e002",
+                    "name": [{"family": "Smith", "given": ["Bob"]}],
+                }
+            },
         ],
     }
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()), \
-         patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=bundle_resp) as mock_get:
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
+        patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=bundle_resp
+        ) as mock_get,
+    ):
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.total == 2
@@ -276,10 +328,12 @@ async def test_fhir_epic_search_patients_by_name():
 # search_patients — no params raises ValueError
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_search_patients_no_params_raises():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
     params = FhirPatientSearchInput(action="search_patients")
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()):
@@ -291,10 +345,12 @@ async def test_fhir_epic_search_patients_no_params_raises():
 # search_encounter
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_search_encounter():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirEncounterSearchInput
+
     params = FhirEncounterSearchInput(
         action="search_encounter",
         search_params={"patient": "eXYZ123", "status": "finished"},
@@ -303,7 +359,8 @@ async def test_fhir_epic_search_encounter():
     enc_response = MagicMock()
     enc_response.status_code = 200
     enc_response.json.return_value = {
-        "resourceType": "Bundle", "total": 2,
+        "resourceType": "Bundle",
+        "total": 2,
         "entry": [
             {"resource": {"resourceType": "Encounter", "id": "enc-1"}},
             {"resource": {"resourceType": "Encounter", "id": "enc-2"}},
@@ -321,15 +378,21 @@ async def test_fhir_epic_search_encounter():
 # create_document_reference
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_create_document_reference():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
     params = FhirDocumentReferenceCreateInput(
         action="create_document_reference",
         identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
         status="current",
-        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100", "display": "Employer Group Scan"}]},
+        type={
+            "coding": [
+                {"system": "urn:oid:4.5.6", "code": "18100", "display": "Employer Group Scan"}
+            ]
+        },
         subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
         data="dGVzdA==",
         context={"related": [{"reference": "Group/eqv3buSV"}]},
@@ -337,11 +400,15 @@ async def test_fhir_epic_create_document_reference():
 
     create_response = MagicMock()
     create_response.status_code = 201
-    create_response.headers = {"Location": "https://fhir.epic.com/api/FHIR/R4/DocumentReference/doc-456/_history/1"}
+    create_response.headers = {
+        "Location": "https://fhir.epic.com/api/FHIR/R4/DocumentReference/doc-456/_history/1"
+    }
     create_response.content = b""
     create_response.text = ""
 
-    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response) as mock_post:
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response
+    ) as mock_post:
         result = await c.internal_execute(params, trace_id="test-trace")
 
     assert result.resource_id == "doc-456"
@@ -354,10 +421,12 @@ async def test_fhir_epic_create_document_reference():
 # search_document_reference
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_fhir_epic_search_document_reference():
     c = _connector()
     from node_wire_fhir_epic.schema import FhirDocumentReferenceSearchInput
+
     params = FhirDocumentReferenceSearchInput(
         action="search_document_reference",
         search_params={"patient": "eXYZ123"},
@@ -366,9 +435,18 @@ async def test_fhir_epic_search_document_reference():
     search_response = MagicMock()
     search_response.status_code = 200
     search_response.json.return_value = {
-        "resourceType": "Bundle", "total": 1,
-        "entry": [{"resource": {"resourceType": "DocumentReference", "id": "doc-789", "status": "current",
-                                "type": {"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]}}}],
+        "resourceType": "Bundle",
+        "total": 1,
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "DocumentReference",
+                    "id": "doc-789",
+                    "status": "current",
+                    "type": {"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+                }
+            }
+        ],
     }
 
     with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=search_response):
@@ -376,6 +454,3 @@ async def test_fhir_epic_search_document_reference():
 
     assert result.total == 1
     assert result.resources[0]["id"] == "doc-789"
-
-
-

@@ -70,9 +70,7 @@ def _build_secret_provider() -> SecretProvider:
             AwsSecretsManagerProvider(secret_name=secret_id, region=region),
             EnvSecretProvider(),
         )
-    raise ValueError(
-        f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env."
-    )
+    raise ValueError(f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env.")
 
 
 def _build_policy_hook() -> PolicyHook | None:

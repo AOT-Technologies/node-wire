@@ -29,7 +29,9 @@ class SmtpConnector(BaseConnector):
     )
     async def send_email(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
         # Derive a domain-only hint so the sender identity (PII) is never written to logs.
-        _sender_domain = str(params.from_email).split("@")[-1] if "@" in str(params.from_email) else "unknown"
+        _sender_domain = (
+            str(params.from_email).split("@")[-1] if "@" in str(params.from_email) else "unknown"
+        )
         logger.info(
             "Preparing SMTP message",
             extra={
@@ -56,6 +58,7 @@ class SmtpConnector(BaseConnector):
                 password = self.secret_provider.get_secret("SMTP_PASSWORD")
             except Exception:
                 import os as _os
+
                 username = _os.environ.get("SMTP_USERNAME", "")
                 password = _os.environ.get("SMTP_PASSWORD", "")
 

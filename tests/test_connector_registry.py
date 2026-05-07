@@ -1,4 +1,5 @@
 """Tests for entry-point connector registration and allowlist."""
+
 from __future__ import annotations
 
 from importlib.metadata import EntryPoint

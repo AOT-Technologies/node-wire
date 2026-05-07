@@ -17,6 +17,7 @@ This provider intentionally returns an empty dict from :meth:`get_headers` becau
 Google Drive authentication is handled at the SDK level, not via HTTP headers set
 by the connector.
 """
+
 from __future__ import annotations
 
 import json
@@ -79,9 +80,7 @@ class ServiceAccountAuthProvider(AuthProvider):
         raw = self._sp.get_secret(self._sa_json_secret)
         try:
             info = json.loads(raw)
-            creds = service_account.Credentials.from_service_account_info(
-                info, scopes=self._scopes
-            )
+            creds = service_account.Credentials.from_service_account_info(info, scopes=self._scopes)
         except (json.JSONDecodeError, ValueError):
             # Fallback: treat the secret value as a file path.
             creds = service_account.Credentials.from_service_account_file(

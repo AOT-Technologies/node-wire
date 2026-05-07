@@ -148,11 +148,10 @@ def init_observability(app_name: str = "node_wire") -> None:
         from traceloop.sdk import Traceloop
 
         Traceloop.init(
-            app_name=app_name,            
+            app_name=app_name,
         )
     except Exception as exc:  # pragma: no cover - defensive; should not fail app startup
         logger.warning("Failed to initialize Traceloop/OpenLLMetry: %s", exc)
 
     _INITIALIZED = True
     logger.info("Observability initialized for app %s", app_name)
-

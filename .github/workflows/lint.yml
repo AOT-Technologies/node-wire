@@ -1,0 +1,48 @@
+name: Lint and Type Check
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  ruff:
+    name: Ruff Linters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff (Linting)
+        # --output-format=github automatically creates inline annotations on your PR code!
+        run: ruff check --output-format=github .
+
+      - name: Run Ruff (Formatting Check)
+        run: ruff format --check .
+
+  mypy:
+    name: Mypy Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Mypy (Type checking)
+        run: mypy .

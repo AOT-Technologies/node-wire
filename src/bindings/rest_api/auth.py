@@ -11,6 +11,7 @@ Public (unauthenticated): ``GET /health`` only. OpenAPI UI requires auth.
 After successful auth, normalized caller identity (principal / tenant_id / scopes) is stored on
 ``request.state.nw_rest_caller_identity`` and forwarded to ``connector.run`` for policy hooks.
 """
+
 from __future__ import annotations
 
 import os

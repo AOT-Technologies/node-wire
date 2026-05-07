@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rootSelectionView.classList.add('hidden');
             layoutMain.classList.remove('hidden');
             headerActions.classList.remove('hidden');
-            
+
             if (view === 'agent') {
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 layoutMain.classList.remove('agent-mode');
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
-                
+
                 connectorStatus.textContent = 'Connectors Ready';
                 tagline.textContent = 'Enterprise Integration Suite';
                 document.documentElement.style.setProperty('--brand-accent', '#2563eb');
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setMode(mode) {
         currentMode = mode;
-        
+
         // Hide all panels first
         ehrPanel.classList.add('hidden');
         itopsPanel.classList.add('hidden');
@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // By default show the list if we just switched to connectors tab
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
-                
+
                 connectorStatus.textContent = 'Connectors Ready';
                 tagline.textContent = 'Enterprise Integration Suite';
                 document.documentElement.style.setProperty('--brand-accent', '#2563eb');
@@ -717,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (step.data.beautiful_data && node.querySelector('.beautiful-response')) {
                              const bData = step.data.beautiful_data;
                              const bDiv = node.querySelector('.beautiful-response');
-                             
+
                              bDiv.innerHTML = `
                                 <div class="beautiful-doc-card">
                                     <div class="doc-card-header">
@@ -759,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                      </div>
                                 </div>
                              `;
-                             
+
                              if (step.data.raw) {
                                   responseDiv.textContent = JSON.stringify(step.data.raw, null, 2);
                                   responseBtn.classList.remove('hidden');
@@ -1023,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const formData = new FormData(gdriveForm);
         const payload = Object.fromEntries(formData.entries());
-        
+
         const fileInput = document.getElementById('gdrive-file');
 
         if (payload.action === 'files.list') {
@@ -1092,22 +1092,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentSubMode === 'file' && fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const reader = new FileReader();
-            
+
             // Re-use the UI update logic outside to show "Encrypting" immediately
             resetUI();
             gdriveRunBtn.disabled = true;
             gdriveSpinner.classList.remove('hidden');
             gdriveBtnText.textContent = 'Encrypting File...';
-            
+
             reader.onload = async (event) => {
                 try {
                     const base64Data = event.target.result.split(',')[1];
                     payload.file_base64 = base64Data;
                     payload.file_mime_type = file.type || 'application/octet-stream';
-                    
+
                     // Auto-update document name to the real file name if sending a binary file
                     payload.document_name = file.name;
-                    
+
                     await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
                 } catch (error) {
                     log(`File parsing error: ${error.message}`, 'error');
@@ -1116,14 +1116,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     gdriveSpinner.classList.add('hidden');
                 }
             };
-            
+
             reader.onerror = () => {
                 log('Failed to read binary file from memory.', 'error');
                 gdriveBtnText.textContent = 'System Error';
                 gdriveRunBtn.disabled = false;
                 gdriveSpinner.classList.add('hidden');
             };
-            
+
             reader.readAsDataURL(file);
         } else {
             // Standard text submission

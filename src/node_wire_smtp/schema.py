@@ -51,9 +51,7 @@ class SmtpSendInput(BaseModel):
         if port_raw in (None, "", 0):
             values["port"] = int(_strip_env(os.environ.get("SMTP_PORT", "587")))
         if "use_tls" not in values:
-            values["use_tls"] = (
-                os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
-            )
+            values["use_tls"] = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
 
         if "from" in values and not values.get("from_email"):
             values["from_email"] = values.pop("from")

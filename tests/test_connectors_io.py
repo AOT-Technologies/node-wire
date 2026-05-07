@@ -1,4 +1,5 @@
 """Unit tests for SMTP, HTTP generic, and Stripe connectors with mocked I/O."""
+
 from __future__ import annotations
 
 import asyncio
@@ -69,6 +70,7 @@ def test_smtp_send_email_does_not_log_sender_address() -> None:
     smtp_logger.setLevel(logging.DEBUG)
     smtp_logger.addHandler(handler)
     try:
+
         async def _run() -> None:
             with patch("node_wire_smtp.logic.aiosmtplib.send", new=fake_send):
                 c = SmtpConnector(secret_provider=secrets)
@@ -96,9 +98,7 @@ def test_smtp_send_email_does_not_log_sender_address() -> None:
             f"Sender PII leaked into log record: {log_text!r}"
         )
         # The domain-only hint MUST be present in at least the prepare record.
-    domains = [
-        r.__dict__.get("sender_domain") for r in captured if "sender_domain" in r.__dict__
-    ]
+    domains = [r.__dict__.get("sender_domain") for r in captured if "sender_domain" in r.__dict__]
     assert all(d == "private.example.com" for d in domains), (
         f"Unexpected sender_domain values: {domains}"
     )
@@ -121,7 +121,9 @@ def test_http_generic_internal_execute() -> None:
             return mock_resp
 
     async def _run() -> None:
-        with patch("node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()):
+        with patch(
+            "node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()
+        ):
             c = HttpGenericConnector()
             inp = HttpRequestInput(url="http://example.com/path", method="GET")
             out = await c.internal_execute(inp, trace_id="t-2")

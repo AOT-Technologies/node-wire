@@ -84,4 +84,3 @@ docker build -f docker/slack/Dockerfile \
   .
 
 echo "Done."
-

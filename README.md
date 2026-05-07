@@ -44,7 +44,7 @@ The platform is split into three layers:
 
 ### Main pieces
 
-- **BaseConnector**  
+- **BaseConnector**
   Abstract base class for all connectors. Subclasses implement `internal_execute(...)`. The runtime’s `run()` method:
   1. Generates a trace ID and starts an OpenTelemetry span.
   2. Validates the raw request body with Pydantic (using the connector’s input model).
@@ -53,22 +53,22 @@ The platform is split into three layers:
   5. Maps any exception to the standard error taxonomy.
   6. Returns a `ConnectorResponse` (success + data, or error_code + error_category + message).
 
-- **ConnectorResponse / ErrorCategory**  
+- **ConnectorResponse / ErrorCategory**
   Every connector returns the same response shape: `success`, `data`, `error_code`, `error_category`, `message`, `trace_id`. Categories are `RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`. Bindings (e.g. REST) map these to HTTP status codes (e.g. BUSINESS → 400, AUTH → 401, RETRYABLE → 503, FATAL → 500).
 
-- **ErrorMapper**  
+- **ErrorMapper**
   A registry that maps exception types to a stable error code and category. Connectors register their own exception types in their Layer B `registration` module. Unmapped exceptions default to FATAL.
 
-- **Resilience**  
+- **Resilience**
   A decorator (e.g. Tenacity for retries, PyBreaker for circuit breaker) wraps the actual execution. Transient failures are retried; after too many failures the circuit opens to avoid overloading the external system.
 
-- **SecretProvider**  
+- **SecretProvider**
   Abstraction for fetching secrets (API keys, credentials). The POC uses environment variables via `EnvSecretProvider` in the factory. Connectors receive the provider and use it to resolve connector-specific keys (e.g. Google Drive’s service account JSON).
 
-- **PolicyHook**  
+- **PolicyHook**
   Optional hook to allow or deny execution (e.g. by principal or tenant). Not required for the POC; when present, the runtime calls it after validation and before execution.
 
-- **Telemetry**  
+- **Telemetry**
   OpenTelemetry span around `connector.run` with attributes such as connector id, action, trace id, tenant, principal.
 
 ---
@@ -162,12 +162,12 @@ For the HTTP case, select `Streamable HTTP` in Inspector and connect to `http://
 
 ## Configuration
 
-- **config/connectors.yaml**  
+- **config/connectors.yaml**
   Lists each connector with:
   - `enabled`: whether to load it.
   - `exposed_via`: list of protocols (`rest`, `grpc`, `mcp`). Only listed protocols expose that connector.
 
-- **Secrets**  
+- **Secrets**
   Supplied via environment variables. The factory uses `EnvSecretProvider`; keys are connector-specific (e.g. Google Drive expects a variable documented in `src/node_wire_google_drive/README.md`).
 
 ### Google Drive service account setup (quick)
@@ -203,13 +203,17 @@ $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
    For agents, ToolHive, or the stdio MCP server (`python -m agents.mcp_entrypoint`), install with optional dependencies, e.g. `pip install -e ".[agents]"`, or follow **[Setup.md](Setup.md)** for the full install matrix.
 
 2. **Start the REST API** (default):
+   - **Windows (cmd):** `set MODE=API && python -m bindings_entrypoint`
+     (Or omit `MODE`; API is the default.)
+   - **Windows (PowerShell):** `$env:MODE="API"; python -m bindings_entrypoint`
+   - **Linux/macOS:** `MODE=API python -m bindings_entrypoint`
    ```powershell
    python -m uv run node-wire
    ```
 
    Then open:
-   - **Health:** http://localhost:8000/health  
-   - **Swagger:** http://localhost:8000/docs  
+   - **Health:** http://localhost:8000/health
+   - **Swagger:** http://localhost:8000/docs
 
 3. **Start gRPC or MCP**  
    Set `MODE=GRPC` or `MODE=MCP` before running `python -m uv run node-wire`.
@@ -228,3 +232,33 @@ All dependencies are declared in `pyproject.toml` (Python >=3.11). They include:
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
 
+---
+
+## Code Quality (Linting & Formatting)
+
+This project uses **Ruff** for linting and formatting, and **Mypy** for static type checking.
+
+These checks are configured to run automatically in CI on Pull Requests against the `main` branch.
+
+### Manual Usage for Developers
+Make sure you have dev dependencies installed (`pip install -e ".[dev]"`).
+
+* **Check formatting & linting errors:** `ruff check .`
+* **Auto-fix everything & format code:** `ruff check --fix . && ruff format .`
+* **Run static type validation:** `mypy .`
+
+### Pre-commit Hooks
+You can attach our `.pre-commit-config.yaml` to Git so that it automatically runs these checks on every single `git commit`:
+```bash
+pre-commit install
+```
+
+If you ever want to force a manual test against your entire repository immediately, use:
+```bash
+pre-commit run --all-files
+```
+
+**(Emergency Bypass):** If the pre-commit script catches an error but you absolutely must force the commit through regardless, you can skip the checks by adding the `--no-verify` flag:
+```bash
+git commit -m "your message" --no-verify
+```

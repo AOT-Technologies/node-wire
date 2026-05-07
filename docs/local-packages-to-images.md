@@ -142,4 +142,3 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 # 3) Verify image exists
 docker images --filter reference=nw-smtp
 ```
-

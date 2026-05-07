@@ -13,6 +13,7 @@ Covers:
   - BaseConnector.get_auth_headers() delegation
   - Factory._build_auth_provider() YAML wiring
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +24,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from node_wire_runtime.auth import (
-    AuthProvider,
     NoAuthProvider,
     OAuth2AuthProvider,
     ServiceAccountAuthProvider,
@@ -39,11 +39,14 @@ from node_wire_runtime.secrets import SecretProvider
 from pydantic import BaseModel
 from node_wire_runtime import BaseConnector, sdk_action
 
+
 class _Input(BaseModel):
     action: str = "dummy"
 
+
 class _Output(BaseModel):
     ok: bool = True
+
 
 class _DummyConnector(BaseConnector):
     connector_id = "test_auth_delegation"
@@ -52,6 +55,7 @@ class _DummyConnector(BaseConnector):
     @sdk_action("dummy")
     async def dummy(self, params: _Input, *, trace_id: str) -> _Output:
         return _Output()
+
 
 class _NoAuthConnector(BaseConnector):
     connector_id = "test_no_auth_default"
@@ -69,6 +73,7 @@ class _DictSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
         if key not in self._data:
             from node_wire_runtime.secrets import SecretNotFoundError
+
             raise SecretNotFoundError(key)
         return self._data[key]
 
@@ -83,6 +88,7 @@ def _token_response(access_token: str = "tok-abc", expires_in: int = 3600) -> Ma
 # ---------------------------------------------------------------------------
 # NoAuthProvider
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_no_auth_returns_empty_headers() -> None:
@@ -105,6 +111,7 @@ async def test_no_auth_refresh_is_noop() -> None:
 # ---------------------------------------------------------------------------
 # StaticTokenAuthProvider
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_static_token_bearer_header() -> None:
@@ -130,6 +137,7 @@ async def test_static_token_custom_header_and_prefix() -> None:
 @pytest.mark.asyncio
 async def test_static_token_base64_encoding() -> None:
     import base64
+
     sp = _DictSecretProvider({"creds": "user:pass"})
     provider = StaticTokenAuthProvider(
         secret_provider=sp,
@@ -156,6 +164,7 @@ async def test_static_token_cached_after_first_call() -> None:
 async def test_static_token_refresh_clears_cache() -> None:
     """After refresh(), the next call rebuilds the header."""
     calls = []
+
     class _Counting(SecretProvider):
         def get_secret(self, key: str) -> str:
             calls.append(key)
@@ -172,15 +181,18 @@ async def test_static_token_refresh_clears_cache() -> None:
 # OAuth2AuthProvider — token caching
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_oauth2_token_cache_hit() -> None:
     """A second call within TTL must NOT issue another HTTP request."""
-    sp = _DictSecretProvider({
-        "client_id": "cid",
-        "token_url": "https://auth.example.com/token",
-        "private_key": "---fake-key---",
-        "kid": "kid1",
-    })
+    sp = _DictSecretProvider(
+        {
+            "client_id": "cid",
+            "token_url": "https://auth.example.com/token",
+            "private_key": "---fake-key---",
+            "kid": "kid1",
+        }
+    )
     provider = OAuth2AuthProvider(
         secret_provider=sp,
         grant_method="private_key_jwt",
@@ -190,7 +202,9 @@ async def test_oauth2_token_cache_hit() -> None:
         kid_secret="kid",
     )
 
-    with patch("node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock) as mock_fetch:
+    with patch(
+        "node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock
+    ) as mock_fetch:
         mock_fetch.return_value = {"access_token": "tok-1", "expires_in": 3600}
         h1 = await provider.get_headers()
         h2 = await provider.get_headers()
@@ -213,7 +227,9 @@ async def test_oauth2_token_cache_miss_on_expiry() -> None:
         buffer_secs=0,
     )
 
-    with patch("node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock) as mock_fetch:
+    with patch(
+        "node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock
+    ) as mock_fetch:
         mock_fetch.return_value = {"access_token": "tok-a", "expires_in": 1}
         await provider.get_headers()
         # Force expiry
@@ -238,11 +254,13 @@ async def test_oauth2_refresh_clears_cache() -> None:
         client_secret_secret="client_id",
     )
 
-    with patch("node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock) as mock_fetch:
+    with patch(
+        "node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock
+    ) as mock_fetch:
         mock_fetch.return_value = {"access_token": "tok-1", "expires_in": 3600}
         await provider.get_headers()  # populates cache
 
-        await provider.refresh()      # invalidates cache
+        await provider.refresh()  # invalidates cache
 
         mock_fetch.return_value = {"access_token": "tok-2", "expires_in": 3600}
         h2 = await provider.get_headers()  # must re-fetch
@@ -289,7 +307,9 @@ async def test_oauth2_401_retry_via_refresh() -> None:
         client_secret_secret="client_id",
     )
 
-    with patch("node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock) as mock_fetch:
+    with patch(
+        "node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock
+    ) as mock_fetch:
         mock_fetch.return_value = {"access_token": "old-token", "expires_in": 3600}
         h1 = await provider.get_headers()
         assert h1["Authorization"] == "Bearer old-token"
@@ -314,7 +334,9 @@ async def test_oauth2_missing_access_token_raises() -> None:
         client_id_secret="client_id",
         client_secret_secret="client_id",
     )
-    with patch("node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock) as mock_fetch:
+    with patch(
+        "node_wire_runtime.auth.oauth2.OAuth2AuthProvider._fetch_token", new_callable=AsyncMock
+    ) as mock_fetch:
         mock_fetch.return_value = {"token_type": "bearer"}  # no access_token key
         with pytest.raises(ValueError, match="access_token"):
             await provider.get_headers()
@@ -340,6 +362,7 @@ async def test_base_connector_no_provider_defaults_to_no_auth(tmp_path: Any) -> 
 # ---------------------------------------------------------------------------
 # Factory._build_auth_provider()
 # ---------------------------------------------------------------------------
+
 
 def test_factory_defaults_to_no_auth_when_auth_block_absent() -> None:
     from bindings.factory import ConnectorFactory
@@ -392,7 +415,6 @@ def test_factory_builds_oauth2_provider() -> None:
 
 def test_factory_builds_service_account_provider() -> None:
     from bindings.factory import ConnectorFactory
-    from node_wire_runtime.auth import ServiceAccountAuthProvider
 
     sp = _DictSecretProvider({})
     factory = ConnectorFactory.__new__(ConnectorFactory)

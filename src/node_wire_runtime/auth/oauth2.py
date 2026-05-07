@@ -19,6 +19,7 @@ Security design:
     :class:`~node_wire_runtime.secrets.SecretProvider` so they are never held
     in plain text in config files.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -286,9 +287,7 @@ class OAuth2AuthProvider(AuthProvider):
 
         # Normalise PEM keys stored as single-line env vars with escaped newlines.
         private_key_pem = (
-            private_key_raw.replace("\\n", "\n")
-            if "\\n" in private_key_raw
-            else private_key_raw
+            private_key_raw.replace("\\n", "\n") if "\\n" in private_key_raw else private_key_raw
         )
 
         now = int(time.time())
@@ -315,9 +314,7 @@ class OAuth2AuthProvider(AuthProvider):
 
         post_data: Dict[str, str] = {
             "grant_type": "client_credentials",
-            "client_assertion_type": (
-                "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            ),
+            "client_assertion_type": ("urn:ietf:params:oauth:client-assertion-type:jwt-bearer"),
             "client_assertion": jwt_token,
         }
         if scope:

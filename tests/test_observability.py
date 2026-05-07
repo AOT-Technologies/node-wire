@@ -1,4 +1,5 @@
 """Tests for runtime.observability (OpenTelemetry bootstrap)."""
+
 from __future__ import annotations
 
 import logging

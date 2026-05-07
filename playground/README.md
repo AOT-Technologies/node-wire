@@ -143,7 +143,7 @@ The demo is pre-configured with mock/sandbox endpoints for immediate use. To tes
 ### Testing Real Epic/Cerner (EHR)
 1.  **Update Config**: Modify `config/connectors.yaml` to point to a real Epic/Cerner Sandbox or Production URL.
 2.  **Auth**: Ensure you have valid `CLIENT_ID` and `PRIVATE_KEY` for the EHR's Backend System OAuth2 flow (SMART on FHIR).
-3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment. 
+3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment.
     - **Cerner Note**: Ensure you use numeric Practitioner IDs (e.g., `593923`) and valid CodeSet 72 codes.
 
 ### Testing Google Drive Vault (Manual End-to-End)
@@ -172,7 +172,7 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 
 1.  Navigate to the project root.
 2.  Start the FastAPI server:
-    
+
 ```bash
 # Recommended
 python -m uv run node-wire
