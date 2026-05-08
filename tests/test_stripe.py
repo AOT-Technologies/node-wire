@@ -55,10 +55,38 @@ async def test_stripe_charge_happy_path():
         amount=1000,
         currency="usd",
         source="tok_visa",
-        customer=None,
-        description=None,
-        metadata=None,
         idempotency_key="test-trace",
+    )
+
+
+@pytest.mark.asyncio
+async def test_stripe_charge_forwards_optional_fields():
+    """When optional fields are supplied, they must be forwarded to Stripe."""
+    connector = _connector()
+    params = ChargeInput(
+        amount=1000,
+        currency="usd",
+        source="tok_visa",
+        customer_id="cus_123",
+        description="Test charge",
+        metadata={"order_id": "ord_1"},
+        idempotency_key="explicit-key",
+    )
+
+    mock_charge = MagicMock(id="ch_123", receipt_url="http://stripe.com/receipt", paid=True)
+
+    with patch("stripe.Charge.create", return_value=mock_charge) as mock_create:
+        await connector.charge(params, trace_id="test-trace")
+
+    mock_create.assert_called_once_with(
+        api_key="sk_test_mock",
+        amount=1000,
+        currency="usd",
+        source="tok_visa",
+        idempotency_key="explicit-key",
+        customer="cus_123",
+        description="Test charge",
+        metadata={"order_id": "ord_1"},
     )
 
 
@@ -83,12 +111,40 @@ async def test_stripe_create_payment_intent_happy_path():
         api_key="sk_test_mock",
         amount=2000,
         currency="eur",
-        customer=None,
-        payment_method=None,
         confirm=True,
-        description=None,
-        metadata=None,
         idempotency_key="test-trace",
+    )
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_payment_intent_forwards_optional_fields():
+    """When optional fields are supplied, they must be forwarded to Stripe."""
+    connector = _connector()
+    params = CreatePaymentIntentInput(
+        amount=2000,
+        currency="eur",
+        confirm=True,
+        customer_id="cus_123",
+        payment_method="pm_456",
+        description="Test PI",
+        metadata={"order_id": "ord_2"},
+    )
+
+    mock_pi = MagicMock(id="pi_123", client_secret="secret_abc", status="requires_payment_method")
+
+    with patch("stripe.PaymentIntent.create", return_value=mock_pi) as mock_create:
+        await connector.create_payment_intent(params, trace_id="test-trace")
+
+    mock_create.assert_called_once_with(
+        api_key="sk_test_mock",
+        amount=2000,
+        currency="eur",
+        confirm=True,
+        idempotency_key="test-trace",
+        customer="cus_123",
+        payment_method="pm_456",
+        description="Test PI",
+        metadata={"order_id": "ord_2"},
     )
 
 
@@ -157,12 +213,35 @@ async def test_stripe_issue_refund_happy_path():
     assert result.status == "succeeded"
     mock_refund_create.assert_called_once_with(
         api_key="sk_test_mock",
-        charge=None,
         payment_intent="pi_123",
         amount=500,
-        reason=None,
-        metadata=None,
         idempotency_key="test-trace",
+    )
+
+
+@pytest.mark.asyncio
+async def test_stripe_issue_refund_forwards_optional_fields():
+    """When optional fields are supplied, they must be forwarded to Stripe."""
+    connector = _connector()
+    params = IssueRefundInput(
+        charge_id="ch_123",
+        amount=500,
+        reason="requested_by_customer",
+        metadata={"refund_ref": "rr_1"},
+    )
+
+    mock_refund = MagicMock(id="re_123", status="succeeded")
+
+    with patch("stripe.Refund.create", return_value=mock_refund) as mock_refund_create:
+        await connector.issue_refund(params, trace_id="test-trace")
+
+    mock_refund_create.assert_called_once_with(
+        api_key="sk_test_mock",
+        idempotency_key="test-trace",
+        charge="ch_123",
+        amount=500,
+        reason="requested_by_customer",
+        metadata={"refund_ref": "rr_1"},
     )
 
 
