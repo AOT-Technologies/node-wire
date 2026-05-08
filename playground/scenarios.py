@@ -1991,3 +1991,210 @@ async def salesforce_delete_contact_scenario(
         return _safe_error_return(e, steps, trace_id, "Delete failed")
 
 
+# ---------------------------------------------------------------------------
+# FHIR Identity — Cross-System Patient Scenarios
+# ---------------------------------------------------------------------------
+
+class IdentitySearchInputPlayground(BaseModel):
+    """Playground input for deterministic cross-system patient search."""
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
+    birthdate: Optional[str] = None
+    epic_patient_id: Optional[str] = None
+    cerner_patient_id: Optional[str] = None
+
+class IdentitySyncInputPlayground(BaseModel):
+    """Playground input for cross-system patient sync."""
+    source_system: str  # "epic" or "cerner"
+    source_patient_id: str
+    target_system: str  # "epic" or "cerner"
+
+class IdentityCrossLookupInputPlayground(BaseModel):
+    """Playground input: look up a patient by ID in one system, then search the other."""
+    system: str  # "epic" or "cerner"
+    patient_id: str
+
+
+def _get_identity_coordinator():
+    """Build an IdentityCoordinator from the playground's connector factory."""
+    from node_wire_fhir_identity.logic import IdentityCoordinator
+    epic = resolve_connector("fhir_epic")
+    cerner = resolve_connector("fhir_cerner")
+    if not epic:
+        raise HTTPException(status_code=500, detail="Epic connector not configured")
+    if not cerner:
+        raise HTTPException(status_code=500, detail="Cerner connector not configured")
+    return IdentityCoordinator(epic, cerner)
+
+
+@router.post("/identity-search", response_model=ScenarioResponse)
+async def identity_search_scenario(
+    payload: IdentitySearchInputPlayground,
+) -> ScenarioResponse:
+    """Deterministic search across Epic + Cerner by demographics or IDs."""
+    from node_wire_fhir_identity.schema import UnifiedPatientSearchInput
+
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+
+    def add_step(name, status, display_name):
+        steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
+    add_step("Cross-System Search", "pending", "Searching Epic & Cerner")
+    try:
+        coordinator = _get_identity_coordinator()
+        search_input = UnifiedPatientSearchInput(
+            given_name=payload.given_name,
+            family_name=payload.family_name,
+            birthdate=payload.birthdate,
+            epic_patient_id=payload.epic_patient_id,
+            cerner_patient_id=payload.cerner_patient_id,
+        )
+        result = await coordinator.search_patient(search_input, trace_id=trace_id)
+        steps[-1].status = "success"
+        steps[-1].details = f"Epic: {result.epic_resource_id or 'not found'} | Cerner: {result.cerner_resource_id or 'not found'}"
+        steps[-1].data = {
+            "raw": {
+                "epic_resource_id": result.epic_resource_id,
+                "epic_resource": result.epic_resource,
+                "cerner_resource_id": result.cerner_resource_id,
+                "cerner_resource": result.cerner_resource,
+            }
+        }
+
+        add_step("Identity Mapping", "pending", "Building Cross-System Map")
+        mapping = {}
+        if result.epic_resource_id:
+            mapping["epic"] = result.epic_resource_id
+        if result.cerner_resource_id:
+            mapping["cerner"] = result.cerner_resource_id
+        steps[-1].status = "success"
+        steps[-1].details = f"Mapped {len(mapping)} system(s)"
+        steps[-1].data = {"raw": mapping}
+
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            trace_id=trace_id,
+            human_summary=f"Cross-system search complete. Epic={result.epic_resource_id or '—'}, Cerner={result.cerner_resource_id or '—'}.",
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Identity search failed")
+
+
+@router.post("/identity-sync", response_model=ScenarioResponse)
+async def identity_sync_scenario(
+    payload: IdentitySyncInputPlayground,
+) -> ScenarioResponse:
+    """Sync a patient from one EHR to another with duplicate detection."""
+    from node_wire_fhir_identity.schema import UnifiedPatientSyncInput
+
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+
+    def add_step(name, status, display_name):
+        steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
+    add_step("Fetch Source Patient", "pending", f"Reading from {payload.source_system.title()}")
+    try:
+        coordinator = _get_identity_coordinator()
+        sync_input = UnifiedPatientSyncInput(
+            source_system=payload.source_system,
+            source_patient_id=payload.source_patient_id,
+            target_system=payload.target_system,
+        )
+        result = await coordinator.sync_patient(sync_input, trace_id=trace_id)
+
+        if result.status == "error":
+            steps[-1].status = "error"
+            steps[-1].details = result.message or "Sync failed"
+            return ScenarioResponse(success=False, steps=steps, trace_id=trace_id, error_message=result.message)
+
+        steps[-1].status = "success"
+        steps[-1].details = f"Fetched {payload.source_system.title()} patient {payload.source_patient_id}"
+        steps[-1].data = {
+            "raw": result.epic_resource if payload.source_system == "epic" else result.cerner_resource
+        }
+
+        add_step("Duplicate Detection", "pending", f"Searching {payload.target_system.title()}")
+        steps[-1].status = "success"
+        target_id = result.epic_resource_id if payload.target_system == "epic" else result.cerner_resource_id
+        steps[-1].details = f"Target resolved: {target_id or 'new record'}"
+        steps[-1].data = {"raw": {"target_resource_id": target_id}}
+
+        add_step("Sync Complete", "pending", f"Synced to {payload.target_system.title()}")
+        steps[-1].status = "success"
+        steps[-1].details = result.message or "Sync successful"
+        steps[-1].data = {
+            "raw": {
+                "epic_resource_id": result.epic_resource_id,
+                "cerner_resource_id": result.cerner_resource_id,
+            }
+        }
+
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            trace_id=trace_id,
+            final_resource_id=target_id,
+            human_summary=result.message,
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Identity sync failed")
+
+
+@router.post("/identity-cross-lookup", response_model=ScenarioResponse)
+async def identity_cross_lookup_scenario(
+    payload: IdentityCrossLookupInputPlayground,
+) -> ScenarioResponse:
+    """Look up a patient by ID in one system, extract demographics, search the other."""
+    from node_wire_fhir_identity.schema import UnifiedPatientSearchInput
+
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+
+    def add_step(name, status, display_name):
+        steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
+    add_step("Source Lookup", "pending", f"Reading {payload.system.title()} patient")
+    try:
+        coordinator = _get_identity_coordinator()
+
+        # Step 1: Read from source
+        source_resource = await coordinator._fetch_patient(payload.system, payload.patient_id, trace_id)
+        if source_resource is None:
+            steps[-1].status = "error"
+            steps[-1].details = f"Patient {payload.patient_id} not found in {payload.system.title()}"
+            return ScenarioResponse(success=False, steps=steps, trace_id=trace_id, error_message="Patient not found")
+
+        steps[-1].status = "success"
+        steps[-1].details = f"Found: {source_resource.get('id')}"
+        steps[-1].data = {"raw": source_resource}
+
+        # Step 2: Extract demographics
+        from node_wire_fhir_identity.transforms import extract_demographics
+        demo = extract_demographics(source_resource)
+        add_step("Demographics Extracted", "pending", "Extracting identity fields")
+        steps[-1].status = "success"
+        steps[-1].details = f"{demo.get('given', '?')} {demo.get('family', '?')} (DOB: {demo.get('birthdate', '?')})"
+        steps[-1].data = {"raw": demo}
+
+        # Step 3: Search opposite system
+        target_system = "cerner" if payload.system == "epic" else "epic"
+        add_step("Cross-System Search", "pending", f"Searching {target_system.title()}")
+        target_id, target_resource = await coordinator._demographic_search(
+            target_system, demo.get("given"), demo.get("family"), demo.get("birthdate"), trace_id
+        )
+        steps[-1].status = "success"
+        steps[-1].details = f"{target_system.title()} match: {target_id or 'no match found'}"
+        steps[-1].data = {"raw": target_resource or {"match": None}}
+
+        return ScenarioResponse(
+            success=True,
+            steps=steps,
+            trace_id=trace_id,
+            final_resource_id=target_id,
+            human_summary=f"Cross-lookup: {payload.system.title()} {payload.patient_id} → {target_system.title()} {target_id or 'no match'}.",
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Cross-lookup failed")

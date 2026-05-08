@@ -82,11 +82,22 @@ document.addEventListener('DOMContentLoaded', () => {
         delete_contact: document.getElementById('salesforce-section-id-only')
     };
 
-
+    const identityForm = document.getElementById('identity-form');
+    const identityRunBtn = document.getElementById('identity-run-btn');
+    const identitySpinner = identityRunBtn ? identityRunBtn.querySelector('.loading-spinner') : null;
+    const identityBtnText = identityRunBtn ? identityRunBtn.querySelector('.btn-lbl') : null;
+    const identityPanel = document.getElementById('identity-panel');
+    const identityActionSelect = document.getElementById('identity-action-select');
+    const identitySections = {
+        cross_lookup: document.getElementById('identity-section-cross-lookup'),
+        identity_search: document.getElementById('identity-section-search'),
+        identity_sync: document.getElementById('identity-section-sync')
+    };
 
     let currentSubMode = 'file';
     let currentStripeSubMode = 'charge';
     let currentSalesforceSubMode = 'create_lead';
+    let currentIdentitySubMode = 'cross_lookup';
     const connectorStatus = document.getElementById('connector-status');
 
     const brandLabel = document.querySelector('.brand-text h1 span.accent');
@@ -191,9 +202,21 @@ document.addEventListener('DOMContentLoaded', () => {
             "Authenticate CRM",
             "Execute Soft Delete",
             "Verify Termination"
+        ],
+        identity_cross_lookup: [
+            "Source Lookup",
+            "Extract Demographics",
+            "Cross-System Search"
+        ],
+        identity_search: [
+            "Cross-System Search",
+            "Build Identity Map"
+        ],
+        identity_sync: [
+            "Fetch Source Patient",
+            "Duplicate Detection",
+            "Sync to Target"
         ]
-
-
     };
 
     const nodes = [
@@ -493,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gdrivePanel.classList.add('hidden');
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
+        if (identityPanel) identityPanel.classList.add('hidden');
 
         if (mode === 'ehr') {
 
@@ -531,6 +555,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'CRM Orchestration';
             document.documentElement.style.setProperty('--brand-accent', '#00A1E0');
             log('Switched to Salesforce CRM Orchestration mode', 'system');
+        } else if (mode === 'identity') {
+            if (identityPanel) identityPanel.classList.remove('hidden');
+            connectorStatus.textContent = 'Identity Bridge Online';
+            tagline.textContent = 'Cross-System Patient Identity';
+            document.documentElement.style.setProperty('--brand-accent', '#7C3AED');
+            log('Switched to FHIR Identity Orchestration mode', 'system');
         }
         if (mode === 'gdrive') {
             syncGdriveActionForm();
@@ -541,6 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'salesforce') {
             syncSalesforceActionForm();
             resetUI(salesforcePipelineLabelOverride());
+        } else if (mode === 'identity') {
+            syncIdentityActionForm();
+            resetUI(identityPipelineLabelOverride());
         } else {
             resetUI();
         }
@@ -936,6 +969,83 @@ document.addEventListener('DOMContentLoaded', () => {
             syncSalesforceActionForm();
             resetUI(salesforcePipelineLabelOverride());
             log(`Switched to Salesforce mode [${currentSalesforceSubMode}]`);
+        });
+    }
+
+    // --- FHIR Identity wiring ---
+    function identityPipelineLabelOverride() {
+        if (currentIdentitySubMode === 'cross_lookup') return pipelineLabels.identity_cross_lookup;
+        if (currentIdentitySubMode === 'identity_search') return pipelineLabels.identity_search;
+        if (currentIdentitySubMode === 'identity_sync') return pipelineLabels.identity_sync;
+        return pipelineLabels.identity_cross_lookup;
+    }
+
+    function syncIdentityActionForm() {
+        Object.values(identitySections).forEach(sec => {
+            if (sec) sec.classList.add('hidden');
+        });
+        const activeSec = identitySections[currentIdentitySubMode] || identitySections['cross_lookup'];
+        if (activeSec) activeSec.classList.remove('hidden');
+
+        const btnLabels = {
+            cross_lookup: 'Execute Cross-Lookup',
+            identity_search: 'Search Both Systems',
+            identity_sync: 'Sync Patient'
+        };
+        if (identityBtnText) identityBtnText.textContent = btnLabels[currentIdentitySubMode] || 'Execute';
+        if (identityActionSelect) identityActionSelect.value = currentIdentitySubMode;
+    }
+
+    if (identityActionSelect) {
+        identityActionSelect.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            if (mode === currentIdentitySubMode) return;
+            currentIdentitySubMode = mode;
+            syncIdentityActionForm();
+            resetUI(identityPipelineLabelOverride());
+            log(`Switched to Identity mode [${currentIdentitySubMode}]`);
+        });
+    }
+
+    if (identityForm) {
+        identityForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(identityForm);
+            const payload = Object.fromEntries(formData.entries());
+
+            let endpoint = '/scenarios/identity-cross-lookup';
+            let submitPayload = {};
+
+            if (currentIdentitySubMode === 'cross_lookup') {
+                submitPayload = {
+                    system: payload.cross_system,
+                    patient_id: payload.cross_patient_id
+                };
+                endpoint = '/scenarios/identity-cross-lookup';
+            } else if (currentIdentitySubMode === 'identity_search') {
+                submitPayload = {
+                    given_name: payload.search_given_name || undefined,
+                    family_name: payload.search_family_name || undefined,
+                    birthdate: payload.search_birthdate || undefined,
+                    epic_patient_id: payload.search_epic_id || undefined,
+                    cerner_patient_id: payload.search_cerner_id || undefined
+                };
+                endpoint = '/scenarios/identity-search';
+            } else if (currentIdentitySubMode === 'identity_sync') {
+                submitPayload = {
+                    source_system: payload.sync_source_system,
+                    source_patient_id: payload.sync_source_patient_id,
+                    target_system: payload.sync_target_system
+                };
+                endpoint = '/scenarios/identity-sync';
+            }
+
+            await handleSubmission(
+                submitPayload, endpoint,
+                identityRunBtn, identityBtnText, identitySpinner,
+                identityPipelineLabelOverride() ? 'Execute' : 'Execute',
+                identityPipelineLabelOverride()
+            );
         });
     }
 

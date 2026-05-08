@@ -974,6 +974,11 @@ textarea:focus {
     border: 1px solid rgba(0,0,0,0.07);
 }
 
+/* FHIR Identity: purple brand for cross-system orchestration */
+.bg-identity {
+    background: linear-gradient(135deg, #7C3AED, #6D28D9);
+}
+
 .connector-details h3 {
     font-family: 'Outfit', sans-serif;
     font-size: 1.25rem;

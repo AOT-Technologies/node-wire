@@ -71,6 +71,50 @@ class FhirCernerPatientSearchOutput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Patient – Create
+# ---------------------------------------------------------------------------
+
+
+class FhirCernerPatientCreateInput(BaseModel):
+    """Input for creating a FHIR Patient resource in Cerner."""
+
+    action: Literal["create_patient"] = "create_patient"
+    """Action discriminator."""
+
+    resource: Dict[str, Any]
+    """The raw FHIR Patient resource payload."""
+
+
+class FhirCernerPatientCreateOutput(BaseModel):
+    """Output for creating a FHIR Patient resource in Cerner."""
+
+    resource_id: str
+    resource: Optional[Dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
+# Patient – Update
+# ---------------------------------------------------------------------------
+
+
+class FhirCernerPatientUpdateInput(BaseModel):
+    """Input for updating a FHIR Patient resource in Cerner."""
+
+    action: Literal["update_patient"] = "update_patient"
+    """Action discriminator."""
+
+    resource_id: str
+    resource: Dict[str, Any]
+
+
+class FhirCernerPatientUpdateOutput(BaseModel):
+    """Output for updating a FHIR Patient resource in Cerner."""
+
+    resource_id: str
+    resource: Optional[Dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
 # Encounter – Search
 # ---------------------------------------------------------------------------
 

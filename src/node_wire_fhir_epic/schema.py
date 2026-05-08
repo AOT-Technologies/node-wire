@@ -61,6 +61,50 @@ class FhirPatientSearchOutput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Patient – Create
+# ---------------------------------------------------------------------------
+
+
+class FhirPatientCreateInput(BaseModel):
+    """Input for creating a FHIR Patient resource in Epic."""
+
+    action: Literal["create_patient"] = "create_patient"
+    """Action discriminator."""
+
+    resource: Dict[str, Any]
+    """The raw FHIR Patient resource payload."""
+
+
+class FhirPatientCreateOutput(BaseModel):
+    """Output for creating a FHIR Patient resource in Epic."""
+
+    resource_id: str
+    resource: Optional[Dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
+# Patient – Update
+# ---------------------------------------------------------------------------
+
+
+class FhirPatientUpdateInput(BaseModel):
+    """Input for updating a FHIR Patient resource in Epic."""
+
+    action: Literal["update_patient"] = "update_patient"
+    """Action discriminator."""
+
+    resource_id: str
+    resource: Dict[str, Any]
+
+
+class FhirPatientUpdateOutput(BaseModel):
+    """Output for updating a FHIR Patient resource in Epic."""
+
+    resource_id: str
+    resource: Optional[Dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
 # Encounter – Search
 # ---------------------------------------------------------------------------
 
