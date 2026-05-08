@@ -1,6 +1,6 @@
 import pytest
 import httpx
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from bindings.mcp_server.server import McpServer, _http_request_headers
 from starlette.applications import Starlette
 from starlette.routing import Route
@@ -158,7 +158,9 @@ async def test_mcp_http_tools_list_accepts_authorization_header(monkeypatch):
 
     starlette_app = Starlette(
         routes=[
-            Route("/mcp", endpoint=_ASGIApp(session_manager.handle_request), methods=["GET", "POST"])
+            Route(
+                "/mcp", endpoint=_ASGIApp(session_manager.handle_request), methods=["GET", "POST"]
+            )
         ]
     )
 
@@ -168,17 +170,23 @@ async def test_mcp_http_tools_list_accepts_authorization_header(monkeypatch):
     }
 
     async with session_manager.run():
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=starlette_app), base_url="http://testserver") as client:
-            init_resp = await client.post("/mcp", json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "test-client", "version": "1.0"}
-                }
-            }, headers=common_headers)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=starlette_app), base_url="http://testserver"
+        ) as client:
+            init_resp = await client.post(
+                "/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test-client", "version": "1.0"},
+                    },
+                },
+                headers=common_headers,
+            )
             assert init_resp.status_code == 200
             session_id = init_resp.headers.get("Mcp-Session-Id")
 
@@ -186,14 +194,10 @@ async def test_mcp_http_tools_list_accepts_authorization_header(monkeypatch):
             if session_id:
                 headers["Mcp-Session-Id"] = session_id
 
-            list_resp = await client.post("/mcp",
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 2,
-                    "method": "tools/list",
-                    "params": {}
-                },
-                headers=headers
+            list_resp = await client.post(
+                "/mcp",
+                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                headers=headers,
             )
             assert list_resp.status_code == 200
             data = list_resp.json()
@@ -213,7 +217,9 @@ async def test_mcp_http_tools_list_accepts_x_api_key_header(monkeypatch):
 
     starlette_app = Starlette(
         routes=[
-            Route("/mcp", endpoint=_ASGIApp(session_manager.handle_request), methods=["GET", "POST"])
+            Route(
+                "/mcp", endpoint=_ASGIApp(session_manager.handle_request), methods=["GET", "POST"]
+            )
         ]
     )
 
@@ -223,17 +229,23 @@ async def test_mcp_http_tools_list_accepts_x_api_key_header(monkeypatch):
     }
 
     async with session_manager.run():
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=starlette_app), base_url="http://testserver") as client:
-            init_resp = await client.post("/mcp", json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "test-client", "version": "1.0"}
-                }
-            }, headers=common_headers)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=starlette_app), base_url="http://testserver"
+        ) as client:
+            init_resp = await client.post(
+                "/mcp",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test-client", "version": "1.0"},
+                    },
+                },
+                headers=common_headers,
+            )
             assert init_resp.status_code == 200
             session_id = init_resp.headers.get("Mcp-Session-Id")
 
@@ -241,14 +253,10 @@ async def test_mcp_http_tools_list_accepts_x_api_key_header(monkeypatch):
             if session_id:
                 headers["Mcp-Session-Id"] = session_id
 
-            list_resp = await client.post("/mcp",
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 2,
-                    "method": "tools/list",
-                    "params": {}
-                },
-                headers=headers
+            list_resp = await client.post(
+                "/mcp",
+                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                headers=headers,
             )
             assert list_resp.status_code == 200
             data = list_resp.json()

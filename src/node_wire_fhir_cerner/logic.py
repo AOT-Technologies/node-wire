@@ -5,12 +5,11 @@ import base64
 import json
 import logging
 import os
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
-import jwt
+import jwt  # noqa: F401  # re-exported for test patching (node_wire_fhir_cerner.logic.jwt.encode)
 
 from node_wire_runtime import BaseConnector, nw_action, sdk_action
 from node_wire_runtime.fhir_encounter import assert_encounter_query_has_patient
@@ -128,7 +127,6 @@ class FhirCernerConnector(BaseConnector):
                 "https://authorization.cerner.com/tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token"
             )
 
-
         headers = await self.get_auth_headers()
         # Ensure FHIR content types are present if the provider didn't include them (e.g. StaticTokenAuthProvider).
         if "Content-Type" not in headers:
@@ -137,7 +135,6 @@ class FhirCernerConnector(BaseConnector):
             headers["Accept"] = "application/fhir+json"
 
         return headers
-
 
     # ------------------------------------------------------------------
     # Internal name-field helpers
@@ -228,8 +225,15 @@ class FhirCernerConnector(BaseConnector):
             )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
-                response = await client.get(url, headers=auth_header, params=query_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")))
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
+                response = await client.get(
+                    url,
+                    headers=auth_header,
+                    params=query_params,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
+                )
                 response.raise_for_status()
         except Exception as exc:
             logger.error(
@@ -280,7 +284,9 @@ class FhirCernerConnector(BaseConnector):
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
                 """Return (rid, resource_or_None, error_or_None)."""
                 try:
-                    async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+                    async with httpx.AsyncClient(
+                        timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+                    ) as client:
                         resp = await client.get(
                             f"{base_url}/Patient/{rid}",
                             headers=auth_header,
@@ -338,7 +344,9 @@ class FhirCernerConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
                     f"{base_url}/Patient",
                     headers=auth_header,
@@ -408,9 +416,14 @@ class FhirCernerConnector(BaseConnector):
         auth_header = await self._get_auth_header()
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
-                    f"{base_url}/Encounter", headers=auth_header, params=query_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
+                    f"{base_url}/Encounter",
+                    headers=auth_header,
+                    params=query_params,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -577,9 +590,14 @@ class FhirCernerConnector(BaseConnector):
         logger.info("FHIR DocumentReference create", extra={"trace_id": trace_id})
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.post(
-                    f"{base_url}/DocumentReference", json=doc_ref, headers=auth_header, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
+                    f"{base_url}/DocumentReference",
+                    json=doc_ref,
+                    headers=auth_header,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -670,9 +688,14 @@ class FhirCernerConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
-                    f"{base_url}/DocumentReference", headers=auth_header, params=params.search_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
+                    f"{base_url}/DocumentReference",
+                    headers=auth_header,
+                    params=params.search_params,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:

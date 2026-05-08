@@ -34,10 +34,8 @@ from bindings.rest_api.auth import RestAuthMiddleware, get_rest_caller_identity
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
-    
-from playground.scenarios import router as scenarios_router
 
-
+from playground.scenarios import router as scenarios_router  # noqa: E402
 
 
 logger = logging.getLogger("bindings.rest_api")
