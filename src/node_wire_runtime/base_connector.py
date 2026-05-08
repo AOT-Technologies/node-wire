@@ -343,6 +343,19 @@ class BaseConnector(ABC):
         self._breakers: Dict[str, CircuitBreaker] = {}
         self._client: Any = None
 
+    def _ensure_breakers_cache(self) -> Dict[str, CircuitBreaker]:
+        """
+        Ensure the per-tenant circuit breaker cache exists.
+
+        This guards against accidental deletion or deserialization edge-cases
+        where `_breakers` may be missing at runtime.
+        """
+        breakers = getattr(self, "_breakers", None)
+        if not isinstance(breakers, dict):
+            breakers = {}
+            setattr(self, "_breakers", breakers)
+        return breakers
+
     @property
     def secret_provider(self) -> SecretProvider:
         if self._secret_provider is None:
@@ -476,7 +489,8 @@ class BaseConnector(ABC):
                             )
 
                     tenant_key = tenant_id or "default"
-                    breaker = self._breakers.get(tenant_key)
+                    breakers = self._ensure_breakers_cache()
+                    breaker = breakers.get(tenant_key)
                     if breaker is None:
                         fail_max = int(os.environ.get("AOT_CIRCUIT_BREAKER_FAIL_MAX", "5"))
                         reset_timeout = int(
@@ -487,7 +501,7 @@ class BaseConnector(ABC):
                             reset_timeout=reset_timeout,
                             name=f"{self.connector_id}_breaker_{tenant_key}",
                         )
-                        self._breakers[tenant_key] = breaker
+                        breakers[tenant_key] = breaker
 
                     execute_with_resilience = with_resilience(breaker)
 
