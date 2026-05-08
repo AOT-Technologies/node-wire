@@ -35,12 +35,20 @@ from typing import List
 logger = logging.getLogger("node_wire_runtime.connector_registry")
 
 
-def _parse_allowed_names() -> set[str]:
-    """Return allowed entry point names. Defaults to empty set (nothing allowed)."""
+def _parse_allowed_names() -> set[str] | None:
+    """Return allowed entry point names.
+    
+    - If set to '*', returns None (all allowed).
+    - If unset or empty, returns empty set (none allowed).
+    - Otherwise returns set of names.
+    """
     raw = os.environ.get("NW_ALLOWED_CONNECTORS")
     if raw is None or not str(raw).strip():
         return set()
-    return {x.strip() for x in str(raw).split(",") if x.strip()}
+    s = str(raw).strip()
+    if s == "*":
+        return None
+    return {x.strip() for x in s.split(",") if x.strip()}
 
 
 def _module_prefix() -> str | None:
@@ -65,8 +73,8 @@ def _parent_package_for_logic_module(logic_module: str) -> str:
     return logic_module.rsplit(".", 1)[0]
 
 
-def _should_skip_ep(ep: EntryPoint, allowed: set[str], prefix: str | None) -> bool:
-    if ep.name not in allowed:
+def _should_skip_ep(ep: EntryPoint, allowed: set[str] | None, prefix: str | None) -> bool:
+    if allowed is not None and ep.name not in allowed:
         logger.warning(
             "Skipping connector entry point %r (not in NW_ALLOWED_CONNECTORS)",
             ep.name,
@@ -137,12 +145,13 @@ def auto_register() -> List[str]:
         discovered_names.add(ep.name)
 
     # Fallback for allowlisted names not discovered via entry points
-    for name in allowed:
-        if name not in discovered_names:
-            pkg_prefix = prefix if prefix is not None else "node_wire_"
-            pkg = f"{pkg_prefix}{name}"
-            logic_mod = f"{pkg}.logic"
-            reg_name = f"{pkg}.registration"
+    if allowed is not None:
+        for name in allowed:
+            if name not in discovered_names:
+                pkg_prefix = prefix if prefix is not None else "node_wire_"
+                pkg = f"{pkg_prefix}{name}"
+                logic_mod = f"{pkg}.logic"
+                reg_name = f"{pkg}.registration"
 
             try:
                 importlib.import_module(logic_mod)
