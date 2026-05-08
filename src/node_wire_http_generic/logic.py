@@ -41,7 +41,9 @@ class HttpGenericConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.request(
                     method=params.method,
                     url=str(params.url),

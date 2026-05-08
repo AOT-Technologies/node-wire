@@ -33,17 +33,13 @@ class _PolicyTestConnector(BaseConnector):
 
 def _connector_with_scope_map() -> _PolicyTestConnector:
     return _PolicyTestConnector(
-        policy_hook=ScopePolicyHook(
-            {"policy_transport_test.read_patient": "mcp:fhir.read_patient"}
-        )
+        policy_hook=ScopePolicyHook({"policy_transport_test.read_patient": "mcp:fhir.read_patient"})
     )
 
 
 def test_scope_policy_bypasses_when_identity_missing_like_grpc() -> None:
     connector = _connector_with_scope_map()
-    response = asyncio.run(
-        connector.run({"action": "read_patient", "resource_id": "x"})
-    )
+    response = asyncio.run(connector.run({"action": "read_patient", "resource_id": "x"}))
 
     assert response.success is True
     assert response.error_code is None
@@ -92,4 +88,3 @@ def test_scope_policy_default_deny_without_fallback_scope() -> None:
     )
     assert response.success is False
     assert "Missing required scope" in (response.message or "")
-

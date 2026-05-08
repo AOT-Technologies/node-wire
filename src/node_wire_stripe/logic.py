@@ -150,7 +150,9 @@ class StripeConnector(BaseConnector):
         )
 
     @nw_action("create_subscription")
-    async def create_subscription(self, params: CreateSubscriptionInput, *, trace_id: str) -> StripeOperationOutput:
+    async def create_subscription(
+        self, params: CreateSubscriptionInput, *, trace_id: str
+    ) -> StripeOperationOutput:
         api_key = self._get_api_key()
 
         logger.info(
@@ -213,12 +215,16 @@ class StripeConnector(BaseConnector):
         client_secret = None
         pending_setup_intent = getattr(sub, "pending_setup_intent", None)
         latest_invoice_id = getattr(sub, "latest_invoice", None)
-        
+
         if pending_setup_intent:
-            si = await asyncio.to_thread(stripe.SetupIntent.retrieve, pending_setup_intent, api_key=api_key)
+            si = await asyncio.to_thread(
+                stripe.SetupIntent.retrieve, pending_setup_intent, api_key=api_key
+            )
             client_secret = getattr(si, "client_secret", None)
         elif latest_invoice_id:
-            inv = await asyncio.to_thread(stripe.Invoice.retrieve, latest_invoice_id, api_key=api_key)
+            inv = await asyncio.to_thread(
+                stripe.Invoice.retrieve, latest_invoice_id, api_key=api_key
+            )
             pi_id = getattr(inv, "payment_intent", None)
             if pi_id:
                 pi = await asyncio.to_thread(stripe.PaymentIntent.retrieve, pi_id, api_key=api_key)
@@ -231,7 +237,9 @@ class StripeConnector(BaseConnector):
         )
 
     @nw_action("cancel_subscription")
-    async def cancel_subscription(self, params: CancelSubscriptionInput, *, trace_id: str) -> StripeOperationOutput:
+    async def cancel_subscription(
+        self, params: CancelSubscriptionInput, *, trace_id: str
+    ) -> StripeOperationOutput:
         api_key = self._get_api_key()
 
         logger.info(
@@ -280,7 +288,9 @@ class StripeConnector(BaseConnector):
         )
 
     @nw_action("issue_refund")
-    async def issue_refund(self, params: IssueRefundInput, *, trace_id: str) -> StripeOperationOutput:
+    async def issue_refund(
+        self, params: IssueRefundInput, *, trace_id: str
+    ) -> StripeOperationOutput:
         api_key = self._get_api_key()
 
         logger.info(

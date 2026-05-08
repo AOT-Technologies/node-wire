@@ -137,7 +137,9 @@ def test_stripe_charge_via_run() -> None:
     secrets = _MapSecrets({"stripe_api_key": "sk_test_dummy"})
 
     with patch("node_wire_stripe.logic.stripe.Charge") as mock_charge:
-        mock_charge.create.return_value = MagicMock(id="ch_123", receipt_url="https://pay.example/r", paid=True)
+        mock_charge.create.return_value = MagicMock(
+            id="ch_123", receipt_url="https://pay.example/r", paid=True
+        )
         c = StripeConnector(secret_provider=secrets)
 
         async def _run() -> None:

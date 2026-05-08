@@ -8,6 +8,7 @@ Structure mirrors node_wire_smtp/logic.py:
 The Slack Bot Token is NEVER logged or included in exceptions.
 All credentials are resolved at call-time via SecretProvider.
 """
+
 from __future__ import annotations
 
 import base64
@@ -49,6 +50,7 @@ _DEFAULT_TIMEOUT = 30.0
 _HARD_UPLOAD_LIMIT_MB = 100
 _DEFAULT_UPLOAD_LIMIT_MB = 50
 
+
 def _get_api_url(path: str) -> str:
     """Helper to construct Slack API URLs, allowing base URL override via NW_SLACK_API_BASE_URL."""
     base = os.environ.get("NW_SLACK_API_BASE_URL", "https://slack.com/api").rstrip("/")
@@ -71,6 +73,7 @@ _RATE_ERRORS = frozenset({"ratelimited"})
 # ---------------------------------------------------------------------------
 # Private HTTP helpers  (module-level, not a separate file)
 # ---------------------------------------------------------------------------
+
 
 def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
@@ -146,9 +149,7 @@ async def _upload_bytes(
             headers={"Content-Type": "application/octet-stream"},
         )
     if response.status_code != 200:
-        raise SlackUploadError(
-            f"Upload to pre-signed URL failed with HTTP {response.status_code}."
-        )
+        raise SlackUploadError(f"Upload to pre-signed URL failed with HTTP {response.status_code}.")
 
 
 async def _complete_upload(
@@ -217,9 +218,7 @@ def _resolve_upload_path(filepath: str) -> str:
         )
     candidate = os.path.realpath(filepath)
     if candidate != allowed and not candidate.startswith(allowed + os.sep):
-        raise SlackUploadError(
-            f"filepath must be under '{allowed}'. Got: {filepath!r}"
-        )
+        raise SlackUploadError(f"filepath must be under '{allowed}'. Got: {filepath!r}")
     return candidate
 
 
@@ -251,7 +250,10 @@ async def _resolve_channel_id(token: str, target: str) -> str:
             async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
                 response = await client.post(
                     _get_api_url("conversations.open"),
-                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
                     json={"users": target},
                 )
                 data = response.json()
@@ -261,7 +263,9 @@ async def _resolve_channel_id(token: str, target: str) -> str:
                     return resolved_id
 
                 # If Slack returns ok: false, fallback to the original ID
-                logger.warning(f"Failed to resolve User ID {target} to DM channel: {data.get('error')}")
+                logger.warning(
+                    f"Failed to resolve User ID {target} to DM channel: {data.get('error')}"
+                )
                 return target
         except Exception as exc:
             # Catch network errors (ConnectError, etc.) and fallback to original ID
@@ -298,9 +302,7 @@ class SlackConnector(BaseConnector):
     # ------------------------------------------------------------------
 
     @sdk_action("post_message")
-    async def post_message(
-        self, params: SlackPostMessageInput, *, trace_id: str
-    ) -> SlackOutput:
+    async def post_message(self, params: SlackPostMessageInput, *, trace_id: str) -> SlackOutput:
         logger.info(
             "Sending Slack channel message",
             extra={
@@ -388,9 +390,7 @@ class SlackConnector(BaseConnector):
     # ------------------------------------------------------------------
 
     @sdk_action("upload_file")
-    async def upload_file(
-        self, params: SlackUploadFileInput, *, trace_id: str
-    ) -> SlackOutput:
+    async def upload_file(self, params: SlackUploadFileInput, *, trace_id: str) -> SlackOutput:
         logger.info(
             "Starting Slack file upload",
             extra={
@@ -408,9 +408,7 @@ class SlackConnector(BaseConnector):
         if params.filepath:
             safe_path = _resolve_upload_path(params.filepath)
             if not os.path.isfile(safe_path):
-                raise SlackUploadError(
-                    f"No such file in upload directory: {params.filepath!r}"
-                )
+                raise SlackUploadError(f"No such file in upload directory: {params.filepath!r}")
             size = os.path.getsize(safe_path)
             effective_filename = params.filename or os.path.basename(safe_path)
             if size > limit_bytes:
@@ -434,9 +432,7 @@ class SlackConnector(BaseConnector):
                 )
 
         else:
-            raise SlackUploadError(
-                "Either 'filepath' or 'content_base64' must be provided."
-            )
+            raise SlackUploadError("Either 'filepath' or 'content_base64' must be provided.")
 
         # --- 3-step external upload ---
         logger.info(
@@ -449,9 +445,7 @@ class SlackConnector(BaseConnector):
                 "size_bytes": len(content_bytes),
             },
         )
-        upload_url, file_id = await _get_upload_url(
-            token, effective_filename, len(content_bytes)
-        )
+        upload_url, file_id = await _get_upload_url(token, effective_filename, len(content_bytes))
 
         await _upload_bytes(upload_url, content_bytes)
 

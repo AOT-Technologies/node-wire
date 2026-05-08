@@ -4,6 +4,7 @@ Domain exception hierarchy for the Slack connector.
 These exceptions are raised by logic.py and mapped to ErrorCategory codes
 by registration.py via ErrorMapper.
 """
+
 from __future__ import annotations
 
 

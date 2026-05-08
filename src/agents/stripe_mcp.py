@@ -1,4 +1,5 @@
 """MCP Server — Stripe connector only. Usage: python -m agents.stripe_mcp"""
+
 from __future__ import annotations
 
 import logging

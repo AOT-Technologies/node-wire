@@ -379,7 +379,7 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
         # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
         old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
         os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
-        
+
         gdrive.run = fake_run
         await server.invoke_tool(
             "google_drive.files.upload",
@@ -392,7 +392,7 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
                 "action": "upload",
             },
         )
-        
+
         # Restore original rate limit value
         if old_rate_limit is not None:
             os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
@@ -443,14 +443,19 @@ async def test_mcp_server_invoke_rejects_conflicting_action() -> None:
     # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
     old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
     os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
-    
+
     try:
         server = McpServer(connector_ids=["google_drive"])
 
         with pytest.raises(ValueError, match="does not match"):
             await server.invoke_tool(
                 "google_drive.files.upload",
-                {"name": "x.txt", "mime_type": "text/plain", "content": "a", "action": "files.list"},
+                {
+                    "name": "x.txt",
+                    "mime_type": "text/plain",
+                    "content": "a",
+                    "action": "files.list",
+                },
             )
     finally:
         # Restore original rate limit value

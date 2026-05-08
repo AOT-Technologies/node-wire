@@ -13,7 +13,9 @@ class ChargeInput(BaseModel):
     customer_id: str | None = None
     description: str | None = None
     metadata: dict | None = None
-    idempotency_key: str | None = Field(None, description="Optional unique key to prevent duplicate operations.")
+    idempotency_key: str | None = Field(
+        None, description="Optional unique key to prevent duplicate operations."
+    )
 
 
 class ChargeOutput(BaseModel):
@@ -25,7 +27,9 @@ class CancelSubscriptionInput(BaseModel):
     action: Literal["cancel_subscription"] = "cancel_subscription"
     subscription_id: str
     cancel_at_period_end: bool = False
-    idempotency_key: str | None = Field(None, description="Optional unique key to prevent duplicate operations.")
+    idempotency_key: str | None = Field(
+        None, description="Optional unique key to prevent duplicate operations."
+    )
 
 
 class CancelSubscriptionOutput(BaseModel):
@@ -42,7 +46,9 @@ class CreatePaymentIntentInput(BaseModel):
     confirm: bool = False
     description: str | None = None
     metadata: dict | None = None
-    idempotency_key: str | None = Field(None, description="Optional unique key to prevent duplicate operations.")
+    idempotency_key: str | None = Field(
+        None, description="Optional unique key to prevent duplicate operations."
+    )
 
 
 class CreatePaymentIntentOutput(BaseModel):
@@ -59,7 +65,9 @@ class CreateSubscriptionInput(BaseModel):
     default_payment_method: str | None = None
     card_token: str | None = None
     metadata: dict | None = None
-    idempotency_key: str | None = Field(None, description="Optional unique key to prevent duplicate operations.")
+    idempotency_key: str | None = Field(
+        None, description="Optional unique key to prevent duplicate operations."
+    )
 
 
 class CreateSubscriptionOutput(BaseModel):
@@ -75,7 +83,9 @@ class IssueRefundInput(BaseModel):
     amount: int | None = Field(None, ge=1, le=99999999)
     reason: str | None = None
     metadata: dict | None = None
-    idempotency_key: str | None = Field(None, description="Optional unique key to prevent duplicate operations.")
+    idempotency_key: str | None = Field(
+        None, description="Optional unique key to prevent duplicate operations."
+    )
 
 
 class IssueRefundOutput(BaseModel):

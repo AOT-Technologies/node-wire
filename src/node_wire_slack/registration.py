@@ -5,6 +5,7 @@ Mirrors node_wire_google_drive/registration.py — registers domain exceptions
 from exceptions.py so the runtime can translate them into the standard
 ConnectorResponse error taxonomy.
 """
+
 from __future__ import annotations
 
 from node_wire_runtime import ErrorCategory, ErrorMapper

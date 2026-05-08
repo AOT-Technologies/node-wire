@@ -1,4 +1,5 @@
 """MCP Server — Slack connector only. Usage: python -m agents.slack_mcp"""
+
 from __future__ import annotations
 
 import logging
