@@ -110,7 +110,7 @@ def with_resilience(
                 raise abort.cause
 
             # Should not be reached because reraise=True ensures RetryError is propagated.
-            raise RetryError("Exhausted retries without success")
+            raise RuntimeError("Exhausted retries without success")
 
         return wrapper
 

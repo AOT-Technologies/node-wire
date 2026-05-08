@@ -364,18 +364,18 @@ class FhirCernerConnector(BaseConnector):
             raise
 
         data = response.json()
-        resources: List[Dict[str, Any]] = []
+        bundle_resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
-            resources = [e["resource"] for e in data["entry"] if "resource" in e]
+            bundle_resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
         logger.info(
             "FHIR Cerner Patient name search completed | found=%s | total=%s",
-            len(resources),
+            len(bundle_resources),
             total,
             extra={"trace_id": trace_id},
         )
-        return FhirCernerPatientSearchOutput(resources=resources, total=total)
+        return FhirCernerPatientSearchOutput(resources=bundle_resources, total=total)
 
     # ------------------------------------------------------------------
     # Action: search_encounter

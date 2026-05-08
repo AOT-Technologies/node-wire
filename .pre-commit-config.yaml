@@ -18,3 +18,4 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: ["pydantic", "fastapi"]
+        pass_filenames: false

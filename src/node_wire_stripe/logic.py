@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, cast
 
 import stripe
 
@@ -55,16 +55,21 @@ class StripeConnector(BaseConnector):
         )
 
         def _create() -> stripe.Charge:
-            return stripe.Charge.create(
-                api_key=api_key,
-                amount=params.amount,
-                currency=params.currency,
-                source=params.source,
-                customer=params.customer_id,
-                description=params.description,
-                metadata=params.metadata,
-                idempotency_key=params.idempotency_key or trace_id,
-            )
+            create_kwargs: dict[str, Any] = {
+                "api_key": api_key,
+                "amount": params.amount,
+                "currency": params.currency,
+                "source": params.source,
+                "idempotency_key": params.idempotency_key or trace_id,
+            }
+            if params.customer_id is not None:
+                create_kwargs["customer"] = params.customer_id
+            if params.description is not None:
+                create_kwargs["description"] = params.description
+            if params.metadata is not None:
+                create_kwargs["metadata"] = params.metadata
+
+            return cast(Any, stripe.Charge).create(**create_kwargs)
 
         try:
             charge = await asyncio.to_thread(_create)
@@ -105,17 +110,23 @@ class StripeConnector(BaseConnector):
         )
 
         def _create() -> stripe.PaymentIntent:
-            return stripe.PaymentIntent.create(
-                api_key=api_key,
-                amount=params.amount,
-                currency=params.currency,
-                customer=params.customer_id,
-                payment_method=params.payment_method,
-                confirm=params.confirm,
-                description=params.description,
-                metadata=params.metadata,
-                idempotency_key=params.idempotency_key or trace_id,
-            )
+            create_kwargs: dict[str, Any] = {
+                "api_key": api_key,
+                "amount": params.amount,
+                "currency": params.currency,
+                "confirm": params.confirm,
+                "idempotency_key": params.idempotency_key or trace_id,
+            }
+            if params.customer_id is not None:
+                create_kwargs["customer"] = params.customer_id
+            if params.payment_method is not None:
+                create_kwargs["payment_method"] = params.payment_method
+            if params.description is not None:
+                create_kwargs["description"] = params.description
+            if params.metadata is not None:
+                create_kwargs["metadata"] = params.metadata
+
+            return cast(Any, stripe.PaymentIntent).create(**create_kwargs)
 
         try:
             pi = await asyncio.to_thread(_create)
@@ -170,15 +181,18 @@ class StripeConnector(BaseConnector):
                 )
                 payment_method_id = pm.id
 
-            return stripe.Subscription.create(
-                api_key=api_key,
-                customer=params.customer_id,
-                items=[{"price": params.price_id}] if params.price_id else None,
-                payment_behavior=params.payment_behavior,
-                default_payment_method=payment_method_id,
-                metadata=params.metadata,
-                idempotency_key=params.idempotency_key or trace_id,
-            )
+            create_kwargs: dict[str, Any] = {
+                "api_key": api_key,
+                "customer": params.customer_id,
+                "items": [{"price": params.price_id}] if params.price_id else [],
+                "payment_behavior": params.payment_behavior,
+                "metadata": params.metadata or {},
+                "idempotency_key": params.idempotency_key or trace_id,
+            }
+            if payment_method_id is not None:
+                create_kwargs["default_payment_method"] = payment_method_id
+
+            return cast(Any, stripe.Subscription).create(**create_kwargs)
 
         try:
             sub = await asyncio.to_thread(_create)
@@ -281,15 +295,22 @@ class StripeConnector(BaseConnector):
         )
 
         def _refund() -> stripe.Refund:
-            return stripe.Refund.create(
-                api_key=api_key,
-                charge=params.charge_id,
-                payment_intent=params.payment_intent_id,
-                amount=params.amount,
-                reason=params.reason,
-                metadata=params.metadata,
-                idempotency_key=params.idempotency_key or trace_id,
-            )
+            create_kwargs: dict[str, Any] = {
+                "api_key": api_key,
+                "idempotency_key": params.idempotency_key or trace_id,
+            }
+            if params.charge_id is not None:
+                create_kwargs["charge"] = params.charge_id
+            if params.payment_intent_id is not None:
+                create_kwargs["payment_intent"] = params.payment_intent_id
+            if params.amount is not None:
+                create_kwargs["amount"] = params.amount
+            if params.reason is not None:
+                create_kwargs["reason"] = params.reason
+            if params.metadata is not None:
+                create_kwargs["metadata"] = params.metadata
+
+            return cast(Any, stripe.Refund).create(**create_kwargs)
 
         try:
             refund = await asyncio.to_thread(_refund)

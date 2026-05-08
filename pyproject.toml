@@ -119,6 +119,10 @@ line-length = 100
 python_version = "3.11"
 strict = false
 ignore_missing_imports = true
+files = [
+  "src/node_wire_*",
+]
+explicit_package_bases = true
 exclude = [
   "^packages/.*/setup\\.py$",
 ]

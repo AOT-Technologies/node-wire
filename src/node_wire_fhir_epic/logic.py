@@ -326,18 +326,18 @@ class FhirEpicConnector(BaseConnector):
             raise
 
         data = response.json()
-        resources: List[Dict[str, Any]] = []
+        bundle_resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
-            resources = [e["resource"] for e in data["entry"] if "resource" in e]
+            bundle_resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
         logger.info(
             "FHIR Patient name search completed | found=%s | total=%s",
-            len(resources),
+            len(bundle_resources),
             total,
             extra={"trace_id": trace_id},
         )
-        return FhirPatientSearchOutput(resources=resources, total=total)
+        return FhirPatientSearchOutput(resources=bundle_resources, total=total)
 
     async def _search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str

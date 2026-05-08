@@ -13,6 +13,7 @@ from typing import (
     Callable,
     ClassVar,
     Dict,
+    cast,
     Optional,
     Tuple,
     Type,
@@ -97,11 +98,12 @@ def _make_spec_handler(
     # Set actual type objects (not strings) so get_type_hints() resolves correctly
     # even when `from __future__ import annotations` is active in the connector module.
     _handler.__annotations__ = {"params": input_model, "return": output_model}
-    _handler._sdk_action_name = action_name
-    _handler._alias_tolerant = alias_tolerant
-    _handler._mcp_normalize = mcp_normalize
+    handler_any = cast(Any, _handler)
+    handler_any._sdk_action_name = action_name
+    handler_any._alias_tolerant = alias_tolerant
+    handler_any._mcp_normalize = mcp_normalize
     # Backward-compatible alias for legacy callers/tests.
-    _handler._nw_action_name = action_name
+    handler_any._nw_action_name = action_name
     return _handler
 
 
@@ -297,9 +299,11 @@ class BaseConnector(ABC):
         if not valid_models:
             raise TypeError(f"{cls.__name__}: BaseConnector must define at least one @nw_action")
 
+        root_type: Any
         if len(valid_models) == 1:
             root_type = valid_models[0]
         else:
+            # This union is runtime-generated; mypy cannot represent a dynamic union of models.
             root_type = Annotated[
                 Union[tuple(valid_models)],  # type: ignore[arg-type]
                 Field(discriminator="action"),

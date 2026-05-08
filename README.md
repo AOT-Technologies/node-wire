@@ -248,7 +248,7 @@ Make sure you have dev dependencies installed (`pip install -e ".[dev]"`).
 
 * **Check formatting & linting errors:** `ruff check .`
 * **Auto-fix everything & format code:** `ruff check --fix . && ruff format .`
-* **Run static type validation:** `mypy .`
+* **Run static type validation:** `mypy`
 
 ### Pre-commit Hooks
 You can attach our `.pre-commit-config.yaml` to Git so that it automatically runs these checks on every single `git commit`:
