@@ -159,7 +159,7 @@ class IdentityCoordinator:
                 target_id = None
 
         # 3. Create or update in target ------------------------------------
-        payload = ensure_resource_type(strip_source_metadata(source_resource))
+        payload = ensure_resource_type(strip_source_metadata(source_resource, params.target_system))
 
         target_resource: Optional[Dict[str, Any]] = None
         if target_id:

@@ -57,15 +57,105 @@ def _extract_mrn(identifiers: List[Dict[str, Any]]) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def strip_source_metadata(resource: Dict[str, Any]) -> Dict[str, Any]:
+def strip_source_metadata(resource: Dict[str, Any], target_system: str = "") -> Dict[str, Any]:
     """Return a copy of *resource* with system-specific fields removed.
 
-    Keys like ``id``, ``meta``, and ``text`` are stripped so the payload is
-    safe to POST / PUT to a *different* EHR.
+    Keys like ``id``, ``meta``, and ``text`` are stripped.
+    Additionally, target-specific logic is applied (e.g., Epic sandbox workarounds).
     """
-    payload = dict(resource)
+    import copy
+    import os
+    payload = copy.deepcopy(resource)
+    
+    # Strip basic structural metadata
     for key in ("id", "meta", "text"):
         payload.pop(key, None)
+        
+    if target_system == "epic":
+        # Remove unsupported Epic fields
+        for key in ("extension", "maritalStatus", "contact", "communication", "generalPractitioner"):
+            payload.pop(key, None)
+            
+        # 1. SSN Identifier Mapping
+        real_ssn = None
+        for ident in payload.get("identifier", []):
+            if ident.get("system") == "urn:oid:2.16.840.1.113883.4.1" or any(c.get("code") == "SS" for c in ident.get("type", {}).get("coding", [])):
+                val = ident.get("value", "")
+                digits = "".join(c for c in val if c.isdigit())
+                if len(digits) == 9:
+                    real_ssn = f"{digits[:3]}-{digits[3:5]}-{digits[5:]}"
+                    break
+                    
+        if not real_ssn:
+            fallback_ssn = os.getenv("EPIC_SANDBOX_TEST_SSN")
+            if fallback_ssn:
+                real_ssn = fallback_ssn
+                
+        if real_ssn:
+            payload["identifier"] = [{
+                "use": "official",
+                "type": {
+                    "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "SS"}],
+                    "text": "SSN"
+                },
+                "system": "urn:oid:2.16.840.1.113883.4.1",
+                "value": real_ssn
+            }]
+        else:
+            payload.pop("identifier", None)
+            
+        # 2. Gender Mapping
+        if payload.get("gender") == "other":
+            payload["gender"] = "unknown"
+            
+        # Clean up names (Epic rejects many 'use' codes like 'old' or 'official')
+        if "name" in payload and isinstance(payload["name"], list):
+            clean_names = []
+            for n in payload["name"]:
+                if "use" in n:
+                    n.pop("use") # Remove 'use' to let the target system default it
+                clean_names.append(n)
+            payload["name"] = clean_names[:1] 
+            
+        # 3. Telecom Filtering
+        if "telecom" in payload and isinstance(payload["telecom"], list):
+            clean_telecoms = []
+            for t in payload["telecom"]:
+                if t.get("use") not in ("mobile", "home", "work"):
+                    continue
+                for k in ["id", "extension"]:
+                    t.pop(k, None)
+                if t.get("system") == "phone" and "value" in t:
+                    digits = "".join(c for c in str(t["value"]) if c.isdigit())
+                    if len(digits) == 11 and digits.startswith("1"):
+                        digits = digits[1:]
+                    if len(digits) == 10:
+                        t["value"] = f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
+                        clean_telecoms.append(t)
+                elif t.get("system") == "email" and "value" in t:
+                    clean_telecoms.append(t)
+                    
+            if clean_telecoms:
+                payload["telecom"] = clean_telecoms
+            else:
+                payload.pop("telecom", None)
+                    
+        # Clean address: Epic rejects invalid countries and multiple "home" addresses.
+        if "address" in payload and isinstance(payload["address"], list):
+            clean_addresses = []
+            has_home = False
+            for a in payload["address"]:
+                for k in ["id", "extension", "country"]:
+                    a.pop(k, None) # Strip country to rely on Epic's local default
+                if a.get("use") == "home":
+                    if has_home:
+                        continue # Epic allows only 1 home address on creation
+                    has_home = True
+                clean_addresses.append(a)
+            payload["address"] = clean_addresses[:1]
+                
+    return payload
+                
     return payload
 
 
