@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from node_wire_runtime import BaseConnector
 from node_wire_runtime.models import ErrorCategory
 
+# Bump when published input/output schema shape policy changes (MCP clients cache tools/list).
+MCP_MANIFEST_CONTRACT_VERSION = "2"
+
 
 def _schema_for(model: Type[BaseModel], *, strict: bool = True) -> Dict[str, Any]:
     schema = copy.deepcopy(model.model_json_schema())

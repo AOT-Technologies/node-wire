@@ -55,12 +55,12 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         if request.payload_json:
             try:
                 payload = json.loads(request.payload_json)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
                     success=False,
                     error_code="INVALID_JSON",
                     error_category=ErrorCategory.BUSINESS.value,
-                    message="The payload_json provided was not fundamentally valid JSON.",
+                    message=f"Failed to parse payload_json: {e}",
                     trace_id="",
                 )
 
@@ -75,7 +75,9 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         response: ConnectorResponse = await connector.run(payload)
 
         data_json = json.dumps(response.data) if response.data is not None else ""
-        error_category = response.error_category.value if response.error_category is not None else ""
+        error_category = (
+            response.error_category.value if response.error_category is not None else ""
+        )
 
         return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
             success=response.success,
@@ -118,8 +120,8 @@ def serve(port: int = 50051) -> None:
         server.add_insecure_port(f"[::]:{port}")
         logger.warning(
             "Starting insecure gRPC server (no TLS credentials found). "
-            "Traffic will be unencrypted.", 
-            extra={"port": port}
+            "Traffic will be unencrypted.",
+            extra={"port": port},
         )
 
     server.start()
@@ -128,4 +130,3 @@ def serve(port: int = 50051) -> None:
 
 if __name__ == "__main__":
     serve()
-

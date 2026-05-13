@@ -1,4 +1,5 @@
 """MCP Server — SMTP connector only. Usage: python -m agents.smtp_mcp"""
+
 from __future__ import annotations
 
 import logging
@@ -16,11 +17,12 @@ logger = logging.getLogger("agents.smtp_mcp")
 def main() -> None:
     from bindings.mcp_server.server import McpServer
 
-    logger.info("Starting nw-smtp MCP server (stdio, manifest-driven)")
+    transport = os.getenv("NW_MCP_TRANSPORT", "stdio").strip().lower()
+    logger.info(f"Starting nw-smtp MCP server (transport={transport}, manifest-driven)")
     McpServer(
         server_name="nw-smtp",
         connector_ids=["smtp"],
-    ).run_stdio()
+    ).run(transport=transport)
 
 
 if __name__ == "__main__":

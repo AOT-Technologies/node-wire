@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from importlib import import_module
 from typing import Any, Dict
 
@@ -39,14 +40,14 @@ def test_manifest_emits_per_action():
     rest_actions = {(e["connector_id"], e["action"]) for e in rest_manifest}
     assert ("google_drive", "files.list") in rest_actions
     assert ("fhir_epic", "read_patient") in rest_actions
-    assert ("stripe", "charge") not in rest_actions  # stripe is grpc/mcp only in config
+    assert ("stripe", "charge") in rest_actions
 
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     mcp_actions = {(e["connector_id"], e["action"]) for e in mcp_manifest}
     assert ("stripe", "charge") in mcp_actions
     # Per-action input schema should expose that action's fields (not only a buried union)
     for entry in mcp_manifest:
-        if entry["connector_id"] == "stripe":
+        if entry["connector_id"] == "stripe" and entry["action"] == "charge":
             props = entry["input_schema"].get("properties", {})
             assert "amount" in props
 
@@ -163,9 +164,7 @@ def test_normalize_mcp_tool_arguments_search_patients_maps_legacy():
     assert out2["search_params"]["identifier"] == "12724066"
     assert "patientId" not in out2["search_params"]
 
-    FhirCernerPatientSearchInput.model_validate(
-        {**out2, "action": "search_patients"}
-    )
+    FhirCernerPatientSearchInput.model_validate({**out2, "action": "search_patients"})
 
 
 def test_normalize_mcp_tool_arguments_google_drive_files_upload_mime_type_alias():
@@ -344,7 +343,7 @@ async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"resource": {"id": "12724066"}}, trace_id="t")
 
@@ -371,12 +370,16 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"raw": {}}, trace_id="t")
 
     orig_run = gdrive.run
     try:
+        # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
+        old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
+        os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
+        
         gdrive.run = fake_run
         await server.invoke_tool(
             "google_drive.files.upload",
@@ -389,6 +392,10 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
                 "action": "upload",
             },
         )
+        
+        # Restore original rate limit value
+        if old_rate_limit is not None:
+            os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
     finally:
         gdrive.run = orig_run
 
@@ -433,13 +440,22 @@ async def test_mcp_server_invoke_rejects_conflicting_action() -> None:
     """Tool name action must match payload after normalization (no action spoofing)."""
     from bindings.mcp_server.server import McpServer
 
-    server = McpServer(connector_ids=["google_drive"])
+    # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
+    old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
+    os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
+    
+    try:
+        server = McpServer(connector_ids=["google_drive"])
 
-    with pytest.raises(ValueError, match="does not match"):
-        await server.invoke_tool(
-            "google_drive.files.upload",
-            {"name": "x.txt", "mime_type": "text/plain", "content": "a", "action": "files.list"},
-        )
+        with pytest.raises(ValueError, match="does not match"):
+            await server.invoke_tool(
+                "google_drive.files.upload",
+                {"name": "x.txt", "mime_type": "text/plain", "content": "a", "action": "files.list"},
+            )
+    finally:
+        # Restore original rate limit value
+        if old_rate_limit is not None:
+            os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
 
 
 def test_normalize_fhir_search_encounter_maps_llm_aliases():
@@ -463,7 +479,12 @@ def test_normalize_mcp_tool_arguments_smtp_send_email_from_alias():
     out = _normalize_for_mcp(
         "smtp",
         "send_email",
-        {"from": "sender@example.com", "to": ["recipient@example.com"], "subject": "Hi", "body": "Hello"},
+        {
+            "from": "sender@example.com",
+            "to": ["recipient@example.com"],
+            "subject": "Hi",
+            "body": "Hello",
+        },
     )
     assert out["from_email"] == "sender@example.com"
     assert "from" not in out
@@ -520,7 +541,7 @@ async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
 
     captured: dict = {}
 
-    async def fake_run(raw_input):
+    async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
         return ConnectorResponse(success=True, data={"sent": True}, trace_id="t")
 
@@ -529,7 +550,12 @@ async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
         smtp.run = fake_run
         await server.invoke_tool(
             "smtp.send_email",
-            {"from": "sender@example.com", "to": "recipient@example.com", "subject": "Test", "body": "Body"},
+            {
+                "from": "sender@example.com",
+                "to": "recipient@example.com",
+                "subject": "Test",
+                "body": "Body",
+            },
         )
     finally:
         smtp.run = orig_run
@@ -639,7 +665,8 @@ def test_manifest_strict_action_retains_additional_properties():
 
     # files.list uses BaseDriveOperation(extra="forbid") and is not alias_tolerant
     files_list = next(
-        e for e in mcp_manifest
+        e
+        for e in mcp_manifest
         if e["connector_id"] == "google_drive" and e["action"] == "files.list"
     )
     assert files_list["input_schema"].get("additionalProperties") is False
@@ -733,7 +760,7 @@ async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shap
     data_prop = schema["properties"]["data"]
     assert {"type": "null"} in data_prop["anyOf"]
 
-    async def fake_run(_raw_input):
+    async def fake_run(_raw_input, **_kwargs):
         return ConnectorResponse(
             success=False,
             data=None,

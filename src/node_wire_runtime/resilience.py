@@ -5,7 +5,13 @@ from functools import wraps
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
 from pybreaker import CircuitBreaker, CircuitBreakerError
-from tenacity import AsyncRetrying, RetryError, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    AsyncRetrying,
+    RetryError,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from .errors import ErrorMapper
 from .models import ErrorCategory
@@ -43,7 +49,11 @@ def with_resilience(
                 if breaker.state.name == "open":
                     logger.error(
                         "Circuit breaker is OPEN; rejecting call",
-                        extra={"trace_id": trace_id, "component": "resilience", "error": "circuit open"},
+                        extra={
+                            "trace_id": trace_id,
+                            "component": "resilience",
+                            "error": "circuit open",
+                        },
                     )
                     raise CircuitBreakerError("Circuit breaker is open")
                 try:

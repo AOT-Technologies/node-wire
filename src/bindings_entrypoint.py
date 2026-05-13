@@ -4,10 +4,14 @@ import logging
 import os
 
 import uvicorn
+from dotenv import load_dotenv
 
 from bindings.rest_api.app import app as rest_app
 from bindings.mcp_server.server import McpServer
 from node_wire_runtime.observability import init_observability
+
+# Load project .env early so all modes (API/GRPC/MCP) see consistent config.
+load_dotenv(override=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bindings.entrypoint")
@@ -34,7 +38,10 @@ def main() -> None:
         # For the POC we just start a simple process that can be interacted
         # with manually or via a thin wrapper; a full JSON-RPC loop is out of scope.
         server = McpServer()
-        logger.info("MCP server ready (list_tools available)", extra={"tool_count": len(server.list_tools())})
+        logger.info(
+            "MCP server ready (list_tools available)",
+            extra={"tool_count": len(server.list_tools())},
+        )
         import time
 
         while True:
@@ -45,4 +52,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -8,6 +8,8 @@ This document covers everything needed to build, run, configure, and integrate t
 
 - [Architecture](#architecture)
 - [Naming conventions](#naming-conventions)
+- [Shifting between transport modes](#shifting-between-transport-modes)
+- [Testing with MCP Inspector](#testing-with-mcp-inspector)
 - [Environment configuration](#environment-configuration)
 - [Build images](#build-images)
 - [Run with docker-compose](#run-with-docker-compose)
@@ -30,11 +32,13 @@ flowchart TD
         Epic[nw-smartonfhir-epic]
         Cerner[nw-smartonfhir-cerner]
         SMTP[nw-smtp]
+        Slack[nw-slack]
     end
     Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
     Agent -->|"TOOLHIVE_MCP_URLS"| Epic
     Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
     Agent -->|"TOOLHIVE_MCP_URLS"| SMTP
+    Agent -->|"TOOLHIVE_MCP_URLS"| Slack
 ```
 
 ---
@@ -47,8 +51,12 @@ flowchart TD
 | SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
 | SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
+| Stripe | `python -m agents.stripe_mcp` | `nw-stripe` | `nw-stripe` | All manifest actions for `stripe` (e.g., `stripe.charge`) |
+| Salesforce | `python -m agents.salesforce_mcp` | `nw-salesforce` | `nw-salesforce` | All manifest actions for `salesforce` (e.g., `salesforce.create_lead`) |
+| Slack | `python -m agents.slack_mcp` | `nw-slack` | `nw-slack` | All manifest actions for `slack` (e.g. `slack.post_message`) |
 
-The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, plus the rows above).
+
+The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, `stripe.create_payment_intent`, `stripe.create_subscription`, `stripe.cancel_subscription`, `stripe.issue_refund`, plus the rows above).
 
 ### Tool arguments and security
 
@@ -64,6 +72,160 @@ The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connect
 
 ---
 
+## Shifting between transport modes
+
+Node Wire now supports two ways to expose tools to AI agents. By default, it uses `stdio`, but you can easily shift to the native `streamable-http` mode for web-native deployments.
+
+### Comparison: stdio vs. streamable-http
+
+| Feature | stdio (Default) | streamable-http |
+|---|---|---|
+| **Best For** | ToolHive, local development, subprocess-based clients | Direct web integration, persistent servers, remote MCP clients |
+| **Connectivity** | Standard input/output | HTTP POST plus server streaming support |
+| **Port Management** | Not applicable | Requires an open port (default: 8081) |
+| **Playground behavior** | Buffered agent response after the backend finishes | Tool steps appear as they complete; final answer streams into the UI |
+
+### How to configure and shift modes
+
+You can switch modes and ports instantly using environment variables. No code changes are required.
+
+#### 1. Running in stdio mode (Default)
+No extra variables are needed. This is the mode expected by local stdio clients and ToolHive-style stdio wrapping.
+
+```bash
+python -m agents.mcp_entrypoint
+```
+
+PowerShell:
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
+```
+
+#### 2. Shifting to native HTTP mode (Port 8081)
+To run as a standalone HTTP server on port 8081:
+
+**PowerShell (Windows):**
+```powershell
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
+```
+
+**Bash (Linux/macOS):**
+```bash
+export NW_MCP_TRANSPORT="streamable-http"
+export NW_MCP_HOST="127.0.0.1"
+export NW_MCP_PORT="8081"
+export NW_MCP_PATH="/mcp"
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
+```
+
+The native HTTP endpoint will be:
+
+```text
+http://127.0.0.1:8081/mcp
+```
+
+### Protocol-level requirements
+When running in `streamable-http` mode, clients must comply with the strict MCP Streamable-HTTP specification:
+- **Headers**: Clients must send `Accept: application/json, text/event-stream` on all requests.
+- **Handshake**: The server will respond with a `Mcp-Session-Id` header which must be forwarded in all subsequent messages for that session.
+
+### Playground transport indicator
+
+The browser playground reads `/scenarios/agent-transport` and displays the current mode in the Agentic Workflow panel:
+
+- `Transport: stdio`: chat uses the buffered `/scenarios/agent-chat` endpoint. Tool cards and the final answer appear after the backend agent run completes.
+- `Transport: Streamable HTTP`: chat uses `/scenarios/agent-chat-stream`. Tool cards appear as each MCP tool finishes, and the final answer is appended to the assistant bubble as streamed chunks.
+
+If you switch `NW_MCP_TRANSPORT`, restart the API server and hard refresh the browser so the latest `app.js` is loaded.
+
+---
+
+## Testing with MCP Inspector
+
+MCP Inspector is the official browser-based developer tool for testing and debugging MCP servers. It runs with `npx` and opens a local UI, usually at `http://localhost:6274`.
+
+### Inspect stdio mode
+
+Use stdio mode when you want Inspector to launch the Python MCP server process itself:
+
+```powershell
+$env:NW_MCP_TRANSPORT="stdio"
+npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
+```
+
+Per-connector examples:
+
+```powershell
+npx @modelcontextprotocol/inspector uv run nw-google-drive
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-epic
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-cerner
+npx @modelcontextprotocol/inspector uv run python -m agents.smtp_mcp
+```
+
+In the Inspector UI:
+
+1. Select `stdio` transport if it is not already selected.
+2. Click `Connect`.
+3. Open the `Tools` tab.
+4. Click `List Tools`.
+5. Pick a safe tool and run it with valid JSON arguments.
+
+### Inspect streamable-http mode
+
+Start the MCP server first:
+
+```powershell
+$env:NW_MCP_TRANSPORT="streamable-http"
+$env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"
+$env:NW_MCP_PATH="/mcp"
+python -m agents.mcp_entrypoint
+```
+
+Then start Inspector in another terminal:
+
+```powershell
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector UI:
+
+1. Set transport type to `Streamable HTTP`.
+2. Set URL to `http://127.0.0.1:8081/mcp`.
+3. Click `Connect`.
+4. Open `Tools`.
+5. Click `List Tools`.
+6. Run a tool call with valid arguments.
+
+For reusable client config, a streamable HTTP server entry should look like:
+
+```json
+{
+  "type": "streamable-http",
+  "url": "http://127.0.0.1:8081/mcp"
+}
+```
+
+---
+
 ## Environment configuration
 
 Copy `sample.env` to `.env` and fill in the sections for the servers you plan to run. Each server only reads the env vars from its own section — you do not need to configure all connectors.
@@ -71,6 +233,12 @@ Copy `sample.env` to `.env` and fill in the sections for the servers you plan to
 ```bash
 cp sample.env .env
 ```
+
+### Shared Required Variables
+
+| Variable | Description |
+|---|---|
+| `NW_ALLOWED_CONNECTORS` | **Required.** Comma-separated list of allowed connector names (e.g. `fhir_epic,google_drive`). Individual servers still check this allowlist before loading. |
 
 ### Per-server required variables
 
@@ -152,6 +320,47 @@ SMTP_PASSWORD=your-gmail-app-password
 FROM_EMAIL=your-email@gmail.com
 ```
 
+#### `nw-stripe`
+
+| Variable | Description |
+|---|---|
+| `STRIPE_API_KEY` | Your Stripe secret API key (starts with `sk_test_` or `sk_live_`) |
+
+```env
+STRIPE_API_KEY=sk_test_4eC39HqLyjWDarjtT1zdp7dc
+```
+
+#### `nw-salesforce`
+
+| Variable | Description |
+|---|---|
+| `SALESFORCE_INSTANCE_URL` | Your Salesforce instance URL (e.g., `https://domain.my.salesforce.com`) |
+| `SALESFORCE_TOKEN_URL` | OAuth2 token endpoint (usually `https://login.salesforce.com/services/oauth2/token`) |
+| `SALESFORCE_CLIENT_ID` | Connected App Client ID |
+| `SALESFORCE_CLIENT_SECRET` | Connected App Client Secret |
+| `SALESFORCE_REFRESH_TOKEN` | Refresh token with `refresh_token` and `api` scopes |
+
+```env
+SALESFORCE_INSTANCE_URL=https://nodenet.my.salesforce.com
+SALESFORCE_TOKEN_URL=https://login.salesforce.com/services/oauth2/token
+SALESFORCE_CLIENT_ID=your-client-id
+SALESFORCE_CLIENT_SECRET=your-client-secret
+SALESFORCE_REFRESH_TOKEN=your-refresh-token
+```
+
+
+#### `nw-slack`
+
+| Variable | Description |
+|---|---|
+| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token (`xoxb-...`) |
+| `NW_SLACK_ATTACHMENTS_DIR` | Optional: sandboxed directory for uploads (default: `/slack_attachments`) |
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+NW_SLACK_ATTACHMENTS_DIR=/slack_attachments
+```
+
 ### ToolHive / Agent settings
 
 | Variable | Description |
@@ -201,6 +410,7 @@ This produces images tagged as both `latest` and the version string:
 | `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
 | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
 | `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
+| `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
 
 To build a single image manually from the repo root:
 
@@ -216,6 +426,9 @@ docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
 
 # SMTP only
 docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
+
+# Slack only
+docker build -f docker/slack/Dockerfile -t nw-slack:latest .
 ```
 
 > **Note:** The build context must be the repository root (`.`) so the `COPY src/` and `COPY config/` instructions resolve correctly.
@@ -278,6 +491,11 @@ thv run --name nw-smtp --transport stdio \
   --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
   --secret FROM_EMAIL,target=FROM_EMAIL \
   nw-smtp:latest
+
+# Slack
+thv run --name nw-slack --transport stdio \
+  --secret SLACK_BOT_TOKEN,target=SLACK_BOT_TOKEN \
+  nw-slack:latest
 ```
 
 > **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) when storing in ToolHive secrets, because ToolHive injects secrets as string values.

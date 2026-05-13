@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -19,7 +20,6 @@ from node_wire_runtime.mcp_normalizers import (
     normalize_fhir_search_patients,
 )
 
-from . import registration
 from .schema import (
     FhirCernerDocumentReferenceCreateInput,
     FhirCernerDocumentReferenceCreateOutput,
@@ -101,110 +101,43 @@ class FhirCernerConnector(BaseConnector):
         return FhirCernerOperationOutput(resources=out.resources, total=out.total)
 
     # ------------------------------------------------------------------
-    # Shared authentication helpers
+    # Shared helpers — base URL + auth headers via AuthProvider
     # ------------------------------------------------------------------
 
     def _get_base_url(self) -> str:
         return self._secret_provider.get_secret("cerner_fhir_base_url").rstrip("/")
 
     async def _get_auth_header(self) -> Dict[str, str]:
+        """Delegate to the runtime AuthProvider injected by the factory.
+
+        Returns ready-to-use FHIR request headers including the Bearer token.
+        Token acquisition, JWT construction, scope resolution and caching are
+        all handled by the provider.
         """
-        Obtain an access token via Cerner's SMART Backend Services (private_key_jwt)
-        and return ready-to-use request headers.
-
-        Algorithm: RS384. Token lifetime: 5 minutes.
-        Reference: https://code-console.cerner.com/
-        """
-        headers = {
-            "Content-Type": "application/fhir+json",
-            "Accept": "application/fhir+json",
-        }
-
-        private_key_str = self._secret_provider.get_secret("cerner_private_key")
-        kid = self._secret_provider.get_secret("cerner_kid")
-        client_id = self._secret_provider.get_secret("cerner_client_id")
-        token_url = self._secret_provider.get_secret("cerner_token_url")
-
-        # Validate required secrets are present and non-empty.
-        missing = [name for name, val in [
-            ("cerner_private_key", private_key_str),
-            ("cerner_kid", kid),
-            ("cerner_client_id", client_id),
-            ("cerner_token_url", token_url),
-        ] if not (val or "").strip()]
-        if missing:
-            raise ValueError(f"Missing or empty required Cerner secrets: {', '.join(missing)}")
-
-        # Guard against the malformed URL pattern that embeds the FHIR host inside the auth URL.
-        # Correct: .../tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token
-        # Wrong:   .../tenants/{tenant}/hosts/fhir-ehr-code.cerner.com/protocols/...
-        if "/hosts/" in token_url:
-            raise ValueError(
-                "cerner_token_url appears malformed — it contains a '/hosts/' segment which is not "
-                "valid for the Cerner authorization server. "
-                "Correct format: https://authorization.cerner.com/tenants/{tenant_id}/protocols/oauth2/profiles/smart-v1/token"
-            )
-
+        # Cerner-specific safety check: if a token URL contains '/hosts/',
+        # it is often a malformed sandbox URL that will return 401.
         try:
-            scopes = (self._secret_provider.get_secret("cerner_scopes") or "").strip()
+            token_url = self._secret_provider.get_secret("cerner_token_url")
         except Exception:
-            scopes = ""
+            token_url = None
 
-        if not scopes:
-            scopes = "system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write"
-
-        logger.debug("Cerner token request | token_url=%s | scopes=%r | client_id=%s", token_url, scopes, client_id)
-
-        # Decode escaped newlines in PEM key if stored as a single-line env var (e.g. "\\n" -> "\n").
-        # Avoid codecs.unicode_escape which can corrupt non-ASCII bytes in some PEM keys.
-        if "\\n" in private_key_str:
-            private_key_pem = private_key_str.replace("\\n", "\n")
-        else:
-            private_key_pem = private_key_str
-
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        jwt_token = jwt.encode(
-            {
-                "iss": client_id,
-                "sub": client_id,
-                "aud": token_url,
-                "jti": str(uuid.uuid4()),
-                "iat": now,
-                "exp": now + 300,
-                "scope": scopes,
-            },
-            private_key_pem,
-            algorithm="RS384",
-            headers={"alg": "RS384", "typ": "JWT", "kid": kid},
-        )
-
-        post_data = {
-            "grant_type": "client_credentials",
-            "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            "client_assertion": jwt_token,
-            "scope": scopes,
-        }
-
-        async with httpx.AsyncClient() as client:
-            token_response = await client.post(
-                token_url,
-                data=post_data,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+        if token_url and "/hosts/" in token_url:
+            raise ValueError(
+                "Cerner token_url must not contain '/hosts/' (found in secret). "
+                "Ensure you are using the 'smart-v1/token' endpoint, e.g. "
+                "https://authorization.cerner.com/tenants/{tenant}/protocols/oauth2/profiles/smart-v1/token"
             )
-            if token_response.status_code != 200:
-                logger.error(
-                    "OAuth token exchange failed | status=%s | body=%s",
-                    token_response.status_code, token_response.text,
-                )
-                token_response.raise_for_status()
-            token_data = token_response.json()
 
-        access_token = token_data.get("access_token")
-        if not access_token:
-            raise ValueError("Cerner token response did not contain an access_token")
 
-        headers["Authorization"] = f"Bearer {access_token}"
+        headers = await self.get_auth_headers()
+        # Ensure FHIR content types are present if the provider didn't include them (e.g. StaticTokenAuthProvider).
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/fhir+json"
+        if "Accept" not in headers:
+            headers["Accept"] = "application/fhir+json"
+
         return headers
+
 
     # ------------------------------------------------------------------
     # Internal name-field helpers
@@ -264,18 +197,30 @@ class FhirCernerConnector(BaseConnector):
         if params.resource_id:
             url = f"{base_url}/Patient/{params.resource_id}"
             query_params: Optional[Dict[str, str]] = None
-            logger.info("FHIR Patient read by ID", extra={"trace_id": trace_id, "resource_id": params.resource_id})
+            logger.info(
+                "FHIR Patient read by ID",
+                extra={"trace_id": trace_id, "resource_id": params.resource_id},
+            )
         elif params.given_name or params.family_name or params.name:
             url = f"{base_url}/Patient"
             query_params = self._build_name_search_params(
-                params.given_name, params.family_name, params.name,
-                params.birthdate, params.search_params,
+                params.given_name,
+                params.family_name,
+                params.name,
+                params.birthdate,
+                params.search_params,
             )
-            logger.info("FHIR Patient read by name fields", extra={"trace_id": trace_id, "query_params": query_params})
+            logger.info(
+                "FHIR Patient read by name fields",
+                extra={"trace_id": trace_id, "query_params": query_params},
+            )
         elif params.search_params:
             url = f"{base_url}/Patient"
             query_params = params.search_params
-            logger.info("FHIR Patient read by search", extra={"trace_id": trace_id, "search_params": params.search_params})
+            logger.info(
+                "FHIR Patient read by search",
+                extra={"trace_id": trace_id, "search_params": params.search_params},
+            )
         else:
             raise ValueError(
                 "Provide resource_id, or name fields (given_name/family_name/name), "
@@ -283,11 +228,16 @@ class FhirCernerConnector(BaseConnector):
             )
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=auth_header, params=query_params, timeout=30.0)
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+                response = await client.get(url, headers=auth_header, params=query_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")))
                 response.raise_for_status()
         except Exception as exc:
-            logger.error("FHIR Patient read failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR Patient read failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         data = response.json()
@@ -299,7 +249,10 @@ class FhirCernerConnector(BaseConnector):
         else:
             resource = data
 
-        logger.info("FHIR Patient read completed", extra={"trace_id": trace_id, "status_code": response.status_code})
+        logger.info(
+            "FHIR Patient read completed",
+            extra={"trace_id": trace_id, "status_code": response.status_code},
+        )
         return FhirCernerPatientReadOutput(resource=resource)
 
     # ------------------------------------------------------------------
@@ -327,18 +280,19 @@ class FhirCernerConnector(BaseConnector):
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
                 """Return (rid, resource_or_None, error_or_None)."""
                 try:
-                    async with httpx.AsyncClient() as client:
+                    async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                         resp = await client.get(
                             f"{base_url}/Patient/{rid}",
                             headers=auth_header,
-                            timeout=30.0,
+                            timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                         )
                         resp.raise_for_status()
                     return rid, resp.json(), None
                 except Exception as exc:
                     logger.warning(
                         "FHIR Cerner Patient fetch failed | resource_id=%s | error=%s",
-                        rid, str(exc),
+                        rid,
+                        str(exc),
                         extra={"trace_id": trace_id},
                     )
                     return rid, None, str(exc)
@@ -355,15 +309,21 @@ class FhirCernerConnector(BaseConnector):
 
             logger.info(
                 "FHIR Cerner Patient multi-ID lookup completed | found=%s | errors=%s",
-                len(resources), len(errors),
+                len(resources),
+                len(errors),
                 extra={"trace_id": trace_id},
             )
-            return FhirCernerPatientSearchOutput(resources=resources, total=len(resources), errors=errors)
+            return FhirCernerPatientSearchOutput(
+                resources=resources, total=len(resources), errors=errors
+            )
 
         # ---- Mode 2: Name-based search (returns Bundle) ----
         name_params = self._build_name_search_params(
-            params.given_name, params.family_name, params.name,
-            params.birthdate, params.search_params,
+            params.given_name,
+            params.family_name,
+            params.name,
+            params.birthdate,
+            params.search_params,
         )
         if not name_params:
             raise ValueError(
@@ -378,25 +338,27 @@ class FhirCernerConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
                     f"{base_url}/Patient",
                     headers=auth_header,
                     params=name_params,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             logger.error(
                 "FHIR Cerner Patient name search failed | status=%s | body=%s",
-                exc.response.status_code, exc.response.text,
+                exc.response.status_code,
+                exc.response.text,
                 extra={"trace_id": trace_id},
             )
             raise
         except Exception as exc:
             logger.error(
                 "FHIR Cerner Patient name search failed | error=%s: %s",
-                type(exc).__name__, str(exc),
+                type(exc).__name__,
+                str(exc),
                 extra={"trace_id": trace_id},
             )
             raise
@@ -409,7 +371,8 @@ class FhirCernerConnector(BaseConnector):
 
         logger.info(
             "FHIR Cerner Patient name search completed | found=%s | total=%s",
-            len(resources), total,
+            len(resources),
+            total,
             extra={"trace_id": trace_id},
         )
         return FhirCernerPatientSearchOutput(resources=resources, total=total)
@@ -427,10 +390,16 @@ class FhirCernerConnector(BaseConnector):
             query_params = self._build_encounter_search_params(
                 params.patient_id, params.status, params.date, params.search_params
             )
-            logger.info("FHIR Encounter search by explicit fields", extra={"trace_id": trace_id, "query_params": query_params})
+            logger.info(
+                "FHIR Encounter search by explicit fields",
+                extra={"trace_id": trace_id, "query_params": query_params},
+            )
         elif params.search_params:
             query_params = params.search_params
-            logger.info("FHIR Encounter search by raw params", extra={"trace_id": trace_id, "search_params": params.search_params})
+            logger.info(
+                "FHIR Encounter search by raw params",
+                extra={"trace_id": trace_id, "search_params": params.search_params},
+            )
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
 
@@ -439,16 +408,26 @@ class FhirCernerConnector(BaseConnector):
         auth_header = await self._get_auth_header()
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
-                    f"{base_url}/Encounter", headers=auth_header, params=query_params, timeout=30.0,
+                    f"{base_url}/Encounter", headers=auth_header, params=query_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error("FHIR Encounter search failed | status=%s | body=%s", exc.response.status_code, exc.response.text, extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR Encounter search failed | status=%s | body=%s",
+                exc.response.status_code,
+                exc.response.text,
+                extra={"trace_id": trace_id},
+            )
             raise
         except Exception as exc:
-            logger.error("FHIR Encounter search failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR Encounter search failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         data = response.json()
@@ -457,7 +436,11 @@ class FhirCernerConnector(BaseConnector):
         if data.get("resourceType") == "Bundle" and data.get("entry"):
             resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
-        logger.info("FHIR Encounter search completed | found=%s", len(resources), extra={"trace_id": trace_id})
+        logger.info(
+            "FHIR Encounter search completed | found=%s",
+            len(resources),
+            extra={"trace_id": trace_id},
+        )
         return FhirCernerEncounterSearchOutput(resources=resources, total=total)
 
     # ------------------------------------------------------------------
@@ -488,11 +471,11 @@ class FhirCernerConnector(BaseConnector):
 
         # Cerner requires title and creation on the attachment
         if not params.attachment_title:
-            raise ValueError(
-                "Cerner requires 'attachment_title' on DocumentReference create."
-            )
+            raise ValueError("Cerner requires 'attachment_title' on DocumentReference create.")
         attachment["title"] = params.attachment_title
-        attachment["creation"] = params.attachment_creation or datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        attachment["creation"] = params.attachment_creation or datetime.now(
+            tz=timezone.utc
+        ).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
         doc_ref: Dict[str, Any] = {
             "resourceType": "DocumentReference",
@@ -550,7 +533,7 @@ class FhirCernerConnector(BaseConnector):
         if params.custodian:
             doc_ref["custodian"] = params.custodian
 
-        # Note: 'description' is intentionally omitted by default 
+        # Note: 'description' is intentionally omitted by default
         # as Cerner can reject it depending on tenant configuration.
         if params.context:
             context = dict(params.context)
@@ -574,7 +557,14 @@ class FhirCernerConnector(BaseConnector):
 
         # Ensure no connector-specific fields leaked into the root of the FHIR resource.
         # Cerner will reject the payload with a 422 if it sees unknown root fields.
-        for field in ["text", "data", "content_type", "attachment_title", "attachment_creation", "doc_status"]:
+        for field in [
+            "text",
+            "data",
+            "content_type",
+            "attachment_title",
+            "attachment_creation",
+            "doc_status",
+        ]:
             doc_ref.pop(field, None)
 
         # Cerner requires at least one author for clinical note document types.
@@ -587,9 +577,9 @@ class FhirCernerConnector(BaseConnector):
         logger.info("FHIR DocumentReference create", extra={"trace_id": trace_id})
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.post(
-                    f"{base_url}/DocumentReference", json=doc_ref, headers=auth_header, timeout=30.0,
+                    f"{base_url}/DocumentReference", json=doc_ref, headers=auth_header, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -612,12 +602,20 @@ class FhirCernerConnector(BaseConnector):
 
             logger.error(
                 "FHIR DocumentReference create failed | status=%s | cerner_error=%s | raw_body=%s | sent_payload=%s",
-                exc.response.status_code, error_detail, raw_body, json.dumps(doc_ref),
+                exc.response.status_code,
+                error_detail,
+                raw_body,
+                json.dumps(doc_ref),
                 extra={"trace_id": trace_id},
             )
             raise ValueError(f"Cerner Error: {error_detail}") from exc
         except Exception as exc:
-            logger.error("FHIR DocumentReference create failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR DocumentReference create failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         resource_id: Optional[str] = None
@@ -626,7 +624,11 @@ class FhirCernerConnector(BaseConnector):
         location = response.headers.get("Location", "")
         if location:
             history_marker = location.find("/_history/")
-            resource_id = location[:history_marker].split("/")[-1] if history_marker != -1 else location.split("/")[-1]
+            resource_id = (
+                location[:history_marker].split("/")[-1]
+                if history_marker != -1
+                else location.split("/")[-1]
+            )
 
         if not resource_id:
             content_length = response.headers.get("content-length", "0")
@@ -643,8 +645,14 @@ class FhirCernerConnector(BaseConnector):
                 f"Status: {response.status_code}, Location: {location!r}, Body: {response.text[:200]!r}"
             )
 
-        logger.info("FHIR DocumentReference create completed | resource_id=%s", resource_id, extra={"trace_id": trace_id})
-        return FhirCernerDocumentReferenceCreateOutput(resource_id=resource_id, resource=body if body else None)
+        logger.info(
+            "FHIR DocumentReference create completed | resource_id=%s",
+            resource_id,
+            extra={"trace_id": trace_id},
+        )
+        return FhirCernerDocumentReferenceCreateOutput(
+            resource_id=resource_id, resource=body if body else None
+        )
 
     # ------------------------------------------------------------------
     # Action: search_document_reference
@@ -656,19 +664,32 @@ class FhirCernerConnector(BaseConnector):
         base_url = self._get_base_url()
         auth_header = await self._get_auth_header()
 
-        logger.info("FHIR DocumentReference search", extra={"trace_id": trace_id, "search_params": params.search_params})
+        logger.info(
+            "FHIR DocumentReference search",
+            extra={"trace_id": trace_id, "search_params": params.search_params},
+        )
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
-                    f"{base_url}/DocumentReference", headers=auth_header, params=params.search_params, timeout=30.0,
+                    f"{base_url}/DocumentReference", headers=auth_header, params=params.search_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error("FHIR DocumentReference search failed | status=%s | body=%s", exc.response.status_code, exc.response.text, extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR DocumentReference search failed | status=%s | body=%s",
+                exc.response.status_code,
+                exc.response.text,
+                extra={"trace_id": trace_id},
+            )
             raise
         except Exception as exc:
-            logger.error("FHIR DocumentReference search failed | error=%s: %s", type(exc).__name__, str(exc), extra={"trace_id": trace_id})
+            logger.error(
+                "FHIR DocumentReference search failed | error=%s: %s",
+                type(exc).__name__,
+                str(exc),
+                extra={"trace_id": trace_id},
+            )
             raise
 
         data = response.json()
