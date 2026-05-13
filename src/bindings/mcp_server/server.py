@@ -3,16 +3,26 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+import uuid
+from contextvars import ContextVar
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bindings.factory import ConnectorFactory
+from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
+from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from node_wire_runtime import BaseConnector
+from node_wire_runtime import ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
+
+_http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
+    "mcp_http_request_headers",
+    default=None,
+)
 
 
 def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int, Optional[str]]:
@@ -97,7 +107,11 @@ class McpServer:
             _pkg_ver,
         )
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
+        self._ensure_identity(identity=identity)
+        return self._list_tools_impl()
+
+    def _list_tools_impl(self) -> List[Dict[str, Any]]:
         connectors = self._factory.list_for_protocol("mcp")
         manifest = build_manifest(connectors)
         tools: List[Dict[str, Any]] = []
@@ -140,7 +154,52 @@ class McpServer:
             )
         return tools
 
-    async def invoke_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def _ensure_identity(
+        self,
+        *,
+        identity: CallerIdentity | None,
+        meta: Mapping[str, Any] | None = None,
+    ) -> CallerIdentity | None:
+        if identity is not None:
+            return identity
+        return authenticate_mcp_request(
+            headers=_http_request_headers.get(),
+            meta=meta,
+        )
+
+    def _request_meta_from_context(self) -> Mapping[str, Any] | None:
+        try:
+            from mcp.server.lowlevel.server import request_ctx
+
+            ctx = request_ctx.get()
+        except Exception:
+            return None
+        if ctx is None or ctx.meta is None:
+            return None
+        if hasattr(ctx.meta, "model_dump"):
+            dumped = ctx.meta.model_dump()  # type: ignore[attr-defined]
+            if isinstance(dumped, dict):
+                return dumped
+            return None
+        if isinstance(ctx.meta, dict):
+            return ctx.meta
+        return None
+
+    async def invoke_tool(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        *,
+        identity: CallerIdentity | None = None,
+    ) -> Dict[str, Any]:
+        identity = self._ensure_identity(identity=identity)
+        try:
+            # Skip rate limiting if disabled
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+                await global_rate_limiter.acquire()
+        except RateLimitExceeded as e:
+            raise ValueError(str(e))
+
         try:
             await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
@@ -152,9 +211,7 @@ class McpServer:
             raise ValueError("Tool name must be in the form '<connector>.<action>'")
 
         if self._connector_ids is not None and connector_id not in self._connector_ids:
-            raise ValueError(
-                f"Connector {connector_id!r} is not allowed on this MCP server."
-            )
+            raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
 
         connector = self._factory.get_for_protocol(connector_id, "mcp")
         if connector is None:
@@ -164,6 +221,8 @@ class McpServer:
         enforce_authoritative_action(run_args, action)
         run_args["action"] = action
 
+        trace_id = run_args.get("trace_id") or str(uuid.uuid4())
+        
         # Proactively inject/clamp pagination parameters to prevent native token desync
         # caused by the post-execution truncation guardrail
         max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
@@ -184,12 +243,21 @@ class McpServer:
                         except (ValueError, TypeError):
                             pass
 
-        response = await connector.run(run_args)
+        try:
+            response = await connector.run(
+                run_args,
+                principal=identity.principal if identity else None,
+                tenant_id=identity.tenant_id if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+            stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
+        except Exception as exc:
+            stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
+            raise
         
         raw_response = response.model_dump()
 
         # Enforce MCP sampling guardrail
-        max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
         processed_payload, was_truncated, item_count, next_token = _process_response_payload(raw_response, max_items)
         
         # Overwrite raw_response in place
@@ -252,17 +320,37 @@ class McpServer:
 
         return raw_response
 
-    async def _run_stdio_async(self) -> None:
-        from mcp.server import NotificationOptions, Server as LowLevelServer
-        from mcp.server.stdio import stdio_server
+    def _setup_lowlevel_server(self) -> Any:
+        from mcp.server import Server as LowLevelServer
         from mcp.types import Tool
 
         low = LowLevelServer(self._server_name)
 
         @low.list_tools()
         async def handle_list_tools() -> list[Tool]:
+            meta = self._request_meta_from_context()
+            try:
+                identity = self._ensure_identity(identity=None, meta=meta)
+            except McpAuthError as exc:
+                logger.warning(
+                    "MCP tools/list denied by authentication",
+                    extra={
+                        "status_code": exc.status_code,
+                        "error_code": exc.error_code,
+                    },
+                )
+                raise RuntimeError(json.dumps(exc.to_payload())) from exc
+            if identity:
+                logger.info(
+                    "MCP tools/list authorized",
+                    extra={
+                        "principal": identity.principal,
+                        "tenant_id": identity.tenant_id or "",
+                        "auth_type": identity.auth_type,
+                    },
+                )
             out: list[Tool] = []
-            for t in self.list_tools():
+            for t in self._list_tools_impl():
                 kwargs: Dict[str, Any] = {
                     "name": t["name"],
                     "description": t["description"],
@@ -274,21 +362,126 @@ class McpServer:
 
         @low.call_tool()
         async def handle_call_tool(tool_name: str, arguments: dict) -> dict:
-            return await self.invoke_tool(tool_name, arguments or {})
+            meta = self._request_meta_from_context()
+            try:
+                identity = self._ensure_identity(identity=None, meta=meta)
+            except McpAuthError as exc:
+                logger.warning(
+                    "MCP tools/call denied by authentication",
+                    extra={
+                        "tool_name": tool_name,
+                        "status_code": exc.status_code,
+                        "error_code": exc.error_code,
+                    },
+                )
+                return ConnectorResponse(
+                    success=False,
+                    data=None,
+                    error_code=exc.error_code,
+                    error_category=ErrorCategory.AUTH,
+                    message=exc.detail,
+                    trace_id=f"mcp-auth-{uuid.uuid4()}",
+                    details=exc.to_payload(),
+                ).model_dump()
+
+            if identity:
+                logger.info(
+                    "MCP tools/call authorized",
+                    extra={
+                        "tool_name": tool_name,
+                        "principal": identity.principal,
+                        "tenant_id": identity.tenant_id or "",
+                        "auth_type": identity.auth_type,
+                    },
+                )
+            return await self.invoke_tool(tool_name, arguments or {}, identity=identity)
+
+        return low
+
+    async def _run_stdio_async(self) -> None:
+        from mcp.server.stdio import stdio_server
+        from mcp.server import NotificationOptions
+
+        low = self._setup_lowlevel_server()
 
         async with stdio_server() as (read_stream, write_stream):
             await low.run(
                 read_stream,
                 write_stream,
-                low.create_initialization_options(
-                    notification_options=NotificationOptions()
-                ),
+                low.create_initialization_options(notification_options=NotificationOptions()),
             )
 
     def run_stdio(self) -> None:
         import anyio
 
         anyio.run(self._run_stdio_async)
+
+    async def _run_streamable_http_async(self) -> None:
+        import os
+        from starlette.applications import Starlette
+        from starlette.routing import Route
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        import uvicorn
+        from contextlib import asynccontextmanager
+
+        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("NW_MCP_PORT", "8081"))
+        path = os.getenv("NW_MCP_PATH", "/mcp")
+
+        low = self._setup_lowlevel_server()
+        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+
+        @asynccontextmanager
+        async def lifespan(app: Starlette):
+            async with session_manager.run():
+                yield
+
+        # Use a wrapper class to ensure Starlette treats this as an ASGI app
+        # without the automatic redirection logic of Mount().
+        class _ASGIApp:
+            def __init__(self, handler):
+                self.handler = handler
+
+            async def __call__(self, scope, receive, send):
+                headers = {
+                    key.decode("latin-1"): value.decode("latin-1")
+                    for key, value in scope.get("headers", [])
+                }
+                token = _http_request_headers.set(headers)
+                try:
+                    await self.handler(scope, receive, send)
+                finally:
+                    _http_request_headers.reset(token)
+
+        starlette_app = Starlette(
+            lifespan=lifespan,
+            routes=[
+                Route(
+                    path,
+                    endpoint=_ASGIApp(session_manager.handle_request),
+                    methods=["GET", "POST"],
+                )
+            ],
+        )
+
+        logger.info(f"Starting MCP streamable-http server on {host}:{port}{path}")
+        config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+        server = uvicorn.Server(config)
+        await server.serve()
+
+    def run_streamable_http(self) -> None:
+        import anyio
+
+        anyio.run(self._run_streamable_http_async)
+
+    def run(self, transport: str = "stdio") -> None:
+        transport = transport.strip().lower()
+        if transport == "stdio":
+            self.run_stdio()
+        elif transport == "streamable-http":
+            self.run_streamable_http()
+        else:
+            raise ValueError(f"Unsupported MCP transport: {transport}")
 
 
 if __name__ == "__main__":

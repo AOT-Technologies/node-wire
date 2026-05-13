@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -46,18 +44,48 @@ class GoogleDriveConnector(BaseConnector):
     }
 
     def build_client(self) -> Any:
-        raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
+        import asyncio
+
+        # get_client_credentials() is async; run it synchronously here since
+        # build_client() is called from the synchronous get_client() accessor.
         try:
-            info = json.loads(raw_sa)
-            creds = service_account.Credentials.from_service_account_info(
-                info,
-                scopes=["https://www.googleapis.com/auth/drive"],
-            )
-        except json.JSONDecodeError:
-            creds = service_account.Credentials.from_service_account_file(
-                raw_sa.strip(),
-                scopes=["https://www.googleapis.com/auth/drive"],
-            )
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # In an async context, we can't use run_until_complete.
+                # Instead, fetch credentials synchronously via the underlying
+                # ServiceAccountAuthProvider._build_credentials() pattern.
+                # This code path is reached during connector initialisation
+                # inside an async frame (e.g. in tests with pytest-asyncio).
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    creds = pool.submit(
+                        lambda: asyncio.run(self._auth_provider.get_client_credentials())
+                    ).result()
+            else:
+                creds = loop.run_until_complete(self._auth_provider.get_client_credentials())
+        except RuntimeError:
+            creds = asyncio.run(self._auth_provider.get_client_credentials())
+
+        if creds is None:
+            # Fallback for NoAuthProvider or unconfigured provider —
+            # attempt direct secret resolution for backward compatibility.
+            raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
+            try:
+                from google.oauth2 import service_account  # type: ignore[import]
+                import json as _json
+
+                info = _json.loads(raw_sa)
+                creds = service_account.Credentials.from_service_account_info(
+                    info,
+                    scopes=["https://www.googleapis.com/auth/drive"],
+                )
+            except Exception:
+                creds = service_account.Credentials.from_service_account_file(
+                    raw_sa.strip(),
+                    scopes=["https://www.googleapis.com/auth/drive"],
+                )
+
         return build("drive", "v3", credentials=creds)
 
     def _translate_and_raise_http_error(self, exc: HttpError) -> None:
@@ -66,15 +94,11 @@ class GoogleDriveConnector(BaseConnector):
 
         if status in (401, 403):
             if "quotaExceeded" in content_str or "rateLimitExceeded" in content_str:
-                raise GoogleDriveRateLimitError(
-                    "Google Drive quota/rate limit exceeded"
-                ) from exc
+                raise GoogleDriveRateLimitError("Google Drive quota/rate limit exceeded") from exc
             raise GoogleDriveAuthError("Authentication or permissions failure") from exc
 
         if status == 429 or status >= 500:
-            raise GoogleDriveRateLimitError(
-                "Upstream service unavailable or rate limited"
-            ) from exc
+            raise GoogleDriveRateLimitError("Upstream service unavailable or rate limited") from exc
 
         if status in (400, 404, 409):
             reason = getattr(exc, "reason", str(exc))
@@ -104,4 +128,3 @@ class GoogleDriveConnector(BaseConnector):
             raw=raw,
             description=f"Successfully executed {action_name}",
         )
-

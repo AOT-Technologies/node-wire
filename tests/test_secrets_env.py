@@ -1,4 +1,5 @@
 """Tests for EnvSecretProvider and factory secret wiring."""
+
 from __future__ import annotations
 
 import sys

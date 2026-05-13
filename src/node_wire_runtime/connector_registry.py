@@ -17,7 +17,7 @@ Calling :func:`auto_register` loads each allowed connector package's ``logic`` m
 Allowlist (recommended for production):
 
 * ``NW_ALLOWED_CONNECTORS`` — comma-separated entry point **names** (e.g. ``fhir_epic,http_generic``).
-  If unset or empty, all discovered entry points are loaded (development default).
+  If unset or empty, no entry points are loaded (secure default).
 
 * ``NW_CONNECTOR_MODULE_PREFIX`` — if set (default ``node_wire_``), entry points whose
   target module does not start with this prefix are skipped with a warning.
@@ -35,11 +35,11 @@ from typing import List
 logger = logging.getLogger("node_wire_runtime.connector_registry")
 
 
-def _parse_allowed_names() -> set[str] | None:
-    """Return allowed entry point names, or None if no allowlist (load all)."""
+def _parse_allowed_names() -> set[str]:
+    """Return allowed entry point names. Defaults to empty set (nothing allowed)."""
     raw = os.environ.get("NW_ALLOWED_CONNECTORS")
     if raw is None or not str(raw).strip():
-        return None
+        return set()
     return {x.strip() for x in str(raw).split(",") if x.strip()}
 
 
@@ -65,8 +65,8 @@ def _parent_package_for_logic_module(logic_module: str) -> str:
     return logic_module.rsplit(".", 1)[0]
 
 
-def _should_skip_ep(ep: EntryPoint, allowed: set[str] | None, prefix: str | None) -> bool:
-    if allowed is not None and ep.name not in allowed:
+def _should_skip_ep(ep: EntryPoint, allowed: set[str], prefix: str | None) -> bool:
+    if ep.name not in allowed:
         logger.warning(
             "Skipping connector entry point %r (not in NW_ALLOWED_CONNECTORS)",
             ep.name,
@@ -92,12 +92,17 @@ def auto_register() -> List[str]:
        which populates ``_CONNECTOR_REGISTRY``.
     2. Attempt to load a sibling ``registration`` module (optional) for
        ``ErrorMapper`` registrations and other import-time side effects.
+       
+    If an allowed connector is not discovered via entry points, attempts to fallback
+    to importing the logic module directly.
 
     Returns the list of loaded module name strings (useful for testing / logging).
     """
     loaded: List[str] = []
     allowed = _parse_allowed_names()
     prefix = _module_prefix()
+
+    discovered_names = set()
 
     for ep in entry_points(group="node_wire.connectors"):
         if _should_skip_ep(ep, allowed, prefix):
@@ -128,5 +133,54 @@ def auto_register() -> List[str]:
         except Exception as exc:
             logger.error("Unexpected error loading %s: %s", reg_name, exc)
             raise
+
+        discovered_names.add(ep.name)
+
+    # Fallback for allowlisted names not discovered via entry points
+    for name in allowed:
+        if name not in discovered_names:
+            pkg_prefix = prefix if prefix is not None else "node_wire_"
+            pkg = f"{pkg_prefix}{name}"
+            logic_mod = f"{pkg}.logic"
+            reg_name = f"{pkg}.registration"
+
+            try:
+                importlib.import_module(logic_mod)
+                loaded.append(logic_mod)
+                logger.debug("Registered connector via fallback: %s (%s)", name, logic_mod)
+            except ModuleNotFoundError as exc:
+                if exc.name == logic_mod or exc.name == pkg:
+                    logger.debug("Fallback connector module not found: %s", logic_mod)
+                    continue
+                else:
+                    logger.error(
+                        "Import error inside fallback %s (missing dep: %s): %s",
+                        logic_mod,
+                        exc.name,
+                        exc,
+                    )
+                    raise
+            except Exception as exc:
+                logger.error("Unexpected error loading fallback %s: %s", logic_mod, exc)
+                raise
+
+            try:
+                importlib.import_module(reg_name)
+                loaded.append(reg_name)
+                logger.debug("Loaded registration module via fallback: %s", reg_name)
+            except ModuleNotFoundError as exc:
+                if exc.name == reg_name:
+                    pass
+                else:
+                    logger.error(
+                        "Import error inside fallback registration %s (missing dep: %s): %s",
+                        reg_name,
+                        exc.name,
+                        exc,
+                    )
+                    raise
+            except Exception as exc:
+                logger.error("Unexpected error loading fallback registration %s: %s", reg_name, exc)
+                raise
 
     return loaded

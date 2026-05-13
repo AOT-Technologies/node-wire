@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from unittest.mock import AsyncMock, MagicMock
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,7 +12,8 @@ from bindings.rest_api.app import app, get_factory
 from node_wire_runtime.models import ConnectorResponse, ErrorCategory
 
 
-def test_factory_loads_config():
+def test_factory_loads_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", lambda self, cid: MagicMock())
     factory = ConnectorFactory()
     factory.load()
 
@@ -18,7 +21,7 @@ def test_factory_loads_config():
     assert http_connector is not None
 
     stripe_rest = factory.get_for_protocol("stripe", "rest")
-    assert stripe_rest is None  # stripe not exposed via REST per config
+    assert stripe_rest is not None  # stripe exposed via REST
 
 
 def test_health_endpoint():
@@ -26,6 +29,25 @@ def test_health_endpoint():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+def test_agent_transport_defaults_to_stdio(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("NW_MCP_TRANSPORT", raising=False)
+    client = TestClient(app)
+    resp = client.get("/scenarios/agent-transport")
+    assert resp.status_code == 200
+    assert resp.json() == {"transport": "stdio", "label": "stdio"}
+
+
+def test_agent_transport_reports_streamable_http(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MCP_TRANSPORT", "streamable-http")
+    client = TestClient(app)
+    resp = client.get("/scenarios/agent-transport")
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "transport": "streamable-http",
+        "label": "Streamable HTTP",
+    }
 
 
 def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -40,7 +62,9 @@ def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytes
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -51,6 +75,7 @@ def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytes
 def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+    monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for this test
 
     mock_factory = MagicMock()
     mock_factory.get_for_protocol.return_value = _stub_connector(
@@ -68,6 +93,71 @@ def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.Mo
         app.dependency_overrides.clear()
 
     assert r.status_code == 200
+
+
+def test_rest_post_propagates_api_key_identity_to_connector_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
+
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={}, trace_id="t-p")
+    )
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        client.post(
+            "/connectors/http_generic/request",
+            json={"method": "GET", "url": "https://example.com"},
+            headers={"Authorization": "Bearer unit-test-secret"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    stub = mock_factory.get_for_protocol.return_value
+    kwargs = stub.run.await_args.kwargs
+    assert kwargs["principal"] == "api-key-user"
+    assert kwargs["tenant_id"] is None
+    assert kwargs["scopes"] == ("*",)
+
+
+def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    secret = "rest-jwt-test-secret-at-least-32bytes!!"
+    monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
+
+    tok = jwt.encode(
+        {"sub": "alice", "tenant_id": "t-1", "scopes": ["mcp:test.scope"]},
+        secret,
+        algorithm="HS256",
+    )
+
+    mock_factory = MagicMock()
+    mock_factory.get_for_protocol.return_value = _stub_connector(
+        ConnectorResponse(success=True, data={}, trace_id="t-j")
+    )
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        client.post(
+            "/connectors/http_generic/request",
+            json={"method": "GET", "url": "https://example.com"},
+            headers={"Authorization": f"Bearer {tok}"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    # The connector needs to be called first to set up the mock
+    stub = mock_factory.get_for_protocol.return_value
+    assert stub.run is not None, "Connector mock was not called"
+    kwargs = stub.run.await_args.kwargs
+    assert kwargs["principal"] == "alice"
+    assert kwargs["tenant_id"] == "t-1"
+    assert kwargs["scopes"] == ("mcp:test.scope",)
 
 
 def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,7 +194,9 @@ def test_rest_post_connector_success() -> None:
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -166,7 +258,9 @@ def test_rest_post_connector_error_category_http_status(
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
-        r = client.post("/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"})
+        r = client.post(
+            "/connectors/http_generic/request", json={"method": "GET", "url": "https://example.com"}
+        )
     finally:
         app.dependency_overrides.clear()
 
@@ -198,4 +292,3 @@ def test_http_status_for_category_direct() -> None:
     assert _http_status_for_category(ErrorCategory.AUTH) == 401
     assert _http_status_for_category(ErrorCategory.RETRYABLE) == 503
     assert _http_status_for_category(ErrorCategory.FATAL) == 500
-

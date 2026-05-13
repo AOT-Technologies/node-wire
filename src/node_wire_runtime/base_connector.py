@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import os
 import uuid
 from abc import ABC
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ from opentelemetry.trace import Tracer
 from pybreaker import CircuitBreaker
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
+from .auth import AuthProvider, NoAuthProvider
 from .errors import ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
 from .policy import PolicyContext, PolicyHook, PolicyDenied
@@ -33,6 +35,7 @@ from .sdk_action_spec import SdkActionSpec
 
 logger = logging.getLogger("runtime.base_connector")
 tracer: Tracer = trace.get_tracer("runtime")
+ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
 
 # Populated by BaseConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
@@ -80,7 +83,7 @@ def _make_spec_handler(
     return _handler
 
 
-def _generate_methods_from_action_specs(cls: type) -> None:
+def _generate_methods_from_action_specs(cls: Any) -> None:
     """
     For each entry in cls.action_specs, generate an async @nw_action method and
     attach it to cls. Called at the top of BaseConnector.__init_subclass__ so the
@@ -121,7 +124,11 @@ def _generate_methods_from_action_specs(cls: type) -> None:
             )
 
         handler = _make_spec_handler(
-            action_name, input_model, output_model, cls.__qualname__, cls.__module__,
+            action_name,
+            input_model,
+            output_model,
+            cls.__qualname__,
+            cls.__module__,
             alias_tolerant=spec.alias_tolerant,
             mcp_normalize=spec.mcp_normalize,
             requires_auth=spec.requires_auth,
@@ -253,19 +260,21 @@ class BaseConnector(ABC):
 
             input_model = hints.get(input_param_name)
             output_model = hints.get("return")
-            if input_model is None or not isinstance(input_model, type) or not issubclass(
-                input_model, BaseModel
+            if (
+                input_model is None
+                or not isinstance(input_model, type)
+                or not issubclass(input_model, BaseModel)
             ):
                 raise TypeError(
                     f"{cls.__name__}.{attr_name}: missing or invalid type hint for "
                     f"parameter {input_param_name!r}"
                 )
-            if output_model is None or not isinstance(output_model, type) or not issubclass(
-                output_model, BaseModel
+            if (
+                output_model is None
+                or not isinstance(output_model, type)
+                or not issubclass(output_model, BaseModel)
             ):
-                raise TypeError(
-                    f"{cls.__name__}.{attr_name}: missing or invalid return type hint"
-                )
+                raise TypeError(f"{cls.__name__}.{attr_name}: missing or invalid return type hint")
 
             registry[action_name] = NwActionMeta(
                 name=action_name,
@@ -308,17 +317,28 @@ class BaseConnector(ABC):
                 extra={"connector_id": cls.connector_id},
             )
 
-    def __init__(self, *, secret_provider: Optional[SecretProvider] = None, policy_hook: Optional[PolicyHook] = None) -> None:
+    def __init__(
+        self,
+        *,
+        secret_provider: Optional[SecretProvider] = None,
+        policy_hook: Optional[PolicyHook] = None,
+        auth_provider: Optional[AuthProvider] = None,
+    ) -> None:
         cls = type(self)
         self._input_model_cls = cls._union_input_model
         self._output_model_cls = cls.output_model
         self._secret_provider = secret_provider
         self._policy_hook = policy_hook
+        # Default to NoAuthProvider (null-object) so connectors never receive None.
+        self._auth_provider: AuthProvider = (
+            auth_provider if auth_provider is not None else NoAuthProvider()
+        )
         self._breaker = CircuitBreaker(
             fail_max=5,
             reset_timeout=30,
             name=f"{cls.__name__}_breaker",
         )
+        self._breakers: Dict[str, CircuitBreaker] = {}
         self._client: Any = None
 
     @property
@@ -327,11 +347,34 @@ class BaseConnector(ABC):
             raise RuntimeError("SecretProvider has not been configured for this connector.")
         return self._secret_provider
 
+    @property
+    def auth_provider(self) -> AuthProvider:
+        """The :class:`AuthProvider` configured for this connector.
+
+        Always returns a valid provider — defaults to :class:`NoAuthProvider`
+        when none was injected, so callers never need a ``None`` guard.
+        """
+        return self._auth_provider
+
+    async def get_auth_headers(self) -> Dict[str, str]:
+        """Return authentication headers from the configured :class:`AuthProvider`.
+
+        Connectors should call this instead of reading secrets directly::
+
+            headers = await self.get_auth_headers()
+            # merge with any connector-specific headers
+            headers.update({"Content-Type": "application/json"})
+
+        Returns an empty dict when the provider is :class:`NoAuthProvider`.
+        """
+        return await self._auth_provider.get_headers()
+
     async def run(
         self,
         raw_input: Dict[str, Any],
         principal: Optional[str] = None,
         tenant_id: Optional[str] = None,
+        scopes: Optional[tuple[str, ...]] = None,
     ) -> ConnectorResponse:
         """
         Public execution entrypoint.
@@ -379,8 +422,7 @@ class BaseConnector(ABC):
                         },
                     )
                     details = [
-                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]}
-                        for e in exc.errors()
+                        {"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()
                     ]
                     return ConnectorResponse(
                         success=False,
@@ -393,24 +435,31 @@ class BaseConnector(ABC):
 
                 # Policy hook
                 if self._policy_hook is not None:
+                    input_payload = input_model.model_dump()
+                    policy_action = str(input_payload.get("action", self.action))
                     context = PolicyContext(
                         connector_id=self.connector_id,
-                        action=self.action,
-                        input_payload=input_model.model_dump(),
+                        action=policy_action,
+                        input_payload=input_payload,
                         principal=principal,
                         tenant_id=tenant_id,
+                        scopes=scopes,
                     )
                     try:
                         self._policy_hook.check(context)
                     except PolicyDenied as exc:
                         logger.warning(
-                            "Execution blocked by policy hook",
+                            "AUDIT: Execution blocked by policy hook",
                             extra={
                                 "trace_id": trace_id,
                                 "connector_id": self.connector_id,
                                 "action": self.action,
                                 "error_type": type(exc).__name__,
                                 "error_message": str(exc),
+                                "audit": True,
+                                "audit_event": "policy_denial",
+                                "tenant_id": tenant_id,
+                                "principal": principal,
                             },
                         )
                         mapped = ErrorMapper.resolve(exc)
@@ -422,7 +471,23 @@ class BaseConnector(ABC):
                             trace_id=trace_id,
                         )
 
-                execute_with_resilience = with_resilience(self._breaker)
+                tenant_key = tenant_id or "default"
+                breaker_cache = getattr(self, "_breakers", None)
+                if breaker_cache is None:
+                    breaker_cache = {}
+                    self._breakers = breaker_cache
+
+                if tenant_key not in breaker_cache:
+                    fail_max = int(os.environ.get("AOT_CIRCUIT_BREAKER_FAIL_MAX", "5"))
+                    reset_timeout = int(os.environ.get("AOT_CIRCUIT_BREAKER_RESET_TIMEOUT", "30"))
+                    breaker_cache[tenant_key] = CircuitBreaker(
+                        fail_max=fail_max,
+                        reset_timeout=reset_timeout,
+                        name=f"{self.connector_id}_breaker_{tenant_key}",
+                    )
+                
+                breaker = breaker_cache[tenant_key]
+                execute_with_resilience = with_resilience(breaker)
 
                 @execute_with_resilience
                 async def _do_execute(*, trace_id: str) -> Any:
@@ -465,6 +530,11 @@ class BaseConnector(ABC):
                     message=str(exc),
                     trace_id=trace_id,
                 )
+
+    @classmethod
+    def get_registry(cls) -> Dict[str, Type[BaseConnector]]:
+        """Public access to the global connector registry."""
+        return dict(_CONNECTOR_REGISTRY)
 
     @classmethod
     def sdk_action_metas(cls) -> Dict[str, NwActionMeta]:

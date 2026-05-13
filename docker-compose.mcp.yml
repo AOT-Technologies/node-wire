@@ -26,3 +26,18 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+
+  nw-stripe:
+    image: nw-stripe:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  nw-salesforce:
+    image: nw-salesforce:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+

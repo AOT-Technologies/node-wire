@@ -207,6 +207,61 @@ class GoogleDriveConnector(BaseConnector):
             raw=raw,
             description=f"Successfully executed {action_name}",
         )
+
+
+## Connector Authentication
+
+Node Wire provides a shared **`AuthProvider`** abstraction (`src/node_wire_runtime/auth/`) that handles token acquisition, JWT construction (for SMART on FHIR), caching, and expiry. This ensures that connector logic (`logic.py`) does not need to handle raw credentials or IdP-specific handshake details.
+
+### Using Auth in a Connector
+
+To use authentication, call **`await self.get_auth_headers()`** (inherited from `BaseConnector`). This returns a dictionary of headers (e.g. `{"Authorization": "Bearer <token>"}`) injected by the configured provider.
+
+```python
+# logic.py usage
+async def read_resource(self, params: In, *, trace_id: str) -> Out:
+    base_url = self._get_base_url()
+    headers = await self.get_auth_headers()  # Fetched/cached by provider
+    
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{base_url}/resource", headers=headers)
+        resp.raise_for_status()
+    ...
+```
+
+### Supported Provider Types
+
+Choose a provider in your **`connectors.yaml`** via the `auth:` block:
+
+| Type | Description |
+|------|-------------|
+| **`none`** | (Default) No auth headers added. |
+| **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). Supports refresh. |
+| **`oauth2`** | Full Client Credentials flow. Supports `private_key_jwt` (RS384) and `client_secret_post`. Handles caching and expiry automagically. |
+
+### Configuration (`connectors.yaml`)
+
+```yaml
+connectors:
+  fhir_epic:
+    enabled: true
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: EPIC_TOKEN_URL
+      client_id_secret: EPIC_CLIENT_ID
+      private_key_secret: EPIC_PRIVATE_KEY
+      kid_secret: EPIC_KID
+      algorithm: RS384
+
+  stripe:
+    enabled: true
+    auth:
+      provider: static_token
+      secret_key: STRIPE_API_KEY
+```
+
+---
 ```
 
 Key points:
@@ -416,9 +471,12 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 | `http_generic` | `request` |
 | `smtp` | `send_email` |
 | `stripe` | `charge` |
+| `salesforce` | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` |
 | `google_drive` | `files.list`, `files.upload`, … (see `action_specs`) |
+
 | `fhir_epic` | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
 | `fhir_cerner` | Same family as Epic with Cerner-specific schemas |
+| `slack` | `post_message`, `send_direct_message`, `upload_file` |
 
 MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). See [`docs/mcp-servers.md`](mcp-servers.md).
 
@@ -426,13 +484,12 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 
 ## Adding a new connector (checklist)
 
-1. Create `src/node_wire_<connector_id>/` with `schema.py` and `logic.py`.
-2. In `schema.py`: define one Pydantic input model per action, each with `action: Literal["<name>"]`, and one or more output models (union + `RootModel` if you validate a single envelope).
-3. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then either add `@nw_action` methods with full type annotations or wire **`action_specs`** (and optionally `_execute_action_spec`) like Google Drive.
-4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
-5. Optionally add `error_map` and/or `registration.py` for custom exception handling.
-6. Add the connector to **`config/connectors.yaml`** with `enabled: true` and the desired `exposed_via` protocols.
-7. That's it — `auto_register()` handles the rest. No factory branch required.
+3. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. 
+4. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
+5. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
+6. Optionally add `error_map` and/or `registration.py` for custom exception handling.
+7. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
+8. That's it — `auto_register()` handles the rest. No factory branch required.
 
 ---
 
@@ -476,4 +533,7 @@ connectors:
 - [packaging.md](packaging.md) — Wheel build lifecycle, PyPI publish flow, client install model, secrets config, and pre-publish checklist.
 - [mcp-servers.md](mcp-servers.md) — MCP images, ToolHive, env vars.
 - [google_drive_connector.md](google_drive_connector.md) — Drive REST API and setup.
+- [salesforce_connector.md](salesforce_connector.md) — Salesforce CRM operations and playground.
+- [slack_connector.md](slack_connector.md) — Slack bot token and setup.
 - Per-connector READMEs under `src/node_wire_*/README.md` where present.
+

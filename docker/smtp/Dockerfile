@@ -32,4 +32,3 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD \
     python -c "from agents.smtp_mcp import main; assert callable(main); print('ok')" || exit 1
 
 CMD ["python", "-m", "agents.smtp_mcp"]
-

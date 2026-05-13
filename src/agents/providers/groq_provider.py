@@ -7,6 +7,7 @@ uses the same schema and response format as OpenAI.
 Required env var:  GROQ_API_KEY
 Optional env var:  GROQ_MODEL  (default: llama-3.3-70b-versatile)
 """
+
 from __future__ import annotations
 
 import json
@@ -34,24 +35,28 @@ def _messages_to_groq(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     result = []
     for m in messages:
         if m.role == "tool":
-            result.append({
-                "role": "tool",
-                "tool_call_id": m.tool_call_id,
-                "content": m.content or "",
-            })
+            result.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": m.tool_call_id,
+                    "content": m.content or "",
+                }
+            )
         elif m.tool_calls:
-            result.append({
-                "role": "assistant",
-                "content": m.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
-                    }
-                    for tc in m.tool_calls
-                ],
-            })
+            result.append(
+                {
+                    "role": "assistant",
+                    "content": m.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+                        }
+                        for tc in m.tool_calls
+                    ],
+                }
+            )
         else:
             result.append({"role": m.role, "content": m.content or ""})
     return result
@@ -68,9 +73,7 @@ class GroqProvider(BaseLLMProvider):
 
     def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile") -> None:
         if Groq is None:
-            raise ImportError(
-                "groq SDK not installed. Run: pip install 'node-wire[agents]'"
-            )
+            raise ImportError("groq SDK not installed. Run: pip install 'node-wire[agents]'")
         self._client = Groq(api_key=api_key)
         self._model = model
         logger.info("GroqProvider initialised | model=%s", model)
@@ -88,8 +91,12 @@ class GroqProvider(BaseLLMProvider):
             kwargs["tools"] = groq_tools
             kwargs["tool_choice"] = "auto"
 
-        logger.debug("Groq request | model=%s | messages=%d | tools=%d",
-                     self._model, len(groq_messages), len(groq_tools))
+        logger.debug(
+            "Groq request | model=%s | messages=%d | tools=%d",
+            self._model,
+            len(groq_messages),
+            len(groq_tools),
+        )
 
         response = self._client.chat.completions.create(**kwargs)
         choice = response.choices[0]
