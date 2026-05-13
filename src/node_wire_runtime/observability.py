@@ -33,7 +33,18 @@ class _OtelContextFilter(logging.Filter):
         return True
 
 
-_SENSITIVE_KEYS = {"patient", "ssn", "secret", "password", "email", "phone", "dob", "encounter", "resourceid"}
+_SENSITIVE_KEYS = {
+    "patient",
+    "ssn",
+    "secret",
+    "password",
+    "email",
+    "phone",
+    "dob",
+    "encounter",
+    "resourceid",
+}
+
 
 def _is_sensitive(key: str) -> bool:
     k = key.lower().replace("_", "").replace("-", "").replace(" ", "")
@@ -41,6 +52,7 @@ def _is_sensitive(key: str) -> bool:
         if s in k:
             return True
     return False
+
 
 class SanitizingSpanExporter(SpanExporter):
     def __init__(self, delegate: SpanExporter):
@@ -61,6 +73,7 @@ class SanitizingSpanExporter(SpanExporter):
         if hasattr(self._delegate, "force_flush"):
             return self._delegate.force_flush(timeout_millis)
         return True
+
 
 class SanitizingLogExporter(LogExporter):
     def __init__(self, delegate: LogExporter):
@@ -117,11 +130,13 @@ def init_observability(app_name: str = "node_wire") -> None:
 
     otlp_headers: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
 
-    span_exporter = SanitizingSpanExporter(OTLPSpanExporter(
-        headers=dict(
-            header.split("=", 1) for header in otlp_headers.split(",")
-        ) if otlp_headers else None,
-    ))
+    span_exporter = SanitizingSpanExporter(
+        OTLPSpanExporter(
+            headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
+            if otlp_headers
+            else None,
+        )
+    )
 
     span_processor = BatchSpanProcessor(span_exporter)
     tracer_provider.add_span_processor(span_processor)
@@ -133,9 +148,7 @@ def init_observability(app_name: str = "node_wire") -> None:
         cast(
             LogExporter,
             OTLPLogExporter(
-                headers=dict(
-                    header.split("=", 1) for header in otlp_headers.split(",")
-                )
+                headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
                 if otlp_headers
                 else None,
             ),

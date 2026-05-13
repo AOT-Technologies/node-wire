@@ -40,6 +40,7 @@ def _files_update_add_parents(p: FilesUpdateOperation) -> str | None:
 def _files_update_remove_parents(p: FilesUpdateOperation) -> str | None:
     return ",".join(p.remove_parents) if p.remove_parents else None
 
+
 # Action name -> SdkActionSpec (matches @nw_action("...") strings)
 GOOGLE_DRIVE_ACTION_SPECS: Dict[str, SdkActionSpec] = {}
 

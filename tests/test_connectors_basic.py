@@ -55,4 +55,3 @@ def test_salesforce_connector_instantiation_only():
     connector = BaseConnector.get_registry()["salesforce"](secret_provider=provider)
     assert connector.connector_id == "salesforce"
     assert "create_lead" in connector._action_registry
-

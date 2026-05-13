@@ -24,9 +24,11 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
-_streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = contextvars.ContextVar(
-    "nw_streamable_http_identity",
-    default=None,
+_streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = (
+    contextvars.ContextVar(
+        "nw_streamable_http_identity",
+        default=None,
+    )
 )
 
 _http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
@@ -74,9 +76,7 @@ class McpServer:
         identity = self._ensure_identity(identity=identity)
         return self._list_tools_impl(identity=identity)
 
-    def _list_tools_impl(
-        self, *, identity: CallerIdentity | None = None
-    ) -> List[Dict[str, Any]]:
+    def _list_tools_impl(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
         scope_map = load_scope_map_from_env()
         default_mode = load_scope_policy_default_from_env()
         connectors = self._factory.list_for_protocol("mcp")
@@ -157,7 +157,11 @@ class McpServer:
         identity = self._ensure_identity(identity=identity)
         try:
             # Skip rate limiting if disabled
-            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in (
+                "true",
+                "1",
+                "yes",
+            ):
                 await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
             raise ValueError(str(e))

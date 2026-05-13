@@ -141,7 +141,9 @@ class StripeConnector(BaseConnector):
         )
 
     @nw_action("create_subscription")
-    async def create_subscription(self, params: CreateSubscriptionInput, *, trace_id: str) -> StripeOperationOutput:
+    async def create_subscription(
+        self, params: CreateSubscriptionInput, *, trace_id: str
+    ) -> StripeOperationOutput:
         api_key = self._get_api_key()
 
         logger.info(
@@ -237,7 +239,9 @@ class StripeConnector(BaseConnector):
         )
 
     @nw_action("cancel_subscription")
-    async def cancel_subscription(self, params: CancelSubscriptionInput, *, trace_id: str) -> StripeOperationOutput:
+    async def cancel_subscription(
+        self, params: CancelSubscriptionInput, *, trace_id: str
+    ) -> StripeOperationOutput:
         api_key = self._get_api_key()
 
         logger.info(
@@ -286,7 +290,9 @@ class StripeConnector(BaseConnector):
         )
 
     @nw_action("issue_refund")
-    async def issue_refund(self, params: IssueRefundInput, *, trace_id: str) -> StripeOperationOutput:
+    async def issue_refund(
+        self, params: IssueRefundInput, *, trace_id: str
+    ) -> StripeOperationOutput:
         api_key = self._get_api_key()
 
         logger.info(

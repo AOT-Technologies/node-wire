@@ -20,9 +20,12 @@ from .schema import (
 
 logger = logging.getLogger("connectors.salesforce")
 
+
 class SalesforceTransientError(httpx.HTTPStatusError):
     """Exception for transient Salesforce errors that should be retried."""
+
     pass
+
 
 class SalesforceConnector(BaseConnector):
     """Salesforce connector for managing Leads and Contacts."""
@@ -51,19 +54,21 @@ class SalesforceConnector(BaseConnector):
     async def create_lead(
         self, params: CreateLeadInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
-        return await self._execute_rest("POST", "Lead", params.model_dump(by_alias=True, exclude={"action"}), trace_id)
+        return await self._execute_rest(
+            "POST", "Lead", params.model_dump(by_alias=True, exclude={"action"}), trace_id
+        )
 
     @nw_action("read_lead")
-    async def read_lead(
-        self, params: ReadLeadInput, *, trace_id: str
-    ) -> SalesforceOperationOutput:
+    async def read_lead(self, params: ReadLeadInput, *, trace_id: str) -> SalesforceOperationOutput:
         return await self._execute_rest("GET", f"Lead/{params.record_id}", None, trace_id)
 
     @nw_action("update_lead")
     async def update_lead(
         self, params: UpdateLeadInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
-        return await self._execute_rest("PATCH", f"Lead/{params.record_id}", params.fields, trace_id)
+        return await self._execute_rest(
+            "PATCH", f"Lead/{params.record_id}", params.fields, trace_id
+        )
 
     @nw_action("delete_lead")
     async def delete_lead(
@@ -75,7 +80,9 @@ class SalesforceConnector(BaseConnector):
     async def create_contact(
         self, params: CreateContactInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
-        return await self._execute_rest("POST", "Contact", params.model_dump(by_alias=True, exclude={"action"}), trace_id)
+        return await self._execute_rest(
+            "POST", "Contact", params.model_dump(by_alias=True, exclude={"action"}), trace_id
+        )
 
     @nw_action("read_contact")
     async def read_contact(
@@ -87,7 +94,9 @@ class SalesforceConnector(BaseConnector):
     async def update_contact(
         self, params: UpdateContactInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
-        return await self._execute_rest("PATCH", f"Contact/{params.record_id}", params.fields, trace_id)
+        return await self._execute_rest(
+            "PATCH", f"Contact/{params.record_id}", params.fields, trace_id
+        )
 
     @nw_action("delete_contact")
     async def delete_contact(
@@ -101,7 +110,7 @@ class SalesforceConnector(BaseConnector):
         base_url = self._get_base_url()
         api_version = self._get_api_version()
         url = f"{base_url}/services/data/{api_version}/sobjects/{path}"
-        
+
         headers = await self._get_auth_headers()
         if payload:
             headers["Content-Type"] = "application/json"
@@ -115,41 +124,40 @@ class SalesforceConnector(BaseConnector):
                 "connector_id": self.connector_id,
                 "method": method,
                 "path": path,
-            }
+            },
         )
 
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.request(method, url, headers=headers, json=payload, timeout=30.0)
-                
+                response = await client.request(
+                    method, url, headers=headers, json=payload, timeout=30.0
+                )
+
                 # Handle transient errors (5xx) by raising a retryable exception
                 if response.status_code >= 500:
                     raise SalesforceTransientError(
                         message=f"Salesforce server error: {response.status_code}",
                         request=response.request,
-                        response=response
+                        response=response,
                     )
 
                 response.raise_for_status()
-                
+
                 data = {}
                 if response.content:
                     try:
                         data = response.json()
                     except Exception:
                         data = {"text": response.text}
-                
+
                 obj_type = path.split("/")[0]
                 res_id = data.get("id") or data.get("Id") if isinstance(data, dict) else None
-                
+
                 if not res_id and "/" in path:
                     res_id = path.split("/")[1]
 
                 return SalesforceOperationOutput(
-                    success=True,
-                    resource_id=res_id,
-                    resource_type=obj_type,
-                    data=data
+                    success=True, resource_id=res_id, resource_type=obj_type, data=data
                 )
             except Exception as exc:
                 # We log and re-raise to let the platform (ErrorMapper + Resilience) handle it
@@ -162,6 +170,6 @@ class SalesforceConnector(BaseConnector):
                         "path": path,
                         "error_type": type(exc).__name__,
                         "error_message": str(exc),
-                    }
+                    },
                 )
                 raise

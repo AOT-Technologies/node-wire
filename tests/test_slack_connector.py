@@ -20,6 +20,7 @@ Coverage
 - upload_file: file exceeds size limit
 - Token is NEVER present in log output (security boundary)
 """
+
 from __future__ import annotations
 
 import base64
@@ -135,6 +136,7 @@ async def test_post_message_with_blocks_json_string() -> None:
     connector = _make_connector()
     blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "hello"}}]
     import json
+
     blocks_str = json.dumps(blocks)
     captured: dict[str, Any] = {}
 
@@ -263,9 +265,14 @@ async def test_upload_file_base64_success() -> None:
     complete_response = {"ok": True, "files": [{"id": file_id}]}
 
     with (
-        patch("node_wire_slack.logic._get_upload_url", new=AsyncMock(return_value=("https://upload.slack.com/test", file_id))),
+        patch(
+            "node_wire_slack.logic._get_upload_url",
+            new=AsyncMock(return_value=("https://upload.slack.com/test", file_id)),
+        ),
         patch("node_wire_slack.logic._upload_bytes", new=AsyncMock(return_value=None)),
-        patch("node_wire_slack.logic._complete_upload", new=AsyncMock(return_value=complete_response)),
+        patch(
+            "node_wire_slack.logic._complete_upload", new=AsyncMock(return_value=complete_response)
+        ),
     ):
         result = await connector.run(
             {
@@ -326,7 +333,9 @@ async def test_upload_file_invalid_base64_returns_business_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_upload_file_too_large_returns_business_error(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_upload_file_too_large_returns_business_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     connector = _make_connector()
     monkeypatch.setenv("NW_SLACK_UPLOAD_LIMIT_MB", "1")
 
@@ -387,6 +396,7 @@ def test_resolve_blocks_list_passthrough() -> None:
 
 def test_resolve_blocks_valid_json_string() -> None:
     import json
+
     blocks = [{"type": "section"}]
     assert _resolve_blocks(json.dumps(blocks)) == blocks
 
@@ -398,5 +408,6 @@ def test_resolve_blocks_invalid_json_raises() -> None:
 
 def test_resolve_blocks_non_array_json_raises() -> None:
     import json
+
     with pytest.raises(SlackMessageError, match="must be a JSON array"):
         _resolve_blocks(json.dumps({"type": "section"}))

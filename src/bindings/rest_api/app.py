@@ -43,8 +43,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from playground.scenarios import router as scenarios_router  # noqa: E402
 
 
-
-
 logger = logging.getLogger("bindings.rest_api")
 tracer = trace.get_tracer("bindings.rest_api")
 

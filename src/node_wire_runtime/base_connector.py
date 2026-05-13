@@ -339,6 +339,7 @@ class BaseConnector(ABC):
         )
         self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
         self._client: Any = None
+
     def _create_breaker(self) -> CircuitBreaker:
         cls = type(self)
         return CircuitBreaker(

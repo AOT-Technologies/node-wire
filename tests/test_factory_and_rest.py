@@ -49,7 +49,9 @@ def test_agent_transport_reports_streamable_http(monkeypatch: pytest.MonkeyPatch
     }
 
 
-def test_rest_post_without_auth_returns_401_when_key_required(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rest_post_without_auth_returns_401_when_key_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
@@ -160,7 +162,9 @@ def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.Mo
     assert kwargs["scopes"] == ("mcp:test.scope",)
 
 
-def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rest_not_configured_returns_503_when_no_key_and_not_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_API_KEY", raising=False)
     monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)

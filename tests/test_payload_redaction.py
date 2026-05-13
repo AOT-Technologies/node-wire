@@ -67,7 +67,11 @@ async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> No
         action="create_document_reference",
         identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
         status="current",
-        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100", "display": "Employer Group Scan"}]},
+        type={
+            "coding": [
+                {"system": "urn:oid:4.5.6", "code": "18100", "display": "Employer Group Scan"}
+            ]
+        },
         subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
         data=payload_secret,
         context={"related": [{"reference": "Group/eqv3buSV"}]},
@@ -107,12 +111,14 @@ async def test_fhir_cerner_create_document_reference_logs_redacted_payload() -> 
         status="current",
         doc_status="final",
         type={
-            "coding": [{
-                "system": "urn:oid:4.5.6",
-                "code": "18100",
-                "display": "Employer Group Scan",
-                "userSelected": True,
-            }],
+            "coding": [
+                {
+                    "system": "urn:oid:4.5.6",
+                    "code": "18100",
+                    "display": "Employer Group Scan",
+                    "userSelected": True,
+                }
+            ],
             "text": "Employer Group Scan",
         },
         subject="Patient/12724066",

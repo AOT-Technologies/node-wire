@@ -29,9 +29,7 @@ class HttpRequestInput(BaseModel):
             raise ValueError("method must be a string")
         normalized = value.strip().upper()
         if normalized not in _ALLOWED_METHODS:
-            raise ValueError(
-                f"method must be one of: {', '.join(sorted(_ALLOWED_METHODS))}"
-            )
+            raise ValueError(f"method must be one of: {', '.join(sorted(_ALLOWED_METHODS))}")
         return normalized
 
     @field_validator("url")
