@@ -44,7 +44,7 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Union, runtime_checkable
 import re
 
 from dotenv import load_dotenv
@@ -214,6 +214,7 @@ class AgentRunResult:
 # ---------------------------------------------------------------------------
 
 
+@runtime_checkable
 class McpClient(Protocol):
     async def list_tools(self) -> List[Dict[str, Any]]: ...
 
@@ -423,7 +424,7 @@ class StdioMcpClient:
     def __init__(self, command: List[str]) -> None:
         self._command = command
         self._exit_stack = AsyncExitStack()
-        self._session = None
+        self._session: Any = None
 
     async def __aenter__(self) -> StdioMcpClient:
         try:
@@ -797,6 +798,7 @@ async def _run_agent(args: argparse.Namespace) -> None:
     logger.info("Creating LLM provider: %s", llm_provider_name)
     provider = LLMProviderFactory.create_from_env()
 
+    mcp_client_context: Union[StdioMcpClient, ToolHiveMcpClient, MultiMcpClient]
     if args.local:
         logger.info("Using local stdio transport (launching server as subprocess)")
         # Launch the mcp_entrypoint.py as a subprocess

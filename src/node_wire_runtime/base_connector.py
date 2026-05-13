@@ -18,6 +18,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
     get_type_hints,
 )
 
@@ -92,17 +93,18 @@ def _make_spec_handler(
     async def _handler(self, params, *, trace_id: str):
         return await self._execute_action_spec(action_name, params, trace_id=trace_id)
 
-    _handler.__name__ = fn_name
-    _handler.__qualname__ = f"{cls_qualname}.{fn_name}"
-    _handler.__module__ = cls_module
+    handler_fn: Any = _handler
+    handler_fn.__name__ = fn_name
+    handler_fn.__qualname__ = f"{cls_qualname}.{fn_name}"
+    handler_fn.__module__ = cls_module
     # Set actual type objects (not strings) so get_type_hints() resolves correctly
     # even when `from __future__ import annotations` is active in the connector module.
-    _handler.__annotations__ = {"params": input_model, "return": output_model}
-    _handler._sdk_action_name = action_name
-    _handler._alias_tolerant = alias_tolerant
-    _handler._mcp_normalize = mcp_normalize
+    handler_fn.__annotations__ = {"params": input_model, "return": output_model}
+    handler_fn._sdk_action_name = action_name
+    handler_fn._alias_tolerant = alias_tolerant
+    handler_fn._mcp_normalize = mcp_normalize
     # Backward-compatible alias for legacy callers/tests.
-    _handler._nw_action_name = action_name
+    handler_fn._nw_action_name = action_name
     return _handler
 
 
@@ -299,14 +301,14 @@ class BaseConnector(ABC):
             raise TypeError(f"{cls.__name__}: BaseConnector must define at least one @nw_action")
 
         if len(valid_models) == 1:
-            root_type = valid_models[0]
+            root_for_rm: Any = valid_models[0]
         else:
-            root_type = Annotated[
+            root_for_rm = Annotated[
                 Union[tuple(valid_models)],  # type: ignore[arg-type]
                 Field(discriminator="action"),
             ]
 
-        cls._union_input_model = RootModel[root_type]  # type: ignore[valid-type]
+        cls._union_input_model = cast(Type[RootModel[Any]], RootModel[root_for_rm])
         cls._union_input_model.model_rebuild()
 
         own_error_map = cls.__dict__.get("error_map", {})

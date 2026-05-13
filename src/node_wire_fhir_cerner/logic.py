@@ -38,7 +38,7 @@ logger = logging.getLogger("connectors.fhir_cerner")
 
 
 def _safe_doc_ref_log_summary(doc_ref: Dict[str, Any]) -> Dict[str, Any]:
-    attachment = {}
+    attachment: Dict[str, Any] = {}
     content_items = doc_ref.get("content")
     if isinstance(content_items, list) and content_items:
         first = content_items[0]
@@ -122,7 +122,7 @@ class FhirCernerConnector(BaseConnector):
     # ------------------------------------------------------------------
 
     def _get_base_url(self) -> str:
-        return self._secret_provider.get_secret("cerner_fhir_base_url").rstrip("/")
+        return self.secret_provider.get_secret("cerner_fhir_base_url").rstrip("/")
 
     async def _get_auth_header(self) -> Dict[str, str]:
         """Delegate to the runtime AuthProvider injected by the factory.
@@ -134,7 +134,7 @@ class FhirCernerConnector(BaseConnector):
         # Cerner-specific safety check: if a token URL contains '/hosts/',
         # it is often a malformed sandbox URL that will return 401.
         try:
-            token_url = self._secret_provider.get_secret("cerner_token_url")
+            token_url = self.secret_provider.get_secret("cerner_token_url")
         except Exception:
             token_url = None
 
@@ -381,18 +381,18 @@ class FhirCernerConnector(BaseConnector):
             raise
 
         data = response.json()
-        resources: List[Dict[str, Any]] = []
+        bundle_resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
-            resources = [e["resource"] for e in data["entry"] if "resource" in e]
+            bundle_resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
         logger.info(
             "FHIR Cerner Patient name search completed | found=%s | total=%s",
-            len(resources),
+            len(bundle_resources),
             total,
             extra={"trace_id": trace_id},
         )
-        return FhirCernerPatientSearchOutput(resources=resources, total=total)
+        return FhirCernerPatientSearchOutput(resources=bundle_resources, total=total)
 
     # ------------------------------------------------------------------
     # Action: search_encounter

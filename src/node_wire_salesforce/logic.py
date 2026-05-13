@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Union, Tuple, Type
+from typing import Any, Dict, List, Optional, Union, Tuple, Type, ClassVar
 import httpx
 
 from node_wire_runtime import BaseConnector, nw_action
@@ -32,7 +32,7 @@ class SalesforceConnector(BaseConnector):
     action = "execute"  # Multi-action dispatcher
     output_model = SalesforceOperationOutput
 
-    error_map: Dict[Type[BaseException], Tuple[ErrorCategory, str]] = {
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
         httpx.ConnectError: (ErrorCategory.RETRYABLE, "SALESFORCE_CONNECT_ERROR"),
         httpx.TimeoutException: (ErrorCategory.RETRYABLE, "SALESFORCE_TIMEOUT"),
         SalesforceTransientError: (ErrorCategory.RETRYABLE, "SALESFORCE_TRANSIENT_ERROR"),

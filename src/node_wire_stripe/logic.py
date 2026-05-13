@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, ClassVar, cast
 
 import stripe
 
@@ -27,7 +27,7 @@ class StripeConnector(BaseConnector):
     connector_id = "stripe"
     output_model = StripeOperationOutput
 
-    error_map = {
+    error_map: ClassVar[dict[type[BaseException], tuple[ErrorCategory, str]]] = {
         stripe.error.RateLimitError: (ErrorCategory.RETRYABLE, "STRIPE_RATE_LIMIT"),
         stripe.error.APIConnectionError: (ErrorCategory.RETRYABLE, "STRIPE_API_CONNECTION"),
         stripe.error.CardError: (ErrorCategory.BUSINESS, "STRIPE_CARD_ERROR"),
@@ -55,7 +55,8 @@ class StripeConnector(BaseConnector):
         )
 
         def _create() -> stripe.Charge:
-            return stripe.Charge.create(
+            create = cast(Any, stripe.Charge.create)
+            return create(
                 api_key=api_key,
                 amount=params.amount,
                 currency=params.currency,
@@ -105,7 +106,8 @@ class StripeConnector(BaseConnector):
         )
 
         def _create() -> stripe.PaymentIntent:
-            return stripe.PaymentIntent.create(
+            create = cast(Any, stripe.PaymentIntent.create)
+            return create(
                 api_key=api_key,
                 amount=params.amount,
                 currency=params.currency,
@@ -170,10 +172,10 @@ class StripeConnector(BaseConnector):
                 )
                 payment_method_id = pm.id
 
-            return stripe.Subscription.create(
+            return cast(Any, stripe.Subscription.create)(
                 api_key=api_key,
                 customer=params.customer_id,
-                items=[{"price": params.price_id}] if params.price_id else None,
+                items=[{"price": params.price_id}],
                 payment_behavior=params.payment_behavior,
                 default_payment_method=payment_method_id,
                 metadata=params.metadata,
@@ -199,15 +201,33 @@ class StripeConnector(BaseConnector):
         client_secret = None
         pending_setup_intent = getattr(sub, "pending_setup_intent", None)
         latest_invoice_id = getattr(sub, "latest_invoice", None)
-        
+
+        def _stripe_obj_id(obj: Any) -> str:
+            if isinstance(obj, str):
+                return obj
+            oid = getattr(obj, "id", None)
+            return str(oid) if oid is not None else str(obj)
+
         if pending_setup_intent:
-            si = await asyncio.to_thread(stripe.SetupIntent.retrieve, pending_setup_intent, api_key=api_key)
+            si = await asyncio.to_thread(
+                stripe.SetupIntent.retrieve,
+                _stripe_obj_id(pending_setup_intent),
+                api_key=api_key,
+            )
             client_secret = getattr(si, "client_secret", None)
         elif latest_invoice_id:
-            inv = await asyncio.to_thread(stripe.Invoice.retrieve, latest_invoice_id, api_key=api_key)
+            inv = await asyncio.to_thread(
+                stripe.Invoice.retrieve,
+                _stripe_obj_id(latest_invoice_id),
+                api_key=api_key,
+            )
             pi_id = getattr(inv, "payment_intent", None)
             if pi_id:
-                pi = await asyncio.to_thread(stripe.PaymentIntent.retrieve, pi_id, api_key=api_key)
+                pi = await asyncio.to_thread(
+                    stripe.PaymentIntent.retrieve,
+                    _stripe_obj_id(pi_id),
+                    api_key=api_key,
+                )
                 client_secret = getattr(pi, "client_secret", None)
 
         return StripeOperationOutput(
@@ -281,7 +301,8 @@ class StripeConnector(BaseConnector):
         )
 
         def _refund() -> stripe.Refund:
-            return stripe.Refund.create(
+            create = cast(Any, stripe.Refund.create)
+            return create(
                 api_key=api_key,
                 charge=params.charge_id,
                 payment_intent=params.payment_intent_id,

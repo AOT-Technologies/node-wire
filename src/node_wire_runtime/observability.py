@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import Optional, cast
 
 from opentelemetry._logs import set_logger_provider
 from opentelemetry import trace
@@ -129,11 +129,18 @@ def init_observability(app_name: str = "node_wire") -> None:
 
     # Logs: export Python logging records via OTLP/HTTP to the local collector.
     # This enables Loki ingestion when using grafana/otel-lgtm.
-    log_exporter = SanitizingLogExporter(OTLPLogExporter(
-        headers=dict(
-            header.split("=", 1) for header in otlp_headers.split(",")
-        ) if otlp_headers else None,
-    ))
+    log_exporter = SanitizingLogExporter(
+        cast(
+            LogExporter,
+            OTLPLogExporter(
+                headers=dict(
+                    header.split("=", 1) for header in otlp_headers.split(",")
+                )
+                if otlp_headers
+                else None,
+            ),
+        )
+    )
     logger_provider = LoggerProvider(resource=resource)
     logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
     set_logger_provider(logger_provider)
