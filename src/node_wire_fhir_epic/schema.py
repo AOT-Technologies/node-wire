@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import base64
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +116,17 @@ class FhirDocumentReferenceCreateInput(BaseModel):
     subject: str
     """Patient reference string (e.g. 'Patient/{id}'). Required by Epic."""
 
-    data: str
-    """Base64-encoded document content. Required by Epic."""
+    @field_validator("data", mode="after")
+    @classmethod
+    def validate_base64_data(cls, v: str) -> str:
+        try:
+            base64.b64decode(v, validate=True)
+        except Exception:
+            raise ValueError("data must be a valid base64-encoded string")
+        return v
+
+    data: str = Field(..., max_length=10 * 1024 * 1024)
+    """Base64-encoded document content. Required by Epic. Max size 10MB."""
 
     content_type: Optional[str] = None
     """MIME type of the document content (e.g. 'text/plain', 'application/pdf'). Defaults to 'text/plain'."""

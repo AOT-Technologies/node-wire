@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import base64
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -183,9 +184,21 @@ class FhirCernerDocumentReferenceCreateInput(BaseModel):
     All provided dates must include a time component.
     """
 
-    data: Optional[str] = None
-    """Base64-encoded document content. Required for both binary files (PDFs) and plain text.
+    @field_validator("data", mode="after")
+    @classmethod
+    def validate_base64_data(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            base64.b64decode(v, validate=True)
+        except Exception:
+            raise ValueError("data must be a valid base64-encoded string")
+        return v
 
+    data: Optional[str] = Field(None, max_length=10 * 1024 * 1024)
+    """Base64-encoded document content. Required for both binary files (PDFs) and plain text.
+    Max size 10MB.
+    
     Note: If you provide raw text in the ``text`` field, the connector will automatically
     encode it to base64 for you.
     """
