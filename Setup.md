@@ -490,6 +490,57 @@ Most tests are unit tests that run without real credentials. Integration tests t
 
 ---
 
+## Code quality and security gates
+
+Node Wire enforces security and coverage-backed analysis in CI for pull requests and pushes to `main`/`master`:
+
+- Bandit (`bandit -c pyproject.toml -r src --severity-level high`) for Python SAST.
+- SonarQube Community Edition scan with `sonar.qualitygate.wait=true` so PRs fail when the quality gate fails.
+
+### Run checks locally
+
+```bash
+# Install dev tools
+pip install -e ".[dev,agents]"
+
+# Security (matches CI)
+bandit -c pyproject.toml -r src --severity-level high
+
+# Tests + coverage.xml (required by SonarQube)
+pytest tests/ -v
+```
+
+### Pre-commit
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+### Run SonarQube scan locally (Docker)
+
+```bash
+# from repository root, after coverage.xml is generated
+docker run --rm \
+  -e SONAR_TOKEN=YOUR_TOKEN \
+  -v "G:\SPACE\node-wire:/usr/src" \
+  -w /usr/src \
+  sonarsource/sonar-scanner-cli \
+  -Dsonar.host.url=http://host.docker.internal:9000 \
+  -Dsonar.token=YOUR_TOKEN
+```
+
+### SonarQube configuration
+
+The repository includes [`sonar-project.properties`](sonar-project.properties) and CI expects these GitHub secrets:
+
+- `SONAR_HOST_URL` (example: `https://sonarqube.company.internal`)
+- `SONAR_TOKEN` (project analysis token)
+
+For server setup and quality gate policy details, see [docs/quality-security-gates.md](docs/quality-security-gates.md).
+
+---
+
 ## Playground UI
 
 The repository includes an interactive web playground that showcases 5 orchestration scenarios:

@@ -45,7 +45,8 @@ dev = [
   "pytest-cov>=5.0.0",
   "ruff>=0.3.5",
   "mypy>=1.9.0",
-  "pre-commit>=3.7.0",
+  "bandit[toml]>=1.7.9",
+  "pre-commit>=4.0.0",
 ]
 agents = [
   "mcp>=1.6.0",                    # Official Python MCP SDK (includes FastMCP)
@@ -83,7 +84,8 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.3.5",
     "mypy>=1.9.0",
-    "pre-commit>=3.7.0",
+    "bandit[toml]>=1.7.9",
+    "pre-commit>=4.0.0",
 ]
 
 [tool.uv]
@@ -97,6 +99,7 @@ addopts = [
   "--cov=src",
   "--cov-report=term-missing",
   "--cov-report=html:htmlcov",
+  "--cov-report=xml:coverage.xml",
 ]
 
 [tool.coverage.run]
@@ -117,3 +120,8 @@ line-length = 100
 python_version = "3.11"
 strict = false
 ignore_missing_imports = true
+
+[tool.bandit]
+targets = ["src"]
+exclude_dirs = [".venv", "venv", "tests", "playground", "dist", "htmlcov"]
+skips = ["B101"]
