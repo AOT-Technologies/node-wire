@@ -12,7 +12,7 @@ Runs on every pull request and on pushes to `main`/`master`.
 
 Required jobs:
 
-- `bandit`: publishes `bandit-report.json` and fails on high-severity findings.
+- `bandit`: writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step.
 - `test`: runs `pytest` and produces `coverage.xml`.
 - `sonar`: runs SonarQube scan and waits for quality gate result (runs after `bandit` and `test`).
 
@@ -43,7 +43,11 @@ Configure branch protection so pull requests cannot merge unless all required ch
 
 ```bash
 pip install -e ".[dev,agents]"
+# Enforce the same threshold as CI (non-zero exit if any HIGH finding)
 bandit -c pyproject.toml -r src --severity-level high
+# Full JSON report without failing the shell (Bandit otherwise exits 1 on any finding)
+bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+python scripts/bandit_report_summary.py bandit-report.json
 pytest tests/ -v
 pre-commit install
 pre-commit run --all-files
@@ -67,16 +71,30 @@ docker run --rm \
 
 Bandit is configured in `pyproject.toml` under `[tool.bandit]`.
 
+### Exit codes and CI behavior
+
+By default, **Bandit exits with a non-zero status whenever it reports any finding**, including low and medium severity. That affects `-f json -o ...` the same as text output.
+
+CI splits responsibilities:
+
+1. **JSON artifact + log summary** — `bandit ... -f json -o bandit-report.json --exit-zero` so the workflow always produces the report and runs `scripts/bandit_report_summary.py` for readable logs. Low/medium issues are visible here and in Sonar/import without failing the job.
+2. **Enforcement** — `bandit ... --severity-level high` fails the job only on high-severity findings (matches branch-protection intent).
+
+Locally, mirror CI with the commands in [Local commands](#local-commands).
+
+### Scope
+
 Policy:
 
-- Scan target: `src/`.
+- Scan target: `src/` (runtime, bindings, in-tree connector implementations installed via the root package).
 - Exclude: `.venv`, `venv`, `tests`, `playground`, `dist`, `htmlcov`.
 - CI enforcement threshold: `--severity-level high`.
+- **Packages tree:** connector distributions under `packages/connectors/*` are audited for CVEs in `.github/workflows/security-pr.yml` (`pip-audit`). Run Bandit against those paths separately if you need SAST on a standalone checkout.
 
 If legacy findings block adoption, create a baseline once and track deltas:
 
 ```bash
-bandit -c pyproject.toml -r src -f json -o bandit-baseline.json
+bandit -c pyproject.toml -r src -f json -o bandit-baseline.json --exit-zero
 bandit -c pyproject.toml -r src --baseline bandit-baseline.json --severity-level high
 ```
 

@@ -130,6 +130,9 @@ exclude = [
 module = "playground.*"
 ignore_errors = true
 
+# SAST: scan the editable-install tree under src/ (runtime, bindings, bundled
+# connector logic). Publishable connector packages under packages/connectors/*
+# are additionally covered by pip-audit in .github/workflows/security-pr.yml.
 [tool.bandit]
 targets = ["src"]
 exclude_dirs = [".venv", "venv", "tests", "playground", "dist", "htmlcov"]

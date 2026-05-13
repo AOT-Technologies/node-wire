@@ -496,7 +496,7 @@ For deterministic pytest runs (especially when a repo-root `.env` exists locally
 
 Node Wire enforces security and coverage-backed analysis in CI for pull requests and pushes to `main`/`master`:
 
-- Bandit (`bandit -c pyproject.toml -r src --severity-level high`) for Python SAST.
+- Bandit: JSON report + log summary (artifact), then `bandit -c pyproject.toml -r src --severity-level high` for the failing gate. The JSON step uses `--exit-zero` because Bandit otherwise exits 1 on *any* finding while the gate only blocks **high** severity.
 - SonarQube Community Edition scan with `sonar.qualitygate.wait=true` so PRs fail when the quality gate fails.
 
 ### Run checks locally
@@ -505,8 +505,12 @@ Node Wire enforces security and coverage-backed analysis in CI for pull requests
 # Install dev tools
 pip install -e ".[dev,agents]"
 
-# Security (matches CI)
+# Security gate (matches CI failure threshold)
 bandit -c pyproject.toml -r src --severity-level high
+
+# Optional: JSON report + same summary as CI logs
+bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+python scripts/bandit_report_summary.py bandit-report.json
 
 # Tests + coverage.xml (required by SonarQube)
 pytest tests/ -v
