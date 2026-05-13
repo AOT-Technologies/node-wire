@@ -77,7 +77,7 @@ Set the mode before starting the REST API:
 ```powershell
 # Buffered stdio mode
 $env:NW_MCP_TRANSPORT="stdio"
-python -m uv run node-wire
+uv run node-wire
 ```
 
 ```powershell
@@ -86,7 +86,7 @@ $env:NW_MCP_TRANSPORT="streamable-http"
 $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+uv run node-wire
 ```
 
 After changing `NW_MCP_TRANSPORT`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
@@ -175,8 +175,11 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 2.  Start the FastAPI server:
 
 ```bash
-# Recommended
-python -m uv run node-wire
+# Using uv (recommended)
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).

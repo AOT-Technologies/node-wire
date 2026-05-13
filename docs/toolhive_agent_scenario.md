@@ -548,5 +548,6 @@ node-wire/
 
 ## Related documentation
 
-- [Setup.md](../Setup.md) — Full platform setup guide
+- [Installation Guide](installation.md) — Full platform setup guide
+- [Configuration Guide](configuration.md) — Environment variables and settings
 - [google_drive_connector.md](google_drive_connector.md) — Google Drive service account setup and REST API reference
