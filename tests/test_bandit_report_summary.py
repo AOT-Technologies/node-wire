@@ -7,8 +7,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "bandit_report_summary.py"
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "bandit_minimal_report.json"
