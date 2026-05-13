@@ -227,4 +227,10 @@ def test_stripe_charge_via_run() -> None:
             assert resp.data.get("charge_id") == "ch_123"
 
         asyncio.run(_run())
-        mock_charge.create.assert_called_once()
+        mock_charge.create.assert_called_once_with(
+            amount=1000,
+            currency="usd",
+            source="tok_visa",
+            description=None,
+            api_key="sk_test_dummy",
+        )
