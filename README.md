@@ -249,7 +249,7 @@ Make sure you have dev dependencies installed (`pip install -e ".[dev]"`).
 
 * **Check formatting & linting errors:** `ruff check .`
 * **Auto-fix everything & format code:** `ruff check --fix . && ruff format .`
-* **Run static type validation:** `mypy .`
+* **Run static type validation:** `mypy` (paths default from `[tool.mypy]` `files` in `pyproject.toml`; avoid `mypy .`, which scans packaging `setup.py` scripts under `packages/`). To include tests: `mypy src tests` overrides the defaults.
 
 ### Pre-commit Hooks
 You can attach our `.pre-commit-config.yaml` to Git so that it automatically runs these checks on every single `git commit`:

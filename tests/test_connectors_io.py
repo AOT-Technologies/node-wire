@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import httpx
 import pytest
@@ -228,9 +228,12 @@ def test_stripe_charge_via_run() -> None:
 
         asyncio.run(_run())
         mock_charge.create.assert_called_once_with(
+            api_key="sk_test_dummy",
             amount=1000,
             currency="usd",
             source="tok_visa",
+            customer=None,
             description=None,
-            api_key="sk_test_dummy",
+            metadata=None,
+            idempotency_key=ANY,
         )

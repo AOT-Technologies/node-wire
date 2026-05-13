@@ -120,6 +120,15 @@ line-length = 100
 python_version = "3.11"
 strict = false
 ignore_missing_imports = true
+# Default targets when invoking `mypy` with no paths (CI/pre-commit). Avoids repo-root `mypy .`
+# pulling in packages/*/setup.py (duplicate module name "setup"). Packaging glue is excluded below.
+files = ["src"]
+exclude = [
+  ".*packages/.*/setup\\.py",
+]
+[[tool.mypy.overrides]]
+module = "playground.*"
+ignore_errors = true
 
 [tool.bandit]
 targets = ["src"]

@@ -8,6 +8,7 @@ import pytest
 from node_wire_fhir_cerner.logic import FhirCernerConnector
 from node_wire_fhir_epic.logic import FhirEpicConnector
 from node_wire_runtime import SecretProvider
+from node_wire_runtime.auth import StaticTokenAuthProvider
 
 
 class EpicSecretProvider(SecretProvider):
@@ -18,6 +19,7 @@ class EpicSecretProvider(SecretProvider):
             "epic_kid": "dummy-kid",
             "epic_client_id": "dummy-client-id",
             "epic_token_url": "https://fhir.epic.com/token",
+            "dummy_token_key": "dummy-access-token",
         }[key]
 
 
@@ -29,14 +31,20 @@ class CernerSecretProvider(SecretProvider):
             "cerner_kid": "dummy-kid",
             "cerner_client_id": "dummy-client-id",
             "cerner_token_url": "https://authorization.cerner.com/tenants/tenant-id/protocols/oauth2/profiles/smart-v1/token",
+            "dummy_token_key": "dummy-access-token",
         }[key]
 
 
-def _token_mock() -> MagicMock:
-    token = MagicMock()
-    token.status_code = 200
-    token.json.return_value = {"access_token": "dummy-access-token"}
-    return token
+def _epic_connector_for_redaction() -> FhirEpicConnector:
+    sp = EpicSecretProvider()
+    auth = StaticTokenAuthProvider(secret_provider=sp, secret_key="dummy_token_key")
+    return FhirEpicConnector(secret_provider=sp, auth_provider=auth)
+
+
+def _cerner_connector_for_redaction() -> FhirCernerConnector:
+    sp = CernerSecretProvider()
+    auth = StaticTokenAuthProvider(secret_provider=sp, secret_key="dummy_token_key")
+    return FhirCernerConnector(secret_provider=sp, auth_provider=auth)
 
 
 def _serialize_calls(mocked_logger: MagicMock) -> str:
@@ -51,7 +59,7 @@ def _serialize_calls(mocked_logger: MagicMock) -> str:
 async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> None:
     from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
 
-    connector = FhirEpicConnector(secret_provider=EpicSecretProvider())
+    connector = _epic_connector_for_redaction()
     payload_secret = "SENSITIVE_PAYLOAD_VALUE"
     response_secret = "SENSITIVE_RESPONSE_VALUE"
 
@@ -68,16 +76,11 @@ async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> No
     post_req = httpx.Request("POST", "https://fhir.example/DocumentReference")
     err_resp = httpx.Response(400, request=post_req, text=response_secret)
 
-    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response | MagicMock:
-        post_side_effect.calls += 1
-        if post_side_effect.calls == 1:
-            return _token_mock()
+    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response:
+        # StaticTokenAuthProvider: no separate OAuth POST; only FHIR create hits AsyncClient.post.
         return err_resp
 
-    post_side_effect.calls = 0
-
     with (
-        patch("node_wire_fhir_epic.logic.jwt.encode", return_value="dummy-jwt"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=post_side_effect),
         patch("node_wire_fhir_epic.logic.logger.error") as mocked_error,
     ):
@@ -94,7 +97,7 @@ async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> No
 async def test_fhir_cerner_create_document_reference_logs_redacted_payload() -> None:
     from node_wire_fhir_cerner.schema import FhirCernerDocumentReferenceCreateInput
 
-    connector = FhirCernerConnector(secret_provider=CernerSecretProvider())
+    connector = _cerner_connector_for_redaction()
     payload_secret = "CERNER_SECRET_PAYLOAD"
     response_secret = "CERNER_SECRET_RESPONSE"
 
@@ -125,16 +128,10 @@ async def test_fhir_cerner_create_document_reference_logs_redacted_payload() -> 
     post_req = httpx.Request("POST", "https://fhir.example/DocumentReference")
     err_resp = httpx.Response(400, request=post_req, text=response_secret)
 
-    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response | MagicMock:
-        post_side_effect.calls += 1
-        if post_side_effect.calls == 1:
-            return _token_mock()
+    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response:
         return err_resp
 
-    post_side_effect.calls = 0
-
     with (
-        patch("node_wire_fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=post_side_effect),
         patch("node_wire_fhir_cerner.logic.logger.error") as mocked_error,
     ):

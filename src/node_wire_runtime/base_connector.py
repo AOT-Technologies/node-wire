@@ -350,6 +350,9 @@ class BaseConnector(ABC):
         return tenant_id or "__default__"
 
     def _breaker_for_tenant(self, tenant_id: Optional[str]) -> CircuitBreaker:
+        # Tests may delete `_breakers` to simulate cache loss; rebuild lazily.
+        if not hasattr(self, "_breakers"):
+            self._breakers = defaultdict(self._create_breaker)
         return self._breakers[self._breaker_key(tenant_id)]
 
     @property
