@@ -14,6 +14,7 @@ After successful auth, normalized caller identity (principal / tenant_id / scope
 
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import Callable
 
@@ -58,6 +59,26 @@ def _extract_bearer_or_api_key(request: Request) -> str | None:
     if x and x.strip():
         return x.strip()
     return None
+
+
+def get_request_identity_key(request: Request) -> str:
+    """
+    Return a stable, non-sensitive identity key for request-level controls.
+
+    Preference order:
+    1) Auth token/API key (fingerprinted, never returned raw)
+    2) X-Forwarded-For first hop
+    3) request.client.host
+    """
+    token = _extract_bearer_or_api_key(request)
+    if token:
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        return f"token:{digest}"
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",", maxsplit=1)[0].strip()
+    if forwarded:
+        return f"ip:{forwarded}"
+    client_host = request.client.host if request.client else "unknown"
+    return f"ip:{client_host}"
 
 
 def verify_rest_token_and_identity(

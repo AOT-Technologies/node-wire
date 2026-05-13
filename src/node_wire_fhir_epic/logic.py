@@ -36,6 +36,23 @@ from .schema import (
 logger = logging.getLogger("connectors.fhir_epic")
 
 
+def _safe_doc_ref_log_summary(doc_ref: Dict[str, Any]) -> Dict[str, Any]:
+    attachment = {}
+    content_items = doc_ref.get("content")
+    if isinstance(content_items, list) and content_items:
+        first = content_items[0]
+        if isinstance(first, dict):
+            attachment = first.get("attachment", {}) if isinstance(first.get("attachment"), dict) else {}
+    data_value = attachment.get("data")
+    data_len = len(data_value) if isinstance(data_value, str) else 0
+    return {
+        "keys": sorted(doc_ref.keys()),
+        "content_items": len(content_items) if isinstance(content_items, list) else 0,
+        "attachment_content_type": attachment.get("contentType"),
+        "attachment_data_length": data_len,
+    }
+
+
 class FhirEpicConnector(BaseConnector):
     """FHIR/Epic connector: one @nw_action per operation."""
 
@@ -456,15 +473,19 @@ class FhirEpicConnector(BaseConnector):
                     for issue in resp_json.get("issue", []):
                         if "diagnostics" in issue:
                             diagnostics.append(issue["diagnostics"])
-                error_detail = " | ".join(diagnostics) if diagnostics else exc.response.text
+                error_detail = (
+                    " | ".join(diagnostics)
+                    if diagnostics
+                    else f"HTTP {exc.response.status_code} from Epic FHIR endpoint"
+                )
             except Exception:
-                error_detail = exc.response.text
+                error_detail = f"HTTP {exc.response.status_code} from Epic FHIR endpoint"
 
             logger.error(
-                "FHIR DocumentReference create failed | status=%s | epic_error=%s | sent_payload=%s",
+                "FHIR DocumentReference create failed | status=%s | epic_error=%s | payload_summary=%s",
                 exc.response.status_code,
                 error_detail,
-                json.dumps(doc_ref),
+                json.dumps(_safe_doc_ref_log_summary(doc_ref)),
                 extra={"trace_id": trace_id},
             )
             raise ValueError(f"Epic Error: {error_detail}") from exc
