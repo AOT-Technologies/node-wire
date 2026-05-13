@@ -461,10 +461,9 @@ class FhirEpicConnector(BaseConnector):
                 error_detail = exc.response.text
 
             logger.error(
-                "FHIR DocumentReference create failed | status=%s | epic_error=%s | sent_payload=%s",
+                "FHIR DocumentReference create failed | status=%s | epic_error=%s",
                 exc.response.status_code,
                 error_detail,
-                json.dumps(doc_ref),
                 extra={"trace_id": trace_id},
             )
             raise ValueError(f"Epic Error: {error_detail}") from exc
