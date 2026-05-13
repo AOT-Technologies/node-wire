@@ -188,7 +188,7 @@ class McpServer:
             )
             stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
             return response.model_dump()
-        except Exception as exc:
+        except Exception:
             stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
             raise
 

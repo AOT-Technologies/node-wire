@@ -22,12 +22,10 @@ Coverage
 """
 from __future__ import annotations
 
-import asyncio
 import base64
 import logging
-import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -39,17 +37,10 @@ from node_wire_slack.exceptions import (
     SlackMessageError,
     SlackPermissionError,
     SlackRateLimitError,
-    SlackUploadError,
 )
 from node_wire_slack.logic import (
     SlackConnector,
     _resolve_blocks,
-)
-from node_wire_slack.schema import (
-    SlackOutput,
-    SlackPostMessageInput,
-    SlackSendDirectMessageInput,
-    SlackUploadFileInput,
 )
 import node_wire_slack.registration  # noqa: F401
 

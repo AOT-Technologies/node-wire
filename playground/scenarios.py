@@ -35,7 +35,6 @@ from node_wire_google_drive.schema import (
     FilesListOperation,
     FilesUpdateOperation,
 )
-from node_wire_stripe.schema import ChargeInput
 from node_wire_salesforce.logic import SalesforceConnector
 from node_wire_salesforce.schema import (
     CreateLeadInput,
@@ -46,7 +45,6 @@ from node_wire_salesforce.schema import (
     ReadContactInput,
     UpdateContactInput,
     DeleteContactInput,
-    SalesforceOperationOutput,
 )
 
 
@@ -353,6 +351,8 @@ def get_slack_connector():
     if not connector:
         raise HTTPException(status_code=500, detail="Slack connector not configured")
     return connector
+
+
 def get_stripe_connector():
     connector = resolve_connector("stripe")
     if not connector:
@@ -364,14 +364,6 @@ def get_salesforce_connector():
     connector = resolve_connector("salesforce")
     if not connector:
         raise HTTPException(status_code=500, detail="Salesforce connector not configured")
-    return connector
-
-
-
-def get_slack_connector():
-    connector = resolve_connector("slack")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Slack connector not configured")
     return connector
 
 
@@ -1194,7 +1186,7 @@ async def stripe_subscription_scenario(
             success=True,
             steps=steps,
             final_resource_id=res.subscription_id,
-            human_summary=f"Successfully provisioned subscription for customer.",
+            human_summary="Successfully provisioned subscription for customer.",
             trace_id=trace_id
         )
     except Exception as e:
@@ -1238,7 +1230,7 @@ async def stripe_cancel_subscription_scenario(
             success=True,
             steps=steps,
             final_resource_id=res.subscription_id,
-            human_summary=f"Successfully canceled subscription.",
+            human_summary="Successfully canceled subscription.",
             trace_id=trace_id
         )
     except Exception as e:
@@ -1284,7 +1276,7 @@ async def stripe_refund_scenario(
             success=True,
             steps=steps,
             final_resource_id=res.refund_id,
-            human_summary=f"Successfully issued refund.",
+            human_summary="Successfully issued refund.",
             trace_id=trace_id
         )
     except Exception as e:
@@ -2122,11 +2114,15 @@ async def salesforce_update_lead_scenario(
     fields = {k: v for k, v in payload.model_dump().items() if v is not None and k != "record_id"}
     # Map to SF internal names
     sf_fields = {}
-    if "first_name" in fields: sf_fields["FirstName"] = fields["first_name"]
-    if "last_name" in fields: sf_fields["LastName"] = fields["last_name"]
-    if "company" in fields: sf_fields["Company"] = fields["company"]
-    if "email" in fields: sf_fields["Email"] = fields["email"]
-    
+    if "first_name" in fields:
+        sf_fields["FirstName"] = fields["first_name"]
+    if "last_name" in fields:
+        sf_fields["LastName"] = fields["last_name"]
+    if "company" in fields:
+        sf_fields["Company"] = fields["company"]
+    if "email" in fields:
+        sf_fields["Email"] = fields["email"]
+
     try:
         res = await execute_with_retry(connector, UpdateLeadInput(record_id=payload.record_id, fields=sf_fields), trace_id, steps[-1])
         steps[-1].status = "success"
@@ -2154,7 +2150,7 @@ async def salesforce_delete_lead_scenario(
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
     add_step("Delete Lead", "pending", "Removing Lead Record")
     try:
-        res = await execute_with_retry(connector, DeleteLeadInput(record_id=payload.record_id), trace_id, steps[-1])
+        await execute_with_retry(connector, DeleteLeadInput(record_id=payload.record_id), trace_id, steps[-1])
         steps[-1].status = "success"
         steps[-1].details = "Lead deleted"
         return ScenarioResponse(
@@ -2198,10 +2194,14 @@ async def salesforce_update_contact_scenario(
     add_step("Update Contact", "pending", "Updating Contact Record")
     fields = {k: v for k, v in payload.model_dump().items() if v is not None and k != "record_id"}
     sf_fields = {}
-    if "first_name" in fields: sf_fields["FirstName"] = fields["first_name"]
-    if "last_name" in fields: sf_fields["LastName"] = fields["last_name"]
-    if "email" in fields: sf_fields["Email"] = fields["email"]
-    if "account_id" in fields: sf_fields["AccountId"] = fields["account_id"]
+    if "first_name" in fields:
+        sf_fields["FirstName"] = fields["first_name"]
+    if "last_name" in fields:
+        sf_fields["LastName"] = fields["last_name"]
+    if "email" in fields:
+        sf_fields["Email"] = fields["email"]
+    if "account_id" in fields:
+        sf_fields["AccountId"] = fields["account_id"]
 
     try:
         res = await execute_with_retry(connector, UpdateContactInput(record_id=payload.record_id, fields=sf_fields), trace_id, steps[-1])
@@ -2230,7 +2230,7 @@ async def salesforce_delete_contact_scenario(
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
     add_step("Delete Contact", "pending", "Removing Contact Record")
     try:
-        res = await execute_with_retry(connector, DeleteContactInput(record_id=payload.record_id), trace_id, steps[-1])
+        await execute_with_retry(connector, DeleteContactInput(record_id=payload.record_id), trace_id, steps[-1])
         steps[-1].status = "success"
         steps[-1].details = "Contact deleted"
         return ScenarioResponse(

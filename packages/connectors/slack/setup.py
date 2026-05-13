@@ -1,4 +1,5 @@
-import glob, os
+import glob
+import os
 from Cython.Build import cythonize
 from setuptools import setup
 from setuptools.command.build_py import build_py as _BuildPy

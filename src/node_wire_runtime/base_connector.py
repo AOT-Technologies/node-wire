@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextvars
 import inspect
 import logging
-import os
 import uuid
 from abc import ABC
 from collections import defaultdict

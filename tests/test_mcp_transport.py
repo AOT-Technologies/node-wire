@@ -1,6 +1,6 @@
 import pytest
 import httpx
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from bindings.mcp_server.server import McpServer, _http_request_headers
 from starlette.applications import Starlette
 from starlette.routing import Route

@@ -13,7 +13,6 @@ from node_wire_stripe.schema import (
     CreatePaymentIntentInput,
     CreateSubscriptionInput,
     IssueRefundInput,
-    StripeOperationOutput,
 )
 
 

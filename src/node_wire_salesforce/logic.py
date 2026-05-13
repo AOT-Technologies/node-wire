@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Union, Tuple, Type, ClassVar
+from typing import Any, Dict, Optional, Tuple, Type, ClassVar
 import httpx
 
 from node_wire_runtime import BaseConnector, nw_action
@@ -16,7 +16,6 @@ from .schema import (
     UpdateContactInput,
     DeleteContactInput,
     SalesforceOperationOutput,
-    SalesforceError,
 )
 
 logger = logging.getLogger("connectors.salesforce")

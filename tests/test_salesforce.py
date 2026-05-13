@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -18,7 +17,6 @@ from node_wire_salesforce.schema import (
     ReadContactInput,
     UpdateContactInput,
     DeleteContactInput,
-    SalesforceOperationOutput,
 )
 
 
@@ -56,7 +54,7 @@ async def test_salesforce_create_contact_happy_path():
     mock_response.json.return_value = {"id": "003123456789012", "success": True}
     mock_response.text = '{"id": "003123456789012", "success": true}'
 
-    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
         result = await connector.create_contact(params, trace_id="test-trace")
 
     assert result.success is True
@@ -86,7 +84,7 @@ async def test_salesforce_update_contact_204_path():
     mock_response.content = b""
     mock_response.text = ""
 
-    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
         result = await connector.update_contact(params, trace_id="test-trace")
 
     assert result.success is True
@@ -210,7 +208,7 @@ async def test_salesforce_read_lead_happy_path():
     mock_response.content = b'{"Id": "00Q123456789012", "LastName": "Smith"}'
     mock_response.json.return_value = {"Id": "00Q123456789012", "LastName": "Smith"}
 
-    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
         result = await connector.read_lead(params, trace_id="test-trace")
 
     assert result.success is True
