@@ -45,6 +45,9 @@ $env:MODE="API"; python -m bindings_entrypoint
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the Swagger UI.
 
+## Playground
+The platform includes an interactive web playground at [http://localhost:8000/playground/](http://localhost:8000/playground/) (available when the REST API is running).
+
 ---
 
 ## Documentation
@@ -60,5 +63,3 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 
-## Playground
-The platform includes an interactive web playground at [http://localhost:8000/playground/](http://localhost:8000/playground/) (available when the REST API is running).
