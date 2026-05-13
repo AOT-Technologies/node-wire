@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Google Drive Connector
 
 This document covers the Google Drive connector under `connectors/google_drive` in two parts:

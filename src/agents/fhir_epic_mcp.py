@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """MCP Server — Epic FHIR connector only. Usage: python -m agents.fhir_epic_mcp"""
 
 from __future__ import annotations

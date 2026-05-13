@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """MCP Server — all connectors exposed via MCP. Usage: python -m agents.mcp_entrypoint"""
 
 from __future__ import annotations

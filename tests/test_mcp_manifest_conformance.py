@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """MCP manifest contract: unified vs per-connector entrypoints expose consistent tool shapes."""
 
 from __future__ import annotations

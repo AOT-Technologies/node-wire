@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from .models import ConnectorResponse, ErrorCategory
 from .errors import ErrorMapper
 from .secrets import SecretProvider, EnvSecretProvider, SecretNotFoundError, SecretProviderError
