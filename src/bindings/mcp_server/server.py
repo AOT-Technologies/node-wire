@@ -200,10 +200,7 @@ class McpServer:
         except RateLimitExceeded as e:
             raise ValueError(str(e))
 
-        try:
-            await global_rate_limiter.acquire()
-        except RateLimitExceeded as e:
-            raise ValueError(str(e))
+
 
         try:
             connector_id, action = name.split(".", 1)
