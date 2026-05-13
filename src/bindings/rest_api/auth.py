@@ -22,7 +22,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from node_wire_runtime.caller_identity import CallerIdentity, build_caller_identity
+from node_wire_runtime.caller_identity import (
+    CallerIdentity,
+    build_caller_identity,
+    parse_api_key_scopes_from_env,
+)
 
 
 REST_CALLER_STATE_KEY = "nw_rest_caller_identity"
@@ -65,11 +69,14 @@ def verify_rest_token_and_identity(
     """
     Validate REST bearer/API-key token and build caller identity (same shape as MCP).
 
-    Shared API key behaves like MCP: wildcard scopes for ScopePolicyHook compatibility.
+    Shared API key scopes come from ``NW_REST_API_KEY_SCOPES`` (JSON array or
+    comma/space-separated). Empty means no scopes; use explicit ``*`` only when
+    intended (JWT-style superuser for the policy hook).
     """
     if api_key and token == api_key:
+        scopes = list(parse_api_key_scopes_from_env("NW_REST_API_KEY_SCOPES"))
         ident = build_caller_identity(
-            {"sub": "api-key-user", "tenant_id": None, "scopes": ["*"]},
+            {"sub": "api-key-user", "tenant_id": None, "scopes": scopes},
             auth_type="rest_api_key",
         )
         return True, ident

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import inspect
 import logging
 import os
@@ -35,6 +36,36 @@ from .sdk_action_spec import SdkActionSpec
 logger = logging.getLogger("runtime.base_connector")
 tracer: Tracer = trace.get_tracer("runtime")
 ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
+
+
+class NestedConnectorActionError(Exception):
+    """Nested action invoked via :meth:`call_action` returned ``ConnectorResponse.success=False``."""
+
+    def __init__(self, response: ConnectorResponse) -> None:
+        self.response = response
+        msg = response.message or response.error_code or "Nested action failed"
+        super().__init__(msg)
+
+
+def _merge_nested_failure_details(nested: ConnectorResponse) -> Any:
+    """Attach nested trace id for debugging without dropping existing ``details``."""
+    tid = nested.trace_id
+    d = nested.details
+    if tid is None or tid == "":
+        return d
+    if d is None:
+        return {"nested_trace_id": tid}
+    if isinstance(d, dict):
+        merged = dict(d)
+        merged.setdefault("nested_trace_id", tid)
+        return merged
+    return {"nested_trace_id": tid, "nested_details": d}
+
+
+# principal, tenant_id, scopes — set during :meth:`run` for nested :meth:`call_action`.
+_caller_execution_ctx: contextvars.ContextVar[
+    tuple[Optional[str], Optional[str], Optional[tuple[str, ...]]] | None
+] = contextvars.ContextVar("nw_connector_caller_execution", default=None)
 
 # Populated by BaseConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
@@ -441,7 +472,56 @@ class BaseConnector(ABC):
                             message=str(exc),
                             trace_id=trace_id,
                         )
+                        try:
+                            self._policy_hook.check(context)
+                        except PolicyDenied as exc:
+                            logger.warning(
+                                "Execution blocked by policy hook",
+                                extra={
+                                    "trace_id": trace_id,
+                                    "connector_id": self.connector_id,
+                                    "action": self.action,
+                                    "error_type": type(exc).__name__,
+                                    "error_message": str(exc),
+                                },
+                            )
+                            mapped = ErrorMapper.resolve(exc)
+                            return ConnectorResponse(
+                                success=False,
+                                error_code=mapped.code,
+                                error_category=mapped.category,
+                                message=str(exc),
+                                trace_id=trace_id,
+                            )
 
+                    execute_with_resilience = with_resilience(self._breaker)
+
+                    @execute_with_resilience
+                    async def _do_execute(*, trace_id: str) -> Any:
+                        return await self.internal_execute(input_model, trace_id=trace_id)
+
+                    output_model = await _do_execute(trace_id=trace_id)
+
+                    logger.info(
+                        "Connector execution completed successfully",
+                        extra={
+                            "trace_id": trace_id,
+                            "connector_id": self.connector_id,
+                            "action": self.action,
+                        },
+                    )
+
+                    return ConnectorResponse(
+                        success=True,
+                        data=output_model.model_dump(),
+                        trace_id=trace_id,
+                    )
+                finally:
+                    _caller_execution_ctx.reset(token)
+            except NestedConnectorActionError as exc:
+                nested = exc.response
+                logger.warning(
+                    "Nested connector action failed via call_action",
                 tenant_key = tenant_id or "default"
                 breaker_cache = getattr(self, "_breakers", None)
                 if breaker_cache is None:
@@ -471,14 +551,17 @@ class BaseConnector(ABC):
                     extra={
                         "trace_id": trace_id,
                         "connector_id": self.connector_id,
-                        "action": self.action,
+                        "nested_error_code": nested.error_code or "",
+                        "nested_trace_id": nested.trace_id,
                     },
                 )
-
                 return ConnectorResponse(
-                    success=True,
-                    data=output_model.model_dump(),
+                    success=False,
+                    error_code=nested.error_code,
+                    error_category=nested.error_category,
+                    message=nested.message,
                     trace_id=trace_id,
+                    details=_merge_nested_failure_details(nested),
                 )
             except Exception as exc:  # noqa: BLE001
                 mapped = ErrorMapper.resolve(exc)
@@ -550,13 +633,39 @@ class BaseConnector(ABC):
         )
         return await fn(root, trace_id=trace_id)
 
-    async def call_action(self, name: str, params_dict: Dict[str, Any]) -> Any:
-        """Invoke another action by name (for composite operations)."""
+    async def call_action(
+        self,
+        name: str,
+        params_dict: Dict[str, Any],
+        *,
+        principal: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        scopes: Optional[tuple[str, ...]] = None,
+    ) -> Any:
+        """Invoke another action via :meth:`run` so policy hooks and resilience apply.
+
+        When called from within an action that was entered through :meth:`run`
+        (e.g. MCP/REST with identity), caller ``principal`` / ``tenant_id`` /
+        ``scopes`` are inherited from that outer run unless overridden here.
+        """
         meta = self._action_registry.get(name)
         if meta is None:
             raise ValueError(
                 f"call_action: unknown action {name!r} on connector {self.connector_id!r}"
             )
-        validated = meta.input_model.model_validate(params_dict)
-        fn = getattr(self, meta.fn_name)
-        return await fn(validated, trace_id=str(uuid.uuid4()))
+        p, t, s = principal, tenant_id, scopes
+        if p is None and t is None and s is None:
+            inherited = _caller_execution_ctx.get()
+            if inherited is not None:
+                p, t, s = inherited
+
+        payload = dict(params_dict)
+        payload["action"] = name
+        resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
+        if not resp.success:
+            if resp.error_code == "POLICY_DENIED":
+                raise PolicyDenied(resp.message or "Policy denied")
+            raise NestedConnectorActionError(resp)
+        if resp.data is None:
+            raise RuntimeError("call_action: connector returned no data")
+        return meta.output_model.model_validate(resp.data)

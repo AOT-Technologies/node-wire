@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -10,6 +11,11 @@ from typing import Any, Dict, List, Mapping, Optional
 from bindings.factory import ConnectorFactory
 from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
 from node_wire_runtime.caller_identity import CallerIdentity
+from node_wire_runtime.policies.mcp_scope_policy import (
+    action_allowed_for_identity_scopes,
+    load_scope_map_from_env,
+    load_scope_policy_default_from_env,
+)
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import ConnectorResponse, ErrorCategory
@@ -18,6 +24,10 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
+_streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = contextvars.ContextVar(
+    "nw_streamable_http_identity",
+    default=None,
+)
 
 _http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
     "mcp_http_request_headers",
@@ -61,10 +71,14 @@ class McpServer:
         )
 
     def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
-        self._ensure_identity(identity=identity)
-        return self._list_tools_impl()
+        identity = self._ensure_identity(identity=identity)
+        return self._list_tools_impl(identity=identity)
 
-    def _list_tools_impl(self) -> List[Dict[str, Any]]:
+    def _list_tools_impl(
+        self, *, identity: CallerIdentity | None = None
+    ) -> List[Dict[str, Any]]:
+        scope_map = load_scope_map_from_env()
+        default_mode = load_scope_policy_default_from_env()
         connectors = self._factory.list_for_protocol("mcp")
         manifest = build_manifest(connectors)
         tools: List[Dict[str, Any]] = []
@@ -72,6 +86,17 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
+            if identity is not None:
+                if not action_allowed_for_identity_scopes(
+                    connector_id=cid,
+                    action=str(entry["action"]),
+                    principal=identity.principal,
+                    tenant_id=identity.tenant_id,
+                    scopes=identity.scopes,
+                    action_scope_map=scope_map,
+                    default_mode=default_mode,
+                ):
+                    continue
             schema_desc = entry["input_schema"].get("description", "")
             tool_desc = (f"{schema_desc}\n" if schema_desc else "") + (
                 f"Pass fields from inputSchema only; do not include an action field "
@@ -96,6 +121,9 @@ class McpServer:
     ) -> CallerIdentity | None:
         if identity is not None:
             return identity
+        request_identity = _streamable_http_identity_ctx.get()
+        if request_identity is not None:
+            return request_identity
         return authenticate_mcp_request(
             headers=_http_request_headers.get(),
             meta=meta,
@@ -194,7 +222,7 @@ class McpServer:
                     },
                 )
             out: list[Tool] = []
-            for t in self._list_tools_impl():
+            for t in self._list_tools_impl(identity=identity):
                 kwargs: Dict[str, Any] = {
                     "name": t["name"],
                     "description": t["description"],
@@ -260,25 +288,42 @@ class McpServer:
 
         anyio.run(self._run_stdio_async)
 
-    async def _run_streamable_http_async(self) -> None:
-        import os
-        from starlette.applications import Starlette
-        from starlette.routing import Route
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-        import uvicorn
+    def _build_streamable_http_app(self, *, session_manager: Any, path: str) -> Any:
         from contextlib import asynccontextmanager
 
-        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
-        port = int(os.getenv("NW_MCP_PORT", "8081"))
-        path = os.getenv("NW_MCP_PATH", "/mcp")
-
-        low = self._setup_lowlevel_server()
-        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+        from starlette.applications import Starlette
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
 
         @asynccontextmanager
         async def lifespan(app: Starlette):
             async with session_manager.run():
                 yield
+
+        class StreamableHttpAuthMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+                if request.url.path != path:
+                    return await call_next(request)
+                try:
+                    identity = authenticate_mcp_request(headers=request.headers)
+                except McpAuthError as exc:
+                    headers: Dict[str, str] = {}
+                    if exc.www_authenticate:
+                        headers["WWW-Authenticate"] = exc.www_authenticate
+                    return JSONResponse(
+                        status_code=exc.status_code,
+                        content=exc.to_payload(),
+                        headers=headers,
+                    )
+
+                setattr(request.state, "nw_mcp_identity", identity)
+                token = _streamable_http_identity_ctx.set(identity)
+                try:
+                    return await call_next(request)
+                finally:
+                    _streamable_http_identity_ctx.reset(token)
 
         # Use a wrapper class to ensure Starlette treats this as an ASGI app
         # without the automatic redirection logic of Mount().
@@ -307,6 +352,21 @@ class McpServer:
                 )
             ],
         )
+        starlette_app.add_middleware(StreamableHttpAuthMiddleware)
+        return starlette_app
+
+    async def _run_streamable_http_async(self) -> None:
+        import os
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        import uvicorn
+
+        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("NW_MCP_PORT", "8081"))
+        path = os.getenv("NW_MCP_PATH", "/mcp")
+
+        low = self._setup_lowlevel_server()
+        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+        starlette_app = self._build_streamable_http_app(session_manager=session_manager, path=path)
 
         logger.info(f"Starting MCP streamable-http server on {host}:{port}{path}")
         config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
