@@ -1,4 +1,5 @@
 """Tests for MCP and REST/gRPC process entrypoints."""
+
 from __future__ import annotations
 
 import sys

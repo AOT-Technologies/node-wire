@@ -7,11 +7,10 @@ Uses the anthropic SDK. Claude uses a different tool-use format —
 Required env var:  ANTHROPIC_API_KEY
 Optional env var:  ANTHROPIC_MODEL  (default: claude-3-5-haiku-20241022)
 """
+
 from __future__ import annotations
 
-import json
 import logging
-import uuid
 from typing import Any, Dict, List, Optional
 
 from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
@@ -45,23 +44,29 @@ def _messages_to_claude(
             if m.content:
                 content.append({"type": "text", "text": m.content})
             for tc in m.tool_calls:
-                content.append({
-                    "type": "tool_use",
-                    "id": tc.id,
-                    "name": tc.name,
-                    "input": tc.arguments,
-                })
+                content.append(
+                    {
+                        "type": "tool_use",
+                        "id": tc.id,
+                        "name": tc.name,
+                        "input": tc.arguments,
+                    }
+                )
             result.append({"role": "assistant", "content": content})
         elif m.role == "tool":
             # Claude expects tool results as user messages with tool_result blocks
-            result.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": m.tool_call_id,
-                    "content": m.content or "",
-                }],
-            })
+            result.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": m.tool_call_id,
+                            "content": m.content or "",
+                        }
+                    ],
+                }
+            )
 
     return result, system_prompt
 
@@ -77,9 +82,7 @@ class AnthropicProvider(BaseLLMProvider):
 
     def __init__(self, api_key: str, model: str = "claude-3-5-haiku-20241022") -> None:
         if anthropic is None:
-            raise ImportError(
-                "anthropic SDK not installed. Run: pip install 'node-wire[agents]'"
-            )
+            raise ImportError("anthropic SDK not installed. Run: pip install 'node-wire[agents]'")
         self._anthropic = anthropic
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
@@ -103,7 +106,9 @@ class AnthropicProvider(BaseLLMProvider):
         if claude_tools:
             kwargs["tools"] = claude_tools
 
-        logger.debug("Anthropic request | model=%s | messages=%d", self._model, len(claude_messages))
+        logger.debug(
+            "Anthropic request | model=%s | messages=%d", self._model, len(claude_messages)
+        )
         response = self._client.messages.create(**kwargs)
 
         tool_calls: List[ToolCall] = []
@@ -111,11 +116,13 @@ class AnthropicProvider(BaseLLMProvider):
 
         for block in response.content:
             if block.type == "tool_use":
-                tool_calls.append(ToolCall(
-                    id=block.id,
-                    name=block.name,
-                    arguments=block.input if isinstance(block.input, dict) else {},
-                ))
+                tool_calls.append(
+                    ToolCall(
+                        id=block.id,
+                        name=block.name,
+                        arguments=block.input if isinstance(block.input, dict) else {},
+                    )
+                )
             elif block.type == "text":
                 text_parts.append(block.text)
 

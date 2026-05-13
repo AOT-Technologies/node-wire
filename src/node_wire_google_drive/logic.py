@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -59,6 +57,7 @@ class GoogleDriveConnector(BaseConnector):
                 # This code path is reached during connector initialisation
                 # inside an async frame (e.g. in tests with pytest-asyncio).
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     creds = pool.submit(
                         lambda: asyncio.run(self._auth_provider.get_client_credentials())
@@ -75,6 +74,7 @@ class GoogleDriveConnector(BaseConnector):
             try:
                 from google.oauth2 import service_account  # type: ignore[import]
                 import json as _json
+
                 info = _json.loads(raw_sa)
                 creds = service_account.Credentials.from_service_account_info(
                     info,
@@ -94,15 +94,11 @@ class GoogleDriveConnector(BaseConnector):
 
         if status in (401, 403):
             if "quotaExceeded" in content_str or "rateLimitExceeded" in content_str:
-                raise GoogleDriveRateLimitError(
-                    "Google Drive quota/rate limit exceeded"
-                ) from exc
+                raise GoogleDriveRateLimitError("Google Drive quota/rate limit exceeded") from exc
             raise GoogleDriveAuthError("Authentication or permissions failure") from exc
 
         if status == 429 or status >= 500:
-            raise GoogleDriveRateLimitError(
-                "Upstream service unavailable or rate limited"
-            ) from exc
+            raise GoogleDriveRateLimitError("Upstream service unavailable or rate limited") from exc
 
         if status in (400, 404, 409):
             reason = getattr(exc, "reason", str(exc))
@@ -132,4 +128,3 @@ class GoogleDriveConnector(BaseConnector):
             raw=raw,
             description=f"Successfully executed {action_name}",
         )
-

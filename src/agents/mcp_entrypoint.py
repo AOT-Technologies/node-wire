@@ -1,4 +1,5 @@
 """MCP Server — all connectors exposed via MCP. Usage: python -m agents.mcp_entrypoint"""
+
 from __future__ import annotations
 
 import logging
@@ -6,8 +7,10 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv()
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+# Override inherited shell env so MCP auth/policy settings in project .env
+# are applied predictably across local runs.
+load_dotenv(override=True)
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agents.mcp_entrypoint")

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 # Patient – Read
 # ---------------------------------------------------------------------------
 
+
 class FhirCernerPatientReadInput(BaseModel):
     """Input for reading a FHIR Patient resource from Cerner."""
 
@@ -47,6 +48,7 @@ class FhirCernerPatientReadOutput(BaseModel):
 # Patient – Search (multi-ID fan-out OR name search returning multiple results)
 # ---------------------------------------------------------------------------
 
+
 class FhirCernerPatientSearchInput(BaseModel):
     """Input for searching / fetching multiple FHIR Patient resources from Cerner."""
 
@@ -74,6 +76,7 @@ class FhirCernerPatientSearchOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # Encounter – Search
 # ---------------------------------------------------------------------------
+
 
 class FhirCernerEncounterSearchInput(BaseModel):
     """Input for searching FHIR Encounter resources in Cerner."""
@@ -107,6 +110,7 @@ class FhirCernerEncounterSearchOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # DocumentReference – Create
 # ---------------------------------------------------------------------------
+
 
 class FhirCernerDocumentReferenceCreateInput(BaseModel):
     """Input for creating a FHIR DocumentReference resource in Cerner."""
@@ -201,7 +205,7 @@ class FhirCernerDocumentReferenceCreateInput(BaseModel):
 
     text: Optional[str] = None
     """Raw string content for the document attachment.
-    
+
     The connector will automatically base64-encode this string and send it via
     ``attachment.data``, as the Cerner sandbox does not support ``attachment.text``.
     """
@@ -228,7 +232,7 @@ class FhirCernerDocumentReferenceCreateInput(BaseModel):
 
     custodian: Optional[Dict[str, Any]] = None
     """Custodian of the document (e.g. Organization reference).
-    
+
     Example: {"reference": "Organization/{id}"}
     """
 
@@ -267,6 +271,7 @@ class FhirCernerDocumentReferenceCreateOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # DocumentReference – Search
 # ---------------------------------------------------------------------------
+
 
 class FhirCernerDocumentReferenceSearchInput(BaseModel):
     """Input for searching FHIR DocumentReference resources in Cerner."""

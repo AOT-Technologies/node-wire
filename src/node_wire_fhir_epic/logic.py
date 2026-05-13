@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import codecs
 import logging
+import os
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
-import jwt
 import json
 
 from node_wire_runtime import BaseConnector, nw_action, sdk_action
@@ -103,9 +105,18 @@ class FhirEpicConnector(BaseConnector):
         """Delegate to the runtime AuthProvider injected by the factory.
 
         Returns ready-to-use FHIR request headers including the Bearer token.
-        Token acquisition and caching are handled by the provider.
+        Token acquisition, JWT construction, scope resolution and caching are
+        all handled by the provider.
         """
-        return await self.get_auth_headers()
+        headers = await self.get_auth_headers()
+        # Ensure FHIR content types are present if the provider didn't include them (e.g. StaticTokenAuthProvider).
+        if "Content-Type" not in headers:
+            headers["Content-Type"] = "application/fhir+json"
+        if "Accept" not in headers:
+            headers["Accept"] = "application/fhir+json"
+
+        return headers
+
 
     @staticmethod
     def _build_name_search_params(
@@ -186,9 +197,9 @@ class FhirEpicConnector(BaseConnector):
             )
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
-                    url, headers=auth_header, params=query_params, timeout=30.0
+                    url, headers=auth_header, params=query_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
                 )
                 response.raise_for_status()
         except Exception as exc:
@@ -234,11 +245,11 @@ class FhirEpicConnector(BaseConnector):
 
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
                 try:
-                    async with httpx.AsyncClient() as client:
+                    async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                         resp = await client.get(
                             f"{base_url}/Patient/{rid}",
                             headers=auth_header,
-                            timeout=30.0,
+                            timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                         )
                         resp.raise_for_status()
                     return rid, resp.json(), None
@@ -267,9 +278,7 @@ class FhirEpicConnector(BaseConnector):
                 len(errors),
                 extra={"trace_id": trace_id},
             )
-            return FhirPatientSearchOutput(
-                resources=resources, total=len(resources), errors=errors
-            )
+            return FhirPatientSearchOutput(resources=resources, total=len(resources), errors=errors)
 
         name_params = self._build_name_search_params(
             params.given_name,
@@ -291,12 +300,12 @@ class FhirEpicConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
                     f"{base_url}/Patient",
                     headers=auth_header,
                     params=name_params,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -357,12 +366,12 @@ class FhirEpicConnector(BaseConnector):
         auth_header = await self._get_auth_header()
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
                     f"{base_url}/Encounter",
                     headers=auth_header,
                     params=query_params,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -431,12 +440,12 @@ class FhirEpicConnector(BaseConnector):
         logger.info("FHIR DocumentReference create", extra={"trace_id": trace_id})
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.post(
                     f"{base_url}/DocumentReference",
                     json=doc_ref,
                     headers=auth_header,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
@@ -515,12 +524,12 @@ class FhirEpicConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
                 response = await client.get(
                     f"{base_url}/DocumentReference",
                     headers=auth_header,
                     params=params.search_params,
-                    timeout=30.0,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:

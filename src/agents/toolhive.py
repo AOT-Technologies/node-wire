@@ -23,6 +23,8 @@ Usage::
 Environment variables:
     TOOLHIVE_MCP_URL : MCP proxy URL from ToolHive UI (e.g. http://localhost:PORT/mcp)
     TOOLHIVE_MCP_URLS: Comma-separated MCP proxy URLs (multi-server)
+    TOOLHIVE_MCP_API_KEY: Optional inbound MCP auth key (sent as Bearer + X-API-Key)
+    TOOLHIVE_MCP_BEARER_TOKEN: Optional inbound MCP bearer token (JWT/API key)
     TOOLHIVE_MAX_TOOL_FAILURES: Stop after this many failed invocations per tool name (default: 2)
     LLM_PROVIDER     : groq | openai | gemini | anthropic  (default: groq)
     GROQ_API_KEY     : (when using groq)
@@ -30,6 +32,7 @@ Environment variables:
     GEMINI_API_KEY   : (when using gemini)
     ANTHROPIC_API_KEY: (when using anthropic)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +44,8 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol
+import re
 
 from dotenv import load_dotenv
 
@@ -52,8 +56,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("agents.toolhive")
 
-
-import re
 
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _SMTP_EMAIL_FIELDS = {"from_email", "to", "cc", "bcc", "reply_to", "sender"}
@@ -155,9 +157,39 @@ def _tool_failure_abort_message(tool_name: str, max_failures: int) -> str:
     )
 
 
+def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
+    """Split final assistant text into UI-friendly chunks for stream consumers."""
+    if not text:
+        return [""]
+    chunks: List[str] = []
+    current = ""
+    for part in text.split(" "):
+        candidate = f"{current} {part}".strip()
+        if current and len(candidate) > chunk_size:
+            chunks.append(current + " ")
+            current = part
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
+    from node_wire_runtime.streaming import stream_completion_log
+    stream_completion_log(trace_id, success, connector_id="agent", action="run_events")
+    return {
+        "type": "done",
+        "trace_id": trace_id,
+        "success": success,
+        "message": f"Streaming completed. trace_id={trace_id}",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Result model
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AgentStep:
@@ -180,6 +212,7 @@ class AgentRunResult:
 # ---------------------------------------------------------------------------
 # Lightweight async MCP client (SSE / streamable-HTTP transport)
 # ---------------------------------------------------------------------------
+
 
 class McpClient(Protocol):
     async def list_tools(self) -> List[Dict[str, Any]]: ...
@@ -206,6 +239,43 @@ class ToolHiveMcpClient:
         self._base_url = base_url.rstrip("/")
         self._session_id: Optional[str] = None
         self._initialized: bool = False
+        self._auth_token: Optional[str] = (
+            os.environ.get("TOOLHIVE_MCP_BEARER_TOKEN")
+            or os.environ.get("TOOLHIVE_MCP_API_KEY")
+        )
+
+    def _build_request_headers(self) -> Dict[str, str]:
+        headers: Dict[str, str] = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        # For MCP auth-gated servers, send both forms for compatibility.
+        if self._auth_token:
+            headers["Authorization"] = f"Bearer {self._auth_token}"
+            headers["X-API-Key"] = self._auth_token
+        return headers
+
+    def _inject_auth_meta(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self._auth_token:
+            return dict(params)
+        out = dict(params)
+        meta = out.get("_meta")
+        if isinstance(meta, dict):
+            merged_meta = dict(meta)
+        else:
+            merged_meta = {}
+        # Include common aliases to maximize compatibility with MCP servers.
+        merged_meta.setdefault("authorization", f"Bearer {self._auth_token}")
+        merged_meta.setdefault("Authorization", f"Bearer {self._auth_token}")
+        merged_meta.setdefault("x-api-key", self._auth_token)
+        merged_meta.setdefault("X-API-Key", self._auth_token)
+        merged_meta.setdefault("token", self._auth_token)
+        merged_meta.setdefault("api_key", self._auth_token)
+        merged_meta.setdefault("apiKey", self._auth_token)
+        out["_meta"] = merged_meta
+        return out
 
     async def _initialize(self) -> None:
         """Send MCP initialize + initialized handshake; store session ID."""
@@ -225,10 +295,7 @@ class ToolHiveMcpClient:
             resp = await client.post(
                 self._base_url,
                 json=init_payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json, text/event-stream",
-                },
+                headers=self._build_request_headers(),
             )
             resp.raise_for_status()
             session_id = resp.headers.get("Mcp-Session-Id")
@@ -240,14 +307,8 @@ class ToolHiveMcpClient:
 
             # Send the initialized notification (fire-and-forget; no id = notification)
             notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-            headers: Dict[str, str] = {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-            }
-            if self._session_id:
-                headers["Mcp-Session-Id"] = self._session_id
             try:
-                await client.post(self._base_url, json=notif, headers=headers)
+                await client.post(self._base_url, json=notif, headers=self._build_request_headers())
             except Exception:
                 pass  # Notifications have no response; ignore transport errors
 
@@ -264,19 +325,14 @@ class ToolHiveMcpClient:
             "id": str(uuid.uuid4()),
             "method": method,
         }
-        if params:
-            payload["params"] = params
-
-        headers: Dict[str, str] = {
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        }
-        if self._session_id:
-            headers["Mcp-Session-Id"] = self._session_id
+        # Always include params when auth token is present so _meta is sent even
+        # for methods like tools/list that otherwise pass {}.
+        if params or self._auth_token:
+            payload["params"] = self._inject_auth_meta(params)
 
         url = self._base_url
         async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+            resp = await client.post(url, json=payload, headers=self._build_request_headers())
             resp.raise_for_status()
             data = resp.json()
             if "error" in data:
@@ -335,7 +391,9 @@ class MultiMcpClient:
 
         logger.info(
             "MultiMcpClient: %d/%d clients reachable, %d tools discovered",
-            success_count, len(self._clients), len(merged),
+            success_count,
+            len(self._clients),
+            len(merged),
         )
         self._tool_to_client_idx = tool_to_idx
         return merged
@@ -395,7 +453,10 @@ class StdioMcpClient:
             raise RuntimeError("Client not initialised. Use 'async with'")
         resp = await self._session.list_tools()
         # Convert to simple tool list
-        return [{"name": t.name, "description": t.description, "input_schema": t.inputSchema} for t in resp.tools]
+        return [
+            {"name": t.name, "description": t.description, "input_schema": t.inputSchema}
+            for t in resp.tools
+        ]
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
         if not self._session:
@@ -408,6 +469,7 @@ class StdioMcpClient:
 # ---------------------------------------------------------------------------
 # The Agent
 # ---------------------------------------------------------------------------
+
 
 class ToolHiveAgent:
     """
@@ -442,7 +504,7 @@ class ToolHiveAgent:
             "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
             "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
             "  1. First turn: Obtain patient demographics from the EHR.\n"
-            "     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{\"resource_id\": \"<id>\"}` (use Epic when the ID starts with 'e'). Do NOT use search_patients for a known ID.\n"
+            '     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
             "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
             "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
             "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
@@ -473,8 +535,6 @@ class ToolHiveAgent:
             "- Always confirm what you've done after completing the requested actions.\n"
             "- Keep responses concise and professional.\n"
         )
-
-
 
     async def run(self, task: str) -> AgentRunResult:
         trace_id = str(uuid.uuid4())
@@ -519,11 +579,13 @@ class ToolHiveAgent:
                 return result
 
             # Track the assistant turn
-            messages.append(LLMMessage(
-                role="assistant",
-                content=llm_resp.content,
-                tool_calls=llm_resp.tool_calls,
-            ))
+            messages.append(
+                LLMMessage(
+                    role="assistant",
+                    content=llm_resp.content,
+                    tool_calls=llm_resp.tool_calls,
+                )
+            )
 
             if not llm_resp.wants_tool_call:
                 # LLM finished
@@ -563,12 +625,14 @@ class ToolHiveAgent:
                         len(llm_tool_content),
                     )
 
-                messages.append(LLMMessage(
-                    role="tool",
-                    content=llm_tool_content,
-                    tool_call_id=tc.id,
-                    name=tc.name,
-                ))
+                messages.append(
+                    LLMMessage(
+                        role="tool",
+                        content=llm_tool_content,
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                    )
+                )
 
                 if _is_tool_failure(tool_result_str):
                     tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
@@ -584,15 +648,147 @@ class ToolHiveAgent:
                 break
         else:
             # Hit max_steps without a final answer
-            result.error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
+            result.error = (
+                f"Agent reached max_steps ({self._max_steps}) without completing the task."
+            )
             logger.warning(result.error)
 
+        from node_wire_runtime.streaming import stream_completion_log
+        stream_completion_log(trace_id, result.success, connector_id="agent", action="run")
         return result
+
+    async def run_events(self, task: str) -> AsyncIterator[Dict[str, Any]]:
+        trace_id = str(uuid.uuid4())
+        from node_wire_runtime.streaming import resolve_stream_buffer_ms, BufferedStreamIterator
+        
+        buffer_ms = resolve_stream_buffer_ms()
+        iterator = self._run_events_inner(task, trace_id)
+        
+        if buffer_ms > 0:
+            async for item in BufferedStreamIterator(iterator, buffer_ms, trace_id, connector_id="agent", action="run_events"):
+                yield item
+        else:
+            async for item in iterator:
+                yield item
+
+    async def _run_events_inner(self, task: str, trace_id: str) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Stream agent progress events for web clients.
+
+        Contract:
+        - ``meta``: emitted once with ``trace_id``.
+        - ``status``: informational progress text.
+        - ``step``: emitted after each MCP tool call completes.
+        - ``final_chunk``: chunks of the final assistant answer.
+        - ``error``: recoverable terminal error text.
+        - ``done``: always emitted at terminal completion; clients should stop
+          loaders when this event arrives.
+        Stream agent progress events as the ReAct loop runs.
+
+        The LLM providers currently return complete assistant messages, so final
+        answer chunks begin after the final LLM call completes. Tool-step events
+        are emitted immediately after each MCP tool call completes.
+        """
+        logger.info("Streaming agent run started | trace_id=%s", trace_id)
+        logger.info("Task: %s", task)
+
+        from agents.llm_factory import LLMMessage
+
+        yield {"type": "meta", "trace_id": trace_id}
+
+        try:
+            tools = await self._mcp.list_tools()
+            logger.info("Discovered %d MCP tools", len(tools))
+            yield {"type": "status", "message": f"Discovered {len(tools)} MCP tools"}
+        except Exception as exc:
+            error = f"Failed to list MCP tools: {exc}"
+            logger.error(error)
+            yield {"type": "error", "trace_id": trace_id, "message": error}
+            yield _stream_done_event(trace_id, success=False)
+            return
+
+        messages: List[LLMMessage] = [
+            LLMMessage(role="system", content=self._system_prompt),
+            LLMMessage(role="user", content=task),
+        ]
+        tool_failures: Dict[str, int] = {}
+
+        for step_num in range(1, self._max_steps + 1):
+            logger.info("Streaming agent step %d / %d", step_num, self._max_steps)
+            yield {"type": "status", "message": f"Agent reasoning step {step_num}"}
+
+            try:
+                llm_resp = self._llm.chat_with_tools(messages, tools)
+            except Exception as exc:
+                error = f"LLM error at step {step_num}: {exc}"
+                logger.error(error)
+                yield {"type": "error", "trace_id": trace_id, "message": error}
+                yield _stream_done_event(trace_id, success=False)
+                return
+
+            messages.append(LLMMessage(
+                role="assistant",
+                content=llm_resp.content,
+                tool_calls=llm_resp.tool_calls,
+            ))
+
+            if not llm_resp.wants_tool_call:
+                for chunk in _chunk_agent_text(llm_resp.content or ""):
+                    yield {"type": "final_chunk", "content": chunk}
+                yield _stream_done_event(trace_id, success=True)
+                return
+
+            abort_message: Optional[str] = None
+            for tc in llm_resp.tool_calls:
+                scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
+                logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
+
+                try:
+                    tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
+                    logger.info("Tool %s returned: %.200s", tc.name, tool_result_str)
+                except Exception as exc:
+                    tool_result_str = f"ERROR: {exc}"
+                    logger.error("Tool %s failed: %s", tc.name, exc)
+
+                yield {
+                    "type": "step",
+                    "step": step_num,
+                    "tool": tc.name,
+                    "args": tc.arguments,
+                    "result": tool_result_str,
+                }
+
+                messages.append(LLMMessage(
+                    role="tool",
+                    content=truncate_tool_result_for_llm(tool_result_str),
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                ))
+
+                if _is_tool_failure(tool_result_str):
+                    tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
+                    if tool_failures[tc.name] >= self._max_tool_failures:
+                        abort_message = _tool_failure_abort_message(tc.name, self._max_tool_failures)
+                        logger.warning("Stopping streaming agent: %s", abort_message)
+                        break
+
+            if abort_message:
+                for chunk in _chunk_agent_text(abort_message):
+                    yield {"type": "final_chunk", "content": chunk}
+                yield _stream_done_event(trace_id, success=False)
+                return
+
+        error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
+        logger.warning(error)
+        for chunk in _chunk_agent_text(error):
+            yield {"type": "final_chunk", "content": chunk}
+        yield _stream_done_event(trace_id, success=False)
 
 
 # ---------------------------------------------------------------------------
 # CLI entrypoint
 # ---------------------------------------------------------------------------
+
 
 async def _run_agent(args: argparse.Namespace) -> None:
     from agents.llm_factory import LLMProviderFactory
@@ -639,19 +835,23 @@ async def _run_agent(args: argparse.Namespace) -> None:
         await _execute_task(agent, args, llm_provider_name, ",".join(urls))
 
 
-async def _execute_task(agent: ToolHiveAgent, args: argparse.Namespace, provider_name: str, mcp_info: str) -> None:
-
+async def _execute_task(
+    agent: ToolHiveAgent, args: argparse.Namespace, provider_name: str, mcp_info: str
+) -> None:
     # Build the task prompt
     task_parts = [
         f"Patient ID: {args.patient_id}" if args.patient_id else "",
-        f"Patient name — family: {args.patient_family}, given: {args.patient_given}" if args.patient_family else "",
-        f"Please:",
-        f"1. Fetch the patient's details from Cerner FHIR or Epic FHIR (if the ID starts with 'e').",
+        f"Patient name — family: {args.patient_family}, given: {args.patient_given}"
+        if args.patient_family
+        else "",
+        "Please:",
+        "1. Fetch the patient's details from Cerner FHIR or Epic FHIR (if the ID starts with 'e').",
         f"2. Create a text file named 'patient_summary_{args.patient_id or args.patient_family}.txt' in Google Drive"
-        + (f" in folder {args.drive_folder_id}" if args.drive_folder_id else "") + ".",
+        + (f" in folder {args.drive_folder_id}" if args.drive_folder_id else "")
+        + ".",
         f"3. Send an email to {args.recipient_email} with the subject "
         f"'Patient Summary' and the patient details in the body.",
-        f"After completing all steps, confirm what was done.",
+        "After completing all steps, confirm what was done.",
     ]
     task = "\n".join(p for p in task_parts if p)
 
@@ -690,22 +890,31 @@ def main() -> None:
     parser.add_argument("--patient-id", default="", help="Cerner or Epic FHIR Patient ID")
     parser.add_argument("--patient-family", default="", help="Patient family name (for search)")
     parser.add_argument("--patient-given", default="", help="Patient given name (for search)")
-    parser.add_argument("--recipient-email", required=True, help="Email address to send the summary to")
-    parser.add_argument("--drive-folder-id", default=os.environ.get("GOOGLE_DRIVE_FOLDER_ID", ""), help="Google Drive folder ID (optional)")
-    parser.add_argument("--max-steps", type=int, default=10, help="Maximum agent steps (default: 10)")
+    parser.add_argument(
+        "--recipient-email", required=True, help="Email address to send the summary to"
+    )
+    parser.add_argument(
+        "--drive-folder-id",
+        default=os.environ.get("GOOGLE_DRIVE_FOLDER_ID", ""),
+        help="Google Drive folder ID (optional)",
+    )
+    parser.add_argument(
+        "--max-steps", type=int, default=10, help="Maximum agent steps (default: 10)"
+    )
     parser.add_argument(
         "--max-tool-failures",
         type=int,
         default=None,
         help="Stop after this many failed calls per tool name (default: env TOOLHIVE_MAX_TOOL_FAILURES or 2)",
     )
-    parser.add_argument("--local", action="store_true", help="Run against local server via stdio (no proxy)")
+    parser.add_argument(
+        "--local", action="store_true", help="Run against local server via stdio (no proxy)"
+    )
     args = parser.parse_args()
 
     if not args.patient_id and not args.patient_family:
         parser.error("Provide either --patient-id or --patient-family")
 
-    import sys
     asyncio.run(_run_agent(args))
 
 
