@@ -4,9 +4,10 @@ import asyncio
 
 import pytest
 from pydantic import BaseModel
-from pybreaker import CircuitBreakerError
+from pybreaker import CircuitBreaker, CircuitBreakerError
 
 from node_wire_runtime import BaseConnector, ErrorCategory, ErrorMapper, nw_action
+from node_wire_runtime.resilience import _resolve_breaker, with_resilience
 
 
 class RetryableTestError(Exception):
@@ -124,6 +125,37 @@ def test_circuit_breaker_error_defaults_to_fatal_mapping() -> None:
 
     assert mapped.code == "CircuitBreakerError"
     assert mapped.category == ErrorCategory.FATAL
+
+
+def test_resolve_breaker_returns_same_instance_for_circuit_breaker() -> None:
+    cb = CircuitBreaker()
+    assert _resolve_breaker(cb) is cb
+
+
+def test_resolve_breaker_invokes_factory_callable() -> None:
+    created = CircuitBreaker()
+
+    def factory() -> CircuitBreaker:
+        return created
+
+    assert _resolve_breaker(factory) is created
+
+
+def test_resolve_breaker_resolved_object_has_state() -> None:
+    cb = CircuitBreaker()
+    resolved = _resolve_breaker(cb)
+    assert hasattr(resolved, "state")
+    assert resolved.state.name in ("closed", "open", "half-open")
+
+
+def test_with_resilience_accepts_concrete_circuit_breaker_instance() -> None:
+    breaker = CircuitBreaker()
+
+    @with_resilience(breaker)
+    async def succeed(*, trace_id: str = "t") -> str:
+        return "ok"
+
+    assert asyncio.run(succeed(trace_id="x")) == "ok"
 
 
 def test_fatal_errors_do_not_retry() -> None:

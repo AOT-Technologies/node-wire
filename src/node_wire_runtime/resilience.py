@@ -32,6 +32,10 @@ class _AbortRetry(BaseException):
 def _resolve_breaker(
     breaker: CircuitBreaker | Callable[[], CircuitBreaker],
 ) -> CircuitBreaker:
+    # CircuitBreaker instances are callable (__call__); treat concrete instances
+    # before callable check so we don't invoke them like factory functions.
+    if isinstance(breaker, CircuitBreaker):
+        return breaker
     return breaker() if callable(breaker) else breaker
 
 
