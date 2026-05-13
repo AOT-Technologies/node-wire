@@ -488,6 +488,8 @@ pytest tests/test_toolhive_agent.py -v
 
 Most tests are unit tests that run without real credentials. Integration tests that call live APIs are skipped unless the relevant environment variables are set.
 
+For deterministic pytest runs (especially when a repo-root `.env` exists locally), `tests/conftest.py` sets **`NW_REST_LOAD_DOTENV=false`** so REST startup does not merge `.env` over test variables, **`NW_CONFIG_PATH`** to [`tests/fixtures/connectors_for_tests.yaml`](tests/fixtures/connectors_for_tests.yaml) so optional connectors not on the test allowlist stay **`enabled: false`** (e.g. slack, salesforce), and a fixed **`NW_ALLOWED_CONNECTORS`** list. Do not rely on `.env` values during collection.
+
 ---
 
 ## Code quality and security gates

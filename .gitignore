@@ -28,3 +28,4 @@ uv.lock
 upload-test.txt
 *-test.txt
 upload-*.txt
+coverage.xml

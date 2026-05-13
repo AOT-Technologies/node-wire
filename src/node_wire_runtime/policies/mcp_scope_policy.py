@@ -150,10 +150,13 @@ def load_scope_map_from_env() -> dict[str, str]:
     raw = os.environ.get("NW_MCP_ACTION_SCOPE_MAP_JSON")
     if not raw:
         # Mirror MCP auth bootstrap behavior: recover config from project .env
-        # when launch paths inherit incomplete shell env.
-        repo_root_env = Path(__file__).resolve().parents[3] / ".env"
-        load_dotenv(override=True)
-        load_dotenv(repo_root_env, override=True)
+        # when launch paths inherit incomplete shell env. Use override=False so
+        # explicitly set variables (e.g. pytest conftest, production injection) are not
+        # stomped by repo .env — same as playground/scenarios load_dotenv().
+        if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+            repo_root_env = Path(__file__).resolve().parents[3] / ".env"
+            load_dotenv(override=False)
+            load_dotenv(repo_root_env, override=False)
         raw = os.environ.get("NW_MCP_ACTION_SCOPE_MAP_JSON")
     if not raw:
         logger.info("Scope policy map not configured (env empty)")
