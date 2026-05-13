@@ -11,12 +11,9 @@ import asyncio
 import os
 import time
 
-
 class RateLimitExceeded(Exception):
     """Raised when the rate limit has been exceeded."""
-
     pass
-
 
 class TokenBucket:
     def __init__(self, capacity: float, refill_rate: float) -> None:
@@ -38,16 +35,15 @@ class TokenBucket:
         async with self._lock:
             now = time.monotonic()
             elapsed = now - self.last_refill
-
+            
             # Refill the bucket based on elapsed time
             self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
             self.last_refill = now
-
+            
             if self.tokens >= amount:
                 self.tokens -= amount
             else:
                 raise RateLimitExceeded("Global rate limit exceeded. Please try again later.")
-
 
 # Global default instance configured via environment variables
 burst = float(os.environ.get("NW_RATE_LIMIT_BURST", "50"))

@@ -5,7 +5,7 @@ import logging
 import os
 import uuid
 from contextvars import ContextVar
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bindings.factory import ConnectorFactory
 from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
@@ -23,6 +23,53 @@ _http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
     "mcp_http_request_headers",
     default=None,
 )
+
+
+def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int, Optional[str]]:
+    """
+    Recursively search for large lists and truncate them.
+    Also tracks the maximum list size found and searches for pagination tokens.
+    Returns: (processed_data, was_truncated, max_list_size, next_page_token)
+    """
+    next_page_token = None
+    max_list_size = 0
+    was_truncated = False
+
+    if isinstance(data, list):
+        current_len = len(data)
+        max_list_size = max(max_list_size, current_len)
+        
+        working_list = data
+        if current_len > max_items:
+            working_list = data[:max_items]
+            was_truncated = True
+
+        out_list = []
+        for item in working_list:
+            new_item, t, mls, npt = _process_response_payload(item, max_items)
+            out_list.append(new_item)
+            was_truncated = was_truncated or t
+            max_list_size = max(max_list_size, mls)
+            if npt and not next_page_token: next_page_token = npt
+
+        return out_list, was_truncated, max_list_size, next_page_token
+
+    if isinstance(data, dict):
+        out_dict = {}
+        for k, v in data.items():
+            if k in ("nextPageToken", "pageToken", "next_cursor", "cursor", "next_page_token") and isinstance(v, str):
+                if not next_page_token:
+                    next_page_token = v
+
+            new_v, t, mls, npt = _process_response_payload(v, max_items)
+            out_dict[k] = new_v
+            was_truncated = was_truncated or t
+            max_list_size = max(max_list_size, mls)
+            if npt and not next_page_token: next_page_token = npt
+
+        return out_dict, was_truncated, max_list_size, next_page_token
+
+    return data, False, 0, next_page_token
 
 
 class McpServer:
@@ -73,7 +120,26 @@ class McpServer:
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
             schema_desc = entry["input_schema"].get("description", "")
-            tool_desc = (f"{schema_desc}\n" if schema_desc else "") + (
+
+            security_lines = []
+            if entry.get("requires_auth"):
+                security_lines.append("- Requires Auth: Yes")
+            scopes = entry.get("scopes")
+            if scopes:
+                security_lines.append(f"- Scopes: {', '.join(scopes)}")
+            rate_limit = entry.get("rate_limit")
+            if rate_limit:
+                security_lines.append(f"- Rate Limit: {rate_limit}")
+            if entry.get("deprecated"):
+                security_lines.append("- DEPRECATED: True")
+
+            sec_block = "\n".join(security_lines)
+            if sec_block:
+                sec_block = f"\n\nSecurity & Limits:\n{sec_block}\n\n"
+
+            tool_desc = (
+                f"{schema_desc}\n" if schema_desc else ""
+            ) + sec_block + (
                 f"Pass fields from inputSchema only; do not include an action field "
                 f"(it is injected from the tool name). "
                 f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
@@ -134,6 +200,8 @@ class McpServer:
         except RateLimitExceeded as e:
             raise ValueError(str(e))
 
+
+
         try:
             connector_id, action = name.split(".", 1)
         except ValueError:
@@ -151,6 +219,27 @@ class McpServer:
         run_args["action"] = action
 
         trace_id = run_args.get("trace_id") or str(uuid.uuid4())
+        
+        # Proactively inject/clamp pagination parameters to prevent native token desync
+        # caused by the post-execution truncation guardrail
+        max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
+        meta = connector.sdk_action_metas().get(action)
+        clamped_params = {}
+        if meta and hasattr(meta.input_model, "model_fields"):
+            for page_param in ["page_size", "limit", "_count"]:
+                if page_param in meta.input_model.model_fields:
+                    current_val = run_args.get(page_param)
+                    if current_val is None:
+                        run_args[page_param] = max_items
+                        clamped_params[page_param] = max_items
+                    else:
+                        try:
+                            val = int(current_val)
+                            run_args[page_param] = min(val, max_items)
+                            clamped_params[page_param] = run_args[page_param]
+                        except (ValueError, TypeError):
+                            pass
+
         try:
             response = await connector.run(
                 run_args,
@@ -159,10 +248,74 @@ class McpServer:
                 scopes=identity.scopes if identity else None,
             )
             stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
-            return response.model_dump()
         except Exception as exc:
             stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
             raise
+        
+        raw_response = response.model_dump()
+
+        # Enforce MCP sampling guardrail
+        processed_payload, was_truncated, item_count, next_token = _process_response_payload(raw_response, max_items)
+        
+        # Overwrite raw_response in place
+        raw_response.clear()
+        raw_response.update(processed_payload)
+
+        # Add _system_pagination_used metadata (keeps old clients/MCP inspector working)
+        if clamped_params:
+            raw_response["_system_pagination_used"] = clamped_params
+
+        # IMPORTANT: Inject metadata IN-BAND inside the "data" dictionary so client UIs 
+        # (like Toolhive / Agent chat) that only render the `data` block will explicitly see it.
+        if "data" in raw_response and isinstance(raw_response["data"], dict):
+            pagination_meta = {}
+            if clamped_params:
+                pagination_meta["coerced_parameters"] = clamped_params
+            pagination_meta["items_returned"] = item_count
+            if was_truncated:
+                pagination_meta["was_truncated_by_server"] = True
+            if next_token:
+                pagination_meta["next_page_token"] = next_token
+            # Prepend it visually for the LLM
+            raw_response["data"] = {"_server_pagination_metadata": pagination_meta, **raw_response["data"]}
+        
+        # We also inject explicitly into the root if it doesn't have a data block
+        elif not isinstance(raw_response.get("data"), dict):
+            raw_response["_server_pagination_metadata"] = {
+                "coerced_parameters": clamped_params,
+                "items_returned": item_count,
+                "next_page_token": next_token
+            }
+
+        # Build dynamic system message
+        sys_msgs = []
+        if clamped_params:
+            sys_msgs.append(f"[System Pagination] Arguments coerced to safeguard limits: {json.dumps(clamped_params)}")
+        
+        if item_count > 0:
+            count_msg = f"[System Guardrail] The connector returned {item_count} items."
+            if was_truncated:
+                count_msg += f" (truncated to {max_items} to preserve context)"
+            sys_msgs.append(count_msg)
+
+        if next_token:
+            sys_msgs.append(f"[System Pagination] nextPageToken available for next query: '{next_token}'")
+
+        if was_truncated and not next_token:
+            sys_msgs.append(
+                f"[System Guardrail WARNING] Data exceeded {max_items} items and was hard-truncated. "
+                "No native next page token was found! You MUST retry this query with an explicit "
+                f"`page_size` or limit parameter set to {max_items} to force the API to generate valid cursors."
+            )
+
+        if sys_msgs:
+            combined_sys_msgs = "\n".join(sys_msgs)
+            if raw_response.get("message"):
+                raw_response["message"] = f"{raw_response['message']}\n\n{combined_sys_msgs}"
+            else:
+                raw_response["message"] = combined_sys_msgs
+
+        return raw_response
 
     def _setup_lowlevel_server(self) -> Any:
         from mcp.server import Server as LowLevelServer

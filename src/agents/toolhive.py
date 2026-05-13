@@ -524,6 +524,11 @@ class ToolHiveAgent:
             "  2. Use `data.raw.webViewLink` from the `google_drive.files.upload` tool result.\n"
             "  3. In the email body, provide that link instead of the actual data.\n"
             "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
+            "PAGINATION HANDLING — IMPORTANT:\n"
+            "- When tools return pagination metadata with 'next_page_token', you MUST call the same tool again with 'page_token' set to that value to get the next page.\n"
+            "- Always check for pagination info in tool results and continue fetching pages until there's no 'next_page_token'.\n"
+            "- For Google Drive tools: Use 'page_token' from previous result to get next page of files.\n"
+            "- For FHIR search tools: Use pagination tokens to get complete result sets.\n\n"
             "GUARDRAILS:\n"
             "- NEVER hallucinate or make up patient details. DO NOT guess IDs like '12345'. If missing, ask the user.\n"
             "- NEVER use placeholders like 'to be updated later' or '<web_view_link>'.\n"
@@ -608,7 +613,35 @@ class ToolHiveAgent:
 
                 try:
                     tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
-                    logger.info("Tool %s returned: %.200s", tc.name, tool_result_str)
+                    logger.info("Tool %s returned response of length: %d chars", tc.name, len(tool_result_str))
+                    
+                    
+                    # --- AUTOMATIC PAGINATION TOKEN HANDLING ---
+                    try:
+                        result_data = json.loads(tool_result_str)
+                        pagination_meta = result_data.get('data', {}).get('_server_pagination_metadata', {})
+                        next_token = pagination_meta.get('next_page_token')
+                        
+                        if next_token:
+                            print(f"\n=== PAGINATION TOKEN DETECTED ===", file=sys.stderr)
+                            
+                            # Add pagination info to tool result for LLM to see
+                            pagination_info = (
+                                f"\n\n[PAGINATION INFO]\n"
+                                f"Items returned: {pagination_meta.get('items_returned')}\n"
+                                f"Was truncated: {pagination_meta.get('was_truncated_by_server', False)}\n"
+                                f"Next page token available: {next_token}\n"
+                                f"To get next page, call the same tool with page_token='{next_token}'"
+                            )
+                            tool_result_str += pagination_info
+                            print(f"=== ADDED PAGINATION INFO TO RESULT ===", file=sys.stderr)
+                        else:
+                            print(f"\n=== NO PAGINATION TOKEN FOUND ===", file=sys.stderr)
+                    except (json.JSONDecodeError, KeyError) as e:
+                        print(f"Error parsing pagination metadata: {e}", file=sys.stderr)
+                    
+                    print(f"=================================================\n", file=sys.stderr, flush=True)
+
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"
                     logger.error("Tool %s failed: %s", tc.name, exc)
