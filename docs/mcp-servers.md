@@ -100,7 +100,11 @@ PowerShell:
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 #### 2. Shifting to native HTTP mode (Port 8081)
@@ -112,7 +116,11 @@ $env:NW_MCP_TRANSPORT="streamable-http"
 $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 **Bash (Linux/macOS):**
@@ -121,7 +129,11 @@ export NW_MCP_TRANSPORT="streamable-http"
 export NW_MCP_HOST="127.0.0.1"
 export NW_MCP_PORT="8081"
 export NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 The native HTTP endpoint will be:
@@ -156,16 +168,16 @@ Use stdio mode when you want Inspector to launch the Python MCP server process i
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
 ```
 
 Per-connector examples:
 
 ```powershell
-npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_cerner_mcp
-npx @modelcontextprotocol/inspector python -m agents.smtp_mcp
+npx @modelcontextprotocol/inspector uv run nw-google-drive
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-epic
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-cerner
+npx @modelcontextprotocol/inspector uv run python -m agents.smtp_mcp
 ```
 
 In the Inspector UI:
