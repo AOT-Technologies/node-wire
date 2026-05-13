@@ -30,14 +30,19 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+
 from bindings.rest_api.auth import RestAuthMiddleware, get_rest_caller_identity
 
 # Add project root to sys.path to allow importing from 'playground' package
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
-
+    
 from playground.scenarios import router as scenarios_router
+
+
+
 
 logger = logging.getLogger("bindings.rest_api")
 tracer = trace.get_tracer("bindings.rest_api")
@@ -57,6 +62,7 @@ app.mount("/playground", StaticFiles(directory=str(DEMO_DIR), html=True), name="
 
 _factory: ConnectorFactory | None = None
 
+
 def get_factory() -> ConnectorFactory:
     global _factory
     if _factory is None:
@@ -66,9 +72,19 @@ def get_factory() -> ConnectorFactory:
     return _factory
 
 
+async def check_rate_limit() -> None:
+    try:
+        # Skip rate limiting if disabled
+        if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+            await global_rate_limiter.acquire()
+    except RateLimitExceeded as exc:
+        raise HTTPException(status_code=429, detail=str(exc))
+
+
 @app.get("/health", tags=["system"])
 async def health() -> Dict[str, str]:
     return {"status": "ok"}
+
 
 def _http_status_for_category(category: ErrorCategory | None) -> int:
     if category is None:
@@ -81,11 +97,13 @@ def _http_status_for_category(category: ErrorCategory | None) -> int:
         return 503
     return 500
 
+
 def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         request: Request,
         payload: Dict[str, Any],
         factory_dep: ConnectorFactory = Depends(get_factory),
+        _: None = Depends(check_rate_limit),
     ) -> JSONResponse:
         """
         Concrete endpoint for a specific connector/action, e.g.
@@ -127,10 +145,12 @@ def _make_endpoint(cid: str, act: str) -> Any:
             status_code=status,
             content=response.model_dump(),
         )
+
     return endpoint
 
+
 def _build_dynamic_routes() -> None:
-    factory = get_factory() 
+    factory = get_factory()
 
     connectors = factory.list_for_protocol("rest")
     manifest = build_manifest(connectors)
@@ -142,7 +162,7 @@ def _build_dynamic_routes() -> None:
         # For REST, let the runtime perform full Pydantic validation.
         # We accept an arbitrary JSON object as the payload and forward it
         # directly to connector.run(...).
-        route_path = f"/connectors/{connector_id}/{action}"        
+        route_path = f"/connectors/{connector_id}/{action}"
         app.post(route_path, name=f"{connector_id}_{action}")(_make_endpoint(connector_id, action))
 
 

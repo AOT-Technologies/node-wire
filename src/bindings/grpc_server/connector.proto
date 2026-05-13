@@ -22,4 +22,3 @@ message InvokeResponse {
   string message = 5;
   string trace_id = 6;
 }
-

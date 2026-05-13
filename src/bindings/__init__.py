@@ -13,4 +13,3 @@ This package contains:
 - gRPC server binding
 - MCP server binding for AI agents
 """
-

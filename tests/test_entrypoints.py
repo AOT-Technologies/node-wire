@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Tests for MCP and REST/gRPC process entrypoints."""
+
 from __future__ import annotations
 
 import sys

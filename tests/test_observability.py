@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Tests for runtime.observability (OpenTelemetry bootstrap)."""
+
 from __future__ import annotations
 
 import logging

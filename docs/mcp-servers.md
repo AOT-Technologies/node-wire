@@ -38,11 +38,13 @@ flowchart TD
         Epic[nw-smartonfhir-epic]
         Cerner[nw-smartonfhir-cerner]
         SMTP[nw-smtp]
+        Slack[nw-slack]
     end
     Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
     Agent -->|"TOOLHIVE_MCP_URLS"| Epic
     Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
     Agent -->|"TOOLHIVE_MCP_URLS"| SMTP
+    Agent -->|"TOOLHIVE_MCP_URLS"| Slack
 ```
 
 ---
@@ -56,6 +58,9 @@ flowchart TD
 | SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
 | Stripe | `python -m agents.stripe_mcp` | `nw-stripe` | `nw-stripe` | All manifest actions for `stripe` (e.g., `stripe.charge`) |
+| Salesforce | `python -m agents.salesforce_mcp` | `nw-salesforce` | `nw-salesforce` | All manifest actions for `salesforce` (e.g., `salesforce.create_lead`) |
+| Slack | `python -m agents.slack_mcp` | `nw-slack` | `nw-slack` | All manifest actions for `slack` (e.g. `slack.post_message`) |
+
 
 The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, `stripe.create_payment_intent`, `stripe.create_subscription`, `stripe.cancel_subscription`, `stripe.issue_refund`, plus the rows above).
 
@@ -101,7 +106,11 @@ PowerShell:
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 #### 2. Shifting to native HTTP mode (Port 8081)
@@ -113,7 +122,11 @@ $env:NW_MCP_TRANSPORT="streamable-http"
 $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 **Bash (Linux/macOS):**
@@ -122,7 +135,11 @@ export NW_MCP_TRANSPORT="streamable-http"
 export NW_MCP_HOST="127.0.0.1"
 export NW_MCP_PORT="8081"
 export NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 The native HTTP endpoint will be:
@@ -157,16 +174,16 @@ Use stdio mode when you want Inspector to launch the Python MCP server process i
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
 ```
 
 Per-connector examples:
 
 ```powershell
-npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_cerner_mcp
-npx @modelcontextprotocol/inspector python -m agents.smtp_mcp
+npx @modelcontextprotocol/inspector uv run nw-google-drive
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-epic
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-cerner
+npx @modelcontextprotocol/inspector uv run python -m agents.smtp_mcp
 ```
 
 In the Inspector UI:
@@ -222,6 +239,12 @@ Copy `sample.env` to `.env` and fill in the sections for the servers you plan to
 ```bash
 cp sample.env .env
 ```
+
+### Shared Required Variables
+
+| Variable | Description |
+|---|---|
+| `NW_ALLOWED_CONNECTORS` | **Required.** Comma-separated list of allowed connector names (e.g. `fhir_epic,google_drive`). Individual servers still check this allowlist before loading. |
 
 ### Per-server required variables
 
@@ -313,6 +336,37 @@ FROM_EMAIL=your-email@gmail.com
 STRIPE_API_KEY=sk_test_4eC39HqLyjWDarjtT1zdp7dc
 ```
 
+#### `nw-salesforce`
+
+| Variable | Description |
+|---|---|
+| `SALESFORCE_INSTANCE_URL` | Your Salesforce instance URL (e.g., `https://domain.my.salesforce.com`) |
+| `SALESFORCE_TOKEN_URL` | OAuth2 token endpoint (usually `https://login.salesforce.com/services/oauth2/token`) |
+| `SALESFORCE_CLIENT_ID` | Connected App Client ID |
+| `SALESFORCE_CLIENT_SECRET` | Connected App Client Secret |
+| `SALESFORCE_REFRESH_TOKEN` | Refresh token with `refresh_token` and `api` scopes |
+
+```env
+SALESFORCE_INSTANCE_URL=https://nodenet.my.salesforce.com
+SALESFORCE_TOKEN_URL=https://login.salesforce.com/services/oauth2/token
+SALESFORCE_CLIENT_ID=your-client-id
+SALESFORCE_CLIENT_SECRET=your-client-secret
+SALESFORCE_REFRESH_TOKEN=your-refresh-token
+```
+
+
+#### `nw-slack`
+
+| Variable | Description |
+|---|---|
+| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token (`xoxb-...`) |
+| `NW_SLACK_ATTACHMENTS_DIR` | Optional: sandboxed directory for uploads (default: `/slack_attachments`) |
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+NW_SLACK_ATTACHMENTS_DIR=/slack_attachments
+```
+
 ### ToolHive / Agent settings
 
 | Variable | Description |
@@ -362,6 +416,7 @@ This produces images tagged as both `latest` and the version string:
 | `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
 | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
 | `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
+| `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
 
 To build a single image manually from the repo root:
 
@@ -377,6 +432,9 @@ docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
 
 # SMTP only
 docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
+
+# Slack only
+docker build -f docker/slack/Dockerfile -t nw-slack:latest .
 ```
 
 > **Note:** The build context must be the repository root (`.`) so the `COPY src/` and `COPY config/` instructions resolve correctly.
@@ -439,6 +497,11 @@ thv run --name nw-smtp --transport stdio \
   --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
   --secret FROM_EMAIL,target=FROM_EMAIL \
   nw-smtp:latest
+
+# Slack
+thv run --name nw-slack --transport stdio \
+  --secret SLACK_BOT_TOKEN,target=SLACK_BOT_TOKEN \
+  nw-slack:latest
 ```
 
 > **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) when storing in ToolHive secrets, because ToolHive injects secrets as string values.

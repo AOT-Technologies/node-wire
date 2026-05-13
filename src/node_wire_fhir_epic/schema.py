@@ -4,14 +4,16 @@
 #
 from __future__ import annotations
 
+import base64
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
 # Patient – Read
 # ---------------------------------------------------------------------------
+
 
 class FhirPatientReadInput(BaseModel):
     """Input for reading a FHIR Patient resource."""
@@ -42,6 +44,7 @@ class FhirPatientReadOutput(BaseModel):
 # Patient – Search (multi-ID fan-out OR name search returning multiple results)
 # ---------------------------------------------------------------------------
 
+
 class FhirPatientSearchInput(BaseModel):
     """Input for searching / fetching multiple FHIR Patient resources from Epic."""
 
@@ -67,6 +70,7 @@ class FhirPatientSearchOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # Encounter – Search
 # ---------------------------------------------------------------------------
+
 
 class FhirEncounterSearchInput(BaseModel):
     """Input for searching FHIR Encounter resources."""
@@ -94,6 +98,7 @@ class FhirEncounterSearchOutput(BaseModel):
 # DocumentReference – Create
 # ---------------------------------------------------------------------------
 
+
 class FhirDocumentReferenceCreateInput(BaseModel):
     """Input for creating a FHIR DocumentReference resource."""
 
@@ -115,8 +120,17 @@ class FhirDocumentReferenceCreateInput(BaseModel):
     subject: str
     """Patient reference string (e.g. 'Patient/{id}'). Required by Epic."""
 
-    data: str
-    """Base64-encoded document content. Required by Epic."""
+    @field_validator("data", mode="after")
+    @classmethod
+    def validate_base64_data(cls, v: str) -> str:
+        try:
+            base64.b64decode(v, validate=True)
+        except Exception:
+            raise ValueError("data must be a valid base64-encoded string")
+        return v
+
+    data: str = Field(..., max_length=10 * 1024 * 1024)
+    """Base64-encoded document content. Required by Epic. Max size 10MB."""
 
     content_type: Optional[str] = None
     """MIME type of the document content (e.g. 'text/plain', 'application/pdf'). Defaults to 'text/plain'."""
@@ -165,6 +179,7 @@ class FhirDocumentReferenceCreateOutput(BaseModel):
 # ---------------------------------------------------------------------------
 # DocumentReference – Search
 # ---------------------------------------------------------------------------
+
 
 class FhirDocumentReferenceSearchInput(BaseModel):
     """Input for searching FHIR DocumentReference resources."""

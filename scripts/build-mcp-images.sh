@@ -21,6 +21,7 @@ Images:
   - nw-smartonfhir-cerner
   - nw-smtp
   - nw-stripe
+  - nw-slack
 EOF
 }
 
@@ -75,5 +76,15 @@ docker build -f docker/stripe/Dockerfile \
   -t "nw-stripe:${VERSION}" \
   .
 
-echo "Done."
+docker build -f docker/salesforce/Dockerfile \
+  -t nw-salesforce:latest \
+  -t "nw-salesforce:${VERSION}" \
+  .
 
+
+docker build -f docker/slack/Dockerfile \
+  -t nw-slack:latest \
+  -t "nw-slack:${VERSION}" \
+  .
+
+echo "Done."

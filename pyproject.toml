@@ -47,6 +47,9 @@ dev = [
   "pytest>=8.0.0",
   "pytest-asyncio>=0.23.0",
   "pytest-cov>=5.0.0",
+  "ruff>=0.3.5",
+  "mypy>=1.9.0",
+  "pre-commit>=3.7.0",
 ]
 agents = [
   "mcp>=1.6.0",                    # Official Python MCP SDK (includes FastMCP)
@@ -67,6 +70,8 @@ stripe       = "node_wire_stripe.logic"
 google_drive = "node_wire_google_drive.logic"
 fhir_epic    = "node_wire_fhir_epic.logic"
 fhir_cerner  = "node_wire_fhir_cerner.logic"
+salesforce   = "node_wire_salesforce.logic"
+slack        = "node_wire_slack.logic"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -83,13 +88,16 @@ dev = [
     "pip-licenses>=5.0.0",
     "bandit>=1.7.0",
     "pip-audit>=2.7.0",
+    "ruff>=0.3.5",
+    "mypy>=1.9.0",
+    "pre-commit>=3.7.0",
 ]
 
 [tool.uv]
 default-groups = ["dev"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = [
@@ -108,3 +116,11 @@ omit = [
   "*/node_wire.egg-info/*",
 ]
 
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

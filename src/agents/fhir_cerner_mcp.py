@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """MCP Server — Cerner FHIR connector only. Usage: python -m agents.fhir_cerner_mcp"""
+
 from __future__ import annotations
 
 import logging

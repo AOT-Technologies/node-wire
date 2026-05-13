@@ -10,12 +10,12 @@ All tests use mocks — no real API keys or ToolHive instance required.
 Run:
     pytest tests/test_toolhive_agent.py -v
 """
+
 from __future__ import annotations
 
-import asyncio
 import uuid
 from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -27,7 +27,6 @@ from agents.llm_factory import (
     ToolCall,
 )
 from agents.toolhive import (
-    AgentRunResult,
     ToolHiveAgent,
     ToolHiveMcpClient,
     _is_tool_failure,
@@ -71,6 +70,7 @@ def test_resolve_max_tool_failures_env_and_override(monkeypatch: pytest.MonkeyPa
 # Fixtures (manifest-driven — must match production tools/list)
 # ---------------------------------------------------------------------------
 
+
 def _mcp_tools_subset_from_manifest() -> List[Dict[str, Any]]:
     """Same input_schema as McpServer.list_tools for a stable agent-test subset."""
     from bindings.factory import ConnectorFactory
@@ -111,7 +111,9 @@ class _MockLLMProvider(BaseLLMProvider):
         self._responses = list(responses)
         self._call_count = 0
 
-    def chat_with_tools(self, messages: List[LLMMessage], tools: List[Dict[str, Any]]) -> LLMResponse:
+    def chat_with_tools(
+        self, messages: List[LLMMessage], tools: List[Dict[str, Any]]
+    ) -> LLMResponse:
         idx = min(self._call_count, len(self._responses) - 1)
         resp = self._responses[idx]
         self._call_count += 1
@@ -122,46 +124,45 @@ class _MockLLMProvider(BaseLLMProvider):
 # LLM Factory tests
 # ---------------------------------------------------------------------------
 
+
 def test_llm_factory_groq_created() -> None:
     """LLMProviderFactory.create('groq') should return a GroqProvider instance."""
-    from agents.llm_factory import LLMProviderFactory
 
     with patch("agents.providers.groq_provider.Groq"):
         provider = LLMProviderFactory.create("groq", api_key="test-key", model="llama3-8b-8192")
     from agents.providers.groq_provider import GroqProvider
+
     assert isinstance(provider, GroqProvider)
 
 
 def test_llm_factory_openai_created() -> None:
     """LLMProviderFactory.create('openai') should return an OpenAIProvider instance."""
-    from agents.llm_factory import LLMProviderFactory
-    import agents.providers.openai_provider
     with patch("agents.providers.openai_provider.OpenAI"):
         provider = LLMProviderFactory.create("openai", api_key="test-key", model="gpt-4o-mini")
     from agents.providers.openai_provider import OpenAIProvider
+
     assert isinstance(provider, OpenAIProvider)
 
 
 def test_llm_factory_unknown_raises() -> None:
     """LLMProviderFactory.create with an unknown provider should raise ValueError."""
-    from agents.llm_factory import LLMProviderFactory
     with pytest.raises(ValueError, match="Unknown LLM provider"):
         LLMProviderFactory.create("foobar")
 
 
 def test_llm_factory_case_insensitive() -> None:
     """Provider names should be case-insensitive."""
-    from agents.llm_factory import LLMProviderFactory
-    import agents.providers.groq_provider
     with patch("agents.providers.groq_provider.Groq"):
         provider = LLMProviderFactory.create("GROQ", api_key="k", model="m")
     from agents.providers.groq_provider import GroqProvider
+
     assert isinstance(provider, GroqProvider)
 
 
 # ---------------------------------------------------------------------------
 # ToolHive Agent tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_agent_runs_three_tool_sequence() -> None:
@@ -207,7 +208,9 @@ async def test_agent_runs_three_tool_sequence() -> None:
             stop_reason="tool_calls",
         ),
         # Final answer
-        LLMResponse(content="All 3 steps completed successfully.", tool_calls=[], stop_reason="stop"),
+        LLMResponse(
+            content="All 3 steps completed successfully.", tool_calls=[], stop_reason="stop"
+        ),
     ]
 
     provider = _MockLLMProvider(responses)
@@ -228,6 +231,34 @@ async def test_agent_runs_three_tool_sequence() -> None:
 
     # Verify MCP was called exactly 3 times
     assert mock_mcp.call_tool.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_agent_run_events_emits_done_message_with_trace_id() -> None:
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(content="All done.", tool_calls=[], stop_reason="stop"),
+    ]
+    provider = _MockLLMProvider(responses)
+
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.return_value = '{"status": "ok"}'
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=5)
+    events = [event async for event in agent.run_events("Fetch patient 12724066")]
+
+    assert events[0]["type"] == "meta"
+    assert any(event["type"] == "step" for event in events)
+    assert any(event["type"] == "final_chunk" for event in events)
+    assert events[-1]["type"] == "done"
+    assert events[-1]["success"] is True
+    assert events[-1]["trace_id"] == events[0]["trace_id"]
+    assert events[-1]["message"] == f"Streaming completed. trace_id={events[0]['trace_id']}"
 
 
 @pytest.mark.asyncio
@@ -289,7 +320,9 @@ async def test_agent_handles_tool_error_gracefully() -> None:
             tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "bad"})],
             stop_reason="tool_calls",
         ),
-        LLMResponse(content="Unable to fetch patient — error recorded.", tool_calls=[], stop_reason="stop"),
+        LLMResponse(
+            content="Unable to fetch patient — error recorded.", tool_calls=[], stop_reason="stop"
+        ),
     ]
     provider = _MockLLMProvider(responses)
 
@@ -401,6 +434,7 @@ async def test_agent_success_then_two_failures_same_tool_aborts() -> None:
 # MCP entrypoint smoke test
 # ---------------------------------------------------------------------------
 
+
 def test_mcp_entrypoint_exposes_manifest_tools() -> None:
     """Unified MCP server lists all connectors enabled for MCP in config."""
     from bindings.mcp_server.server import McpServer
@@ -464,5 +498,3 @@ def test_mcp_server_matches_per_connector_entrypoints() -> None:
 
     smtp = {t["name"] for t in McpServer(connector_ids=["smtp"]).list_tools()}
     assert smtp == {"smtp.send_email"}
-
-

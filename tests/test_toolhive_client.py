@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """Tests for ToolHiveMcpClient HTTP transport and toolhive helper edge cases."""
+
 from __future__ import annotations
 
 import asyncio

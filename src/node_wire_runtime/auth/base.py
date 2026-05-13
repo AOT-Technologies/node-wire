@@ -11,6 +11,7 @@ All authentication falls into two categories:
 
 Both are unified behind this interface so connectors stay credential-agnostic.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
