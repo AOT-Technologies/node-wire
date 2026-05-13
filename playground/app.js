@@ -1007,6 +1007,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const syncSourceSelect = document.getElementById('sync-source-select');
+    const syncTargetSelect = document.getElementById('sync-target-select');
+    if (syncSourceSelect && syncTargetSelect) {
+        syncSourceSelect.addEventListener('change', (e) => {
+            syncTargetSelect.value = e.target.value === 'epic' ? 'cerner' : 'epic';
+        });
+        // Initial setup
+        syncTargetSelect.value = syncSourceSelect.value === 'epic' ? 'cerner' : 'epic';
+    }
+
     if (identityForm) {
         identityForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1032,10 +1042,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 endpoint = '/scenarios/identity-search';
             } else if (currentIdentitySubMode === 'identity_sync') {
+                const srcSys = payload.sync_source_system;
                 submitPayload = {
-                    source_system: payload.sync_source_system,
+                    source_system: srcSys,
                     source_patient_id: payload.sync_source_patient_id,
-                    target_system: payload.sync_target_system
+                    target_system: srcSys === 'epic' ? 'cerner' : 'epic'
                 };
                 endpoint = '/scenarios/identity-sync';
             }

@@ -408,41 +408,7 @@ class FhirCernerConnector(BaseConnector):
 
         return FhirCernerPatientCreateOutput(resource_id=resource_id, resource=body if body else None)
 
-    async def _update_patient(
-        self, params: FhirCernerPatientUpdateInput, *, trace_id: str
-    ) -> FhirCernerPatientUpdateOutput:
-        base_url = self._get_base_url()
-        auth_header = await self._get_auth_header()
 
-        logger.info(
-            "FHIR Cerner Patient update", extra={"trace_id": trace_id, "resource_id": params.resource_id}
-        )
-        try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
-                response = await client.put(
-                    f"{base_url}/Patient/{params.resource_id}",
-                    json=params.resource,
-                    headers=auth_header,
-                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
-                )
-                response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                "FHIR Cerner Patient update failed | status=%s | body=%s",
-                exc.response.status_code,
-                exc.response.text,
-                extra={"trace_id": trace_id},
-            )
-            raise ValueError(f"Cerner Error: {exc.response.text}") from exc
-
-        body = {}
-        try:
-            if response.content:
-                body = response.json()
-        except Exception:
-            pass
-
-        return FhirCernerPatientUpdateOutput(resource_id=params.resource_id, resource=body if body else None)
 
     # ------------------------------------------------------------------
     # Action: search_encounter

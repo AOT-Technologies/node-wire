@@ -163,9 +163,20 @@ class IdentityCoordinator:
 
         target_resource: Optional[Dict[str, Any]] = None
         if target_id:
-            target_id, target_resource = await self._update_patient(
-                params.target_system, target_id, payload, trace_id
-            )
+            # Route to HL7 for updates instead of FHIR
+            try:
+                from node_wire_hl7.mllp import send_adt_a08
+                logger.info("Routing %s patient %s update via HL7 v2 ADT^A08", params.target_system, target_id)
+                # Phase 1 stub: This will send the ADT message and wait for an ACK
+                ack_status = await send_adt_a08(params.target_system, payload, target_id, trace_id=trace_id)
+                if ack_status == "AA":
+                    target_resource = target_existing
+                else:
+                    logger.warning("HL7 Update rejected with ACK %s", ack_status)
+                    target_resource = target_existing
+            except Exception as e:
+                logger.error("Failed to send HL7 update: %s", e)
+                target_resource = target_existing
         else:
             target_id, target_resource = await self._create_patient(
                 params.target_system, payload, trace_id
@@ -254,9 +265,11 @@ class IdentityCoordinator:
         trace_id: str,
     ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
         try:
+            # Cerner sandbox often fails demographic matches if given name has multiple words (e.g. "Elijah John")
+            safe_given = given.split()[0] if given else None
             out = await self.cerner._search_patients(
                 FhirCernerPatientSearchInput(
-                    given_name=given, family_name=family, birthdate=birthdate
+                    given_name=safe_given, family_name=family, birthdate=birthdate
                 ),
                 trace_id=trace_id,
             )
@@ -280,17 +293,3 @@ class IdentityCoordinator:
             )
         return out.resource_id, out.resource
 
-    async def _update_patient(
-        self, system: str, resource_id: str, payload: Dict[str, Any], trace_id: str
-    ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
-        if system == "epic":
-            out = await self.epic._update_patient(
-                FhirPatientUpdateInput(resource_id=resource_id, resource=payload),
-                trace_id=trace_id,
-            )
-        else:
-            out = await self.cerner._update_patient(
-                FhirCernerPatientUpdateInput(resource_id=resource_id, resource=payload),
-                trace_id=trace_id,
-            )
-        return out.resource_id, out.resource

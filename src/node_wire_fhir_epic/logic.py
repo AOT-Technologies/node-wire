@@ -402,41 +402,7 @@ class FhirEpicConnector(BaseConnector):
 
         return FhirPatientCreateOutput(resource_id=resource_id, resource=body if body else None)
 
-    async def _update_patient(
-        self, params: FhirPatientUpdateInput, *, trace_id: str
-    ) -> FhirPatientUpdateOutput:
-        base_url = self._get_base_url()
-        auth_header = await self._get_auth_header()
 
-        logger.info(
-            "FHIR Patient update", extra={"trace_id": trace_id, "resource_id": params.resource_id}
-        )
-        try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
-                response = await client.put(
-                    f"{base_url}/Patient/{params.resource_id}",
-                    json=params.resource,
-                    headers=auth_header,
-                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
-                )
-                response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                "FHIR Patient update failed | status=%s | body=%s",
-                exc.response.status_code,
-                exc.response.text,
-                extra={"trace_id": trace_id},
-            )
-            raise ValueError(f"Epic Error: {exc.response.text}") from exc
-
-        body = {}
-        try:
-            if response.content:
-                body = response.json()
-        except Exception:
-            pass
-
-        return FhirPatientUpdateOutput(resource_id=params.resource_id, resource=body if body else None)
 
     async def _search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str

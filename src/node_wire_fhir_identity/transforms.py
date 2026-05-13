@@ -153,11 +153,65 @@ def strip_source_metadata(resource: Dict[str, Any], target_system: str = "") -> 
                     has_home = True
                 clean_addresses.append(a)
             payload["address"] = clean_addresses[:1]
+    elif target_system == "cerner":
+        # Cerner is incredibly strict. We rebuild the payload from an allow-list.
+        clean_payload = { "resourceType": "Patient" }
+        
+        for base_key in ["active", "gender", "birthDate"]:
+            if base_key in payload:
+                clean_payload[base_key] = payload[base_key]
                 
-    return payload
+        if "name" in payload and isinstance(payload["name"], list):
+            clean_names = []
+            for n in payload["name"]:
+                safe_name = {}
+                for k in ["family", "given", "use", "prefix", "suffix"]:
+                    if k in n:
+                        safe_name[k] = n[k]
+                if safe_name:
+                    clean_names.append(safe_name)
+            if clean_names:
+                clean_payload["name"] = clean_names[:1]
                 
-    return payload
+        if "telecom" in payload and isinstance(payload["telecom"], list):
+            clean_telecoms = []
+            for t in payload["telecom"]:
+                safe_telecom = {}
+                for k in ["system", "value", "use"]:
+                    if k in t:
+                        safe_telecom[k] = t[k]
+                if safe_telecom:
+                    clean_telecoms.append(safe_telecom)
+            if clean_telecoms:
+                clean_payload["telecom"] = clean_telecoms
+                
+        if "address" in payload and isinstance(payload["address"], list):
+            clean_addrs = []
+            for a in payload["address"]:
+                safe_addr = {}
+                for k in ["use", "line", "city", "state", "postalCode", "country"]:
+                    if k in a:
+                        safe_addr[k] = a[k]
+                if safe_addr:
+                    clean_addrs.append(safe_addr)
+            if clean_addrs:
+                clean_payload["address"] = clean_addrs[:1]
+                
+        # Cerner strictly requires exactly one identifier with ONLY an assigner (no value, system, etc)
+        org_ref = os.getenv("CERNER_SANDBOX_ORG")
+        if not org_ref:
+            raise ValueError("CERNER_SANDBOX_ORG environment variable is not set")
+        clean_payload["identifier"] = [
+            {
+                "assigner": {
+                    "reference": org_ref if org_ref.startswith("Organization/") else f"Organization/{org_ref}"
+                }
+            }
+        ]
 
+        return clean_payload
+        
+    return payload
 
 def ensure_resource_type(payload: Dict[str, Any], resource_type: str = "Patient") -> Dict[str, Any]:
     """Guarantee ``resourceType`` is present in the payload."""
