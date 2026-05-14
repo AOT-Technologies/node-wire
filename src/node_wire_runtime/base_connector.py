@@ -318,12 +318,12 @@ class BaseConnector(ABC):
                 fn_name=attr_name,
                 input_model=input_model,
                 output_model=output_model,
-                alias_tolerant=getattr(method, '_alias_tolerant', False),
-                mcp_normalize=getattr(method, '_mcp_normalize', None),
-                requires_auth=getattr(method, '_requires_auth', True),
-                scopes=getattr(method, '_scopes', None),
-                rate_limit=getattr(method, '_rate_limit', None),
-                deprecated=getattr(method, '_deprecated', False),
+                alias_tolerant=getattr(method, "_alias_tolerant", False),
+                mcp_normalize=getattr(method, "_mcp_normalize", None),
+                requires_auth=getattr(method, "_requires_auth", True),
+                scopes=getattr(method, "_scopes", None),
+                rate_limit=getattr(method, "_rate_limit", None),
+                deprecated=getattr(method, "_deprecated", False),
             )
 
         cls._action_registry = registry

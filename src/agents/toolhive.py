@@ -618,18 +618,23 @@ class ToolHiveAgent:
 
                 try:
                     tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
-                    logger.info("Tool %s returned response of length: %d chars", tc.name, len(tool_result_str))
-                    
-                    
+                    logger.info(
+                        "Tool %s returned response of length: %d chars",
+                        tc.name,
+                        len(tool_result_str),
+                    )
+
                     # --- AUTOMATIC PAGINATION TOKEN HANDLING ---
                     try:
                         result_data = json.loads(tool_result_str)
-                        pagination_meta = result_data.get('data', {}).get('_server_pagination_metadata', {})
-                        next_token = pagination_meta.get('next_page_token')
-                        
+                        pagination_meta = result_data.get("data", {}).get(
+                            "_server_pagination_metadata", {}
+                        )
+                        next_token = pagination_meta.get("next_page_token")
+
                         if next_token:
-                            print(f"\n=== PAGINATION TOKEN DETECTED ===", file=sys.stderr)
-                            
+                            print("\n=== PAGINATION TOKEN DETECTED ===", file=sys.stderr)
+
                             # Add pagination info to tool result for LLM to see
                             pagination_info = (
                                 f"\n\n[PAGINATION INFO]\n"
@@ -639,13 +644,17 @@ class ToolHiveAgent:
                                 f"To get next page, call the same tool with page_token='{next_token}'"
                             )
                             tool_result_str += pagination_info
-                            print(f"=== ADDED PAGINATION INFO TO RESULT ===", file=sys.stderr)
+                            print("=== ADDED PAGINATION INFO TO RESULT ===", file=sys.stderr)
                         else:
-                            print(f"\n=== NO PAGINATION TOKEN FOUND ===", file=sys.stderr)
+                            print("\n=== NO PAGINATION TOKEN FOUND ===", file=sys.stderr)
                     except (json.JSONDecodeError, KeyError) as e:
                         print(f"Error parsing pagination metadata: {e}", file=sys.stderr)
-                    
-                    print(f"=================================================\n", file=sys.stderr, flush=True)
+
+                    print(
+                        "=================================================\n",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"

@@ -54,7 +54,7 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
     if isinstance(data, list):
         current_len = len(data)
         max_list_size = max(max_list_size, current_len)
-        
+
         working_list = data
         if current_len > max_items:
             working_list = data[:max_items]
@@ -66,14 +66,21 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
             out_list.append(new_item)
             was_truncated = was_truncated or t
             max_list_size = max(max_list_size, mls)
-            if npt and not next_page_token: next_page_token = npt
+            if npt and not next_page_token:
+                next_page_token = npt
 
         return out_list, was_truncated, max_list_size, next_page_token
 
     if isinstance(data, dict):
         out_dict = {}
         for k, v in data.items():
-            if k in ("nextPageToken", "pageToken", "next_cursor", "cursor", "next_page_token") and isinstance(v, str):
+            if k in (
+                "nextPageToken",
+                "pageToken",
+                "next_cursor",
+                "cursor",
+                "next_page_token",
+            ) and isinstance(v, str):
                 if not next_page_token:
                     next_page_token = v
 
@@ -81,7 +88,8 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
             out_dict[k] = new_v
             was_truncated = was_truncated or t
             max_list_size = max(max_list_size, mls)
-            if npt and not next_page_token: next_page_token = npt
+            if npt and not next_page_token:
+                next_page_token = npt
 
         return out_dict, was_truncated, max_list_size, next_page_token
 
@@ -167,11 +175,13 @@ class McpServer:
                 sec_block = f"\n\nSecurity & Limits:\n{sec_block}\n\n"
 
             tool_desc = (
-                f"{schema_desc}\n" if schema_desc else ""
-            ) + sec_block + (
-                f"Pass fields from inputSchema only; do not include an action field "
-                f"(it is injected from the tool name). "
-                f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+                (f"{schema_desc}\n" if schema_desc else "")
+                + sec_block
+                + (
+                    f"Pass fields from inputSchema only; do not include an action field "
+                    f"(it is injected from the tool name). "
+                    f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+                )
             )
             tools.append(
                 {
@@ -236,8 +246,6 @@ class McpServer:
         except RateLimitExceeded as e:
             raise ValueError(str(e))
 
-
-
         try:
             connector_id, action = name.split(".", 1)
         except ValueError:
@@ -255,7 +263,7 @@ class McpServer:
         run_args["action"] = action
 
         trace_id = run_args.get("trace_id") or str(uuid.uuid4())
-        
+
         # Proactively inject/clamp pagination parameters to prevent native token desync
         # caused by the post-execution truncation guardrail
         max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
@@ -287,12 +295,14 @@ class McpServer:
         except Exception:
             stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
             raise
-        
+
         raw_response = response.model_dump()
 
         # Enforce MCP sampling guardrail
-        processed_payload, was_truncated, item_count, next_token = _process_response_payload(raw_response, max_items)
-        
+        processed_payload, was_truncated, item_count, next_token = _process_response_payload(
+            raw_response, max_items
+        )
+
         # Overwrite raw_response in place
         raw_response.clear()
         raw_response.update(processed_payload)
@@ -301,7 +311,7 @@ class McpServer:
         if clamped_params:
             raw_response["_system_pagination_used"] = clamped_params
 
-        # IMPORTANT: Inject metadata IN-BAND inside the "data" dictionary so client UIs 
+        # IMPORTANT: Inject metadata IN-BAND inside the "data" dictionary so client UIs
         # (like Toolhive / Agent chat) that only render the `data` block will explicitly see it.
         if "data" in raw_response and isinstance(raw_response["data"], dict):
             pagination_meta = {}
@@ -313,21 +323,26 @@ class McpServer:
             if next_token:
                 pagination_meta["next_page_token"] = next_token
             # Prepend it visually for the LLM
-            raw_response["data"] = {"_server_pagination_metadata": pagination_meta, **raw_response["data"]}
-        
+            raw_response["data"] = {
+                "_server_pagination_metadata": pagination_meta,
+                **raw_response["data"],
+            }
+
         # We also inject explicitly into the root if it doesn't have a data block
         elif not isinstance(raw_response.get("data"), dict):
             raw_response["_server_pagination_metadata"] = {
                 "coerced_parameters": clamped_params,
                 "items_returned": item_count,
-                "next_page_token": next_token
+                "next_page_token": next_token,
             }
 
         # Build dynamic system message
         sys_msgs = []
         if clamped_params:
-            sys_msgs.append(f"[System Pagination] Arguments coerced to safeguard limits: {json.dumps(clamped_params)}")
-        
+            sys_msgs.append(
+                f"[System Pagination] Arguments coerced to safeguard limits: {json.dumps(clamped_params)}"
+            )
+
         if item_count > 0:
             count_msg = f"[System Guardrail] The connector returned {item_count} items."
             if was_truncated:
@@ -335,7 +350,9 @@ class McpServer:
             sys_msgs.append(count_msg)
 
         if next_token:
-            sys_msgs.append(f"[System Pagination] nextPageToken available for next query: '{next_token}'")
+            sys_msgs.append(
+                f"[System Pagination] nextPageToken available for next query: '{next_token}'"
+            )
 
         if was_truncated and not next_token:
             sys_msgs.append(
