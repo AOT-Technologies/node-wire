@@ -249,10 +249,30 @@ SPDX-License-Identifier: Apache-2.0
                                 <p>Lead and contact management for CRM-driven enterprise workflows.</p>
                             </div>
                         </div>
-                    </div>
-                </div>               
 
-                <div id="playground-view" class="hidden">
+                        <div class="connector-card" data-mode="ext-patient-viewer">
+                            <div class="connector-icon bg-ext-viewer">
+                                <!-- Patient chart / eye icon -->
+                                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <rect width="80" height="80" rx="16" fill="#0d9488"/>
+                                  <!-- Eye outline -->
+                                  <ellipse cx="40" cy="38" rx="20" ry="12" stroke="white" stroke-width="4"/>
+                                  <!-- Pupil -->
+                                  <circle cx="40" cy="38" r="5" fill="white"/>
+                                  <!-- EHR lines -->
+                                  <rect x="26" y="55" width="28" height="3" rx="1.5" fill="rgba(255,255,255,0.6)"/>
+                                  <rect x="30" y="61" width="20" height="3" rx="1.5" fill="rgba(255,255,255,0.4)"/>
+                                </svg>
+                            </div>
+                            <div class="connector-details">
+                                <h3>External Patient Viewer</h3>
+                                <p>Read-only on-demand retrieval of demographics, encounters, and documents from source EHR.</p>
+                            </div>
+                        </div>
+                </div>
+            </div>               
+
+            <div id="playground-view" class="hidden">
                     <div class="playground-layout">
                         <div class="col-input">
                             <button id="back-to-connectors" class="back-link">
@@ -820,6 +840,101 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                     </button>
                                 </form>
 
+                            </div>
+
+                            <!-- ═══════════════════════════════════════════════════
+                                 External Patient Viewer — Read-Only Retrieval Panel
+                                 ═══════════════════════════════════════════════════ -->
+                            <div id="ext-patient-viewer-panel" class="glass-card main-form-card hidden">
+                                <div class="card-title">
+                                    <div class="title-group">
+                                        <h2>External Patient Viewer</h2>
+                                        <span class="info-tip" style="background:rgba(13,148,136,0.12);color:#0d9488;">Read-Only Chart Retrieval</span>
+                                    </div>
+                                    <span class="readonly-badge">
+                                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M8 10V8M8 6h.01M3 8a5 5 0 1 0 10 0A5 5 0 0 0 3 8z"/></svg>
+                                        0 Writes
+                                    </span>
+                                </div>
+
+                                <form id="ext-viewer-form">
+                                    <!-- Source System -->
+                                    <div class="input-section" style="padding-bottom: 0;">
+                                        <div class="field-group">
+                                            <label>Source EHR System</label>
+                                            <select name="source_system" id="ext-viewer-source-select" autocomplete="off">
+                                                <option value="epic">Epic FHIR R4</option>
+                                                <option value="cerner">Cerner FHIR R4</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Patient Identity -->
+                                    <div class="input-section">
+                                        <h3 class="section-label">Patient Identity Resolution</h3>
+                                        <div class="field-group" style="margin-bottom:1.25rem;">
+                                            <label>Patient ID <span style="font-weight:400;color:var(--text-muted)">(preferred — skips name search)</span></label>
+                                            <input type="text" name="patient_id" id="ext-viewer-patient-id"
+                                                value="e63wRTbPfr1p8UW81d8Seiw3"
+                                                placeholder="FHIR Patient resource ID...">
+                                        </div>
+                                        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem;">
+                                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M8 1v14M1 8h14"/></svg>
+                                            Or resolve via identity layer (used when Patient ID is blank):
+                                        </p>
+                                        <div class="input-row">
+                                            <div class="field-group">
+                                                <label>First Name</label>
+                                                <input type="text" name="patient_given" placeholder="Given name...">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Last Name</label>
+                                                <input type="text" name="patient_family" placeholder="Family name...">
+                                            </div>
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Date of Birth <span style="font-weight:400;color:var(--text-muted)">(YYYY-MM-DD, optional for disambiguation)</span></label>
+                                            <input type="text" name="patient_birthdate" placeholder="e.g. 1990-05-12">
+                                        </div>
+                                    </div>
+
+                                    <!-- Retrieval Scope -->
+                                    <div class="input-section">
+                                        <h3 class="section-label">Retrieval Scope</h3>
+                                        <div class="viewer-scope-row">
+                                            <div class="scope-field">
+                                                <label>
+                                                    Max Encounters
+                                                    <span class="scope-val" id="ext-enc-val">5</span>
+                                                </label>
+                                                <input type="range" name="max_encounters" id="ext-enc-slider"
+                                                    min="1" max="20" value="5"
+                                                    oninput="document.getElementById('ext-enc-val').textContent=this.value;this.style.setProperty('--pct',(this.value-1)/19*100+'%')">
+                                            </div>
+                                            <div class="scope-field">
+                                                <label>
+                                                    Max Documents
+                                                    <span class="scope-val" id="ext-doc-val">10</span>
+                                                </label>
+                                                <input type="range" name="max_documents" id="ext-doc-slider"
+                                                    min="1" max="50" value="10"
+                                                    oninput="document.getElementById('ext-doc-val').textContent=this.value;this.style.setProperty('--pct',(this.value-1)/49*100+'%')">
+                                            </div>
+                                        </div>
+                                        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:-0.5rem;">
+                                            When no DocumentReferences exist, encounters are automatically used as a fallback document representation.
+                                        </p>
+                                    </div>
+
+                                    <button type="submit" id="ext-viewer-run-btn" class="action-btn btn-viewer">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+                                            <ellipse cx="12" cy="12" rx="9" ry="5.5" stroke="currentColor"/>
+                                            <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>
+                                        </svg>
+                                        <span class="btn-lbl">Load External Chart</span>
+                                        <div class="loading-spinner hidden"></div>
+                                    </button>
+                                </form>
                             </div>
                         </div>
 

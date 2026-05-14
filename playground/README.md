@@ -71,6 +71,19 @@ This scenario demonstrates the platform's highest level of abstraction: an auton
     4.  **Transport-aware Interaction**: Shows the active MCP transport in the chat panel and adjusts rendering behavior to match it.
 *   **Implementation**: Leverages the `agents` module, providing a unified interface for LLMs to interact with any connector in the platform via a standard MCP bridge.
 
+### Scenario 6: External Patient Viewer (Read-Only Retrieval)
+This scenario loads a source EHR chart on demand for target viewer workflows without duplicating chart data or creating new FHIR resources.
+
+*   **Logic Flow**:
+    1.  **Patient Resolution**: Uses a direct FHIR Patient ID when available, or resolves identity with given name, family name, and optional birthdate.
+    2.  **Demographics Retrieval**: Calls `read_patient` against the selected source EHR and displays the resolved patient identity.
+    3.  **Encounter Retrieval**: Calls `search_encounter` for the resolved patient with a configurable result limit.
+    4.  **Document Metadata Retrieval**: Calls `search_document_reference` for available document metadata. When no `DocumentReference` records are returned, the workflow presents encounters as lightweight fallback document rows.
+    5.  **Chart Assembly**: Produces a unified external chart view containing demographics, encounters, documents, source system, trace ID, and read-only status.
+*   **Implementation**: Uses the existing Epic and Cerner FHIR connectors through `playground/scenarios.py` and the input schema in `playground/ext_patient_viewer/schema.py`. The workflow calls only read/search actions and reports `0 Writes` in the UI.
+*   **Endpoint**: `POST /scenarios/external-patient-viewer`
+*   **Supported Sources**: Epic FHIR R4 and Cerner FHIR R4.
+
 #### MCP transport behavior in the playground
 
 The Agentic Workflow panel displays the active transport as a pill:
@@ -189,4 +202,4 @@ python -m bindings_entrypoint
 ```
 
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).
-4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive Vault**, and **AI Agent** tabs to explore the different workflows.
+4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive Vault**, **AI Agent**, **Slack**, **Stripe**, **Salesforce** and **External Patient Viewer** cards to explore the different workflows.

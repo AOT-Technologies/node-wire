@@ -99,7 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
         delete_contact: document.getElementById('salesforce-section-id-only')
     };
 
-
+    // External Patient Viewer
+    const extViewerForm = document.getElementById('ext-viewer-form');
+    const extViewerRunBtn = document.getElementById('ext-viewer-run-btn');
+    const extViewerSpinner = extViewerRunBtn ? extViewerRunBtn.querySelector('.loading-spinner') : null;
+    const extViewerBtnText = extViewerRunBtn ? extViewerRunBtn.querySelector('.btn-lbl') : null;
+    const extViewerPanel = document.getElementById('ext-patient-viewer-panel');
 
     let currentSubMode = 'file';
     let currentStripeSubMode = 'charge';
@@ -214,6 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
             "Authenticate CRM",
             "Execute Soft Delete",
             "Verify Termination"
+        ],
+        ext_patient_viewer: [
+            "Resolve Patient Identity",
+            "Retrieve Encounter History",
+            "Retrieve Document Metadata",
+            "Assemble External Chart View"
         ],
     };
 
@@ -515,6 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
         if (slackPanel) slackPanel.classList.add('hidden');
+        if (extViewerPanel) extViewerPanel.classList.add('hidden');
 
         if (mode === 'ehr') {
 
@@ -559,6 +571,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Team Collaboration & Notifications';
             document.documentElement.style.setProperty('--brand-accent', '#4A154B');
             log('Switched to Slack Operations mode', 'system');
+        } else if (mode === 'ext-patient-viewer') {
+            if (extViewerPanel) extViewerPanel.classList.remove('hidden');
+            connectorStatus.textContent = 'EHR Source ─ Read-Only';
+            tagline.textContent = 'External Chart Viewer';
+            document.documentElement.style.setProperty('--brand-accent', '#0d9488');
+            log('Switched to External Patient Viewer mode (read-only)', 'system');
         }
         if (mode === 'gdrive') {
             syncGdriveActionForm();
@@ -569,6 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'salesforce') {
             syncSalesforceActionForm();
             resetUI(salesforcePipelineLabelOverride());
+        } else if (mode === 'ext-patient-viewer') {
+            resetUI(pipelineLabels.ext_patient_viewer);
         } else {
             resetUI();
         }
@@ -1545,6 +1565,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ─── External Patient Viewer — form submission ───────────────────────────
+    if (extViewerForm) {
+        extViewerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fd = new FormData(extViewerForm);
+            const patientId   = (fd.get('patient_id')       || '').trim();
+            const givenName   = (fd.get('patient_given')    || '').trim();
+            const familyName  = (fd.get('patient_family')   || '').trim();
+            const birthdate   = (fd.get('patient_birthdate')|| '').trim();
+            const sourceSystem = fd.get('source_system') || 'epic';
+            const maxEnc  = parseInt(fd.get('max_encounters') || '5', 10);
+            const maxDocs = parseInt(fd.get('max_documents')  || '10', 10);
+
+            // Client-side guard: need at least one identity field
+            if (!patientId && !givenName && !familyName) {
+                log('Viewer: provide a Patient ID or at least a given/family name.', 'error');
+                return;
+            }
+
+            const payload = {
+                source_system: sourceSystem,
+                max_encounters: maxEnc,
+                max_documents: maxDocs,
+            };
+            if (patientId)  payload.patient_id       = patientId;
+            if (givenName)  payload.patient_given    = givenName;
+            if (familyName) payload.patient_family   = familyName;
+            if (birthdate)  payload.patient_birthdate = birthdate;
+
+            await handleSubmission(
+                payload,
+                '/scenarios/external-patient-viewer',
+                extViewerRunBtn,
+                extViewerBtnText,
+                extViewerSpinner,
+                'Load External Chart',
+                pipelineLabels.ext_patient_viewer
+            );
+        });
+    }
 
     // Initial Load UI State
     resetUI();

@@ -653,13 +653,14 @@ textarea:focus {
 .completion-icon {
     width: 2rem;
     height: 2rem;
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success);
+    background: var(--success);
+    color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    box-shadow: 0 6px 14px rgba(16, 185, 129, 0.24);
 }
 
 .completion-icon svg {
@@ -694,8 +695,9 @@ textarea:focus {
 }
 
 .completion-card.error-toast .completion-icon {
-    background: rgba(244, 63, 94, 0.1);
-    color: var(--error);
+    background: var(--error);
+    color: white;
+    box-shadow: 0 6px 14px rgba(244, 63, 94, 0.24);
 }
 
 /* Logs */
@@ -978,6 +980,109 @@ textarea:focus {
 .bg-gdrive {
     background: #ffffff;
     border: 1px solid rgba(0,0,0,0.07);
+}
+
+/* Slack: purple brand */
+.bg-slack {
+    background: #4A154B;
+}
+
+/* Stripe: indigo-purple brand */
+.bg-stripe {
+    background: #635BFF;
+}
+
+/* Salesforce: sky blue brand */
+.bg-salesforce {
+    background: #00A1E0;
+}
+
+/* External Patient Viewer: teal read-only indicator */
+.bg-ext-viewer {
+    background: linear-gradient(135deg, #0d9488, #0891b2);
+}
+
+/* Read-only badge used inside the chart viewer */
+.readonly-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(13, 148, 136, 0.12);
+    color: #0d9488;
+    border: 1px solid rgba(13, 148, 136, 0.25);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* Viewer scope controls (range slider row) */
+.viewer-scope-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.scope-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.scope-field label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-main);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.scope-field label span.scope-val {
+    font-size: 0.8rem;
+    color: #0d9488;
+    font-weight: 700;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(to right, #0d9488 0%, #0d9488 var(--pct, 25%), #e2e8f0 var(--pct, 25%), #e2e8f0 100%);
+    border-radius: 999px;
+    outline: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #0d9488;
+    cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.2);
+    transition: box-shadow 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 5px rgba(13,148,136,0.3);
+}
+
+/* Viewer action button teal variant */
+.action-btn.btn-viewer {
+    background: linear-gradient(135deg, #0d9488, #0891b2);
+}
+
+.action-btn.btn-viewer:hover {
+    background: #0f172a;
+    box-shadow: 0 15px 30px -10px rgba(13, 148, 136, 0.4);
 }
 
 .connector-details h3 {
