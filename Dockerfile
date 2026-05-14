@@ -33,6 +33,7 @@ COPY packages/runtime/dist/*.whl /wheels/
 COPY packages/connectors/http_generic/dist/*.whl /wheels/
 COPY packages/connectors/stripe/dist/*.whl /wheels/
 COPY packages/connectors/smtp/dist/*.whl /wheels/
+COPY packages/connectors/slack/dist/*.whl /wheels/
 COPY packages/connectors/google_drive/dist/*.whl /wheels/
 COPY packages/connectors/fhir_cerner/dist/*.whl /wheels/
 COPY packages/connectors/fhir_epic/dist/*.whl /wheels/
@@ -45,6 +46,7 @@ RUN pip install --no-cache-dir --find-links=/wheels \
     node-wire-http-generic \
     node-wire-stripe \
     node-wire-smtp \
+    node-wire-slack \
     node-wire-google-drive \
     node-wire-fhir-cerner \
     node-wire-fhir-epic \
