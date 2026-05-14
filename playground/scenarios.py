@@ -415,11 +415,13 @@ async def post_consultation_scenario(
             patient_id = payload.patient_id
         else:
             patient_search_params = {
-                k: v for k, v in {
+                k: v
+                for k, v in {
                     "family": payload.patient_family,
                     "given": payload.patient_given,
                     "birthdate": payload.patient_birthdate,
-                }.items() if v is not None
+                }.items()
+                if v is not None
             }
             logger.info(f"Searching for patient: {patient_search_params}")
             p_res = await execute_with_retry(
@@ -2450,20 +2452,23 @@ async def external_patient_viewer_scenario(
         if payload.patient_id:
             logger.info(
                 "[ExtViewer] Direct Patient ID lookup: %s on %s",
-                payload.patient_id, system_label,
+                payload.patient_id,
+                system_label,
                 extra={"trace_id": trace_id},
             )
             if is_epic:
                 p_res = await execute_with_retry(
                     connector,
                     FhirPatientReadInput(resource_id=payload.patient_id),
-                    trace_id, steps[-1],
+                    trace_id,
+                    steps[-1],
                 )
             else:
                 p_res = await execute_with_retry(
                     connector,
                     FhirCernerPatientReadInput(resource_id=payload.patient_id),
-                    trace_id, steps[-1],
+                    trace_id,
+                    steps[-1],
                 )
             patient_id = payload.patient_id
             patient_resource = p_res.resource or {}
@@ -2475,28 +2480,33 @@ async def external_patient_viewer_scenario(
                     "to resolve patient identity."
                 )
             search_params = {
-                k: v for k, v in {
+                k: v
+                for k, v in {
                     "family": payload.patient_family,
                     "given": payload.patient_given,
                     "birthdate": payload.patient_birthdate,
-                }.items() if v
+                }.items()
+                if v
             }
             logger.info(
                 "[ExtViewer] Identity-layer search: %s on %s",
-                search_params, system_label,
+                search_params,
+                system_label,
                 extra={"trace_id": trace_id},
             )
             if is_epic:
                 p_res = await execute_with_retry(
                     connector,
                     FhirPatientReadInput(search_params=search_params),
-                    trace_id, steps[-1],
+                    trace_id,
+                    steps[-1],
                 )
             else:
                 p_res = await execute_with_retry(
                     connector,
                     FhirCernerPatientReadInput(search_params=search_params),
-                    trace_id, steps[-1],
+                    trace_id,
+                    steps[-1],
                 )
             patient_resource = p_res.resource or {}
             patient_id = patient_resource.get("id")
@@ -2512,12 +2522,8 @@ async def external_patient_viewer_scenario(
             official = {}
         given_parts = official.get("given", [])
         family_part = official.get("family", "")
-        patient_display = (
-            f"{' '.join(given_parts)} {family_part}".strip()
-            or (
-                f"{payload.patient_given or ''} {payload.patient_family or ''}".strip()
-                or patient_id
-            )
+        patient_display = f"{' '.join(given_parts)} {family_part}".strip() or (
+            f"{payload.patient_given or ''} {payload.patient_family or ''}".strip() or patient_id
         )
         patient_dob = patient_resource.get("birthDate", "Unknown")
         patient_gender = patient_resource.get("gender", "Unknown")
@@ -2548,7 +2554,8 @@ async def external_patient_viewer_scenario(
                 FhirEncounterSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_enc)}
                 ),
-                trace_id, steps[-1],
+                trace_id,
+                steps[-1],
             )
         else:
             enc_res = await execute_with_retry(
@@ -2556,7 +2563,8 @@ async def external_patient_viewer_scenario(
                 FhirCernerEncounterSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_enc)}
                 ),
-                trace_id, steps[-1],
+                trace_id,
+                steps[-1],
             )
 
         encounters = enc_res.resources or []
@@ -2567,22 +2575,24 @@ async def external_patient_viewer_scenario(
             most_recent_enc = encounters[0]
         recent_enc_type = (
             (most_recent_enc.get("type") or [{}])[0].get("text", "Encounter")
-            if most_recent_enc else "None"
+            if most_recent_enc
+            else "None"
         )
         recent_enc_date = (
             most_recent_enc.get("period", {}).get("start", "Unknown date")
-            if most_recent_enc else "N/A"
+            if most_recent_enc
+            else "N/A"
         )
 
         steps[-1].status = "success"
         steps[-1].details = (
             f"Retrieved {enc_count} encounter(s). "
             f"Most recent: {recent_enc_type} on {recent_enc_date}"
-            if enc_count else "No encounters found for this patient."
+            if enc_count
+            else "No encounters found for this patient."
         )
         steps[-1].display_name = (
-            f"Encounter History: {enc_count} record(s)"
-            if enc_count else "No Encounters Found"
+            f"Encounter History: {enc_count} record(s)" if enc_count else "No Encounters Found"
         )
         steps[-1].data = {
             "encounter_count": enc_count,
@@ -2605,7 +2615,8 @@ async def external_patient_viewer_scenario(
                 FhirDocumentReferenceSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_docs)}
                 ),
-                trace_id, steps[-1],
+                trace_id,
+                steps[-1],
             )
         else:
             doc_res = await execute_with_retry(
@@ -2613,7 +2624,8 @@ async def external_patient_viewer_scenario(
                 FhirCernerDocumentReferenceSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_docs)}
                 ),
-                trace_id, steps[-1],
+                trace_id,
+                steps[-1],
             )
 
         documents = doc_res.resources or []
@@ -2624,21 +2636,21 @@ async def external_patient_viewer_scenario(
             doc_source = "encounter_fallback"
             for enc in encounters[:max_docs]:
                 enc_id = enc.get("id", "unknown")
-                enc_type_text = (
-                    (enc.get("type") or [{}])[0].get("text", "Clinical Encounter")
-                )
+                enc_type_text = (enc.get("type") or [{}])[0].get("text", "Clinical Encounter")
                 enc_date = enc.get("period", {}).get("start", "Unknown")
                 enc_status = enc.get("status", "unknown")
-                documents.append({
-                    "id": f"ENC-{enc_id}",
-                    "resourceType": "EncounterFallback",
-                    "status": enc_status,
-                    "type": {"text": enc_type_text},
-                    "date": enc_date,
-                    "description": "Encounter summary (no DocumentReference found)",
-                    "subject": {"reference": f"Patient/{patient_id}"},
-                    "_synthetic": True,
-                })
+                documents.append(
+                    {
+                        "id": f"ENC-{enc_id}",
+                        "resourceType": "EncounterFallback",
+                        "status": enc_status,
+                        "type": {"text": enc_type_text},
+                        "date": enc_date,
+                        "description": "Encounter summary (no DocumentReference found)",
+                        "subject": {"reference": f"Patient/{patient_id}"},
+                        "_synthetic": True,
+                    }
+                )
             logger.info(
                 "[ExtViewer] No DocumentReferences found; using %d encounter fallback record(s)",
                 len(documents),
@@ -2651,11 +2663,13 @@ async def external_patient_viewer_scenario(
         steps[-1].status = "success"
         steps[-1].details = (
             f"Retrieved {doc_count} document(s){fallback_note}."
-            if doc_count else "No documents or encounters available for this patient."
+            if doc_count
+            else "No documents or encounters available for this patient."
         )
         steps[-1].display_name = (
             f"Documents: {doc_count} record(s){fallback_note}"
-            if doc_count else "No Documents Found"
+            if doc_count
+            else "No Documents Found"
         )
         steps[-1].data = {
             "document_count": doc_count,
@@ -2674,7 +2688,7 @@ async def external_patient_viewer_scenario(
             enc_type = (enc.get("type") or [{}])[0].get("text", "Encounter")
             enc_date = enc.get("period", {}).get("start", "Unknown")
             enc_status = enc.get("status", "?")
-            enc_lines.append(f"  [{i+1}] {enc_type} | {enc_date} | Status: {enc_status}")
+            enc_lines.append(f"  [{i + 1}] {enc_type} | {enc_date} | Status: {enc_status}")
 
         doc_lines = []
         for i, doc in enumerate(documents[:5]):
@@ -2682,25 +2696,31 @@ async def external_patient_viewer_scenario(
             d_date = doc.get("date") or doc.get("period", {}).get("start", "Unknown")
             d_status = doc.get("status", "?")
             d_synth = " [enc-fallback]" if doc.get("_synthetic") else ""
-            doc_lines.append(f"  [{i+1}] {d_type}{d_synth} | {d_date} | Status: {d_status}")
+            doc_lines.append(f"  [{i + 1}] {d_type}{d_synth} | {d_date} | Status: {d_status}")
 
-        content_lines = [
-            f"=== External Patient Chart ({system_label}) ===",
-            f"Patient   : {patient_display}",
-            f"FHIR ID   : {patient_id}",
-            f"DOB       : {patient_dob}",
-            f"Gender    : {patient_gender}",
-            "",
-            f"--- Encounter History ({len(encounters)} record(s)) ---",
-        ] + (enc_lines if enc_lines else ["  No encounters found."]) + [
-            "",
-            f"--- Documents ({len(documents)} record(s)"
-            + (" — encounter fallback" if doc_source == "encounter_fallback" else "")
-            + ") ---",
-        ] + (doc_lines if doc_lines else ["  No documents found."]) + [
-            "",
-            "[READ-ONLY] No data was written to the source system.",
-        ]
+        content_lines = (
+            [
+                f"=== External Patient Chart ({system_label}) ===",
+                f"Patient   : {patient_display}",
+                f"FHIR ID   : {patient_id}",
+                f"DOB       : {patient_dob}",
+                f"Gender    : {patient_gender}",
+                "",
+                f"--- Encounter History ({len(encounters)} record(s)) ---",
+            ]
+            + (enc_lines if enc_lines else ["  No encounters found."])
+            + [
+                "",
+                f"--- Documents ({len(documents)} record(s)"
+                + (" — encounter fallback" if doc_source == "encounter_fallback" else "")
+                + ") ---",
+            ]
+            + (doc_lines if doc_lines else ["  No documents found."])
+            + [
+                "",
+                "[READ-ONLY] No data was written to the source system.",
+            ]
+        )
 
         beautiful_data = {
             "id": f"CHART-{patient_id}",

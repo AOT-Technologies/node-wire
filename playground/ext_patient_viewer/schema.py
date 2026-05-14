@@ -3,6 +3,7 @@ External Patient Viewer — Pydantic input/output schemas.
 
 Read-only: no writes occur in any scenario using these models.
 """
+
 from __future__ import annotations
 
 from typing import Optional
