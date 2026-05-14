@@ -96,7 +96,7 @@ def auto_register() -> List[str]:
        which populates ``_CONNECTOR_REGISTRY``.
     2. Attempt to load a sibling ``registration`` module (optional) for
        ``ErrorMapper`` registrations and other import-time side effects.
-       
+
     If an allowed connector is not discovered via entry points, attempts to fallback
     to importing the logic module directly.
 

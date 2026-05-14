@@ -18,6 +18,7 @@ After successful auth, normalized caller identity (principal / tenant_id / scope
 
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import Callable
 
@@ -26,7 +27,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from node_wire_runtime.caller_identity import CallerIdentity, build_caller_identity
+from node_wire_runtime.caller_identity import (
+    CallerIdentity,
+    build_caller_identity,
+    parse_api_key_scopes_from_env,
+)
 
 
 REST_CALLER_STATE_KEY = "nw_rest_caller_identity"
@@ -60,6 +65,26 @@ def _extract_bearer_or_api_key(request: Request) -> str | None:
     return None
 
 
+def get_request_identity_key(request: Request) -> str:
+    """
+    Return a stable, non-sensitive identity key for request-level controls.
+
+    Preference order:
+    1) Auth token/API key (fingerprinted, never returned raw)
+    2) X-Forwarded-For first hop
+    3) request.client.host
+    """
+    token = _extract_bearer_or_api_key(request)
+    if token:
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        return f"token:{digest}"
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",", maxsplit=1)[0].strip()
+    if forwarded:
+        return f"ip:{forwarded}"
+    client_host = request.client.host if request.client else "unknown"
+    return f"ip:{client_host}"
+
+
 def verify_rest_token_and_identity(
     token: str,
     *,
@@ -69,11 +94,14 @@ def verify_rest_token_and_identity(
     """
     Validate REST bearer/API-key token and build caller identity (same shape as MCP).
 
-    Shared API key behaves like MCP: wildcard scopes for ScopePolicyHook compatibility.
+    Shared API key scopes come from ``NW_REST_API_KEY_SCOPES`` (JSON array or
+    comma/space-separated). Empty means no scopes; use explicit ``*`` only when
+    intended (JWT-style superuser for the policy hook).
     """
     if api_key and token == api_key:
+        scopes = list(parse_api_key_scopes_from_env("NW_REST_API_KEY_SCOPES"))
         ident = build_caller_identity(
-            {"sub": "api-key-user", "tenant_id": None, "scopes": ["*"]},
+            {"sub": "api-key-user", "tenant_id": None, "scopes": scopes},
             auth_type="rest_api_key",
         )
         return True, ident

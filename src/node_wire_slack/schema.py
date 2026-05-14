@@ -8,6 +8,7 @@ BaseConnector can build a discriminated union and route to the correct
 Only `channel` and `message` are required for messaging actions.
 Authentication is handled via SecretProvider (never hard-coded here).
 """
+
 from __future__ import annotations
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
@@ -18,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # ---------------------------------------------------------------------------
 # Shared input base
 # ---------------------------------------------------------------------------
+
 
 class _BaseSlackInput(BaseModel):
     """Fields shared by every Slack input model."""
@@ -37,11 +39,14 @@ class _BaseSlackInput(BaseModel):
 # Action: post_message
 # ---------------------------------------------------------------------------
 
+
 class SlackPostMessageInput(_BaseSlackInput):
     """Send a message to a Slack channel."""
 
     action: Literal["post_message"] = "post_message"
-    channel: str = Field(..., description="Target Channel ID (C…), Name (#general), or User ID (U…).")
+    channel: str = Field(
+        ..., description="Target Channel ID (C…), Name (#general), or User ID (U…)."
+    )
     message: str = Field(..., description="Plain-text fallback message (markdown supported).")
     blocks: Optional[Union[str, List[Any]]] = Field(
         default=None,
@@ -53,11 +58,14 @@ class SlackPostMessageInput(_BaseSlackInput):
 # Action: send_direct_message
 # ---------------------------------------------------------------------------
 
+
 class SlackSendDirectMessageInput(_BaseSlackInput):
     """Send a direct message to a Slack user."""
 
     action: Literal["send_direct_message"] = "send_direct_message"
-    channel: str = Field(..., description="Target User ID (U…), Channel ID (C…), or Name (#general).")
+    channel: str = Field(
+        ..., description="Target User ID (U…), Channel ID (C…), or Name (#general)."
+    )
     message: str = Field(..., description="Plain-text fallback message (markdown supported).")
     blocks: Optional[Union[str, List[Any]]] = Field(
         default=None,
@@ -68,6 +76,7 @@ class SlackSendDirectMessageInput(_BaseSlackInput):
 # ---------------------------------------------------------------------------
 # Action: upload_file
 # ---------------------------------------------------------------------------
+
 
 class SlackUploadFileInput(_BaseSlackInput):
     """Upload a file to a Slack channel or DM via the external-upload API."""
@@ -112,6 +121,7 @@ _SlackOperationUnion = Annotated[
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
+
 
 class SlackOutput(BaseModel):
     """Unified output envelope for all Slack actions."""

@@ -1,4 +1,5 @@
 """MCP Server — Salesforce connector only. Usage: python -m agents.salesforce_mcp"""
+
 from __future__ import annotations
 
 import logging

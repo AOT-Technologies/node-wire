@@ -4,11 +4,12 @@
 #
 from __future__ import annotations
 
+import contextvars
 import inspect
 import logging
-import os
 import uuid
 from abc import ABC
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import (
     Annotated,
@@ -20,6 +21,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
     get_type_hints,
     List,
 )
@@ -40,6 +42,36 @@ from .sdk_action_spec import SdkActionSpec
 logger = logging.getLogger("runtime.base_connector")
 tracer: Tracer = trace.get_tracer("runtime")
 ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
+
+
+class NestedConnectorActionError(Exception):
+    """Nested action invoked via :meth:`call_action` returned ``ConnectorResponse.success=False``."""
+
+    def __init__(self, response: ConnectorResponse) -> None:
+        self.response = response
+        msg = response.message or response.error_code or "Nested action failed"
+        super().__init__(msg)
+
+
+def _merge_nested_failure_details(nested: ConnectorResponse) -> Any:
+    """Attach nested trace id for debugging without dropping existing ``details``."""
+    tid = nested.trace_id
+    d = nested.details
+    if tid is None or tid == "":
+        return d
+    if d is None:
+        return {"nested_trace_id": tid}
+    if isinstance(d, dict):
+        merged = dict(d)
+        merged.setdefault("nested_trace_id", tid)
+        return merged
+    return {"nested_trace_id": tid, "nested_details": d}
+
+
+# principal, tenant_id, scopes — set during :meth:`run` for nested :meth:`call_action`.
+_caller_execution_ctx: contextvars.ContextVar[
+    tuple[Optional[str], Optional[str], Optional[tuple[str, ...]]] | None
+] = contextvars.ContextVar("nw_connector_caller_execution", default=None)
 
 # Populated by BaseConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
@@ -69,22 +101,23 @@ def _make_spec_handler(
     async def _handler(self, params, *, trace_id: str):
         return await self._execute_action_spec(action_name, params, trace_id=trace_id)
 
-    _handler.__name__ = fn_name
-    _handler.__qualname__ = f"{cls_qualname}.{fn_name}"
-    _handler.__module__ = cls_module
+    handler_fn: Any = _handler
+    handler_fn.__name__ = fn_name
+    handler_fn.__qualname__ = f"{cls_qualname}.{fn_name}"
+    handler_fn.__module__ = cls_module
     # Set actual type objects (not strings) so get_type_hints() resolves correctly
     # even when `from __future__ import annotations` is active in the connector module.
-    _handler.__annotations__ = {"params": input_model, "return": output_model}
-    _handler._sdk_action_name = action_name
-    _handler._alias_tolerant = alias_tolerant
-    _handler._mcp_normalize = mcp_normalize
-    _handler._requires_auth = requires_auth
-    _handler._scopes = scopes
-    _handler._rate_limit = rate_limit
-    _handler._deprecated = deprecated
+    handler_fn.__annotations__ = {"params": input_model, "return": output_model}
+    handler_fn._sdk_action_name = action_name
+    handler_fn._alias_tolerant = alias_tolerant
+    handler_fn._mcp_normalize = mcp_normalize
+    handler_fn._requires_auth = requires_auth
+    handler_fn._scopes = scopes
+    handler_fn._rate_limit = rate_limit
+    handler_fn._deprecated = deprecated
     # Backward-compatible alias for legacy callers/tests.
-    _handler._nw_action_name = action_name
-    return _handler
+    handler_fn._nw_action_name = action_name
+    return handler_fn
 
 
 def _generate_methods_from_action_specs(cls: Any) -> None:
@@ -285,12 +318,12 @@ class BaseConnector(ABC):
                 fn_name=attr_name,
                 input_model=input_model,
                 output_model=output_model,
-                alias_tolerant=getattr(method, '_alias_tolerant', False),
-                mcp_normalize=getattr(method, '_mcp_normalize', None),
-                requires_auth=getattr(method, '_requires_auth', True),
-                scopes=getattr(method, '_scopes', None),
-                rate_limit=getattr(method, '_rate_limit', None),
-                deprecated=getattr(method, '_deprecated', False),
+                alias_tolerant=getattr(method, "_alias_tolerant", False),
+                mcp_normalize=getattr(method, "_mcp_normalize", None),
+                requires_auth=getattr(method, "_requires_auth", True),
+                scopes=getattr(method, "_scopes", None),
+                rate_limit=getattr(method, "_rate_limit", None),
+                deprecated=getattr(method, "_deprecated", False),
             )
 
         cls._action_registry = registry
@@ -300,14 +333,14 @@ class BaseConnector(ABC):
             raise TypeError(f"{cls.__name__}: BaseConnector must define at least one @nw_action")
 
         if len(valid_models) == 1:
-            root_type = valid_models[0]
+            root_for_rm: Any = valid_models[0]
         else:
-            root_type = Annotated[
+            root_for_rm = Annotated[
                 Union[tuple(valid_models)],  # type: ignore[arg-type]
                 Field(discriminator="action"),
             ]
 
-        cls._union_input_model = RootModel[root_type]  # type: ignore[valid-type]
+        cls._union_input_model = cast(Type[RootModel[Any]], RootModel[root_for_rm])
         cls._union_input_model.model_rebuild()
 
         own_error_map = cls.__dict__.get("error_map", {})
@@ -337,13 +370,25 @@ class BaseConnector(ABC):
         self._auth_provider: AuthProvider = (
             auth_provider if auth_provider is not None else NoAuthProvider()
         )
-        self._breaker = CircuitBreaker(
+        self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
+        self._client: Any = None
+
+    def _create_breaker(self) -> CircuitBreaker:
+        cls = type(self)
+        return CircuitBreaker(
             fail_max=5,
             reset_timeout=30,
             name=f"{cls.__name__}_breaker",
         )
-        self._breakers: Dict[str, CircuitBreaker] = {}
-        self._client: Any = None
+
+    def _breaker_key(self, tenant_id: Optional[str]) -> str:
+        return tenant_id or "__default__"
+
+    def _breaker_for_tenant(self, tenant_id: Optional[str]) -> CircuitBreaker:
+        # Tests may delete `_breakers` to simulate cache loss; rebuild lazily.
+        if not hasattr(self, "_breakers"):
+            self._breakers = defaultdict(self._create_breaker)
+        return self._breakers[self._breaker_key(tenant_id)]
 
     @property
     def secret_provider(self) -> SecretProvider:
@@ -411,6 +456,7 @@ class BaseConnector(ABC):
                 },
             )
 
+            token = _caller_execution_ctx.set((principal, tenant_id, scopes))
             try:
                 try:
                     input_model = self._input_model_cls.model_validate(raw_input)
@@ -475,23 +521,7 @@ class BaseConnector(ABC):
                             trace_id=trace_id,
                         )
 
-                tenant_key = tenant_id or "default"
-                breaker_cache = getattr(self, "_breakers", None)
-                if breaker_cache is None:
-                    breaker_cache = {}
-                    self._breakers = breaker_cache
-
-                if tenant_key not in breaker_cache:
-                    fail_max = int(os.environ.get("AOT_CIRCUIT_BREAKER_FAIL_MAX", "5"))
-                    reset_timeout = int(os.environ.get("AOT_CIRCUIT_BREAKER_RESET_TIMEOUT", "30"))
-                    breaker_cache[tenant_key] = CircuitBreaker(
-                        fail_max=fail_max,
-                        reset_timeout=reset_timeout,
-                        name=f"{self.connector_id}_breaker_{tenant_key}",
-                    )
-                
-                breaker = breaker_cache[tenant_key]
-                execute_with_resilience = with_resilience(breaker)
+                execute_with_resilience = with_resilience(self._breaker_for_tenant(tenant_id))
 
                 @execute_with_resilience
                 async def _do_execute(*, trace_id: str) -> Any:
@@ -512,6 +542,25 @@ class BaseConnector(ABC):
                     success=True,
                     data=output_model.model_dump(),
                     trace_id=trace_id,
+                )
+            except NestedConnectorActionError as exc:
+                nested = exc.response
+                logger.warning(
+                    "Nested connector action failed via call_action",
+                    extra={
+                        "trace_id": trace_id,
+                        "connector_id": self.connector_id,
+                        "nested_error_code": nested.error_code or "",
+                        "nested_trace_id": nested.trace_id,
+                    },
+                )
+                return ConnectorResponse(
+                    success=False,
+                    error_code=nested.error_code,
+                    error_category=nested.error_category,
+                    message=nested.message,
+                    trace_id=trace_id,
+                    details=_merge_nested_failure_details(nested),
                 )
             except Exception as exc:  # noqa: BLE001
                 mapped = ErrorMapper.resolve(exc)
@@ -534,6 +583,8 @@ class BaseConnector(ABC):
                     message=str(exc),
                     trace_id=trace_id,
                 )
+            finally:
+                _caller_execution_ctx.reset(token)
 
     @classmethod
     def get_registry(cls) -> Dict[str, Type[BaseConnector]]:
@@ -583,13 +634,39 @@ class BaseConnector(ABC):
         )
         return await fn(root, trace_id=trace_id)
 
-    async def call_action(self, name: str, params_dict: Dict[str, Any]) -> Any:
-        """Invoke another action by name (for composite operations)."""
+    async def call_action(
+        self,
+        name: str,
+        params_dict: Dict[str, Any],
+        *,
+        principal: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        scopes: Optional[tuple[str, ...]] = None,
+    ) -> Any:
+        """Invoke another action via :meth:`run` so policy hooks and resilience apply.
+
+        When called from within an action that was entered through :meth:`run`
+        (e.g. MCP/REST with identity), caller ``principal`` / ``tenant_id`` /
+        ``scopes`` are inherited from that outer run unless overridden here.
+        """
         meta = self._action_registry.get(name)
         if meta is None:
             raise ValueError(
                 f"call_action: unknown action {name!r} on connector {self.connector_id!r}"
             )
-        validated = meta.input_model.model_validate(params_dict)
-        fn = getattr(self, meta.fn_name)
-        return await fn(validated, trace_id=str(uuid.uuid4()))
+        p, t, s = principal, tenant_id, scopes
+        if p is None and t is None and s is None:
+            inherited = _caller_execution_ctx.get()
+            if inherited is not None:
+                p, t, s = inherited
+
+        payload = dict(params_dict)
+        payload["action"] = name
+        resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
+        if not resp.success:
+            if resp.error_code == "POLICY_DENIED":
+                raise PolicyDenied(resp.message or "Policy denied")
+            raise NestedConnectorActionError(resp)
+        if resp.data is None:
+            raise RuntimeError("call_action: connector returned no data")
+        return meta.output_model.model_validate(resp.data)

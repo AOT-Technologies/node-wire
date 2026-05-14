@@ -12,7 +12,7 @@ behavior (defaults, field masks, shared drives flags).
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict
+from typing import Any, Callable, Dict, cast
 
 from googleapiclient.http import MediaInMemoryUpload
 from pydantic import BaseModel
@@ -31,6 +31,19 @@ from .schema import (
 )
 
 DEFAULT_LIST_FIELDS = "nextPageToken, files(id, name, mimeType, webViewLink)"
+
+
+def _files_get_fields_kwarg(p: FilesGetOperation) -> str:
+    return p.fields or "id,name,mimeType,parents"
+
+
+def _files_update_add_parents(p: FilesUpdateOperation) -> str | None:
+    return ",".join(p.add_parents) if p.add_parents else None
+
+
+def _files_update_remove_parents(p: FilesUpdateOperation) -> str | None:
+    return ",".join(p.remove_parents) if p.remove_parents else None
+
 
 # Action name -> SdkActionSpec (matches @nw_action("...") strings)
 GOOGLE_DRIVE_ACTION_SPECS: Dict[str, SdkActionSpec] = {}
@@ -80,9 +93,10 @@ def _register_files_get() -> None:
         resource_segments=("files",),
         method_name="get",
         kwargs_from_model={"file_id": "fileId"},
-        computed_kwargs={
-            "fields": lambda p: p.fields or "id,name,mimeType,parents",
-        },
+        computed_kwargs=cast(
+            Dict[str, Callable[[BaseModel], Any]],
+            {"fields": _files_get_fields_kwarg},
+        ),
         constant_kwargs={"supportsAllDrives": True},
         input_model=FilesGetOperation,
     )
@@ -97,10 +111,13 @@ def _register_files_update() -> None:
             "name": "name",
             "mime_type": "mimeType",
         },
-        computed_kwargs={
-            "addParents": lambda p: ",".join(p.add_parents) if p.add_parents else None,
-            "removeParents": lambda p: ",".join(p.remove_parents) if p.remove_parents else None,
-        },
+        computed_kwargs=cast(
+            Dict[str, Callable[[BaseModel], Any]],
+            {
+                "addParents": _files_update_add_parents,
+                "removeParents": _files_update_remove_parents,
+            },
+        ),
         constant_kwargs={"supportsAllDrives": True},
         include_empty_body=True,
         input_model=FilesUpdateOperation,

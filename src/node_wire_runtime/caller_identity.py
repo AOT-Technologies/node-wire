@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -38,3 +41,26 @@ def build_caller_identity(claims: Mapping[str, Any], auth_type: str) -> CallerId
         claims=dict(claims),
         auth_type=auth_type,
     )
+
+
+def parse_api_key_scopes_from_env(env_var: str) -> tuple[str, ...]:
+    """
+    Parse scopes for shared API keys (MCP / REST), e.g. ``NW_MCP_API_KEY_SCOPES``.
+
+    Accepts:
+
+    - JSON array: ``["mcp:smtp.send_email","mcp:other"]``
+    - Whitespace or comma separated tokens: ``mcp:a mcp:b`` or ``mcp:a,mcp:b``
+
+    Empty / unset means **no** scopes (not wildcard).
+    """
+    raw = os.environ.get(env_var)
+    if raw is None or not str(raw).strip():
+        return tuple()
+    raw = str(raw).strip()
+    if raw.startswith("["):
+        parsed = json.loads(raw)
+        if not isinstance(parsed, list):
+            raise ValueError(f"{env_var} JSON must be an array of strings")
+        return tuple(str(s).strip() for s in parsed if str(s).strip())
+    return tuple(p for p in re.split(r"[\s,]+", raw) if p)

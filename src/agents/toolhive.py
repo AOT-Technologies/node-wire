@@ -48,7 +48,7 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol
+from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Union, runtime_checkable
 import re
 
 from dotenv import load_dotenv
@@ -181,6 +181,7 @@ def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
 
 def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
     from node_wire_runtime.streaming import stream_completion_log
+
     stream_completion_log(trace_id, success, connector_id="agent", action="run_events")
     return {
         "type": "done",
@@ -218,6 +219,7 @@ class AgentRunResult:
 # ---------------------------------------------------------------------------
 
 
+@runtime_checkable
 class McpClient(Protocol):
     async def list_tools(self) -> List[Dict[str, Any]]: ...
 
@@ -243,10 +245,9 @@ class ToolHiveMcpClient:
         self._base_url = base_url.rstrip("/")
         self._session_id: Optional[str] = None
         self._initialized: bool = False
-        self._auth_token: Optional[str] = (
-            os.environ.get("TOOLHIVE_MCP_BEARER_TOKEN")
-            or os.environ.get("TOOLHIVE_MCP_API_KEY")
-        )
+        self._auth_token: Optional[str] = os.environ.get(
+            "TOOLHIVE_MCP_BEARER_TOKEN"
+        ) or os.environ.get("TOOLHIVE_MCP_API_KEY")
 
     def _build_request_headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {
@@ -427,7 +428,7 @@ class StdioMcpClient:
     def __init__(self, command: List[str]) -> None:
         self._command = command
         self._exit_stack = AsyncExitStack()
-        self._session = None
+        self._session: Any = None
 
     async def __aenter__(self) -> StdioMcpClient:
         try:
@@ -617,18 +618,23 @@ class ToolHiveAgent:
 
                 try:
                     tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
-                    logger.info("Tool %s returned response of length: %d chars", tc.name, len(tool_result_str))
-                    
-                    
+                    logger.info(
+                        "Tool %s returned response of length: %d chars",
+                        tc.name,
+                        len(tool_result_str),
+                    )
+
                     # --- AUTOMATIC PAGINATION TOKEN HANDLING ---
                     try:
                         result_data = json.loads(tool_result_str)
-                        pagination_meta = result_data.get('data', {}).get('_server_pagination_metadata', {})
-                        next_token = pagination_meta.get('next_page_token')
-                        
+                        pagination_meta = result_data.get("data", {}).get(
+                            "_server_pagination_metadata", {}
+                        )
+                        next_token = pagination_meta.get("next_page_token")
+
                         if next_token:
-                            print(f"\n=== PAGINATION TOKEN DETECTED ===", file=sys.stderr)
-                            
+                            print("\n=== PAGINATION TOKEN DETECTED ===", file=sys.stderr)
+
                             # Add pagination info to tool result for LLM to see
                             pagination_info = (
                                 f"\n\n[PAGINATION INFO]\n"
@@ -638,13 +644,17 @@ class ToolHiveAgent:
                                 f"To get next page, call the same tool with page_token='{next_token}'"
                             )
                             tool_result_str += pagination_info
-                            print(f"=== ADDED PAGINATION INFO TO RESULT ===", file=sys.stderr)
+                            print("=== ADDED PAGINATION INFO TO RESULT ===", file=sys.stderr)
                         else:
-                            print(f"\n=== NO PAGINATION TOKEN FOUND ===", file=sys.stderr)
+                            print("\n=== NO PAGINATION TOKEN FOUND ===", file=sys.stderr)
                     except (json.JSONDecodeError, KeyError) as e:
                         print(f"Error parsing pagination metadata: {e}", file=sys.stderr)
-                    
-                    print(f"=================================================\n", file=sys.stderr, flush=True)
+
+                    print(
+                        "=================================================\n",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"
@@ -691,18 +701,21 @@ class ToolHiveAgent:
             logger.warning(result.error)
 
         from node_wire_runtime.streaming import stream_completion_log
+
         stream_completion_log(trace_id, result.success, connector_id="agent", action="run")
         return result
 
     async def run_events(self, task: str) -> AsyncIterator[Dict[str, Any]]:
         trace_id = str(uuid.uuid4())
         from node_wire_runtime.streaming import resolve_stream_buffer_ms, BufferedStreamIterator
-        
+
         buffer_ms = resolve_stream_buffer_ms()
         iterator = self._run_events_inner(task, trace_id)
-        
+
         if buffer_ms > 0:
-            async for item in BufferedStreamIterator(iterator, buffer_ms, trace_id, connector_id="agent", action="run_events"):
+            async for item in BufferedStreamIterator(
+                iterator, buffer_ms, trace_id, connector_id="agent", action="run_events"
+            ):
                 yield item
         else:
             async for item in iterator:
@@ -763,11 +776,13 @@ class ToolHiveAgent:
                 yield _stream_done_event(trace_id, success=False)
                 return
 
-            messages.append(LLMMessage(
-                role="assistant",
-                content=llm_resp.content,
-                tool_calls=llm_resp.tool_calls,
-            ))
+            messages.append(
+                LLMMessage(
+                    role="assistant",
+                    content=llm_resp.content,
+                    tool_calls=llm_resp.tool_calls,
+                )
+            )
 
             if not llm_resp.wants_tool_call:
                 for chunk in _chunk_agent_text(llm_resp.content or ""):
@@ -795,17 +810,21 @@ class ToolHiveAgent:
                     "result": tool_result_str,
                 }
 
-                messages.append(LLMMessage(
-                    role="tool",
-                    content=truncate_tool_result_for_llm(tool_result_str),
-                    tool_call_id=tc.id,
-                    name=tc.name,
-                ))
+                messages.append(
+                    LLMMessage(
+                        role="tool",
+                        content=truncate_tool_result_for_llm(tool_result_str),
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                    )
+                )
 
                 if _is_tool_failure(tool_result_str):
                     tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
                     if tool_failures[tc.name] >= self._max_tool_failures:
-                        abort_message = _tool_failure_abort_message(tc.name, self._max_tool_failures)
+                        abort_message = _tool_failure_abort_message(
+                            tc.name, self._max_tool_failures
+                        )
                         logger.warning("Stopping streaming agent: %s", abort_message)
                         break
 
@@ -834,6 +853,7 @@ async def _run_agent(args: argparse.Namespace) -> None:
     logger.info("Creating LLM provider: %s", llm_provider_name)
     provider = LLMProviderFactory.create_from_env()
 
+    mcp_client_context: Union[StdioMcpClient, ToolHiveMcpClient, MultiMcpClient]
     if args.local:
         logger.info("Using local stdio transport (launching server as subprocess)")
         # Launch the mcp_entrypoint.py as a subprocess

@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
@@ -14,6 +15,11 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from bindings.factory import ConnectorFactory
 from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
 from node_wire_runtime.caller_identity import CallerIdentity
+from node_wire_runtime.policies.mcp_scope_policy import (
+    action_allowed_for_identity_scopes,
+    load_scope_map_from_env,
+    load_scope_policy_default_from_env,
+)
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import ConnectorResponse, ErrorCategory
@@ -22,6 +28,12 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
+_streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = (
+    contextvars.ContextVar(
+        "nw_streamable_http_identity",
+        default=None,
+    )
+)
 
 _http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
     "mcp_http_request_headers",
@@ -42,7 +54,7 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
     if isinstance(data, list):
         current_len = len(data)
         max_list_size = max(max_list_size, current_len)
-        
+
         working_list = data
         if current_len > max_items:
             working_list = data[:max_items]
@@ -54,14 +66,21 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
             out_list.append(new_item)
             was_truncated = was_truncated or t
             max_list_size = max(max_list_size, mls)
-            if npt and not next_page_token: next_page_token = npt
+            if npt and not next_page_token:
+                next_page_token = npt
 
         return out_list, was_truncated, max_list_size, next_page_token
 
     if isinstance(data, dict):
         out_dict = {}
         for k, v in data.items():
-            if k in ("nextPageToken", "pageToken", "next_cursor", "cursor", "next_page_token") and isinstance(v, str):
+            if k in (
+                "nextPageToken",
+                "pageToken",
+                "next_cursor",
+                "cursor",
+                "next_page_token",
+            ) and isinstance(v, str):
                 if not next_page_token:
                     next_page_token = v
 
@@ -69,7 +88,8 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
             out_dict[k] = new_v
             was_truncated = was_truncated or t
             max_list_size = max(max_list_size, mls)
-            if npt and not next_page_token: next_page_token = npt
+            if npt and not next_page_token:
+                next_page_token = npt
 
         return out_dict, was_truncated, max_list_size, next_page_token
 
@@ -112,10 +132,12 @@ class McpServer:
         )
 
     def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
-        self._ensure_identity(identity=identity)
-        return self._list_tools_impl()
+        identity = self._ensure_identity(identity=identity)
+        return self._list_tools_impl(identity=identity)
 
-    def _list_tools_impl(self) -> List[Dict[str, Any]]:
+    def _list_tools_impl(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
+        scope_map = load_scope_map_from_env()
+        default_mode = load_scope_policy_default_from_env()
         connectors = self._factory.list_for_protocol("mcp")
         manifest = build_manifest(connectors)
         tools: List[Dict[str, Any]] = []
@@ -123,6 +145,17 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
+            if identity is not None:
+                if not action_allowed_for_identity_scopes(
+                    connector_id=cid,
+                    action=str(entry["action"]),
+                    principal=identity.principal,
+                    tenant_id=identity.tenant_id,
+                    scopes=identity.scopes,
+                    action_scope_map=scope_map,
+                    default_mode=default_mode,
+                ):
+                    continue
             schema_desc = entry["input_schema"].get("description", "")
 
             security_lines = []
@@ -142,11 +175,13 @@ class McpServer:
                 sec_block = f"\n\nSecurity & Limits:\n{sec_block}\n\n"
 
             tool_desc = (
-                f"{schema_desc}\n" if schema_desc else ""
-            ) + sec_block + (
-                f"Pass fields from inputSchema only; do not include an action field "
-                f"(it is injected from the tool name). "
-                f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+                (f"{schema_desc}\n" if schema_desc else "")
+                + sec_block
+                + (
+                    f"Pass fields from inputSchema only; do not include an action field "
+                    f"(it is injected from the tool name). "
+                    f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+                )
             )
             tools.append(
                 {
@@ -166,6 +201,9 @@ class McpServer:
     ) -> CallerIdentity | None:
         if identity is not None:
             return identity
+        request_identity = _streamable_http_identity_ctx.get()
+        if request_identity is not None:
+            return request_identity
         return authenticate_mcp_request(
             headers=_http_request_headers.get(),
             meta=meta,
@@ -199,12 +237,14 @@ class McpServer:
         identity = self._ensure_identity(identity=identity)
         try:
             # Skip rate limiting if disabled
-            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in (
+                "true",
+                "1",
+                "yes",
+            ):
                 await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
             raise ValueError(str(e))
-
-
 
         try:
             connector_id, action = name.split(".", 1)
@@ -223,7 +263,7 @@ class McpServer:
         run_args["action"] = action
 
         trace_id = run_args.get("trace_id") or str(uuid.uuid4())
-        
+
         # Proactively inject/clamp pagination parameters to prevent native token desync
         # caused by the post-execution truncation guardrail
         max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
@@ -252,15 +292,17 @@ class McpServer:
                 scopes=identity.scopes if identity else None,
             )
             stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
-        except Exception as exc:
+        except Exception:
             stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
             raise
-        
+
         raw_response = response.model_dump()
 
         # Enforce MCP sampling guardrail
-        processed_payload, was_truncated, item_count, next_token = _process_response_payload(raw_response, max_items)
-        
+        processed_payload, was_truncated, item_count, next_token = _process_response_payload(
+            raw_response, max_items
+        )
+
         # Overwrite raw_response in place
         raw_response.clear()
         raw_response.update(processed_payload)
@@ -269,10 +311,10 @@ class McpServer:
         if clamped_params:
             raw_response["_system_pagination_used"] = clamped_params
 
-        # IMPORTANT: Inject metadata IN-BAND inside the "data" dictionary so client UIs 
+        # IMPORTANT: Inject metadata IN-BAND inside the "data" dictionary so client UIs
         # (like Toolhive / Agent chat) that only render the `data` block will explicitly see it.
         if "data" in raw_response and isinstance(raw_response["data"], dict):
-            pagination_meta = {}
+            pagination_meta: dict[str, Any] = {}
             if clamped_params:
                 pagination_meta["coerced_parameters"] = clamped_params
             pagination_meta["items_returned"] = item_count
@@ -281,21 +323,26 @@ class McpServer:
             if next_token:
                 pagination_meta["next_page_token"] = next_token
             # Prepend it visually for the LLM
-            raw_response["data"] = {"_server_pagination_metadata": pagination_meta, **raw_response["data"]}
-        
+            raw_response["data"] = {
+                "_server_pagination_metadata": pagination_meta,
+                **raw_response["data"],
+            }
+
         # We also inject explicitly into the root if it doesn't have a data block
         elif not isinstance(raw_response.get("data"), dict):
             raw_response["_server_pagination_metadata"] = {
                 "coerced_parameters": clamped_params,
                 "items_returned": item_count,
-                "next_page_token": next_token
+                "next_page_token": next_token,
             }
 
         # Build dynamic system message
         sys_msgs = []
         if clamped_params:
-            sys_msgs.append(f"[System Pagination] Arguments coerced to safeguard limits: {json.dumps(clamped_params)}")
-        
+            sys_msgs.append(
+                f"[System Pagination] Arguments coerced to safeguard limits: {json.dumps(clamped_params)}"
+            )
+
         if item_count > 0:
             count_msg = f"[System Guardrail] The connector returned {item_count} items."
             if was_truncated:
@@ -303,7 +350,9 @@ class McpServer:
             sys_msgs.append(count_msg)
 
         if next_token:
-            sys_msgs.append(f"[System Pagination] nextPageToken available for next query: '{next_token}'")
+            sys_msgs.append(
+                f"[System Pagination] nextPageToken available for next query: '{next_token}'"
+            )
 
         if was_truncated and not next_token:
             sys_msgs.append(
@@ -351,7 +400,7 @@ class McpServer:
                     },
                 )
             out: list[Tool] = []
-            for t in self._list_tools_impl():
+            for t in self._list_tools_impl(identity=identity):
                 kwargs: Dict[str, Any] = {
                     "name": t["name"],
                     "description": t["description"],
@@ -417,25 +466,42 @@ class McpServer:
 
         anyio.run(self._run_stdio_async)
 
-    async def _run_streamable_http_async(self) -> None:
-        import os
-        from starlette.applications import Starlette
-        from starlette.routing import Route
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-        import uvicorn
+    def _build_streamable_http_app(self, *, session_manager: Any, path: str) -> Any:
         from contextlib import asynccontextmanager
 
-        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
-        port = int(os.getenv("NW_MCP_PORT", "8081"))
-        path = os.getenv("NW_MCP_PATH", "/mcp")
-
-        low = self._setup_lowlevel_server()
-        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+        from starlette.applications import Starlette
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse
+        from starlette.routing import Route
 
         @asynccontextmanager
         async def lifespan(app: Starlette):
             async with session_manager.run():
                 yield
+
+        class StreamableHttpAuthMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+                if request.url.path != path:
+                    return await call_next(request)
+                try:
+                    identity = authenticate_mcp_request(headers=request.headers)
+                except McpAuthError as exc:
+                    headers: Dict[str, str] = {}
+                    if exc.www_authenticate:
+                        headers["WWW-Authenticate"] = exc.www_authenticate
+                    return JSONResponse(
+                        status_code=exc.status_code,
+                        content=exc.to_payload(),
+                        headers=headers,
+                    )
+
+                setattr(request.state, "nw_mcp_identity", identity)
+                token = _streamable_http_identity_ctx.set(identity)
+                try:
+                    return await call_next(request)
+                finally:
+                    _streamable_http_identity_ctx.reset(token)
 
         # Use a wrapper class to ensure Starlette treats this as an ASGI app
         # without the automatic redirection logic of Mount().
@@ -464,6 +530,21 @@ class McpServer:
                 )
             ],
         )
+        starlette_app.add_middleware(StreamableHttpAuthMiddleware)
+        return starlette_app
+
+    async def _run_streamable_http_async(self) -> None:
+        import os
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        import uvicorn
+
+        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("NW_MCP_PORT", "8081"))
+        path = os.getenv("NW_MCP_PATH", "/mcp")
+
+        low = self._setup_lowlevel_server()
+        session_manager = StreamableHTTPSessionManager(low, json_response=True)
+        starlette_app = self._build_streamable_http_app(session_manager=session_manager, path=path)
 
         logger.info(f"Starting MCP streamable-http server on {host}:{port}{path}")
         config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")

@@ -5,10 +5,8 @@
 from __future__ import annotations
 
 import asyncio
-import codecs
 import logging
 import os
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -38,6 +36,25 @@ from .schema import (
 )
 
 logger = logging.getLogger("connectors.fhir_epic")
+
+
+def _safe_doc_ref_log_summary(doc_ref: Dict[str, Any]) -> Dict[str, Any]:
+    attachment: Dict[str, Any] = {}
+    content_items = doc_ref.get("content")
+    if isinstance(content_items, list) and content_items:
+        first = content_items[0]
+        if isinstance(first, dict):
+            attachment = (
+                first.get("attachment", {}) if isinstance(first.get("attachment"), dict) else {}
+            )
+    data_value = attachment.get("data")
+    data_len = len(data_value) if isinstance(data_value, str) else 0
+    return {
+        "keys": sorted(doc_ref.keys()),
+        "content_items": len(content_items) if isinstance(content_items, list) else 0,
+        "attachment_content_type": attachment.get("contentType"),
+        "attachment_data_length": data_len,
+    }
 
 
 class FhirEpicConnector(BaseConnector):
@@ -121,7 +138,6 @@ class FhirEpicConnector(BaseConnector):
 
         return headers
 
-
     @staticmethod
     def _build_name_search_params(
         given_name: Optional[str],
@@ -201,9 +217,14 @@ class FhirEpicConnector(BaseConnector):
             )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
-                    url, headers=auth_header, params=query_params, timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+                    url,
+                    headers=auth_header,
+                    params=query_params,
+                    timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
         except Exception as exc:
@@ -249,7 +270,9 @@ class FhirEpicConnector(BaseConnector):
 
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
                 try:
-                    async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+                    async with httpx.AsyncClient(
+                        timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+                    ) as client:
                         resp = await client.get(
                             f"{base_url}/Patient/{rid}",
                             headers=auth_header,
@@ -304,7 +327,9 @@ class FhirEpicConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
                     f"{base_url}/Patient",
                     headers=auth_header,
@@ -330,18 +355,18 @@ class FhirEpicConnector(BaseConnector):
             raise
 
         data = response.json()
-        resources: List[Dict[str, Any]] = []
+        bundle_resources: List[Dict[str, Any]] = []
         total = data.get("total")
         if data.get("resourceType") == "Bundle" and data.get("entry"):
-            resources = [e["resource"] for e in data["entry"] if "resource" in e]
+            bundle_resources = [e["resource"] for e in data["entry"] if "resource" in e]
 
         logger.info(
             "FHIR Patient name search completed | found=%s | total=%s",
-            len(resources),
+            len(bundle_resources),
             total,
             extra={"trace_id": trace_id},
         )
-        return FhirPatientSearchOutput(resources=resources, total=total)
+        return FhirPatientSearchOutput(resources=bundle_resources, total=total)
 
     async def _search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str
@@ -370,7 +395,9 @@ class FhirEpicConnector(BaseConnector):
         auth_header = await self._get_auth_header()
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
                     f"{base_url}/Encounter",
                     headers=auth_header,
@@ -444,7 +471,9 @@ class FhirEpicConnector(BaseConnector):
         logger.info("FHIR DocumentReference create", extra={"trace_id": trace_id})
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.post(
                     f"{base_url}/DocumentReference",
                     json=doc_ref,
@@ -460,14 +489,19 @@ class FhirEpicConnector(BaseConnector):
                     for issue in resp_json.get("issue", []):
                         if "diagnostics" in issue:
                             diagnostics.append(issue["diagnostics"])
-                error_detail = " | ".join(diagnostics) if diagnostics else exc.response.text
+                error_detail = (
+                    " | ".join(diagnostics)
+                    if diagnostics
+                    else f"HTTP {exc.response.status_code} from Epic FHIR endpoint"
+                )
             except Exception:
-                error_detail = exc.response.text
+                error_detail = f"HTTP {exc.response.status_code} from Epic FHIR endpoint"
 
             logger.error(
-                "FHIR DocumentReference create failed | status=%s | epic_error=%s",
+                "FHIR DocumentReference create failed | status=%s | epic_error=%s | payload_summary=%s",
                 exc.response.status_code,
                 error_detail,
+                json.dumps(_safe_doc_ref_log_summary(doc_ref)),
                 extra={"trace_id": trace_id},
             )
             raise ValueError(f"Epic Error: {error_detail}") from exc
@@ -528,7 +562,9 @@ class FhirEpicConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))) as client:
+            async with httpx.AsyncClient(
+                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
+            ) as client:
                 response = await client.get(
                     f"{base_url}/DocumentReference",
                     headers=auth_header,

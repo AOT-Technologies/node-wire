@@ -11,7 +11,6 @@ from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 from pybreaker import CircuitBreaker, CircuitBreakerError
 from tenacity import (
     AsyncRetrying,
-    RetryError,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
@@ -33,8 +32,18 @@ class _AbortRetry(BaseException):
         super().__init__(str(cause))
 
 
+def _resolve_breaker(
+    breaker: CircuitBreaker | Callable[[], CircuitBreaker],
+) -> CircuitBreaker:
+    # CircuitBreaker instances are callable (__call__); treat concrete instances
+    # before callable check so we don't invoke them like factory functions.
+    if isinstance(breaker, CircuitBreaker):
+        return breaker
+    return breaker() if callable(breaker) else breaker
+
+
 def with_resilience(
-    breaker: CircuitBreaker,
+    breaker: CircuitBreaker | Callable[[], CircuitBreaker],
     max_attempts: int = 3,
     base_wait: float = 0.5,
     max_wait: float = 5.0,
@@ -50,7 +59,8 @@ def with_resilience(
             trace_id: str = kwargs.get("trace_id", "unknown-trace")
 
             async def _call() -> T:
-                if breaker.state.name == "open":
+                current_breaker = _resolve_breaker(breaker)
+                if current_breaker.state.name == "open":
                     logger.error(
                         "Circuit breaker is OPEN; rejecting call",
                         extra={
@@ -62,10 +72,10 @@ def with_resilience(
                     raise CircuitBreakerError("Circuit breaker is open")
                 try:
                     result = await fn(*args, **kwargs)
-                    breaker._state.on_success()  # noqa: SLF001
+                    current_breaker._state.on_success()  # noqa: SLF001
                     return result
                 except Exception as exc:
-                    breaker._state.on_failure(exc)  # noqa: SLF001
+                    current_breaker._state.on_failure(exc)  # noqa: SLF001
                     raise
                 except NameError:
                     # pybreaker < 1.0 requires Tornado's `gen` in call_async.
@@ -114,7 +124,7 @@ def with_resilience(
                 raise abort.cause
 
             # Should not be reached because reraise=True ensures RetryError is propagated.
-            raise RetryError("Exhausted retries without success")
+            raise RuntimeError("Exhausted retries without success")
 
         return wrapper
 

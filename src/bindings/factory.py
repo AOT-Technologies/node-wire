@@ -17,8 +17,10 @@ from node_wire_runtime import BaseConnector, SecretProvider
 from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
 from node_wire_runtime.policy import PolicyHook
 from node_wire_runtime.policies.mcp_scope_policy import (
+    DEFAULT_SCOPE_MODE_DENY,
     ScopePolicyHook,
     load_scope_map_from_env,
+    load_scope_policy_default_from_env,
 )
 from node_wire_runtime.secrets import ChainedSecretProvider, EnvSecretProvider
 
@@ -34,6 +36,7 @@ def _resolve_env_vars(data: Any) -> Any:
     elif isinstance(data, list):
         return [_resolve_env_vars(item) for item in data]
     elif isinstance(data, str):
+
         def replacer(match: Any) -> str:
             var_name = match.group(1)
             default = match.group(3)
@@ -42,7 +45,8 @@ def _resolve_env_vars(data: Any) -> Any:
             elif default is not None:
                 return default
             return match.group(0)
-        return re.sub(r'\$\{([A-Za-z0-9_]+)(:(.*?))?\}', replacer, data)
+
+        return re.sub(r"\$\{([A-Za-z0-9_]+)(:(.*?))?\}", replacer, data)
     return data
 
 
@@ -98,14 +102,40 @@ def _build_secret_provider() -> SecretProvider:
 
 def _build_policy_hook() -> PolicyHook | None:
     action_scope_map = load_scope_map_from_env()
-    if not action_scope_map:
-        logger.info("Policy hook disabled (no action scope map)")
+    default_mode = load_scope_policy_default_from_env()
+    strict_mode = os.environ.get("NW_MCP_SCOPE_POLICY_STRICT", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    logger.info(
+        "Evaluated MCP scope policy configuration",
+        extra={
+            "scope_map_entries": len(action_scope_map),
+            "default_mode": default_mode,
+            "strict_mode": strict_mode,
+        },
+    )
+    if not action_scope_map and default_mode != DEFAULT_SCOPE_MODE_DENY:
+        msg = (
+            "MCP scope policy is effectively disabled "
+            "(NW_MCP_ACTION_SCOPE_MAP_JSON empty and NW_MCP_SCOPE_POLICY_DEFAULT=allow). "
+            "Set NW_MCP_SCOPE_POLICY_DEFAULT=deny for production."
+        )
+        if strict_mode:
+            raise ValueError(msg + " Strict mode is enabled via NW_MCP_SCOPE_POLICY_STRICT=true.")
+        logger.warning(msg)
+        logger.info("Policy hook disabled (no action scope map; default is allow)")
         return None
     logger.info(
         "Policy hook enabled",
-        extra={"scope_map_entries": len(action_scope_map)},
+        extra={
+            "scope_map_entries": len(action_scope_map),
+            "default_mode": default_mode,
+        },
     )
-    return ScopePolicyHook(action_scope_map)
+    return ScopePolicyHook(action_scope_map, default_mode=default_mode)
 
 
 @dataclass
@@ -203,7 +233,6 @@ class ConnectorFactory:
                 refresh_token_secret=auth_cfg.get("refresh_token_secret"),
                 scopes=auth_cfg.get("scopes"),
                 scopes_secret=auth_cfg.get("scopes_secret"),
-
                 extra_content_type_headers=auth_cfg.get("extra_headers"),
                 buffer_secs=int(auth_cfg.get("buffer_secs", 60)),
                 jwt_ttl_secs=int(auth_cfg.get("jwt_ttl_secs", 300)),

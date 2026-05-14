@@ -14,8 +14,10 @@ from bindings.rest_api.app import app as rest_app
 from bindings.mcp_server.server import McpServer
 from node_wire_runtime.observability import init_observability
 
-# Load project .env early so all modes (API/GRPC/MCP) see consistent config.
-load_dotenv(override=True)
+# Match ``bindings.rest_api.app``: honor ``NW_REST_LOAD_DOTENV`` and never override
+# keys already set (pytest/conftest sets ``NW_REST_LOAD_DOTENV=false`` before imports).
+if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+    load_dotenv(override=False)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bindings.entrypoint")

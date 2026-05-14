@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 
 # ---------------------------------------------------------------------------
@@ -103,18 +103,25 @@ class BaseLLMProvider(ABC):
 # Factory
 # ---------------------------------------------------------------------------
 
+# Optional provider classes when [agents] extras are not installed.
+GroqProvider: Optional[Type[BaseLLMProvider]] = None
+OpenAIProvider: Optional[Type[BaseLLMProvider]] = None
+GeminiProvider: Optional[Type[BaseLLMProvider]] = None
+AnthropicProvider: Optional[Type[BaseLLMProvider]] = None
+
 try:
-    from agents.providers.groq_provider import GroqProvider
-    from agents.providers.openai_provider import OpenAIProvider
-    from agents.providers.gemini_provider import GeminiProvider
-    from agents.providers.anthropic_provider import AnthropicProvider
+    from agents.providers.groq_provider import GroqProvider as _GroqProvider
+    from agents.providers.openai_provider import OpenAIProvider as _OpenAIProvider
+    from agents.providers.gemini_provider import GeminiProvider as _GeminiProvider
+    from agents.providers.anthropic_provider import AnthropicProvider as _AnthropicProvider
+
+    GroqProvider = _GroqProvider
+    OpenAIProvider = _OpenAIProvider
+    GeminiProvider = _GeminiProvider
+    AnthropicProvider = _AnthropicProvider
 except ImportError:
-    # These may fail if running in an environment without the full [agents] extras,
-    # but we handle this during instantiation if needed.
-    GroqProvider = None
-    OpenAIProvider = None
-    GeminiProvider = None
-    AnthropicProvider = None
+    # Leave all four as None; create() raises ImportError with a clear message.
+    pass
 
 
 class LLMProviderFactory:
