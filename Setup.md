@@ -194,6 +194,11 @@ All responses use the same standard shape:
 
 No credentials required. Works out of the box.
 
+Security defaults:
+- Allowed methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (input is normalized to uppercase).
+- Internal targets are blocked: `localhost`, loopback, private/link-local IPs, and metadata endpoints.
+- Connector logs omit URL query strings and fragments (scheme/host/path only).
+
 ```bash
 curl -X POST http://localhost:8000/connectors/http_generic/request \
   -H "Content-Type: application/json" \
@@ -482,6 +487,63 @@ pytest tests/test_toolhive_agent.py -v
 ```
 
 Most tests are unit tests that run without real credentials. Integration tests that call live APIs are skipped unless the relevant environment variables are set.
+
+For deterministic pytest runs (especially when a repo-root `.env` exists locally), `tests/conftest.py` sets **`NW_REST_LOAD_DOTENV=false`** so REST startup does not merge `.env` over test variables, **`NW_CONFIG_PATH`** to [`tests/fixtures/connectors_for_tests.yaml`](tests/fixtures/connectors_for_tests.yaml) so optional connectors not on the test allowlist stay **`enabled: false`** (e.g. slack, salesforce), and a fixed **`NW_ALLOWED_CONNECTORS`** list. Do not rely on `.env` values during collection.
+
+---
+
+## Code quality and security gates
+
+Node Wire enforces security and coverage-backed analysis in CI for pull requests and pushes to `main`/`master`:
+
+- Bandit: JSON report + log summary (artifact), then `bandit -c pyproject.toml -r src --severity-level high` for the failing gate. The JSON step uses `--exit-zero` because Bandit otherwise exits 1 on *any* finding while the gate only blocks **high** severity.
+- SonarQube Community Edition scan with `sonar.qualitygate.wait=true` so PRs fail when the quality gate fails.
+
+### Run checks locally
+
+```bash
+# Install dev tools
+pip install -e ".[dev,agents]"
+
+# Security gate (matches CI failure threshold)
+bandit -c pyproject.toml -r src --severity-level high
+
+# Optional: JSON report + same summary as CI logs
+bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+python scripts/bandit_report_summary.py bandit-report.json
+
+# Tests + coverage.xml (required by SonarQube)
+pytest tests/ -v
+```
+
+### Pre-commit
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+### Run SonarQube scan locally (Docker)
+
+```bash
+# from repository root, after coverage.xml is generated
+docker run --rm \
+  -e SONAR_TOKEN=YOUR_TOKEN \
+  -v "G:\SPACE\node-wire:/usr/src" \
+  -w /usr/src \
+  sonarsource/sonar-scanner-cli \
+  -Dsonar.host.url=http://host.docker.internal:9000 \
+  -Dsonar.token=YOUR_TOKEN
+```
+
+### SonarQube configuration
+
+The repository includes [`sonar-project.properties`](sonar-project.properties) and CI expects these GitHub secrets:
+
+- `SONAR_HOST_URL` (example: `https://sonarqube.company.internal`)
+- `SONAR_TOKEN` (project analysis token)
+
+For server setup and quality gate policy details, see [docs/quality-security-gates.md](docs/quality-security-gates.md).
 
 ---
 

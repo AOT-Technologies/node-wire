@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Tests for entry-point connector registration and allowlist."""
 
 from __future__ import annotations
@@ -57,7 +61,9 @@ def test_logic_module_dotted_path_supports_colon_attr() -> None:
     assert connector_registry._logic_module_dotted_path(ep) == "node_wire_x.logic"
 
 
-def test_auto_register_fallback_import_when_no_entry_points(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_auto_register_fallback_import_when_no_entry_points(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Allowed connectors not found via entry points fallback to node_wire_<name>.logic import."""
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "fallback_test")
 
@@ -90,4 +96,3 @@ def test_auto_register_fallback_respects_custom_prefix(monkeypatch: pytest.Monke
 
     imported = [c[0][0] for c in mock_imp.call_args_list]
     assert "custom_fallback_test.logic" in imported
-

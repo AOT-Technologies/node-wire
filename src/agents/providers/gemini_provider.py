@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Gemini LLM Provider
 ===================
@@ -32,10 +36,13 @@ def _mcp_schema_to_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     return cleaned
 
 
+genai: Any = None
 try:
-    import google.generativeai as genai
+    import google.generativeai as _genai
+
+    genai = _genai
 except ImportError:
-    genai = None
+    pass
 
 
 class GeminiProvider(BaseLLMProvider):

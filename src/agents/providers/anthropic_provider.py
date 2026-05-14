@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Anthropic (Claude) LLM Provider
 ================================
@@ -71,10 +75,13 @@ def _messages_to_claude(
     return result, system_prompt
 
 
+anthropic: Any = None
 try:
-    import anthropic
+    import anthropic as _anthropic
+
+    anthropic = _anthropic
 except ImportError:
-    anthropic = None
+    pass
 
 
 class AnthropicProvider(BaseLLMProvider):

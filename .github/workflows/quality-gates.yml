@@ -1,0 +1,82 @@
+name: Quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+# This workflow enforces Bandit, tests/coverage, and SonarQube.
+
+jobs:
+  bandit:
+    name: Bandit security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -e ".[dev,agents]"
+      # Bandit exits non-zero when *any* finding exists (incl. low/medium). The
+      # enforce step below gates on high only; use --exit-zero here so this step
+      # always produces the JSON artifact and the job can print a summary.
+      - name: Generate Bandit JSON report
+        run: bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+      - name: Bandit findings summary (log)
+        run: python scripts/bandit_report_summary.py bandit-report.json
+      - name: Upload Bandit report artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          if-no-files-found: error
+      - name: Enforce high-severity Bandit gate
+        run: bandit -c pyproject.toml -r src --severity-level high
+
+  test:
+    name: Tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -e ".[dev,agents]"
+      - name: Run tests (coverage.xml generated via pyproject addopts)
+        run: pytest tests/ -v
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+
+  sonar:
+    name: SonarQube analysis
+    runs-on: ubuntu-latest
+    needs: [bandit, test]
+    # Sonar scan requires repository secrets; skip gracefully when unavailable
+    # (e.g. PRs from forks where secrets are not exposed).
+    if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+          path: .
+      - name: SonarQube scan (wait for quality gate)
+        uses: SonarSource/sonarqube-scan-action@v5.3.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300

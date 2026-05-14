@@ -1,3 +1,8 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # Node Wire — Docker Image
 # ========================
 # This image packages the connector platform as an MCP stdio server (manifest-driven).

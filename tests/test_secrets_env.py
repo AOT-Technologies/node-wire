@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Tests for EnvSecretProvider and factory secret wiring."""
 
 from __future__ import annotations

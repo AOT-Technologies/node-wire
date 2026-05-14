@@ -57,4 +57,4 @@ rate = float(os.environ.get("NW_RATE_LIMIT_REFILL_RATE", "10.0"))
 if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() in ("0", "false", "no"):
     global_rate_limiter = TokenBucket(capacity=burst, refill_rate=rate)
 else:
-    global_rate_limiter = TokenBucket(capacity=float('inf'), refill_rate=float('inf'))
+    global_rate_limiter = TokenBucket(capacity=float("inf"), refill_rate=float("inf"))

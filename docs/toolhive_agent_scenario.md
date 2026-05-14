@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # ToolHive Agent Scenario: FHIR → Google Drive → Email
 
 > **End-to-end guide for running Node Wire as an MCP server on ToolHive, and connecting an AI agent to orchestrate healthcare and enterprise workflows.**
@@ -548,5 +554,6 @@ node-wire/
 
 ## Related documentation
 
-- [Setup.md](../Setup.md) — Full platform setup guide
+- [Installation Guide](installation.md) — Full platform setup guide
+- [Configuration Guide](configuration.md) — Environment variables and settings
 - [google_drive_connector.md](google_drive_connector.md) — Google Drive service account setup and REST API reference

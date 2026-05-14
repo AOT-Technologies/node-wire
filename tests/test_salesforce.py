@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -18,13 +17,13 @@ from node_wire_salesforce.schema import (
     ReadContactInput,
     UpdateContactInput,
     DeleteContactInput,
-    SalesforceOperationOutput,
 )
 
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
 
 class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
@@ -45,6 +44,7 @@ def _connector() -> SalesforceConnector:
 # Create Contact
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_salesforce_create_contact_happy_path():
     connector = _connector()
@@ -56,7 +56,7 @@ async def test_salesforce_create_contact_happy_path():
     mock_response.json.return_value = {"id": "003123456789012", "success": True}
     mock_response.text = '{"id": "003123456789012", "success": true}'
 
-    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
         result = await connector.create_contact(params, trace_id="test-trace")
 
     assert result.success is True
@@ -76,6 +76,7 @@ async def test_salesforce_create_contact_validation_error():
 # Update Contact (204 No Content)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_salesforce_update_contact_204_path():
     connector = _connector()
@@ -86,7 +87,7 @@ async def test_salesforce_update_contact_204_path():
     mock_response.content = b""
     mock_response.text = ""
 
-    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
         result = await connector.update_contact(params, trace_id="test-trace")
 
     assert result.success is True
@@ -98,6 +99,7 @@ async def test_salesforce_update_contact_204_path():
 # Error Handling (Raises Exception)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_salesforce_error_raises_exception():
     connector = _connector()
@@ -105,7 +107,7 @@ async def test_salesforce_error_raises_exception():
 
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 400
-    mock_response.text = 'Bad Request'
+    mock_response.text = "Bad Request"
     mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
         message="Bad Request", request=MagicMock(), response=mock_response
     )
@@ -119,6 +121,7 @@ async def test_salesforce_error_raises_exception():
 # Transient Error (Raises SalesforceTransientError)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_salesforce_transient_error_raises():
     connector = _connector()
@@ -126,7 +129,7 @@ async def test_salesforce_transient_error_raises():
 
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 503
-    mock_response.text = 'Service Unavailable'
+    mock_response.text = "Service Unavailable"
 
     with patch("httpx.AsyncClient.request", return_value=mock_response):
         with pytest.raises(SalesforceTransientError):
@@ -137,17 +140,18 @@ async def test_salesforce_transient_error_raises():
 # End-to-End internal_execute logic (checks mapping)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_salesforce_internal_execute_mapping():
     connector = _connector()
     # Mocking internal_execute because BaseConnector handles the exception wrapping
-    
+
     params = ReadContactInput(record_id="003123456789012")
-    
+
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 503
     mock_response.text = "Transient Error"
-    
+
     with patch("httpx.AsyncClient.request", return_value=mock_response):
         # We call internal_execute directly to bypass BaseConnector.run's retry logic for now
         # but check that it raises the expected transient error
@@ -158,6 +162,7 @@ async def test_salesforce_internal_execute_mapping():
 # ---------------------------------------------------------------------------
 # Delete Contact
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_salesforce_delete_contact_happy_path():
@@ -181,6 +186,7 @@ async def test_salesforce_delete_contact_happy_path():
 # Lead Operations
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_salesforce_create_lead_happy_path():
     connector = _connector()
@@ -200,6 +206,7 @@ async def test_salesforce_create_lead_happy_path():
     assert "LastName" in mock_request.call_args[1]["json"]
     assert mock_request.call_args[1]["json"]["LastName"] == "Smith"
 
+
 @pytest.mark.asyncio
 async def test_salesforce_read_lead_happy_path():
     connector = _connector()
@@ -210,12 +217,13 @@ async def test_salesforce_read_lead_happy_path():
     mock_response.content = b'{"Id": "00Q123456789012", "LastName": "Smith"}'
     mock_response.json.return_value = {"Id": "00Q123456789012", "LastName": "Smith"}
 
-    with patch("httpx.AsyncClient.request", return_value=mock_response) as mock_request:
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
         result = await connector.read_lead(params, trace_id="test-trace")
 
     assert result.success is True
     assert result.resource_id == "00Q123456789012"
     assert result.data["LastName"] == "Smith"
+
 
 @pytest.mark.asyncio
 async def test_salesforce_update_lead_happy_path():
@@ -233,6 +241,7 @@ async def test_salesforce_update_lead_happy_path():
     assert result.resource_id == "00Q123456789012"
     assert mock_request.call_args[0][0] == "PATCH"
     assert mock_request.call_args[1]["json"]["Company"] == "New Acme"
+
 
 @pytest.mark.asyncio
 async def test_salesforce_delete_lead_happy_path():

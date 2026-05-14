@@ -1,0 +1,64 @@
+# Continuous security checks for publishable Python packages on pull requests.
+name: Python package security PR checks
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/security-pr.yml"
+      - ".github/workflows/publish.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/**"
+      - "src/**"
+  push:
+    branches: [main, master]
+    paths:
+      - ".github/workflows/security-pr.yml"
+      - ".github/workflows/publish.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "packages/**"
+      - "src/**"
+  schedule:
+    - cron: "17 3 * * *"
+
+env:
+  PIP_AUDIT_VERSION: "2.7.3"
+
+jobs:
+  vulnerability-scan:
+    name: Vulnerability scan (${{ matrix.package_path }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        package_path:
+          - packages/runtime
+          - packages/connectors/http_generic
+          - packages/connectors/stripe
+          - packages/connectors/smtp
+          - packages/connectors/google_drive
+          - packages/connectors/fhir_cerner
+          - packages/connectors/fhir_epic
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.11"
+
+      # Connector packages declare node-wire-runtime>=0.1.0 as a PyPI-style dep; install
+      # packages/runtime from the repo so pip resolves it without requiring a published wheel.
+      - name: Install package and audit tool
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade "setuptools>=78.1.1"
+          python -m pip install "packages/runtime" "${{ matrix.package_path }}"
+          python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
+
+      - name: Vulnerability scan (blocks any vulnerability)
+        run: pip-audit

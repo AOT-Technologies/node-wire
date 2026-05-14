@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire — Individual MCP Servers
 
 This document covers everything needed to build, run, configure, and integrate the per-connector MCP servers with ToolHive and the Agentic Workflow.
@@ -100,7 +106,11 @@ PowerShell:
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 #### 2. Shifting to native HTTP mode (Port 8081)
@@ -112,7 +122,11 @@ $env:NW_MCP_TRANSPORT="streamable-http"
 $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 **Bash (Linux/macOS):**
@@ -121,7 +135,11 @@ export NW_MCP_TRANSPORT="streamable-http"
 export NW_MCP_HOST="127.0.0.1"
 export NW_MCP_PORT="8081"
 export NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 The native HTTP endpoint will be:
@@ -134,6 +152,23 @@ http://127.0.0.1:8081/mcp
 When running in `streamable-http` mode, clients must comply with the strict MCP Streamable-HTTP specification:
 - **Headers**: Clients must send `Accept: application/json, text/event-stream` on all requests.
 - **Handshake**: The server will respond with a `Mcp-Session-Id` header which must be forwarded in all subsequent messages for that session.
+- **Auth boundary**: Node Wire enforces MCP auth at the HTTP edge for the streamable endpoint (`/mcp`) before MCP handler dispatch. Missing/invalid credentials are rejected early with 401/403/503.
+
+### Production authz baseline (recommended)
+
+Use these settings for production-style posture:
+
+```env
+NW_MCP_AUTH_ENABLED=false
+NW_MCP_SCOPE_POLICY_DEFAULT=deny
+# Optional guardrail: fail startup if scope policy would be disabled
+NW_MCP_SCOPE_POLICY_STRICT=true
+```
+
+Notes:
+- `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
+- Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
+- API keys with `NW_MCP_API_KEY_SCOPES=*` are super-user keys by design and bypass per-action scope checks.
 
 ### Playground transport indicator
 
@@ -156,16 +191,16 @@ Use stdio mode when you want Inspector to launch the Python MCP server process i
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
 ```
 
 Per-connector examples:
 
 ```powershell
-npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_cerner_mcp
-npx @modelcontextprotocol/inspector python -m agents.smtp_mcp
+npx @modelcontextprotocol/inspector uv run nw-google-drive
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-epic
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-cerner
+npx @modelcontextprotocol/inspector uv run python -m agents.smtp_mcp
 ```
 
 In the Inspector UI:
@@ -564,3 +599,21 @@ python -m agents.toolhive --local --patient-id 12724066 --recipient-email you@ex
 | `fhir_cerner connector not configured` | Missing Cerner env vars | Ensure all `CERNER_*` variables are set and non-empty |
 | Docker build fails with `COPY src/ not found` | Wrong build context | Always run `docker build` from the **repository root**, not from `docker/<name>/` |
 | Image healthcheck fails | Import error at startup | Run `docker logs <container>` to see the Python traceback; usually a missing env var |
+
+## Rollout verification checklist
+
+Use this checklist when promoting streamable-http MCP to production:
+
+1. Confirm edge auth gate behavior:
+   - No token -> `401 MCP_AUTH_REQUIRED`
+   - Invalid token -> `403 MCP_AUTH_INVALID`
+   - Valid token -> request reaches MCP handlers
+2. Confirm scope baseline:
+   - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` is set in deployed env
+   - Optionally enforce `NW_MCP_SCOPE_POLICY_STRICT=true`
+3. Confirm authorization telemetry:
+   - Track trends for 401/403 and `POLICY_DENIED` responses after rollout
+   - Verify expected tool visibility changes in `tools/list` for scoped identities
+4. Confirm privileged-key controls:
+   - Any API key with wildcard scope (`*`) is documented and approved
+   - Non-admin API keys use minimal scopes only

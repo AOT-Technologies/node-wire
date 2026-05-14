@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire Agents & MCP Orchestration
 
 This folder contains the core intelligence and orchestration layer of **Node Wire**, enabling autonomous AI agents to interact with healthcare systems and cloud services via the **Model Context Protocol (MCP)**.
