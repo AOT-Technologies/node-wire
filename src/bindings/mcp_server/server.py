@@ -314,7 +314,7 @@ class McpServer:
         # IMPORTANT: Inject metadata IN-BAND inside the "data" dictionary so client UIs
         # (like Toolhive / Agent chat) that only render the `data` block will explicitly see it.
         if "data" in raw_response and isinstance(raw_response["data"], dict):
-            pagination_meta = {}
+            pagination_meta: dict[str, Any] = {}
             if clamped_params:
                 pagination_meta["coerced_parameters"] = clamped_params
             pagination_meta["items_returned"] = item_count
