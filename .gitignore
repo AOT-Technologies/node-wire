@@ -31,11 +31,12 @@ uv.lock
 upload-test.txt
 *-test.txt
 upload-*.txt
-
-service_account.json
+coverage.xml
+bandit-report.json
+.venv*/
 
 # debug
 launch.json
 
-#log
+# log
 mcp_debug.log

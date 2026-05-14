@@ -18,8 +18,8 @@ from dotenv import load_dotenv
 
 # Production: set NW_REST_LOAD_DOTENV=false to rely on injected env only (no .env file).
 if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
-    # Override inherited shell env so local .env edits are honored consistently.
-    load_dotenv(override=True)
+    # Do not override existing os.environ keys (pytest/conftest injects values first).
+    load_dotenv(override=False)
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
@@ -32,16 +32,19 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
-from bindings.rest_api.auth import RestAuthMiddleware, get_rest_caller_identity
+from bindings.rest_api.rate_limit import InMemoryRateLimiter
+from bindings.rest_api.auth import (
+    RestAuthMiddleware,
+    get_request_identity_key,
+    get_rest_caller_identity,
+)
 
 # Add project root to sys.path to allow importing from 'playground' package
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
-    
-from playground.scenarios import router as scenarios_router
 
-
+from playground.scenarios import router as scenarios_router  # noqa: E402
 
 
 logger = logging.getLogger("bindings.rest_api")
@@ -61,6 +64,8 @@ DEMO_DIR = BASE_DIR / "playground"
 app.mount("/playground", StaticFiles(directory=str(DEMO_DIR), html=True), name="playground")
 
 _factory: ConnectorFactory | None = None
+_rate_limiter: InMemoryRateLimiter | None = None
+_rate_limiter_cfg: tuple[int, int] | None = None
 
 
 def get_factory() -> ConnectorFactory:
@@ -98,6 +103,30 @@ def _http_status_for_category(category: ErrorCategory | None) -> int:
     return 500
 
 
+def _truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _rate_limit_enabled() -> bool:
+    return _truthy(os.environ.get("NW_REST_RATE_LIMIT_ENABLED"))
+
+
+def _get_rate_limiter() -> InMemoryRateLimiter:
+    global _rate_limiter, _rate_limiter_cfg
+    max_requests = int(os.environ.get("NW_REST_RATE_LIMIT_MAX_REQUESTS", "120"))
+    window_seconds = int(os.environ.get("NW_REST_RATE_LIMIT_WINDOW_SECONDS", "60"))
+    cfg = (max_requests, window_seconds)
+    if _rate_limiter is None or _rate_limiter_cfg != cfg:
+        _rate_limiter = InMemoryRateLimiter(
+            max_requests=max_requests,
+            window_seconds=window_seconds,
+        )
+        _rate_limiter_cfg = cfg
+    return _rate_limiter
+
+
 def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         request: Request,
@@ -112,6 +141,17 @@ def _make_endpoint(cid: str, act: str) -> Any:
         span = trace.get_current_span()
         span.set_attribute("connector.id", cid)
         span.set_attribute("connector.action", act)
+        if _rate_limit_enabled():
+            limiter = _get_rate_limiter()
+            identity_key = get_request_identity_key(request)
+            rate_key = f"{cid}:{act}:{identity_key}"
+            result = limiter.consume(rate_key)
+            if not result.allowed:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded"},
+                    headers={"Retry-After": str(result.retry_after_seconds)},
+                )
 
         connector = factory_dep.get_for_protocol(cid, "rest", action=act)
         if connector is None:

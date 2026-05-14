@@ -69,6 +69,43 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 
+## Setup and development docs
+
+- Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
+- Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
+- Creating a new connector: [docs/connectors.md](docs/connectors.md)
+- Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)
+
+---
+
+## Code Quality (Linting & Formatting)
+
+This project uses **Ruff** for linting and formatting, and **Mypy** for static type checking.
+
+These checks are configured to run automatically in CI on Pull Requests against the `main` branch.
+
+### Manual Usage for Developers
+Make sure you have dev dependencies installed (`pip install -e ".[dev]"`).
+
+- **Check formatting and linting errors:** `ruff check .`
+- **Auto-fix and format code:** `ruff check --fix . && ruff format .`
+- **Run static type validation:** `mypy` (paths default from `[tool.mypy]` `files` in `pyproject.toml`; avoid `mypy .`, which scans packaging `setup.py` scripts under `packages/`). To include tests: `mypy src tests`.
+
+### Pre-commit Hooks
+You can attach `.pre-commit-config.yaml` so checks run on every commit:
+
+```bash
+pre-commit install
+```
+
+To run all hooks across the repository:
+
+```bash
+pre-commit run --all-files
+```
+
+---
+
 ## Copyright Headers & Compliance
 
 This repository enforces open-source licensing compliance using [REUSE](https://reuse.software/). All first-party source files must contain the appropriate SPDX copyright and license headers.

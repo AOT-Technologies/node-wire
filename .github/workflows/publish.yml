@@ -172,7 +172,7 @@ jobs:
           python-version: "3.11"
 
       - name: Download all wheel artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e442e0f254de474a18c628458 # v4.1.8
+        uses: actions/download-artifact@v4
         with:
           path: dist-all
 

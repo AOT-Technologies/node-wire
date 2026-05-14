@@ -11,10 +11,12 @@ import os
 
 from dotenv import load_dotenv
 
-# Override inherited shell env so MCP auth/policy settings in project .env
-# are applied predictably across local runs.
-load_dotenv(override=True)
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
+# Align with ``bindings.rest_api.app``: respect ``NW_REST_LOAD_DOTENV`` (pytest/CI
+# set ``false``) and never override keys already in the environment — ``override=True``
+# here was stomping conftest and breaking ``monkeypatch.delenv`` restores.
+if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+    load_dotenv(override=False)
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=False)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agents.mcp_entrypoint")

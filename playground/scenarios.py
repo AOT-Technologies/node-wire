@@ -39,7 +39,6 @@ from node_wire_google_drive.schema import (
     FilesListOperation,
     FilesUpdateOperation,
 )
-from node_wire_stripe.schema import ChargeInput
 from node_wire_salesforce.logic import SalesforceConnector
 from node_wire_salesforce.schema import (
     CreateLeadInput,
@@ -50,7 +49,6 @@ from node_wire_salesforce.schema import (
     ReadContactInput,
     UpdateContactInput,
     DeleteContactInput,
-    SalesforceOperationOutput,
 )
 
 
@@ -93,11 +91,13 @@ class IncidentReportInput(BaseModel):
     description: str
     reported_by: str = "Demo User"
 
+
 class StripeChargeInput(BaseModel):
     amount: int
     currency: str
     description: Optional[str] = None
     source: str = "tok_visa"
+
 
 class StripePaymentIntentInputPlayground(BaseModel):
     amount: int
@@ -106,18 +106,22 @@ class StripePaymentIntentInputPlayground(BaseModel):
     payment_method: Optional[str] = None
     confirm: bool = False
 
+
 class StripeSubscriptionInputPlayground(BaseModel):
     customer_id: str
     price_id: str
     card_token: Optional[str] = None
 
+
 class StripeCancelSubscriptionInputPlayground(BaseModel):
     subscription_id: str
+
 
 class StripeRefundInputPlayground(BaseModel):
     charge_id: Optional[str] = None
     payment_intent_id: Optional[str] = None
     amount: Optional[int] = None
+
 
 class CernerPostConsultationInput(BaseModel):
     patient_id: Optional[str] = None
@@ -178,6 +182,7 @@ class GoogleDriveArchivalInput(BaseModel):
             )
         return self
 
+
 class SalesforceLeadInputPlayground(BaseModel):
     last_name: str
     company: str
@@ -185,14 +190,17 @@ class SalesforceLeadInputPlayground(BaseModel):
     email: Optional[str] = None
     status: str = "Open - Not Contacted"
 
+
 class SalesforceContactInputPlayground(BaseModel):
     last_name: str
     first_name: Optional[str] = None
     email: Optional[str] = None
     account_id: Optional[str] = None
 
+
 class SalesforceGenericIdInputPlayground(BaseModel):
     record_id: str
+
 
 class SalesforceUpdateLeadInputPlayground(BaseModel):
     record_id: str
@@ -201,12 +209,15 @@ class SalesforceUpdateLeadInputPlayground(BaseModel):
     company: Optional[str] = None
     email: Optional[str] = None
 
+
 class SalesforceUpdateContactInputPlayground(BaseModel):
     record_id: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None
     account_id: Optional[str] = None
+
+
 class SlackPlaygroundInput(BaseModel):
     action: str = "post_message"
     channel: str = ""
@@ -214,6 +225,7 @@ class SlackPlaygroundInput(BaseModel):
     filename: Optional[str] = None
     initial_comment: Optional[str] = None
     content_base64: Optional[str] = None
+
 
 class ScenarioStep(BaseModel):
     name: str
@@ -357,6 +369,8 @@ def get_slack_connector():
     if not connector:
         raise HTTPException(status_code=500, detail="Slack connector not configured")
     return connector
+
+
 def get_stripe_connector():
     connector = resolve_connector("stripe")
     if not connector:
@@ -368,14 +382,6 @@ def get_salesforce_connector():
     connector = resolve_connector("salesforce")
     if not connector:
         raise HTTPException(status_code=500, detail="Salesforce connector not configured")
-    return connector
-
-
-
-def get_slack_connector():
-    connector = resolve_connector("slack")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Slack connector not configured")
     return connector
 
 
@@ -1038,16 +1044,22 @@ async def cerner_post_consultation_scenario(
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
+
 @router.post("/stripe-charge", response_model=ScenarioResponse)
 async def stripe_charge_scenario(
-    payload: StripeChargeInput,
-    connector: Any = Depends(get_stripe_connector)
+    payload: StripeChargeInput, connector: Any = Depends(get_stripe_connector)
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
 
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     # STEP 1: Process Payment Intent
     add_step("Process Payment Intent", "pending", display_name="Initialize Payment")
@@ -1063,13 +1075,14 @@ async def stripe_charge_scenario(
     add_step("Confirm Charge", "pending", display_name="Process Charge")
     try:
         from node_wire_stripe.schema import ChargeInput
+
         charge_input = ChargeInput(
             amount=payload.amount,
             currency=payload.currency,
             source=payload.source,
-            description=payload.description
+            description=payload.description,
         )
-        
+
         charge_res = await execute_with_retry(connector, charge_input, trace_id, steps[-1])
 
         steps[-1].status = "success"
@@ -1091,32 +1104,39 @@ async def stripe_charge_scenario(
             "author": "Stripe Gateway",
             "category": "Financial",
             "description": payload.description or "No description",
-            "content_text": f"Charge of {payload.amount/100:.2f} {payload.currency.upper()} processed successfully. Receipt: {charge_res.receipt_url or 'N/A'}"
+            "content_text": f"Charge of {payload.amount / 100:.2f} {payload.currency.upper()} processed successfully. Receipt: {charge_res.receipt_url or 'N/A'}",
         }
         steps[-1].status = "success"
         steps[-1].details = "Transaction Verified"
         steps[-1].display_name = "Transaction Verified"
         steps[-1].data = {"beautiful_data": beautiful_data, "raw": {"status": "Verified"}}
-        
+
         return ScenarioResponse(
             success=True,
             steps=steps,
             final_resource_id=charge_res.charge_id,
-            human_summary=f"Successfully processed {payload.amount/100:.2f} {payload.currency.upper()} charge.",
-            trace_id=trace_id
+            human_summary=f"Successfully processed {payload.amount / 100:.2f} {payload.currency.upper()} charge.",
+            trace_id=trace_id,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
+
 @router.post("/stripe-payment-intent", response_model=ScenarioResponse)
 async def stripe_payment_intent_scenario(
-    payload: StripePaymentIntentInputPlayground,
-    connector: Any = Depends(get_stripe_connector)
+    payload: StripePaymentIntentInputPlayground, connector: Any = Depends(get_stripe_connector)
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Initialize Session", "pending", display_name="Initialize PI")
     try:
@@ -1128,12 +1148,13 @@ async def stripe_payment_intent_scenario(
     add_step("Create Payment Intent", "pending", display_name="Create Intent")
     try:
         from node_wire_stripe.schema import CreatePaymentIntentInput
+
         pi_input = CreatePaymentIntentInput(
             amount=payload.amount,
             currency=payload.currency,
             customer_id=payload.customer_id,
             payment_method=payload.payment_method,
-            confirm=payload.confirm
+            confirm=payload.confirm,
         )
         res = await execute_with_retry(connector, pi_input, trace_id, steps[-1])
         steps[-1].status = "success"
@@ -1147,26 +1168,33 @@ async def stripe_payment_intent_scenario(
         steps[-1].status = "success"
         steps[-1].details = "Allocation verified"
         steps[-1].display_name = "Allocation Verified"
-        
+
         return ScenarioResponse(
             success=True,
             steps=steps,
             final_resource_id=res.payment_intent_id,
             human_summary=f"Successfully created payment intent {res.payment_intent_id}.",
-            trace_id=trace_id
+            trace_id=trace_id,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
+
 @router.post("/stripe-subscription", response_model=ScenarioResponse)
 async def stripe_subscription_scenario(
-    payload: StripeSubscriptionInputPlayground,
-    connector: Any = Depends(get_stripe_connector)
+    payload: StripeSubscriptionInputPlayground, connector: Any = Depends(get_stripe_connector)
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Validate Customer", "pending", display_name="Validate Params")
     try:
@@ -1178,10 +1206,11 @@ async def stripe_subscription_scenario(
     add_step("Create Subscription", "pending", display_name="Create Sub")
     try:
         from node_wire_stripe.schema import CreateSubscriptionInput
+
         sub_input = CreateSubscriptionInput(
             customer_id=payload.customer_id,
             price_id=payload.price_id,
-            card_token=payload.card_token
+            card_token=payload.card_token,
         )
         res = await execute_with_retry(connector, sub_input, trace_id, steps[-1])
         steps[-1].status = "success"
@@ -1198,21 +1227,28 @@ async def stripe_subscription_scenario(
             success=True,
             steps=steps,
             final_resource_id=res.subscription_id,
-            human_summary=f"Successfully provisioned subscription for customer.",
-            trace_id=trace_id
+            human_summary="Successfully provisioned subscription for customer.",
+            trace_id=trace_id,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
+
 @router.post("/stripe-cancel-subscription", response_model=ScenarioResponse)
 async def stripe_cancel_subscription_scenario(
-    payload: StripeCancelSubscriptionInputPlayground,
-    connector: Any = Depends(get_stripe_connector)
+    payload: StripeCancelSubscriptionInputPlayground, connector: Any = Depends(get_stripe_connector)
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Locate Resource", "pending", display_name="Locate Sub")
     try:
@@ -1224,9 +1260,8 @@ async def stripe_cancel_subscription_scenario(
     add_step("Cancel Subscription", "pending", display_name="Cancel Sub")
     try:
         from node_wire_stripe.schema import CancelSubscriptionInput
-        can_input = CancelSubscriptionInput(
-            subscription_id=payload.subscription_id
-        )
+
+        can_input = CancelSubscriptionInput(subscription_id=payload.subscription_id)
         res = await execute_with_retry(connector, can_input, trace_id, steps[-1])
         steps[-1].status = "success"
         steps[-1].details = f"Cancelled Sub: {res.subscription_id}"
@@ -1242,36 +1277,46 @@ async def stripe_cancel_subscription_scenario(
             success=True,
             steps=steps,
             final_resource_id=res.subscription_id,
-            human_summary=f"Successfully canceled subscription.",
-            trace_id=trace_id
+            human_summary="Successfully canceled subscription.",
+            trace_id=trace_id,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
+
 @router.post("/stripe-refund", response_model=ScenarioResponse)
 async def stripe_refund_scenario(
-    payload: StripeRefundInputPlayground,
-    connector: Any = Depends(get_stripe_connector)
+    payload: StripeRefundInputPlayground, connector: Any = Depends(get_stripe_connector)
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Validate Charge", "pending", display_name="Validate Params")
     try:
         steps[-1].status = "success"
-        steps[-1].details = f"Refund targeted for ID: {payload.charge_id or payload.payment_intent_id}"
+        steps[
+            -1
+        ].details = f"Refund targeted for ID: {payload.charge_id or payload.payment_intent_id}"
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 1 failed")
 
     add_step("Process Refund", "pending", display_name="Issue Refund")
     try:
         from node_wire_stripe.schema import IssueRefundInput
+
         ref_input = IssueRefundInput(
             charge_id=payload.charge_id,
             payment_intent_id=payload.payment_intent_id,
-            amount=payload.amount
+            amount=payload.amount,
         )
         res = await execute_with_retry(connector, ref_input, trace_id, steps[-1])
         steps[-1].status = "success"
@@ -1288,11 +1333,12 @@ async def stripe_refund_scenario(
             success=True,
             steps=steps,
             final_resource_id=res.refund_id,
-            human_summary=f"Successfully issued refund.",
-            trace_id=trace_id
+            human_summary="Successfully issued refund.",
+            trace_id=trace_id,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
+
 
 @router.post("/gdrive-archival", response_model=ScenarioResponse)
 async def gdrive_archival_scenario(
@@ -1574,16 +1620,22 @@ async def gdrive_archival_scenario(
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 4 failed")
 
+
 @router.post("/slack-messaging", response_model=ScenarioResponse)
 async def slack_scenario(
-    payload: SlackPlaygroundInput,
-    connector: Any = Depends(get_slack_connector)
+    payload: SlackPlaygroundInput, connector: Any = Depends(get_slack_connector)
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
 
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Format Slack Payload", "pending", display_name="Format Slack Payload")
     try:
@@ -1593,19 +1645,15 @@ async def slack_scenario(
                 channel=payload.channel,
                 filename=payload.filename or "file.txt",
                 initial_comment=payload.initial_comment or "",
-                content_base64=payload.content_base64 or ""
+                content_base64=payload.content_base64 or "",
             )
         elif payload.action == "send_direct_message":
             input_model = SlackSendDirectMessageInput(
-                action="send_direct_message",
-                channel=payload.channel,
-                message=payload.message or ""
+                action="send_direct_message", channel=payload.channel, message=payload.message or ""
             )
         else:
             input_model = SlackPostMessageInput(
-                action="post_message",
-                channel=payload.channel,
-                message=payload.message or ""
+                action="post_message", channel=payload.channel, message=payload.message or ""
             )
 
         steps[-1].status = "success"
@@ -1627,8 +1675,12 @@ async def slack_scenario(
 
     add_step("Verify Acknowledgment", "pending", display_name="Verify Acknowledgment")
     try:
-        ref_id = slack_res.ts if hasattr(slack_res, 'ts') and slack_res.ts else getattr(slack_res, 'file_id', 'unknown')
-        
+        ref_id = (
+            slack_res.ts
+            if hasattr(slack_res, "ts") and slack_res.ts
+            else getattr(slack_res, "file_id", "unknown")
+        )
+
         beautiful_data = {
             "id": ref_id,
             "type": "Slack Notification",
@@ -1638,7 +1690,7 @@ async def slack_scenario(
             "author": "Slack Connector",
             "category": payload.action,
             "description": payload.filename if payload.action == "upload_file" else "Slack Message",
-            "content_text": payload.message if payload.message else f"Uploaded {payload.filename}"
+            "content_text": payload.message if payload.message else f"Uploaded {payload.filename}",
         }
 
         steps[-1].status = "success"
@@ -1661,7 +1713,7 @@ async def slack_scenario(
             steps=steps,
             final_resource_id=ref_id,
             human_summary=f"Successfully sent Slack ({payload.action}) to {payload.channel}.",
-            trace_id=trace_id
+            trace_id=trace_id,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 4 failed")
@@ -1787,8 +1839,6 @@ def _current_agent_transport() -> str:
     return transport if transport in {"stdio", "streamable-http"} else "stdio"
 
 
-
-
 @router.post("/agent-chat", response_model=AgentChatResponse)
 async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
     """
@@ -1835,7 +1885,9 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
         transport = _current_agent_transport()
         urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
-        fallback_to_stdio = os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
+        fallback_to_stdio = (
+            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
+        )
 
         if urls:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
@@ -1875,7 +1927,9 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                         )
             except Exception as proxy_err:
                 if fallback_to_stdio:
-                    logger.warning("Agent Chat | proxy error: %s — falling back to local stdio", proxy_err)
+                    logger.warning(
+                        "Agent Chat | proxy error: %s — falling back to local stdio", proxy_err
+                    )
                     run_result = None
                 else:
                     logger.warning(
@@ -1963,16 +2017,26 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
 
             if not payload.message.strip():
                 trace_id = str(uuid.uuid4())
-                yield json.dumps({
-                    "type": "final_chunk",
-                    "content": "Please type a message to get started.",
-                }) + "\n"
-                yield json.dumps({
-                    "type": "done",
-                    "trace_id": trace_id,
-                    "success": False,
-                    "message": f"Streaming failed. trace_id={trace_id}",
-                }) + "\n"
+                yield (
+                    json.dumps(
+                        {
+                            "type": "final_chunk",
+                            "content": "Please type a message to get started.",
+                        }
+                    )
+                    + "\n"
+                )
+                yield (
+                    json.dumps(
+                        {
+                            "type": "done",
+                            "trace_id": trace_id,
+                            "success": False,
+                            "message": f"Streaming failed. trace_id={trace_id}",
+                        }
+                    )
+                    + "\n"
+                )
                 return
 
             llm_provider = LLMProviderFactory.create_from_env()
@@ -2011,39 +2075,57 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
         except Exception as exc:
             logger.error("Agent Chat stream failed: %s", exc, exc_info=True)
             trace_id = str(uuid.uuid4())
-            yield json.dumps({
-                "type": "final_chunk",
-                "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
-            }) + "\n"
-            yield json.dumps({
-                "type": "done",
-                "trace_id": trace_id,
-                "success": False,
-                "message": f"Streaming failed. trace_id={trace_id}",
-            }) + "\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "final_chunk",
+                        "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
+                    }
+                )
+                + "\n"
+            )
+            yield (
+                json.dumps(
+                    {
+                        "type": "done",
+                        "trace_id": trace_id,
+                        "success": False,
+                        "message": f"Streaming failed. trace_id={trace_id}",
+                    }
+                )
+                + "\n"
+            )
 
     return StreamingResponse(stream_events(), media_type="application/x-ndjson")
+
+
 @router.post("/salesforce-create-lead", response_model=ScenarioResponse)
 async def salesforce_create_lead_scenario(
     payload: SalesforceLeadInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
-    
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Create Lead", "pending", display_name="Create Salesforce Lead")
-    
+
     sf_input = CreateLeadInput(
         LastName=payload.last_name,
         Company=payload.company,
         FirstName=payload.first_name,
         Email=payload.email,
-        Status=payload.status
+        Status=payload.status,
     )
-    
+
     try:
         res = await execute_with_retry(connector, sf_input, trace_id, steps[-1])
         steps[-1].status = "success"
@@ -2054,31 +2136,38 @@ async def salesforce_create_lead_scenario(
             trace_id=trace_id,
             steps=steps,
             final_resource_id=res.resource_id,
-            human_summary=f"Salesforce Lead created successfully with ID: {res.resource_id}"
+            human_summary=f"Salesforce Lead created successfully with ID: {res.resource_id}",
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Lead creation failed")
 
+
 @router.post("/salesforce-create-contact", response_model=ScenarioResponse)
 async def salesforce_create_contact_scenario(
     payload: SalesforceContactInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
-    
-    def add_step(name: str, status: str, details: str = "", display_name: str = "", data: Any = None):
-        steps.append(ScenarioStep(name=name, status=status, details=details, display_name=display_name, data=data))
+
+    def add_step(
+        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
+    ):
+        steps.append(
+            ScenarioStep(
+                name=name, status=status, details=details, display_name=display_name, data=data
+            )
+        )
 
     add_step("Create Contact", "pending", display_name="Create Salesforce Contact")
-    
+
     sf_input = CreateContactInput(
         LastName=payload.last_name,
         FirstName=payload.first_name,
         Email=payload.email,
-        AccountId=payload.account_id
+        AccountId=payload.account_id,
     )
-    
+
     try:
         res = await execute_with_retry(connector, sf_input, trace_id, steps[-1])
         steps[-1].status = "success"
@@ -2089,162 +2178,224 @@ async def salesforce_create_contact_scenario(
             trace_id=trace_id,
             steps=steps,
             final_resource_id=res.resource_id,
-            human_summary=f"Salesforce Contact created successfully with ID: {res.resource_id}"
+            human_summary=f"Salesforce Contact created successfully with ID: {res.resource_id}",
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Contact creation failed")
 
+
 @router.post("/salesforce-read-lead", response_model=ScenarioResponse)
 async def salesforce_read_lead_scenario(
     payload: SalesforceGenericIdInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
+
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
     add_step("Read Lead", "pending", "Fetching Lead Details")
     try:
-        res = await execute_with_retry(connector, ReadLeadInput(record_id=payload.record_id), trace_id, steps[-1])
+        res = await execute_with_retry(
+            connector, ReadLeadInput(record_id=payload.record_id), trace_id, steps[-1]
+        )
         steps[-1].status = "success"
         steps[-1].details = "Lead data retrieved"
         steps[-1].data = res.data
-        return ScenarioResponse(success=True, trace_id=trace_id, steps=steps, human_summary=f"Lead data retrieved for {payload.record_id}", final_resource_id=payload.record_id)
+        return ScenarioResponse(
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
+            human_summary=f"Lead data retrieved for {payload.record_id}",
+            final_resource_id=payload.record_id,
+        )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Read failed")
+
 
 @router.post("/salesforce-update-lead", response_model=ScenarioResponse)
 async def salesforce_update_lead_scenario(
     payload: SalesforceUpdateLeadInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
+
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
     add_step("Update Lead", "pending", "Updating Lead Record")
     fields = {k: v for k, v in payload.model_dump().items() if v is not None and k != "record_id"}
     # Map to SF internal names
     sf_fields = {}
-    if "first_name" in fields: sf_fields["FirstName"] = fields["first_name"]
-    if "last_name" in fields: sf_fields["LastName"] = fields["last_name"]
-    if "company" in fields: sf_fields["Company"] = fields["company"]
-    if "email" in fields: sf_fields["Email"] = fields["email"]
-    
+    if "first_name" in fields:
+        sf_fields["FirstName"] = fields["first_name"]
+    if "last_name" in fields:
+        sf_fields["LastName"] = fields["last_name"]
+    if "company" in fields:
+        sf_fields["Company"] = fields["company"]
+    if "email" in fields:
+        sf_fields["Email"] = fields["email"]
+
     try:
-        res = await execute_with_retry(connector, UpdateLeadInput(record_id=payload.record_id, fields=sf_fields), trace_id, steps[-1])
+        res = await execute_with_retry(
+            connector,
+            UpdateLeadInput(record_id=payload.record_id, fields=sf_fields),
+            trace_id,
+            steps[-1],
+        )
         steps[-1].status = "success"
         steps[-1].details = "Lead updated"
         # Salesforce PATCH returns 204 No Content, so we show the sent fields as confirmation
-        steps[-1].data = {"record_id": payload.record_id, "updated_fields": sf_fields, "raw": res.data}
+        steps[-1].data = {
+            "record_id": payload.record_id,
+            "updated_fields": sf_fields,
+            "raw": res.data,
+        }
         return ScenarioResponse(
-            success=True, 
-            trace_id=trace_id, 
-            steps=steps, 
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
             final_resource_id=payload.record_id,
-            human_summary=f"Lead {payload.record_id} updated successfully."
+            human_summary=f"Lead {payload.record_id} updated successfully.",
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Update failed")
+
 
 @router.post("/salesforce-delete-lead", response_model=ScenarioResponse)
 async def salesforce_delete_lead_scenario(
     payload: SalesforceGenericIdInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
+
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
     add_step("Delete Lead", "pending", "Removing Lead Record")
     try:
-        res = await execute_with_retry(connector, DeleteLeadInput(record_id=payload.record_id), trace_id, steps[-1])
+        await execute_with_retry(
+            connector, DeleteLeadInput(record_id=payload.record_id), trace_id, steps[-1]
+        )
         steps[-1].status = "success"
         steps[-1].details = "Lead deleted"
         return ScenarioResponse(
-            success=True, 
-            trace_id=trace_id, 
-            steps=steps, 
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
             final_resource_id=payload.record_id,
-            human_summary=f"Lead {payload.record_id} deleted."
+            human_summary=f"Lead {payload.record_id} deleted.",
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Delete failed")
+
 
 @router.post("/salesforce-read-contact", response_model=ScenarioResponse)
 async def salesforce_read_contact_scenario(
     payload: SalesforceGenericIdInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
+
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
     add_step("Read Contact", "pending", "Fetching Contact Details")
     try:
-        res = await execute_with_retry(connector, ReadContactInput(record_id=payload.record_id), trace_id, steps[-1])
+        res = await execute_with_retry(
+            connector, ReadContactInput(record_id=payload.record_id), trace_id, steps[-1]
+        )
         steps[-1].status = "success"
         steps[-1].details = "Contact data retrieved"
         steps[-1].data = res.data
-        return ScenarioResponse(success=True, trace_id=trace_id, steps=steps, human_summary=f"Contact data retrieved for {payload.record_id}", final_resource_id=payload.record_id)
+        return ScenarioResponse(
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
+            human_summary=f"Contact data retrieved for {payload.record_id}",
+            final_resource_id=payload.record_id,
+        )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Read failed")
+
 
 @router.post("/salesforce-update-contact", response_model=ScenarioResponse)
 async def salesforce_update_contact_scenario(
     payload: SalesforceUpdateContactInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
+
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
     add_step("Update Contact", "pending", "Updating Contact Record")
     fields = {k: v for k, v in payload.model_dump().items() if v is not None and k != "record_id"}
     sf_fields = {}
-    if "first_name" in fields: sf_fields["FirstName"] = fields["first_name"]
-    if "last_name" in fields: sf_fields["LastName"] = fields["last_name"]
-    if "email" in fields: sf_fields["Email"] = fields["email"]
-    if "account_id" in fields: sf_fields["AccountId"] = fields["account_id"]
+    if "first_name" in fields:
+        sf_fields["FirstName"] = fields["first_name"]
+    if "last_name" in fields:
+        sf_fields["LastName"] = fields["last_name"]
+    if "email" in fields:
+        sf_fields["Email"] = fields["email"]
+    if "account_id" in fields:
+        sf_fields["AccountId"] = fields["account_id"]
 
     try:
-        res = await execute_with_retry(connector, UpdateContactInput(record_id=payload.record_id, fields=sf_fields), trace_id, steps[-1])
+        res = await execute_with_retry(
+            connector,
+            UpdateContactInput(record_id=payload.record_id, fields=sf_fields),
+            trace_id,
+            steps[-1],
+        )
         steps[-1].status = "success"
         steps[-1].details = "Contact updated"
         # Salesforce PATCH returns 204 No Content, so we show the sent fields as confirmation
-        steps[-1].data = {"record_id": payload.record_id, "updated_fields": sf_fields, "raw": res.data}
+        steps[-1].data = {
+            "record_id": payload.record_id,
+            "updated_fields": sf_fields,
+            "raw": res.data,
+        }
         return ScenarioResponse(
-            success=True, 
-            trace_id=trace_id, 
-            steps=steps, 
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
             final_resource_id=payload.record_id,
-            human_summary=f"Contact {payload.record_id} updated successfully."
+            human_summary=f"Contact {payload.record_id} updated successfully.",
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Update failed")
 
+
 @router.post("/salesforce-delete-contact", response_model=ScenarioResponse)
 async def salesforce_delete_contact_scenario(
     payload: SalesforceGenericIdInputPlayground,
-    connector: SalesforceConnector = Depends(get_salesforce_connector)
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
 ) -> ScenarioResponse:
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
+
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
+
     add_step("Delete Contact", "pending", "Removing Contact Record")
     try:
-        res = await execute_with_retry(connector, DeleteContactInput(record_id=payload.record_id), trace_id, steps[-1])
+        await execute_with_retry(
+            connector, DeleteContactInput(record_id=payload.record_id), trace_id, steps[-1]
+        )
         steps[-1].status = "success"
         steps[-1].details = "Contact deleted"
         return ScenarioResponse(
-            success=True, 
-            trace_id=trace_id, 
-            steps=steps, 
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
             final_resource_id=payload.record_id,
-            human_summary=f"Contact {payload.record_id} deleted."
+            human_summary=f"Contact {payload.record_id} deleted.",
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Delete failed")
-
-

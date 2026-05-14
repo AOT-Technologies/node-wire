@@ -364,7 +364,9 @@ else:
     print(response.error_code, response.message)
 ```
 
-For composing actions within a connector, use **`self.call_action`** (returns the action’s output model, not `ConnectorResponse`):
+For composing actions within a connector, use **`self.call_action`**. It routes through **`connector.run`** so **policy hooks**, **resilience**, and the **`ConnectorResponse`** error path apply (including MCP scope policy). It returns the nested action’s **output model** on success (validated from `run()`’s `data`). On policy denial it raises **`PolicyDenied`**, which the outer `run()` maps like any other action failure.
+
+Optional keyword args `principal`, `tenant_id`, and `scopes` override the caller identity for the nested call. When omitted, **`call_action` inherits** identity from the outer `run()` (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call.
 
 ```python
 from node_wire_runtime import BaseConnector, nw_action
@@ -526,7 +528,11 @@ connectors:
 
 ## Security (REST, plugins, secrets)
 
-**REST API (`bindings.rest_api`)** — `GET /health` is unauthenticated. All other routes (`/connectors/...`, `/playground/...`, `/scenarios/...`, OpenAPI) require **`NW_REST_API_KEY`** via `Authorization: Bearer <key>` or `X-API-Key: <key>`, optional **`NW_REST_JWT_SECRET`** for HS256 JWTs. Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
+**MCP (`bindings.mcp_server`)** — Configure **`NW_MCP_API_KEY_SCOPES`** (and optionally **`NW_MCP_ACTION_SCOPE_MAP_JSON`**) so `tools/list` and `tools/call` align with the same scope rules. Production baseline is **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**. Optional guardrail **`NW_MCP_SCOPE_POLICY_STRICT=true`** fails startup when scope policy would otherwise be effectively disabled (default allow + empty map). API key wildcard (`"*"`) is explicit and intentionally bypasses per-action scope restrictions; use only for deliberate super-user keys. JWTs continue to use claim `scopes` / `scope`.
+
+**REST API (`bindings.rest_api`)** — `GET /health` is unauthenticated. All other routes (`/connectors/...`, `/playground/...`, `/scenarios/...`, OpenAPI) require **`NW_REST_API_KEY`** via `Authorization: Bearer <key>` or `X-API-Key: <key>`, optional **`NW_REST_JWT_SECRET`** for HS256 JWTs. API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
+
+**HTTP Generic outbound policy** — `http_generic.request` allows only `GET`, `POST`, `PUT`, `PATCH`, `DELETE`. URLs targeting internal destinations are rejected (`localhost`, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments.
 
 **Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
 

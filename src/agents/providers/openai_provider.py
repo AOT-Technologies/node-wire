@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
@@ -45,29 +45,34 @@ def _messages_to_openai(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
                 }
             )
         elif m.tool_calls:
-            result.append(
-                {
-                    "role": "assistant",
-                    "content": m.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
-                        }
-                        for tc in m.tool_calls
-                    ],
-                }
-            )
+            assistant_msg: Dict[str, Any] = {
+                "role": "assistant",
+                "content": m.content if m.content is not None else "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments),
+                        },
+                    }
+                    for tc in m.tool_calls
+                ],
+            }
+            result.append(cast(Dict[str, Any], assistant_msg))
         else:
             result.append({"role": m.role, "content": m.content or ""})
     return result
 
 
+OpenAI: Any = None
 try:
-    from openai import OpenAI
+    from openai import OpenAI as _OpenAI
+
+    OpenAI = _OpenAI
 except ImportError:
-    OpenAI = None
+    pass
 
 
 class OpenAIProvider(BaseLLMProvider):

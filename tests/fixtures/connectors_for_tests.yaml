@@ -1,0 +1,90 @@
+# Test fixture: mirrors ../config/connectors.yaml but optional connectors not on
+# the pytest allowlist are disabled (slack, salesforce).
+# Enabling them here would fail ConnectorFactory.load() when not registered
+# (NW_ALLOWED_CONNECTORS / missing package).
+#
+# SECURITY RULE: This file must never contain secrets.
+
+connectors:
+  http_generic:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+
+  smtp:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    host: "smtp.example.com"
+    port: 587
+    from_email: "noreply@example.com"
+    auth:
+      provider: static_credentials
+      username_secret: SMTP_USERNAME
+      password_secret: SMTP_PASSWORD
+
+  stripe:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: static_token
+      secret_key: stripe_api_key
+      header_name: Authorization
+      prefix: ""
+
+  google_drive:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: service_account
+      sa_json_secret: GOOGLE_DRIVE_SA_JSON
+      scopes:
+        - https://www.googleapis.com/auth/drive
+
+  fhir_epic:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    base_url: "${EPIC_FHIR_BASE_URL:https://fhir.epic.sandbox/api/FHIR/R4}"
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: EPIC_TOKEN_URL
+      client_id_secret: EPIC_CLIENT_ID
+      private_key_secret: EPIC_PRIVATE_KEY
+      kid_secret: EPIC_KID
+      algorithm: RS384
+
+  fhir_cerner:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
+    auth:
+      provider: oauth2
+      grant_method: private_key_jwt
+      token_url_secret: CERNER_TOKEN_URL
+      client_id_secret: CERNER_CLIENT_ID
+      private_key_secret: CERNER_PRIVATE_KEY
+      kid_secret: CERNER_KID
+      algorithm: RS384
+      scopes_secret: CERNER_SCOPES
+      scopes:
+        - system/Patient.read
+        - system/Encounter.read
+        - system/DocumentReference.read
+        - system/DocumentReference.write
+
+  salesforce:
+    enabled: false
+    exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: oauth2
+      grant_method: refresh_token
+      token_url_secret: SALESFORCE_TOKEN_URL
+      client_id_secret: SALESFORCE_CLIENT_ID
+      client_secret_secret: SALESFORCE_CLIENT_SECRET
+      refresh_token_secret: SALESFORCE_REFRESH_TOKEN
+
+  slack:
+    enabled: false
+    exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: static_token
+      secret_key: SLACK_BOT_TOKEN

@@ -152,7 +152,7 @@ async def test_fhir_cerner_read_patient_by_explicit_name_fields():
     }
 
     with (
-        patch("node_wire_fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"),
+        patch("node_wire_runtime.auth.oauth2.jwt.encode", return_value="dummy-jwt"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
         patch(
             "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response
@@ -189,7 +189,7 @@ async def test_fhir_cerner_read_patient_by_name_field():
     }
 
     with (
-        patch("node_wire_fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"),
+        patch("node_wire_runtime.auth.oauth2.jwt.encode", return_value="dummy-jwt"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
         patch(
             "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=patient_response
@@ -216,7 +216,7 @@ async def test_fhir_cerner_read_patient_no_params_raises():
     params = FhirCernerPatientReadInput(action="read_patient")
 
     with (
-        patch("node_wire_fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"),
+        patch("node_wire_runtime.auth.oauth2.jwt.encode", return_value="dummy-jwt"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
     ):
         with pytest.raises(ValueError, match="Provide resource_id"):
@@ -348,7 +348,7 @@ async def test_fhir_cerner_search_patients_no_params_raises():
     params = FhirCernerPatientSearchInput(action="search_patients")
 
     with (
-        patch("node_wire_fhir_cerner.logic.jwt.encode", return_value="dummy-jwt"),
+        patch("node_wire_runtime.auth.oauth2.jwt.encode", return_value="dummy-jwt"),
         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=_token_mock()),
     ):
         with pytest.raises(ValueError):

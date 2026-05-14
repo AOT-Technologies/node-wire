@@ -9,6 +9,7 @@ from importlib import import_module
 from typing import Any, Dict
 
 import pytest
+from pydantic import ValidationError
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
@@ -67,6 +68,29 @@ def test_stripe_connector_accepts_charge_payload():
         {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
     )
     assert validated.action == "charge"
+
+
+def test_stripe_connector_normalizes_uppercase_currency():
+    validated = ChargeInput.model_validate(
+        {"action": "charge", "amount": 100, "currency": "USD", "source": "tok_visa"}
+    )
+    assert validated.currency == "usd"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "charge", "amount": 0, "currency": "usd", "source": "tok_visa"},
+        {"action": "charge", "amount": -1, "currency": "usd", "source": "tok_visa"},
+        {"action": "charge", "amount": 100_000_000, "currency": "usd", "source": "tok_visa"},
+        {"action": "charge", "amount": 100, "currency": "US", "source": "tok_visa"},
+        {"action": "charge", "amount": 100, "currency": "USDT", "source": "tok_visa"},
+        {"action": "charge", "amount": 100, "currency": "us1", "source": "tok_visa"},
+    ],
+)
+def test_stripe_connector_rejects_invalid_charge_payload(payload):
+    with pytest.raises(ValidationError):
+        ChargeInput.model_validate(payload)
 
 
 def test_mcp_tool_invoke_sets_action():
@@ -383,7 +407,7 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
         # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
         old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
         os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
-        
+
         gdrive.run = fake_run
         await server.invoke_tool(
             "google_drive.files.upload",
@@ -396,7 +420,7 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
                 "action": "upload",
             },
         )
-        
+
         # Restore original rate limit value
         if old_rate_limit is not None:
             os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
@@ -447,14 +471,19 @@ async def test_mcp_server_invoke_rejects_conflicting_action() -> None:
     # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
     old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
     os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
-    
+
     try:
         server = McpServer(connector_ids=["google_drive"])
 
         with pytest.raises(ValueError, match="does not match"):
             await server.invoke_tool(
                 "google_drive.files.upload",
-                {"name": "x.txt", "mime_type": "text/plain", "content": "a", "action": "files.list"},
+                {
+                    "name": "x.txt",
+                    "mime_type": "text/plain",
+                    "content": "a",
+                    "action": "files.list",
+                },
             )
     finally:
         # Restore original rate limit value

@@ -236,15 +236,12 @@ class OAuth2AuthProvider(AuthProvider):
         """Exchange refresh_token for a new access token."""
         if not self._refresh_token_secret:
             raise ValueError(
-                "OAuth2AuthProvider (refresh_token): "
-                "'refresh_token_secret' must be configured."
+                "OAuth2AuthProvider (refresh_token): 'refresh_token_secret' must be configured."
             )
 
         client_id = self._sp.get_secret(self._client_id_secret)
         client_secret = (
-            self._sp.get_secret(self._client_secret_secret)
-            if self._client_secret_secret
-            else None
+            self._sp.get_secret(self._client_secret_secret) if self._client_secret_secret else None
         )
         refresh_token = self._sp.get_secret(self._refresh_token_secret)
         token_url = self._sp.get_secret(self._token_url_secret)
@@ -266,7 +263,6 @@ class OAuth2AuthProvider(AuthProvider):
             extra={"token_url": token_url},
         )
         return await self._post_token(token_url, post_data)
-
 
     async def _fetch_private_key_jwt(self) -> Dict[str, Any]:
         """
