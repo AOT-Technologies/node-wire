@@ -14,7 +14,7 @@ The Slack connector provides high-level actions for messaging and file managemen
 
 ### Architecture
 - **Schema Validation**: All inputs are validated using Pydantic models in `schema.py`. The `action` field acts as a discriminator to route payloads to the correct handler.
-- **Channel Resolution**: A specialized internal helper, `_resolve_channel_id`, automatically maps flexible target identifiers (Channel Names like `#general`, Channel IDs, or User IDs like `U...`) to the correct Slack identifiers. User IDs are automatically resolved to DM channel IDs via the `conversations.open` API.
+- **Channel Resolution**: A specialized internal helper, `_resolve_channel_id`, automatically maps flexible target identifiers for messaging operations (Channel Names like `#general`, Channel IDs, or User IDs like `U...`) to the correct Slack identifiers. For `upload_file`, Slack's external upload API requires a real conversation ID, so unresolved channel names are rejected before upload begins.
 - **File Uploads**: Implements Slack's recommended 3-step external upload flow (`getUploadURLExternal`), supporting both absolute filesystem paths and base64-encoded content.
 - **Authentication**: Bot tokens (`xoxb-...`) are resolved at call-time via the `SecretProvider`, ensuring no credentials are ever logged or stored on the instance.
 
@@ -86,6 +86,7 @@ A specialized action for private communication. If a User ID is provided, the co
 ### `upload_file`
 
 Uploads a file to Slack using the external-upload flow. Supports local file paths (sandboxed) or raw base64 data.
+Unlike `chat.postMessage`, this Slack API requires a real conversation ID when sharing the uploaded file, so unresolved names like `#general` are not accepted.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

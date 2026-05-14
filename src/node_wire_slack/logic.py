@@ -16,6 +16,7 @@ import binascii
 import json
 import logging
 import os
+import re
 from typing import Any
 
 import httpx
@@ -49,6 +50,7 @@ _COMPLETE_UPLOAD_URL = "https://slack.com/api/files.completeUploadExternal"
 _DEFAULT_TIMEOUT = 30.0
 _HARD_UPLOAD_LIMIT_MB = 100
 _DEFAULT_UPLOAD_LIMIT_MB = 50
+_CHANNEL_ID_RE = re.compile(r"^[CGDZ][A-Z0-9]{8,}$")
 
 
 def _get_api_url(path: str) -> str:
@@ -77,6 +79,11 @@ _RATE_ERRORS = frozenset({"ratelimited"})
 
 def _auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _is_valid_channel_id(value: str) -> bool:
+    """Return True when *value* matches Slack's channel_id format."""
+    return bool(_CHANNEL_ID_RE.fullmatch(value.strip()))
 
 
 def _raise_for_slack_error(response_json: dict[str, Any], http_status: int) -> None:
@@ -164,7 +171,7 @@ async def _complete_upload(
     data: dict[str, Any] = {
         "files": json.dumps([{"id": file_id, "title": title}]),
     }
-    if channel_id:
+    if _is_valid_channel_id(channel_id):
         data["channel_id"] = channel_id
     if initial_comment:
         data["initial_comment"] = initial_comment
@@ -241,7 +248,7 @@ async def _resolve_channel_id(token: str, target: str) -> str:
     prefix = target[0].upper()
 
     # Already a channel/group/dm ID
-    if prefix in ("C", "G", "D"):
+    if prefix in ("C", "G", "D", "Z"):
         return target
 
     # User ID -> Resolve to DM channel
@@ -402,6 +409,11 @@ class SlackConnector(BaseConnector):
         )
         token = self.secret_provider.get_secret(params.token_secret_key)
         channel_id = await _resolve_channel_id(token, params.channel)
+        if params.channel and not _is_valid_channel_id(channel_id):
+            raise SlackUploadError(
+                f"Could not resolve {params.channel!r} to a valid Slack channel ID. "
+                "Provide a channel ID (for example C01AB2CD3EF) instead of a channel name."
+            )
         limit_bytes = _get_upload_limit_bytes()
 
         # --- Resolve content bytes ---

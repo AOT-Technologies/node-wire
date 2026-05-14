@@ -41,6 +41,7 @@ from node_wire_slack.exceptions import (
 )
 from node_wire_slack.logic import (
     SlackConnector,
+    _complete_upload,
     _resolve_blocks,
 )
 import node_wire_slack.registration  # noqa: F401
@@ -411,3 +412,74 @@ def test_resolve_blocks_non_array_json_raises() -> None:
 
     with pytest.raises(SlackMessageError, match="must be a JSON array"):
         _resolve_blocks(json.dumps({"type": "section"}))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("channel_id", ["", "#general", "U0TEST456"])
+async def test_complete_upload_omits_invalid_channel_id(channel_id: str) -> None:
+    captured: dict[str, Any] = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self) -> dict[str, Any]:
+            return {"ok": True, "files": [{"id": "F0TESTFILE"}]}
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+        async def post(
+            self,
+            url: str,
+            headers: dict[str, str] | None = None,
+            data: dict[str, Any] | None = None,
+        ) -> FakeResponse:
+            captured["url"] = url
+            captured["headers"] = headers or {}
+            captured["data"] = data or {}
+            return FakeResponse()
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=FakeAsyncClient):
+        data = await _complete_upload(
+            _FAKE_TOKEN,
+            "F0TESTFILE",
+            "test.txt",
+            channel_id=channel_id,
+            initial_comment="hello",
+        )
+
+    assert data["ok"] is True
+    assert "channel_id" not in captured["data"]
+    assert captured["data"]["initial_comment"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_upload_file_invalid_resolved_channel_returns_business_error() -> None:
+    connector = _make_connector()
+    b64 = base64.b64encode(b"Hello, file!").decode()
+
+    with (
+        patch("node_wire_slack.logic._resolve_channel_id", new=AsyncMock(return_value="#general")),
+        patch("node_wire_slack.logic._get_upload_url", new=AsyncMock()) as get_upload_url,
+    ):
+        result = await connector.run(
+            {
+                "action": "upload_file",
+                "channel": "#general",
+                "filename": "test.txt",
+                "content_base64": b64,
+            }
+        )
+
+    assert result.success is False
+    assert result.error_category == ErrorCategory.BUSINESS
+    assert result.error_code == "SLACK_UPLOAD_ERROR"
+    assert "Could not resolve '#general' to a valid Slack channel ID" in result.message
+    get_upload_url.assert_not_awaited()

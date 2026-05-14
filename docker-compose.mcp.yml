@@ -45,3 +45,10 @@ services:
     tty: true
     restart: unless-stopped
 
+  nw-slack:
+    image: nw-slack:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+

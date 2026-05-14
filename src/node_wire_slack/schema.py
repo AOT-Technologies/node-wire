@@ -83,7 +83,11 @@ class SlackUploadFileInput(_BaseSlackInput):
 
     action: Literal["upload_file"] = "upload_file"
     channel: str = Field(
-        ..., description="Target Channel ID, Name, or User ID to share the file with."
+        ...,
+        description=(
+            "Target Channel ID (C/G/D/Z...) or User ID (U/W...) to share the file with. "
+            "Channel names like #general are not accepted by Slack's external upload API."
+        ),
     )
     filename: str = Field(default="", description="Display name for the uploaded file.")
     initial_comment: str = Field(default="", description="Message posted alongside the file.")
