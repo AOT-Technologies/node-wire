@@ -17,8 +17,14 @@ from bindings.mcp_server.server import McpServer
 
 @pytest.fixture(autouse=True)
 def _mcp_auth_clear_allowlist_from_host_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A host ``NW_ALLOWED_CONNECTORS`` (e.g. from .env) can drop ``smtp`` from the registry."""
-    monkeypatch.delenv("NW_ALLOWED_CONNECTORS", raising=False)
+    """Pin allowlist + scope defaults: host ``.env`` or deny-default leaks empty API-key scopes and filters all tools."""
+    monkeypatch.setenv(
+        "NW_ALLOWED_CONNECTORS",
+        "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner",
+    )
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+    monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
+    monkeypatch.delenv("NW_MCP_API_KEY_SCOPES", raising=False)
 
 
 def test_mcp_auth_missing_token_returns_401(monkeypatch: pytest.MonkeyPatch) -> None:

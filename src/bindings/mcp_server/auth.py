@@ -99,9 +99,17 @@ def _bootstrap_mcp_auth_env() -> None:
         _mcp_auth_env_bootstrapped = True
         return
 
+    # Align with REST/bindings: when dotenv merge is disabled (pytest, CI, prod),
+    # never load repo `.env` with override=True — that stomps conftest env and
+    # monkeypatched values (e.g. NW_ALLOWED_CONNECTORS, NW_MCP_AUTH_ENABLED).
+    rest_dotenv = os.environ.get("NW_REST_LOAD_DOTENV", "true").lower()
+    if rest_dotenv in ("0", "false", "no"):
+        # Keys may be injected later (tests); do not mark bootstrapped so we recheck.
+        return
+
     repo_root_env = Path(__file__).resolve().parents[3] / ".env"
-    load_dotenv(override=True)
-    load_dotenv(repo_root_env, override=True)
+    load_dotenv(override=False)
+    load_dotenv(repo_root_env, override=False)
     _mcp_auth_env_bootstrapped = True
 
 

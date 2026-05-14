@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -62,6 +63,7 @@ async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> No
     connector = _epic_connector_for_redaction()
     payload_secret = "SENSITIVE_PAYLOAD_VALUE"
     response_secret = "SENSITIVE_RESPONSE_VALUE"
+    data_b64 = base64.b64encode(payload_secret.encode()).decode("ascii")
 
     params = FhirDocumentReferenceCreateInput(
         action="create_document_reference",
@@ -73,7 +75,7 @@ async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> No
             ]
         },
         subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
-        data=payload_secret,
+        data=data_b64,
         context={"related": [{"reference": "Group/eqv3buSV"}]},
     )
 
@@ -93,6 +95,7 @@ async def test_fhir_epic_create_document_reference_logs_redacted_payload() -> No
 
     logged = _serialize_calls(mocked_error)
     assert payload_secret not in logged
+    assert data_b64 not in logged
     assert response_secret not in logged
     assert "payload_summary" in logged
 
@@ -104,6 +107,7 @@ async def test_fhir_cerner_create_document_reference_logs_redacted_payload() -> 
     connector = _cerner_connector_for_redaction()
     payload_secret = "CERNER_SECRET_PAYLOAD"
     response_secret = "CERNER_SECRET_RESPONSE"
+    data_b64 = base64.b64encode(payload_secret.encode()).decode("ascii")
 
     params = FhirCernerDocumentReferenceCreateInput(
         action="create_document_reference",
@@ -122,7 +126,7 @@ async def test_fhir_cerner_create_document_reference_logs_redacted_payload() -> 
             "text": "Employer Group Scan",
         },
         subject="Patient/12724066",
-        data=payload_secret,
+        data=data_b64,
         attachment_title="Document",
         author=[{"reference": "Practitioner/p1"}],
         context={
@@ -146,5 +150,6 @@ async def test_fhir_cerner_create_document_reference_logs_redacted_payload() -> 
 
     logged = _serialize_calls(mocked_error)
     assert payload_secret not in logged
+    assert data_b64 not in logged
     assert response_secret not in logged
     assert "payload_summary" in logged
