@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Unit tests for SMTP, HTTP generic, and Stripe connectors with mocked I/O."""
 
 from __future__ import annotations

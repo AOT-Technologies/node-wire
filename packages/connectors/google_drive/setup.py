@@ -1,5 +1,8 @@
-import glob
-import os
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
+import glob, os
 from Cython.Build import cythonize
 from setuptools import setup
 from setuptools.command.build_py import build_py as _BuildPy

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Connectors guide (`src/node_wire_*`)
 
 This guide explains how **connectors** fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under `src/node_wire_<connector_id>/` (e.g. `src/node_wire_google_drive/`); the shared base class lives at **`src/node_wire_runtime/base_connector.py`**.

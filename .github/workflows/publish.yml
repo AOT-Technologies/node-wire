@@ -1,3 +1,8 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # Pinned action SHAs are immutable; update intentionally when upgrading.
 # yamllint disable rule:line-length
 name: Publish Node Wire package

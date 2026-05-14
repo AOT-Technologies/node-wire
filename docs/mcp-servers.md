@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire — Individual MCP Servers
 
 This document covers everything needed to build, run, configure, and integrate the per-connector MCP servers with ToolHive and the Agentic Workflow.

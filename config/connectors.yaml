@@ -1,3 +1,8 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # connectors.yaml — Node Wire connector configuration
 #
 # REST API auth (not stored here; set in environment):

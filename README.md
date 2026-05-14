@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire
 
 Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, etc.) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
@@ -63,21 +69,6 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 
-   Then open:
-   - **Health:** http://localhost:8000/health
-   - **Swagger:** http://localhost:8000/docs
-
-3. **Start gRPC or MCP**  
-   Set `MODE=GRPC` or `MODE=MCP` before running `python -m uv run node-wire`.
-
----
-
-## Dependencies
-
-All dependencies are declared in `pyproject.toml` (Python >=3.11). They include: pydantic, FastAPI, uvicorn, tenacity, pybreaker, OpenTelemetry, grpcio, and connector-specific libraries (httpx, aiosmtplib, stripe, google-auth, google-api-python-client, etc.). See `pyproject.toml` for the full list and versions.
-
----
-
 ## Setup and development docs
 
 - Platform setup (REST/gRPC/agents MCP): [Setup.md](Setup.md)
@@ -96,22 +87,70 @@ These checks are configured to run automatically in CI on Pull Requests against 
 ### Manual Usage for Developers
 Make sure you have dev dependencies installed (`pip install -e ".[dev]"`).
 
-* **Check formatting & linting errors:** `ruff check .`
-* **Auto-fix everything & format code:** `ruff check --fix . && ruff format .`
-* **Run static type validation:** `mypy` (paths default from `[tool.mypy]` `files` in `pyproject.toml`; avoid `mypy .`, which scans packaging `setup.py` scripts under `packages/`). To include tests: `mypy src tests` overrides the defaults.
+- **Check formatting and linting errors:** `ruff check .`
+- **Auto-fix and format code:** `ruff check --fix . && ruff format .`
+- **Run static type validation:** `mypy` (paths default from `[tool.mypy]` `files` in `pyproject.toml`; avoid `mypy .`, which scans packaging `setup.py` scripts under `packages/`). To include tests: `mypy src tests`.
 
 ### Pre-commit Hooks
-You can attach our `.pre-commit-config.yaml` to Git so that it automatically runs these checks on every single `git commit`:
+You can attach `.pre-commit-config.yaml` so checks run on every commit:
+
 ```bash
 pre-commit install
 ```
 
-If you ever want to force a manual test against your entire repository immediately, use:
+To run all hooks across the repository:
+
 ```bash
 pre-commit run --all-files
 ```
 
-**(Emergency Bypass):** If the pre-commit script catches an error but you absolutely must force the commit through regardless, you can skip the checks by adding the `--no-verify` flag:
+---
+
+## Copyright Headers & Compliance
+
+This repository enforces open-source licensing compliance using [REUSE](https://reuse.software/). All first-party source files must contain the appropriate SPDX copyright and license headers.
+
+### Testing Compliance
+
+To verify that all files have the correct headers, run the `reuse` lint tool:
+
 ```bash
-git commit -m "your message" --no-verify
+uv pip install reuse
+uv run reuse lint
 ```
+
+### Adding Missing Headers
+
+If `reuse lint` reports missing headers on new files, you can automatically add them by running:
+
+```bash
+bash scripts/add-license-headers.sh
+```
+
+## Dependency Inventory & Compliance
+
+To maintain an open-source compliant ecosystem, we track all third-party dependencies and their licenses.
+
+### License Classification Criteria
+Dependencies are strictly evaluated against the following criteria:
+* **✅ Safe (Permissive):** MIT, Apache-2.0, BSD, PSF. Universally safe for our Apache 2.0 release.
+* **⚠️ Needs Review:** Custom or obscure licenses require manual review to ensure no conflicting obligations.
+* **⛔ Risky (Copyleft):** GPLv2, GPLv3, AGPL. Strictly prohibited in the runtime application. Permitted *only* as isolated, non-distributed Development/Linting tools.
+
+### Updating the Dependency Inventory & Security Checks
+When a new package is added to the project, or before creating a release, you must run the unified compliance script.
+
+This script will:
+1. Generate the `DEPENDENCIES.md` inventory.
+2. Run **Bandit** for Static Application Security Testing (SAST).
+3. Run **pip-audit** for vulnerability scanning across all dependencies.
+
+To automatically run these checks, execute:
+```bash
+bash scripts/run-compliance-checks.sh
+```
+
+## License
+
+This project is licensed under the Apache License 2.0.
+See the LICENSE file for details.
