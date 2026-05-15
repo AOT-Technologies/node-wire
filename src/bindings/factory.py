@@ -190,6 +190,16 @@ class ConnectorFactory:
                 )
                 continue
 
+            if connector_id not in _CONNECTOR_REGISTRY:
+                logger.warning(
+                    "Connector enabled in configuration but not registered; skipping instantiation",
+                    extra={
+                        "connector_id": connector_id,
+                        "reason": "Filtered by NW_ALLOWED_CONNECTORS or not installed",
+                    },
+                )
+                continue
+
             instance = self._instantiate(connector_id)
             self._connectors[connector_id] = instance
 
