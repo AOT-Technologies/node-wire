@@ -88,6 +88,43 @@ SPDX-License-Identifier: Apache-2.0
                         </div>
                     </div>
                 </div>
+
+                <div class="selection-card card-apps-directory" data-target="connector-apps-menu">
+                    <div class="card-inner">
+                        <div class="selection-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </div>
+                        <div class="selection-details">
+                            <h3>Connector Apps</h3>
+                            <p>Ready-to-use experiences built on top of connectors</p>
+                        </div>
+                        <div class="action-bar">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="connector-apps-selection-view" class="hidden" style="width: 100%; max-width: 1350px; margin: 0 auto; padding-top: 2rem;">
+            <button class="back-link" id="apps-back-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back to Workspace
+            </button>
+            <div class="card-title" style="margin-top: 1rem;">
+                <h2>Connector Apps</h2>
+                <span class="info-tip">Ready-to-use experiences built on top of connectors</span>
+            </div>
+            <div class="connector-grid">
+                <div class="app-card" data-target="ext-patient-viewer">
+                    <div class="connector-icon bg-ext-viewer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                    <div class="connector-details">
+                        <h3>External Patient Viewer</h3>
+                        <p>Retrieve patient details, histories, and clinical records</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -247,26 +284,6 @@ SPDX-License-Identifier: Apache-2.0
                             <div class="connector-details">
                                 <h3>Salesforce</h3>
                                 <p>Lead and contact management for CRM-driven enterprise workflows.</p>
-                            </div>
-                        </div>
-
-                        <div class="connector-card" data-mode="ext-patient-viewer">
-                            <div class="connector-icon bg-ext-viewer">
-                                <!-- Patient chart / eye icon -->
-                                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <rect width="80" height="80" rx="16" fill="#0d9488"/>
-                                  <!-- Eye outline -->
-                                  <ellipse cx="40" cy="38" rx="20" ry="12" stroke="white" stroke-width="4"/>
-                                  <!-- Pupil -->
-                                  <circle cx="40" cy="38" r="5" fill="white"/>
-                                  <!-- EHR lines -->
-                                  <rect x="26" y="55" width="28" height="3" rx="1.5" fill="rgba(255,255,255,0.6)"/>
-                                  <rect x="30" y="61" width="20" height="3" rx="1.5" fill="rgba(255,255,255,0.4)"/>
-                                </svg>
-                            </div>
-                            <div class="connector-details">
-                                <h3>External Patient Viewer</h3>
-                                <p>Read-only on-demand retrieval of demographics, encounters, and documents from source EHR.</p>
                             </div>
                         </div>
                 </div>
