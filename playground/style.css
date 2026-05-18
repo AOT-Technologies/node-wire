@@ -923,7 +923,7 @@ textarea:focus {
     margin-top: 1.5rem;
 }
 
-.connector-card {
+.connector-card, .app-card {
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     border: 1px solid var(--border);
@@ -939,7 +939,7 @@ textarea:focus {
     overflow: hidden;
 }
 
-.connector-card:hover {
+.connector-card:hover, .app-card:hover {
     transform: translateY(-5px);
     border-color: var(--brand-accent);
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.06);
@@ -1427,6 +1427,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-weight: 600;
 }
 
+.stream-running-timer {
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--brand-accent);
+    background: rgba(37, 99, 235, 0.08);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.25rem;
+}
+
 .stream-end-message {
     align-self: flex-start;
     max-width: 85%;
@@ -1643,6 +1654,15 @@ input[type="range"]::-webkit-slider-thumb:hover {
                 /* radial-gradient(circle at 90% 80%, rgba(37, 99, 235, 0.05) 0%, transparent 40%); */
 }
 
+.apps-selection-view {
+    justify-content: flex-start;
+    padding-top: 4rem;
+}
+
+.apps-selection-view .selection-grid {
+    justify-content: flex-start;
+}
+
 .selection-welcome h1 {
     font-size: 3.5rem;
     font-weight: 700;
@@ -1652,14 +1672,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .selection-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 3rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2.25rem;
     width: 100%;
-    max-width: 900px;
+    max-width: 1350px;
 }
 
 .selection-card {
+    flex: 1 1 340px;
+    max-width: 420px;
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 20px;
@@ -1669,6 +1692,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     position: relative;
     overflow: hidden;
     display: flex;
+    height: 380px; /* Constrain height to a beautifully balanced landscape proportion */
 }
 
 .card-inner {
@@ -1676,7 +1700,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 3rem 2rem 0;
+    padding: 1.75rem 2rem 0;
 }
 
 .selection-card:hover {
@@ -1685,44 +1709,61 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .selection-icon {
-    width: 80px;
-    height: 80px;
+    width: 68px;
+    height: 68px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     transition: all 0.3s;
 }
 
-.card-mcp .selection-icon { background: #f5f3ff; color: #8b5cf6; }
-.card-connectors .selection-icon { background: #eff6ff; color: #2563eb; }
+.card-mcp .selection-icon { background: #f3e8ff; color: #7c3aed; }
+.card-connectors .selection-icon { background: #e0f2fe; color: #0284c7; }
+.card-ext-viewer .selection-icon,
+.card-apps-directory .selection-icon { background: #ccfbf1; color: #0d9488; }
+
+.selection-details {
+    text-align: center;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
 .selection-details h3 {
-    font-size: 1.75rem;
+    font-size: 1.45rem;
     font-family: "Outfit", sans-serif;
     color: #1e293b;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
 }
 
 .selection-details p {
-    font-size: 1rem;
+    font-size: 0.92rem;
     color: #64748b;
-    margin-bottom: 2.5rem; /* Space before action bar */
+    margin-bottom: 1rem; /* Space before action bar */
+    line-height: 1.4;
+    max-width: 320px; /* Wider boundary to let text fill the card beautifully */
+    padding: 0 1.25rem; /* Symmetrical side padding for centered layout */
 }
 
 .action-bar {
     width: calc(100% + 4rem);
     margin: 0 -2rem;
-    height: 80px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s;
+    margin-top: auto; /* Pin level with bottom of cards */
 }
 
-.card-mcp .action-bar { background: #f5f3ff; color: #8b5cf6; }
-.card-connectors .action-bar { background: #eff6ff; color: #2563eb; }
+.card-mcp .action-bar { background: #f3e8ff; color: #7c3aed; }
+.card-connectors .action-bar { background: #e0f2fe; color: #0284c7; }
+.card-ext-viewer .action-bar,
+.card-apps-directory .action-bar { background: #ccfbf1; color: #0d9488; }
 
 .selection-card:hover .action-bar {
     filter: brightness(0.95);
@@ -1742,6 +1783,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .card-mcp:hover { border-color: #8b5cf6; }
 .card-connectors { border: 2px solid transparent; }
 .card-connectors:hover { border-color: #2563eb; }
+.card-ext-viewer { border: 2px solid transparent; }
+.card-ext-viewer:hover { border-color: #0d9488; }
 
 @media (max-width: 900px) {
     .selection-grid { grid-template-columns: 1fr; }

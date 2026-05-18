@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rootSelectionView = document.getElementById('root-selection-view');
-    const selectionCards = document.querySelectorAll('.selection-card');
+    const selectionCards = document.querySelectorAll('.selection-card, .app-card');
     const rootTabContainer = document.querySelector('.root-tab-container');
     const backToHomeBtn = document.getElementById('back-to-home');
 
@@ -311,28 +311,79 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionCards.forEach(card => {
         card.addEventListener('click', () => {
             const view = card.dataset.target;
-            rootSelectionView.classList.add('hidden');
-            layoutMain.classList.remove('hidden');
-            headerActions.classList.remove('hidden');
 
             if (view === 'agent') {
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
                 layoutMain.classList.add('agent-mode');
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Workspace
+                    `;
+                }
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
+            } else if (view === 'connector-apps-menu') {
+                rootSelectionView.classList.add('hidden');
+                document.getElementById('connector-apps-selection-view').classList.remove('hidden');
+                layoutMain.classList.add('hidden');
+                headerActions.classList.remove('hidden');
+                connectorStatus.textContent = 'Apps Marketplace';
+                tagline.textContent = 'Ready-to-use experiences built on top of connectors';
+                document.documentElement.style.setProperty('--brand-accent', '#0d9488');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Workspace
+                    `;
+                }
+                log('Opened Connector Apps menu', 'system');
+            } else if (view === 'ext-patient-viewer') {
+                document.getElementById('connector-apps-selection-view').classList.add('hidden');
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
+                agentPanel.classList.add('hidden');
+                connectorsView.classList.remove('hidden');
+                layoutMain.classList.remove('agent-mode');
+                connectorsListPanel.classList.add('hidden');
+                playgroundView.classList.remove('hidden');
+                if (backToConnectorsBtn) backToConnectorsBtn.classList.add('hidden');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Apps
+                    `;
+                }
+                setMode('ext-patient-viewer');
             } else {
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
-
                 connectorStatus.textContent = 'Connectors Ready';
                 tagline.textContent = 'Enterprise Integration Suite';
                 document.documentElement.style.setProperty('--brand-accent', '#2563eb');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Workspace
+                    `;
+                }
                 log('Switched to Connectors view', 'system');
             }
         });
@@ -341,13 +392,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const returnToHome = (e) => {
         if (e) e.preventDefault();
         rootSelectionView.classList.remove('hidden');
+        document.getElementById('connector-apps-selection-view').classList.add('hidden');
         layoutMain.classList.add('hidden');
         headerActions.classList.add('hidden');
+        tagline.textContent = 'Autonomous Connector Orchestration Platform';
         log('Returned to main selection screen', 'system');
     };
 
     backToHomeBtn.addEventListener('click', returnToHome);
-    if (backSelectionBtn) backSelectionBtn.addEventListener('click', returnToHome);
+    
+    if (backSelectionBtn) {
+        backSelectionBtn.addEventListener('click', (e) => {
+            if (e) e.preventDefault();
+            const btnText = backSelectionBtn.textContent.trim();
+            if (btnText.includes('Back to Apps')) {
+                // Return from patient viewer to apps marketplace directory
+                layoutMain.classList.add('hidden');
+                document.getElementById('connector-apps-selection-view').classList.remove('hidden');
+                connectorStatus.textContent = 'Apps Marketplace';
+                tagline.textContent = 'Ready-to-use experiences built on top of connectors';
+                document.documentElement.style.setProperty('--brand-accent', '#0d9488');
+                log('Returned to Apps Marketplace directory', 'system');
+            } else {
+                // Return from other direct pages to workspace selection home
+                returnToHome(e);
+            }
+        });
+    }
+
+    const appsBackBtn = document.getElementById('apps-back-btn');
+    if (appsBackBtn) {
+        appsBackBtn.addEventListener('click', returnToHome);
+    }
 
     const newChatBtn = document.getElementById('new-chat-btn');
     newChatBtn.addEventListener('click', () => {
@@ -518,6 +594,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function setMode(mode) {
         currentMode = mode;
 
+        if (backToConnectorsBtn) {
+            if (mode === 'ext-patient-viewer') {
+                backToConnectorsBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to Workspace
+                `;
+            } else {
+                backToConnectorsBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to All Connectors
+                `;
+            }
+        }
+
         // Hide all panels first
         ehrPanel.classList.add('hidden');
         itopsPanel.classList.add('hidden');
@@ -632,19 +722,24 @@ document.addEventListener('DOMContentLoaded', () => {
             connectorsListPanel.classList.add('hidden');
             playgroundView.classList.remove('hidden');
             if (backSelectionBtn) backSelectionBtn.classList.add('hidden');
+            if (backToConnectorsBtn) backToConnectorsBtn.classList.remove('hidden');
             setMode(mode);
         });
     });
 
     // Back to Connectors List
     backToConnectorsBtn.addEventListener('click', () => {
-        playgroundView.classList.add('hidden');
-        connectorsListPanel.classList.remove('hidden');
-        if (backSelectionBtn) backSelectionBtn.classList.remove('hidden');
-        connectorStatus.textContent = 'Connectors Ready';
-        tagline.textContent = 'Enterprise Integration Suite';
-        document.documentElement.style.setProperty('--brand-accent', '#2563eb');
-        log('Returned to Connectors list', 'system');
+        if (currentMode === 'ext-patient-viewer') {
+            returnToHome();
+        } else {
+            playgroundView.classList.add('hidden');
+            connectorsListPanel.classList.remove('hidden');
+            if (backSelectionBtn) backSelectionBtn.classList.remove('hidden');
+            connectorStatus.textContent = 'Connectors Ready';
+            tagline.textContent = 'Enterprise Integration Suite';
+            document.documentElement.style.setProperty('--brand-accent', '#2563eb');
+            log('Returned to Connectors list', 'system');
+        }
     });
 
     // Google Drive Sub-mode Switching
@@ -1281,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
-                    <span>Streaming response...</span>
+                    <span>Streaming response... <strong class="stream-running-timer">0.0s</strong></span>
                 </div>
             </div>
         `;
@@ -1291,6 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bubble,
             text: bubble.querySelector('.streaming-text'),
             loader: bubble.querySelector('.stream-tail-loader'),
+            timer: bubble.querySelector('.stream-running-timer')
         };
     }
 
@@ -1304,10 +1400,14 @@ document.addEventListener('DOMContentLoaded', () => {
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
-    function appendStreamEndMessage(message, success = true) {
+    function appendStreamEndMessage(message, success = true, finalTime = null) {
         const end = document.createElement('div');
         end.className = `stream-end-message ${success ? 'success' : 'error'}`;
-        end.textContent = message || (success ? 'Streaming completed.' : 'Streaming ended with an error.');
+        let displayMessage = message || (success ? 'Streaming completed.' : 'Streaming ended with an error.');
+        if (finalTime) {
+            displayMessage += ` (Total Time: ${finalTime}s)`;
+        }
+        end.textContent = displayMessage;
         agentChatHistory.appendChild(end);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
@@ -1380,7 +1480,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="step-card-body">${escapeHTML(argsStr)}</div>
             ${resultPreview ? `<div class="step-card-result ${resultClass}">${resultIcon} ${escapeHTML(resultPreview)}</div>` : ''}
         `;
-        agentChatHistory.appendChild(card);
+        
+        const streamingBubble = agentChatHistory.querySelector('.streaming-bubble');
+        if (streamingBubble) {
+            agentChatHistory.insertBefore(card, streamingBubble);
+        } else {
+            agentChatHistory.appendChild(card);
+        }
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
@@ -1430,8 +1536,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         log(`Agent Chat: Sending message...`, 'system');
 
+        let timerInterval = null;
+        let streamView = null;
+        const startTime = Date.now();
+
         try {
             if (agentTransportMode === 'streamable-http') {
+                // Instantly display the streaming bubble and start the active timer
+                streamView = appendStreamingBubble();
+                agentTyping.classList.add('hidden'); // Hide generic typing dot loader
+
+                function startRunningTimer() {
+                    if (timerInterval) return;
+                    timerInterval = setInterval(() => {
+                        if (streamView && streamView.timer) {
+                            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                            streamView.timer.textContent = `${elapsed}s`;
+                        }
+                    }, 100);
+                }
+                startRunningTimer();
+
                 const response = await fetch('/scenarios/agent-chat-stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1447,7 +1572,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let traceId = '';
                 let success = true;
                 let doneMessage = '';
-                let streamView = null;
 
                 await readNdjsonStream(response, {
                     meta: (event) => {
@@ -1463,16 +1587,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             args: event.args || {},
                             result: event.result || ''
                         });
-                        if (!streamView) {
-                            streamView = appendStreamingBubble();
-                        } else {
-                            agentChatHistory.appendChild(streamView.bubble);
-                            agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
-                        }
                     },
                     final_chunk: (event) => {
                         agentTyping.classList.add('hidden');
-                        if (!streamView) streamView = appendStreamingBubble();
                         finalText += event.content || '';
                         streamView.text.textContent = finalText;
                         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
@@ -1480,7 +1597,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     error: (event) => {
                         success = false;
                         agentTyping.classList.add('hidden');
-                        if (!streamView) streamView = appendStreamingBubble();
                         finalText += event.message || '';
                         streamView.text.textContent = finalText;
                     },
@@ -1488,18 +1604,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         traceId = event.trace_id || traceId;
                         success = Boolean(event.success);
                         doneMessage = event.message || `Streaming ${success ? 'completed' : 'failed'}. trace_id=${traceId}`;
-                        if (!streamView) streamView = appendStreamingBubble();
+                        
+                        if (timerInterval) {
+                            clearInterval(timerInterval);
+                            timerInterval = null;
+                        }
+                        const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                         streamView.loader.classList.add('hidden');
-                        appendStreamEndMessage(doneMessage, success);
+                        appendStreamEndMessage(doneMessage, success, finalElapsed);
                     }
                 });
 
                 agentTyping.classList.add('hidden');
                 if (!doneMessage) {
-                    if (!streamView) streamView = appendStreamingBubble();
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                    const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                     streamView.loader.classList.add('hidden');
                     doneMessage = `Streaming connection closed before done event. trace_id=${traceId || 'unknown'}`;
-                    appendStreamEndMessage(doneMessage, false);
+                    appendStreamEndMessage(doneMessage, false, finalElapsed);
                     success = false;
                 }
                 if (!finalText) {
@@ -1545,6 +1670,8 @@ document.addEventListener('DOMContentLoaded', () => {
             log(`Agent Chat: ${data.success ? 'Success' : 'Responded'} | steps=${data.steps ? data.steps.length : 0}`, data.success ? 'success' : 'system');
 
         } catch (error) {
+            if (timerInterval) clearInterval(timerInterval);
+            if (streamView && streamView.loader) streamView.loader.classList.add('hidden');
             agentTyping.classList.add('hidden');
             appendChatBubble('assistant', `Sorry, I couldn't reach the server: ${error.message}. Please check that the backend is running.`);
             log(`Agent Chat Error: ${error.message}`, 'error');
