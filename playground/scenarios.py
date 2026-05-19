@@ -2002,6 +2002,15 @@ class IdentitySearchInputPlayground(BaseModel):
     birthdate: Optional[str] = None
     epic_patient_id: Optional[str] = None
     cerner_patient_id: Optional[str] = None
+    # MPI enrichment fields
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+
 
 class IdentitySyncInputPlayground(BaseModel):
     """Playground input for cross-system patient sync."""
@@ -2049,6 +2058,13 @@ async def identity_search_scenario(
             birthdate=payload.birthdate,
             epic_patient_id=payload.epic_patient_id,
             cerner_patient_id=payload.cerner_patient_id,
+            gender=payload.gender,
+            phone=payload.phone,
+            email=payload.email,
+            address_line=payload.address_line,
+            city=payload.city,
+            state=payload.state,
+            postal_code=payload.postal_code,
         )
         result = await coordinator.search_patient(search_input, trace_id=trace_id)
         steps[-1].status = "success"
@@ -2072,14 +2088,64 @@ async def identity_search_scenario(
         steps[-1].details = f"Mapped {len(mapping)} system(s)"
         steps[-1].data = {"raw": mapping}
 
+        add_step("MPI Decision", "pending", "Deterministic Match Score")
+        mpi_status = result.match_status or "no_match"
+        mpi_confidence = result.match_confidence or 0.0
+        mpi_score = result.match_score or 0.0
+        mpi_reasons = result.match_reasons or []
+        # Always mark step as success so the UI doesn't abort the pipeline
+        steps[-1].status = "success"
+        steps[-1].details = (
+            f"Status: {mpi_status.upper()} | Confidence: {mpi_confidence:.1f}% | "
+            f"Score: {mpi_score:.0f} pts"
+        )
+        steps[-1].data = {
+            "raw": {
+                "match_status": mpi_status,
+                "match_confidence": mpi_confidence,
+                "match_score": mpi_score,
+                "match_reasons": mpi_reasons,
+            }
+        }
+
+        # Helper to format candidate lists per system
+        def format_candidates(system_name, candidates, status, score):
+            if not candidates:
+                return f"\n**{system_name.upper()}**\nNo candidates found."
+            
+            highest = candidates[0]
+            txt = f"\n**{system_name.upper()} (Found {len(candidates)} candidates)**\n"
+            for i, c in enumerate(candidates):
+                res = c['resource']
+                name = res.get('name', [{}])[0]
+                full_name = f"{name.get('given', [''])[0]} {name.get('family', '')}".strip()
+                txt += f"  {i+1}. {full_name} (ID: {c['id']}) - Score: {c['score']:.0f} pts ({c['pct']:.1f}%), Status: {c['status'].upper()}\n"
+            
+            best_res = highest['resource']
+            best_name = best_res.get('name', [{}])[0]
+            best_full = f"{best_name.get('given', [''])[0]} {best_name.get('family', '')}".strip()
+            
+            txt += f"\n  *Highest {system_name.title()} Match:*\n"
+            txt += f"  Name: {best_full}\n"
+            txt += f"  ID: {highest['id']}\n"
+            txt += f"  Score: {highest['score']:.0f} pts ({highest['pct']:.1f}%)\n"
+            txt += f"  Match Status: {highest['status'].upper()}\n"
+            txt += f"  Scoring Reasons: {', '.join(highest['reasons'])}\n"
+            return txt
+
+        summary_text = "Cross-system search completed.\n"
+        summary_text += format_candidates("Epic", result.epic_candidates, result.epic_match_status, result.epic_match_score)
+        summary_text += format_candidates("Cerner", result.cerner_candidates, result.cerner_match_status, result.cerner_match_score)
+
         return ScenarioResponse(
             success=True,
             steps=steps,
             trace_id=trace_id,
-            human_summary=f"Cross-system search complete. Epic={result.epic_resource_id or '—'}, Cerner={result.cerner_resource_id or '—'}.",
+            human_summary=summary_text,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Identity search failed")
+
 
 
 @router.post("/identity-sync", response_model=ScenarioResponse)
@@ -2182,19 +2248,52 @@ async def identity_cross_lookup_scenario(
         # Step 3: Search opposite system
         target_system = "cerner" if payload.system == "epic" else "epic"
         add_step("Cross-System Search", "pending", f"Searching {target_system.title()}")
-        target_id, target_resource = await coordinator._demographic_search(
-            target_system, demo.get("given"), demo.get("family"), demo.get("birthdate"), trace_id
+        target_id, target_resource, target_score, target_status, target_reasons, all_candidates = await coordinator._demographic_search(
+            target_system, demo, trace_id
         )
         steps[-1].status = "success"
-        steps[-1].details = f"{target_system.title()} match: {target_id or 'no match found'}"
-        steps[-1].data = {"raw": target_resource or {"match": None}}
+        steps[-1].details = f"Found {len(all_candidates)} candidates. Best match: {target_id or 'none'} (Score: {target_score:.0f})"
+        steps[-1].data = {
+            "raw": {
+                "resource": target_resource,
+                "match_status": target_status,
+                "match_score": target_score,
+                "match_reasons": target_reasons,
+                "all_candidates": all_candidates
+            }
+        }
+
+        # Build detailed human summary listing all candidates and highlighting the best match
+        if all_candidates:
+            highest = all_candidates[0]
+            summary_text = f"Cross-lookup completed. Searched {target_system.title()}.\n\n"
+            summary_text += f"**Candidates Found ({len(all_candidates)}):**\n"
+            
+            for i, c in enumerate(all_candidates):
+                res = c['resource']
+                name = res.get('name', [{}])[0]
+                full_name = f"{name.get('given', [''])[0]} {name.get('family', '')}".strip()
+                summary_text += f"  {i+1}. {full_name} (ID: {c['id']}) - Score: {c['score']:.0f} pts ({c['pct']:.1f}%), Status: {c['status'].upper()}\n"
+            
+            best_res = highest['resource']
+            best_name = best_res.get('name', [{}])[0]
+            best_full = f"{best_name.get('given', [''])[0]} {best_name.get('family', '')}".strip()
+            
+            summary_text += f"\n**Highest Matching Patient:**\n"
+            summary_text += f"  Name: {best_full}\n"
+            summary_text += f"  ID: {highest['id']}\n"
+            summary_text += f"  Score: {highest['score']:.0f} pts ({highest['pct']:.1f}%)\n"
+            summary_text += f"  Match Status: {highest['status'].upper()}\n"
+            summary_text += f"  Scoring Reasons: {', '.join(highest['reasons'])}"
+        else:
+            summary_text = f"Cross-lookup: {payload.system.title()} {payload.patient_id} → {target_system.title()} no match found. 0 candidates."
 
         return ScenarioResponse(
             success=True,
             steps=steps,
             trace_id=trace_id,
             final_resource_id=target_id,
-            human_summary=f"Cross-lookup: {payload.system.title()} {payload.patient_id} → {target_system.title()} {target_id or 'no match'}.",
+            human_summary=summary_text,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Cross-lookup failed")

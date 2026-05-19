@@ -808,6 +808,16 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                                     <label>Date of Birth</label>
                                                     <input type="text" name="search_birthdate" placeholder="1990-01-01">
                                                 </div>
+                                                <div class="field-group">
+                                                    <label>Gender</label>
+                                                    <select name="search_gender" style="background: rgba(0,0,0,0.2); color: white; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 0.75rem;">
+                                                        <option value="">— optional —</option>
+                                                        <option value="male">Male</option>
+                                                        <option value="female">Female</option>
+                                                        <option value="unknown">Unknown</option>
+                                                        <option value="other">Other</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                             <h3 class="section-label" style="margin-top: 1rem;">Or Direct IDs</h3>
                                             <div class="input-row">
@@ -821,7 +831,48 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                                 </div>
                                             </div>
                                         </div>
+
+                                        <!-- Advanced Matching -->
+                                        <details class="input-section" style="margin-top: 0.5rem; border: 1px solid rgba(124,58,237,0.3); border-radius: 10px; padding: 1rem;">
+                                            <summary style="cursor: pointer; color: #a78bfa; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                                                ⚡ Advanced MPI Matching <span style="font-weight:400; color:#888; text-transform:none; font-size:0.8rem;">(optional — improves match confidence)</span>
+                                            </summary>
+                                            <div style="margin-top: 1rem;">
+                                                <div class="input-row">
+                                                    <div class="field-group">
+                                                        <label>Phone</label>
+                                                        <input type="text" name="search_phone" placeholder="555-123-4567">
+                                                    </div>
+                                                    <div class="field-group">
+                                                        <label>Email</label>
+                                                        <input type="email" name="search_email" placeholder="patient@example.com">
+                                                    </div>
+                                                </div>
+                                                <div class="field-group">
+                                                    <label>Address Line</label>
+                                                    <input type="text" name="search_address_line" placeholder="123 Main St">
+                                                </div>
+                                                <div class="input-row">
+                                                    <div class="field-group">
+                                                        <label>City</label>
+                                                        <input type="text" name="search_city" placeholder="Austin">
+                                                    </div>
+                                                    <div class="field-group">
+                                                        <label>State</label>
+                                                        <input type="text" name="search_state" placeholder="TX">
+                                                    </div>
+                                                    <div class="field-group">
+                                                        <label>Postal Code</label>
+                                                        <input type="text" name="search_postal_code" placeholder="78701">
+                                                    </div>
+                                                </div>
+                                                <p style="font-size:0.75rem; color:#888; margin-top:0.5rem;">
+                                                    🔒 SSN is auto-extracted from FHIR identifiers — never entered manually.
+                                                </p>
+                                            </div>
+                                        </details>
                                     </div>
+
 
                                     <!-- Identity Sync Section -->
                                     <div id="identity-section-sync" class="hidden">

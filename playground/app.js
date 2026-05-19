@@ -516,7 +516,8 @@ document.addEventListener('DOMContentLoaded', () => {
         gdrivePanel.classList.add('hidden');
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
-        if (identityPanel) identityPanel.classList.add('hidden');
+        const idPanel = document.getElementById('identity-panel');
+        if (idPanel) idPanel.classList.add('hidden');
 
         if (mode === 'ehr') {
 
@@ -556,7 +557,13 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.style.setProperty('--brand-accent', '#00A1E0');
             log('Switched to Salesforce CRM Orchestration mode', 'system');
         } else if (mode === 'identity') {
-            if (identityPanel) identityPanel.classList.remove('hidden');
+            const idPanel = document.getElementById('identity-panel');
+            if (idPanel) {
+                idPanel.classList.remove('hidden');
+                console.log("Removed hidden from idPanel");
+            } else {
+                console.error("identity-panel is NULL or UNDEFINED in DOM!");
+            }
             connectorStatus.textContent = 'Identity Bridge Online';
             tagline.textContent = 'Cross-System Patient Identity';
             document.documentElement.style.setProperty('--brand-accent', '#7C3AED');
@@ -804,7 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 log('Orchestration complete. Target system updated.', 'success');
                 finalResult.classList.remove('hidden');
                 finalResult.classList.remove('error-toast');
-                summaryText.textContent = data.human_summary;
+                summaryText.innerHTML = (data.human_summary || '').replace(/\n/g, '<br>');
                 const refPrefix = (data.final_resource_id != null && String(data.final_resource_id).trim() !== '')
                     ? `REF: ${escapeHTML(String(data.final_resource_id))} <span style="margin: 0 8px; opacity: 0.5;">|</span> `
                     : '';
@@ -1033,12 +1040,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 endpoint = '/scenarios/identity-cross-lookup';
             } else if (currentIdentitySubMode === 'identity_search') {
+                const _ov = (v) => v || undefined;
                 submitPayload = {
-                    given_name: payload.search_given_name || undefined,
-                    family_name: payload.search_family_name || undefined,
-                    birthdate: payload.search_birthdate || undefined,
-                    epic_patient_id: payload.search_epic_id || undefined,
-                    cerner_patient_id: payload.search_cerner_id || undefined
+                    given_name: _ov(payload.search_given_name),
+                    family_name: _ov(payload.search_family_name),
+                    birthdate: _ov(payload.search_birthdate),
+                    epic_patient_id: _ov(payload.search_epic_id),
+                    cerner_patient_id: _ov(payload.search_cerner_id),
+                    // MPI enrichment
+                    gender: _ov(payload.search_gender),
+                    phone: _ov(payload.search_phone),
+                    email: _ov(payload.search_email),
+                    address_line: _ov(payload.search_address_line),
+                    city: _ov(payload.search_city),
+                    state: _ov(payload.search_state),
+                    postal_code: _ov(payload.search_postal_code),
                 };
                 endpoint = '/scenarios/identity-search';
             } else if (currentIdentitySubMode === 'identity_sync') {
