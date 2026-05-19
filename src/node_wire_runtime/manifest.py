@@ -17,7 +17,7 @@ MCP_MANIFEST_CONTRACT_VERSION = "3"
 
 
 def _schema_for(model: Type[BaseModel], *, strict: bool = True) -> Dict[str, Any]:
-    schema = copy.deepcopy(model.model_json_schema())
+    schema = copy.deepcopy(model.model_json_schema(by_alias=False))
     # Remove `action` from `required`: it is always auto-injected from the tool
     # name by invoke_tool (run_args.setdefault("action", action)), so LLMs must
     # not be required to pass it.  Keeping it as an optional property is fine.
