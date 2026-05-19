@@ -1647,9 +1647,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 80vh;
-    padding: 2rem;
-    gap: 4rem;
+    min-height: calc(100vh - 120px);
+    padding: 1.5rem 0 3rem;
+    gap: 2.5rem;
     /* background: radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 40%), */
                 /* radial-gradient(circle at 90% 80%, rgba(37, 99, 235, 0.05) 0%, transparent 40%); */
 }
@@ -1672,27 +1672,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .selection-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 2.25rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    align-items: stretch;
+    gap: 2rem;
     width: 100%;
-    max-width: 1350px;
+    max-width: 1240px;
 }
 
 .selection-card {
-    flex: 1 1 340px;
-    max-width: 420px;
+    width: 100%;
     background: white;
     border: 1px solid #e2e8f0;
-    border-radius: 20px;
+    border-radius: 1.8rem;
     cursor: pointer;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 18px 48px rgba(148, 163, 184, 0.18);
     position: relative;
     overflow: hidden;
     display: flex;
-    height: 380px; /* Constrain height to a beautifully balanced landscape proportion */
+    min-height: 356px;
 }
 
 .card-inner {
@@ -1700,22 +1699,23 @@ input[type="range"]::-webkit-slider-thumb:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 1.75rem 2rem 0;
+    justify-content: center;
+    padding: 2.2rem 2rem 2rem;
 }
 
 .selection-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 30px 70px rgba(148, 163, 184, 0.28);
 }
 
 .selection-icon {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
     transition: all 0.3s;
 }
 
@@ -1733,31 +1733,32 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .selection-details h3 {
-    font-size: 1.45rem;
+    font-size: 1.5rem;
     font-family: "Outfit", sans-serif;
     color: #1e293b;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.7rem;
     line-height: 1.2;
 }
 
 .selection-details p {
     font-size: 0.92rem;
     color: #64748b;
-    margin-bottom: 1rem; /* Space before action bar */
+    margin-bottom: 1.4rem;
     line-height: 1.4;
-    max-width: 320px; /* Wider boundary to let text fill the card beautifully */
-    padding: 0 1.25rem; /* Symmetrical side padding for centered layout */
+    max-width: 310px;
+    min-height: 2.6em;
+    padding: 0 0.5rem;
 }
 
 .action-bar {
-    width: calc(100% + 4rem);
-    margin: 0 -2rem;
-    height: 64px;
+    width: 100%;
+    max-width: 240px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s;
-    margin-top: auto; /* Pin level with bottom of cards */
+    margin-top: auto;
 }
 
 .card-mcp .action-bar { background: #f3e8ff; color: #7c3aed; }
@@ -1783,11 +1784,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .card-mcp:hover { border-color: #8b5cf6; }
 .card-connectors { border: 2px solid transparent; }
 .card-connectors:hover { border-color: #2563eb; }
-.card-ext-viewer { border: 2px solid transparent; }
-.card-ext-viewer:hover { border-color: #0d9488; }
+.card-ext-viewer,
+.card-apps-directory { border: 2px solid transparent; }
+.card-ext-viewer:hover,
+.card-apps-directory:hover { border-color: #0d9488; }
 
 @media (max-width: 900px) {
-    .selection-grid { grid-template-columns: 1fr; }
+    .root-selection-view {
+        min-height: auto;
+        padding-top: 1rem;
+    }
+
+    .selection-grid {
+        grid-template-columns: 1fr;
+        max-width: 420px;
+    }
+
+    .selection-card {
+        min-height: 332px;
+    }
+
     .selection-welcome h1 { font-size: 2.5rem; }
 }
 
