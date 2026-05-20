@@ -33,6 +33,14 @@ def _mcp_schema_to_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
         cleaned["properties"] = {
             k: _mcp_schema_to_gemini(v) for k, v in cleaned["properties"].items()
         }
+    if "items" in cleaned:
+        if isinstance(cleaned["items"], dict):
+            cleaned["items"] = _mcp_schema_to_gemini(cleaned["items"])
+        elif isinstance(cleaned["items"], list):
+            cleaned["items"] = [
+                _mcp_schema_to_gemini(item) if isinstance(item, dict) else item
+                for item in cleaned["items"]
+            ]
     return cleaned
 
 
