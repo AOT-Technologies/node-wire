@@ -182,8 +182,11 @@ class IdentityCoordinator:
         """Sync a patient record from *source_system* into *target_system*.
 
         1. Fetch the source FHIR Patient resource.
-        2. Extract demographics and search the target system for duplicates.
-        3. If a match is found → ``update_patient``; otherwise → ``create_patient``.
+        2. Run MPI pick_best search against target system.
+        3. Route based on match status:
+           - definite (≥90%) → update via HL7 ADT^A08
+           - probable (70–90%) → run strict demographics_match tiebreaker → update or create
+           - no_match (<70%) → create new patient
         """
         source_id = params.source_patient_id
 
@@ -197,27 +200,53 @@ class IdentityCoordinator:
                 message=f"Could not fetch {params.source_system} patient {source_id}",
             )
 
-        # 2. Deterministic duplicate search in target ----------------------
+        # 2. MPI duplicate search in target ------------------------------------
         demo = extract_demographics(source_resource)
-        (target_id, target_existing, _, _, _, _) = await self._demographic_search(
-            params.target_system, demo, trace_id
+        (target_id, target_existing, match_score, match_status, match_reasons, all_candidates) = (
+            await self._demographic_search(params.target_system, demo, trace_id)
         )
 
-        # Optional: verify match quality using MPI scorer
-        if target_existing:
-            _, is_match = demographics_match(demo, extract_demographics(target_existing))
-            if not is_match:
-                logger.info(
-                    "Demographic match below threshold, treating as new patient",
-                )
-                target_id = None
-
-        # 3. Create or update in target ------------------------------------
+        # 3. Decide action from pick_best status ----------------------------
+        #   definite  (≥90%) → update  (high-confidence duplicate)
+        #   probable  (70–90%) → run demographics_match as tiebreaker
+        #   no_match  (<70%)  → create new patient
         payload = ensure_resource_type(strip_source_metadata(source_resource, params.target_system))
 
+        if match_status == "definite":
+            sync_action = "update"
+            logger.info(
+                "MPI definite match → updating %s patient %s",
+                params.target_system, target_id,
+                extra={"trace_id": trace_id},
+            )
+        elif match_status == "probable":
+            _, is_strict_match = demographics_match(demo, extract_demographics(target_existing))
+            if is_strict_match:
+                sync_action = "update"
+                logger.info(
+                    "MPI probable match, strict check passed → updating %s patient %s",
+                    params.target_system, target_id,
+                    extra={"trace_id": trace_id},
+                )
+            else:
+                sync_action = "create"
+                target_id = None
+                logger.info(
+                    "MPI probable match, strict check failed → creating new %s patient",
+                    params.target_system,
+                    extra={"trace_id": trace_id},
+                )
+        else:  # no_match
+            sync_action = "create"
+            logger.info(
+                "MPI no_match → creating new %s patient",
+                params.target_system,
+                extra={"trace_id": trace_id},
+            )
+
+        # 4. Create or update in target ------------------------------------
         target_resource: Optional[Dict[str, Any]] = None
-        if target_id:
-            # Route to HL7 for updates instead of FHIR
+        if sync_action == "update":
             try:
                 from node_wire_hl7.mllp import send_adt_a08
                 logger.info("Routing %s patient %s update via HL7 v2 ADT^A08", params.target_system, target_id)
@@ -235,24 +264,34 @@ class IdentityCoordinator:
                 params.target_system, payload, trace_id
             )
 
-        # 4. Build output --------------------------------------------------
+        # 5. Build output --------------------------------------------------
         result = UnifiedPatientOperationOutput(
             status="success",
             message=(
                 f"Synced {params.source_system} patient {source_id} "
                 f"→ {params.target_system} patient {target_id}"
             ),
+            match_status=match_status,
+            match_score=match_score,
+            match_confidence=round(all_candidates[0]["pct"], 2) if all_candidates else None,
+            match_reasons=match_reasons or [],
         )
         if params.source_system == "epic":
             result.epic_resource_id = source_id
             result.epic_resource = source_resource
             result.cerner_resource_id = target_id
             result.cerner_resource = target_resource
+            result.cerner_match_status = match_status
+            result.cerner_match_score = match_score
+            result.cerner_candidates = all_candidates
         else:
             result.cerner_resource_id = source_id
             result.cerner_resource = source_resource
             result.epic_resource_id = target_id
             result.epic_resource = target_resource
+            result.epic_match_status = match_status
+            result.epic_match_score = match_score
+            result.epic_candidates = all_candidates
 
         return result
 

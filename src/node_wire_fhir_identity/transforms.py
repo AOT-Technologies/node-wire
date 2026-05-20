@@ -514,14 +514,22 @@ def strip_source_metadata(resource: Dict[str, Any], target_system: str = "") -> 
                 clean_payload["name"] = clean_names[:1]
 
         if "telecom" in payload and isinstance(payload["telecom"], list):
+            _CERNER_TELECOM_USE = {"home", "work", "temp", "old", "mobile"}
             clean_telecoms = []
             for t in payload["telecom"]:
-                safe_telecom: Dict[str, Any] = {}
-                for k in ["system", "value", "use"]:
-                    if k in t:
-                        safe_telecom[k] = t[k]
-                if safe_telecom:
-                    clean_telecoms.append(safe_telecom)
+                system = t.get("system")
+                value  = t.get("value")
+                use    = t.get("use")
+                if not system or not value:
+                    continue
+                if use not in _CERNER_TELECOM_USE:
+                    # Email without a use is common from Epic — default to "home"
+                    # Phone without a use is ambiguous — skip rather than guess
+                    if system == "email":
+                        use = "home"
+                    else:
+                        continue
+                clean_telecoms.append({"system": system, "value": value, "use": use})
             if clean_telecoms:
                 clean_payload["telecom"] = clean_telecoms
 

@@ -2152,7 +2152,7 @@ async def identity_search_scenario(
 async def identity_sync_scenario(
     payload: IdentitySyncInputPlayground,
 ) -> ScenarioResponse:
-    """Sync a patient from one EHR to another with duplicate detection."""
+    """Sync a patient from one EHR to another with MPI duplicate detection."""
     from node_wire_fhir_identity.schema import UnifiedPatientSyncInput
 
     trace_id = str(uuid.uuid4())
@@ -2161,7 +2161,26 @@ async def identity_sync_scenario(
     def add_step(name, status, display_name):
         steps.append(ScenarioStep(name=name, status=status, display_name=display_name))
 
-    add_step("Fetch Source Patient", "pending", f"Reading from {payload.source_system.title()}")
+    def _pt_name(resource: dict) -> str:
+        """Extract a display name from a FHIR Patient resource."""
+        names = resource.get("name") or []
+        if not names:
+            return "Unknown"
+        n = names[0]
+        given = " ".join(n.get("given") or [])
+        family = n.get("family") or ""
+        return f"{given} {family}".strip() or "Unknown"
+
+    def _pt_dob(resource: dict) -> str:
+        return resource.get("birthDate") or "—"
+
+    def _pt_gender(resource: dict) -> str:
+        return (resource.get("gender") or "—").title()
+
+    src_sys  = payload.source_system.title()
+    tgt_sys  = payload.target_system.title()
+
+    add_step("Fetch Source Patient", "pending", f"Reading {src_sys} patient")
     try:
         coordinator = _get_identity_coordinator()
         sync_input = UnifiedPatientSyncInput(
@@ -2176,34 +2195,192 @@ async def identity_sync_scenario(
             steps[-1].details = result.message or "Sync failed"
             return ScenarioResponse(success=False, steps=steps, trace_id=trace_id, error_message=result.message)
 
-        steps[-1].status = "success"
-        steps[-1].details = f"Fetched {payload.source_system.title()} patient {payload.source_patient_id}"
-        steps[-1].data = {
-            "raw": result.epic_resource if payload.source_system == "epic" else result.cerner_resource
-        }
+        # ── Step 1: Source patient ─────────────────────────────────────────
+        src_resource = (
+            result.epic_resource if payload.source_system == "epic" else result.cerner_resource
+        )
+        src_name   = _pt_name(src_resource)   if src_resource else "—"
+        src_dob    = _pt_dob(src_resource)    if src_resource else "—"
+        src_gender = _pt_gender(src_resource) if src_resource else "—"
 
-        add_step("Duplicate Detection", "pending", f"Searching {payload.target_system.title()}")
-        steps[-1].status = "success"
-        target_id = result.epic_resource_id if payload.target_system == "epic" else result.cerner_resource_id
-        steps[-1].details = f"Target resolved: {target_id or 'new record'}"
-        steps[-1].data = {"raw": {"target_resource_id": target_id}}
-
-        add_step("Sync Complete", "pending", f"Synced to {payload.target_system.title()}")
-        steps[-1].status = "success"
-        steps[-1].details = result.message or "Sync successful"
-        steps[-1].data = {
+        steps[-1].status  = "success"
+        steps[-1].details = f"{src_name} | DOB: {src_dob} | Gender: {src_gender} | ID: {payload.source_patient_id}"
+        steps[-1].data    = {
             "raw": {
-                "epic_resource_id": result.epic_resource_id,
-                "cerner_resource_id": result.cerner_resource_id,
+                "system":     payload.source_system,
+                "patient_id": payload.source_patient_id,
+                "name":       src_name,
+                "birthDate":  src_dob,
+                "gender":     src_gender,
+                "resource":   src_resource,
             }
         }
+
+        # ── Step 2: Target MPI search results ─────────────────────────────
+        add_step("MPI Candidate Search", "pending", f"Searching {tgt_sys} for duplicates")
+
+        tgt_candidates = (
+            result.cerner_candidates if payload.target_system == "cerner" else result.epic_candidates
+        ) or []
+        tgt_match_status = (
+            result.cerner_match_status if payload.target_system == "cerner" else result.epic_match_status
+        ) or result.match_status or "no_match"
+        tgt_match_score  = (
+            result.cerner_match_score if payload.target_system == "cerner" else result.epic_match_score
+        ) or result.match_score or 0.0
+
+        top = tgt_candidates[0] if tgt_candidates else None
+        if top:
+            top_res    = top.get("resource", {})
+            top_name   = _pt_name(top_res)
+            top_dob    = _pt_dob(top_res)
+            top_gender = _pt_gender(top_res)
+            top_id     = top.get("id", "—")
+            top_score  = top.get("score", 0.0)
+            top_pct    = top.get("pct", 0.0)
+            top_status = (top.get("status") or "no_match").upper()
+            top_reasons = top.get("reasons") or []
+
+            steps[-1].details = (
+                f"{len(tgt_candidates)} candidate(s) found | "
+                f"Top: {top_name} (ID: {top_id}) | "
+                f"Score: {top_score:.0f} pts ({top_pct:.1f}%) | {top_status}"
+            )
+            steps[-1].data = {
+                "raw": {
+                    "candidates_found": len(tgt_candidates),
+                    "top_candidate": {
+                        "id":      top_id,
+                        "name":    top_name,
+                        "birthDate": top_dob,
+                        "gender":  top_gender,
+                        "score":   top_score,
+                        "pct":     top_pct,
+                        "status":  top.get("status"),
+                        "reasons": top_reasons,
+                        "resource": top_res,
+                    },
+                    "all_candidates": tgt_candidates,
+                }
+            }
+        else:
+            steps[-1].details = f"No candidates found in {tgt_sys}"
+            steps[-1].data    = {"raw": {"candidates_found": 0, "all_candidates": []}}
+
+        steps[-1].status = "success"
+
+        # ── Step 3: MPI decision ───────────────────────────────────────────
+        add_step("MPI Decision", "pending", "Pick Best → Action")
+
+        mpi_status    = result.match_status or "no_match"
+        mpi_score     = result.match_score or 0.0
+        mpi_confidence = result.match_confidence or 0.0
+        mpi_reasons   = result.match_reasons or []
+
+        target_id = (
+            result.epic_resource_id if payload.target_system == "epic"
+            else result.cerner_resource_id
+        )
+
+        # Derive action from what actually happened
+        if mpi_status == "no_match":
+            sync_action    = "CREATE"
+            action_reason  = "No match found — new patient"
+        elif mpi_status == "definite":
+            sync_action    = "UPDATE"
+            action_reason  = "Definite match (≥90%) — safe to merge"
+        else:  # probable
+            # If target_id matches the top candidate the strict check passed → update
+            if top and target_id and target_id == top.get("id"):
+                sync_action   = "UPDATE"
+                action_reason = "Probable match — strict family+DOB check passed"
+            else:
+                sync_action   = "CREATE"
+                action_reason = "Probable match — strict family+DOB check failed, new patient created"
+
+        steps[-1].status  = "success"
+        steps[-1].details = (
+            f"Status: {mpi_status.upper()} | Score: {mpi_score:.0f} pts ({mpi_confidence:.1f}%) "
+            f"→ {sync_action}"
+        )
+        steps[-1].data = {
+            "raw": {
+                "match_status":     mpi_status,
+                "match_score":      mpi_score,
+                "match_confidence": mpi_confidence,
+                "match_reasons":    mpi_reasons,
+                "action":           sync_action,
+                "action_reason":    action_reason,
+            }
+        }
+
+        # ── Step 4: Sync result ────────────────────────────────────────────
+        add_step("Sync Result", "pending", f"{sync_action.title()} {tgt_sys} Patient")
+
+        tgt_resource = (
+            result.epic_resource if payload.target_system == "epic" else result.cerner_resource
+        )
+        tgt_name = _pt_name(tgt_resource) if tgt_resource else "—"
+        tgt_dob  = _pt_dob(tgt_resource)  if tgt_resource else "—"
+
+        steps[-1].status  = "success"
+        steps[-1].details = (
+            f"{sync_action}: {tgt_sys} patient {target_id} | "
+            f"{tgt_name} | DOB: {tgt_dob}"
+        )
+        steps[-1].data = {
+            "raw": {
+                "action":                 sync_action,
+                "source_system":          payload.source_system,
+                "source_patient_id":      payload.source_patient_id,
+                "target_system":          payload.target_system,
+                "target_patient_id":      target_id,
+                "epic_resource_id":       result.epic_resource_id,
+                "cerner_resource_id":     result.cerner_resource_id,
+                "target_resource":        tgt_resource,
+            }
+        }
+
+        # ── Human summary ──────────────────────────────────────────────────
+        summary = (
+            f"## Sync: {src_sys} → {tgt_sys}\n\n"
+            f"**Source Patient ({src_sys})**\n"
+            f"  Name: {src_name}\n"
+            f"  DOB: {src_dob} | Gender: {src_gender}\n"
+            f"  ID: {payload.source_patient_id}\n\n"
+        )
+
+        if top:
+            summary += (
+                f"**Top {tgt_sys} Candidate**\n"
+                f"  Name: {top_name}\n"
+                f"  DOB: {top_dob} | Gender: {top_gender}\n"
+                f"  ID: {top_id}\n"
+                f"  Score: {top_score:.0f} pts ({top_pct:.1f}%) | Status: {top_status}\n"
+                f"  Scoring: {', '.join(top_reasons) if top_reasons else '—'}\n\n"
+            )
+            if len(tgt_candidates) > 1:
+                summary += f"  *(+{len(tgt_candidates) - 1} other candidate(s) evaluated)*\n\n"
+        else:
+            summary += f"**{tgt_sys} Candidates:** None found\n\n"
+
+        summary += (
+            f"**MPI Decision**\n"
+            f"  Match Status: {mpi_status.upper()}\n"
+            f"  Confidence: {mpi_confidence:.1f}% ({mpi_score:.0f} pts)\n"
+            f"  Reasons: {', '.join(mpi_reasons) if mpi_reasons else '—'}\n"
+            f"  Action: **{sync_action}** — {action_reason}\n\n"
+            f"**Final Result**\n"
+            f"  {src_sys} ID: {payload.source_patient_id}\n"
+            f"  {tgt_sys} ID: {target_id or '—'} ({sync_action.lower()}d)\n"
+        )
 
         return ScenarioResponse(
             success=True,
             steps=steps,
             trace_id=trace_id,
             final_resource_id=target_id,
-            human_summary=result.message,
+            human_summary=summary,
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Identity sync failed")
