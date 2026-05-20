@@ -1,0 +1,95 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Code Quality and Compliance
+
+This project uses **Ruff** for linting and formatting, **Mypy** for static type checking, **Bandit** for SAST, **pip-audit** for dependency vulnerability checks, and **REUSE** for open-source licensing compliance.
+
+Linting and type checks run automatically in CI on pull requests against the `main` branch via `.github/workflows/lint.yml`. Security and package compliance checks are additionally enforced through `.github/workflows/quality-gates.yml` and `.github/workflows/security-pr.yml`.
+
+## Manual usage for developers
+
+Install development dependencies first:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Then run the local quality checks:
+
+- **Check formatting and linting errors:** `ruff check .`
+- **Auto-fix and format code:** `ruff check --fix . && ruff format .`
+- **Run static type validation:** `mypy`
+
+`mypy` uses the default `files` target from `[tool.mypy]` in `pyproject.toml`, which is currently `src`. Avoid `mypy .`, because it can pull in packaging `setup.py` scripts under `packages/` and produce duplicate-module noise. To include tests explicitly, run:
+
+```bash
+mypy src tests
+```
+
+## Pre-commit hooks
+
+You can attach `.pre-commit-config.yaml` so checks run before each commit:
+
+```bash
+pre-commit install
+```
+
+To run all configured hooks across the repository:
+
+```bash
+pre-commit run --all-files
+```
+
+The current pre-commit setup includes Ruff, Ruff formatting, Mypy, and Bandit.
+
+## Copyright headers and REUSE compliance
+
+This repository enforces open-source licensing compliance using [REUSE](https://reuse.software/). First-party files should contain the appropriate SPDX copyright and license headers.
+
+### Verify compliance
+
+```bash
+uv pip install reuse
+uv run reuse lint
+```
+
+### Add missing headers
+
+If `reuse lint` reports missing headers, you can apply the repository header template with:
+
+```bash
+bash scripts/add-license-headers.sh
+```
+
+## Dependency inventory and compliance
+
+To maintain an open-source compliant dependency set, the repository tracks third-party packages and their licenses in `DEPENDENCIES.md`.
+
+### License classification criteria
+
+- **Safe (permissive):** MIT, Apache-2.0, BSD, PSF. Safe for the Apache-2.0 release.
+- **Needs review:** Custom or uncommon licenses that require manual review.
+- **Risky (copyleft):** GPLv2, GPLv3, AGPL. Not allowed in the runtime application. They may be acceptable only for isolated, non-distributed development tooling.
+
+### Update the inventory and run compliance checks
+
+When adding dependencies or preparing a release, run the unified compliance script:
+
+```bash
+bash scripts/run-compliance-checks.sh
+```
+
+That script:
+
+1. Regenerates `DEPENDENCIES.md`.
+2. Runs **Bandit** for static application security testing.
+3. Runs **pip-audit** for dependency vulnerability scanning.
+
+## Related docs
+
+- [Quality and security gates](quality-security-gates.md)
+- [Installation guide](installation.md)

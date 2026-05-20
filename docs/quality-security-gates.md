@@ -39,16 +39,36 @@ Configure branch protection so pull requests cannot merge unless all required ch
 
 **Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=0.1.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** each matrix package (`pip install packages/runtime "<matrix path>"`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.
 
-## Local commands
+## Run checks locally
 
 ```bash
+# Install dev tools
 pip install -e ".[dev,agents]"
-# Enforce the same threshold as CI (non-zero exit if any HIGH finding)
+
+# Security gate (matches CI failure threshold)
 bandit -c pyproject.toml -r src --severity-level high
-# Full JSON report without failing the shell (Bandit otherwise exits 1 on any finding)
+
+# Optional: JSON report + same summary as CI logs
 bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
 python scripts/bandit_report_summary.py bandit-report.json
+
+# Tests + coverage.xml (required by SonarQube)
 pytest tests/ -v
+```
+
+## Deterministic pytest environment
+
+To keep pytest collection and REST app startup deterministic, `tests/conftest.py` sets a fixed environment before imports:
+
+- `NW_REST_LOAD_DOTENV=false` so REST startup does not merge a repo-root `.env` over test variables.
+- `NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml` so optional connectors outside the pytest allowlist remain `enabled: false` (for example `slack` and `salesforce`).
+- `NW_ALLOWED_CONNECTORS=http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner` so only the supported test connector set is loaded during collection.
+
+Do not rely on `.env` values during pytest collection. The test harness intentionally overrides them so local developer state does not affect CI or test outcomes.
+
+### Pre-commit
+
+```bash
 pre-commit install
 pre-commit run --all-files
 ```
@@ -67,6 +87,15 @@ docker run --rm \
   -Dsonar.token=YOUR_TOKEN
 ```
 
+## SonarQube configuration
+
+The repository includes `sonar-project.properties` and CI expects these GitHub secrets:
+
+- `SONAR_HOST_URL` (example: `https://sonarqube.company.internal`)
+- `SONAR_TOKEN` (project analysis token)
+
+For server setup and quality gate policy details, see this document's [SonarQube Community Edition setup](#sonarqube-community-edition-setup) section.
+
 ## Bandit policy
 
 Bandit is configured in `pyproject.toml` under `[tool.bandit]`.
@@ -80,7 +109,7 @@ CI splits responsibilities:
 1. **JSON artifact + log summary** — `bandit ... -f json -o bandit-report.json --exit-zero` so the workflow always produces the report and runs `scripts/bandit_report_summary.py` for readable logs. Low/medium issues are visible here and in Sonar/import without failing the job.
 2. **Enforcement** — `bandit ... --severity-level high` fails the job only on high-severity findings (matches branch-protection intent).
 
-Locally, mirror CI with the commands in [Local commands](#local-commands).
+Locally, mirror CI with the commands in [Run checks locally](#run-checks-locally).
 
 ### Scope
 

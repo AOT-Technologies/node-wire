@@ -38,12 +38,16 @@ flowchart TD
         Epic[nw-smartonfhir-epic]
         Cerner[nw-smartonfhir-cerner]
         SMTP[nw-smtp]
+        Stripe[nw-stripe]
+        Salesforce[nw-salesforce]
         Slack[nw-slack]
     end
     Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
     Agent -->|"TOOLHIVE_MCP_URLS"| Epic
     Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
     Agent -->|"TOOLHIVE_MCP_URLS"| SMTP
+    Agent -->|"TOOLHIVE_MCP_URLS"| Stripe
+    Agent -->|"TOOLHIVE_MCP_URLS"| Salesforce
     Agent -->|"TOOLHIVE_MCP_URLS"| Slack
 ```
 
@@ -413,7 +417,7 @@ GROQ_API_KEY=your-groq-api-key
 
 Before building images, build local wheels first. See [docs/local-packages-to-images.md](local-packages-to-images.md) for the full package -> image workflow and required wheel artifacts per image.
 
-All four images are built from the repository root using the automation script:
+All MCP server images are built from the repository root using the automation script:
 
 ```bash
 ./scripts/build-mcp-images.sh
@@ -433,6 +437,8 @@ This produces images tagged as both `latest` and the version string:
 | `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
 | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
 | `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
+| `nw-stripe` | `nw-stripe:latest`, `nw-stripe:0.1.0` |
+| `nw-salesforce` | `nw-salesforce:latest`, `nw-salesforce:0.1.0` |
 | `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
 
 To build a single image manually from the repo root:
@@ -450,6 +456,12 @@ docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
 # SMTP only
 docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
 
+# Stripe only
+docker build -f docker/stripe/Dockerfile -t nw-stripe:latest .
+
+# Salesforce only
+docker build -f docker/salesforce/Dockerfile -t nw-salesforce:latest .
+
 # Slack only
 docker build -f docker/slack/Dockerfile -t nw-slack:latest .
 ```
@@ -460,7 +472,7 @@ docker build -f docker/slack/Dockerfile -t nw-slack:latest .
 
 ## Run with docker-compose
 
-`docker-compose.mcp.yml` starts all four MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
+`docker-compose.mcp.yml` starts all MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
 
 ```bash
 # Ensure your .env is populated, then:
@@ -514,6 +526,20 @@ thv run --name nw-smtp --transport stdio \
   --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
   --secret FROM_EMAIL,target=FROM_EMAIL \
   nw-smtp:latest
+
+# Stripe
+thv run --name nw-stripe --transport stdio \
+  --secret STRIPE_API_KEY,target=STRIPE_API_KEY \
+  nw-stripe:latest
+
+# Salesforce
+thv run --name nw-salesforce --transport stdio \
+  --secret SALESFORCE_INSTANCE_URL,target=SALESFORCE_INSTANCE_URL \
+  --secret SALESFORCE_CLIENT_ID,target=SALESFORCE_CLIENT_ID \
+  --secret SALESFORCE_CLIENT_SECRET,target=SALESFORCE_CLIENT_SECRET \
+  --secret SALESFORCE_USERNAME,target=SALESFORCE_USERNAME \
+  --secret SALESFORCE_PASSWORD,target=SALESFORCE_PASSWORD \
+  nw-salesforce:latest
 
 # Slack
 thv run --name nw-slack --transport stdio \
