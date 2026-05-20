@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Security & Architecture Gap Report — Node Wire MCP Platform
 
 > **Perspective:** Secure MCP server platform integrator reviewing the runtime and connectors for production readiness.

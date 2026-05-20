@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import logging
@@ -10,8 +14,10 @@ from bindings.rest_api.app import app as rest_app
 from bindings.mcp_server.server import McpServer
 from node_wire_runtime.observability import init_observability
 
-# Load project .env early so all modes (API/GRPC/MCP) see consistent config.
-load_dotenv(override=True)
+# Match ``bindings.rest_api.app``: honor ``NW_REST_LOAD_DOTENV`` and never override
+# keys already set (pytest/conftest sets ``NW_REST_LOAD_DOTENV=false`` before imports).
+if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+    load_dotenv(override=False)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bindings.entrypoint")
@@ -38,7 +44,10 @@ def main() -> None:
         # For the POC we just start a simple process that can be interacted
         # with manually or via a thin wrapper; a full JSON-RPC loop is out of scope.
         server = McpServer()
-        logger.info("MCP server ready (list_tools available)", extra={"tool_count": len(server.list_tools())})
+        logger.info(
+            "MCP server ready (list_tools available)",
+            extra={"tool_count": len(server.list_tools())},
+        )
         import time
 
         while True:
@@ -49,4 +58,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import asyncio
@@ -5,7 +9,13 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from node_wire_runtime import BaseConnector, nw_action, ConnectorResponse, ErrorCategory, ErrorMapper
+from node_wire_runtime import (
+    BaseConnector,
+    nw_action,
+    ConnectorResponse,
+    ErrorCategory,
+    ErrorMapper,
+)
 
 
 class InputModel(BaseModel):

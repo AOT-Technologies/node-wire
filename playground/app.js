@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 AOT Technologies
+//
+// SPDX-License-Identifier: Apache-2.0
+
 document.addEventListener('DOMContentLoaded', () => {
     const escapeHTML = (str) => {
         if (str == null) return '';
@@ -45,6 +49,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const gdriveUploadOnly = document.getElementById('gdrive-upload-only');
     const gdriveListOnly = document.getElementById('gdrive-list-only');
     const gdriveSubNav = document.getElementById('gdrive-sub-nav');
+    const slackForm = document.getElementById('slack-form');
+    const slackRunBtn = document.getElementById('slack-run-btn');
+    const slackSpinner = slackRunBtn?.querySelector('.loading-spinner');
+    const slackBtnText = slackRunBtn?.querySelector('.btn-lbl');
+    const slackPanel = document.getElementById('slack-panel');
+    const slackActionSelect = document.getElementById('slack-action-select');
+    const slackMessageSection = document.getElementById('slack-message-section');
+    const slackFileSection = document.getElementById('slack-file-section');
+    const slackFileInput = document.getElementById('slack-file');
+    const slackFileDropZone = document.getElementById('slack-file-drop-zone');
+    const slackFileChosenPreview = document.getElementById('slack-file-chosen-preview');
+    const slackPreviewName = slackFileChosenPreview?.querySelector('.preview-name');
+    const slackRemoveFileBtn = slackFileChosenPreview?.querySelector('.remove-file-btn');
     const fileDropZone = document.getElementById('file-drop-zone');
     const fileChosenPreview = document.getElementById('file-chosen-preview');
     const previewName = fileChosenPreview?.querySelector('.preview-name');
@@ -93,6 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
         identity_search: document.getElementById('identity-section-search'),
         identity_sync: document.getElementById('identity-section-sync')
     };
+
+    // External Patient Viewer
+    const extViewerForm = document.getElementById('ext-viewer-form');
+    const extViewerRunBtn = document.getElementById('ext-viewer-run-btn');
+    const extViewerSpinner = extViewerRunBtn ? extViewerRunBtn.querySelector('.loading-spinner') : null;
+    const extViewerBtnText = extViewerRunBtn ? extViewerRunBtn.querySelector('.btn-lbl') : null;
+    const extViewerPanel = document.getElementById('ext-patient-viewer-panel');
 
     let currentSubMode = 'file';
     let currentStripeSubMode = 'charge';
@@ -153,25 +177,31 @@ document.addEventListener('DOMContentLoaded', () => {
             "Verify file metadata",
             "Complete update"
         ],
+        slack: [
+            "Format Slack Payload",
+            "Dispatch to Slack API",
+            "Verify Acknowledgment",
+            "Update Audit Trail",
+        ],
         stripe_charge: [
             "Initialize Payment",
             "Process Charge",
-            "Verify Transaction"
+            "Verify Transaction",
         ],
         stripe_payment_intent: [
             "Initialize Session",
             "Create Payment Intent",
-            "Verify Allocation"
+            "Verify Allocation",
         ],
         stripe_subscription: [
             "Validate Customer",
             "Create Subscription",
-            "Verify Provisioning"
+            "Verify Provisioning",
         ],
         stripe_cancel_subscription: [
             "Locate Resource",
             "Cancel Subscription",
-            "Verify Termination"
+            "Verify Termination",
         ],
         stripe_refund: [
             "Validate Charge",
@@ -216,7 +246,13 @@ document.addEventListener('DOMContentLoaded', () => {
             "Fetch Source Patient",
             "Duplicate Detection",
             "Sync to Target"
-        ]
+        ],
+        ext_patient_viewer: [
+            "Resolve Patient Identity",
+            "Retrieve Encounter History",
+            "Retrieve Document Metadata",
+            "Assemble External Chart View"
+        ],
     };
 
     const nodes = [
@@ -282,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rootSelectionView = document.getElementById('root-selection-view');
-    const selectionCards = document.querySelectorAll('.selection-card');
+    const selectionCards = document.querySelectorAll('.selection-card, .app-card');
     const rootTabContainer = document.querySelector('.root-tab-container');
     const backToHomeBtn = document.getElementById('back-to-home');
 
@@ -302,28 +338,79 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionCards.forEach(card => {
         card.addEventListener('click', () => {
             const view = card.dataset.target;
-            rootSelectionView.classList.add('hidden');
-            layoutMain.classList.remove('hidden');
-            headerActions.classList.remove('hidden');
-            
+
             if (view === 'agent') {
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
                 layoutMain.classList.add('agent-mode');
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Workspace
+                    `;
+                }
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
+            } else if (view === 'connector-apps-menu') {
+                rootSelectionView.classList.add('hidden');
+                document.getElementById('connector-apps-selection-view').classList.remove('hidden');
+                layoutMain.classList.add('hidden');
+                headerActions.classList.remove('hidden');
+                connectorStatus.textContent = 'Apps Marketplace';
+                tagline.textContent = 'Ready-to-use experiences built on top of connectors';
+                document.documentElement.style.setProperty('--brand-accent', '#0d9488');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Workspace
+                    `;
+                }
+                log('Opened Connector Apps menu', 'system');
+            } else if (view === 'ext-patient-viewer') {
+                document.getElementById('connector-apps-selection-view').classList.add('hidden');
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
+                agentPanel.classList.add('hidden');
+                connectorsView.classList.remove('hidden');
+                layoutMain.classList.remove('agent-mode');
+                connectorsListPanel.classList.add('hidden');
+                playgroundView.classList.remove('hidden');
+                if (backToConnectorsBtn) backToConnectorsBtn.classList.add('hidden');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Apps
+                    `;
+                }
+                setMode('ext-patient-viewer');
             } else {
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
-                
                 connectorStatus.textContent = 'Connectors Ready';
                 tagline.textContent = 'Enterprise Integration Suite';
                 document.documentElement.style.setProperty('--brand-accent', '#2563eb');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Workspace
+                    `;
+                }
                 log('Switched to Connectors view', 'system');
             }
         });
@@ -332,13 +419,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const returnToHome = (e) => {
         if (e) e.preventDefault();
         rootSelectionView.classList.remove('hidden');
+        document.getElementById('connector-apps-selection-view').classList.add('hidden');
         layoutMain.classList.add('hidden');
         headerActions.classList.add('hidden');
+        tagline.textContent = 'Autonomous Connector Orchestration Platform';
         log('Returned to main selection screen', 'system');
     };
 
     backToHomeBtn.addEventListener('click', returnToHome);
-    if (backSelectionBtn) backSelectionBtn.addEventListener('click', returnToHome);
+    
+    if (backSelectionBtn) {
+        backSelectionBtn.addEventListener('click', (e) => {
+            if (e) e.preventDefault();
+            const btnText = backSelectionBtn.textContent.trim();
+            if (btnText.includes('Back to Apps')) {
+                // Return from patient viewer to apps marketplace directory
+                layoutMain.classList.add('hidden');
+                document.getElementById('connector-apps-selection-view').classList.remove('hidden');
+                connectorStatus.textContent = 'Apps Marketplace';
+                tagline.textContent = 'Ready-to-use experiences built on top of connectors';
+                document.documentElement.style.setProperty('--brand-accent', '#0d9488');
+                log('Returned to Apps Marketplace directory', 'system');
+            } else {
+                // Return from other direct pages to workspace selection home
+                returnToHome(e);
+            }
+        });
+    }
+
+    const appsBackBtn = document.getElementById('apps-back-btn');
+    if (appsBackBtn) {
+        appsBackBtn.addEventListener('click', returnToHome);
+    }
 
     const newChatBtn = document.getElementById('new-chat-btn');
     newChatBtn.addEventListener('click', () => {
@@ -508,7 +620,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setMode(mode) {
         currentMode = mode;
-        
+
+        if (backToConnectorsBtn) {
+            if (mode === 'ext-patient-viewer') {
+                backToConnectorsBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to Workspace
+                `;
+            } else {
+                backToConnectorsBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    Back to All Connectors
+                `;
+            }
+        }
+
         // Hide all panels first
         ehrPanel.classList.add('hidden');
         itopsPanel.classList.add('hidden');
@@ -518,6 +644,8 @@ document.addEventListener('DOMContentLoaded', () => {
         salesforcePanel.classList.add('hidden');
         const idPanel = document.getElementById('identity-panel');
         if (idPanel) idPanel.classList.add('hidden');
+        if (slackPanel) slackPanel.classList.add('hidden');
+        if (extViewerPanel) extViewerPanel.classList.add('hidden');
 
         if (mode === 'ehr') {
 
@@ -568,6 +696,18 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Cross-System Patient Identity';
             document.documentElement.style.setProperty('--brand-accent', '#7C3AED');
             log('Switched to FHIR Identity Orchestration mode', 'system');
+        } else if (mode === 'slack') {
+            if (slackPanel) slackPanel.classList.remove('hidden');
+            connectorStatus.textContent = 'Slack Online';
+            tagline.textContent = 'Team Collaboration & Notifications';
+            document.documentElement.style.setProperty('--brand-accent', '#4A154B');
+            log('Switched to Slack Operations mode', 'system');
+        } else if (mode === 'ext-patient-viewer') {
+            if (extViewerPanel) extViewerPanel.classList.remove('hidden');
+            connectorStatus.textContent = 'EHR Source ─ Read-Only';
+            tagline.textContent = 'External Chart Viewer';
+            document.documentElement.style.setProperty('--brand-accent', '#0d9488');
+            log('Switched to External Patient Viewer mode (read-only)', 'system');
         }
         if (mode === 'gdrive') {
             syncGdriveActionForm();
@@ -581,6 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (mode === 'identity') {
             syncIdentityActionForm();
             resetUI(identityPipelineLabelOverride());
+        } else if (mode === 'ext-patient-viewer') {
+            resetUI(pipelineLabels.ext_patient_viewer);
         } else {
             resetUI();
         }
@@ -608,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // By default show the list if we just switched to connectors tab
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
-                
+
                 connectorStatus.textContent = 'Connectors Ready';
                 tagline.textContent = 'Enterprise Integration Suite';
                 document.documentElement.style.setProperty('--brand-accent', '#2563eb');
@@ -624,19 +766,24 @@ document.addEventListener('DOMContentLoaded', () => {
             connectorsListPanel.classList.add('hidden');
             playgroundView.classList.remove('hidden');
             if (backSelectionBtn) backSelectionBtn.classList.add('hidden');
+            if (backToConnectorsBtn) backToConnectorsBtn.classList.remove('hidden');
             setMode(mode);
         });
     });
 
     // Back to Connectors List
     backToConnectorsBtn.addEventListener('click', () => {
-        playgroundView.classList.add('hidden');
-        connectorsListPanel.classList.remove('hidden');
-        if (backSelectionBtn) backSelectionBtn.classList.remove('hidden');
-        connectorStatus.textContent = 'Connectors Ready';
-        tagline.textContent = 'Enterprise Integration Suite';
-        document.documentElement.style.setProperty('--brand-accent', '#2563eb');
-        log('Returned to Connectors list', 'system');
+        if (currentMode === 'ext-patient-viewer') {
+            returnToHome();
+        } else {
+            playgroundView.classList.add('hidden');
+            connectorsListPanel.classList.remove('hidden');
+            if (backSelectionBtn) backSelectionBtn.classList.remove('hidden');
+            connectorStatus.textContent = 'Connectors Ready';
+            tagline.textContent = 'Enterprise Integration Suite';
+            document.documentElement.style.setProperty('--brand-accent', '#2563eb');
+            log('Returned to Connectors list', 'system');
+        }
     });
 
     // Google Drive Sub-mode Switching
@@ -733,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (step.data.beautiful_data && node.querySelector('.beautiful-response')) {
                              const bData = step.data.beautiful_data;
                              const bDiv = node.querySelector('.beautiful-response');
-                             
+
                              bDiv.innerHTML = `
                                 <div class="beautiful-doc-card">
                                     <div class="doc-card-header">
@@ -775,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                      </div>
                                 </div>
                              `;
-                             
+
                              if (step.data.raw) {
                                   responseDiv.textContent = JSON.stringify(step.data.raw, null, 2);
                                   responseBtn.classList.remove('hidden');
@@ -1136,7 +1283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const formData = new FormData(gdriveForm);
         const payload = Object.fromEntries(formData.entries());
-        
+
         const fileInput = document.getElementById('gdrive-file');
 
         if (payload.action === 'files.list') {
@@ -1205,22 +1352,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentSubMode === 'file' && fileInput.files.length > 0) {
             const file = fileInput.files[0];
             const reader = new FileReader();
-            
+
             // Re-use the UI update logic outside to show "Encrypting" immediately
             resetUI();
             gdriveRunBtn.disabled = true;
             gdriveSpinner.classList.remove('hidden');
             gdriveBtnText.textContent = 'Encrypting File...';
-            
+
             reader.onload = async (event) => {
                 try {
                     const base64Data = event.target.result.split(',')[1];
                     payload.file_base64 = base64Data;
                     payload.file_mime_type = file.type || 'application/octet-stream';
-                    
+
                     // Auto-update document name to the real file name if sending a binary file
                     payload.document_name = file.name;
-                    
+
                     await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
                 } catch (error) {
                     log(`File parsing error: ${error.message}`, 'error');
@@ -1229,20 +1376,121 @@ document.addEventListener('DOMContentLoaded', () => {
                     gdriveSpinner.classList.add('hidden');
                 }
             };
-            
+
             reader.onerror = () => {
                 log('Failed to read binary file from memory.', 'error');
                 gdriveBtnText.textContent = 'System Error';
                 gdriveRunBtn.disabled = false;
                 gdriveSpinner.classList.add('hidden');
             };
-            
+
             reader.readAsDataURL(file);
         } else {
             // Standard text submission
             await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
         }
     });
+
+    if (slackActionSelect) {
+        slackActionSelect.addEventListener('change', () => {
+            const action = slackActionSelect.value;
+            if (action === 'upload_file') {
+                if (slackMessageSection) slackMessageSection.classList.add('hidden');
+                if (slackFileSection) slackFileSection.classList.remove('hidden');
+            } else {
+                if (slackMessageSection) slackMessageSection.classList.remove('hidden');
+                if (slackFileSection) slackFileSection.classList.add('hidden');
+            }
+        });
+    }
+
+    if (slackFileInput && slackFileChosenPreview && slackPreviewName && slackFileDropZone) {
+        slackFileInput.addEventListener('change', () => {
+            if (slackFileInput.files.length > 0) {
+                const fileName = slackFileInput.files[0].name;
+                slackPreviewName.textContent = fileName;
+                slackFileChosenPreview.classList.remove('hidden');
+                slackFileDropZone.classList.add('hidden');
+            }
+        });
+    }
+
+    if (slackRemoveFileBtn && slackFileInput && slackFileChosenPreview && slackFileDropZone) {
+        slackRemoveFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            slackFileInput.value = '';
+            slackFileChosenPreview.classList.add('hidden');
+            slackFileDropZone.classList.remove('hidden');
+        });
+    }
+
+    if (slackFileDropZone) {
+        slackFileDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            slackFileDropZone.style.borderColor = 'var(--brand-accent)';
+            slackFileDropZone.style.background = 'rgba(255, 255, 255, 0.08)';
+        });
+
+        slackFileDropZone.addEventListener('dragleave', () => {
+            slackFileDropZone.style.borderColor = '';
+            slackFileDropZone.style.background = '';
+        });
+
+        slackFileDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            slackFileDropZone.style.borderColor = '';
+            slackFileDropZone.style.background = '';
+            if (slackFileInput && e.dataTransfer.files.length > 0) {
+                slackFileInput.files = e.dataTransfer.files;
+                slackFileInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    if (slackForm) {
+        slackForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(slackForm);
+            const payload = Object.fromEntries(formData.entries());
+            
+            if (payload.action === 'upload_file' && slackFileInput && slackFileInput.files.length > 0) {
+                const file = slackFileInput.files[0];
+                const reader = new FileReader();
+                
+                resetUI();
+                if (slackRunBtn) slackRunBtn.disabled = true;
+                if (slackSpinner) slackSpinner.classList.remove('hidden');
+                if (slackBtnText) slackBtnText.textContent = 'Formatting payload...';
+                
+                reader.onload = async (event) => {
+                    try {
+                        const base64Data = event.target.result.split(',')[1];
+                        payload.content_base64 = base64Data;
+                        // Always override filename with actual file name if uploaded directly
+                        payload.filename = file.name;
+                        
+                        await handleSubmission(payload, '/scenarios/slack-messaging', slackRunBtn, slackBtnText, slackSpinner, 'Send to Slack');
+                    } catch (error) {
+                        log(`File parsing error: ${error.message}`, 'error');
+                        if (slackBtnText) slackBtnText.textContent = 'System Error';
+                        if (slackRunBtn) slackRunBtn.disabled = false;
+                        if (slackSpinner) slackSpinner.classList.add('hidden');
+                    }
+                };
+                
+                reader.onerror = () => {
+                    log('Failed to read binary file from memory.', 'error');
+                    if (slackBtnText) slackBtnText.textContent = 'System Error';
+                    if (slackRunBtn) slackRunBtn.disabled = false;
+                    if (slackSpinner) slackSpinner.classList.add('hidden');
+                };
+                
+                reader.readAsDataURL(file);
+            } else {
+                await handleSubmission(payload, '/scenarios/slack-messaging', slackRunBtn, slackBtnText, slackSpinner, 'Send to Slack');
+            }
+        });
+    }
 
     // ======================================================
     // AI Agent Chat Logic
@@ -1269,7 +1517,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
-                    <span>Streaming response...</span>
+                    <span>Streaming response... <strong class="stream-running-timer">0.0s</strong></span>
                 </div>
             </div>
         `;
@@ -1279,6 +1527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bubble,
             text: bubble.querySelector('.streaming-text'),
             loader: bubble.querySelector('.stream-tail-loader'),
+            timer: bubble.querySelector('.stream-running-timer')
         };
     }
 
@@ -1292,10 +1541,14 @@ document.addEventListener('DOMContentLoaded', () => {
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
-    function appendStreamEndMessage(message, success = true) {
+    function appendStreamEndMessage(message, success = true, finalTime = null) {
         const end = document.createElement('div');
         end.className = `stream-end-message ${success ? 'success' : 'error'}`;
-        end.textContent = message || (success ? 'Streaming completed.' : 'Streaming ended with an error.');
+        let displayMessage = message || (success ? 'Streaming completed.' : 'Streaming ended with an error.');
+        if (finalTime) {
+            displayMessage += ` (Total Time: ${finalTime}s)`;
+        }
+        end.textContent = displayMessage;
         agentChatHistory.appendChild(end);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
@@ -1368,7 +1621,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="step-card-body">${escapeHTML(argsStr)}</div>
             ${resultPreview ? `<div class="step-card-result ${resultClass}">${resultIcon} ${escapeHTML(resultPreview)}</div>` : ''}
         `;
-        agentChatHistory.appendChild(card);
+        
+        const streamingBubble = agentChatHistory.querySelector('.streaming-bubble');
+        if (streamingBubble) {
+            agentChatHistory.insertBefore(card, streamingBubble);
+        } else {
+            agentChatHistory.appendChild(card);
+        }
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
@@ -1418,8 +1677,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         log(`Agent Chat: Sending message...`, 'system');
 
+        let timerInterval = null;
+        let streamView = null;
+        const startTime = Date.now();
+
         try {
             if (agentTransportMode === 'streamable-http') {
+                // Instantly display the streaming bubble and start the active timer
+                streamView = appendStreamingBubble();
+                agentTyping.classList.add('hidden'); // Hide generic typing dot loader
+
+                function startRunningTimer() {
+                    if (timerInterval) return;
+                    timerInterval = setInterval(() => {
+                        if (streamView && streamView.timer) {
+                            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                            streamView.timer.textContent = `${elapsed}s`;
+                        }
+                    }, 100);
+                }
+                startRunningTimer();
+
                 const response = await fetch('/scenarios/agent-chat-stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1435,7 +1713,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let traceId = '';
                 let success = true;
                 let doneMessage = '';
-                let streamView = null;
 
                 await readNdjsonStream(response, {
                     meta: (event) => {
@@ -1451,16 +1728,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             args: event.args || {},
                             result: event.result || ''
                         });
-                        if (!streamView) {
-                            streamView = appendStreamingBubble();
-                        } else {
-                            agentChatHistory.appendChild(streamView.bubble);
-                            agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
-                        }
                     },
                     final_chunk: (event) => {
                         agentTyping.classList.add('hidden');
-                        if (!streamView) streamView = appendStreamingBubble();
                         finalText += event.content || '';
                         streamView.text.textContent = finalText;
                         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
@@ -1468,7 +1738,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     error: (event) => {
                         success = false;
                         agentTyping.classList.add('hidden');
-                        if (!streamView) streamView = appendStreamingBubble();
                         finalText += event.message || '';
                         streamView.text.textContent = finalText;
                     },
@@ -1476,18 +1745,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         traceId = event.trace_id || traceId;
                         success = Boolean(event.success);
                         doneMessage = event.message || `Streaming ${success ? 'completed' : 'failed'}. trace_id=${traceId}`;
-                        if (!streamView) streamView = appendStreamingBubble();
+                        
+                        if (timerInterval) {
+                            clearInterval(timerInterval);
+                            timerInterval = null;
+                        }
+                        const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                         streamView.loader.classList.add('hidden');
-                        appendStreamEndMessage(doneMessage, success);
+                        appendStreamEndMessage(doneMessage, success, finalElapsed);
                     }
                 });
 
                 agentTyping.classList.add('hidden');
                 if (!doneMessage) {
-                    if (!streamView) streamView = appendStreamingBubble();
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                    }
+                    const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                     streamView.loader.classList.add('hidden');
                     doneMessage = `Streaming connection closed before done event. trace_id=${traceId || 'unknown'}`;
-                    appendStreamEndMessage(doneMessage, false);
+                    appendStreamEndMessage(doneMessage, false, finalElapsed);
                     success = false;
                 }
                 if (!finalText) {
@@ -1533,6 +1811,8 @@ document.addEventListener('DOMContentLoaded', () => {
             log(`Agent Chat: ${data.success ? 'Success' : 'Responded'} | steps=${data.steps ? data.steps.length : 0}`, data.success ? 'success' : 'system');
 
         } catch (error) {
+            if (timerInterval) clearInterval(timerInterval);
+            if (streamView && streamView.loader) streamView.loader.classList.add('hidden');
             agentTyping.classList.add('hidden');
             appendChatBubble('assistant', `Sorry, I couldn't reach the server: ${error.message}. Please check that the backend is running.`);
             log(`Agent Chat Error: ${error.message}`, 'error');
@@ -1553,6 +1833,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ─── External Patient Viewer — form submission ───────────────────────────
+    if (extViewerForm) {
+        extViewerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fd = new FormData(extViewerForm);
+            const patientId   = (fd.get('patient_id')       || '').trim();
+            const givenName   = (fd.get('patient_given')    || '').trim();
+            const familyName  = (fd.get('patient_family')   || '').trim();
+            const birthdate   = (fd.get('patient_birthdate')|| '').trim();
+            const sourceSystem = fd.get('source_system') || 'epic';
+            const maxEnc  = parseInt(fd.get('max_encounters') || '5', 10);
+            const maxDocs = parseInt(fd.get('max_documents')  || '10', 10);
+
+            // Client-side guard: need at least one identity field
+            if (!patientId && !givenName && !familyName) {
+                log('Viewer: provide a Patient ID or at least a given/family name.', 'error');
+                return;
+            }
+
+            const payload = {
+                source_system: sourceSystem,
+                max_encounters: maxEnc,
+                max_documents: maxDocs,
+            };
+            if (patientId)  payload.patient_id       = patientId;
+            if (givenName)  payload.patient_given    = givenName;
+            if (familyName) payload.patient_family   = familyName;
+            if (birthdate)  payload.patient_birthdate = birthdate;
+
+            await handleSubmission(
+                payload,
+                '/scenarios/external-patient-viewer',
+                extViewerRunBtn,
+                extViewerBtnText,
+                extViewerSpinner,
+                'Load External Chart',
+                pipelineLabels.ext_patient_viewer
+            );
+        });
+    }
 
     // Initial Load UI State
     resetUI();

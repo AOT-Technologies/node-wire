@@ -13,13 +13,13 @@ from node_wire_stripe.schema import (
     CreatePaymentIntentInput,
     CreateSubscriptionInput,
     IssueRefundInput,
-    StripeOperationOutput,
 )
 
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
 
 class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
@@ -36,6 +36,7 @@ def _connector() -> StripeConnector:
 # ---------------------------------------------------------------------------
 # Charge
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_stripe_charge_happy_path():
@@ -65,6 +66,7 @@ async def test_stripe_charge_happy_path():
 # ---------------------------------------------------------------------------
 # Create Payment Intent
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_stripe_create_payment_intent_happy_path():
@@ -96,23 +98,29 @@ async def test_stripe_create_payment_intent_happy_path():
 # Create Subscription
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_stripe_create_subscription_with_card_token():
     connector = _connector()
-    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc", card_token="tok_visa")
+    params = CreateSubscriptionInput(
+        customer_id="cus_123", price_id="price_abc", card_token="tok_visa"
+    )
 
     mock_pm = MagicMock(id="pm_123")
-    mock_sub = MagicMock(id="sub_123", status="active", pending_setup_intent=None, latest_invoice=None)
+    mock_sub = MagicMock(
+        id="sub_123", status="active", pending_setup_intent=None, latest_invoice=None
+    )
 
-    with patch("stripe.PaymentMethod.create", return_value=mock_pm) as mock_pm_create, \
-         patch("stripe.PaymentMethod.attach") as mock_pm_attach, \
-         patch("stripe.Subscription.create", return_value=mock_sub) as mock_sub_create:
-        
+    with (
+        patch("stripe.PaymentMethod.create", return_value=mock_pm) as mock_pm_create,
+        patch("stripe.PaymentMethod.attach") as mock_pm_attach,
+        patch("stripe.Subscription.create", return_value=mock_sub) as mock_sub_create,
+    ):
         result = await connector.create_subscription(params, trace_id="test-trace")
 
     assert result.subscription_id == "sub_123"
     assert result.status == "active"
-    
+
     mock_pm_create.assert_called_once()
     mock_pm_attach.assert_called_once_with("pm_123", api_key="sk_test_mock", customer="cus_123")
     mock_sub_create.assert_called_once()
@@ -123,6 +131,7 @@ async def test_stripe_create_subscription_with_card_token():
 # ---------------------------------------------------------------------------
 # Cancel Subscription
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_stripe_cancel_subscription_immediate():
@@ -136,12 +145,15 @@ async def test_stripe_cancel_subscription_immediate():
 
     assert result.subscription_id == "sub_123"
     assert result.status == "canceled"
-    mock_cancel.assert_called_once_with("sub_123", api_key="sk_test_mock", idempotency_key="test-trace")
+    mock_cancel.assert_called_once_with(
+        "sub_123", api_key="sk_test_mock", idempotency_key="test-trace"
+    )
 
 
 # ---------------------------------------------------------------------------
 # Issue Refund
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_stripe_issue_refund_happy_path():
@@ -170,19 +182,20 @@ async def test_stripe_issue_refund_happy_path():
 # Schema Validation
 # ---------------------------------------------------------------------------
 
+
 def test_stripe_schema_validation_bounds():
     """Verify that amount and currency bounds are enforced."""
     # Valid
     ChargeInput(amount=1, currency="usd", source="tok_visa")
-    
+
     # Invalid amount (too small)
     with pytest.raises(ValidationError):
         ChargeInput(amount=0, currency="usd", source="tok_visa")
-    
+
     # Invalid currency (wrong length/format)
     with pytest.raises(ValidationError):
         ChargeInput(amount=100, currency="us", source="tok_visa")
-    
+
     with pytest.raises(ValidationError):
         ChargeInput(amount=100, currency="USDT", source="tok_visa")
 
@@ -191,13 +204,24 @@ def test_stripe_schema_validation_bounds():
 # Error Mapping
 # ---------------------------------------------------------------------------
 
+
 def test_stripe_error_mapping():
     """Verify that Stripe exceptions are correctly mapped to ErrorCategory."""
     import stripe
+
     connector = _connector()
     from node_wire_runtime.models import ErrorCategory
 
     # Check specific mappings from StripeConnector.error_map
-    assert connector.error_map[stripe.error.CardError] == (ErrorCategory.BUSINESS, "STRIPE_CARD_ERROR")
-    assert connector.error_map[stripe.error.RateLimitError] == (ErrorCategory.RETRYABLE, "STRIPE_RATE_LIMIT")
-    assert connector.error_map[stripe.error.AuthenticationError] == (ErrorCategory.AUTH, "STRIPE_AUTH_ERROR")
+    assert connector.error_map[stripe.error.CardError] == (
+        ErrorCategory.BUSINESS,
+        "STRIPE_CARD_ERROR",
+    )
+    assert connector.error_map[stripe.error.RateLimitError] == (
+        ErrorCategory.RETRYABLE,
+        "STRIPE_RATE_LIMIT",
+    )
+    assert connector.error_map[stripe.error.AuthenticationError] == (
+        ErrorCategory.AUTH,
+        "STRIPE_AUTH_ERROR",
+    )

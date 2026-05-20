@@ -1,14 +1,15 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
-import asyncio
-
-from pydantic import BaseModel
+import pytest
 
 from node_wire_http_generic.logic import HttpGenericConnector
 from node_wire_smtp.logic import SmtpConnector
 from node_wire_stripe.logic import StripeConnector
-from node_wire_salesforce.logic import SalesforceConnector
-from node_wire_runtime import ConnectorResponse, ErrorCategory, BaseConnector, SecretProvider
+from node_wire_runtime import BaseConnector, SecretProvider
 from node_wire_runtime.connector_registry import auto_register
 
 
@@ -21,8 +22,15 @@ class DummySecretProvider(SecretProvider):
 
 
 def test_auto_register_runs_without_error(monkeypatch):
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "fhir_cerner,fhir_epic,google_drive,smtp,stripe,http_generic")
+    monkeypatch.setenv(
+        "NW_ALLOWED_CONNECTORS", "fhir_cerner,fhir_epic,google_drive,smtp,stripe,http_generic"
+    )
     imported = auto_register()
+    if not imported:
+        pytest.skip(
+            "importlib.metadata entry points for node_wire.connectors are empty; "
+            "use `pip install -e .` to run this assertion."
+        )
     assert any("http_generic.registration" in name for name in imported)
     assert any("google_drive.logic" in name for name in imported)
 
@@ -51,4 +59,3 @@ def test_salesforce_connector_instantiation_only():
     connector = BaseConnector.get_registry()["salesforce"](secret_provider=provider)
     assert connector.connector_id == "salesforce"
     assert "create_lead" in connector._action_registry
-

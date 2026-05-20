@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 MCP contract flags: phased deprecation of legacy tool arguments.
 
@@ -36,5 +40,9 @@ def log_legacy_gdrive_action_upload_usage() -> None:
     """Structured log line for metrics/aggregation (no PII)."""
     logger.info(
         "mcp.legacy.alias | alias=action_upload | tool=google_drive.files.upload",
-        extra={"event": "mcp.legacy.alias", "alias": "action_upload", "tool": "google_drive.files.upload"},
+        extra={
+            "event": "mcp.legacy.alias",
+            "alias": "action_upload",
+            "tool": "google_drive.files.upload",
+        },
     )

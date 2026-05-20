@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Google Drive Connector
 
 This document covers the Google Drive connector under `connectors/google_drive` in two parts:
@@ -19,7 +25,7 @@ This guide walks you through creating a Google Cloud service account and connect
 
 - A Google account
 - Access to [Google Cloud Console](https://console.cloud.google.com/)
-- Node Wire installed and configured (see [Setup.md](../Setup.md))
+- Node Wire installed and configured (see [Installation Guide](installation.md))
 
 ### Step 1: Create or Select a GCP Project
 

@@ -19,6 +19,7 @@ Security design:
     :class:`~node_wire_runtime.secrets.SecretProvider` so they are never held
     in plain text in config files.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -235,15 +236,12 @@ class OAuth2AuthProvider(AuthProvider):
         """Exchange refresh_token for a new access token."""
         if not self._refresh_token_secret:
             raise ValueError(
-                "OAuth2AuthProvider (refresh_token): "
-                "'refresh_token_secret' must be configured."
+                "OAuth2AuthProvider (refresh_token): 'refresh_token_secret' must be configured."
             )
 
         client_id = self._sp.get_secret(self._client_id_secret)
         client_secret = (
-            self._sp.get_secret(self._client_secret_secret)
-            if self._client_secret_secret
-            else None
+            self._sp.get_secret(self._client_secret_secret) if self._client_secret_secret else None
         )
         refresh_token = self._sp.get_secret(self._refresh_token_secret)
         token_url = self._sp.get_secret(self._token_url_secret)
@@ -266,7 +264,6 @@ class OAuth2AuthProvider(AuthProvider):
         )
         return await self._post_token(token_url, post_data)
 
-
     async def _fetch_private_key_jwt(self) -> Dict[str, Any]:
         """
         Exchange a signed JWT assertion for an access token.
@@ -286,9 +283,7 @@ class OAuth2AuthProvider(AuthProvider):
 
         # Normalise PEM keys stored as single-line env vars with escaped newlines.
         private_key_pem = (
-            private_key_raw.replace("\\n", "\n")
-            if "\\n" in private_key_raw
-            else private_key_raw
+            private_key_raw.replace("\\n", "\n") if "\\n" in private_key_raw else private_key_raw
         )
 
         now = int(time.time())
@@ -315,9 +310,7 @@ class OAuth2AuthProvider(AuthProvider):
 
         post_data: Dict[str, str] = {
             "grant_type": "client_credentials",
-            "client_assertion_type": (
-                "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-            ),
+            "client_assertion_type": ("urn:ietf:params:oauth:client-assertion-type:jwt-bearer"),
             "client_assertion": jwt_token,
         }
         if scope:

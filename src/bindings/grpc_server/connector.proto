@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 AOT Technologies
+// SPDX-License-Identifier: Apache-2.0
 syntax = "proto3";
 
 package aot.connectors;
@@ -20,4 +22,3 @@ message InvokeResponse {
   string message = 5;
   string trace_id = 6;
 }
-

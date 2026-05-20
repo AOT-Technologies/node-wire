@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import httpx
@@ -19,4 +23,3 @@ ErrorMapper.register(httpx.HTTPStatusError, ErrorCategory.BUSINESS, code="FHIR_H
 
 # Request errors (DNS issues, invalid URLs, etc.) are generally fatal.
 ErrorMapper.register(httpx.RequestError, ErrorCategory.FATAL, code="FHIR_REQUEST_ERROR")
-
