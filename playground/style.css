@@ -240,6 +240,9 @@ body {
     display: grid;
     grid-template-columns: 1.4fr 1fr;
     gap: 2.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
 }
 
 .glass-card {
@@ -1006,6 +1009,37 @@ textarea:focus {
     background: linear-gradient(135deg, #0d9488, #0891b2);
 }
 
+/* ── Connector Apps Selection View ────────────────────────────────────────── */
+#connector-apps-selection-view {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    /* override the inline style padding so CSS owns spacing */
+    padding: 2rem !important;
+    max-width: 1350px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* App cards in the grid should use the same white-card style as selection-cards */
+#connector-apps-selection-view .app-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 8px 30px rgba(148, 163, 184, 0.18);
+    backdrop-filter: none;
+    cursor: pointer;
+    min-height: 110px;
+}
+
+#connector-apps-selection-view .app-card:hover {
+    background: white;
+    border-color: var(--brand-accent);
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(148, 163, 184, 0.25);
+}
+
 /* Read-only badge used inside the chart viewer */
 .readonly-badge {
     display: inline-flex;
@@ -1116,6 +1150,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
     cursor: pointer;
     transition: all 0.2s;
     width: fit-content;
+}
+
+/* The main back button sits at the very top of layout-main.
+   When visible (apps flow) it must not push scenario content
+   further down than the connector-flow equivalent. */
+.main-back-btn {
+    margin-bottom: 0.75rem;
 }
 
 .back-link svg {

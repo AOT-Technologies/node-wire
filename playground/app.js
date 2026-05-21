@@ -392,6 +392,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
                 setMode('ext-patient-viewer');
+            } else if (view === 'patient-identity') {
+                document.getElementById('connector-apps-selection-view').classList.add('hidden');
+                rootSelectionView.classList.add('hidden');
+                layoutMain.classList.remove('hidden');
+                headerActions.classList.remove('hidden');
+                agentPanel.classList.add('hidden');
+                connectorsView.classList.remove('hidden');
+                layoutMain.classList.remove('agent-mode');
+                connectorsListPanel.classList.add('hidden');
+                playgroundView.classList.remove('hidden');
+                if (backToConnectorsBtn) backToConnectorsBtn.classList.add('hidden');
+                if (backSelectionBtn) {
+                    backSelectionBtn.classList.remove('hidden');
+                    backSelectionBtn.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        Back to Apps
+                    `;
+                }
+                setMode('identity');
             } else {
                 rootSelectionView.classList.add('hidden');
                 layoutMain.classList.remove('hidden');
@@ -433,7 +452,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e) e.preventDefault();
             const btnText = backSelectionBtn.textContent.trim();
             if (btnText.includes('Back to Apps')) {
-                // Return from patient viewer to apps marketplace directory
+                // Explicitly reset any open panels so they can't bleed through on re-entry
+                if (connectorsView)  connectorsView.classList.add('hidden');
+                if (playgroundView)  playgroundView.classList.add('hidden');
+                const _idPanel = document.getElementById('identity-panel');
+                if (_idPanel)        _idPanel.classList.add('hidden');
+                if (extViewerPanel)  extViewerPanel.classList.add('hidden');
+                // Blur any focused app card so it doesn't keep its active state
+                if (document.activeElement) document.activeElement.blur();
+                // Hide main layout and return to the apps grid
                 layoutMain.classList.add('hidden');
                 document.getElementById('connector-apps-selection-view').classList.remove('hidden');
                 connectorStatus.textContent = 'Apps Marketplace';
@@ -773,7 +800,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Back to Connectors List
     backToConnectorsBtn.addEventListener('click', () => {
-        if (currentMode === 'ext-patient-viewer') {
+        if (currentMode === 'ext-patient-viewer' || currentMode === 'identity') {
             returnToHome();
         } else {
             playgroundView.classList.add('hidden');
