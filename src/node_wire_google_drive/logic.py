@@ -7,8 +7,25 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+try:
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+except ModuleNotFoundError as exc:
+    # Keep this module importable when optional Google SDK deps are absent.
+    # This lets unrelated MCP servers (e.g. Slack) start successfully even if
+    # google_drive is accidentally allowlisted in shared env files.
+    if exc.name and exc.name.startswith("googleapiclient"):
+        build = None  # type: ignore[assignment]
+        _GOOGLE_API_IMPORT_ERROR: ModuleNotFoundError | None = exc
+
+        class HttpError(Exception):  # type: ignore[no-redef]
+            """Fallback placeholder when googleapiclient is unavailable."""
+
+            pass
+    else:
+        raise
+else:
+    _GOOGLE_API_IMPORT_ERROR = None
 
 from node_wire_runtime import BaseConnector
 from node_wire_runtime.models import ErrorCategory
@@ -49,6 +66,12 @@ class GoogleDriveConnector(BaseConnector):
 
     def build_client(self) -> Any:
         import asyncio
+
+        if build is None:
+            raise ModuleNotFoundError(
+                "google-api-python-client is required for the google_drive connector. "
+                "Install dependency 'google-api-python-client'."
+            ) from _GOOGLE_API_IMPORT_ERROR
 
         # get_client_credentials() is async; run it synchronously here since
         # build_client() is called from the synchronous get_client() accessor.
