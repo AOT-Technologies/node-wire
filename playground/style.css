@@ -923,7 +923,7 @@ textarea:focus {
     margin-top: 1.5rem;
 }
 
-.connector-card {
+.connector-card, .app-card {
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     border: 1px solid var(--border);
@@ -939,7 +939,7 @@ textarea:focus {
     overflow: hidden;
 }
 
-.connector-card:hover {
+.connector-card:hover, .app-card:hover {
     transform: translateY(-5px);
     border-color: var(--brand-accent);
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.06);
@@ -1427,6 +1427,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-weight: 600;
 }
 
+.stream-running-timer {
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--brand-accent);
+    background: rgba(37, 99, 235, 0.08);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.25rem;
+}
+
 .stream-end-message {
     align-self: flex-start;
     max-width: 85%;
@@ -1636,11 +1647,20 @@ input[type="range"]::-webkit-slider-thumb:hover {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 80vh;
-    padding: 2rem;
-    gap: 4rem;
+    min-height: calc(100vh - 120px);
+    padding: 1.5rem 0 3rem;
+    gap: 2.5rem;
     /* background: radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 40%), */
                 /* radial-gradient(circle at 90% 80%, rgba(37, 99, 235, 0.05) 0%, transparent 40%); */
+}
+
+.apps-selection-view {
+    justify-content: flex-start;
+    padding-top: 4rem;
+}
+
+.apps-selection-view .selection-grid {
+    justify-content: flex-start;
 }
 
 .selection-welcome h1 {
@@ -1653,22 +1673,25 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .selection-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 3rem;
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    align-items: stretch;
+    gap: 2rem;
     width: 100%;
-    max-width: 900px;
+    max-width: 1240px;
 }
 
 .selection-card {
+    width: 100%;
     background: white;
     border: 1px solid #e2e8f0;
-    border-radius: 20px;
+    border-radius: 1.8rem;
     cursor: pointer;
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 18px 48px rgba(148, 163, 184, 0.18);
     position: relative;
     overflow: hidden;
     display: flex;
+    min-height: 356px;
 }
 
 .card-inner {
@@ -1676,53 +1699,72 @@ input[type="range"]::-webkit-slider-thumb:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 3rem 2rem 0;
+    justify-content: center;
+    padding: 2.2rem 2rem 2rem;
 }
 
 .selection-card:hover {
     transform: translateY(-8px);
-    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 30px 70px rgba(148, 163, 184, 0.28);
 }
 
 .selection-icon {
-    width: 80px;
-    height: 80px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
     transition: all 0.3s;
 }
 
-.card-mcp .selection-icon { background: #f5f3ff; color: #8b5cf6; }
-.card-connectors .selection-icon { background: #eff6ff; color: #2563eb; }
+.card-mcp .selection-icon { background: #f3e8ff; color: #7c3aed; }
+.card-connectors .selection-icon { background: #e0f2fe; color: #0284c7; }
+.card-ext-viewer .selection-icon,
+.card-apps-directory .selection-icon { background: #ccfbf1; color: #0d9488; }
+
+.selection-details {
+    text-align: center;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
 .selection-details h3 {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-family: "Outfit", sans-serif;
     color: #1e293b;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.7rem;
+    line-height: 1.2;
 }
 
 .selection-details p {
-    font-size: 1rem;
+    font-size: 0.92rem;
     color: #64748b;
-    margin-bottom: 2.5rem; /* Space before action bar */
+    margin-bottom: 1.4rem;
+    line-height: 1.4;
+    max-width: 310px;
+    min-height: 2.6em;
+    padding: 0 0.5rem;
 }
 
 .action-bar {
-    width: calc(100% + 4rem);
-    margin: 0 -2rem;
-    height: 80px;
+    width: 100%;
+    max-width: 240px;
+    height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s;
+    margin-top: auto;
 }
 
-.card-mcp .action-bar { background: #f5f3ff; color: #8b5cf6; }
-.card-connectors .action-bar { background: #eff6ff; color: #2563eb; }
+.card-mcp .action-bar { background: #f3e8ff; color: #7c3aed; }
+.card-connectors .action-bar { background: #e0f2fe; color: #0284c7; }
+.card-ext-viewer .action-bar,
+.card-apps-directory .action-bar { background: #ccfbf1; color: #0d9488; }
 
 .selection-card:hover .action-bar {
     filter: brightness(0.95);
@@ -1742,9 +1784,26 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .card-mcp:hover { border-color: #8b5cf6; }
 .card-connectors { border: 2px solid transparent; }
 .card-connectors:hover { border-color: #2563eb; }
+.card-ext-viewer,
+.card-apps-directory { border: 2px solid transparent; }
+.card-ext-viewer:hover,
+.card-apps-directory:hover { border-color: #0d9488; }
 
 @media (max-width: 900px) {
-    .selection-grid { grid-template-columns: 1fr; }
+    .root-selection-view {
+        min-height: auto;
+        padding-top: 1rem;
+    }
+
+    .selection-grid {
+        grid-template-columns: 1fr;
+        max-width: 420px;
+    }
+
+    .selection-card {
+        min-height: 332px;
+    }
+
     .selection-welcome h1 { font-size: 2.5rem; }
 }
 

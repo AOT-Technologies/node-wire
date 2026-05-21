@@ -33,7 +33,6 @@ The Slack connector uses a **Bot User OAuth Token** to interact with your worksp
    - `chat:write` — Send messages to channels and DMs.
    - `files:write` — Upload and share files.
    - `im:write` — Start direct messages with users.
-   - `conversations:open` — Resolve User IDs to DM channel IDs.
    - `groups:read` (optional) — If you need to post to private channels the bot is invited to.
    - `channels:read` (optional) — If you need to resolve channel names.
 
