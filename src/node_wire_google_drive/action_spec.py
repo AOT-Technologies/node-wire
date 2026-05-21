@@ -14,7 +14,16 @@ from __future__ import annotations
 import base64
 from typing import Any, Callable, Dict, cast
 
-from googleapiclient.http import MediaInMemoryUpload
+try:
+    from googleapiclient.http import MediaInMemoryUpload
+except ModuleNotFoundError as exc:
+    if exc.name and exc.name.startswith("googleapiclient"):
+        MediaInMemoryUpload = None  # type: ignore[assignment]
+        _GOOGLE_API_IMPORT_ERROR: ModuleNotFoundError | None = exc
+    else:
+        raise
+else:
+    _GOOGLE_API_IMPORT_ERROR = None
 from pydantic import BaseModel
 
 from node_wire_runtime.mcp_normalizers import normalize_google_drive_files_upload
@@ -125,6 +134,12 @@ def _register_files_update() -> None:
 
 
 def _build_upload_kwargs(drive: Any, model: BaseModel) -> Dict[str, Any]:
+    if MediaInMemoryUpload is None:
+        raise ModuleNotFoundError(
+            "google-api-python-client is required for files.upload on google_drive. "
+            "Install dependency 'google-api-python-client'."
+        ) from _GOOGLE_API_IMPORT_ERROR
+
     params = (
         model
         if isinstance(model, FilesUploadOperation)
@@ -148,7 +163,7 @@ def _build_upload_kwargs(drive: Any, model: BaseModel) -> Dict[str, Any]:
     media = MediaInMemoryUpload(
         media_bytes,
         mimetype=params.mime_type,
-        resumable=False,
+        resumable=True,
     )
     return {
         "body": body,
