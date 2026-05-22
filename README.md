@@ -174,12 +174,14 @@ For more detailed information, please refer to the following guides:
 - **[MCP Integration](docs/mcp.md)** — Using Node Wire with AI agents.
 - **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
+- **[ToolHive MCP Demo Scripts](docs/toolhive-mcp-demo-scripts.md)** — Local scripts for Slack MCP auth, list/post, and file upload smoke tests.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
 
 ## Developer docs
 
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
+- ToolHive Slack MCP demo scripts: [docs/toolhive-mcp-demo-scripts.md](docs/toolhive-mcp-demo-scripts.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
 - Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
 - Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)

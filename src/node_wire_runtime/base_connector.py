@@ -68,9 +68,15 @@ def _merge_nested_failure_details(nested: ConnectorResponse) -> Any:
     return {"nested_trace_id": tid, "nested_details": d}
 
 
-# principal, tenant_id, scopes — set during :meth:`run` for nested :meth:`call_action`.
+# principal, tenant_id, scopes, blocked_scopes — set during :meth:`run` for nested :meth:`call_action`.
 _caller_execution_ctx: contextvars.ContextVar[
-    tuple[Optional[str], Optional[str], Optional[tuple[str, ...]]] | None
+    tuple[
+        Optional[str],
+        Optional[str],
+        Optional[tuple[str, ...]],
+        Optional[tuple[str, ...]],
+    ]
+    | None
 ] = contextvars.ContextVar("nw_connector_caller_execution", default=None)
 
 # Populated by BaseConnector.__init_subclass__
@@ -424,6 +430,7 @@ class BaseConnector(ABC):
         principal: Optional[str] = None,
         tenant_id: Optional[str] = None,
         scopes: Optional[tuple[str, ...]] = None,
+        blocked_scopes: Optional[tuple[str, ...]] = None,
     ) -> ConnectorResponse:
         """
         Public execution entrypoint.
@@ -456,7 +463,7 @@ class BaseConnector(ABC):
                 },
             )
 
-            token = _caller_execution_ctx.set((principal, tenant_id, scopes))
+            token = _caller_execution_ctx.set((principal, tenant_id, scopes, blocked_scopes))
             try:
                 try:
                     input_model = self._input_model_cls.model_validate(raw_input)
@@ -494,6 +501,7 @@ class BaseConnector(ABC):
                         principal=principal,
                         tenant_id=tenant_id,
                         scopes=scopes,
+                        blocked_scopes=blocked_scopes,
                     )
                     try:
                         self._policy_hook.check(context)
@@ -642,27 +650,29 @@ class BaseConnector(ABC):
         principal: Optional[str] = None,
         tenant_id: Optional[str] = None,
         scopes: Optional[tuple[str, ...]] = None,
+        blocked_scopes: Optional[tuple[str, ...]] = None,
     ) -> Any:
         """Invoke another action via :meth:`run` so policy hooks and resilience apply.
 
         When called from within an action that was entered through :meth:`run`
         (e.g. MCP/REST with identity), caller ``principal`` / ``tenant_id`` /
-        ``scopes`` are inherited from that outer run unless overridden here.
+        ``scopes`` / ``blocked_scopes`` are inherited from that outer run unless
+        overridden here.
         """
         meta = self._action_registry.get(name)
         if meta is None:
             raise ValueError(
                 f"call_action: unknown action {name!r} on connector {self.connector_id!r}"
             )
-        p, t, s = principal, tenant_id, scopes
-        if p is None and t is None and s is None:
+        p, t, s, b = principal, tenant_id, scopes, blocked_scopes
+        if p is None and t is None and s is None and b is None:
             inherited = _caller_execution_ctx.get()
             if inherited is not None:
-                p, t, s = inherited
+                p, t, s, b = inherited
 
         payload = dict(params_dict)
         payload["action"] = name
-        resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
+        resp = await self.run(payload, principal=p, tenant_id=t, scopes=s, blocked_scopes=b)
         if not resp.success:
             if resp.error_code == "POLICY_DENIED":
                 raise PolicyDenied(resp.message or "Policy denied")

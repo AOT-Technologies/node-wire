@@ -58,6 +58,37 @@ def resolve_required_scope_for_action(
     return None
 
 
+def _evaluate_action_scope_access(
+    *,
+    required: Optional[str],
+    principal: Optional[str],
+    scopes: tuple[str, ...],
+    blocked_scopes: tuple[str, ...],
+    action_key: str,
+) -> None:
+    """
+    Raise :class:`PolicyDenied` when the action is not allowed for caller scopes.
+
+    Blocked scopes take precedence: if ``required`` is in ``blocked_scopes``, deny
+    even when ``required`` or ``*`` is also present in ``scopes``.
+    """
+    if required and not principal and not scopes and not blocked_scopes:
+        logger.info(
+            "Scope policy bypassed due to missing caller identity",
+            extra={"action_key": action_key, "required_scope": required},
+        )
+        return
+    if not required:
+        return
+    blocked_set = set(blocked_scopes)
+    if required in blocked_set:
+        raise PolicyDenied(f"Scope blocked for this action: {required}")
+    scope_set = set(scopes)
+    if required in scope_set or "*" in scope_set:
+        return
+    raise PolicyDenied(f"Missing required scope: {required}")
+
+
 def action_allowed_for_identity_scopes(
     *,
     connector_id: str,
@@ -65,13 +96,14 @@ def action_allowed_for_identity_scopes(
     principal: Optional[str],
     tenant_id: Optional[str],
     scopes: Optional[tuple[str, ...]],
+    blocked_scopes: Optional[tuple[str, ...]] = None,
     action_scope_map: Mapping[str, str],
     default_mode: str,
 ) -> bool:
     """
-    Same authorization decision as :class:`ScopePolicyHook` / ``tools/list`` filtering.
+    Same authorization decision as :class:`ScopePolicyHook`.
 
-    Returns True if the action should be visible or executable for this caller.
+    Returns True if the action should be executable for this caller.
     """
     required = resolve_required_scope_for_action(
         connector_id=connector_id,
@@ -79,21 +111,17 @@ def action_allowed_for_identity_scopes(
         action_scope_map=action_scope_map,
         default_mode=default_mode,
     )
-    scope_tuple = tuple(scopes or ())
-    # Defer transport-specific authz until caller identity is propagated.
-    if required and not principal and not scope_tuple:
-        logger.info(
-            "Scope policy bypassed due to missing caller identity",
-            extra={
-                "action_key": f"{connector_id}.{action}",
-                "required_scope": required,
-            },
+    try:
+        _evaluate_action_scope_access(
+            required=required,
+            principal=principal,
+            scopes=tuple(scopes or ()),
+            blocked_scopes=tuple(blocked_scopes or ()),
+            action_key=f"{connector_id}.{action}",
         )
         return True
-    if not required:
-        return True
-    scope_set = set(scope_tuple)
-    return required in scope_set or "*" in scope_set
+    except PolicyDenied:
+        return False
 
 
 class ScopePolicyHook(PolicyHook):
@@ -119,15 +147,7 @@ class ScopePolicyHook(PolicyHook):
             default_mode=self._default_mode,
         )
         scopes = tuple(context.scopes or ())
-        if required and not context.principal and not scopes:
-            logger.info(
-                "Scope policy bypassed due to missing caller identity",
-                extra={
-                    "action_key": action_key,
-                    "required_scope": required,
-                },
-            )
-            return
+        blocked_scopes = tuple(context.blocked_scopes or ())
         logger.info(
             "Scope policy evaluating action",
             extra={
@@ -136,14 +156,16 @@ class ScopePolicyHook(PolicyHook):
                 "principal": context.principal or "",
                 "tenant_id": context.tenant_id or "",
                 "scopes": list(scopes),
+                "blocked_scopes": list(blocked_scopes),
             },
         )
-        if not required:
-            return
-        scope_set = set(scopes)
-        if required in scope_set or "*" in scope_set:
-            return
-        raise PolicyDenied(f"Missing required scope: {required}")
+        _evaluate_action_scope_access(
+            required=required,
+            principal=context.principal,
+            scopes=scopes,
+            blocked_scopes=blocked_scopes,
+            action_key=action_key,
+        )
 
 
 def load_scope_map_from_env() -> dict[str, str]:

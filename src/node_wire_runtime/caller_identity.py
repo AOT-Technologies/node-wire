@@ -16,8 +16,18 @@ class CallerIdentity:
     principal: str
     tenant_id: str | None
     scopes: tuple[str, ...]
+    blocked_scopes: tuple[str, ...]
     claims: Mapping[str, Any]
     auth_type: str
+
+
+def _parse_scope_claim(raw: Any) -> tuple[str, ...]:
+    """Normalize ``scopes`` / ``scope`` / ``blocked_scopes`` claim values to a token tuple."""
+    if isinstance(raw, str):
+        return tuple(s for s in raw.split(" ") if s)
+    if isinstance(raw, (list, tuple, set)):
+        return tuple(str(s) for s in raw if str(s).strip())
+    return tuple()
 
 
 def build_caller_identity(claims: Mapping[str, Any], auth_type: str) -> CallerIdentity:
@@ -28,16 +38,13 @@ def build_caller_identity(claims: Mapping[str, Any], auth_type: str) -> CallerId
     raw_scopes = claims.get("scopes")
     if raw_scopes is None:
         raw_scopes = claims.get("scope")
-    if isinstance(raw_scopes, str):
-        scopes = tuple(s for s in raw_scopes.split(" ") if s)
-    elif isinstance(raw_scopes, (list, tuple, set)):
-        scopes = tuple(str(s) for s in raw_scopes if str(s).strip())
-    else:
-        scopes = tuple()
+    scopes = _parse_scope_claim(raw_scopes)
+    blocked_scopes = _parse_scope_claim(claims.get("blocked_scopes"))
     return CallerIdentity(
         principal=principal,
         tenant_id=tenant_id,
         scopes=scopes,
+        blocked_scopes=blocked_scopes,
         claims=dict(claims),
         auth_type=auth_type,
     )

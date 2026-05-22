@@ -17,6 +17,7 @@ class PolicyContext:
     principal: Optional[str] = None
     tenant_id: Optional[str] = None
     scopes: Optional[tuple[str, ...]] = None
+    blocked_scopes: Optional[tuple[str, ...]] = None
 
 
 class PolicyDenied(Exception):
