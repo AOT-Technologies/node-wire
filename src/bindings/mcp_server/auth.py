@@ -76,9 +76,9 @@ class McpAuthNotConfiguredError(McpAuthError):
     def __init__(self) -> None:
         super().__init__(
             (
-                "MCP authentication is not configured. Set NW_MCP_API_KEY "
-                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_ENABLED=true "
-                "for local development only."
+                "MCP authentication is enabled but not configured. Set NW_MCP_API_KEY "
+                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_ENABLED=false "
+                "to disable authentication."
             ),
             status_code=503,
             error_code="MCP_AUTH_NOT_CONFIGURED",
@@ -113,8 +113,14 @@ def _bootstrap_mcp_auth_env() -> None:
     _mcp_auth_env_bootstrapped = True
 
 
-def mcp_auth_disabled() -> bool:
+def mcp_auth_enabled() -> bool:
+    """Return True when ``NW_MCP_AUTH_ENABLED`` is truthy; auth is off by default."""
     return _truthy(os.environ.get("NW_MCP_AUTH_ENABLED"))
+
+
+def mcp_auth_disabled() -> bool:
+    """Deprecated alias; prefer :func:`mcp_auth_enabled`."""
+    return not mcp_auth_enabled()
 
 
 def mcp_auth_configured() -> bool:
@@ -184,13 +190,13 @@ def authenticate_mcp_request(
     logger.info(
         "MCP auth gate status",
         extra={
-            "auth_disabled": mcp_auth_disabled(),
+            "auth_enabled": mcp_auth_enabled(),
             "auth_configured": mcp_auth_configured(),
             "has_api_key": bool(os.environ.get("NW_MCP_API_KEY")),
             "has_jwt_secret": bool(os.environ.get("NW_MCP_JWT_SECRET")),
         },
     )
-    if mcp_auth_disabled():
+    if not mcp_auth_enabled():
         return None
 
     if not mcp_auth_configured():
@@ -209,6 +215,7 @@ def authenticate_mcp_request(
             "principal": identity.principal,
             "tenant_id": identity.tenant_id or "",
             "scopes": list(identity.scopes),
+            "blocked_scopes": list(identity.blocked_scopes),
         },
     )
     return identity

@@ -163,15 +163,17 @@ When running in `streamable-http` mode, clients must comply with the strict MCP 
 Use these settings for production-style posture:
 
 ```env
-NW_MCP_AUTH_ENABLED=false
+NW_MCP_AUTH_ENABLED=true
 NW_MCP_SCOPE_POLICY_DEFAULT=deny
 # Optional guardrail: fail startup if scope policy would be disabled
 NW_MCP_SCOPE_POLICY_STRICT=true
 ```
 
 Notes:
+- `NW_MCP_AUTH_ENABLED=true` requires a valid API key or JWT for `tools/call` (and streamable-http non-list requests). `tools/list` remains public and returns the full tool manifest without scope filtering.
 - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
 - Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
+- JWT claims `scopes` / `scope` allow actions; `blocked_scopes` denies even when the required scope or `*` is also present (blocked wins).
 - API keys with `NW_MCP_API_KEY_SCOPES=*` are super-user keys by design and bypass per-action scope checks.
 
 ### Playground transport indicator
@@ -387,6 +389,8 @@ SALESFORCE_REFRESH_TOKEN=your-refresh-token
 SLACK_BOT_TOKEN=xoxb-your-bot-token
 NW_SLACK_ATTACHMENTS_DIR=/slack_attachments
 ```
+
+For local JWT auth smoke tests (token generator, list/post message, file upload) without the full agent, see [toolhive-mcp-demo-scripts.md](toolhive-mcp-demo-scripts.md).
 
 ### ToolHive / Agent settings
 
@@ -639,7 +643,7 @@ Use this checklist when promoting streamable-http MCP to production:
    - Optionally enforce `NW_MCP_SCOPE_POLICY_STRICT=true`
 3. Confirm authorization telemetry:
    - Track trends for 401/403 and `POLICY_DENIED` responses after rollout
-   - Verify expected tool visibility changes in `tools/list` for scoped identities
+   - Verify `tools/list` returns the full manifest while `tools/call` enforces scopes for scoped identities
 4. Confirm privileged-key controls:
    - Any API key with wildcard scope (`*`) is documented and approved
    - Non-admin API keys use minimal scopes only

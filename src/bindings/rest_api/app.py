@@ -171,6 +171,7 @@ def _make_endpoint(cid: str, act: str) -> Any:
             principal=rest_id.principal if rest_id else None,
             tenant_id=rest_id.tenant_id if rest_id else None,
             scopes=rest_id.scopes if rest_id else None,
+            blocked_scopes=rest_id.blocked_scopes if rest_id else None,
         )
         status = _http_status_for_category(response.error_category)
 

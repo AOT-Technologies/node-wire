@@ -15,11 +15,6 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from bindings.factory import ConnectorFactory
 from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
 from node_wire_runtime.caller_identity import CallerIdentity
-from node_wire_runtime.policies.mcp_scope_policy import (
-    action_allowed_for_identity_scopes,
-    load_scope_map_from_env,
-    load_scope_policy_default_from_env,
-)
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime import ConnectorResponse, ErrorCategory
@@ -39,6 +34,29 @@ _http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
     "mcp_http_request_headers",
     default=None,
 )
+
+
+def _jsonrpc_method_from_request_body(body: bytes) -> str | None:
+    """Return JSON-RPC ``method`` from a POST body, or None if not parseable."""
+    if not body:
+        return None
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    method = payload.get("method")
+    return str(method) if isinstance(method, str) else None
+
+
+async def _restore_request_body(request: Any, body: bytes) -> None:
+    """Re-wrap ASGI receive so downstream handlers can read the body again."""
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request._receive = receive  # type: ignore[attr-defined]
 
 
 def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int, Optional[str]]:
@@ -131,13 +149,11 @@ class McpServer:
             _pkg_ver,
         )
 
-    def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
-        identity = self._ensure_identity(identity=identity)
-        return self._list_tools_impl(identity=identity)
+    def list_tools(self) -> List[Dict[str, Any]]:
+        """Return the full manifest tool list (public; no scope filtering)."""
+        return self._list_tools_impl()
 
-    def _list_tools_impl(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
-        scope_map = load_scope_map_from_env()
-        default_mode = load_scope_policy_default_from_env()
+    def _list_tools_impl(self) -> List[Dict[str, Any]]:
         connectors = self._factory.list_for_protocol("mcp")
         manifest = build_manifest(connectors)
         tools: List[Dict[str, Any]] = []
@@ -145,17 +161,6 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
-            if identity is not None:
-                if not action_allowed_for_identity_scopes(
-                    connector_id=cid,
-                    action=str(entry["action"]),
-                    principal=identity.principal,
-                    tenant_id=identity.tenant_id,
-                    scopes=identity.scopes,
-                    action_scope_map=scope_map,
-                    default_mode=default_mode,
-                ):
-                    continue
             schema_desc = entry["input_schema"].get("description", "")
 
             security_lines = []
@@ -290,6 +295,7 @@ class McpServer:
                 principal=identity.principal if identity else None,
                 tenant_id=identity.tenant_id if identity else None,
                 scopes=identity.scopes if identity else None,
+                blocked_scopes=identity.blocked_scopes if identity else None,
             )
             stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
         except Exception:
@@ -378,29 +384,8 @@ class McpServer:
 
         @low.list_tools()
         async def handle_list_tools() -> list[Tool]:
-            meta = self._request_meta_from_context()
-            try:
-                identity = self._ensure_identity(identity=None, meta=meta)
-            except McpAuthError as exc:
-                logger.warning(
-                    "MCP tools/list denied by authentication",
-                    extra={
-                        "status_code": exc.status_code,
-                        "error_code": exc.error_code,
-                    },
-                )
-                raise RuntimeError(json.dumps(exc.to_payload())) from exc
-            if identity:
-                logger.info(
-                    "MCP tools/list authorized",
-                    extra={
-                        "principal": identity.principal,
-                        "tenant_id": identity.tenant_id or "",
-                        "auth_type": identity.auth_type,
-                    },
-                )
             out: list[Tool] = []
-            for t in self._list_tools_impl(identity=identity):
+            for t in self._list_tools_impl():
                 kwargs: Dict[str, Any] = {
                     "name": t["name"],
                     "description": t["description"],
@@ -484,6 +469,11 @@ class McpServer:
             async def dispatch(self, request: Request, call_next):  # type: ignore[override]
                 if request.url.path != path:
                     return await call_next(request)
+                if request.method == "POST":
+                    body = await request.body()
+                    await _restore_request_body(request, body)
+                    if _jsonrpc_method_from_request_body(body) == "tools/list":
+                        return await call_next(request)
                 try:
                     identity = authenticate_mcp_request(headers=request.headers)
                 except McpAuthError as exc:

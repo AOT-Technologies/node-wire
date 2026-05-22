@@ -61,6 +61,23 @@ def test_scope_policy_denies_when_identity_present_without_required_scope() -> N
     assert response.message == "Missing required scope: mcp:fhir.read_patient"
 
 
+def test_scope_policy_blocked_scopes_denies_over_allowed() -> None:
+    connector = _connector_with_scope_map()
+    response = asyncio.run(
+        connector.run(
+            {"action": "read_patient", "resource_id": "x"},
+            principal="alice",
+            tenant_id="tenant-1",
+            scopes=("mcp:fhir.read_patient",),
+            blocked_scopes=("mcp:fhir.read_patient",),
+        )
+    )
+
+    assert response.success is False
+    assert response.error_code == "POLICY_DENIED"
+    assert response.message == "Scope blocked for this action: mcp:fhir.read_patient"
+
+
 def test_scope_policy_default_deny_uses_conventional_scope() -> None:
     hook = ScopePolicyHook({}, default_mode=DEFAULT_SCOPE_MODE_DENY)
     connector = _PolicyTestConnector(policy_hook=hook)

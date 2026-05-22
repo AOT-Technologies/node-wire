@@ -86,6 +86,23 @@ async def test_call_action_inherits_identity_for_nested_policy() -> None:
 
 
 @pytest.mark.asyncio
+async def test_call_action_inherits_blocked_scopes_for_nested_policy() -> None:
+    hook = ScopePolicyHook({"policy_test_composite.read_patient": "mcp:fhir.read_patient"})
+    connector = _CompositeConnector(policy_hook=hook)
+
+    resp = await connector.run(
+        {"action": "delegate", "resource_id": "x"},
+        principal="alice",
+        tenant_id="t1",
+        scopes=("mcp:fhir.read_patient",),
+        blocked_scopes=("mcp:fhir.read_patient",),
+    )
+    assert resp.success is False
+    assert resp.error_code == "POLICY_DENIED"
+    assert "Scope blocked" in (resp.message or "")
+
+
+@pytest.mark.asyncio
 async def test_call_action_nested_policy_denied_raises() -> None:
     hook = ScopePolicyHook({"policy_test_composite.read_patient": "mcp:fhir.read_patient"})
     connector = _CompositeConnector(policy_hook=hook)
