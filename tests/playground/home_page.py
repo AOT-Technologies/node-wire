@@ -36,6 +36,15 @@ class PlaygroundHomePage:
         self.connectors_card_title: Locator = self.connectors_card.locator("h3")
         self.connectors_card_desc: Locator = self.connectors_card.locator("p")
 
+        # Connector Apps Card
+        self.connector_apps_card: Locator = page.locator(".selection-card.card-apps-directory")
+        self.connector_apps_card_title: Locator = self.connector_apps_card.locator("h3")
+        self.connector_apps_card_desc: Locator = self.connector_apps_card.locator("p")
+
+        # Connector Apps sub-menu view
+        self.connector_apps_view: Locator = page.locator("#connector-apps-selection-view")
+        self.apps_back_btn: Locator = page.locator("#apps-back-btn")
+
         # Navigation
         self.back_selection_btn: Locator = page.locator("#back-selection-btn")
 
@@ -46,6 +55,14 @@ class PlaygroundHomePage:
     def click_connectors(self) -> None:
         """Click the Connectors selection card to navigate to the clinical workflows view."""
         self.connectors_card.click()
+
+    def click_connector_apps(self) -> None:
+        """Click the Connector Apps selection card to navigate to the apps sub-menu."""
+        self.connector_apps_card.click()
+
+    def go_back_from_apps(self) -> None:
+        """Click the back button inside the Connector Apps sub-menu."""
+        self.apps_back_btn.click()
 
     def go_back_to_selection(self) -> None:
         """Click the back button to return to the selection page."""
