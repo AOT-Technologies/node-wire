@@ -34,7 +34,7 @@ def test_playground_home_page_flow(playground_page: Page) -> None:
     expect(home.header_actions).to_be_hidden()
 
     # 3. Assert card counts and detailed card contents
-    assert home.selection_cards.count() == 2
+    assert home.selection_cards.count() == 3
 
     # Agentic Workflow Card
     expect(home.agentic_card).to_be_visible()
@@ -45,6 +45,11 @@ def test_playground_home_page_flow(playground_page: Page) -> None:
     expect(home.connectors_card).to_be_visible()
     expect(home.connectors_card_title).to_have_text("Connectors")
     expect(home.connectors_card_desc).to_contain_text("Pre-built Clinical Workflows")
+
+    # Connector Apps Card
+    expect(home.connector_apps_card).to_be_visible()
+    expect(home.connector_apps_card_title).to_have_text("Connector Apps")
+    expect(home.connector_apps_card_desc).to_contain_text("built on top of connectors")
 
     # 4. Test Navigation Flow: Root -> Agentic Workflow -> Root
     home.click_agentic_workflow()
@@ -66,7 +71,17 @@ def test_playground_home_page_flow(playground_page: Page) -> None:
     expect(home.root_selection_view).to_be_visible()
     expect(home.main_layout).to_be_hidden()
 
-    # 6. Optional visual delay for headed mode
+    # 6. Test Navigation Flow: Root -> Connector Apps -> Root
+    home.click_connector_apps()
+    expect(home.root_selection_view).to_be_hidden()
+    expect(home.connector_apps_view).to_be_visible()
+
+    # Return back to home
+    home.go_back_from_apps()
+    expect(home.root_selection_view).to_be_visible()
+    expect(home.connector_apps_view).to_be_hidden()
+
+    # 7. Optional visual delay for headed mode
     is_headed = os.getenv("PLAYGROUND_HEADED") or os.getenv("HEADED")
     if is_headed and is_headed.lower().strip() in ("true", "1", "yes"):
         time.sleep(5)
