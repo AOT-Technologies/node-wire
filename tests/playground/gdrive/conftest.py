@@ -10,9 +10,7 @@ import os
 import httpx
 import pytest
 
-_TEST_RECIPIENT_EMAIL = os.environ.get(
-    "GDRIVE_TEST_RECIPIENT_EMAIL", "test@mailinator.com"
-)
+_TEST_RECIPIENT_EMAIL = os.environ.get("GDRIVE_TEST_RECIPIENT_EMAIL", "test@mailinator.com")
 
 
 @pytest.fixture(scope="session")
