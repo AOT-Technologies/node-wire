@@ -1,4 +1,9 @@
-# Continuous security checks for publishable Python packages on pull requests.
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+### Continuous security checks for publishable Python packages on pull requests.
+
+
 name: Python package security PR checks
 
 on:

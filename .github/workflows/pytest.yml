@@ -1,3 +1,9 @@
+
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 name: CI – Pytest
 
 on:
@@ -45,4 +51,52 @@ jobs:
         with:
           name: coverage-html-py${{ matrix.python-version }}
           path: htmlcov/
+          if-no-files-found: ignore
+
+  # ── Playground integration tests ──────────────────────────────────────────
+  # Runs only on manual workflow_dispatch. Requires real Google Drive
+  # credentials stored as repository secrets (see tests/playground/README.md).
+  playground-integration:
+    name: Playground integration tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Install Playwright browsers
+        run: uv run python -m playwright install chromium --with-deps
+
+      - name: Run playground integration tests
+        env:
+          GOOGLE_DRIVE_SA_JSON: ${{ secrets.GOOGLE_DRIVE_SA_JSON }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          GDRIVE_TEST_RECIPIENT_EMAIL: ${{ secrets.GDRIVE_TEST_RECIPIENT_EMAIL }}
+          NW_REST_AUTH_DISABLED: "true"
+          NW_REST_LOAD_DOTENV: "false"
+          NW_ALLOWED_CONNECTORS: "google_drive"
+        run: uv run pytest tests/playground/ --no-cov -v
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: playwright-traces
+          path: test-results/
           if-no-files-found: ignore
