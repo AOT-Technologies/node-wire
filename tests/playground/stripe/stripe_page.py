@@ -46,9 +46,7 @@ class StripePage:
 
         # --- subscription action elements ---
         self.sub_section: Locator = page.locator("#stripe-section-sub")
-        self.sub_customer: Locator = page.locator(
-            "#stripe-section-sub input[name='sub_customer']"
-        )
+        self.sub_customer: Locator = page.locator("#stripe-section-sub input[name='sub_customer']")
         self.sub_price: Locator = page.locator("#stripe-section-sub input[name='sub_price']")
 
         # --- cancel_subscription action elements ---
@@ -122,9 +120,7 @@ class StripePage:
         """Fill cancel subscription parameter."""
         self.cancel_sub_id.fill(subscription_id)
 
-    def fill_refund_fields(
-        self, target_id: str, amount: int | None = None
-    ) -> None:
+    def fill_refund_fields(self, target_id: str, amount: int | None = None) -> None:
         """Fill refund parameters. target_id may be a ch_... or pi_... ID."""
         self.refund_target_id.fill(target_id)
         if amount is not None:

@@ -204,9 +204,7 @@ def test_stripe_cancel_subscription(
 # ── refund ────────────────────────────────────────────────────────────────────
 
 
-def test_stripe_refund_by_charge_id(
-    playground_page: Page, real_stripe_charge_id: str
-) -> None:
+def test_stripe_refund_by_charge_id(playground_page: Page, real_stripe_charge_id: str) -> None:
     """Issue a full refund against a real charge; all 3 steps must succeed."""
     stripe = _navigate_to_stripe(playground_page)
 
