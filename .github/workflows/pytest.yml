@@ -53,9 +53,7 @@ jobs:
           path: htmlcov/
           if-no-files-found: ignore
 
-  # ── Playground integration tests ──────────────────────────────────────────
-  # Runs only on manual workflow_dispatch. Requires real Google Drive
-  # credentials stored as repository secrets (see tests/playground/README.md).
+
   playground-integration:
     name: Playground integration tests
     runs-on: ubuntu-latest
@@ -88,9 +86,12 @@ jobs:
           GOOGLE_DRIVE_SA_JSON: ${{ secrets.GOOGLE_DRIVE_SA_JSON }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           GDRIVE_TEST_RECIPIENT_EMAIL: ${{ secrets.GDRIVE_TEST_RECIPIENT_EMAIL }}
+          STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+          STRIPE_TEST_CUSTOMER_ID: ${{ secrets.STRIPE_TEST_CUSTOMER_ID }}
+          STRIPE_TEST_PRICE_ID: ${{ secrets.STRIPE_TEST_PRICE_ID }}
           NW_REST_AUTH_DISABLED: "true"
           NW_REST_LOAD_DOTENV: "false"
-          NW_ALLOWED_CONNECTORS: "google_drive"
+          NW_ALLOWED_CONNECTORS: "google_drive,stripe"
         run: uv run pytest tests/playground/ --no-cov -v
 
       - name: Upload Playwright traces on failure
