@@ -18,13 +18,11 @@ Optional env vars (for subscription-related tests):
 
 from __future__ import annotations
 
-import os
-import time
-
 from playwright.sync_api import Page, expect
 
 from tests.playground.stripe.stripe_page import StripePage
 from tests.playground.home_page import PlaygroundHomePage
+from tests.playground.utils import maybe_sleep
 
 _TIMEOUT = 20_000  # ms — all Stripe scenarios are 3-step
 
@@ -34,12 +32,6 @@ def _navigate_to_stripe(page: Page) -> StripePage:
     stripe = StripePage(page)
     stripe.navigate_to_panel()
     return stripe
-
-
-def _maybe_sleep() -> None:
-    env = os.getenv("PLAYGROUND_HEADED") or os.getenv("HEADED")
-    if env and env.lower().strip() in ("true", "1", "yes"):
-        time.sleep(3)
 
 
 # ── charge ────────────────────────────────────────────────────────────────────
@@ -61,7 +53,7 @@ def test_stripe_charge_default(playground_page: Page) -> None:
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(stripe.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_stripe_charge_custom_amount(playground_page: Page) -> None:
@@ -80,7 +72,7 @@ def test_stripe_charge_custom_amount(playground_page: Page) -> None:
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(stripe.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_stripe_charge_no_description(playground_page: Page) -> None:
@@ -97,7 +89,7 @@ def test_stripe_charge_no_description(playground_page: Page) -> None:
     expect(stripe.final_result).to_be_visible(timeout=_TIMEOUT)
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── payment_intent ────────────────────────────────────────────────────────────
@@ -119,7 +111,7 @@ def test_stripe_payment_intent_default(playground_page: Page) -> None:
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(stripe.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_stripe_payment_intent_custom_amount(playground_page: Page) -> None:
@@ -137,7 +129,7 @@ def test_stripe_payment_intent_custom_amount(playground_page: Page) -> None:
     expect(stripe.result_tag).to_contain_text("pi_")
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_stripe_payment_intent_no_payment_method(playground_page: Page) -> None:
@@ -154,7 +146,7 @@ def test_stripe_payment_intent_no_payment_method(playground_page: Page) -> None:
     expect(stripe.final_result).to_be_visible(timeout=_TIMEOUT)
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── cancel_subscription ───────────────────────────────────────────────────────
@@ -176,7 +168,7 @@ def test_stripe_cancel_subscription_invalid_id(playground_page: Page) -> None:
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Failed")
     expect(stripe.log_terminal).to_contain_text("FAILED")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_stripe_cancel_subscription(
@@ -198,7 +190,7 @@ def test_stripe_cancel_subscription(
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(stripe.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── refund ────────────────────────────────────────────────────────────────────
@@ -221,7 +213,7 @@ def test_stripe_refund_by_charge_id(playground_page: Page, real_stripe_charge_id
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(stripe.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_stripe_refund_invalid_id(playground_page: Page) -> None:
@@ -240,7 +232,7 @@ def test_stripe_refund_invalid_id(playground_page: Page) -> None:
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Failed")
     expect(stripe.log_terminal).to_contain_text("FAILED")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── cross-action switch ───────────────────────────────────────────────────────
@@ -268,4 +260,4 @@ def test_stripe_switch_charge_then_payment_intent(playground_page: Page) -> None
     expect(stripe.summary_text).to_contain_text("payment intent")
     expect(playground_page.locator("#stripe-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()

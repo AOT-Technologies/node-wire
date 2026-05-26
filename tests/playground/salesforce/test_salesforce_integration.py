@@ -18,25 +18,14 @@ Required env vars (loaded from .env):
 
 from __future__ import annotations
 
-import os
-import random
-import time
-
 from playwright.sync_api import Page, expect
 
 from tests.playground.home_page import PlaygroundHomePage
+from tests.playground.salesforce.helpers import rnd as _rnd, random_email as _email
 from tests.playground.salesforce.salesforce_page import SalesforcePage
+from tests.playground.utils import maybe_sleep
 
 _TIMEOUT = 20_000  # ms — all Salesforce operations are single-step
-
-
-def _rnd() -> str:
-    """Return a 6-digit random suffix, unique enough to avoid duplicate-email rejections."""
-    return str(random.randint(100_000, 999_999))
-
-
-def _email() -> str:
-    return f"test{_rnd()}@mailinator.com"
 
 
 def _navigate_to_salesforce(page: Page) -> SalesforcePage:
@@ -44,12 +33,6 @@ def _navigate_to_salesforce(page: Page) -> SalesforcePage:
     sf = SalesforcePage(page)
     sf.navigate_to_panel()
     return sf
-
-
-def _maybe_sleep() -> None:
-    env = os.getenv("PLAYGROUND_HEADED") or os.getenv("HEADED")
-    if env and env.lower().strip() in ("true", "1", "yes"):
-        time.sleep(3)
 
 
 # ── create_lead ───────────────────────────────────────────────────────────────
@@ -69,7 +52,7 @@ def test_sf_create_lead_minimal(playground_page: Page) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_sf_create_lead_full(playground_page: Page) -> None:
@@ -90,7 +73,7 @@ def test_sf_create_lead_full(playground_page: Page) -> None:
     expect(sf.summary_text).to_contain_text("Lead created successfully")
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── create_contact ────────────────────────────────────────────────────────────
@@ -110,7 +93,7 @@ def test_sf_create_contact_minimal(playground_page: Page) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_sf_create_contact_with_email(playground_page: Page) -> None:
@@ -130,7 +113,7 @@ def test_sf_create_contact_with_email(playground_page: Page) -> None:
     expect(sf.summary_text).to_contain_text("Contact created successfully")
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── read_lead ─────────────────────────────────────────────────────────────────
@@ -151,7 +134,7 @@ def test_sf_read_lead(playground_page: Page, real_sf_lead_id: str) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_sf_read_lead_invalid_id(playground_page: Page) -> None:
@@ -167,7 +150,7 @@ def test_sf_read_lead_invalid_id(playground_page: Page) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Failed")
     expect(sf.log_terminal).to_contain_text("FAILED")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── read_contact ──────────────────────────────────────────────────────────────
@@ -188,7 +171,7 @@ def test_sf_read_contact(playground_page: Page, real_sf_contact_id: str) -> None
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_sf_read_contact_invalid_id(playground_page: Page) -> None:
@@ -204,7 +187,7 @@ def test_sf_read_contact_invalid_id(playground_page: Page) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Failed")
     expect(sf.log_terminal).to_contain_text("FAILED")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── update_lead ───────────────────────────────────────────────────────────────
@@ -229,7 +212,7 @@ def test_sf_update_lead(playground_page: Page, real_sf_lead_id: str) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_sf_update_lead_email(playground_page: Page, real_sf_lead_id: str) -> None:
@@ -248,7 +231,7 @@ def test_sf_update_lead_email(playground_page: Page, real_sf_lead_id: str) -> No
     expect(sf.result_tag).to_contain_text(real_sf_lead_id)
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── update_contact ────────────────────────────────────────────────────────────
@@ -273,7 +256,7 @@ def test_sf_update_contact(playground_page: Page, real_sf_contact_id: str) -> No
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_sf_update_contact_email(playground_page: Page, real_sf_contact_id: str) -> None:
@@ -292,7 +275,7 @@ def test_sf_update_contact_email(playground_page: Page, real_sf_contact_id: str)
     expect(sf.result_tag).to_contain_text(real_sf_contact_id)
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── delete_lead ───────────────────────────────────────────────────────────────
@@ -312,7 +295,7 @@ def test_sf_delete_lead(playground_page: Page, deletable_lead_id: str) -> None:
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── delete_contact ────────────────────────────────────────────────────────────
@@ -332,7 +315,7 @@ def test_sf_delete_contact(playground_page: Page, deletable_contact_id: str) -> 
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(sf.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── cross-action switch ───────────────────────────────────────────────────────
@@ -361,4 +344,4 @@ def test_sf_switch_create_lead_to_read(playground_page: Page, real_sf_lead_id: s
     expect(sf.summary_text).to_contain_text(real_sf_lead_id)
     expect(playground_page.locator("#salesforce-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()

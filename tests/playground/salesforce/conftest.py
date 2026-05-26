@@ -4,18 +4,10 @@
 #
 from __future__ import annotations
 
-import random
-
 import httpx
 import pytest
 
-
-def _rnd() -> str:
-    return str(random.randint(100_000, 999_999))
-
-
-def _email() -> str:
-    return f"test{_rnd()}@mailinator.com"
+from tests.playground.salesforce.helpers import rnd as _rnd, random_email as _email
 
 
 def _create_lead(api_server_url: str, last_name: str, company: str) -> str:

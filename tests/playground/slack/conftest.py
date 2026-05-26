@@ -10,6 +10,7 @@ import httpx
 import pytest
 
 _DEFAULT_CHANNEL = os.environ.get("SLACK_TEST_CHANNEL", "#general")
+_DEFAULT_CHANNEL_ID = os.environ.get("SLACK_TEST_CHANNEL_ID", "")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -41,6 +42,24 @@ def slack_test_channel() -> str:
     The bot must be a member of this channel.
     """
     return _DEFAULT_CHANNEL
+
+
+@pytest.fixture(scope="session")
+def slack_upload_channel() -> str:
+    """Channel ID used for upload_file tests.
+
+    Prefers SLACK_TEST_CHANNEL_ID (must be a bare channel ID like C0ANP6RADHU).
+    Falls back to SLACK_TEST_CHANNEL, but skips if that is still a name — the
+    Slack external-upload API requires an ID, not a name.
+    """
+    if _DEFAULT_CHANNEL_ID:
+        return _DEFAULT_CHANNEL_ID
+    if _DEFAULT_CHANNEL and _DEFAULT_CHANNEL[0].upper() in ("C", "G", "D"):
+        return _DEFAULT_CHANNEL
+    pytest.skip(
+        "upload_file tests require a channel ID. "
+        "Set SLACK_TEST_CHANNEL_ID (e.g. C0ANP6RADHU) in .env."
+    )
 
 
 @pytest.fixture(scope="session")

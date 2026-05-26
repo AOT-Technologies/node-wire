@@ -58,11 +58,13 @@ Set these before running (`.env` is loaded automatically if present):
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SLACK_TEST_CHANNEL` | Target channel for post and upload tests | `#general` |
+| `SLACK_TEST_CHANNEL` | Target channel for post_message and send_direct_message tests | `#general` |
+| `SLACK_TEST_CHANNEL_ID` | Channel **ID** (`C...`) for upload_file tests — required because the Slack external-upload API does not accept channel names | *(skipped if absent)* |
 | `SLACK_TEST_USER_ID` | Slack user ID (`U...`) for DM tests | *(skipped if absent)* |
 
-The bot must be a member of `SLACK_TEST_CHANNEL`.
+The bot must be a member of `SLACK_TEST_CHANNEL` and `SLACK_TEST_CHANNEL_ID`.
 `test_slack_send_direct_message` is automatically skipped when `SLACK_TEST_USER_ID` is absent.
+`test_slack_upload_file` and `test_slack_switch_post_message_then_upload` are automatically skipped when `SLACK_TEST_CHANNEL_ID` is absent (and `SLACK_TEST_CHANNEL` is not already a bare ID).
 
 ## CI / GitHub Actions
 
@@ -75,4 +77,5 @@ Credentials are read from repository secrets:
 |--------|----------------|
 | `SLACK_BOT_TOKEN` | `SLACK_BOT_TOKEN` |
 | `SLACK_TEST_CHANNEL` | `SLACK_TEST_CHANNEL` |
+| `SLACK_TEST_CHANNEL_ID` | `SLACK_TEST_CHANNEL_ID` |
 | `SLACK_TEST_USER_ID` | `SLACK_TEST_USER_ID` |
