@@ -34,9 +34,7 @@ class SalesforcePage:
         self.lead_company: Locator = page.locator(
             "#salesforce-section-lead input[name='lead_company']"
         )
-        self.lead_email: Locator = page.locator(
-            "#salesforce-section-lead input[name='lead_email']"
-        )
+        self.lead_email: Locator = page.locator("#salesforce-section-lead input[name='lead_email']")
 
         # --- Contact section (create_contact / update_contact) ---
         self.contact_section: Locator = page.locator("#salesforce-section-contact")
