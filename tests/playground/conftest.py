@@ -8,10 +8,24 @@ import os
 import socket
 import threading
 import time
+from pathlib import Path
 
 from dotenv import load_dotenv
 import httpx
 import pytest
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# tests/conftest.py restricts NW_ALLOWED_CONNECTORS to the narrow CI-safe set and
+# points NW_CONFIG_PATH at a fixture yaml that disables salesforce/slack.
+# Playground integration tests hit real external services and need the full allowlist
+# and the real config/connectors.yaml, so override those values here before any app
+# import occurs.
+os.environ["NW_ALLOWED_CONNECTORS"] = (
+    "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack"
+)
+os.environ["NW_CONFIG_PATH"] = str(_REPO_ROOT / "config" / "connectors.yaml")
+os.environ["NW_REST_LOAD_DOTENV"] = "true"
 
 # Load .env before any app imports so connectors initialise with real credentials.
 load_dotenv(override=False)

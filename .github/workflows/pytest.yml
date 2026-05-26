@@ -83,15 +83,28 @@ jobs:
 
       - name: Run playground integration tests
         env:
+
+          #gdrive
           GOOGLE_DRIVE_SA_JSON: ${{ secrets.GOOGLE_DRIVE_SA_JSON }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           GDRIVE_TEST_RECIPIENT_EMAIL: ${{ secrets.GDRIVE_TEST_RECIPIENT_EMAIL }}
+          
+          #stripe
           STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
           STRIPE_TEST_CUSTOMER_ID: ${{ secrets.STRIPE_TEST_CUSTOMER_ID }}
           STRIPE_TEST_PRICE_ID: ${{ secrets.STRIPE_TEST_PRICE_ID }}
+
+          #salesforce
+          SALESFORCE_INSTANCE_URL: ${{ secrets.SALESFORCE_INSTANCE_URL }}
+          SALESFORCE_TOKEN_URL: ${{ secrets.SALESFORCE_TOKEN_URL }}
+          SALESFORCE_CLIENT_ID: ${{ secrets.SALESFORCE_CLIENT_ID }}
+          SALESFORCE_CLIENT_SECRET: ${{ secrets.SALESFORCE_CLIENT_SECRET }}
+          SALESFORCE_REFRESH_TOKEN: ${{ secrets.SALESFORCE_REFRESH_TOKEN }}
+
+          # Disable authentication and dotenv loading for playground tests, and restrict connectors
           NW_REST_AUTH_DISABLED: "true"
           NW_REST_LOAD_DOTENV: "false"
-          NW_ALLOWED_CONNECTORS: "google_drive,stripe"
+          NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe"
         run: uv run pytest tests/playground/ --no-cov -v
 
       - name: Upload Playwright traces on failure
