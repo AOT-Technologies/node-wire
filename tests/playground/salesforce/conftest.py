@@ -7,7 +7,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from tests.playground.salesforce.helpers import rnd as _rnd, random_email as _email
+from tests.playground.salesforce.helpers import rnd as _rnd
 
 
 def _create_lead(api_server_url: str, last_name: str, company: str) -> str:
