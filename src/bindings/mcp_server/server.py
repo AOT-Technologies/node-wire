@@ -203,14 +203,16 @@ class McpServer:
         *,
         identity: CallerIdentity | None,
         meta: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> CallerIdentity | None:
         if identity is not None:
             return identity
         request_identity = _streamable_http_identity_ctx.get()
         if request_identity is not None:
             return request_identity
+        current_headers = headers or _http_request_headers.get()
         return authenticate_mcp_request(
-            headers=_http_request_headers.get(),
+            headers=current_headers,
             meta=meta,
         )
 
@@ -230,6 +232,62 @@ class McpServer:
             return None
         if isinstance(ctx.meta, dict):
             return ctx.meta
+        return None
+
+    @staticmethod
+    def _request_headers_from_context() -> Mapping[str, str] | None:
+        """
+        Extract HTTP request headers from the MCP SDK's per-request context.
+
+        ``StreamableHTTPSessionManager`` stores the raw ASGI scope on each
+        RequestContext so headers are accessible even when the handler runs inside
+        a long-lived session task where ``_http_request_headers`` ContextVar may
+        not have propagated.
+
+        Falls back to the ``_http_request_headers`` ContextVar (set by
+        ``_ASGIApp.__call__``) for older SDK versions that don't expose the scope.
+        """
+        # Primary: ASGI scope attached to request_ctx by the MCP SDK
+        try:
+            from mcp.server.lowlevel.server import request_ctx
+
+            ctx = request_ctx.get()
+            if ctx is not None:
+                # mcp >= 1.6: ctx.request is a Starlette Request or similar
+                if hasattr(ctx, "request") and ctx.request is not None:
+                    req = ctx.request
+                    if hasattr(req, "headers") and req.headers is not None:
+                        logger.debug(
+                            "SCOPE-TRACE [_request_headers_from_context] source=request_ctx.request.headers"
+                        )
+                        return dict(req.headers)
+                # Fallback: raw ASGI scope on the context object
+                for attr in ("scope", "_scope", "asgi_scope"):
+                    scope = getattr(ctx, attr, None)
+                    if isinstance(scope, dict) and "headers" in scope:
+                        headers = {
+                            k.decode("latin-1"): v.decode("latin-1")
+                            for k, v in scope["headers"]
+                        }
+                        logger.debug(
+                            "SCOPE-TRACE [_request_headers_from_context] source=request_ctx.%s.headers",
+                            attr,
+                        )
+                        return headers
+        except Exception as exc:
+            logger.debug("SCOPE-TRACE [_request_headers_from_context] request_ctx unavailable: %s", exc)
+
+        # Secondary: ContextVar set by _ASGIApp (may be stale in session tasks)
+        cv_headers = _http_request_headers.get()
+        if cv_headers is not None:
+            logger.debug("SCOPE-TRACE [_request_headers_from_context] source=_http_request_headers ContextVar")
+            return cv_headers
+
+        logger.warning(
+            "SCOPE-TRACE [_request_headers_from_context] no headers found — "
+            "auth will fall back to _meta only. "
+            "Verify MCP SDK version exposes request_ctx.request.headers."
+        )
         return None
 
     async def invoke_tool(
@@ -262,6 +320,58 @@ class McpServer:
         connector = self._factory.get_for_protocol(connector_id, "mcp")
         if connector is None:
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+
+        # Pre-flight policy check — runs BEFORE input validation so that blocked /
+        # missing scopes always return POLICY_DENIED, even when the LLM passes wrong
+        # argument names that would otherwise cause a schema validation error first.
+        if identity:
+            from node_wire_runtime.policies.mcp_scope_policy import (
+                load_scope_map_from_env,
+                load_scope_policy_default_from_env,
+                resolve_required_scope_for_action,
+                _evaluate_action_scope_access,
+            )
+            from node_wire_runtime.policy import PolicyDenied as _PolicyDenied
+            _preflight_map = load_scope_map_from_env()
+            _preflight_mode = load_scope_policy_default_from_env()
+            _preflight_required = resolve_required_scope_for_action(
+                connector_id=connector_id,
+                action=action,
+                action_scope_map=_preflight_map,
+                default_mode=_preflight_mode,
+            )
+            try:
+                _evaluate_action_scope_access(
+                    required=_preflight_required,
+                    principal=identity.principal,
+                    scopes=tuple(identity.scopes or ()),
+                    blocked_scopes=tuple(identity.blocked_scopes or ()),
+                    action_key=f"{connector_id}.{action}",
+                )
+                logger.info(
+                    "SCOPE-TRACE [preflight] action=%s.%s | passed — proceeding to input validation",
+                    connector_id, action,
+                )
+            except _PolicyDenied as _pd:
+                logger.info(
+                    "SCOPE-TRACE [preflight] action=%s.%s | DENIED before input validation — %s",
+                    connector_id, action, str(_pd),
+                )
+                _denied: Dict[str, Any] = ConnectorResponse(
+                    success=False,
+                    data=None,
+                    error_code="POLICY_DENIED",
+                    error_category=ErrorCategory.AUTH,
+                    message=str(_pd),
+                    trace_id=str(uuid.uuid4()),
+                    details=None,
+                ).model_dump()
+                _denied["_server_pagination_metadata"] = {
+                    "coerced_parameters": {},
+                    "items_returned": 0,
+                    "next_page_token": None,
+                }
+                return _denied
 
         run_args = normalize_mcp_tool_arguments(connector, action, arguments)
         enforce_authoritative_action(run_args, action)
@@ -398,11 +508,18 @@ class McpServer:
         @low.call_tool()
         async def handle_call_tool(tool_name: str, arguments: dict) -> dict:
             meta = self._request_meta_from_context()
+            # Use the dedicated helper — reads live per-request headers from
+            # request_ctx so auth works even inside long-lived session tasks
+            # where _streamable_http_identity_ctx ContextVar is stale.
+            request_headers = self._request_headers_from_context()
+
             try:
-                identity = self._ensure_identity(identity=None, meta=meta)
+                identity = self._ensure_identity(identity=None, meta=meta, headers=request_headers)
+
             except McpAuthError as exc:
                 logger.warning(
-                    "MCP tools/call denied by authentication",
+                    "MCP Server tools/call denied by authentication: %s",
+                    exc.detail,
                     extra={
                         "tool_name": tool_name,
                         "status_code": exc.status_code,
@@ -487,6 +604,84 @@ class McpServer:
                     )
 
                 setattr(request.state, "nw_mcp_identity", identity)
+
+                # ── Dispatch-level policy gate ────────────────────────────────
+                # The MCP SDK validates the tool's inputSchema (additionalProperties:
+                # false) BEFORE calling handle_call_tool, so a wrong-param call
+                # would short-circuit with "Input validation error" before our handler
+                # runs.  Checking here means POLICY_DENIED fires regardless of whether
+                # the arguments are valid or not.
+                if identity and request.method == "POST":
+                    _gate_method = _jsonrpc_method_from_request_body(body)
+                    if _gate_method == "tools/call":
+                        try:
+                            _gate_body = json.loads(body)
+                            _gate_tool: str = _gate_body.get("params", {}).get("name", "")
+                            if _gate_tool and "." in _gate_tool:
+                                _gate_cid, _gate_action = _gate_tool.split(".", 1)
+                                from node_wire_runtime.policies.mcp_scope_policy import (
+                                    load_scope_map_from_env,
+                                    load_scope_policy_default_from_env,
+                                    resolve_required_scope_for_action,
+                                    _evaluate_action_scope_access,
+                                )
+                                from node_wire_runtime.policy import PolicyDenied as _GateDenied
+                                _gate_map = load_scope_map_from_env()
+                                _gate_mode = load_scope_policy_default_from_env()
+                                _gate_required = resolve_required_scope_for_action(
+                                    connector_id=_gate_cid,
+                                    action=_gate_action,
+                                    action_scope_map=_gate_map,
+                                    default_mode=_gate_mode,
+                                )
+                                try:
+                                    _evaluate_action_scope_access(
+                                        required=_gate_required,
+                                        principal=identity.principal,
+                                        scopes=tuple(identity.scopes or ()),
+                                        blocked_scopes=tuple(identity.blocked_scopes or ()),
+                                        action_key=_gate_tool,
+                                    )
+                                    logger.info(
+                                        "SCOPE-TRACE [dispatch-gate] tool=%s | passed",
+                                        _gate_tool,
+                                    )
+                                except _GateDenied as _gd:
+                                    logger.info(
+                                        "SCOPE-TRACE [dispatch-gate] tool=%s | DENIED — %s",
+                                        _gate_tool, str(_gd),
+                                    )
+                                    from node_wire_runtime import ConnectorResponse, ErrorCategory
+                                    _denied_payload = ConnectorResponse(
+                                        success=False,
+                                        data=None,
+                                        error_code="POLICY_DENIED",
+                                        error_category=ErrorCategory.AUTH,
+                                        message=str(_gd),
+                                        trace_id=str(uuid.uuid4()),
+                                        details=None,
+                                    ).model_dump()
+                                    _denied_payload["_server_pagination_metadata"] = {
+                                        "coerced_parameters": {},
+                                        "items_returned": 0,
+                                        "next_page_token": None,
+                                    }
+                                    return JSONResponse(content={
+                                        "jsonrpc": "2.0",
+                                        "id": _gate_body.get("id"),
+                                        "result": {
+                                            "content": [
+                                                {"type": "text", "text": json.dumps(_denied_payload, indent=2)}
+                                            ],
+                                            "structuredContent": _denied_payload,
+                                            "isError": False,
+                                        },
+                                    })
+                        except Exception as _gate_exc:
+                            logger.debug(
+                                "SCOPE-TRACE [dispatch-gate] policy pre-check skipped: %s", _gate_exc
+                            )
+
                 token = _streamable_http_identity_ctx.set(identity)
                 try:
                     return await call_next(request)

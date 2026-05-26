@@ -262,6 +262,35 @@ class ToolHiveMcpClient:
             headers["X-API-Key"] = self._auth_token
         return headers
 
+    @staticmethod
+    def _parse_mcp_response(resp: Any) -> Any:
+        """
+        Parse an MCP HTTP response that may be plain JSON **or** SSE-wrapped JSON.
+
+        The MCP Streamable-HTTP spec allows servers to return responses as
+        ``text/event-stream`` even for single-message replies (each message is a
+        ``data:`` line).  Plain JSON (``application/json``) is also legal.
+
+        Both shapes are handled here so the same client works against:
+        - The local Node Wire dev server (returns plain JSON)
+        - The real ToolHive container / spec-compliant servers (returns SSE)
+        """
+        content_type = resp.headers.get("content-type", "")
+        if "text/event-stream" in content_type:
+            # SSE body: one or more lines of the form "data: <json>\n\n"
+            # Grab the first non-empty data payload.
+            for raw_line in resp.text.splitlines():
+                line = raw_line.strip()
+                if line.startswith("data:"):
+                    payload = line[len("data:"):].strip()
+                    if payload and payload != "[DONE]":
+                        return json.loads(payload)
+            raise ValueError(
+                f"SSE response contained no parseable data line. body={resp.text!r}"
+            )
+        # Plain JSON path
+        return resp.json()
+
     def _inject_auth_meta(self, params: Dict[str, Any]) -> Dict[str, Any]:
         if not self._auth_token:
             return dict(params)
@@ -296,17 +325,40 @@ class ToolHiveMcpClient:
                 "clientInfo": {"name": "node-wire", "version": "1.0.0"},
             },
         }
+        
+        headers = self._build_request_headers()
+        has_auth = "Authorization" in headers
+        has_x_api = "X-API-Key" in headers
+        logger.info(
+            "MCP Handshake Auth Details | URL: %s | Auth Header: %s | X-API-Key Header: %s",
+            self._base_url,
+            f"Present (starts with {headers['Authorization'][:25]}...)" if has_auth else "Missing",
+            f"Present (starts with {headers['X-API-Key'][:10]}...)" if has_x_api else "Missing",
+        )
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 self._base_url,
                 json=init_payload,
-                headers=self._build_request_headers(),
+                headers=headers,
             )
             resp.raise_for_status()
             session_id = resp.headers.get("Mcp-Session-Id")
             if session_id:
                 self._session_id = session_id
-            data = resp.json()
+            try:
+                data = self._parse_mcp_response(resp)
+            except Exception as exc:
+                logger.error(
+                    "MCP handshake initialization failed: could not parse response from %s. "
+                    "HTTP Status: %d | Content-Type: %s | Content: %r | Error: %s",
+                    self._base_url,
+                    resp.status_code,
+                    resp.headers.get("content-type", "?"),
+                    resp.text[:500],
+                    exc,
+                )
+                raise
             if "error" in data:
                 raise RuntimeError(f"MCP initialize error: {data['error']}")
 
@@ -336,17 +388,51 @@ class ToolHiveMcpClient:
             payload["params"] = self._inject_auth_meta(params)
 
         url = self._base_url
+        headers = self._build_request_headers()
+        has_auth = "Authorization" in headers
+        has_x_api = "X-API-Key" in headers
+        meta_keys = list(payload.get("params", {}).get("_meta", {}).keys())
+        
+        logger.info(
+            "MCP Call Auth Details | URL: %s | Method: %s | Auth Header: %s | X-API-Key Header: %s | In-Band Meta Keys: %s",
+            url,
+            method,
+            f"Present (starts with {headers['Authorization'][:25]}...)" if has_auth else "Missing",
+            f"Present (starts with {headers['X-API-Key'][:10]}...)" if has_x_api else "Missing",
+            meta_keys,
+        )
+
         async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload, headers=self._build_request_headers())
+            resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
-            data = resp.json()
+            try:
+                data = self._parse_mcp_response(resp)
+            except Exception as exc:
+                logger.error(
+                    "Failed to parse response from MCP server at %s. "
+                    "HTTP Status: %d | Content-Type: %s | Content: %r | Error: %s",
+                    url,
+                    resp.status_code,
+                    resp.headers.get("content-type", "?"),
+                    resp.text[:500],
+                    exc,
+                )
+                raise
             if "error" in data:
                 raise RuntimeError(f"MCP error: {data['error']}")
             return data.get("result")
 
     async def list_tools(self) -> List[Dict[str, Any]]:
         result = await self._rpc("tools/list", {})
-        return result.get("tools", [])
+        tools = result.get("tools", [])
+        tool_names = [t.get("name") for t in tools if t.get("name")]
+        logger.info(
+            "Discovered %d tools from MCP server at %s: %s",
+            len(tools),
+            self._base_url,
+            tool_names,
+        )
+        return tools
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
         result = await self._rpc("tools/call", {"name": name, "arguments": arguments})

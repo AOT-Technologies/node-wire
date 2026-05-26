@@ -497,3 +497,184 @@ async def test_streamable_http_identity_context_is_used_by_mcp_server(
 
     assert resolved is not None
     assert resolved.principal == "api-key-user"
+
+
+# ---------------------------------------------------------------------------
+# ContextVar propagation regression tests
+#
+# Root cause: StreamableHTTPSessionManager spawns a long-lived session task
+# during `initialize`.  That task's context snapshot is taken *before* any
+# per-request _streamable_http_identity_ctx is set in the middleware, so the
+# identity ContextVar is always None inside handle_call_tool.
+#
+# Fix: _request_headers_from_context() reads Authorization from
+# request_ctx.request.headers (set fresh per-request by the MCP SDK) and
+# falls back to the _http_request_headers ContextVar.  _ensure_identity then
+# re-authenticates from those live headers instead of the stale ContextVar.
+# ---------------------------------------------------------------------------
+
+
+def test_request_headers_from_context_reads_request_ctx_request_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Primary path: headers come from request_ctx.request.headers (per-request, always fresh)."""
+
+    class _MockRequest:
+        headers = {"authorization": "Bearer from-request-ctx", "x-api-key": "key123"}
+
+    class _MockContext:
+        request = _MockRequest()
+        meta = None
+
+    try:
+        from mcp.server.lowlevel.server import request_ctx
+    except ImportError:
+        pytest.skip("mcp library not available")
+
+    server = McpServer(connector_ids=["smtp"])
+    tok = request_ctx.set(_MockContext())
+    try:
+        headers = server._request_headers_from_context()
+    finally:
+        request_ctx.reset(tok)
+
+    assert headers is not None
+    assert headers.get("authorization") == "Bearer from-request-ctx"
+    assert headers.get("x-api-key") == "key123"
+
+
+def test_request_headers_from_context_falls_back_to_http_request_headers_contextvar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fallback path: no request_ctx — reads from _http_request_headers ContextVar."""
+    from bindings.mcp_server.server import _http_request_headers
+
+    server = McpServer(connector_ids=["smtp"])
+    tok = _http_request_headers.set({"authorization": "Bearer from-contextvar"})
+    try:
+        headers = server._request_headers_from_context()
+    finally:
+        _http_request_headers.reset(tok)
+
+    assert headers is not None
+    assert headers.get("authorization") == "Bearer from-contextvar"
+
+
+def test_request_headers_from_context_returns_none_when_no_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When neither request_ctx nor ContextVar has headers, return None."""
+    server = McpServer(connector_ids=["smtp"])
+    # Neither ContextVar is set; request_ctx has no .request.headers
+    result = server._request_headers_from_context()
+    # Should be None (or an empty-headers context — either way, no Authorization)
+    if result is not None:
+        assert result.get("authorization") is None
+
+
+@pytest.mark.asyncio
+async def test_ensure_identity_falls_back_to_headers_when_identity_contextvar_stale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Regression: when _streamable_http_identity_ctx is NOT set (stale session task),
+    _ensure_identity must re-authenticate from _http_request_headers and return
+    the correct CallerIdentity including blocked_scopes from the JWT.
+    """
+    monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "true")
+    monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
+    monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
+
+    token = jwt.encode(
+        {
+            "sub": "alice",
+            "tenant_id": "demo",
+            "scopes": ["mcp:smtp.send_email"],
+            "blocked_scopes": ["mcp:smtp.send_email"],
+        },
+        "jwt-secret",
+        algorithm="HS256",
+    )
+
+    from bindings.mcp_server.server import _http_request_headers, _streamable_http_identity_ctx
+
+    server = McpServer(connector_ids=["smtp"])
+
+    # Confirm identity ContextVar is NOT set (simulates stale session task)
+    assert _streamable_http_identity_ctx.get() is None
+
+    # Simulate _ASGIApp setting headers for this request
+    hdr_tok = _http_request_headers.set({"authorization": f"Bearer {token}"})
+    try:
+        identity = server._ensure_identity(identity=None, meta=None)
+    finally:
+        _http_request_headers.reset(hdr_tok)
+
+    assert identity is not None
+    assert identity.principal == "alice"
+    assert identity.tenant_id == "demo"
+    assert "mcp:smtp.send_email" in identity.scopes
+    assert "mcp:smtp.send_email" in identity.blocked_scopes
+
+
+@pytest.mark.asyncio
+async def test_blocked_scope_enforced_via_headers_when_identity_contextvar_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    End-to-end regression test for the ContextVar propagation bug.
+
+    Scenario: session task was created at initialize time — _streamable_http_identity_ctx
+    is stale (None).  _http_request_headers carries the per-request Authorization header.
+    invoke_tool must still enforce blocked_scopes and return POLICY_DENIED.
+    """
+    monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "true")
+    monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
+    monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
+    monkeypatch.setenv(
+        "NW_MCP_ACTION_SCOPE_MAP_JSON",
+        '{"smtp.send_email":"mcp:smtp.send_email"}',
+    )
+
+    # JWT: smtp.send_email is in *both* scopes and blocked_scopes.
+    # Blocked always wins — tool must be denied.
+    token = jwt.encode(
+        {
+            "sub": "restricted-caller",
+            "tenant_id": "demo",
+            "scopes": ["mcp:smtp.send_email"],
+            "blocked_scopes": ["mcp:smtp.send_email"],
+        },
+        "jwt-secret",
+        algorithm="HS256",
+    )
+
+    from bindings.mcp_server.server import _http_request_headers, _streamable_http_identity_ctx
+
+    server = McpServer(connector_ids=["smtp"])
+
+    # _streamable_http_identity_ctx must be absent (stale session task)
+    assert _streamable_http_identity_ctx.get() is None
+
+    # _http_request_headers carries the live per-request Authorization header
+    hdr_tok = _http_request_headers.set({"authorization": f"Bearer {token}"})
+    try:
+        identity = server._ensure_identity(identity=None, meta=None)
+        assert identity is not None, "Must resolve identity from headers even without ContextVar"
+
+        resp = await server.invoke_tool(
+            "smtp.send_email",
+            {
+                "from_email": "sender@example.com",
+                "to": ["recipient@example.com"],
+                "subject": "blocked scope test",
+                "body": "this should never reach the SMTP server",
+            },
+            identity=identity,
+        )
+    finally:
+        _http_request_headers.reset(hdr_tok)
+
+    assert resp["success"] is False
+    assert resp["error_code"] == "POLICY_DENIED"
+    assert "Scope blocked for this action: mcp:smtp.send_email" in (resp["message"] or "")
