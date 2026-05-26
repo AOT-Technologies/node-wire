@@ -58,9 +58,7 @@ class SlackPage:
         """Change the action via the select element."""
         self.action_select.select_option(action)
 
-    def fill_message_fields(
-        self, channel: str | None = None, message: str | None = None
-    ) -> None:
+    def fill_message_fields(self, channel: str | None = None, message: str | None = None) -> None:
         """Fill post_message / send_direct_message parameters."""
         if channel is not None:
             self.channel.fill(channel)

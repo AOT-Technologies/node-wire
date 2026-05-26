@@ -60,9 +60,7 @@ def test_slack_post_message_default(playground_page: Page, slack_test_channel: s
     maybe_sleep()
 
 
-def test_slack_post_message_custom_message(
-    playground_page: Page, slack_test_channel: str
-) -> None:
+def test_slack_post_message_custom_message(playground_page: Page, slack_test_channel: str) -> None:
     """Post a message with custom content; summary must reflect the channel."""
     slack = _navigate_to_slack(playground_page)
 
@@ -105,9 +103,7 @@ def test_slack_post_message_invalid_channel(playground_page: Page) -> None:
 # ── send_direct_message ───────────────────────────────────────────────────────
 
 
-def test_slack_send_direct_message(
-    playground_page: Page, slack_test_user_id: str
-) -> None:
+def test_slack_send_direct_message(playground_page: Page, slack_test_user_id: str) -> None:
     """Send a DM to a real user; all 4 steps must succeed."""
     slack = _navigate_to_slack(playground_page)
 
@@ -139,9 +135,7 @@ def test_slack_upload_file(playground_page: Page, slack_upload_channel: str) -> 
 
     slack.select_action("upload_file")
 
-    with tempfile.NamedTemporaryFile(
-        suffix=".txt", delete=False, prefix="nw_slack_test_"
-    ) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, prefix="nw_slack_test_") as tmp:
         tmp.write(b"node-wire Slack upload integration test - safe to delete.")
         tmp_path = tmp.name
 
@@ -217,9 +211,7 @@ def test_slack_switch_post_message_then_upload(
     # Switch to upload_file and run
     slack.select_action("upload_file")
 
-    with tempfile.NamedTemporaryFile(
-        suffix=".txt", delete=False, prefix="nw_slack_switch_"
-    ) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, prefix="nw_slack_switch_") as tmp:
         tmp.write(b"Cross-action switch test - safe to delete.")
         tmp_path = tmp.name
 
