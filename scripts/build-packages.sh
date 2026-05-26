@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # build-packages.sh — Build Node Wire packages as binary-only wheels.
 #
 # Default mode (host + Linux via Docker):
@@ -34,6 +39,7 @@ ALL_PACKAGES=(
   packages/connectors/stripe
   packages/connectors/salesforce
   packages/connectors/http_generic
+  packages/connectors/slack
 )
 
 

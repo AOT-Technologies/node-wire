@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 from typing import Annotated, Any, Dict, Literal, Optional, Union
@@ -20,7 +24,15 @@ class FilesCreateOperation(BaseDriveOperation):
 
 class FilesListOperation(BaseDriveOperation):
     action: Literal["files.list"]
-    page_size: int = Field(10, ge=1, le=100)
+    page_size: Optional[int] = Field(
+        10, ge=1, le=100, description="Do not send null; omit if unsure."
+    )
+
+    @field_validator("page_size", mode="before")
+    @classmethod
+    def _default_page_size(cls, v: Any) -> int:
+        return 10 if v is None else int(v)
+
     query: Optional[str] = Field(None, description="Search query string.")
     fields: Optional[str] = Field(
         None,
@@ -66,9 +78,7 @@ class FilesGetOperation(BaseDriveOperation):
     file_id: str
     fields: Optional[str] = Field(
         None,
-        description=(
-            "Optional fields mask; if omitted, a safe default is used by the connector."
-        ),
+        description=("Optional fields mask; if omitted, a safe default is used by the connector."),
     )
 
 
@@ -91,7 +101,9 @@ class FilesUploadOperation(BaseDriveOperation):
     mime_type: str = Field(..., description="The MIME type of the file content.")
     parents: Optional[list[str]] = Field(None, description="List of parent folder IDs.")
     content: Optional[str] = Field(None, description="UTF-8 text content to upload.")
-    content_base64: Optional[str] = Field(None, description="Base64 encoded binary content to upload.")
+    content_base64: Optional[str] = Field(
+        None, description="Base64 encoded binary content to upload."
+    )
 
     @model_validator(mode="after")
     def exactly_one_of_content_or_base64(self) -> "FilesUploadOperation":

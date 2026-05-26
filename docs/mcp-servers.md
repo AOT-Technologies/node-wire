@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire — Individual MCP Servers
 
 This document covers everything needed to build, run, configure, and integrate the per-connector MCP servers with ToolHive and the Agentic Workflow.
@@ -32,11 +38,17 @@ flowchart TD
         Epic[nw-smartonfhir-epic]
         Cerner[nw-smartonfhir-cerner]
         SMTP[nw-smtp]
+        Stripe[nw-stripe]
+        Salesforce[nw-salesforce]
+        Slack[nw-slack]
     end
     Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
     Agent -->|"TOOLHIVE_MCP_URLS"| Epic
     Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
     Agent -->|"TOOLHIVE_MCP_URLS"| SMTP
+    Agent -->|"TOOLHIVE_MCP_URLS"| Stripe
+    Agent -->|"TOOLHIVE_MCP_URLS"| Salesforce
+    Agent -->|"TOOLHIVE_MCP_URLS"| Slack
 ```
 
 ---
@@ -51,6 +63,7 @@ flowchart TD
 | SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
 | Stripe | `python -m agents.stripe_mcp` | `nw-stripe` | `nw-stripe` | All manifest actions for `stripe` (e.g., `stripe.charge`) |
 | Salesforce | `python -m agents.salesforce_mcp` | `nw-salesforce` | `nw-salesforce` | All manifest actions for `salesforce` (e.g., `salesforce.create_lead`) |
+| Slack | `python -m agents.slack_mcp` | `nw-slack` | `nw-slack` | All manifest actions for `slack` (e.g. `slack.post_message`) |
 
 
 The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, `stripe.create_payment_intent`, `stripe.create_subscription`, `stripe.cancel_subscription`, `stripe.issue_refund`, plus the rows above).
@@ -97,7 +110,11 @@ PowerShell:
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 #### 2. Shifting to native HTTP mode (Port 8081)
@@ -109,7 +126,11 @@ $env:NW_MCP_TRANSPORT="streamable-http"
 $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 **Bash (Linux/macOS):**
@@ -118,7 +139,11 @@ export NW_MCP_TRANSPORT="streamable-http"
 export NW_MCP_HOST="127.0.0.1"
 export NW_MCP_PORT="8081"
 export NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+# Using uv
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 The native HTTP endpoint will be:
@@ -131,6 +156,23 @@ http://127.0.0.1:8081/mcp
 When running in `streamable-http` mode, clients must comply with the strict MCP Streamable-HTTP specification:
 - **Headers**: Clients must send `Accept: application/json, text/event-stream` on all requests.
 - **Handshake**: The server will respond with a `Mcp-Session-Id` header which must be forwarded in all subsequent messages for that session.
+- **Auth boundary**: Node Wire enforces MCP auth at the HTTP edge for the streamable endpoint (`/mcp`) before MCP handler dispatch. Missing/invalid credentials are rejected early with 401/403/503.
+
+### Production authz baseline (recommended)
+
+Use these settings for production-style posture:
+
+```env
+NW_MCP_AUTH_ENABLED=false
+NW_MCP_SCOPE_POLICY_DEFAULT=deny
+# Optional guardrail: fail startup if scope policy would be disabled
+NW_MCP_SCOPE_POLICY_STRICT=true
+```
+
+Notes:
+- `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
+- Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
+- API keys with `NW_MCP_API_KEY_SCOPES=*` are super-user keys by design and bypass per-action scope checks.
 
 ### Playground transport indicator
 
@@ -153,16 +195,16 @@ Use stdio mode when you want Inspector to launch the Python MCP server process i
 
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
-npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
+npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
 ```
 
 Per-connector examples:
 
 ```powershell
-npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_cerner_mcp
-npx @modelcontextprotocol/inspector python -m agents.smtp_mcp
+npx @modelcontextprotocol/inspector uv run nw-google-drive
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-epic
+npx @modelcontextprotocol/inspector uv run nw-smartonfhir-cerner
+npx @modelcontextprotocol/inspector uv run python -m agents.smtp_mcp
 ```
 
 In the Inspector UI:
@@ -218,6 +260,12 @@ Copy `sample.env` to `.env` and fill in the sections for the servers you plan to
 ```bash
 cp sample.env .env
 ```
+
+### Shared Required Variables
+
+| Variable | Description |
+|---|---|
+| `NW_ALLOWED_CONNECTORS` | **Required.** Comma-separated list of allowed connector names (e.g. `fhir_epic,google_drive`). Individual servers still check this allowlist before loading. |
 
 ### Per-server required variables
 
@@ -328,6 +376,18 @@ SALESFORCE_REFRESH_TOKEN=your-refresh-token
 ```
 
 
+#### `nw-slack`
+
+| Variable | Description |
+|---|---|
+| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token (`xoxb-...`) |
+| `NW_SLACK_ATTACHMENTS_DIR` | Optional: sandboxed directory for uploads (default: `/slack_attachments`) |
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+NW_SLACK_ATTACHMENTS_DIR=/slack_attachments
+```
+
 ### ToolHive / Agent settings
 
 | Variable | Description |
@@ -357,7 +417,7 @@ GROQ_API_KEY=your-groq-api-key
 
 Before building images, build local wheels first. See [docs/local-packages-to-images.md](local-packages-to-images.md) for the full package -> image workflow and required wheel artifacts per image.
 
-All four images are built from the repository root using the automation script:
+All MCP server images are built from the repository root using the automation script:
 
 ```bash
 ./scripts/build-mcp-images.sh
@@ -377,6 +437,9 @@ This produces images tagged as both `latest` and the version string:
 | `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
 | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
 | `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
+| `nw-stripe` | `nw-stripe:latest`, `nw-stripe:0.1.0` |
+| `nw-salesforce` | `nw-salesforce:latest`, `nw-salesforce:0.1.0` |
+| `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
 
 To build a single image manually from the repo root:
 
@@ -392,6 +455,15 @@ docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
 
 # SMTP only
 docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
+
+# Stripe only
+docker build -f docker/stripe/Dockerfile -t nw-stripe:latest .
+
+# Salesforce only
+docker build -f docker/salesforce/Dockerfile -t nw-salesforce:latest .
+
+# Slack only
+docker build -f docker/slack/Dockerfile -t nw-slack:latest .
 ```
 
 > **Note:** The build context must be the repository root (`.`) so the `COPY src/` and `COPY config/` instructions resolve correctly.
@@ -400,7 +472,7 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
 
 ## Run with docker-compose
 
-`docker-compose.mcp.yml` starts all four MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
+`docker-compose.mcp.yml` starts all MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
 
 ```bash
 # Ensure your .env is populated, then:
@@ -454,6 +526,25 @@ thv run --name nw-smtp --transport stdio \
   --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
   --secret FROM_EMAIL,target=FROM_EMAIL \
   nw-smtp:latest
+
+# Stripe
+thv run --name nw-stripe --transport stdio \
+  --secret STRIPE_API_KEY,target=STRIPE_API_KEY \
+  nw-stripe:latest
+
+# Salesforce
+thv run --name nw-salesforce --transport stdio \
+  --secret SALESFORCE_INSTANCE_URL,target=SALESFORCE_INSTANCE_URL \
+  --secret SALESFORCE_CLIENT_ID,target=SALESFORCE_CLIENT_ID \
+  --secret SALESFORCE_CLIENT_SECRET,target=SALESFORCE_CLIENT_SECRET \
+  --secret SALESFORCE_USERNAME,target=SALESFORCE_USERNAME \
+  --secret SALESFORCE_PASSWORD,target=SALESFORCE_PASSWORD \
+  nw-salesforce:latest
+
+# Slack
+thv run --name nw-slack --transport stdio \
+  --secret SLACK_BOT_TOKEN,target=SLACK_BOT_TOKEN \
+  nw-slack:latest
 ```
 
 > **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) when storing in ToolHive secrets, because ToolHive injects secrets as string values.
@@ -534,3 +625,21 @@ python -m agents.toolhive --local --patient-id 12724066 --recipient-email you@ex
 | `fhir_cerner connector not configured` | Missing Cerner env vars | Ensure all `CERNER_*` variables are set and non-empty |
 | Docker build fails with `COPY src/ not found` | Wrong build context | Always run `docker build` from the **repository root**, not from `docker/<name>/` |
 | Image healthcheck fails | Import error at startup | Run `docker logs <container>` to see the Python traceback; usually a missing env var |
+
+## Rollout verification checklist
+
+Use this checklist when promoting streamable-http MCP to production:
+
+1. Confirm edge auth gate behavior:
+   - No token -> `401 MCP_AUTH_REQUIRED`
+   - Invalid token -> `403 MCP_AUTH_INVALID`
+   - Valid token -> request reaches MCP handlers
+2. Confirm scope baseline:
+   - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` is set in deployed env
+   - Optionally enforce `NW_MCP_SCOPE_POLICY_STRICT=true`
+3. Confirm authorization telemetry:
+   - Track trends for 401/403 and `POLICY_DENIED` responses after rollout
+   - Verify expected tool visibility changes in `tools/list` for scoped identities
+4. Confirm privileged-key controls:
+   - Any API key with wildcard scope (`*`) is documented and approved
+   - Non-admin API keys use minimal scopes only

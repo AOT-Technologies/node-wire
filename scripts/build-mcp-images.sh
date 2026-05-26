@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,6 +21,7 @@ Images:
   - nw-smartonfhir-cerner
   - nw-smtp
   - nw-stripe
+  - nw-slack
 EOF
 }
 
@@ -77,5 +82,9 @@ docker build -f docker/salesforce/Dockerfile \
   .
 
 
-echo "Done."
+docker build -f docker/slack/Dockerfile \
+  -t nw-slack:latest \
+  -t "nw-slack:${VERSION}" \
+  .
 
+echo "Done."

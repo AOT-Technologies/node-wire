@@ -1,19 +1,23 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import copy
 from typing import Any, Dict, List, Type
-
-# Bump when published input/output schema shape policy changes (MCP clients cache tools/list).
-MCP_MANIFEST_CONTRACT_VERSION = "2"
 
 from pydantic import BaseModel
 
 from node_wire_runtime import BaseConnector
 from node_wire_runtime.models import ErrorCategory
 
+# Bump when published input/output schema shape policy changes (MCP clients cache tools/list).
+MCP_MANIFEST_CONTRACT_VERSION = "3"
+
 
 def _schema_for(model: Type[BaseModel], *, strict: bool = True) -> Dict[str, Any]:
-    schema = copy.deepcopy(model.model_json_schema())
+    schema = copy.deepcopy(model.model_json_schema(by_alias=False))
     # Remove `action` from `required`: it is always auto-injected from the tool
     # name by invoke_tool (run_args.setdefault("action", action)), so LLMs must
     # not be required to pass it.  Keeping it as an optional property is fine.
@@ -119,6 +123,10 @@ def build_manifest(
                     "action": action_name,
                     "input_schema": input_schema,
                     "output_schema": _connector_response_schema(meta.output_model),
+                    "requires_auth": meta.requires_auth,
+                    "scopes": meta.scopes if meta.scopes is not None else [],
+                    "rate_limit": meta.rate_limit if meta.rate_limit is not None else {},
+                    "deprecated": meta.deprecated,
                 }
             )
     return manifest

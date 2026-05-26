@@ -6,7 +6,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from node_wire_runtime import BaseConnector, nw_action
-from node_wire_runtime.policies.mcp_scope_policy import ScopePolicyHook
+from node_wire_runtime.policies.mcp_scope_policy import (
+    DEFAULT_SCOPE_MODE_DENY,
+    ScopePolicyHook,
+)
 
 
 class _Input(BaseModel):
@@ -19,7 +22,8 @@ class _Output(BaseModel):
 
 
 class _PolicyTestConnector(BaseConnector):
-    connector_id = "policy_test_fhir_epic"
+    # Do not shadow production ``fhir_epic`` in the global registry.
+    connector_id = "policy_transport_test"
     output_model = _Output
 
     @nw_action("read_patient")
@@ -29,15 +33,13 @@ class _PolicyTestConnector(BaseConnector):
 
 def _connector_with_scope_map() -> _PolicyTestConnector:
     return _PolicyTestConnector(
-        policy_hook=ScopePolicyHook({"policy_test_fhir_epic.read_patient": "mcp:fhir.read_patient"})
+        policy_hook=ScopePolicyHook({"policy_transport_test.read_patient": "mcp:fhir.read_patient"})
     )
 
 
 def test_scope_policy_bypasses_when_identity_missing_like_grpc() -> None:
     connector = _connector_with_scope_map()
-    response = asyncio.run(
-        connector.run({"action": "read_patient", "resource_id": "x"})
-    )
+    response = asyncio.run(connector.run({"action": "read_patient", "resource_id": "x"}))
 
     assert response.success is True
     assert response.error_code is None
@@ -58,3 +60,31 @@ def test_scope_policy_denies_when_identity_present_without_required_scope() -> N
     assert response.error_code == "POLICY_DENIED"
     assert response.message == "Missing required scope: mcp:fhir.read_patient"
 
+
+def test_scope_policy_default_deny_uses_conventional_scope() -> None:
+    hook = ScopePolicyHook({}, default_mode=DEFAULT_SCOPE_MODE_DENY)
+    connector = _PolicyTestConnector(policy_hook=hook)
+    response = asyncio.run(
+        connector.run(
+            {"action": "read_patient", "resource_id": "x"},
+            principal="alice",
+            tenant_id="tenant-1",
+            scopes=("mcp:policy_transport_test.read_patient",),
+        )
+    )
+    assert response.success is True
+
+
+def test_scope_policy_default_deny_without_fallback_scope() -> None:
+    hook = ScopePolicyHook({}, default_mode=DEFAULT_SCOPE_MODE_DENY)
+    connector = _PolicyTestConnector(policy_hook=hook)
+    response = asyncio.run(
+        connector.run(
+            {"action": "read_patient", "resource_id": "x"},
+            principal="alice",
+            tenant_id="tenant-1",
+            scopes=("mcp:wrong",),
+        )
+    )
+    assert response.success is False
+    assert "Missing required scope" in (response.message or "")

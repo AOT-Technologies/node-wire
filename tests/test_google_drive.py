@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import asyncio
@@ -17,7 +21,6 @@ from node_wire_google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnect
 from node_wire_google_drive.schema import (
     FilesUploadOperation,
     GoogleDriveOperationInput,
-    GoogleDriveOperationOutput,
 )
 from node_wire_runtime import SecretProvider
 

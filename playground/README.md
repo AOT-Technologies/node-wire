@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Node Wire Playground
 
 This folder contains a fully functional playground for **Node Wire**, showcasing how it orchestrates complex workflows across disparate systems like Electronic Health Records (EHR) and IT Service Management (ITSM) tools.
@@ -65,6 +71,19 @@ This scenario demonstrates the platform's highest level of abstraction: an auton
     4.  **Transport-aware Interaction**: Shows the active MCP transport in the chat panel and adjusts rendering behavior to match it.
 *   **Implementation**: Leverages the `agents` module, providing a unified interface for LLMs to interact with any connector in the platform via a standard MCP bridge.
 
+### Scenario 6: External Patient Viewer (Read-Only Retrieval)
+This scenario loads a source EHR chart on demand for target viewer workflows without duplicating chart data or creating new FHIR resources.
+
+*   **Logic Flow**:
+    1.  **Patient Resolution**: Uses a direct FHIR Patient ID when available, or resolves identity with given name, family name, and optional birthdate.
+    2.  **Demographics Retrieval**: Calls `read_patient` against the selected source EHR and displays the resolved patient identity.
+    3.  **Encounter Retrieval**: Calls `search_encounter` for the resolved patient with a configurable result limit.
+    4.  **Document Metadata Retrieval**: Calls `search_document_reference` for available document metadata. When no `DocumentReference` records are returned, the workflow presents encounters as lightweight fallback document rows.
+    5.  **Chart Assembly**: Produces a unified external chart view containing demographics, encounters, documents, source system, trace ID, and read-only status.
+*   **Implementation**: Uses the existing Epic and Cerner FHIR connectors through `playground/scenarios.py` and the input schema in `playground/ext_patient_viewer/schema.py`. The workflow calls only read/search actions and reports `0 Writes` in the UI.
+*   **Endpoint**: `POST /scenarios/external-patient-viewer`
+*   **Supported Sources**: Epic FHIR R4 and Cerner FHIR R4.
+
 #### MCP transport behavior in the playground
 
 The Agentic Workflow panel displays the active transport as a pill:
@@ -77,7 +96,7 @@ Set the mode before starting the REST API:
 ```powershell
 # Buffered stdio mode
 $env:NW_MCP_TRANSPORT="stdio"
-python -m uv run node-wire
+uv run node-wire
 ```
 
 ```powershell
@@ -86,7 +105,7 @@ $env:NW_MCP_TRANSPORT="streamable-http"
 $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
-python -m uv run node-wire
+uv run node-wire
 ```
 
 After changing `NW_MCP_TRANSPORT`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
@@ -143,7 +162,7 @@ The demo is pre-configured with mock/sandbox endpoints for immediate use. To tes
 ### Testing Real Epic/Cerner (EHR)
 1.  **Update Config**: Modify `config/connectors.yaml` to point to a real Epic/Cerner Sandbox or Production URL.
 2.  **Auth**: Ensure you have valid `CLIENT_ID` and `PRIVATE_KEY` for the EHR's Backend System OAuth2 flow (SMART on FHIR).
-3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment. 
+3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment.
     - **Cerner Note**: Ensure you use numeric Practitioner IDs (e.g., `593923`) and valid CodeSet 72 codes.
 
 ### Testing Google Drive Vault (Manual End-to-End)
@@ -165,6 +184,7 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 2.  **Add API Key**: Provide the corresponding key, e.g., `GROQ_API_KEY=your_key_here`.
 3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
 4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
+5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).
 
 ---
 
@@ -172,11 +192,14 @@ To enable the AI Agent chat, you need to configure an LLM provider:
 
 1.  Navigate to the project root.
 2.  Start the FastAPI server:
-    
+
 ```bash
-# Recommended
-python -m uv run node-wire
+# Using uv (recommended)
+uv run node-wire
+
+# Using python
+python -m bindings_entrypoint
 ```
 
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).
-4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive Vault**, and **AI Agent** tabs to explore the different workflows.
+4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive Vault**, **AI Agent**, **Slack**, **Stripe**, **Salesforce** and **External Patient Viewer** cards to explore the different workflows.

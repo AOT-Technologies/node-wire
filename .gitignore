@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
 
 build/
 .pytest_cache
@@ -11,11 +14,12 @@ dist/
 .coverage
 .coverage.*
 htmlcov/
-
+*.gitattributes
 # GCP / cloud credentials
 connectorplatform-*.json
 *-service-account.json
 *credentials*.json
+service_account.json
 
 # Grafana exports (auto-generated)
 grafana/*.json
@@ -27,3 +31,12 @@ uv.lock
 upload-test.txt
 *-test.txt
 upload-*.txt
+coverage.xml
+bandit-report.json
+.venv*/
+
+# debug
+launch.json
+
+# log
+mcp_debug.log

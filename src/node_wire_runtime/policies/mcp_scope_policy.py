@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Optional
 
 from dotenv import load_dotenv
 
@@ -12,18 +12,113 @@ from node_wire_runtime.policy import PolicyContext, PolicyDenied, PolicyHook
 
 logger = logging.getLogger("runtime.policy.scope")
 
+# Public for tests and MCP tool listing (must match hook behavior).
+DEFAULT_SCOPE_MODE_ALLOW = "allow"
+DEFAULT_SCOPE_MODE_DENY = "deny"
+
+
+def _truthy_default_mode(val: str | None) -> str:
+    if val is None:
+        return DEFAULT_SCOPE_MODE_ALLOW
+    v = val.strip().lower()
+    if v in ("deny", "default-deny", "closed"):
+        return DEFAULT_SCOPE_MODE_DENY
+    return DEFAULT_SCOPE_MODE_ALLOW
+
+
+def load_scope_policy_default_from_env() -> str:
+    """Return ``allow`` or ``deny`` from ``NW_MCP_SCOPE_POLICY_DEFAULT``."""
+    raw = os.environ.get("NW_MCP_SCOPE_POLICY_DEFAULT")
+    if not raw or not str(raw).strip():
+        return DEFAULT_SCOPE_MODE_ALLOW
+    return _truthy_default_mode(str(raw))
+
+
+def resolve_required_scope_for_action(
+    *,
+    connector_id: str,
+    action: str,
+    action_scope_map: Mapping[str, str],
+    default_mode: str,
+) -> Optional[str]:
+    """
+    Determine the scope string required for this action.
+
+    - **allow** (default): only enforce when ``NW_MCP_ACTION_SCOPE_MAP_JSON`` has
+      an entry for ``connector_id.action``.
+    - **deny**: require either that explicit map entry or the conventional
+      fallback ``mcp:<connector_id>.<action>``.
+    """
+    action_key = f"{connector_id}.{action}"
+    explicit = action_scope_map.get(action_key)
+    if explicit:
+        return explicit
+    if default_mode == DEFAULT_SCOPE_MODE_DENY:
+        return f"mcp:{connector_id}.{action}"
+    return None
+
+
+def action_allowed_for_identity_scopes(
+    *,
+    connector_id: str,
+    action: str,
+    principal: Optional[str],
+    tenant_id: Optional[str],
+    scopes: Optional[tuple[str, ...]],
+    action_scope_map: Mapping[str, str],
+    default_mode: str,
+) -> bool:
+    """
+    Same authorization decision as :class:`ScopePolicyHook` / ``tools/list`` filtering.
+
+    Returns True if the action should be visible or executable for this caller.
+    """
+    required = resolve_required_scope_for_action(
+        connector_id=connector_id,
+        action=action,
+        action_scope_map=action_scope_map,
+        default_mode=default_mode,
+    )
+    scope_tuple = tuple(scopes or ())
+    # Defer transport-specific authz until caller identity is propagated.
+    if required and not principal and not scope_tuple:
+        logger.info(
+            "Scope policy bypassed due to missing caller identity",
+            extra={
+                "action_key": f"{connector_id}.{action}",
+                "required_scope": required,
+            },
+        )
+        return True
+    if not required:
+        return True
+    scope_set = set(scope_tuple)
+    return required in scope_set or "*" in scope_set
+
 
 class ScopePolicyHook(PolicyHook):
-    def __init__(self, action_scope_map: Mapping[str, str]) -> None:
+    def __init__(
+        self,
+        action_scope_map: Mapping[str, str],
+        *,
+        default_mode: str = DEFAULT_SCOPE_MODE_ALLOW,
+    ) -> None:
         self._map = dict(action_scope_map)
+        self._default_mode = (
+            default_mode
+            if default_mode in (DEFAULT_SCOPE_MODE_ALLOW, DEFAULT_SCOPE_MODE_DENY)
+            else DEFAULT_SCOPE_MODE_ALLOW
+        )
 
     def check(self, context: PolicyContext) -> None:
         action_key = f"{context.connector_id}.{context.action}"
-        required = self._map.get(action_key)
+        required = resolve_required_scope_for_action(
+            connector_id=context.connector_id,
+            action=context.action,
+            action_scope_map=self._map,
+            default_mode=self._default_mode,
+        )
         scopes = tuple(context.scopes or ())
-        # Defer transport-specific authz until caller identity is propagated.
-        # This prevents non-identity paths (e.g. current gRPC) from being
-        # denied solely because MCP scope map is configured.
         if required and not context.principal and not scopes:
             logger.info(
                 "Scope policy bypassed due to missing caller identity",
@@ -55,10 +150,13 @@ def load_scope_map_from_env() -> dict[str, str]:
     raw = os.environ.get("NW_MCP_ACTION_SCOPE_MAP_JSON")
     if not raw:
         # Mirror MCP auth bootstrap behavior: recover config from project .env
-        # when launch paths inherit incomplete shell env.
-        repo_root_env = Path(__file__).resolve().parents[3] / ".env"
-        load_dotenv(override=True)
-        load_dotenv(repo_root_env, override=True)
+        # when launch paths inherit incomplete shell env. Use override=False so
+        # explicitly set variables (e.g. pytest conftest, production injection) are not
+        # stomped by repo .env — same as playground/scenarios load_dotenv().
+        if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+            repo_root_env = Path(__file__).resolve().parents[3] / ".env"
+            load_dotenv(override=False)
+            load_dotenv(repo_root_env, override=False)
         raw = os.environ.get("NW_MCP_ACTION_SCOPE_MAP_JSON")
     if not raw:
         logger.info("Scope policy map not configured (env empty)")

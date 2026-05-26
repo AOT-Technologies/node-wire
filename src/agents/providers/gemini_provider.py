@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Gemini LLM Provider
 ===================
@@ -8,9 +12,9 @@ MCP tool format and Gemini's format.
 Required env var:  GEMINI_API_KEY
 Optional env var:  GEMINI_MODEL  (default: gemini-2.0-flash)
 """
+
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from typing import Any, Dict, List, Optional
@@ -34,10 +38,13 @@ def _mcp_schema_to_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     return cleaned
 
 
+genai: Any = None
 try:
-    import google.generativeai as genai
+    import google.generativeai as _genai
+
+    genai = _genai
 except ImportError:
-    genai = None
+    pass
 
 
 def _clean_gemini_args(args: Any) -> Any:
@@ -79,11 +86,13 @@ class GeminiProvider(BaseLLMProvider):
                 schema = _mcp_schema_to_gemini(
                     t.get("input_schema", {"type": "object", "properties": {}})
                 )
-                decls.append(FunctionDeclaration(
-                    name=t["name"],
-                    description=t.get("description", ""),
-                    parameters=schema,
-                ))
+                decls.append(
+                    FunctionDeclaration(
+                        name=t["name"],
+                        description=t.get("description", ""),
+                        parameters=schema,
+                    )
+                )
             gemini_tools = [Tool(function_declarations=decls)]
 
         # Translate conversation to Gemini Contents format
@@ -104,22 +113,28 @@ class GeminiProvider(BaseLLMProvider):
                     parts.append(m.content)
                 if m.tool_calls:
                     for tc in m.tool_calls:
-                        parts.append(genai.protos.Part(
-                            function_call=genai.protos.FunctionCall(
-                                name=tc.name, args=tc.arguments
+                        parts.append(
+                            genai.protos.Part(
+                                function_call=genai.protos.FunctionCall(
+                                    name=tc.name, args=tc.arguments
+                                )
                             )
-                        ))
+                        )
                 chat_history.append({"role": "model", "parts": parts})
             elif m.role == "tool":
-                chat_history.append({
-                    "role": "function",
-                    "parts": [genai.protos.Part(
-                        function_response=genai.protos.FunctionResponse(
-                            name=m.name or "tool",
-                            response={"result": m.content or ""},
-                        )
-                    )],
-                })
+                chat_history.append(
+                    {
+                        "role": "function",
+                        "parts": [
+                            genai.protos.Part(
+                                function_response=genai.protos.FunctionResponse(
+                                    name=m.name or "tool",
+                                    response={"result": m.content or ""},
+                                )
+                            )
+                        ],
+                    }
+                )
 
         model = genai.GenerativeModel(
             model_name=self._model_name,

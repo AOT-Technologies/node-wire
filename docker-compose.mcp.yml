@@ -1,3 +1,7 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
 services:
   nw-google-drive:
     image: nw-google-drive:latest
@@ -36,6 +40,13 @@ services:
 
   nw-salesforce:
     image: nw-salesforce:latest
+    env_file: .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  nw-slack:
+    image: nw-slack:latest
     env_file: .env
     stdin_open: true
     tty: true

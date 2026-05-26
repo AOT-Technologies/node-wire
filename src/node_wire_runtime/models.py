@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -22,4 +26,6 @@ class ConnectorResponse(BaseModel):
     error_category: Optional[ErrorCategory] = None
     message: Optional[str] = None
     trace_id: str
-    details: Optional[Any] = None  # e.g. validation errors: [{"loc": ["url"], "msg": "...", "type": "..."}]
+    details: Optional[Any] = (
+        None  # e.g. validation errors: [{"loc": ["url"], "msg": "...", "type": "..."}]
+    )

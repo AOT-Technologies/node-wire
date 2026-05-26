@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Groq LLM Provider
 =================
@@ -7,11 +11,12 @@ uses the same schema and response format as OpenAI.
 Required env var:  GROQ_API_KEY
 Optional env var:  GROQ_MODEL  (default: llama-3.3-70b-versatile)
 """
+
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
@@ -34,33 +39,42 @@ def _messages_to_groq(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     result = []
     for m in messages:
         if m.role == "tool":
-            result.append({
-                "role": "tool",
-                "tool_call_id": m.tool_call_id,
-                "content": m.content or "",
-            })
+            result.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": m.tool_call_id,
+                    "content": m.content or "",
+                }
+            )
         elif m.tool_calls:
-            result.append({
+            assistant_msg: Dict[str, Any] = {
                 "role": "assistant",
-                "content": m.content,
+                "content": m.content if m.content is not None else "",
                 "tool_calls": [
                     {
                         "id": tc.id,
                         "type": "function",
-                        "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+                        "function": {
+                            "name": tc.name,
+                            "arguments": json.dumps(tc.arguments),
+                        },
                     }
                     for tc in m.tool_calls
                 ],
-            })
+            }
+            result.append(cast(Dict[str, Any], assistant_msg))
         else:
             result.append({"role": m.role, "content": m.content or ""})
     return result
 
 
+Groq: Any = None
 try:
-    from groq import Groq
+    from groq import Groq as _Groq
+
+    Groq = _Groq
 except ImportError:
-    Groq = None
+    pass
 
 
 class GroqProvider(BaseLLMProvider):
@@ -68,9 +82,7 @@ class GroqProvider(BaseLLMProvider):
 
     def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile") -> None:
         if Groq is None:
-            raise ImportError(
-                "groq SDK not installed. Run: pip install 'node-wire[agents]'"
-            )
+            raise ImportError("groq SDK not installed. Run: pip install 'node-wire[agents]'")
         self._client = Groq(api_key=api_key)
         self._model = model
         logger.info("GroqProvider initialised | model=%s", model)
@@ -88,8 +100,12 @@ class GroqProvider(BaseLLMProvider):
             kwargs["tools"] = groq_tools
             kwargs["tool_choice"] = "auto"
 
-        logger.debug("Groq request | model=%s | messages=%d | tools=%d",
-                     self._model, len(groq_messages), len(groq_tools))
+        logger.debug(
+            "Groq request | model=%s | messages=%d | tools=%d",
+            self._model,
+            len(groq_messages),
+            len(groq_tools),
+        )
 
         response = self._client.chat.completions.create(**kwargs)
         choice = response.choices[0]

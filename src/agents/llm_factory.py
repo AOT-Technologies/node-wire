@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 LLM Provider Factory
 ====================
@@ -16,21 +20,24 @@ Supported providers (set via LLM_PROVIDER env var):
   gemini                — gemini-2.0-flash
   anthropic             — claude-3-5-haiku-20241022
 """
+
 from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 
 # ---------------------------------------------------------------------------
 # Data models (provider-agnostic)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ToolCall:
     """A single tool-call request returned by the LLM."""
+
     id: str
     name: str
     arguments: Dict[str, Any]
@@ -39,19 +46,21 @@ class ToolCall:
 @dataclass
 class LLMMessage:
     """A single message in the conversation thread."""
-    role: str                          # "system" | "user" | "assistant" | "tool"
+
+    role: str  # "system" | "user" | "assistant" | "tool"
     content: Optional[str] = None
     tool_calls: List[ToolCall] = field(default_factory=list)
     tool_call_id: Optional[str] = None  # required for role="tool" responses
-    name: Optional[str] = None          # tool name for role="tool"
+    name: Optional[str] = None  # tool name for role="tool"
 
 
 @dataclass
 class LLMResponse:
     """Raw response from the LLM."""
+
     content: Optional[str]
     tool_calls: List[ToolCall] = field(default_factory=list)
-    stop_reason: str = "stop"          # "stop" | "tool_calls"
+    stop_reason: str = "stop"  # "stop" | "tool_calls"
 
     @property
     def wants_tool_call(self) -> bool:
@@ -61,6 +70,7 @@ class LLMResponse:
 # ---------------------------------------------------------------------------
 # Abstract base
 # ---------------------------------------------------------------------------
+
 
 class BaseLLMProvider(ABC):
     """Common interface for all LLM providers."""
@@ -93,18 +103,25 @@ class BaseLLMProvider(ABC):
 # Factory
 # ---------------------------------------------------------------------------
 
+# Optional provider classes when [agents] extras are not installed.
+GroqProvider: Optional[Type[BaseLLMProvider]] = None
+OpenAIProvider: Optional[Type[BaseLLMProvider]] = None
+GeminiProvider: Optional[Type[BaseLLMProvider]] = None
+AnthropicProvider: Optional[Type[BaseLLMProvider]] = None
+
 try:
-    from agents.providers.groq_provider import GroqProvider
-    from agents.providers.openai_provider import OpenAIProvider
-    from agents.providers.gemini_provider import GeminiProvider
-    from agents.providers.anthropic_provider import AnthropicProvider
+    from agents.providers.groq_provider import GroqProvider as _GroqProvider
+    from agents.providers.openai_provider import OpenAIProvider as _OpenAIProvider
+    from agents.providers.gemini_provider import GeminiProvider as _GeminiProvider
+    from agents.providers.anthropic_provider import AnthropicProvider as _AnthropicProvider
+
+    GroqProvider = _GroqProvider
+    OpenAIProvider = _OpenAIProvider
+    GeminiProvider = _GeminiProvider
+    AnthropicProvider = _AnthropicProvider
 except ImportError:
-    # These may fail if running in an environment without the full [agents] extras,
-    # but we handle this during instantiation if needed.
-    GroqProvider = None
-    OpenAIProvider = None
-    GeminiProvider = None
-    AnthropicProvider = None
+    # Leave all four as None; create() raises ImportError with a clear message.
+    pass
 
 
 class LLMProviderFactory:
@@ -128,7 +145,7 @@ class LLMProviderFactory:
         e.g. ``api_key``, ``model``.
         """
         provider = provider.lower().strip()
-        
+
         if provider == "groq":
             if GroqProvider is None:
                 raise ImportError("GroqProvider could not be loaded. Check dependencies.")
@@ -148,8 +165,7 @@ class LLMProviderFactory:
         else:
             supported = ["groq", "openai", "gemini", "anthropic"]
             raise ValueError(
-                f"Unknown LLM provider {provider!r}. "
-                f"Supported: {', '.join(supported)}"
+                f"Unknown LLM provider {provider!r}. Supported: {', '.join(supported)}"
             )
 
     @classmethod

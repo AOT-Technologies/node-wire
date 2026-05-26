@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import httpx
@@ -15,4 +19,3 @@ ErrorMapper.register(httpx.RequestError, ErrorCategory.FATAL, code="HTTP_REQUEST
 
 # HTTP status errors are treated as BUSINESS by default; bindings may translate status_code further.
 ErrorMapper.register(httpx.HTTPStatusError, ErrorCategory.BUSINESS, code="HTTP_STATUS_ERROR")
-
