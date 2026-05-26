@@ -101,10 +101,16 @@ jobs:
           SALESFORCE_CLIENT_SECRET: ${{ secrets.SALESFORCE_CLIENT_SECRET }}
           SALESFORCE_REFRESH_TOKEN: ${{ secrets.SALESFORCE_REFRESH_TOKEN }}
 
+          #slack
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_TEST_CHANNEL: ${{ secrets.SLACK_TEST_CHANNEL }}
+          SLACK_TEST_USER_ID: ${{ secrets.SLACK_TEST_USER_ID }}
+          SLACK_TEST_CHANNEL_ID: ${{ secrets.SLACK_TEST_CHANNEL_ID }}
+
           # Disable authentication and dotenv loading for playground tests, and restrict connectors
           NW_REST_AUTH_DISABLED: "true"
           NW_REST_LOAD_DOTENV: "false"
-          NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe"
+          NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe,slack"
         run: uv run pytest tests/playground/ --no-cov -v
 
       - name: Upload Playwright traces on failure

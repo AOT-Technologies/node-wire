@@ -11,19 +11,18 @@ resulting pipeline state — no API mocking, real Google Drive calls.
 Required env vars (loaded from .env):
   GOOGLE_DRIVE_SA_JSON       — service-account JSON (path or inline JSON)
   GOOGLE_DRIVE_FOLDER_ID     — target folder for uploads
-  GDRIVE_TEST_RECIPIENT_EMAIL — email used as sharing recipient (default: rahul.ap@aot-technologies.com)
+  GDRIVE_TEST_RECIPIENT_EMAIL — email used as sharing recipient (default: test@mailinator.com)
 """
 
 from __future__ import annotations
 
-import os
 import tempfile
-import time
 
 from playwright.sync_api import Page, expect
 
 from tests.playground.gdrive.gdrive_page import GoogleDrivePage
 from tests.playground.home_page import PlaygroundHomePage
+from tests.playground.utils import maybe_sleep
 
 _TIMEOUT_STEP = 20_000  # ms — single-step operations (list, get)
 _TIMEOUT_MULTI = 45_000  # ms — multi-step operations (upload, update)
@@ -34,12 +33,6 @@ def _navigate_to_gdrive(page: Page) -> GoogleDrivePage:
     gdrive = GoogleDrivePage(page)
     gdrive.navigate_to_panel()
     return gdrive
-
-
-def _maybe_sleep() -> None:
-    env = os.getenv("PLAYGROUND_HEADED") or os.getenv("HEADED")
-    if env and env.lower().strip() in ("true", "1", "yes"):
-        time.sleep(3)
 
 
 # ── files.list ────────────────────────────────────────────────────────────────
@@ -58,7 +51,7 @@ def test_gdrive_list_files_default_page_size(playground_page: Page) -> None:
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(gdrive.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_gdrive_list_files_explicit_page_size(playground_page: Page) -> None:
@@ -75,7 +68,7 @@ def test_gdrive_list_files_explicit_page_size(playground_page: Page) -> None:
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(gdrive.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_gdrive_list_files_with_query(playground_page: Page) -> None:
@@ -90,7 +83,7 @@ def test_gdrive_list_files_with_query(playground_page: Page) -> None:
     expect(gdrive.final_result).to_be_visible(timeout=_TIMEOUT_STEP)
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── files.get ─────────────────────────────────────────────────────────────────
@@ -111,7 +104,7 @@ def test_gdrive_get_file(playground_page: Page, real_gdrive_file_id: str) -> Non
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(gdrive.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_gdrive_get_file_without_fields(playground_page: Page, real_gdrive_file_id: str) -> None:
@@ -126,7 +119,7 @@ def test_gdrive_get_file_without_fields(playground_page: Page, real_gdrive_file_
     expect(gdrive.final_result).to_be_visible(timeout=_TIMEOUT_STEP)
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_gdrive_get_file_invalid_id(playground_page: Page) -> None:
@@ -142,7 +135,7 @@ def test_gdrive_get_file_invalid_id(playground_page: Page) -> None:
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Failed")
     expect(gdrive.log_terminal).to_contain_text("FAILED")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── files.update ──────────────────────────────────────────────────────────────
@@ -168,7 +161,7 @@ def test_gdrive_update_file_name(playground_page: Page, uploaded_test_file_id: s
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(gdrive.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_gdrive_update_file_name_and_mime(
@@ -191,7 +184,7 @@ def test_gdrive_update_file_name_and_mime(
     expect(gdrive.final_result).to_be_visible(timeout=_TIMEOUT_MULTI)
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 # ── files.upload ──────────────────────────────────────────────────────────────
@@ -222,7 +215,7 @@ def test_gdrive_upload_file(playground_page: Page, test_recipient_email: str) ->
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
     expect(gdrive.log_terminal).to_contain_text("SUCCESS")
 
-    _maybe_sleep()
+    maybe_sleep()
 
 
 def test_gdrive_upload_remove_and_reattach(playground_page: Page) -> None:
@@ -272,4 +265,4 @@ def test_gdrive_switch_list_then_get(playground_page: Page, real_gdrive_file_id:
     expect(gdrive.summary_text).to_contain_text("Google Drive file metadata")
     expect(playground_page.locator("#gdrive-run-btn .btn-lbl")).to_have_text("Workflow Active")
 
-    _maybe_sleep()
+    maybe_sleep()
