@@ -29,6 +29,8 @@ def _mcp_schema_to_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
         cleaned["properties"] = {
             k: _mcp_schema_to_gemini(v) for k, v in cleaned["properties"].items()
         }
+    if "items" in cleaned and isinstance(cleaned["items"], dict):
+        cleaned["items"] = _mcp_schema_to_gemini(cleaned["items"])
     return cleaned
 
 
@@ -36,6 +38,15 @@ try:
     import google.generativeai as genai
 except ImportError:
     genai = None
+
+
+def _clean_gemini_args(args: Any) -> Any:
+    """Recursively convert any MapComposite/protobuf structures to pure python dict/list."""
+    if hasattr(args, "items") or isinstance(args, dict):
+        return {k: _clean_gemini_args(v) for k, v in args.items()}
+    if isinstance(args, (list, tuple)):
+        return [_clean_gemini_args(v) for v in args]
+    return args
 
 
 class GeminiProvider(BaseLLMProvider):
@@ -124,11 +135,13 @@ class GeminiProvider(BaseLLMProvider):
         for part in response.parts:
             if hasattr(part, "function_call") and part.function_call.name:
                 fc = part.function_call
-                tool_calls.append(ToolCall(
-                    id=str(uuid.uuid4()),
-                    name=fc.name,
-                    arguments=dict(fc.args),
-                ))
+                tool_calls.append(
+                    ToolCall(
+                        id=str(uuid.uuid4()),
+                        name=fc.name,
+                        arguments=_clean_gemini_args(fc.args),
+                    )
+                )
             elif hasattr(part, "text") and part.text:
                 text_parts.append(part.text)
 
