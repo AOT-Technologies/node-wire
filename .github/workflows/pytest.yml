@@ -107,10 +107,25 @@ jobs:
           SLACK_TEST_USER_ID: ${{ secrets.SLACK_TEST_USER_ID }}
           SLACK_TEST_CHANNEL_ID: ${{ secrets.SLACK_TEST_CHANNEL_ID }}
 
+          #epic fhir
+          EPIC_CLIENT_ID: ${{ secrets.EPIC_CLIENT_ID }}
+          EPIC_PRIVATE_KEY: ${{ secrets.EPIC_PRIVATE_KEY }}
+          EPIC_TOKEN_URL: ${{ secrets.EPIC_TOKEN_URL }}
+          EPIC_KID: ${{ secrets.EPIC_KID }}
+          EPIC_FHIR_BASE_URL: ${{ secrets.EPIC_FHIR_BASE_URL }}
+
+          #cerner
+          CERNER_CLIENT_ID: ${{ secrets.CERNER_CLIENT_ID }}
+          CERNER_PRIVATE_KEY: ${{ secrets.CERNER_PRIVATE_KEY }}
+          CERNER_TOKEN_URL: ${{ secrets.CERNER_TOKEN_URL }}
+          CERNER_KID: ${{ secrets.CERNER_KID }}
+          CERNER_FHIR_BASE_URL: ${{ secrets.CERNER_FHIR_BASE_URL }}
+          CERNER_SCOPES: ${{ secrets.CERNER_SCOPES }}
+
           # Disable authentication and dotenv loading for playground tests, and restrict connectors
           NW_REST_AUTH_DISABLED: "true"
           NW_REST_LOAD_DOTENV: "false"
-          NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe,slack"
+          NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe,slack,fhir_epic,fhir_cerner,http_generic"
         run: uv run pytest tests/playground/ --no-cov -v
 
       - name: Upload Playwright traces on failure
