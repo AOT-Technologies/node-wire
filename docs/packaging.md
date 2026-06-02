@@ -28,6 +28,8 @@ Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject
 
 ## Python package build lifecycle
 
+Prerequisites: `pip install build cython wheel` (and a usable `python` on the host). Run `bash scripts/build-packages.sh --help` for usage.
+
 ### Build all packages (default)
 
 ```bash
@@ -36,7 +38,6 @@ bash scripts/build-packages.sh
 
 Default mode builds each of the **seven** known package paths (see inventory above): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
 
-Prerequisites: `pip install build cython wheel` (and a usable `python` on the host). Run `bash scripts/build-packages.sh --help` for usage.
 
 ### Artifact layout and safe command usage
 
