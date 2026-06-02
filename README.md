@@ -198,8 +198,6 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
-- **[Telemetry (Grafana)](grafana/README.md)** — Grafana + Loki for telemetry visualization.
-
 ## Developer docs
 
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
