@@ -24,9 +24,7 @@ python -m pip install --upgrade build cython wheel
 
 Run all commands from the repository root:
 
-```bash
-cd /path/to/vinaayakh-node-wire
-```
+
 
 ---
 
