@@ -41,7 +41,16 @@ copy sample.env .env
 ```
 *(Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others)*
 
-### 3. Run
+### 3. Run Grafana/OpenTelemetry (optional)
+
+For telemetry visualization, start the Grafana stack before running the application:
+
+```bash
+cd grafana && docker compose up -d
+```
+
+
+### 4. Run
 **Bash (Linux/macOS):**
 ```bash
 # Using uv (recommended)
@@ -63,8 +72,21 @@ $env:MODE="API"; python -m bindings_entrypoint
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the Swagger UI.
 
-## Playground
+### 5. Playground
+
 The platform includes an interactive web playground at [http://localhost:8000/playground/](http://localhost:8000/playground/) (available when the REST API is running).
+
+---
+
+## Build Packages (Wheels)
+
+Before building Docker images, build the Python packages as binary wheels:
+
+```bash
+bash scripts/build-packages.sh
+```
+
+See [docs/packaging.md](docs/packaging.md) for details on the wheel build lifecycle.
 
 ---
 
@@ -176,7 +198,6 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
-
 ## Developer docs
 
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
@@ -185,7 +206,6 @@ For more detailed information, please refer to the following guides:
 - Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)
 
 ---
-
 
 ## License
 
