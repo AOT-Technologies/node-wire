@@ -5,50 +5,84 @@
 services:
   nw-google-drive:
     image: nw-google-drive:latest
+    build:
+      context: .
+      dockerfile: docker/google-drive/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: google_drive
     stdin_open: true
     tty: true
     restart: unless-stopped
 
   nw-smartonfhir-epic:
     image: nw-smartonfhir-epic:latest
+    build:
+      context: .
+      dockerfile: docker/fhir-epic/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: fhir_epic
     stdin_open: true
     tty: true
     restart: unless-stopped
 
   nw-smartonfhir-cerner:
     image: nw-smartonfhir-cerner:latest
+    build:
+      context: .
+      dockerfile: docker/fhir-cerner/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: fhir_cerner
     stdin_open: true
     tty: true
     restart: unless-stopped
 
   nw-smtp:
     image: nw-smtp:latest
+    build:
+      context: .
+      dockerfile: docker/smtp/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: smtp
     stdin_open: true
     tty: true
     restart: unless-stopped
 
   nw-stripe:
     image: nw-stripe:latest
+    build:
+      context: .
+      dockerfile: docker/stripe/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: stripe
     stdin_open: true
     tty: true
     restart: unless-stopped
 
   nw-salesforce:
     image: nw-salesforce:latest
+    build:
+      context: .
+      dockerfile: docker/salesforce/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: salesforce
     stdin_open: true
     tty: true
     restart: unless-stopped
 
   nw-slack:
     image: nw-slack:latest
+    build:
+      context: .
+      dockerfile: docker/slack/Dockerfile
     env_file: .env
+    environment:
+      NW_ALLOWED_CONNECTORS: slack
     stdin_open: true
     tty: true
     restart: unless-stopped
-
