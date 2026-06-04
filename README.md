@@ -149,16 +149,17 @@ Before starting the MCP containers, make sure:
 - Your `.env` file is populated with the credentials needed by the connectors you want to run.
 
 `docker-compose.mcp.yml` starts all MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
+Each service pins `NW_ALLOWED_CONNECTORS` to its own connector so a broad value in `.env` does not make per-connector images import optional dependencies they do not contain.
 
 ```bash
-# Ensure your .env is populated, then:
-docker compose -f docker-compose.mcp.yml up
+# Ensure local wheels exist and your .env is populated, then:
+docker compose -f docker-compose.mcp.yml up --build
 ```
 
 To start only a specific server:
 
 ```bash
-docker compose -f docker-compose.mcp.yml up nw-smartonfhir-epic
+docker compose -f docker-compose.mcp.yml up --build nw-smartonfhir-epic
 ```
 
 ---
