@@ -8,18 +8,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Callable, Dict, Optional, Awaitable
 
 import httpx
 import jwt
 
-from .challenges import WwwAuthenticateChallenge, parse_www_authenticate
+from .challenges import parse_www_authenticate
 from .config import McpClientConfig
 from .discovery import DiscoveryResult, discover, discovery_cache_for_config
 from .exceptions import (
     McpAudienceMismatch,
-    McpOAuthFlowAborted,
     McpTokenRefreshError,
 )
 from .oauth_flow import AuthorizationCodeFlow, OAuthTokenSet
