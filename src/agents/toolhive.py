@@ -867,10 +867,12 @@ async def _run_agent(args: argparse.Namespace) -> None:
                 "Find the proxy URL(s) in ToolHive UI → Installed → copy the endpoint(s), "
                 "or use --local for testing without a proxy."
             )
+        from node_wire_runtime.mcp_client.client import create_http_mcp_client
+
         if len(urls) == 1:
-            mcp_client_context = ToolHiveMcpClient(urls[0])
+            mcp_client_context = create_http_mcp_client(urls[0])
         else:
-            mcp_client_context = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
+            mcp_client_context = MultiMcpClient([create_http_mcp_client(u) for u in urls])
 
     # Use the client (handle async context for stdio)
     if isinstance(mcp_client_context, StdioMcpClient):
