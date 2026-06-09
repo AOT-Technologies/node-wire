@@ -13,7 +13,7 @@ from node_wire_runtime.mcp_client.discovery import discover, DiscoveryCache
 from node_wire_runtime.mcp_client.dcr import resolve_client_registration
 from node_wire_runtime.mcp_client.oauth_flow import AuthorizationCodeFlow
 from node_wire_runtime.mcp_client.redirect_listener import AuthorizationCallback
-from node_wire_runtime.mcp_client.storage import ClientRegistration, RegistrationStore
+from node_wire_runtime.mcp_client.storage import RegistrationStore
 
 
 @pytest.mark.asyncio

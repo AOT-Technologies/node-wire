@@ -13,7 +13,7 @@ from typing import List, Optional
 import httpx
 
 from .config import McpClientConfig, RedirectMode
-from .discovery import AuthorizationServerMetadata, DiscoveryResult
+from .discovery import DiscoveryResult
 from .exceptions import McpOAuthConfigurationError, McpOAuthRegistrationError
 from .storage import ClientRegistration, RegistrationStore
 
