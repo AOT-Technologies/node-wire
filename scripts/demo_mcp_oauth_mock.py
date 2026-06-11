@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import tempfile
 from pathlib import Path
 
@@ -21,7 +20,6 @@ from node_wire_runtime.mcp_client import (
     discover,
     resolve_client_registration,
 )
-from node_wire_runtime.mcp_client.oauth_flow import AuthorizationSession
 from node_wire_runtime.mcp_client.redirect_listener import AuthorizationCallback
 from node_wire_runtime.mcp_client.token_storage import InMemoryTokenStore
 
