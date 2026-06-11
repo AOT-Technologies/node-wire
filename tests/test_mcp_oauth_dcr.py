@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 import httpx
 
-from node_wire_runtime.mcp_client.config import AuthClientConfig, AuthConfig, McpClientConfig, McpServerConfig
+from node_wire_runtime.mcp_client.config import (
+    AuthClientConfig,
+    AuthConfig,
+    McpClientConfig,
+    McpServerConfig,
+)
 from node_wire_runtime.mcp_client.discovery import (
     AuthorizationServerMetadata,
     DiscoveryResult,

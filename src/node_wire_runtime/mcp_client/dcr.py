@@ -23,7 +23,9 @@ _DEFAULT_GRANT_TYPES = ["authorization_code", "refresh_token"]
 _DEFAULT_RESPONSE_TYPES = ["code"]
 
 
-def resolve_redirect_uris(config: McpClientConfig, *, loopback_uri: Optional[str] = None) -> List[str]:
+def resolve_redirect_uris(
+    config: McpClientConfig, *, loopback_uri: Optional[str] = None
+) -> List[str]:
     """Redirect URIs for DCR and authorization requests."""
     if config.auth.production:
         if config.auth.redirect.mode == RedirectMode.LOOPBACK:
@@ -32,7 +34,9 @@ def resolve_redirect_uris(config: McpClientConfig, *, loopback_uri: Optional[str
             )
         uri = config.auth.redirect.url.strip()
         if not uri:
-            raise McpOAuthConfigurationError("auth.redirect.url is required for configured-url mode")
+            raise McpOAuthConfigurationError(
+                "auth.redirect.url is required for configured-url mode"
+            )
         if not uri.startswith("https://"):
             raise McpOAuthConfigurationError(
                 "auth.production requires auth.redirect.url to use https://"
@@ -104,9 +108,7 @@ async def register_dynamic_client(
         resp = await client.post(endpoint, json=payload)
         if resp.status_code not in (200, 201):
             body = resp.text[:500]
-            raise McpOAuthRegistrationError(
-                f"DCR failed with HTTP {resp.status_code}: {body}"
-            )
+            raise McpOAuthRegistrationError(f"DCR failed with HTTP {resp.status_code}: {body}")
         data = resp.json()
         client_id = data.get("client_id")
         if not client_id:
@@ -116,9 +118,7 @@ async def register_dynamic_client(
             client_id=str(client_id),
             client_secret=data.get("client_secret"),
             redirect_uris=tuple(redirect_uris),
-            token_endpoint_auth_method=str(
-                data.get("token_endpoint_auth_method") or auth_method
-            ),
+            token_endpoint_auth_method=str(data.get("token_endpoint_auth_method") or auth_method),
             registered_at=datetime.now(timezone.utc).isoformat(),
         )
     except httpx.HTTPError as exc:

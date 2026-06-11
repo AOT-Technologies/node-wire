@@ -143,9 +143,7 @@ def validate_production_hardening(config: McpClientConfig) -> None:
     from .exceptions import McpOAuthConfigurationError
 
     if urlsplit(config.server.url).scheme != "https":
-        raise McpOAuthConfigurationError(
-            "auth.production requires mcp.server.url to use https://"
-        )
+        raise McpOAuthConfigurationError("auth.production requires mcp.server.url to use https://")
     if config.auth.redirect.mode != RedirectMode.CONFIGURED_URL:
         raise McpOAuthConfigurationError(
             "auth.production requires auth.redirect.mode=configured-url "

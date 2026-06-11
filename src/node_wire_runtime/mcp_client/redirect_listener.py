@@ -141,9 +141,7 @@ class LoopbackRedirectListener:
                     body = _HTML_ERROR
                     if self._callback_future and not self._callback_future.done():
                         self._callback_future.set_exception(
-                            McpOAuthFlowAborted(
-                                callback.error_description or callback.error
-                            )
+                            McpOAuthFlowAborted(callback.error_description or callback.error)
                         )
                 else:
                     body = _HTML_SUCCESS

@@ -236,14 +236,14 @@ class TokenManager:
                     headers=headers,
                 )
                 if resp.status_code != 200:
-                    body = resp.json() if resp.headers.get("content-type", "").startswith(
-                        "application/json"
-                    ) else {}
+                    body = (
+                        resp.json()
+                        if resp.headers.get("content-type", "").startswith("application/json")
+                        else {}
+                    )
                     if body.get("error") == "invalid_grant":
                         self.discard_tokens()
-                    raise McpTokenRefreshError(
-                        f"Refresh failed with HTTP {resp.status_code}"
-                    )
+                    raise McpTokenRefreshError(f"Refresh failed with HTTP {resp.status_code}")
                 body = resp.json()
                 access = body.get("access_token")
                 if not access:
@@ -288,9 +288,7 @@ class TokenManager:
             if challenge.scope:
                 self._config = self._config.model_copy(
                     update={
-                        "auth": self._config.auth.model_copy(
-                            update={"scopes": challenge.scope}
-                        )
+                        "auth": self._config.auth.model_copy(update={"scopes": challenge.scope})
                     }
                 )
             return "reauthorize"

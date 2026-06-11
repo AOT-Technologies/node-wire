@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from node_wire_runtime.mcp_client.config import AuthClientConfig, AuthConfig, McpClientConfig, McpServerConfig
+from node_wire_runtime.mcp_client.config import (
+    AuthClientConfig,
+    AuthConfig,
+    McpClientConfig,
+    McpServerConfig,
+)
 from node_wire_runtime.mcp_client.discovery import (
     AuthorizationServerMetadata,
     DiscoveryResult,
