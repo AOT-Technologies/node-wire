@@ -349,7 +349,9 @@ def _qs_first(qs: dict, key: str) -> Optional[str]:
 
 
 def _optional_int(value: object) -> Optional[int]:
-    if value is None:
+    if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, str, float)):
         return None
     try:
         return int(value)
