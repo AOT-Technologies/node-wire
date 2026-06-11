@@ -163,7 +163,7 @@ When running in `streamable-http` mode, clients must comply with the strict MCP 
 Use these settings for production-style posture:
 
 ```env
-NW_MCP_AUTH_ENABLED=false
+NW_MCP_AUTH_DISABLED=false
 NW_MCP_SCOPE_POLICY_DEFAULT=deny
 # Optional guardrail: fail startup if scope policy would be disabled
 NW_MCP_SCOPE_POLICY_STRICT=true

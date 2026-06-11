@@ -13,7 +13,11 @@ from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bindings.factory import ConnectorFactory
-from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
+from bindings.mcp_server.auth import (
+    McpAuthError,
+    authenticate_mcp_request,
+    log_mcp_auth_startup_state,
+)
 from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.policies.mcp_scope_policy import (
     action_allowed_for_identity_scopes,
@@ -130,6 +134,7 @@ class McpServer:
             MCP_MANIFEST_CONTRACT_VERSION,
             _pkg_ver,
         )
+        log_mcp_auth_startup_state()
 
     def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
         identity = self._ensure_identity(identity=identity)

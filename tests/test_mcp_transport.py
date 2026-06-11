@@ -149,6 +149,7 @@ async def test_mcp_http_tools_list_success():
 @pytest.mark.anyio
 async def test_mcp_http_tools_list_accepts_authorization_header(monkeypatch):
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -208,6 +209,7 @@ async def test_mcp_http_tools_list_accepts_authorization_header(monkeypatch):
 @pytest.mark.anyio
 async def test_mcp_http_tools_list_accepts_x_api_key_header(monkeypatch):
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 

@@ -28,7 +28,7 @@ def _mcp_auth_clear_allowlist_from_host_env(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_mcp_auth_missing_token_returns_401(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -39,7 +39,7 @@ def test_mcp_auth_missing_token_returns_401(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_mcp_auth_invalid_token_returns_403(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -50,7 +50,7 @@ def test_mcp_auth_invalid_token_returns_403(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_mcp_auth_valid_token_allows_tools_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -64,7 +64,7 @@ def test_mcp_auth_valid_token_allows_tools_list(monkeypatch: pytest.MonkeyPatch)
 
 @pytest.mark.asyncio
 async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.setenv(
@@ -101,7 +101,7 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
 async def test_mcp_execution_passes_principal_and_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
@@ -151,7 +151,7 @@ async def test_mcp_execution_passes_principal_and_tenant(
 
 
 def test_mcp_api_key_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.setenv(
         "NW_MCP_ACTION_SCOPE_MAP_JSON",
@@ -169,7 +169,7 @@ def test_mcp_api_key_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_mcp_jwt_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.setenv(
@@ -192,7 +192,7 @@ def test_mcp_jwt_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> No
 async def test_mcp_default_deny_fallback_scope_invokes_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
@@ -241,7 +241,7 @@ async def test_mcp_default_deny_fallback_scope_invokes_tool(
 async def test_mcp_default_deny_denies_without_fallback_scope(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
@@ -273,7 +273,7 @@ async def test_mcp_default_deny_denies_without_fallback_scope(
 
 
 def test_mcp_api_key_explicit_star_scope_lists_tool(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.setenv(
         "NW_MCP_ACTION_SCOPE_MAP_JSON",
@@ -298,7 +298,7 @@ class _FakeStreamableSessionManager:
 
 
 def test_streamable_http_edge_auth_rejects_missing_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -315,7 +315,7 @@ def test_streamable_http_edge_auth_rejects_missing_token(monkeypatch: pytest.Mon
 
 
 def test_streamable_http_edge_auth_rejects_invalid_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -336,7 +336,7 @@ def test_streamable_http_edge_auth_rejects_invalid_token(monkeypatch: pytest.Mon
 
 
 def test_streamable_http_edge_auth_accepts_valid_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -360,7 +360,7 @@ def test_streamable_http_edge_auth_accepts_valid_token(monkeypatch: pytest.Monke
 async def test_streamable_http_identity_context_is_used_by_mcp_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
     monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
 
@@ -378,3 +378,46 @@ async def test_streamable_http_identity_context_is_used_by_mcp_server(
 
     assert resolved is not None
     assert resolved.principal == "api-key-user"
+
+
+def test_mcp_auth_enforced_when_not_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    with pytest.raises(McpAuthRequiredError):
+        authenticate_mcp_request()
+
+
+def test_mcp_auth_enforced_when_disabled_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "false")
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    with pytest.raises(McpAuthRequiredError):
+        authenticate_mcp_request()
+
+
+def test_mcp_auth_skipped_when_disabled_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "true")
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    assert authenticate_mcp_request() is None
+
+
+def test_mcp_auth_legacy_enabled_env_disables_with_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "true")
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+
+    with caplog.at_level("WARNING"):
+        assert authenticate_mcp_request() is None
+
+    assert "NW_MCP_AUTH_ENABLED is deprecated" in caplog.text
