@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class RedirectMode(str, Enum):
@@ -69,6 +69,13 @@ class AuthTokenConfig(BaseModel):
 class AuthConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
+    production: bool = Field(
+        default=False,
+        description=(
+            "When true, require configured-url HTTPS redirect and https:// MCP server URL; "
+            "HTTP loopback is disabled."
+        ),
+    )
     discovery: AuthDiscoveryConfig = Field(default_factory=AuthDiscoveryConfig)
     dcr: AuthDcrConfig = Field(default_factory=AuthDcrConfig)
     client: AuthClientConfig = Field(default_factory=AuthClientConfig)
@@ -113,10 +120,42 @@ class McpClientConfig(BaseModel):
     server: McpServerConfig
     auth: AuthConfig = Field(default_factory=AuthConfig)
 
+    @model_validator(mode="after")
+    def _validate_production_hardening(self) -> McpClientConfig:
+        validate_production_hardening(self)
+        return self
+
     @property
     def canonical_server_url(self) -> str:
         """Normalized resource indicator (no fragment, no trailing slash on path root)."""
         return canonicalize_mcp_server_url(self.server.url)
+
+
+def validate_production_hardening(config: McpClientConfig) -> None:
+    """
+    Enforce production OAuth profile: HTTPS MCP server, configured-url redirect only.
+
+    HTTP loopback remains available when ``auth.production`` is false (default).
+    """
+    if not config.auth.production:
+        return
+
+    from .exceptions import McpOAuthConfigurationError
+
+    if urlsplit(config.server.url).scheme != "https":
+        raise McpOAuthConfigurationError(
+            "auth.production requires mcp.server.url to use https://"
+        )
+    if config.auth.redirect.mode != RedirectMode.CONFIGURED_URL:
+        raise McpOAuthConfigurationError(
+            "auth.production requires auth.redirect.mode=configured-url "
+            "(HTTP loopback is disabled in production)"
+        )
+    redirect_url = config.auth.redirect.url.strip()
+    if not redirect_url.startswith("https://"):
+        raise McpOAuthConfigurationError(
+            "auth.production requires auth.redirect.url to use https://"
+        )
 
 
 def canonicalize_mcp_server_url(url: str) -> str:

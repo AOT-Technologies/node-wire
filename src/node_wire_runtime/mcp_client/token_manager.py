@@ -18,6 +18,7 @@ from .config import McpClientConfig
 from .discovery import DiscoveryResult, discover, discovery_cache_for_config
 from .exceptions import (
     McpAudienceMismatch,
+    McpOAuthConfigurationError,
     McpTokenRefreshError,
 )
 from .oauth_flow import AuthorizationCodeFlow, OAuthTokenSet
@@ -189,6 +190,13 @@ class TokenManager:
     async def _run_reauthorize(self) -> OAuthTokenSet:
         if self._reauthorize is not None:
             return await self._reauthorize()
+        if self._config.auth.production:
+            raise McpOAuthConfigurationError(
+                "Production mode requires a reauthorize callback; complete OAuth at "
+                "auth.redirect.url via start_authorization / "
+                "complete_authorization_with_callback_url, or inject "
+                "TokenManager(reauthorize=...)."
+            )
         return await self._flow.run_loopback_authorization(open_browser=True)
 
     async def refresh_tokens(

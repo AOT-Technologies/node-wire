@@ -43,10 +43,11 @@ config = McpClientConfig(
 | `auth.dcr.enabled` | `true` | Attempt RFC 7591 when `registration_endpoint` exists |
 | `auth.client.id` / `secret` | empty | Override when AS has no DCR |
 | `auth.scopes` | empty | Requested scopes |
-| `auth.redirect.mode` | `loopback` | `loopback` or `configured-url` |
-| `auth.redirect.url` | `http://127.0.0.1:0/callback` | HTTPS callback for hosted mode |
-| `auth.token.refreshLeadSeconds` | `60` | Proactive refresh lead time (Phase 4) |
-| `auth.token.store` | `os-keychain` | Token storage backend (Phase 4) |
+| `auth.production` | `false` | When `true`, require `https://` MCP server URL and `configured-url` HTTPS redirect; disables HTTP loopback |
+| `auth.redirect.mode` | `loopback` | `loopback` or `configured-url` (defaults to `configured-url` when `auth.production=true`) |
+| `auth.redirect.url` | `http://127.0.0.1:0/callback` | HTTPS callback URL for hosted / production mode |
+| `auth.token.refreshLeadSeconds` | `60` | Proactive refresh lead time |
+| `auth.token.store` | `os-keychain` | Token storage backend |
 
 ## Discovery
 
@@ -69,13 +70,34 @@ flow = AuthorizationCodeFlow(config)
 tokens = await flow.run_loopback_authorization(open_browser=True)
 ```
 
-**Configured URL (hosted):**
+**Configured URL (hosted / production):**
 
 ```python
 url = await flow.start_authorization(open_browser=True)
 # User completes login; your app receives redirect at auth.redirect.url
 tokens = await flow.complete_authorization_with_callback_url(callback_url)
 ```
+
+### Production hardening (`auth.production=true`)
+
+Set `NW_MCP_OAUTH_PRODUCTION=true` (or `auth.production=True` in code) for server deployments:
+
+- `mcp.server.url` must use `https://`
+- `auth.redirect.mode` must be `configured-url`
+- `auth.redirect.url` must use `https://` (HTTP loopback is rejected)
+- Re-authorization cannot use `run_loopback_authorization`; the host app must expose an HTTPS callback route or inject `TokenManager(reauthorize=...)` / `McpOAuthClient(reauthorize=...)`
+
+Example environment (see also `sample.env`):
+
+```env
+NW_MCP_OAUTH_ENABLED=true
+NW_MCP_OAUTH_PRODUCTION=true
+NW_MCP_SERVER_URL=https://mcp.example.com/mcp
+NW_MCP_OAUTH_REDIRECT_MODE=configured-url
+NW_MCP_OAUTH_REDIRECT_URL=https://app.example.com/oauth/mcp/callback
+```
+
+Desktop / local development keeps the default (`NW_MCP_OAUTH_PRODUCTION` unset or `false`) with `auth.redirect.mode=loopback`.
 
 ## STDIO
 
@@ -88,6 +110,10 @@ from node_wire_runtime.mcp_client import McpOAuthClient, create_http_mcp_client
 
 # Factory: NW_MCP_OAUTH_ENABLED=true, or legacy TOOLHIVE_MCP_BEARER_TOKEN for static auth
 client = create_http_mcp_client("https://mcp.example.com/mcp")
+
+# Production: pass reauthorize when tokens must be renewed without loopback
+# client = create_http_mcp_client("https://mcp.example.com/mcp", reauthorize=my_reauth_fn)
+
 tools = await client.list_tools()
 ```
 

@@ -40,3 +40,4 @@ launch.json
 
 # log
 mcp_debug.log
+.cursor/
