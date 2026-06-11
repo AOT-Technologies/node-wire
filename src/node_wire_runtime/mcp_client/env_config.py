@@ -52,7 +52,11 @@ def config_from_env(*, server_url: str | None = None) -> McpClientConfig:
     if not url:
         raise ValueError("MCP server URL required (argument or NW_MCP_SERVER_URL)")
 
-    redirect_mode_raw = (os.environ.get("NW_MCP_OAUTH_REDIRECT_MODE") or "loopback").strip().lower()
+    production = _truthy(os.environ.get("NW_MCP_OAUTH_PRODUCTION"))
+    default_redirect_mode = "configured-url" if production else "loopback"
+    redirect_mode_raw = (
+        os.environ.get("NW_MCP_OAUTH_REDIRECT_MODE") or default_redirect_mode
+    ).strip().lower()
     redirect_mode = (
         RedirectMode.CONFIGURED_URL
         if redirect_mode_raw == "configured-url"
@@ -68,6 +72,7 @@ def config_from_env(*, server_url: str | None = None) -> McpClientConfig:
     return McpClientConfig(
         server=McpServerConfig(url=url),
         auth=AuthConfig(
+            production=production,
             scopes=(os.environ.get("NW_MCP_OAUTH_SCOPES") or "").strip(),
             client=AuthClientConfig(
                 id=(os.environ.get("NW_MCP_OAUTH_CLIENT_ID") or "").strip(),

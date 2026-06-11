@@ -25,6 +25,20 @@ _DEFAULT_RESPONSE_TYPES = ["code"]
 
 def resolve_redirect_uris(config: McpClientConfig, *, loopback_uri: Optional[str] = None) -> List[str]:
     """Redirect URIs for DCR and authorization requests."""
+    if config.auth.production:
+        if config.auth.redirect.mode == RedirectMode.LOOPBACK:
+            raise McpOAuthConfigurationError(
+                "auth.production does not allow auth.redirect.mode=loopback"
+            )
+        uri = config.auth.redirect.url.strip()
+        if not uri:
+            raise McpOAuthConfigurationError("auth.redirect.url is required for configured-url mode")
+        if not uri.startswith("https://"):
+            raise McpOAuthConfigurationError(
+                "auth.production requires auth.redirect.url to use https://"
+            )
+        return [uri]
+
     if config.auth.redirect.mode == RedirectMode.LOOPBACK:
         if not loopback_uri:
             raise McpOAuthConfigurationError(

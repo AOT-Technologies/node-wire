@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import httpx
 
 from .config import McpClientConfig
 from .env_config import config_from_env, legacy_static_mcp_token, mcp_oauth_enabled, mcp_oauth_user_id
 from .exceptions import McpOAuthFlowAborted, McpTokenRefreshError
+from .oauth_flow import OAuthTokenSet
 from .token_manager import TokenManager
 from .token_storage import make_token_store
 
@@ -36,6 +37,7 @@ class McpOAuthClient:
         user_id: Optional[str] = None,
         token_manager: Optional[TokenManager] = None,
         http_client: Optional[httpx.AsyncClient] = None,
+        reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._config = config or config_from_env(server_url=base_url)
@@ -48,6 +50,7 @@ class McpOAuthClient:
             self._config,
             user_id=self._user_id,
             token_store=make_token_store(self._config),
+            reauthorize=reauthorize,
         )
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -195,6 +198,7 @@ def create_http_mcp_client(
     *,
     user_id: Optional[str] = None,
     force_oauth: bool = False,
+    reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
 ):
     """
     Factory: OAuth client when enabled, else legacy static-token HTTP client.
@@ -210,10 +214,17 @@ def create_http_mcp_client(
         return ToolHiveMcpClient(base_url)
 
     if mcp_oauth_enabled() or force_oauth:
-        return McpOAuthClient(base_url, user_id=user_id)
+        return McpOAuthClient(base_url, user_id=user_id, reauthorize=reauthorize)
 
     return ToolHiveMcpClient(base_url)
 
 
-def create_http_mcp_clients_for_urls(urls: List[str], *, user_id: Optional[str] = None) -> list:
-    return [create_http_mcp_client(u, user_id=user_id) for u in urls]
+def create_http_mcp_clients_for_urls(
+    urls: List[str],
+    *,
+    user_id: Optional[str] = None,
+    reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
+) -> list:
+    return [
+        create_http_mcp_client(u, user_id=user_id, reauthorize=reauthorize) for u in urls
+    ]

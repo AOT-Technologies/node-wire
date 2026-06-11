@@ -255,6 +255,11 @@ class AuthorizationCodeFlow:
         For ``configured-url`` mode use :meth:`start_authorization` and
         :meth:`complete_authorization_with_callback_url` instead.
         """
+        if self._config.auth.production:
+            raise McpOAuthConfigurationError(
+                "auth.production disables HTTP loopback; use configured-url mode with "
+                "start_authorization / complete_authorization_with_callback_url"
+            )
         if self._config.auth.redirect.mode != RedirectMode.LOOPBACK:
             raise McpOAuthConfigurationError(
                 "run_loopback_authorization requires auth.redirect.mode=loopback"
