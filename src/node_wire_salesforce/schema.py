@@ -87,7 +87,9 @@ def coalesce_update_lead_args(data: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def coalesce_read_delete_args(data: Dict[str, Any], *, id_aliases: tuple[str, ...]) -> Dict[str, Any]:
+def coalesce_read_delete_args(
+    data: Dict[str, Any], *, id_aliases: tuple[str, ...]
+) -> Dict[str, Any]:
     out = dict(data)
     _coalesce_record_id(out, aliases=id_aliases)
     for key in id_aliases:

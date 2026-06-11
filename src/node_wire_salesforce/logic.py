@@ -70,9 +70,7 @@ class SalesforceConnector(BaseConnector):
     async def read_lead(self, params: ReadLeadInput, *, trace_id: str) -> SalesforceOperationOutput:
         return await self._execute_rest("GET", f"Lead/{params.record_id}", None, trace_id)
 
-    @sdk_action(
-        "update_lead", alias_tolerant=True, mcp_normalize=normalize_salesforce_update_lead
-    )
+    @sdk_action("update_lead", alias_tolerant=True, mcp_normalize=normalize_salesforce_update_lead)
     async def update_lead(
         self, params: UpdateLeadInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
@@ -115,7 +113,9 @@ class SalesforceConnector(BaseConnector):
         )
 
     @sdk_action(
-        "delete_contact", alias_tolerant=True, mcp_normalize=normalize_salesforce_read_delete_contact
+        "delete_contact",
+        alias_tolerant=True,
+        mcp_normalize=normalize_salesforce_read_delete_contact,
     )
     async def delete_contact(
         self, params: DeleteContactInput, *, trace_id: str
