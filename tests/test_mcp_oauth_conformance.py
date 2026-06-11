@@ -29,6 +29,7 @@ async def test_conformance_discovery_and_dcr_and_pkce_flow(tmp_path) -> None:
         "token_endpoint": "https://issuer.example/token",
         "registration_endpoint": "https://issuer.example/register",
     }
+
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path.endswith("/prm") or "oauth-protected-resource" in path:

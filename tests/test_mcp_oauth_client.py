@@ -6,7 +6,12 @@ import pytest
 import httpx
 
 from node_wire_runtime.mcp_client.client import McpOAuthClient, create_http_mcp_client
-from node_wire_runtime.mcp_client.config import AuthClientConfig, AuthConfig, McpClientConfig, McpServerConfig
+from node_wire_runtime.mcp_client.config import (
+    AuthClientConfig,
+    AuthConfig,
+    McpClientConfig,
+    McpServerConfig,
+)
 from node_wire_runtime.mcp_client.discovery import (
     AuthorizationServerMetadata,
     DiscoveryResult,
@@ -15,7 +20,10 @@ from node_wire_runtime.mcp_client.discovery import (
 from node_wire_runtime.mcp_client.oauth_flow import AuthorizationCodeFlow
 from node_wire_runtime.mcp_client.storage import ClientRegistration
 from node_wire_runtime.mcp_client.token_manager import TokenManager
-from node_wire_runtime.mcp_client.token_storage import InMemoryTokenStore, stored_from_oauth_response
+from node_wire_runtime.mcp_client.token_storage import (
+    InMemoryTokenStore,
+    stored_from_oauth_response,
+)
 
 
 MCP_BASE = "https://mcp.example.com/mcp"
@@ -99,7 +107,11 @@ async def test_mcp_oauth_client_list_tools_with_bearer() -> None:
         if method == "initialize":
             return httpx.Response(
                 200,
-                json={"jsonrpc": "2.0", "id": body["id"], "result": {"protocolVersion": "2024-11-05"}},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": body["id"],
+                    "result": {"protocolVersion": "2024-11-05"},
+                },
                 headers={"Mcp-Session-Id": "sess-1"},
             )
         if method == "notifications/initialized":
@@ -143,7 +155,11 @@ async def test_mcp_oauth_client_401_refresh_retry_once() -> None:
         if method == "initialize":
             return httpx.Response(
                 200,
-                json={"jsonrpc": "2.0", "id": body["id"], "result": {"protocolVersion": "2024-11-05"}},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": body["id"],
+                    "result": {"protocolVersion": "2024-11-05"},
+                },
             )
         if method == "notifications/initialized":
             return httpx.Response(200, json={"jsonrpc": "2.0", "result": {}})

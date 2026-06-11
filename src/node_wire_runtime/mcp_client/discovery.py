@@ -35,7 +35,9 @@ class ProtectedResourceMetadata:
     raw: Dict[str, Any]
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any], *, fallback_resource: str) -> ProtectedResourceMetadata:
+    def from_json(
+        cls, data: Dict[str, Any], *, fallback_resource: str
+    ) -> ProtectedResourceMetadata:
         servers = data.get("authorization_servers")
         if not isinstance(servers, list) or not servers:
             raise McpOAuthDiscoveryError(

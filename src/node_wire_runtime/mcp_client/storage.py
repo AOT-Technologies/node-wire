@@ -36,9 +36,7 @@ class ClientRegistration:
             client_id=str(data["client_id"]),
             client_secret=data.get("client_secret"),
             redirect_uris=tuple(data.get("redirect_uris") or []),
-            token_endpoint_auth_method=str(
-                data.get("token_endpoint_auth_method") or "none"
-            ),
+            token_endpoint_auth_method=str(data.get("token_endpoint_auth_method") or "none"),
             registered_at=str(data.get("registered_at") or ""),
         )
 

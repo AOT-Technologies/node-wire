@@ -13,7 +13,12 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 import httpx
 
 from .config import McpClientConfig
-from .env_config import config_from_env, legacy_static_mcp_token, mcp_oauth_enabled, mcp_oauth_user_id
+from .env_config import (
+    config_from_env,
+    legacy_static_mcp_token,
+    mcp_oauth_enabled,
+    mcp_oauth_user_id,
+)
 from .exceptions import McpOAuthFlowAborted, McpTokenRefreshError
 from .oauth_flow import OAuthTokenSet
 from .token_manager import TokenManager
@@ -225,6 +230,4 @@ def create_http_mcp_clients_for_urls(
     user_id: Optional[str] = None,
     reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
 ) -> list:
-    return [
-        create_http_mcp_client(u, user_id=user_id, reauthorize=reauthorize) for u in urls
-    ]
+    return [create_http_mcp_client(u, user_id=user_id, reauthorize=reauthorize) for u in urls]

@@ -20,7 +20,10 @@ from node_wire_runtime.mcp_client.discovery import (
 from node_wire_runtime.mcp_client.exceptions import McpAudienceMismatch, McpTokenRefreshError
 from node_wire_runtime.mcp_client.storage import ClientRegistration
 from node_wire_runtime.mcp_client.token_manager import TokenManager
-from node_wire_runtime.mcp_client.token_storage import InMemoryTokenStore, stored_from_oauth_response
+from node_wire_runtime.mcp_client.token_storage import (
+    InMemoryTokenStore,
+    stored_from_oauth_response,
+)
 
 
 def _discovery() -> DiscoveryResult:

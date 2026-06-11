@@ -55,8 +55,8 @@ def config_from_env(*, server_url: str | None = None) -> McpClientConfig:
     production = _truthy(os.environ.get("NW_MCP_OAUTH_PRODUCTION"))
     default_redirect_mode = "configured-url" if production else "loopback"
     redirect_mode_raw = (
-        os.environ.get("NW_MCP_OAUTH_REDIRECT_MODE") or default_redirect_mode
-    ).strip().lower()
+        (os.environ.get("NW_MCP_OAUTH_REDIRECT_MODE") or default_redirect_mode).strip().lower()
+    )
     redirect_mode = (
         RedirectMode.CONFIGURED_URL
         if redirect_mode_raw == "configured-url"

@@ -222,9 +222,7 @@ class AuthorizationCodeFlow:
                 headers=headers,
             )
             if resp.status_code != 200:
-                raise McpOAuthFlowAborted(
-                    f"Token exchange failed with HTTP {resp.status_code}"
-                )
+                raise McpOAuthFlowAborted(f"Token exchange failed with HTTP {resp.status_code}")
             body = resp.json()
             access = body.get("access_token")
             if not access:
@@ -326,9 +324,7 @@ class AuthorizationCodeFlow:
                 or parsed.netloc != redirect_base.netloc
                 or parsed.path != redirect_base.path
             ):
-                raise McpOAuthSecurityError(
-                    "Callback URL does not match registered redirect_uri"
-                )
+                raise McpOAuthSecurityError("Callback URL does not match registered redirect_uri")
 
         qs = parse_qs(parsed.query)
         callback = AuthorizationCallback(
