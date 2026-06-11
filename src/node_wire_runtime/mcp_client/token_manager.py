@@ -106,7 +106,6 @@ class TokenManager:
 
     def save_tokens(self, tokens: StoredOAuthTokens) -> None:
         self._memory = tokens
-        key = token_partition_key(tokens.user_id, tokens.mcp_server_url, tokens.issuer)
         self._store.save(tokens)
 
     def discard_tokens(self) -> None:
@@ -301,7 +300,9 @@ class TokenManager:
 
 
 def _optional_int(value: object) -> Optional[int]:
-    if value is None:
+    if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, str, float)):
         return None
     try:
         return int(value)

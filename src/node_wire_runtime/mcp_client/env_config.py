@@ -75,24 +75,24 @@ def config_from_env(*, server_url: str | None = None) -> McpClientConfig:
             production=production,
             scopes=(os.environ.get("NW_MCP_OAUTH_SCOPES") or "").strip(),
             client=AuthClientConfig(
-                id=(os.environ.get("NW_MCP_OAUTH_CLIENT_ID") or "").strip(),
-                secret=(os.environ.get("NW_MCP_OAUTH_CLIENT_SECRET") or "").strip(),
+                clientId=(os.environ.get("NW_MCP_OAUTH_CLIENT_ID") or "").strip(),
+                clientSecret=(os.environ.get("NW_MCP_OAUTH_CLIENT_SECRET") or "").strip(),
             ),
             redirect=AuthRedirectConfig(
                 mode=redirect_mode,
                 url=(os.environ.get("NW_MCP_OAUTH_REDIRECT_URL") or "http://127.0.0.1:0/callback"),
-                loopback_host=(os.environ.get("NW_MCP_OAUTH_LOOPBACK_HOST") or "127.0.0.1"),
-                loopback_path=(os.environ.get("NW_MCP_OAUTH_LOOPBACK_PATH") or "/callback"),
+                loopbackHost=(os.environ.get("NW_MCP_OAUTH_LOOPBACK_HOST") or "127.0.0.1"),
+                loopbackPath=(os.environ.get("NW_MCP_OAUTH_LOOPBACK_PATH") or "/callback"),
             ),
             discovery=AuthDiscoveryConfig(
-                cache_ttl_seconds=int(os.environ.get("NW_MCP_OAUTH_DISCOVERY_TTL", "3600")),
+                cacheTtlSeconds=int(os.environ.get("NW_MCP_OAUTH_DISCOVERY_TTL", "3600")),
             ),
             dcr=AuthDcrConfig(enabled=not _truthy(os.environ.get("NW_MCP_OAUTH_DCR_DISABLED"))),
             token=AuthTokenConfig(
-                refresh_lead_seconds=int(os.environ.get("NW_MCP_OAUTH_REFRESH_LEAD", "60")),
+                refreshLeadSeconds=int(os.environ.get("NW_MCP_OAUTH_REFRESH_LEAD", "60")),
                 store=token_store,
             ),
-            registration_store_path=(os.environ.get("NW_MCP_OAUTH_REGISTRATION_PATH") or None),
-            issuer_override=(os.environ.get("NW_MCP_OAUTH_ISSUER_OVERRIDE") or None),
+            registrationStorePath=(os.environ.get("NW_MCP_OAUTH_REGISTRATION_PATH") or None),
+            issuerOverride=(os.environ.get("NW_MCP_OAUTH_ISSUER_OVERRIDE") or None),
         ),
     )
