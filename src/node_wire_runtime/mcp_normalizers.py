@@ -202,6 +202,40 @@ def normalize_google_drive_files_upload(args: Dict[str, Any]) -> None:
             args["action"] = "files.upload"
 
 
+def normalize_salesforce_update_contact(args: Dict[str, Any]) -> None:
+    """MCP ingress: coalesce contact update args to record_id + fields."""
+    from node_wire_salesforce.schema import coalesce_update_contact_args
+
+    coalesced = coalesce_update_contact_args(dict(args))
+    args.clear()
+    args.update(coalesced)
+
+
+def normalize_salesforce_update_lead(args: Dict[str, Any]) -> None:
+    """MCP ingress: coalesce lead update args to record_id + fields."""
+    from node_wire_salesforce.schema import coalesce_update_lead_args
+
+    coalesced = coalesce_update_lead_args(dict(args))
+    args.clear()
+    args.update(coalesced)
+
+
+def normalize_salesforce_read_delete_contact(args: Dict[str, Any]) -> None:
+    from node_wire_salesforce.schema import coalesce_read_delete_args
+
+    coalesced = coalesce_read_delete_args(dict(args), id_aliases=("contact_id", "id", "recordId"))
+    args.clear()
+    args.update(coalesced)
+
+
+def normalize_salesforce_read_delete_lead(args: Dict[str, Any]) -> None:
+    from node_wire_salesforce.schema import coalesce_read_delete_args
+
+    coalesced = coalesce_read_delete_args(dict(args), id_aliases=("lead_id", "id", "recordId"))
+    args.clear()
+    args.update(coalesced)
+
+
 def normalize_smtp_send_email(args: Dict[str, Any]) -> None:
     """Map common LLM aliases for smtp.send_email to SmtpSendInput fields."""
     if _is_missing_or_blank(args.get("from_email")):
