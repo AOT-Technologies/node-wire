@@ -1,3 +1,12 @@
+"""
+MCP authentication (enterprise default: required API key or JWT).
+
+Environment:
+  NW_MCP_API_KEY     — shared secret; send as ``Authorization: Bearer <key>`` or ``X-API-Key: <key>``.
+  NW_MCP_JWT_SECRET  — optional HS256 secret; if set, Bearer tokens with three segments are verified as JWTs.
+  NW_MCP_AUTH_DISABLED — if ``true``/``1``/``yes``, skip auth (local dev only; do not use in production).
+"""
+
 from __future__ import annotations
 
 import os
@@ -77,7 +86,7 @@ class McpAuthNotConfiguredError(McpAuthError):
         super().__init__(
             (
                 "MCP authentication is not configured. Set NW_MCP_API_KEY "
-                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_ENABLED=true "
+                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_DISABLED=true "
                 "for local development only."
             ),
             status_code=503,
@@ -101,7 +110,7 @@ def _bootstrap_mcp_auth_env() -> None:
 
     # Align with REST/bindings: when dotenv merge is disabled (pytest, CI, prod),
     # never load repo `.env` with override=True — that stomps conftest env and
-    # monkeypatched values (e.g. NW_ALLOWED_CONNECTORS, NW_MCP_AUTH_ENABLED).
+    # monkeypatched values (e.g. NW_ALLOWED_CONNECTORS, NW_MCP_AUTH_DISABLED).
     rest_dotenv = os.environ.get("NW_REST_LOAD_DOTENV", "true").lower()
     if rest_dotenv in ("0", "false", "no"):
         # Keys may be injected later (tests); do not mark bootstrapped so we recheck.
@@ -114,12 +123,35 @@ def _bootstrap_mcp_auth_env() -> None:
 
 
 def mcp_auth_disabled() -> bool:
-    return _truthy(os.environ.get("NW_MCP_AUTH_ENABLED"))
+    disabled = os.environ.get("NW_MCP_AUTH_DISABLED")
+    if disabled is not None:
+        return _truthy(disabled)
+
+    legacy_enabled = os.environ.get("NW_MCP_AUTH_ENABLED")
+    if legacy_enabled is not None:
+        logger.warning(
+            "NW_MCP_AUTH_ENABLED is deprecated; use NW_MCP_AUTH_DISABLED instead "
+            "(true disables auth). NW_MCP_AUTH_ENABLED will be removed in a future release."
+        )
+        return _truthy(legacy_enabled)
+
+    return False
 
 
 def mcp_auth_configured() -> bool:
     _bootstrap_mcp_auth_env()
     return bool(os.environ.get("NW_MCP_API_KEY") or os.environ.get("NW_MCP_JWT_SECRET"))
+
+
+def log_mcp_auth_startup_state() -> None:
+    """Log effective MCP auth posture once at server startup."""
+    _bootstrap_mcp_auth_env()
+    disabled = mcp_auth_disabled()
+    configured = mcp_auth_configured()
+    state = "disabled" if disabled else "enabled"
+    logger.info("MCP authentication %s (configured=%s)", state, configured)
+    if disabled:
+        logger.warning("NW_MCP_AUTH_DISABLED is set — MCP auth is OFF; do not use in production")
 
 
 def _get_meta_value(meta: Mapping[str, Any] | None, keys: tuple[str, ...]) -> str | None:

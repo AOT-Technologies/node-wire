@@ -41,6 +41,7 @@ copy sample.env .env
 | `PORT` | Port for the REST API | `8000` |
 | `NW_MCP_TRANSPORT` | MCP transport mode (`stdio` or `streamable-http`) | `stdio` |
 | `NW_MCP_PORT` | Port for streamable-http MCP | `8080` |
+| `NW_MCP_AUTH_DISABLED` | Disable MCP authentication (local dev only) | `false` |
 | `NW_REST_AUTH_DISABLED` | Disable REST API authentication (local dev only) | `false` |
 
 ---
