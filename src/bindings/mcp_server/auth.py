@@ -151,9 +151,7 @@ def log_mcp_auth_startup_state() -> None:
     state = "disabled" if disabled else "enabled"
     logger.info("MCP authentication %s (configured=%s)", state, configured)
     if disabled:
-        logger.warning(
-            "NW_MCP_AUTH_DISABLED is set — MCP auth is OFF; do not use in production"
-        )
+        logger.warning("NW_MCP_AUTH_DISABLED is set — MCP auth is OFF; do not use in production")
 
 
 def _get_meta_value(meta: Mapping[str, Any] | None, keys: tuple[str, ...]) -> str | None:
