@@ -192,9 +192,7 @@ async def validate_egress_url(url: str) -> ValidatedEgress:
 
     literal = hostname.strip("[]")
     try:
-        pinned_ips: tuple[IPAddress, ...] = (
-            normalize_ip(ipaddress.ip_address(literal)),
-        )
+        pinned_ips: tuple[IPAddress, ...] = (normalize_ip(ipaddress.ip_address(literal)),)
         if is_blocked_address(pinned_ips[0]):
             raise HttpEgressBlockedError("url host is a blocked network target")
     except ValueError:
