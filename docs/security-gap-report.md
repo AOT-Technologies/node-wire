@@ -75,14 +75,10 @@ The platform has a solid foundation: clean layered architecture (runtime → con
 
 ### C4 — SSRF via HTTP Generic Connector
 
-- **Location:** `src/connectors/http_generic/schema.py`, `src/connectors/http_generic/logic.py`
-- **What's missing:** `HttpUrl` validates URL format but not destination host
-- **Attack path:**
-  ```json
-  { "url": "http://169.254.169.254/latest/meta-data", "method": "GET" }
-  ```
-  → Returns AWS instance metadata including IAM credentials
-- **Fix:** Block RFC-1918, loopback (`127.0.0.0/8`), and link-local (`169.254.0.0/16`) address ranges at the schema validator level; optionally implement an egress allowlist
+- **Location:** `src/node_wire_http_generic/schema.py`, `src/node_wire_http_generic/logic.py`, `src/node_wire_http_generic/egress.py`
+- **Status:** **Mitigated** — literal host denylist, DNS resolution with blocked-range checks at connect time, pinned IP dial with Host/SNI preserved, optional `NW_HTTP_GENERIC_EGRESS_ALLOWLIST`
+- **Original issue:** Schema-only validation could be bypassed via DNS rebinding and alternate IP encodings
+- **Fix applied:** Centralized egress policy module; resolve and validate all A/AAAA records before connecting; reject non-dotted-decimal numeric hosts and IPv4-mapped loopback literals
 
 ---
 
