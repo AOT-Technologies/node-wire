@@ -13,6 +13,12 @@ import httpx
 
 from node_wire_runtime import BaseConnector, nw_action
 
+from .egress import (
+    HttpEgressBlockedError,
+    PinnedAsyncHTTPTransport,
+    build_pinned_request_kwargs,
+    validate_egress_url,
+)
 from .schema import HttpRequestInput, HttpResponseOutput
 
 logger = logging.getLogger("connectors.http_generic")
@@ -64,19 +70,27 @@ class HttpGenericConnector(BaseConnector):
         )
 
         try:
+            validated = await validate_egress_url(str(params.url))
+            pinned_kwargs = build_pinned_request_kwargs(
+                validated,
+                base_headers=params.headers,
+            )
             timeout = float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0"))
-            async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            transport = PinnedAsyncHTTPTransport(validated=validated, trust_env=False)
+            async with httpx.AsyncClient(
+                timeout=timeout, trust_env=False, transport=transport
+            ) as client:
                 response = await client.request(
                     method=params.method,
-                    url=str(params.url),
-                    headers=params.headers,
                     params=params.params,
                     json=params.body if isinstance(params.body, (dict, list)) else None,
                     content=None if isinstance(params.body, (dict, list)) else params.body,
                     timeout=timeout,
+                    **pinned_kwargs,
                 )
+        except HttpEgressBlockedError:
+            raise
         except Exception as exc:  # noqa: BLE001
-            # Let ErrorMapper classify the exception, but log clear context here.
             logger.error(
                 "HTTP request failed before receiving a response",
                 extra={
@@ -103,7 +117,6 @@ class HttpGenericConnector(BaseConnector):
             },
         )
 
-        # Do not log full body to avoid leaking sensitive data.
         headers: dict[str, Any] = {k: v for k, v in response.headers.items()}
 
         return HttpResponseOutput(

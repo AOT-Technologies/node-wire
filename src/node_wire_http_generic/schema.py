@@ -4,18 +4,14 @@
 #
 from __future__ import annotations
 
-import ipaddress
 from typing import Any, Dict, Literal, Optional
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, HttpUrl, field_validator
 
+from .egress import HttpEgressBlockedError, validate_host_literal
+
 _ALLOWED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
-_BLOCKED_HOSTNAMES = {
-    "localhost",
-    "metadata.google.internal",
-    "metadata",
-}
 
 
 class HttpRequestInput(BaseModel):
@@ -41,26 +37,11 @@ class HttpRequestInput(BaseModel):
     def block_internal_targets(cls, value: HttpUrl) -> HttpUrl:
         parts = urlsplit(str(value))
         host = (parts.hostname or "").strip().lower().rstrip(".")
-        if host in _BLOCKED_HOSTNAMES:
-            raise ValueError("url host is blocked by outbound security policy")
-        if _is_blocked_ip_literal(host):
-            raise ValueError("url host resolves to a blocked network target")
+        try:
+            validate_host_literal(host)
+        except HttpEgressBlockedError as exc:
+            raise ValueError(str(exc)) from exc
         return value
-
-
-def _is_blocked_ip_literal(host: str) -> bool:
-    try:
-        ip_obj = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local:
-        return True
-    if ip_obj.is_multicast or ip_obj.is_reserved or ip_obj.is_unspecified:
-        return True
-    # Explicit cloud metadata target.
-    if str(ip_obj) == "169.254.169.254":
-        return True
-    return False
 
 
 class HttpResponseOutput(BaseModel):

@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import httpx
 
+from node_wire_http_generic.egress import HttpEgressBlockedError
 from node_wire_runtime import ErrorCategory, ErrorMapper
 
 
 # Typical HTTP/network error mappings for the generic HTTP connector.
+ErrorMapper.register(HttpEgressBlockedError, ErrorCategory.FATAL, code="HTTP_EGRESS_BLOCKED")
 ErrorMapper.register(httpx.TimeoutException, ErrorCategory.RETRYABLE, code="HTTP_TIMEOUT")
 ErrorMapper.register(httpx.ConnectError, ErrorCategory.RETRYABLE, code="HTTP_CONNECT_ERROR")
 ErrorMapper.register(httpx.ReadTimeout, ErrorCategory.RETRYABLE, code="HTTP_READ_TIMEOUT")

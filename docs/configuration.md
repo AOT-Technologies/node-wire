@@ -42,6 +42,7 @@ copy sample.env .env
 | `NW_MCP_TRANSPORT` | MCP transport mode (`stdio` or `streamable-http`) | `stdio` |
 | `NW_MCP_PORT` | Port for streamable-http MCP | `8080` |
 | `NW_REST_AUTH_DISABLED` | Disable REST API authentication (local dev only) | `false` |
+| `NW_HTTP_GENERIC_EGRESS_ALLOWLIST` | Optional comma-separated hostnames permitted for `http_generic.request` outbound calls (recommended for production) | _(unset = denylist + DNS checks only)_ |
 
 ---
 

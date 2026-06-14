@@ -159,6 +159,7 @@ def test_http_request_input_rejects_unsupported_method() -> None:
         "http://0.0.0.0/debug",
         "http://169.254.169.254/latest/meta-data",
         "http://[::1]/health",
+        "http://[::ffff:127.0.0.1]/health",
         "http://metadata.google.internal/computeMetadata/v1",
         "http://metadata.google.internal./computeMetadata/v1",
     ],
