@@ -17,6 +17,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
+IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+
 _BLOCKED_HOSTNAMES = frozenset(
     {
         "localhost",
@@ -42,17 +44,17 @@ class ValidatedEgress:
     scheme: str
     path: str
     query: str
-    pinned_ips: tuple[ipaddress._BaseAddress, ...]
+    pinned_ips: tuple[IPAddress, ...]
 
 
-def normalize_ip(addr: ipaddress._BaseAddress | str) -> ipaddress._BaseAddress:
+def normalize_ip(addr: IPAddress | str) -> IPAddress:
     ip_obj = ipaddress.ip_address(addr) if isinstance(addr, str) else addr
     if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped is not None:
         return ip_obj.ipv4_mapped
     return ip_obj
 
 
-def is_blocked_address(ip: ipaddress._BaseAddress | str) -> bool:
+def is_blocked_address(ip: IPAddress | str) -> bool:
     ip_obj = normalize_ip(ip)
     if ip_obj.is_loopback or ip_obj.is_private or ip_obj.is_link_local:
         return True
@@ -109,7 +111,7 @@ def _default_port(scheme: str) -> int:
     return 443 if scheme == "https" else 80
 
 
-def _format_ip_for_url(ip: ipaddress._BaseAddress) -> str:
+def _format_ip_for_url(ip: IPAddress) -> str:
     if isinstance(ip, ipaddress.IPv6Address):
         return f"[{ip}]"
     return str(ip)
@@ -121,7 +123,7 @@ def _host_header(hostname: str, explicit_port: int | None, scheme: str) -> str:
     return hostname
 
 
-def build_pinned_url(validated: ValidatedEgress, pinned_ip: ipaddress._BaseAddress) -> str:
+def build_pinned_url(validated: ValidatedEgress, pinned_ip: IPAddress) -> str:
     ip_host = _format_ip_for_url(pinned_ip)
     if validated.explicit_port is not None:
         netloc = f"{ip_host}:{validated.explicit_port}"
@@ -152,15 +154,15 @@ def build_pinned_request_kwargs(
     return kwargs
 
 
-async def resolve_host(host: str, port: int) -> tuple[ipaddress._BaseAddress, ...]:
+async def resolve_host(host: str, port: int) -> tuple[IPAddress, ...]:
     loop = asyncio.get_running_loop()
     try:
         infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         raise HttpEgressBlockedError("could not resolve url host") from exc
 
-    pinned: list[ipaddress._BaseAddress] = []
-    seen: set[ipaddress._BaseAddress] = set()
+    pinned: list[IPAddress] = []
+    seen: set[IPAddress] = set()
     for _family, _type, _proto, _canonname, sockaddr in infos:
         ip_obj = normalize_ip(ipaddress.ip_address(sockaddr[0]))
         if ip_obj in seen:
@@ -190,7 +192,7 @@ async def validate_egress_url(url: str) -> ValidatedEgress:
 
     literal = hostname.strip("[]")
     try:
-        pinned_ips: tuple[ipaddress._BaseAddress, ...] = (
+        pinned_ips: tuple[IPAddress, ...] = (
             normalize_ip(ipaddress.ip_address(literal)),
         )
         if is_blocked_address(pinned_ips[0]):
