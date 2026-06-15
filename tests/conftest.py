@@ -64,6 +64,7 @@ _preload_connector_logic_modules()
 def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
     monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "true")
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     monkeypatch.setenv("NW_RATE_LIMIT_BURST", "1000")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_REFILL_RATE", "100.0")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for tests

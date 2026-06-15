@@ -20,7 +20,7 @@ from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
-from .auth import GrpcAuthInterceptor
+from .auth import GrpcAuthInterceptor, get_grpc_caller_identity
 
 logger = logging.getLogger("bindings.grpc_server")
 
@@ -76,7 +76,13 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             if payload.get("action"):
                 normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
 
-        response: ConnectorResponse = await connector.run(payload)
+        identity = get_grpc_caller_identity()
+        response: ConnectorResponse = await connector.run(
+            payload,
+            principal=identity.principal if identity else None,
+            tenant_id=identity.tenant_id if identity else None,
+            scopes=identity.scopes if identity else None,
+        )
 
         data_json = json.dumps(response.data) if response.data is not None else ""
         error_category = (
