@@ -327,7 +327,7 @@ Register your application at the [Cerner Developer Portal](https://code.cerner.c
 
 #### `nw-smtp`
 
-The SMTP MCP server exposes one tool: `smtp.send_email`. When running under ToolHive, inject these as secrets:
+The SMTP MCP server exposes one tool: `smtp.send_email`. Tool input is **`to`**, **`subject`**, **`body`**, and optional **`from_email`** only — relay settings cannot be passed in the payload. When running under ToolHive, inject these as secrets:
 
 | Variable | Description |
 |---|---|
