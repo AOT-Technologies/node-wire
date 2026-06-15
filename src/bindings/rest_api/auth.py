@@ -96,25 +96,13 @@ def verify_rest_token_and_identity(
     comma/space-separated). Empty means no scopes; use explicit ``*`` only when
     intended (JWT-style superuser for the policy hook).
     """
-    if api_key and token == api_key:
-        return verify_bearer_token_and_identity(
-            token,
-            api_key=api_key,
-            jwt_secret=None,
-            api_key_scopes_env="NW_REST_API_KEY_SCOPES",
-            api_key_auth_type="rest_api_key",
-        )
-
-    if jwt_secret and token.count(".") == 2:
-        return verify_bearer_token_and_identity(
-            token,
-            api_key=None,
-            jwt_secret=jwt_secret,
-            api_key_scopes_env="NW_REST_API_KEY_SCOPES",
-            api_key_auth_type="rest_api_key",
-        )
-
-    return False, None
+    return verify_bearer_token_and_identity(
+        token,
+        api_key=api_key,
+        jwt_secret=jwt_secret,
+        api_key_scopes_env="NW_REST_API_KEY_SCOPES",
+        api_key_auth_type="rest_api_key",
+    )
 
 
 class RestAuthMiddleware(BaseHTTPMiddleware):

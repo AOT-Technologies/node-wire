@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import re
@@ -68,6 +69,11 @@ def parse_api_key_scopes_from_env(env_var: str) -> tuple[str, ...]:
     return tuple(p for p in re.split(r"[\s,]+", raw) if p)
 
 
+def api_key_matches(token: str, api_key: str) -> bool:
+    """Constant-time comparison of presented token and configured API key."""
+    return hmac.compare_digest(token, api_key)
+
+
 def verify_bearer_token_and_identity(
     token: str,
     *,
@@ -81,7 +87,7 @@ def verify_bearer_token_and_identity(
 
     Shared by REST and gRPC bindings. API key scopes come from ``api_key_scopes_env``.
     """
-    if api_key and token == api_key:
+    if api_key and api_key_matches(token, api_key):
         scopes = list(parse_api_key_scopes_from_env(api_key_scopes_env))
         ident = build_caller_identity(
             {"sub": "api-key-user", "tenant_id": None, "scopes": scopes},
