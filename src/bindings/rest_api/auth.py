@@ -22,15 +22,13 @@ import hashlib
 import os
 from typing import Callable
 
-import jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from node_wire_runtime.caller_identity import (
     CallerIdentity,
-    build_caller_identity,
-    parse_api_key_scopes_from_env,
+    verify_bearer_token_and_identity,
 )
 
 
@@ -99,19 +97,22 @@ def verify_rest_token_and_identity(
     intended (JWT-style superuser for the policy hook).
     """
     if api_key and token == api_key:
-        scopes = list(parse_api_key_scopes_from_env("NW_REST_API_KEY_SCOPES"))
-        ident = build_caller_identity(
-            {"sub": "api-key-user", "tenant_id": None, "scopes": scopes},
-            auth_type="rest_api_key",
+        return verify_bearer_token_and_identity(
+            token,
+            api_key=api_key,
+            jwt_secret=None,
+            api_key_scopes_env="NW_REST_API_KEY_SCOPES",
+            api_key_auth_type="rest_api_key",
         )
-        return True, ident
 
     if jwt_secret and token.count(".") == 2:
-        try:
-            claims = jwt.decode(token, jwt_secret, algorithms=["HS256"])
-        except jwt.PyJWTError:
-            return False, None
-        return True, build_caller_identity(claims, auth_type="jwt")
+        return verify_bearer_token_and_identity(
+            token,
+            api_key=None,
+            jwt_secret=jwt_secret,
+            api_key_scopes_env="NW_REST_API_KEY_SCOPES",
+            api_key_auth_type="rest_api_key",
+        )
 
     return False, None
 

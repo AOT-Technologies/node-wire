@@ -145,17 +145,16 @@ class McpServer:
             cid = entry["connector_id"]
             if self._connector_ids is not None and cid not in self._connector_ids:
                 continue
-            if identity is not None:
-                if not action_allowed_for_identity_scopes(
-                    connector_id=cid,
-                    action=str(entry["action"]),
-                    principal=identity.principal,
-                    tenant_id=identity.tenant_id,
-                    scopes=identity.scopes,
-                    action_scope_map=scope_map,
-                    default_mode=default_mode,
-                ):
-                    continue
+            if not action_allowed_for_identity_scopes(
+                connector_id=cid,
+                action=str(entry["action"]),
+                principal=identity.principal if identity else None,
+                tenant_id=identity.tenant_id if identity else None,
+                scopes=identity.scopes if identity else None,
+                action_scope_map=scope_map,
+                default_mode=default_mode,
+            ):
+                continue
             schema_desc = entry["input_schema"].get("description", "")
 
             security_lines = []

@@ -170,6 +170,7 @@ NW_MCP_SCOPE_POLICY_STRICT=true
 ```
 
 Notes:
+- Code default is `deny` when `NW_MCP_SCOPE_POLICY_DEFAULT` is unset (fail-closed).
 - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
 - Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
 - API keys with `NW_MCP_API_KEY_SCOPES=*` are super-user keys by design and bypass per-action scope checks.
