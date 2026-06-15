@@ -212,5 +212,8 @@ def normalize_smtp_send_email(args: Dict[str, Any]) -> None:
     for alias in ("from", "sender", "from_addr"):
         args.pop(alias, None)
 
+    for relay_key in ("host", "port", "use_tls"):
+        args.pop(relay_key, None)
+
     if isinstance(args.get("to"), str):
         args["to"] = [args["to"]]
