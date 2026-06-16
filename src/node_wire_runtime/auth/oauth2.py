@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -352,7 +353,8 @@ class OAuth2AuthProvider(AuthProvider):
     @staticmethod
     async def _post_token(token_url: str, data: Dict[str, str]) -> Dict[str, Any]:
         """POST to the token endpoint and return the parsed JSON body."""
-        async with httpx.AsyncClient() as client:
+        timeout = float(os.getenv("NW_TIMEOUT", "30.0"))
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 token_url,
                 data=data,

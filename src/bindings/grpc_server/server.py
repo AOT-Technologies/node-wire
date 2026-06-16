@@ -4,7 +4,6 @@
 #
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -19,10 +18,13 @@ from node_wire_runtime import ConnectorResponse, ErrorCategory
 from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
+from .async_runner import BackgroundAsyncRunner
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
 from .auth import GrpcAuthInterceptor, get_grpc_caller_identity
 
 logger = logging.getLogger("bindings.grpc_server")
+
+_async_runner = BackgroundAsyncRunner()
 
 
 class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
@@ -99,11 +101,11 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         )
 
     def Invoke(self, request, context):  # type: ignore[override]
-        # Bridge sync gRPC handler to async execution.
-        return asyncio.run(self._invoke_async(request))
+        return _async_runner.run(self._invoke_async(request))
 
 
 def serve(port: int = 50051) -> None:
+    _async_runner.start()
     interceptor = GrpcAuthInterceptor()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(interceptor,))
     connector_pb2_grpc.add_ConnectorServiceServicer_to_server(ConnectorServiceServicer(), server)  # type: ignore[attr-defined]

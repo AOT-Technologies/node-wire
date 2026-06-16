@@ -343,6 +343,36 @@ async def test_oauth2_missing_access_token_raises() -> None:
 
 
 @pytest.mark.asyncio
+async def test_oauth2_post_token_uses_nw_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_TIMEOUT", "42")
+    captured: dict[str, object] = {}
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        async def __aenter__(self) -> FakeAsyncClient:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, *args: object, **kwargs: object) -> MagicMock:
+            response = MagicMock()
+            response.status_code = 200
+            response.json.return_value = {"access_token": "tok"}
+            return response
+
+    with patch("node_wire_runtime.auth.oauth2.httpx.AsyncClient", FakeAsyncClient):
+        await OAuth2AuthProvider._post_token(
+            "https://auth.example.com/token",
+            {"grant_type": "client_credentials"},
+        )
+
+    assert captured["timeout"] == 42.0
+
+
+@pytest.mark.asyncio
 async def test_base_connector_delegates_to_auth_provider(tmp_path: Any) -> None:
     """get_auth_headers() returns the provider's headers dict."""
     sp = _DictSecretProvider({"MY_API_KEY": "secret-123"})

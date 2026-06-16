@@ -78,7 +78,7 @@ class SmtpConnector(BaseConnector):
                 password=password,
                 use_tls=use_implicit,
                 start_tls=relay.use_tls and not use_implicit,
-                timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
+                timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
             )
         except SmtpRelayNotAllowedError:
             raise
