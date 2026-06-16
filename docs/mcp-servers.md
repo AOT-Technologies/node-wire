@@ -174,6 +174,7 @@ Notes:
 - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
 - Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
 - API keys with `NW_MCP_API_KEY_SCOPES=*` are super-user keys by design and bypass per-action scope checks.
+- JWT auth (`NW_MCP_JWT_SECRET`): set shared `NW_JWT_AUDIENCE` and `NW_JWT_ISSUER`; tokens must include `exp`, `iat`, `aud`, and `iss`.
 
 ### Playground transport indicator
 

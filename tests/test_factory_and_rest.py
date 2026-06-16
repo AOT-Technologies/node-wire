@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import jwt
 import pytest
 from fastapi.testclient import TestClient
 
 from bindings.factory import ConnectorFactory
 from bindings.rest_api.app import app, get_factory
 from node_wire_runtime.models import ConnectorResponse, ErrorCategory
+from tests.jwt_test_helpers import mint_test_jwt
 
 
 def test_factory_loads_config(monkeypatch: pytest.MonkeyPatch):
@@ -136,10 +136,9 @@ def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.Mo
     secret = "rest-jwt-test-secret-at-least-32bytes!!"
     monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
 
-    tok = jwt.encode(
+    tok = mint_test_jwt(
         {"sub": "alice", "tenant_id": "t-1", "scopes": ["mcp:test.scope"]},
         secret,
-        algorithm="HS256",
     )
 
     mock_factory = MagicMock()

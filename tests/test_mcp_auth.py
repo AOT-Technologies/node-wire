@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-import jwt
 import pytest
 from fastapi.testclient import TestClient
 from starlette.responses import JSONResponse
@@ -13,6 +12,7 @@ from bindings.mcp_server.auth import (
     authenticate_mcp_request,
 )
 from bindings.mcp_server.server import McpServer
+from tests.jwt_test_helpers import mint_test_jwt
 
 
 @pytest.fixture(autouse=True)
@@ -72,10 +72,9 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
         '{"smtp.send_email":"mcp:smtp.send_email"}',
     )
 
-    token = jwt.encode(
+    token = mint_test_jwt(
         {"sub": "alice", "tenant_id": "tenant-a", "scopes": ["mcp:other.scope"]},
         "jwt-secret",
-        algorithm="HS256",
     )
     identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
     assert identity is not None
@@ -106,10 +105,9 @@ async def test_mcp_execution_passes_principal_and_tenant(
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
 
-    token = jwt.encode(
+    token = mint_test_jwt(
         {"sub": "service-account", "tenant_id": "tenant-42", "scopes": ["*"]},
         "jwt-secret",
-        algorithm="HS256",
     )
     identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
     assert identity is not None
@@ -177,10 +175,9 @@ def test_mcp_jwt_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> No
         '{"smtp.send_email":"mcp:smtp.send_email"}',
     )
 
-    token = jwt.encode(
+    token = mint_test_jwt(
         {"sub": "alice", "scopes": ["mcp:other.scope"]},
         "jwt-secret",
-        algorithm="HS256",
     )
     identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
     server = McpServer(connector_ids=["smtp"])
@@ -198,10 +195,9 @@ async def test_mcp_default_deny_fallback_scope_invokes_tool(
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
 
-    token = jwt.encode(
+    token = mint_test_jwt(
         {"sub": "bob", "scopes": ["mcp:smtp.send_email"]},
         "jwt-secret",
-        algorithm="HS256",
     )
     identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
 
@@ -247,10 +243,9 @@ async def test_mcp_default_deny_denies_without_fallback_scope(
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
 
-    token = jwt.encode(
+    token = mint_test_jwt(
         {"sub": "bob", "scopes": ["mcp:wrong.scope"]},
         "jwt-secret",
-        algorithm="HS256",
     )
     identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
 
