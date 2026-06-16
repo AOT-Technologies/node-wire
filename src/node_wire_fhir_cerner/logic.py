@@ -16,6 +16,7 @@ import httpx
 
 from node_wire_runtime import BaseConnector, nw_action, sdk_action
 from node_wire_runtime.fhir_encounter import assert_encounter_query_has_patient
+from node_wire_runtime.log_sanitization import fhir_log_extra, log_http_status_error
 from node_wire_runtime.mcp_normalizers import (
     normalize_fhir_read_patient,
     normalize_fhir_search_encounter,
@@ -218,7 +219,7 @@ class FhirCernerConnector(BaseConnector):
             query_params: Optional[Dict[str, str]] = None
             logger.info(
                 "FHIR Patient read by ID",
-                extra={"trace_id": trace_id, "resource_id": params.resource_id},
+                extra=fhir_log_extra(trace_id, mode="read_by_id"),
             )
         elif params.given_name or params.family_name or params.name:
             url = f"{base_url}/Patient"
@@ -231,14 +232,14 @@ class FhirCernerConnector(BaseConnector):
             )
             logger.info(
                 "FHIR Patient read by name fields",
-                extra={"trace_id": trace_id, "query_params": query_params},
+                extra=fhir_log_extra(trace_id, mode="read_by_name"),
             )
         elif params.search_params:
             url = f"{base_url}/Patient"
             query_params = params.search_params
             logger.info(
                 "FHIR Patient read by search",
-                extra={"trace_id": trace_id, "search_params": params.search_params},
+                extra=fhir_log_extra(trace_id, mode="read_by_search"),
             )
         else:
             raise ValueError(
@@ -300,7 +301,7 @@ class FhirCernerConnector(BaseConnector):
             logger.info(
                 "FHIR Cerner Patient multi-ID lookup | count=%s",
                 len(ids),
-                extra={"trace_id": trace_id, "resource_ids": ids},
+                extra=fhir_log_extra(trace_id, mode="search_by_ids"),
             )
 
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
@@ -318,10 +319,9 @@ class FhirCernerConnector(BaseConnector):
                     return rid, resp.json(), None
                 except Exception as exc:
                     logger.warning(
-                        "FHIR Cerner Patient fetch failed | resource_id=%s | error=%s",
-                        rid,
-                        str(exc),
-                        extra={"trace_id": trace_id},
+                        "FHIR Cerner Patient fetch failed | error=%s",
+                        type(exc).__name__,
+                        extra=fhir_log_extra(trace_id, mode="search_by_ids"),
                     )
                     return rid, None, str(exc)
 
@@ -360,9 +360,8 @@ class FhirCernerConnector(BaseConnector):
             )
 
         logger.info(
-            "FHIR Cerner Patient name search | params=%s",
-            name_params,
-            extra={"trace_id": trace_id},
+            "FHIR Cerner Patient name search",
+            extra=fhir_log_extra(trace_id, mode="search_by_name"),
         )
 
         try:
@@ -377,11 +376,11 @@ class FhirCernerConnector(BaseConnector):
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error(
-                "FHIR Cerner Patient name search failed | status=%s | body=%s",
-                exc.response.status_code,
-                exc.response.text,
-                extra={"trace_id": trace_id},
+            log_http_status_error(
+                logger,
+                "FHIR Cerner Patient name search failed",
+                exc,
+                trace_id=trace_id,
             )
             raise
         except Exception as exc:
@@ -422,13 +421,13 @@ class FhirCernerConnector(BaseConnector):
             )
             logger.info(
                 "FHIR Encounter search by explicit fields",
-                extra={"trace_id": trace_id, "query_params": query_params},
+                extra=fhir_log_extra(trace_id, mode="search_encounter_by_fields"),
             )
         elif params.search_params:
             query_params = params.search_params
             logger.info(
                 "FHIR Encounter search by raw params",
-                extra={"trace_id": trace_id, "search_params": params.search_params},
+                extra=fhir_log_extra(trace_id, mode="search_encounter_by_search_params"),
             )
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
@@ -449,11 +448,11 @@ class FhirCernerConnector(BaseConnector):
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error(
-                "FHIR Encounter search failed | status=%s | body=%s",
-                exc.response.status_code,
-                exc.response.text,
-                extra={"trace_id": trace_id},
+            log_http_status_error(
+                logger,
+                "FHIR Encounter search failed",
+                exc,
+                trace_id=trace_id,
             )
             raise
         except Exception as exc:
@@ -685,14 +684,13 @@ class FhirCernerConnector(BaseConnector):
 
         if not resource_id:
             raise ValueError(
-                f"Could not extract resource ID from DocumentReference create response. "
-                f"Status: {response.status_code}, Location: {location!r}, Body: {response.text[:200]!r}"
+                "Could not extract resource ID from DocumentReference create response. "
+                f"Status: {response.status_code}, Location: {location!r}"
             )
 
         logger.info(
-            "FHIR DocumentReference create completed | resource_id=%s",
-            resource_id,
-            extra={"trace_id": trace_id},
+            "FHIR DocumentReference create completed",
+            extra=fhir_log_extra(trace_id, mode="create_document_reference"),
         )
         return FhirCernerDocumentReferenceCreateOutput(
             resource_id=resource_id, resource=body if body else None
@@ -710,7 +708,7 @@ class FhirCernerConnector(BaseConnector):
 
         logger.info(
             "FHIR DocumentReference search",
-            extra={"trace_id": trace_id, "search_params": params.search_params},
+            extra=fhir_log_extra(trace_id, mode="search_document_reference"),
         )
 
         try:
@@ -725,11 +723,11 @@ class FhirCernerConnector(BaseConnector):
                 )
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            logger.error(
-                "FHIR DocumentReference search failed | status=%s | body=%s",
-                exc.response.status_code,
-                exc.response.text,
-                extra={"trace_id": trace_id},
+            log_http_status_error(
+                logger,
+                "FHIR DocumentReference search failed",
+                exc,
+                trace_id=trace_id,
             )
             raise
         except Exception as exc:

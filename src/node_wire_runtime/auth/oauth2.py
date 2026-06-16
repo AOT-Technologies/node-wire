@@ -360,9 +360,9 @@ class OAuth2AuthProvider(AuthProvider):
             )
         if response.status_code != 200:
             logger.error(
-                "OAuth2 token request failed | status=%s | body=%s",
+                "OAuth2 token request failed | status=%s | body_length=%s",
                 response.status_code,
-                response.text,
+                len(response.text or ""),
             )
             response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]

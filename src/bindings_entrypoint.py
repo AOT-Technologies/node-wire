@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 from bindings.rest_api.app import app as rest_app
 from bindings.mcp_server.server import McpServer
+from node_wire_runtime.log_sanitization import install_sanitizing_log_filter
 from node_wire_runtime.observability import init_observability
 
 # Match ``bindings.rest_api.app``: honor ``NW_REST_LOAD_DOTENV`` and never override
@@ -20,6 +21,7 @@ if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "
     load_dotenv(override=False)
 
 logging.basicConfig(level=logging.INFO)
+install_sanitizing_log_filter()
 logger = logging.getLogger("bindings.entrypoint")
 logging.getLogger("opentelemetry.exporter.otlp.proto.http").setLevel(logging.DEBUG)
 

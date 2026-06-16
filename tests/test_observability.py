@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import node_wire_runtime.observability as obs
+from node_wire_runtime.log_sanitization import SanitizingLogFilter
 
 
 @contextmanager
@@ -112,6 +113,13 @@ def test_otel_context_filter_sets_empty_trace_when_no_span() -> None:
     assert flt.filter(record) is True
     assert record.otel_trace_id == ""
     assert record.otel_span_id == ""
+
+
+def test_init_observability_installs_sanitizing_log_filter() -> None:
+    with _observability_test_patches():
+        obs.init_observability("app-filter")
+    root = logging.getLogger()
+    assert any(isinstance(flt, SanitizingLogFilter) for flt in root.filters)
 
 
 def test_init_observability_traceloop_failure_does_not_raise(
