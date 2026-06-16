@@ -60,7 +60,9 @@ def with_resilience(
 
             async def _call() -> T:
                 current_breaker = _resolve_breaker(breaker)
-                if current_breaker.state.name == "open":
+                breaker_state = current_breaker.state
+
+                if breaker_state.name == "open":
                     logger.error(
                         "Circuit breaker is OPEN; rejecting call",
                         extra={
@@ -70,17 +72,18 @@ def with_resilience(
                         },
                     )
                     raise CircuitBreakerError("Circuit breaker is open")
+
+                breaker_state.before_call(fn, *args, **kwargs)
+                for listener in current_breaker.listeners:
+                    listener.before_call(current_breaker, fn, *args, **kwargs)
+
                 try:
                     result = await fn(*args, **kwargs)
-                    current_breaker._state.on_success()  # noqa: SLF001
+                except BaseException as exc:
+                    breaker_state._handle_error(exc)
+                else:
+                    breaker_state._handle_success()
                     return result
-                except Exception as exc:
-                    current_breaker._state.on_failure(exc)  # noqa: SLF001
-                    raise
-                except NameError:
-                    # pybreaker < 1.0 requires Tornado's `gen` in call_async.
-                    # Fall back to a direct call until pybreaker is upgraded to >= 1.0.
-                    return await fn(*args, **kwargs)
 
             try:
                 async for attempt in AsyncRetrying(
