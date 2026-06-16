@@ -65,7 +65,7 @@ def _client_ip_for_rate_limit(request: Request) -> str:
     Resolve client IP for rate limiting.
 
     X-Forwarded-For is honored only when ``NW_REST_TRUSTED_PROXY_HOPS`` is > 0.
-  """
+    """
     hops = _trusted_proxy_hops()
     if hops > 0:
         forwarded = request.headers.get("x-forwarded-for") or ""

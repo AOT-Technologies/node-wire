@@ -61,7 +61,9 @@ class InMemoryRateLimiter:
 
     def _evict_idle_keys(self, now: float) -> None:
         idle_cutoff = now - self._key_ttl_seconds
-        stale_keys = [key for key, bucket in self._buckets.items() if bucket.last_seen <= idle_cutoff]
+        stale_keys = [
+            key for key, bucket in self._buckets.items() if bucket.last_seen <= idle_cutoff
+        ]
         for key in stale_keys:
             del self._buckets[key]
 
