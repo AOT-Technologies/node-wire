@@ -12,6 +12,7 @@ from node_wire_runtime.caller_identity import (
     CallerIdentity,
     api_key_matches,
     build_caller_identity,
+    decode_binding_jwt,
     parse_api_key_scopes_from_env,
 )
 
@@ -163,7 +164,7 @@ def verify_mcp_token(token: str) -> tuple[dict[str, Any], str]:
 
     if jwt_secret and token.count(".") == 2:
         try:
-            claims = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+            claims = decode_binding_jwt(token, jwt_secret)
             logger.info("MCP token verified as JWT")
             return (claims, "jwt")
         except jwt.PyJWTError as exc:
