@@ -10,6 +10,11 @@ set -e
 cd "$(dirname "$0")/.."
 
 echo "====================================="
+echo "0. Syncing locked dependencies..."
+echo "====================================="
+uv sync --frozen --all-extras --dev
+
+echo "====================================="
 echo "1. Generating DEPENDENCIES.md..."
 echo "====================================="
 
@@ -33,14 +38,21 @@ echo "DEPENDENCIES.md generated successfully!"
 
 echo ""
 echo "====================================="
-echo "2. Running Bandit (SAST Scanner)..."
+echo "2. Generating CycloneDX SBOM..."
+echo "====================================="
+uv run cyclonedx-py environment -o sbom.json
+echo "sbom.json generated successfully!"
+
+echo ""
+echo "====================================="
+echo "3. Running Bandit (SAST Scanner)..."
 echo "====================================="
 # We allow medium/low severity but want to output findings.
 uv run bandit -r src/ packages/ playground/ tests/ -ll || true
 
 echo ""
 echo "====================================="
-echo "3. Running pip-audit (Vulnerability Scanner)..."
+echo "4. Running pip-audit (Vulnerability Scanner)..."
 echo "====================================="
 uv run pip-audit || true
 

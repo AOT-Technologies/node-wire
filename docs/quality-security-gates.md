@@ -13,10 +13,14 @@ Runs on every pull request and on pushes to `main`/`master`.
 Required jobs:
 
 - `bandit`: writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step.
-- `test`: runs `pytest` and produces `coverage.xml`.
+- `test`: runs `pytest`, produces `coverage.xml`, and uploads a CycloneDX `sbom.json` artifact.
 - `sonar`: runs SonarQube scan and waits for quality gate result (runs after `bandit` and `test`).
 
+Workflow: `.github/workflows/lint.yml` also runs `lockfile-check` (`uv lock --check`) to fail PRs when `pyproject.toml` changes without an updated `uv.lock`.
+
 Required checks to add in branch protection:
+
+- `Lint and Type Check / Lockfile freshness`
 
 - `Quality gates / Bandit security scan`
 - `Quality gates / Tests and coverage`
@@ -42,18 +46,18 @@ Configure branch protection so pull requests cannot merge unless all required ch
 ## Run checks locally
 
 ```bash
-# Install dev tools
-pip install -e ".[dev,agents]"
+# Install dev tools from committed lockfile
+uv sync --frozen --all-extras --dev
 
 # Security gate (matches CI failure threshold)
-bandit -c pyproject.toml -r src --severity-level high
+uv run bandit -c pyproject.toml -r src --severity-level high
 
 # Optional: JSON report + same summary as CI logs
-bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+uv run bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
 python scripts/bandit_report_summary.py bandit-report.json
 
 # Tests + coverage.xml (required by SonarQube)
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ## Deterministic pytest environment

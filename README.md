@@ -26,9 +26,9 @@ Before getting started, make sure you have:
 ```bash
 git clone <repo-url>
 cd node-wire
-uv sync --extra agents
+uv sync --frozen --all-extras --dev
 ```
-*(Requires `uv`. Alternatively, use `pip install -e ".[agents]"`)*
+*(Requires `uv`. See [Installation](docs/installation.md) for lockfile update workflow.)*
 
 ### 2. Configure
 Copy the sample environment file and add your `NW_ALLOWED_CONNECTORS`:

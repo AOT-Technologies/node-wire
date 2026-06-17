@@ -11,6 +11,23 @@ on:
     branches: [ "main" ]
 
 jobs:
+  lockfile-check:
+    name: Lockfile freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Verify uv.lock matches pyproject.toml
+        run: uv lock --check
+
   ruff:
     name: Ruff Linters
     runs-on: ubuntu-latest
@@ -22,17 +39,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run Ruff (Linting)
         # --output-format=github automatically creates inline annotations on your PR code!
-        run: ruff check --output-format=github .
+        run: uv run ruff check --output-format=github .
 
       - name: Run Ruff (Formatting Check)
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
   mypy:
     name: Mypy Type Check
@@ -45,10 +68,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run Mypy (Type checking)
-        run: mypy
+        run: uv run mypy

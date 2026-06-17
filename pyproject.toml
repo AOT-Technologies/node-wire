@@ -94,6 +94,7 @@ dev = [
     "bandit[toml]>=1.7.9",
     "pre-commit>=4.0.0",
     "pytest-playwright>=0.4.0",
+    "cyclonedx-bom==4.6.1",
 ]
 
 [tool.uv]
