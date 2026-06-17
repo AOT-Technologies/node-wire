@@ -21,6 +21,7 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from .async_runner import BackgroundAsyncRunner
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
 from .auth import GrpcAuthInterceptor, get_grpc_caller_identity
+from .tls_config import configure_grpc_server_port
 
 logger = logging.getLogger("bindings.grpc_server")
 
@@ -112,24 +113,7 @@ def serve(port: int = 50051) -> None:
 
     cert_path = os.environ.get("NW_GRPC_TLS_CERT_PATH")
     key_path = os.environ.get("NW_GRPC_TLS_KEY_PATH")
-
-    if cert_path and key_path:
-        # Load the TLS certificate and key
-        with open(key_path, "rb") as f:
-            private_key = f.read()
-        with open(cert_path, "rb") as f:
-            certificate_chain = f.read()
-
-        server_credentials = grpc.ssl_server_credentials(((private_key, certificate_chain),))
-        server.add_secure_port(f"[::]:{port}", server_credentials)
-        logger.info("Starting secure gRPC server (TLS enabled)", extra={"port": port})
-    else:
-        server.add_insecure_port(f"[::]:{port}")
-        logger.warning(
-            "Starting insecure gRPC server (no TLS credentials found). "
-            "Traffic will be unencrypted.",
-            extra={"port": port},
-        )
+    configure_grpc_server_port(server, port=port, cert_path=cert_path, key_path=key_path)
 
     server.start()
     server.wait_for_termination()

@@ -40,6 +40,7 @@ copy sample.env .env
 | `MODE` | Execution mode (`API`, `GRPC`, `MCP`) | `API` |
 | `PORT` | Port for the REST API | `8000` |
 | `NW_MCP_TRANSPORT` | MCP transport mode (`stdio` or `streamable-http`) | `stdio` |
+| `NW_MCP_HOST` | MCP streamable-http bind address | `127.0.0.1` |
 | `NW_MCP_PORT` | Port for streamable-http MCP | `8080` |
 | `NW_REST_AUTH_DISABLED` | Disable REST API authentication (local dev only) | `false` |
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | Scope policy when action map has no entry: `deny` (conventional `mcp:<connector>.<action>`) or `allow` (map-only) | `deny` |
@@ -47,6 +48,9 @@ copy sample.env .env
 | `NW_GRPC_API_KEY` | Shared secret for gRPC metadata (`authorization` or `x-api-key`) | _(unset)_ |
 | `NW_GRPC_API_KEY_SCOPES` | Scopes for gRPC API key (same format as `NW_MCP_API_KEY_SCOPES`) | _(empty)_ |
 | `NW_GRPC_AUTH_DISABLED` | Disable gRPC authentication (local dev only; pair with `NW_MCP_SCOPE_POLICY_DEFAULT=allow` or scoped dev keys) | `false` |
+| `NW_GRPC_TLS_CERT_PATH` | gRPC server TLS certificate | _(unset)_ |
+| `NW_GRPC_TLS_KEY_PATH` | gRPC server TLS private key | _(unset)_ |
+| `NW_GRPC_REQUIRE_TLS` | Fail startup if TLS credentials are missing | `false` |
 | `NW_JWT_AUDIENCE` | Expected JWT `aud` claim when any `*_JWT_SECRET` is set (MCP / REST / gRPC) | _(required with JWT secret)_ |
 | `NW_JWT_ISSUER` | Expected JWT `iss` claim when any `*_JWT_SECRET` is set | _(required with JWT secret)_ |
 | `NW_SMTP_ALLOWED_HOSTS` | Optional comma-separated SMTP relay hostnames permitted for `smtp.send_email` (recommended for production) | _(unset = env relay only)_ |
@@ -103,3 +107,4 @@ export GOOGLE_DRIVE_SA_JSON=$(cat /path/to/service_account.json)
 - **Log redaction:** A platform-wide logging filter redacts PHI-like field names and values (for example `search_params`, `body`, patient identifiers). FHIR connectors log operation mode, HTTP status, and counts only—not request parameters or raw FHIR response bodies.
 - **REST rate limiting:** Enable with `NW_REST_RATE_LIMIT_ENABLED=true`. Per-identity buckets are keyed by API key/JWT fingerprint when auth is enabled; unauthenticated traffic falls back to client IP. Bound memory with `NW_REST_RATE_LIMIT_MAX_TRACKED_KEYS` and `NW_REST_RATE_LIMIT_KEY_TTL_SECONDS`. Set `NW_REST_TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the app (e.g. `1` behind nginx/ALB); leave at `0` to ignore client-supplied `X-Forwarded-For`.
 - **REST body size:** Set `NW_REST_MAX_BODY_BYTES` (default 10 MiB) to cap JSON bodies on `/connectors/*` and `/scenarios/*` before handlers parse them. Also set `client_max_body_size` (or equivalent) on your reverse proxy for defense in depth.
+- **Network bindings:** MCP streamable-http defaults to `NW_MCP_HOST=127.0.0.1`; set `0.0.0.0` only when intentionally exposing beyond localhost. For gRPC, set `NW_GRPC_TLS_CERT_PATH` and `NW_GRPC_TLS_KEY_PATH`, or enable `NW_GRPC_REQUIRE_TLS=true` in production to refuse plaintext startup. Terminate TLS at a reverse proxy if not terminating in-process.

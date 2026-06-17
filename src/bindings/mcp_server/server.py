@@ -28,6 +28,21 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from node_wire_runtime.streaming import stream_completion_log
 
 logger = logging.getLogger("bindings.mcp_server")
+
+_DEFAULT_MCP_HOST = "127.0.0.1"
+_PUBLIC_BIND_HOSTS = frozenset({"0.0.0.0", "::"})
+
+
+def resolve_mcp_host(env_value: str | None = None) -> str:
+    if env_value is not None:
+        return env_value.strip()
+    return os.getenv("NW_MCP_HOST", _DEFAULT_MCP_HOST).strip()
+
+
+def is_public_bind_host(host: str) -> bool:
+    return host in _PUBLIC_BIND_HOSTS
+
+
 _streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = (
     contextvars.ContextVar(
         "nw_streamable_http_identity",
@@ -533,13 +548,19 @@ class McpServer:
         return starlette_app
 
     async def _run_streamable_http_async(self) -> None:
-        import os
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
         import uvicorn
 
-        host = os.getenv("NW_MCP_HOST", "0.0.0.0")
+        host = resolve_mcp_host()
         port = int(os.getenv("NW_MCP_PORT", "8081"))
         path = os.getenv("NW_MCP_PATH", "/mcp")
+
+        if is_public_bind_host(host):
+            logger.warning(
+                "MCP streamable-http binding to all interfaces; "
+                "set NW_MCP_HOST=127.0.0.1 for local-only access",
+                extra={"host": host, "port": port},
+            )
 
         low = self._setup_lowlevel_server()
         session_manager = StreamableHTTPSessionManager(low, json_response=True)
