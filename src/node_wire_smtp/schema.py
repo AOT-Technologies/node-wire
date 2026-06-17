@@ -8,9 +8,16 @@ import os
 import re
 from typing import Any, List, Literal, Optional, Union
 
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
 _FORBIDDEN_RELAY_KEYS = frozenset({"host", "port", "use_tls"})
+_HEADER_UNSAFE_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _reject_unsafe_header_value(value: str, field_name: str) -> str:
+    if _HEADER_UNSAFE_RE.search(value):
+        raise ValueError(f"{field_name} must not contain control characters or newlines")
+    return value
 
 
 def _strip_env(s: str) -> str:
@@ -41,6 +48,11 @@ class SmtpSendInput(BaseModel):
     to: Union[str, List[EmailStr]]
     subject: str
     body: str
+
+    @field_validator("subject")
+    @classmethod
+    def _validate_subject(cls, value: str) -> str:
+        return _reject_unsafe_header_value(value, "subject")
 
     @model_validator(mode="before")
     @classmethod

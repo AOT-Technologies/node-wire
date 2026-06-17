@@ -36,6 +36,40 @@ def test_smtp_send_input_rejects_host_in_payload() -> None:
         )
 
 
+def _smtp_input_kwargs(**overrides: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "from_email": "sender@example.com",
+        "to": ["a@example.com"],
+        "subject": "Hello",
+        "body": "body",
+    }
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        "a\nBcc: evil@x.com",
+        "a\r\nfoo",
+        "a\tb",
+    ],
+)
+def test_smtp_send_input_rejects_unsafe_subject(subject: str) -> None:
+    with pytest.raises(ValidationError, match="control characters or newlines"):
+        SmtpSendInput(**_smtp_input_kwargs(subject=subject))
+
+
+def test_smtp_send_input_allows_normal_subject() -> None:
+    inp = SmtpSendInput(**_smtp_input_kwargs(subject="Hello - patient summary"))
+    assert inp.subject == "Hello - patient summary"
+
+
+def test_smtp_send_input_allows_multiline_body() -> None:
+    inp = SmtpSendInput(**_smtp_input_kwargs(body="line1\nline2"))
+    assert inp.body == "line1\nline2"
+
+
 def test_resolve_smtp_relay_allowlist_blocks_unlisted_host(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
