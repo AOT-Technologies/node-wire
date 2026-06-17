@@ -38,6 +38,7 @@ from bindings.rest_api.auth import (
     get_request_identity_key,
     get_rest_caller_identity,
 )
+from bindings.rest_api.body_limit import MaxBodySizeMiddleware
 
 # Add project root to sys.path to allow importing from 'playground' package
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -52,8 +53,10 @@ tracer = trace.get_tracer("bindings.rest_api")
 
 app = FastAPI(title="Node Wire - REST API")
 FastAPIInstrumentor.instrument_app(app)
-# Auth runs outermost (added last): protects /connectors/*, /playground/*, /scenarios/*; /health is public.
+_max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
+# Body limit runs outermost (added last); auth is next; protects /connectors/* and /scenarios/*.
 app.add_middleware(RestAuthMiddleware)
+app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 
 # Include the professional scenarios orchestrator
 app.include_router(scenarios_router)
