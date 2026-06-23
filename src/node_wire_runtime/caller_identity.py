@@ -8,6 +8,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+import jwt
+
 
 @dataclass(frozen=True)
 class CallerIdentity:
@@ -64,3 +66,34 @@ def parse_api_key_scopes_from_env(env_var: str) -> tuple[str, ...]:
             raise ValueError(f"{env_var} JSON must be an array of strings")
         return tuple(str(s).strip() for s in parsed if str(s).strip())
     return tuple(p for p in re.split(r"[\s,]+", raw) if p)
+
+
+def verify_bearer_token_and_identity(
+    token: str,
+    *,
+    api_key: str | None,
+    jwt_secret: str | None,
+    api_key_scopes_env: str,
+    api_key_auth_type: str,
+) -> tuple[bool, CallerIdentity | None]:
+    """
+    Validate a bearer/API-key token and build caller identity.
+
+    Shared by REST and gRPC bindings. API key scopes come from ``api_key_scopes_env``.
+    """
+    if api_key and token == api_key:
+        scopes = list(parse_api_key_scopes_from_env(api_key_scopes_env))
+        ident = build_caller_identity(
+            {"sub": "api-key-user", "tenant_id": None, "scopes": scopes},
+            auth_type=api_key_auth_type,
+        )
+        return True, ident
+
+    if jwt_secret and token.count(".") == 2:
+        try:
+            claims = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+        except jwt.PyJWTError:
+            return False, None
+        return True, build_caller_identity(claims, auth_type="jwt")
+
+    return False, None

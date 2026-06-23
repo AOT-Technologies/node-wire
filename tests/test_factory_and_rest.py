@@ -323,3 +323,14 @@ def test_factory_scope_policy_default_deny_without_map_enables_hook(
 
     factory = ConnectorFactory()
     assert factory._policy_hook is not None
+
+
+def test_factory_default_scope_policy_is_deny_without_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_SCOPE_POLICY_DEFAULT", raising=False)
+    monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
+    monkeypatch.delenv("NW_MCP_SCOPE_POLICY_STRICT", raising=False)
+
+    factory = ConnectorFactory()
+    assert factory._policy_hook is not None

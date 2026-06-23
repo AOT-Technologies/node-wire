@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import aiosmtplib
 
+from node_wire_smtp.relay import SmtpRelayNotAllowedError
 from node_wire_runtime import ErrorCategory, ErrorMapper
 
 
 # Connection / timeout issues are retryable.
+ErrorMapper.register(SmtpRelayNotAllowedError, ErrorCategory.FATAL, code="SMTP_RELAY_NOT_ALLOWED")
 ErrorMapper.register(
     aiosmtplib.errors.SMTPConnectError, ErrorCategory.RETRYABLE, code="SMTP_CONNECT_ERROR"
 )

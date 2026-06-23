@@ -16,10 +16,10 @@ logger = logging.getLogger("runtime.policy.scope")
 DEFAULT_SCOPE_MODE_ALLOW = "allow"
 DEFAULT_SCOPE_MODE_DENY = "deny"
 
+_warned_implicit_scope_default = False
 
-def _truthy_default_mode(val: str | None) -> str:
-    if val is None:
-        return DEFAULT_SCOPE_MODE_ALLOW
+
+def _truthy_default_mode(val: str) -> str:
     v = val.strip().lower()
     if v in ("deny", "default-deny", "closed"):
         return DEFAULT_SCOPE_MODE_DENY
@@ -27,10 +27,18 @@ def _truthy_default_mode(val: str | None) -> str:
 
 
 def load_scope_policy_default_from_env() -> str:
-    """Return ``allow`` or ``deny`` from ``NW_MCP_SCOPE_POLICY_DEFAULT``."""
+    """Return ``allow`` or ``deny`` from ``NW_MCP_SCOPE_POLICY_DEFAULT`` (default: deny)."""
+    global _warned_implicit_scope_default
     raw = os.environ.get("NW_MCP_SCOPE_POLICY_DEFAULT")
     if not raw or not str(raw).strip():
-        return DEFAULT_SCOPE_MODE_ALLOW
+        if not _warned_implicit_scope_default:
+            logger.warning(
+                "NW_MCP_SCOPE_POLICY_DEFAULT is unset; using code default 'deny'. "
+                "Set NW_MCP_SCOPE_POLICY_DEFAULT explicitly and configure "
+                "NW_*_API_KEY_SCOPES (or JWT scopes) for each transport."
+            )
+            _warned_implicit_scope_default = True
+        return DEFAULT_SCOPE_MODE_DENY
     return _truthy_default_mode(str(raw))
 
 
@@ -44,7 +52,7 @@ def resolve_required_scope_for_action(
     """
     Determine the scope string required for this action.
 
-    - **allow** (default): only enforce when ``NW_MCP_ACTION_SCOPE_MAP_JSON`` has
+    - **allow**: only enforce when ``NW_MCP_ACTION_SCOPE_MAP_JSON`` has
       an entry for ``connector_id.action``.
     - **deny**: require either that explicit map entry or the conventional
       fallback ``mcp:<connector_id>.<action>``.
@@ -80,16 +88,15 @@ def action_allowed_for_identity_scopes(
         default_mode=default_mode,
     )
     scope_tuple = tuple(scopes or ())
-    # Defer transport-specific authz until caller identity is propagated.
     if required and not principal and not scope_tuple:
         logger.info(
-            "Scope policy bypassed due to missing caller identity",
+            "Scope policy denied due to missing caller identity",
             extra={
                 "action_key": f"{connector_id}.{action}",
                 "required_scope": required,
             },
         )
-        return True
+        return False
     if not required:
         return True
     scope_set = set(scope_tuple)
@@ -121,13 +128,13 @@ class ScopePolicyHook(PolicyHook):
         scopes = tuple(context.scopes or ())
         if required and not context.principal and not scopes:
             logger.info(
-                "Scope policy bypassed due to missing caller identity",
+                "Scope policy denied due to missing caller identity",
                 extra={
                     "action_key": action_key,
                     "required_scope": required,
                 },
             )
-            return
+            raise PolicyDenied(f"Missing required scope: {required}")
         logger.info(
             "Scope policy evaluating action",
             extra={

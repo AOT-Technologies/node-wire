@@ -37,12 +37,13 @@ def _connector_with_scope_map() -> _PolicyTestConnector:
     )
 
 
-def test_scope_policy_bypasses_when_identity_missing_like_grpc() -> None:
+def test_scope_policy_denies_when_identity_missing() -> None:
     connector = _connector_with_scope_map()
     response = asyncio.run(connector.run({"action": "read_patient", "resource_id": "x"}))
 
-    assert response.success is True
-    assert response.error_code is None
+    assert response.success is False
+    assert response.error_code == "POLICY_DENIED"
+    assert response.message == "Missing required scope: mcp:fhir.read_patient"
 
 
 def test_scope_policy_denies_when_identity_present_without_required_scope() -> None:

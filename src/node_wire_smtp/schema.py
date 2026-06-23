@@ -10,6 +10,8 @@ from typing import Any, List, Literal, Optional, Union
 
 from pydantic import BaseModel, EmailStr, model_validator
 
+_FORBIDDEN_RELAY_KEYS = frozenset({"host", "port", "use_tls"})
+
 
 def _strip_env(s: str) -> str:
     return s.strip(" '\"")
@@ -25,9 +27,9 @@ class SmtpSendInput(BaseModel):
     """
     Send an email via SMTP.
 
-    Only ``to``, ``subject``, and ``body`` are required — connection settings
-    (``host``, ``port``, ``use_tls``) fall back to server-side environment
-    variables when not supplied.
+    Only ``to``, ``subject``, and ``body`` are required. SMTP connection settings
+    (``SMTP_HOST``, ``SMTP_PORT``, ``SMTP_USE_TLS``) are configured server-side
+    only — they cannot be supplied in the request payload.
 
     Credentials (username and password) are **not** part of this schema.
     They are managed entirely by the :class:`AuthProvider` injected into the
@@ -35,9 +37,6 @@ class SmtpSendInput(BaseModel):
     """
 
     action: Literal["send_email"] = "send_email"
-    host: str = ""
-    port: int = 0
-    use_tls: bool = True
     from_email: Optional[EmailStr] = None
     to: Union[str, List[EmailStr]]
     subject: str
@@ -45,17 +44,12 @@ class SmtpSendInput(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _fill_env_and_normalize(cls, values: Any) -> Any:
+    def _reject_relay_fields_and_normalize(cls, values: Any) -> Any:
         if not isinstance(values, dict):
             return values
 
-        if not (values.get("host") or "").strip():
-            values["host"] = _strip_env(os.environ.get("SMTP_HOST", "smtp.gmail.com"))
-        port_raw = values.get("port")
-        if port_raw in (None, "", 0):
-            values["port"] = int(_strip_env(os.environ.get("SMTP_PORT", "587")))
-        if "use_tls" not in values:
-            values["use_tls"] = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
+        for key in _FORBIDDEN_RELAY_KEYS:
+            values.pop(key, None)
 
         if "from" in values and not values.get("from_email"):
             values["from_email"] = values.pop("from")
@@ -70,7 +64,6 @@ class SmtpSendInput(BaseModel):
         else:
             values["from_email"] = _extract_email(_strip_env(str(fe)))
 
-        # Guardrail: reject placeholder / invalid sender hints from callers
         sender = str(values["from_email"])
         if not sender or "@" not in sender or "system_default" in sender:
             values["from_email"] = _strip_env(

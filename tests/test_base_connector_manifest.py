@@ -506,6 +506,16 @@ def test_normalize_fhir_search_encounter_maps_llm_aliases():
     assert out.get("patient") is None
 
 
+def test_smtp_send_email_input_schema_omits_relay_fields() -> None:
+    from bindings.mcp_server.server import McpServer
+
+    server = McpServer(connector_ids=["smtp"])
+    entry = next(e for e in server.list_tools() if e["name"] == "smtp.send_email")
+    props = entry["input_schema"].get("properties", {})
+    for key in ("host", "port", "use_tls"):
+        assert key not in props
+
+
 def test_normalize_mcp_tool_arguments_smtp_send_email_from_alias():
     from node_wire_smtp.schema import SmtpSendInput
 

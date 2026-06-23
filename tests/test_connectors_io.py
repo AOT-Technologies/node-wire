@@ -29,7 +29,11 @@ class _MapSecrets(SecretProvider):
         return self._m[key]
 
 
-def test_smtp_internal_execute_calls_aiosmtplib_send() -> None:
+def test_smtp_internal_execute_calls_aiosmtplib_send(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "localhost")
+    monkeypatch.setenv("SMTP_PORT", "1025")
+    monkeypatch.setenv("SMTP_USE_TLS", "false")
+
     secrets = _MapSecrets({"SMTP_USERNAME": "u", "SMTP_PASSWORD": "p"})
 
     async def fake_send(*args: object, **kwargs: object) -> tuple[int, str]:
@@ -39,9 +43,6 @@ def test_smtp_internal_execute_calls_aiosmtplib_send() -> None:
         with patch("node_wire_smtp.logic.aiosmtplib.send", new=fake_send):
             c = SmtpConnector(secret_provider=secrets)
             inp = SmtpSendInput(
-                host="localhost",
-                port=1025,
-                use_tls=False,
                 from_email="a@example.com",
                 to=["b@example.com"],
                 subject="s",
@@ -53,9 +54,13 @@ def test_smtp_internal_execute_calls_aiosmtplib_send() -> None:
     asyncio.run(_run())
 
 
-def test_smtp_send_email_does_not_log_sender_address() -> None:
+def test_smtp_send_email_does_not_log_sender_address(monkeypatch: pytest.MonkeyPatch) -> None:
     """L1 — from_email (PII) must never appear in any log record."""
     import logging
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USE_TLS", "true")
 
     secrets = _MapSecrets({"SMTP_USERNAME": "u", "SMTP_PASSWORD": "p"})
 
@@ -81,9 +86,6 @@ def test_smtp_send_email_does_not_log_sender_address() -> None:
             with patch("node_wire_smtp.logic.aiosmtplib.send", new=fake_send):
                 c = SmtpConnector(secret_provider=secrets)
                 inp = SmtpSendInput(
-                    host="smtp.example.com",
-                    port=587,
-                    use_tls=True,
                     from_email="sender@private.example.com",
                     to=["recipient@other.example.com"],
                     subject="Test",

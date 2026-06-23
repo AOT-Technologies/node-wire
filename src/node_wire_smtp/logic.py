@@ -13,6 +13,7 @@ import aiosmtplib
 from node_wire_runtime import BaseConnector, sdk_action
 from node_wire_runtime.mcp_normalizers import normalize_smtp_send_email
 
+from .relay import SmtpRelayNotAllowedError, resolve_smtp_relay
 from .schema import SmtpSendInput, SmtpSendOutput
 
 logger = logging.getLogger("connectors.smtp")
@@ -32,7 +33,8 @@ class SmtpConnector(BaseConnector):
         mcp_normalize=normalize_smtp_send_email,
     )
     async def send_email(self, params: SmtpSendInput, *, trace_id: str) -> SmtpSendOutput:
-        # Derive a domain-only hint so the sender identity (PII) is never written to logs.
+        relay = resolve_smtp_relay()
+
         _sender_domain = (
             str(params.from_email).split("@")[-1] if "@" in str(params.from_email) else "unknown"
         )
@@ -42,29 +44,23 @@ class SmtpConnector(BaseConnector):
                 "trace_id": trace_id,
                 "connector_id": self.connector_id,
                 "action": "send_email",
-                "host": params.host,
-                "port": params.port,
+                "host": relay.host,
+                "port": relay.port,
                 "sender_domain": _sender_domain,
                 "recipient_count": len(params.to),
             },
         )
 
-        # Resolve credentials from AuthProvider (injected by factory).
-        # Falls back to environment variables for backward compatibility when
-        # the connector is instantiated without an explicit auth_provider.
         creds = await self._auth_provider.get_client_credentials()
         if creds is not None and isinstance(creds, (list, tuple)) and len(creds) == 2:
             username, password = str(creds[0]), str(creds[1])
         else:
-            # Fallback: resolve from environment / secret_provider directly.
             try:
                 username = self.secret_provider.get_secret("SMTP_USERNAME")
                 password = self.secret_provider.get_secret("SMTP_PASSWORD")
             except Exception:
-                import os as _os
-
-                username = _os.environ.get("SMTP_USERNAME", "")
-                password = _os.environ.get("SMTP_PASSWORD", "")
+                username = os.environ.get("SMTP_USERNAME", "")
+                password = os.environ.get("SMTP_PASSWORD", "")
 
         message = EmailMessage()
         message["From"] = str(params.from_email)
@@ -72,18 +68,20 @@ class SmtpConnector(BaseConnector):
         message["Subject"] = params.subject
         message.set_content(params.body)
 
-        use_implicit = params.port == 465
+        use_implicit = relay.port == 465
         try:
             response = await aiosmtplib.send(
                 message,
-                hostname=params.host,
-                port=params.port,
+                hostname=relay.host,
+                port=relay.port,
                 username=username,
                 password=password,
                 use_tls=use_implicit,
-                start_tls=params.use_tls and not use_implicit,
+                start_tls=relay.use_tls and not use_implicit,
                 timeout=float(os.getenv("AOT_CONNECTOR_TIMEOUT", "30.0")),
             )
+        except SmtpRelayNotAllowedError:
+            raise
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "SMTP send failed",
@@ -91,8 +89,8 @@ class SmtpConnector(BaseConnector):
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
                     "action": "send_email",
-                    "host": params.host,
-                    "port": params.port,
+                    "host": relay.host,
+                    "port": relay.port,
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
                 },
@@ -105,12 +103,11 @@ class SmtpConnector(BaseConnector):
                 "trace_id": trace_id,
                 "connector_id": self.connector_id,
                 "action": "send_email",
-                "host": params.host,
-                "port": params.port,
+                "host": relay.host,
+                "port": relay.port,
                 "sender_domain": _sender_domain,
                 "response": str(response),
             },
         )
 
-        # aiosmtplib returns (code, message) tuple; message-id is not guaranteed, keep output simple.
         return SmtpSendOutput(sent=True)
