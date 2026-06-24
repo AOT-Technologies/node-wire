@@ -1,0 +1,33 @@
+# MCP server registry for scripts/build-mcp-server.sh
+#
+# Format (pipe-delimited, one alias per line):
+#   alias|scope_yaml|openapi_spec|download_url|server_name
+#
+# download_url:
+#   - https://...  curl the spec into openapi_spec path
+#   - slack:swagger2  download Swagger 2.0 and convert with swagger2openapi
+#   - (empty)  spec must already exist on disk (no download)
+#
+# server_name sets the generated project directory: out/<server_name>-mcp/
+
+google-drive|e2e/fixtures/real/google_drive.yaml|e2e/fixtures/real/google_drive_openapi.yaml|https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/googleapis.com/drive/v3/openapi.yaml|google-drive
+google_drive|e2e/fixtures/real/google_drive.yaml|e2e/fixtures/real/google_drive_openapi.yaml|https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/googleapis.com/drive/v3/openapi.yaml|google-drive
+
+github|e2e/fixtures/real/github.yaml|e2e/fixtures/real/github_openapi.yaml|https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml|github
+
+bamboohr|e2e/fixtures/real/bamboohr.yaml|e2e/fixtures/real/bamboohr_openapi.yaml|https://openapi.bamboohr.io/main/latest/docs/openapi/public-openapi.yaml|bamboohr
+
+jira|e2e/fixtures/real/jira.yaml|e2e/fixtures/real/jira_openapi.yaml|https://developer.atlassian.com/cloud/jira/platform/swagger-v3.v3.json|jira-cloud
+jira-cloud|e2e/fixtures/real/jira.yaml|e2e/fixtures/real/jira_openapi.yaml|https://developer.atlassian.com/cloud/jira/platform/swagger-v3.v3.json|jira-cloud
+
+slack|e2e/fixtures/real/slack.yaml|e2e/fixtures/real/slack_openapi.yaml|slack:swagger2|slack
+
+petstore|e2e/fixtures/real/petstore.yaml|e2e/fixtures/real/petstore_openapi.json|https://petstore3.swagger.io/api/v3/openapi.json|petstore
+
+stripe|e2e/fixtures/real/stripe.yaml|e2e/fixtures/real/stripe_openapi.yaml|https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.yaml|stripe
+
+twilio|e2e/fixtures/real/twilio.yaml|e2e/fixtures/real/twilio_openapi.yaml|https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/yaml/twilio_api_v2010.yaml|twilio
+
+spotify|e2e/fixtures/real/spotify.yaml|e2e/fixtures/real/spotify_openapi.yaml|https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/spotify.com/1.0.0/openapi.yaml|spotify
+
+zoom|e2e/fixtures/real/zoom.yaml|e2e/fixtures/real/zoom_openapi.yaml|https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/zoom.us/2.0.0/openapi.yaml|zoom
