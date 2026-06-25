@@ -13,6 +13,7 @@ from node_wire_google_drive.action_spec import GOOGLE_DRIVE_ACTION_SPECS
 from node_wire_google_drive.logic import GoogleDriveConnector
 from node_wire_google_drive.schema import GoogleDriveOperationInput
 from node_wire_runtime import SecretProvider
+from node_wire_runtime.auth import ServiceAccountAuthProvider
 
 
 class MockSecretProvider(SecretProvider):
@@ -23,7 +24,14 @@ class MockSecretProvider(SecretProvider):
 
 
 def _connector() -> GoogleDriveConnector:
-    return GoogleDriveConnector(secret_provider=MockSecretProvider())
+    sp = MockSecretProvider()
+    return GoogleDriveConnector(
+        secret_provider=sp,
+        auth_provider=ServiceAccountAuthProvider(
+            secret_provider=sp,
+            sa_json_secret="GOOGLE_DRIVE_SA_JSON",
+        ),
+    )
 
 
 def test_action_spec_registry_covers_all_nw_actions():

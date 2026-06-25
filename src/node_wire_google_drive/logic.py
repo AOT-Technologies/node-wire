@@ -97,12 +97,7 @@ class GoogleDriveConnector(BaseConnector):
                 raise GoogleDriveAuthError("Upstream bearer token required")
             drive = build("drive", "v3", credentials=creds)
         else:
-            if self._client is None:
-                creds = await self._auth_provider.get_client_credentials()
-                if creds is None:
-                    raise GoogleDriveAuthError("Authentication credentials unavailable")
-                self._client = build("drive", "v3", credentials=creds)
-            drive = self._client
+            drive = self.get_client()
         extra = {"trace_id": trace_id, **(log_extra or {})}
         logger.info("Google Drive %s", action_name, extra=extra)
         try:

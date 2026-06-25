@@ -413,9 +413,10 @@ def test_factory_builds_oauth2_provider() -> None:
     assert isinstance(provider, OAuth2AuthProvider)
 
 
-def test_factory_builds_service_account_provider() -> None:
+def test_factory_builds_service_account_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     from bindings.factory import ConnectorFactory
 
+    monkeypatch.delenv("GOOGLE_DRIVE_AUTH_PROVIDER", raising=False)
     sp = _DictSecretProvider({})
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
@@ -433,13 +434,19 @@ def test_factory_builds_service_account_provider() -> None:
 @pytest.mark.asyncio
 async def test_factory_builds_upstream_bearer_provider() -> None:
     from bindings.factory import ConnectorFactory
-    from node_wire_runtime.auth.base import get_upstream_bearer, reset_upstream_bearer, set_upstream_bearer
+    from node_wire_runtime.auth.base import (
+        get_upstream_bearer,
+        reset_upstream_bearer,
+        set_upstream_bearer,
+    )
 
     sp = _DictSecretProvider({})
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
 
-    provider = factory._build_auth_provider("google_drive", {"auth": {"provider": "upstream_bearer"}})
+    provider = factory._build_auth_provider(
+        "google_drive", {"auth": {"provider": "upstream_bearer"}}
+    )
     assert getattr(provider, "per_request_credentials", False) is True
 
     ctx = set_upstream_bearer("google-access-token")
@@ -479,7 +486,7 @@ def test_google_drive_auth_provider_env_overrides_yaml(
 def test_google_drive_auth_provider_env_invalid_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from bindings.factory import ConnectorFactory, _resolve_google_drive_auth
+    from bindings.factory import _resolve_google_drive_auth
 
     monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "oauth2")
     with pytest.raises(ValueError, match="GOOGLE_DRIVE_AUTH_PROVIDER"):

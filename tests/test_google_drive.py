@@ -142,7 +142,9 @@ async def test_google_drive_upstream_bearer_uses_request_token() -> None:
     sp = MockSecretProvider()
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
-    provider = factory._build_auth_provider("google_drive", {"auth": {"provider": "upstream_bearer"}})
+    provider = factory._build_auth_provider(
+        "google_drive", {"auth": {"provider": "upstream_bearer"}}
+    )
     connector = GoogleDriveConnector(secret_provider=sp, auth_provider=provider)
 
     drive = MagicMock()
@@ -171,7 +173,9 @@ async def test_google_drive_upstream_bearer_no_token_raises() -> None:
     sp = MockSecretProvider()
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
-    provider = factory._build_auth_provider("google_drive", {"auth": {"provider": "upstream_bearer"}})
+    provider = factory._build_auth_provider(
+        "google_drive", {"auth": {"provider": "upstream_bearer"}}
+    )
     connector = GoogleDriveConnector(secret_provider=sp, auth_provider=provider)
 
     with pytest.raises(GoogleDriveAuthError, match="Upstream bearer token required"):
