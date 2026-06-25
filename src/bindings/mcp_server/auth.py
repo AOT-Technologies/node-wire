@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import os
 import logging
 from pathlib import Path
@@ -13,8 +14,13 @@ from node_wire_runtime.caller_identity import (
     build_caller_identity,
     parse_api_key_scopes_from_env,
 )
+from node_wire_runtime.auth.base import reset_upstream_bearer, set_upstream_bearer
 
-logger = logging.getLogger("bindings.mcp_server.auth")
+logger = logging.getLogger(__name__)
+
+_upstream_reset_ctx: contextvars.ContextVar[contextvars.Token | None] = contextvars.ContextVar(
+    "_mcp_upstream_reset", default=None
+)
 
 # Back-compat: callers may still import ``McpIdentity`` / ``build_identity`` from MCP auth.
 McpIdentity = CallerIdentity
@@ -180,7 +186,32 @@ def authenticate_mcp_request(
     *,
     headers: Mapping[str, Any] | None = None,
     meta: Mapping[str, Any] | None = None,
+    upstream_passthrough: bool = False,
+    upstream_granted_scopes: tuple[str, ...] = (),
 ) -> CallerIdentity | None:
+    if upstream_passthrough:
+        if mcp_auth_disabled():
+            return None
+        token = extract_token(headers=headers, meta=meta)
+        if not token:
+            raise McpAuthRequiredError()
+        _upstream_reset_ctx.set(set_upstream_bearer(token))
+        # Ponytail: MCP scopes gate tool visibility on this server; the Google OAuth
+        # access token on the request is the upstream authz boundary for Drive API.
+        identity = build_caller_identity(
+            {
+                "sub": "upstream-bearer",
+                "tenant_id": None,
+                "scopes": list(upstream_granted_scopes),
+            },
+            "upstream_bearer",
+        )
+        logger.info(
+            "MCP upstream passthrough accepted",
+            extra={"auth_type": identity.auth_type, "principal": identity.principal},
+        )
+        return identity
+
     logger.info(
         "MCP auth gate status",
         extra={
@@ -212,3 +243,11 @@ def authenticate_mcp_request(
         },
     )
     return identity
+
+
+def reset_upstream_passthrough_context() -> None:
+    """Clear upstream bearer set during passthrough auth (call in middleware finally)."""
+    reset_tok = _upstream_reset_ctx.get()
+    if reset_tok is not None:
+        reset_upstream_bearer(reset_tok)
+        _upstream_reset_ctx.set(None)

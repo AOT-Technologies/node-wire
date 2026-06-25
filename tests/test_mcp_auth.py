@@ -11,8 +11,10 @@ from bindings.mcp_server.auth import (
     McpAuthInvalidError,
     McpAuthRequiredError,
     authenticate_mcp_request,
+    reset_upstream_passthrough_context,
 )
 from bindings.mcp_server.server import McpServer
+from node_wire_runtime.auth.base import get_upstream_bearer
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +38,30 @@ def test_mcp_auth_missing_token_returns_401(monkeypatch: pytest.MonkeyPatch) -> 
         authenticate_mcp_request()
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Authentication required"
+
+
+def test_mcp_upstream_passthrough_missing_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+
+    with pytest.raises(McpAuthRequiredError):
+        authenticate_mcp_request(upstream_passthrough=True)
+
+
+def test_mcp_upstream_passthrough_accepts_opaque_google_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+
+    identity = authenticate_mcp_request(
+        headers={"Authorization": "Bearer not-an-nw-api-key"},
+        upstream_passthrough=True,
+    )
+    assert identity is not None
+    assert identity.auth_type == "upstream_bearer"
+    assert identity.principal == "upstream-bearer"
+    assert get_upstream_bearer() == "not-an-nw-api-key"
+    reset_upstream_passthrough_context()
+    assert get_upstream_bearer() is None
 
 
 def test_mcp_auth_invalid_token_returns_403(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -350,6 +376,80 @@ def test_streamable_http_edge_auth_accepts_valid_token(monkeypatch: pytest.Monke
         "/mcp",
         json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"},
         headers={"Authorization": "Bearer unit-test-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_streamable_http_upstream_passthrough_accepts_google_bearer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
+
+    server = McpServer(connector_ids=["google_drive"])
+    assert server._upstream_passthrough is True
+
+    app = server._build_streamable_http_app(
+        session_manager=_FakeStreamableSessionManager(),
+        path="/mcp",
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"},
+        headers={"Authorization": "Bearer google-access-token"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_upstream_passthrough_denied_mode_lists_google_drive_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+
+    server = McpServer(connector_ids=["google_drive"])
+    assert server._upstream_passthrough is True
+    assert server._upstream_passthrough_scopes
+
+    identity = authenticate_mcp_request(
+        headers={"Authorization": "Bearer google-access-token"},
+        upstream_passthrough=True,
+        upstream_granted_scopes=server._upstream_passthrough_scopes,
+    )
+    assert identity is not None
+
+    names = {t["name"] for t in server.list_tools(identity=identity)}
+    assert "google_drive.files.list" in names
+    assert "google_drive.files.upload" in names
+    reset_upstream_passthrough_context()
+
+
+def test_streamable_http_upstream_passthrough_denied_lists_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+
+    server = McpServer(connector_ids=["google_drive"])
+    assert server._upstream_passthrough_scopes
+
+    app = server._build_streamable_http_app(
+        session_manager=_FakeStreamableSessionManager(),
+        path="/mcp",
+    )
+    client = TestClient(app)
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"},
+        headers={"Authorization": "Bearer google-access-token"},
     )
 
     assert response.status_code == 200

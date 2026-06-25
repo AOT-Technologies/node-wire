@@ -15,6 +15,36 @@ For **MCP** (e.g. ToolHive), tools are named `google_drive.<action>` from the co
 
 ---
 
+## User OAuth (OIDC / upstream bearer)
+
+For **per-user Google Drive access** (each caller uses their own Drive), set:
+
+```yaml
+google_drive:
+  auth:
+    provider: upstream_bearer
+```
+
+Or set the environment variable (overrides `connectors.yaml` when present):
+
+```env
+GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer
+```
+
+Allowed values: `service_account` (default), `upstream_bearer`.
+
+Run the **google-drive-only** MCP server (`python -m agents.google_drive_mcp`) with `NW_MCP_TRANSPORT=streamable-http`. The `Authorization: Bearer` token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do **not** set `NW_MCP_API_KEY`, `NW_MCP_JWT_SECRET`, or `GOOGLE_DRIVE_SA_JSON` for this profile.
+
+**ToolHive OIDC manifests:** copy and adapt from [mcp-builder `out/google-drive-mcp/deploy/`](https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy) (`mcpexternalauthconfig.yaml`, `mcpoidcconfig.yaml`, `mcpserver.yaml`) — use image/entrypoint `nw-google-drive` / `python -m agents.google_drive_mcp`.
+
+**Ponytail:** Passthrough MCP auth applies only when this server exposes `google_drive` alone with `upstream_bearer`. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth.
+
+With `NW_MCP_SCOPE_POLICY_DEFAULT=deny` (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (`mcp:google_drive.<action>`) from its manifest to upstream bearer callers so `tools/list` is not empty. Google OAuth on the `Authorization: Bearer` token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.
+
+For **shared-folder automation** (single service identity), keep the [service account setup](#google-drive-service-account-setup) below.
+
+---
+
 ## Google Drive service account setup
 
 This guide walks you through creating a Google Cloud service account and connecting it to Node Wire. A service account is a special type of Google account used by applications (rather than humans) to authenticate with Google APIs.
