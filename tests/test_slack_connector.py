@@ -42,11 +42,14 @@ from node_wire_slack.exceptions import (
     SlackMessageError,
     SlackPermissionError,
     SlackRateLimitError,
+    SlackUploadError,
 )
 from node_wire_slack.logic import (
     SlackConnector,
     _complete_upload,
+    _get_upload_url,
     _resolve_blocks,
+    _upload_bytes,
 )
 import node_wire_slack.registration  # noqa: F401
 
@@ -538,6 +541,92 @@ async def test_resolve_channel_id_network_error_falls_back_and_logs(
     warnings = [r for r in records if "Network error resolving" in r.getMessage()]
     assert warnings, "expected a structured network-error warning"
     assert getattr(warnings[0], "error_type", None) == "ConnectError"
+
+
+@pytest.mark.asyncio
+async def test_upload_file_filepath_happy_path(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attachments_dir = tmp_path / "attachments"
+    attachments_dir.mkdir()
+    upload_path = attachments_dir / "note.txt"
+    upload_path.write_bytes(b"file data")
+    monkeypatch.setattr("node_wire_slack.logic._ATTACHMENTS_DIR", str(attachments_dir))
+
+    connector = _make_connector()
+    file_id = "F0TESTFILE"
+    complete_response = {"ok": True, "files": [{"id": file_id}]}
+
+    with (
+        patch(
+            "node_wire_slack.logic._get_upload_url",
+            new=AsyncMock(return_value=("https://upload.slack.com/test", file_id)),
+        ),
+        patch("node_wire_slack.logic._upload_bytes", new=AsyncMock(return_value=None)),
+        patch(
+            "node_wire_slack.logic._complete_upload", new=AsyncMock(return_value=complete_response)
+        ),
+    ):
+        result = await connector.run(
+            {
+                "action": "upload_file",
+                "channel": _CHANNEL,
+                "filepath": str(upload_path),
+            }
+        )
+
+    assert result.success is True
+    assert result.data["file_id"] == file_id
+
+
+@pytest.mark.asyncio
+async def test_get_upload_url_missing_fields_raises() -> None:
+    class FakeResponse:
+        status_code = 200
+
+        def json(self) -> dict[str, object]:
+            return {"ok": True, "file_id": "F1"}
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            return None
+
+        async def post(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=FakeAsyncClient):
+        with pytest.raises(SlackUploadError, match="upload_url or file_id"):
+            await _get_upload_url(_FAKE_TOKEN, "test.txt", 8)
+
+
+@pytest.mark.asyncio
+async def test_upload_bytes_non_200_raises_slack_upload_error() -> None:
+    class FakeResponse:
+        status_code = 500
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            return None
+
+        async def post(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=FakeAsyncClient):
+        with pytest.raises(SlackUploadError, match="HTTP 500"):
+            await _upload_bytes("https://upload.slack.com/test", b"data")
 
 
 def test_default_timeout_honors_env(monkeypatch: pytest.MonkeyPatch) -> None:

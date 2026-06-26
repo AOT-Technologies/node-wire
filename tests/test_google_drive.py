@@ -123,3 +123,57 @@ def test_google_drive_schema_discriminator_validation():
 
     with pytest.raises(ValidationError):
         GoogleDriveOperationInput.model_validate({"action": "files.unknown", "file_id": "abc123"})
+
+
+@pytest.mark.parametrize(
+    ("action", "payload", "status", "expected_exception"),
+    [
+        (
+            "files.upload",
+            {
+                "name": "upload.txt",
+                "mime_type": "text/plain",
+                "content": "hello",
+            },
+            403,
+            GoogleDriveAuthError,
+        ),
+        (
+            "permissions.create",
+            {
+                "file_id": "f1",
+                "role": "reader",
+                "type": "user",
+                "email_address": "a@b.com",
+            },
+            404,
+            GoogleDriveBusinessError,
+        ),
+    ],
+)
+def test_google_drive_execute_translates_http_errors(
+    action: str,
+    payload: dict,
+    status: int,
+    expected_exception: type[Exception],
+) -> None:
+    from googleapiclient.errors import HttpError
+
+    connector = _connector()
+    params = GoogleDriveOperationInput.model_validate({"action": action, **payload})
+
+    async def _raise_http_error(*_args: object, **_kwargs: object) -> None:
+        resp = MagicMock()
+        resp.status = status
+        resp.reason = "upstream error"
+        raise HttpError(resp, b"error")
+
+    with (
+        patch.object(connector, "get_client", return_value=MagicMock()),
+        patch(
+            "node_wire_google_drive.logic.execute_spec_in_thread",
+            side_effect=_raise_http_error,
+        ),
+    ):
+        with pytest.raises(expected_exception):
+            asyncio.run(connector.internal_execute(params, trace_id="test-trace"))

@@ -230,6 +230,24 @@ async def test_salesforce_read_lead_happy_path():
 
 
 @pytest.mark.asyncio
+async def test_salesforce_read_contact_happy_path():
+    connector = _connector()
+    params = ReadContactInput(record_id="003123456789012")
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.content = b'{"Id": "003123456789012", "LastName": "Doe"}'
+    mock_response.json.return_value = {"Id": "003123456789012", "LastName": "Doe"}
+
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
+        result = await connector.read_contact(params, trace_id="test-trace")
+
+    assert result.success is True
+    assert result.resource_id == "003123456789012"
+    assert result.data["LastName"] == "Doe"
+
+
+@pytest.mark.asyncio
 async def test_salesforce_update_lead_happy_path():
     connector = _connector()
     params = UpdateLeadInput(record_id="00Q123456789012", fields={"Company": "New Acme"})

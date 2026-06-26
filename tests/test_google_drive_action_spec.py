@@ -134,3 +134,84 @@ def test_permissions_create_excludes_empty_optional_fields():
     body = kwargs["body"]
     assert "emailAddress" not in body
     assert "domain" not in body
+
+
+def test_files_get_returns_metadata():
+    connector = _connector()
+    params = GoogleDriveOperationInput.model_validate(
+        {"action": "files.get", "file_id": "fid-1", "fields": "id,name"}
+    )
+
+    drive = MagicMock()
+    files_api = drive.files.return_value
+    files_api.get.return_value.execute.return_value = {"id": "fid-1", "name": "doc.txt"}
+
+    with patch.object(connector, "get_client", return_value=drive):
+        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
+
+    assert result.raw == {"id": "fid-1", "name": "doc.txt"}
+    files_api.get.assert_called_once_with(
+        fileId="fid-1",
+        fields="id,name",
+        supportsAllDrives=True,
+    )
+
+
+def test_files_update_sends_body_and_parent_changes():
+    connector = _connector()
+    params = GoogleDriveOperationInput.model_validate(
+        {
+            "action": "files.update",
+            "file_id": "fid-2",
+            "name": "renamed.txt",
+            "mime_type": "text/plain",
+            "add_parents": ["p1"],
+            "remove_parents": ["p0"],
+        }
+    )
+
+    drive = MagicMock()
+    files_api = drive.files.return_value
+    files_api.update.return_value.execute.return_value = {"id": "fid-2", "name": "renamed.txt"}
+
+    with patch.object(connector, "get_client", return_value=drive):
+        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
+
+    assert result.raw == {"id": "fid-2", "name": "renamed.txt"}
+    files_api.update.assert_called_once_with(
+        fileId="fid-2",
+        body={"name": "renamed.txt", "mimeType": "text/plain"},
+        addParents="p1",
+        removeParents="p0",
+        supportsAllDrives=True,
+    )
+
+
+def test_files_upload_uses_content_and_media_body():
+    connector = _connector()
+    params = GoogleDriveOperationInput.model_validate(
+        {
+            "action": "files.upload",
+            "name": "upload.txt",
+            "mime_type": "text/plain",
+            "content": "hello",
+        }
+    )
+
+    drive = MagicMock()
+    files_api = drive.files.return_value
+    files_api.create.return_value.execute.return_value = {
+        "id": "up-1",
+        "name": "upload.txt",
+        "webViewLink": "https://drive.google.com/file/d/up-1",
+    }
+
+    with patch.object(connector, "get_client", return_value=drive):
+        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
+
+    assert result.raw["id"] == "up-1"
+    _, kwargs = files_api.create.call_args
+    assert kwargs["body"] == {"name": "upload.txt", "mimeType": "text/plain"}
+    assert kwargs["media_body"] is not None
+    assert kwargs["fields"] == "id, name, webViewLink"
+    assert kwargs["supportsAllDrives"] is True

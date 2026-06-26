@@ -21,11 +21,12 @@ import pytest
 _TESTS_ROOT = Path(__file__).resolve().parent
 
 # Ensure tests can import app.py which builds dynamic routes via factory (needs allowed connectors to not crash M3 fail-fast)
-os.environ["NW_ALLOWED_CONNECTORS"] = "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner"
+os.environ["NW_ALLOWED_CONNECTORS"] = (
+    "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack"
+)
 # Skip REST bind dotenv so repo `.env` cannot override the allowlist above during collection/import.
 os.environ["NW_REST_LOAD_DOTENV"] = "false"
-# Use a connector config where optional connectors (e.g. slack, salesforce) are disabled so CI and
-# devs without those packages still match the narrow allowlist (see tests/fixtures/connectors_for_tests.yaml).
+# Test fixture enables all eight publishable connectors (see tests/fixtures/connectors_for_tests.yaml).
 os.environ["NW_CONFIG_PATH"] = str(_TESTS_ROOT / "fixtures" / "connectors_for_tests.yaml")
 os.environ["NW_JWT_AUDIENCE"] = "node-wire-test"
 os.environ["NW_JWT_ISSUER"] = "node-wire-test-issuer"
@@ -44,6 +45,8 @@ def _preload_connector_logic_modules() -> None:
         "node_wire_google_drive.logic",
         "node_wire_fhir_epic.logic",
         "node_wire_fhir_cerner.logic",
+        "node_wire_salesforce.logic",
+        "node_wire_slack.logic",
     ):
         try:
             importlib.import_module(mod)

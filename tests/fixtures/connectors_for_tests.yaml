@@ -3,11 +3,7 @@
 ## SPDX-License-Identifier: Apache-2.0
 ##
 
-# Test fixture: mirrors ../config/connectors.yaml but optional connectors not on
-# the pytest allowlist are disabled (slack, salesforce).
-# Enabling them here would fail ConnectorFactory.load() when not registered
-# (NW_ALLOWED_CONNECTORS / missing package).
-#
+# Test fixture: mirrors ../config/connectors.yaml with all eight publishable connectors enabled.
 # SECURITY RULE: This file must never contain secrets.
 
 connectors:
@@ -77,7 +73,7 @@ connectors:
         - system/DocumentReference.write
 
   salesforce:
-    enabled: false
+    enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
     auth:
       provider: oauth2
@@ -88,7 +84,7 @@ connectors:
       refresh_token_secret: SALESFORCE_REFRESH_TOKEN
 
   slack:
-    enabled: false
+    enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
     auth:
       provider: static_token
