@@ -21,7 +21,7 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from .async_runner import BackgroundAsyncRunner
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
 from .auth import GrpcAuthInterceptor, get_grpc_caller_identity
-from .tls_config import configure_grpc_server_port
+from .tls_config import configure_grpc_server_port, resolve_grpc_host
 
 logger = logging.getLogger("bindings.grpc_server")
 
@@ -113,7 +113,8 @@ def serve(port: int = 50051) -> None:
 
     cert_path = os.environ.get("NW_GRPC_TLS_CERT_PATH")
     key_path = os.environ.get("NW_GRPC_TLS_KEY_PATH")
-    configure_grpc_server_port(server, port=port, cert_path=cert_path, key_path=key_path)
+    host = resolve_grpc_host()
+    configure_grpc_server_port(server, port=port, host=host, cert_path=cert_path, key_path=key_path)
 
     server.start()
     server.wait_for_termination()

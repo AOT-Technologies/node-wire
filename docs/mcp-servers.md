@@ -163,13 +163,19 @@ When running in `streamable-http` mode, clients must comply with the strict MCP 
 Use these settings for production-style posture:
 
 ```env
-NW_MCP_AUTH_ENABLED=false
+# MCP auth is ENABLED by default — do NOT set NW_MCP_AUTH_DISABLED in production.
+# (Set NW_MCP_AUTH_DISABLED=true only for local development.)
+NW_MCP_API_KEY=replace-with-strong-random-value
 NW_MCP_SCOPE_POLICY_DEFAULT=deny
 # Optional guardrail: fail startup if scope policy would be disabled
 NW_MCP_SCOPE_POLICY_STRICT=true
 ```
 
 Notes:
+- MCP authentication is enforced unless `NW_MCP_AUTH_DISABLED=true` (the flag mirrors
+  `NW_REST_AUTH_DISABLED` / `NW_GRPC_AUTH_DISABLED`). The legacy `NW_MCP_AUTH_ENABLED`
+  flag is deprecated; it now honours its literal meaning (`=false` disables auth) and
+  logs a deprecation warning. Prefer `NW_MCP_AUTH_DISABLED`.
 - Code default is `deny` when `NW_MCP_SCOPE_POLICY_DEFAULT` is unset (fail-closed).
 - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
 - Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.

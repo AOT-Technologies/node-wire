@@ -42,6 +42,57 @@ def _resolve_breaker(
     return breaker() if callable(breaker) else breaker
 
 
+async def _run_through_breaker(
+    breaker: CircuitBreaker | Callable[[], CircuitBreaker],
+    fn: Callable[..., Awaitable[T]],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    trace_id: str,
+) -> T:
+    """Drive a single async call through a pybreaker circuit breaker.
+
+    pybreaker (1.x) exposes no clean asyncio-native public API: its only async
+    entry point (``CircuitBreaker.call_async``) is Tornado-based and internally
+    calls the very same ``CircuitBreakerState._handle_error`` /
+    ``_handle_success`` we use here. The counter and listener bookkeeping that
+    trips and resets the breaker lives inside those private wrappers (they also
+    touch ``_inc_counter`` / ``_state_storage``), so the public ``on_failure`` /
+    ``on_success`` cannot replace them without re-implementing pybreaker
+    internals. We therefore depend on these private methods deliberately, pin
+    ``pybreaker<2.0.0`` (see ``pyproject.toml``), and guard their continued
+    existence in ``tests/test_runtime_resilience.py``. The clean long-term fix is
+    migrating to an asyncio-native breaker (e.g. aiobreaker / purgatory).
+    """
+    current_breaker = _resolve_breaker(breaker)
+    breaker_state = current_breaker.state
+
+    if breaker_state.name == "open":
+        logger.error(
+            "Circuit breaker is OPEN; rejecting call",
+            extra={
+                "trace_id": trace_id,
+                "component": "resilience",
+                "error": "circuit open",
+            },
+        )
+        raise CircuitBreakerError("Circuit breaker is open")
+
+    breaker_state.before_call(fn, *args, **kwargs)
+    for listener in current_breaker.listeners:
+        listener.before_call(current_breaker, fn, *args, **kwargs)
+
+    try:
+        result = await fn(*args, **kwargs)
+    except BaseException as exc:
+        # Record the failure (updates counters/listeners, may trip the breaker),
+        # then re-raise explicitly instead of relying on _handle_error's default
+        # reraise=True — keeps the control flow visible at this call site.
+        breaker_state._handle_error(exc, reraise=False)
+        raise
+    breaker_state._handle_success()
+    return result
+
+
 def with_resilience(
     breaker: CircuitBreaker | Callable[[], CircuitBreaker],
     max_attempts: int = 3,
@@ -58,33 +109,6 @@ def with_resilience(
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             trace_id: str = kwargs.get("trace_id", "unknown-trace")
 
-            async def _call() -> T:
-                current_breaker = _resolve_breaker(breaker)
-                breaker_state = current_breaker.state
-
-                if breaker_state.name == "open":
-                    logger.error(
-                        "Circuit breaker is OPEN; rejecting call",
-                        extra={
-                            "trace_id": trace_id,
-                            "component": "resilience",
-                            "error": "circuit open",
-                        },
-                    )
-                    raise CircuitBreakerError("Circuit breaker is open")
-
-                breaker_state.before_call(fn, *args, **kwargs)
-                for listener in current_breaker.listeners:
-                    listener.before_call(current_breaker, fn, *args, **kwargs)
-
-                try:
-                    result = await fn(*args, **kwargs)
-                except BaseException as exc:
-                    breaker_state._handle_error(exc)
-                else:
-                    breaker_state._handle_success()
-                    return result
-
             try:
                 async for attempt in AsyncRetrying(
                     retry=retry_if_exception_type(Exception),
@@ -94,7 +118,7 @@ def with_resilience(
                 ):
                     with attempt:
                         try:
-                            return await _call()
+                            return await _run_through_breaker(breaker, fn, args, kwargs, trace_id)
                         except Exception as exc:  # noqa: BLE001
                             mapped = ErrorMapper.resolve(exc)
                             if mapped.category is not ErrorCategory.RETRYABLE:
