@@ -4,7 +4,13 @@ import logging
 from typing import Any, Dict, Optional, Tuple, Type, ClassVar
 import httpx
 
-from node_wire_runtime import BaseConnector, nw_action
+from node_wire_runtime import BaseConnector, nw_action, sdk_action
+from node_wire_runtime.mcp_normalizers import (
+    normalize_salesforce_read_delete_contact,
+    normalize_salesforce_read_delete_lead,
+    normalize_salesforce_update_contact,
+    normalize_salesforce_update_lead,
+)
 from node_wire_runtime.models import ErrorCategory
 from .schema import (
     CreateLeadInput,
@@ -58,11 +64,13 @@ class SalesforceConnector(BaseConnector):
             "POST", "Lead", params.model_dump(by_alias=True, exclude={"action"}), trace_id
         )
 
-    @nw_action("read_lead")
+    @sdk_action(
+        "read_lead", alias_tolerant=True, mcp_normalize=normalize_salesforce_read_delete_lead
+    )
     async def read_lead(self, params: ReadLeadInput, *, trace_id: str) -> SalesforceOperationOutput:
         return await self._execute_rest("GET", f"Lead/{params.record_id}", None, trace_id)
 
-    @nw_action("update_lead")
+    @sdk_action("update_lead", alias_tolerant=True, mcp_normalize=normalize_salesforce_update_lead)
     async def update_lead(
         self, params: UpdateLeadInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
@@ -70,7 +78,9 @@ class SalesforceConnector(BaseConnector):
             "PATCH", f"Lead/{params.record_id}", params.fields, trace_id
         )
 
-    @nw_action("delete_lead")
+    @sdk_action(
+        "delete_lead", alias_tolerant=True, mcp_normalize=normalize_salesforce_read_delete_lead
+    )
     async def delete_lead(
         self, params: DeleteLeadInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
@@ -84,13 +94,17 @@ class SalesforceConnector(BaseConnector):
             "POST", "Contact", params.model_dump(by_alias=True, exclude={"action"}), trace_id
         )
 
-    @nw_action("read_contact")
+    @sdk_action(
+        "read_contact", alias_tolerant=True, mcp_normalize=normalize_salesforce_read_delete_contact
+    )
     async def read_contact(
         self, params: ReadContactInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
         return await self._execute_rest("GET", f"Contact/{params.record_id}", None, trace_id)
 
-    @nw_action("update_contact")
+    @sdk_action(
+        "update_contact", alias_tolerant=True, mcp_normalize=normalize_salesforce_update_contact
+    )
     async def update_contact(
         self, params: UpdateContactInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
@@ -98,7 +112,11 @@ class SalesforceConnector(BaseConnector):
             "PATCH", f"Contact/{params.record_id}", params.fields, trace_id
         )
 
-    @nw_action("delete_contact")
+    @sdk_action(
+        "delete_contact",
+        alias_tolerant=True,
+        mcp_normalize=normalize_salesforce_read_delete_contact,
+    )
     async def delete_contact(
         self, params: DeleteContactInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
