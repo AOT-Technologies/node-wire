@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 import jwt
+
+logger = logging.getLogger("runtime.caller_identity")
+
+JWT_AUDIENCE_ENV = "NW_JWT_AUDIENCE"
+JWT_ISSUER_ENV = "NW_JWT_ISSUER"
+
+_jwt_aud_iss_warned = False
 
 
 @dataclass(frozen=True)
@@ -74,6 +82,56 @@ def api_key_matches(token: str, api_key: str) -> bool:
     return hmac.compare_digest(token, api_key)
 
 
+class JwtVerificationNotConfigured(jwt.InvalidTokenError):
+    """Raised when a JWT secret is used but ``NW_JWT_AUDIENCE`` / ``NW_JWT_ISSUER`` are unset."""
+
+
+def load_jwt_audience_issuer_from_env() -> tuple[str, str] | None:
+    """Return ``(audience, issuer)`` when both shared JWT env vars are set."""
+    audience = os.environ.get(JWT_AUDIENCE_ENV)
+    issuer = os.environ.get(JWT_ISSUER_ENV)
+    if not audience or not str(audience).strip():
+        return None
+    if not issuer or not str(issuer).strip():
+        return None
+    return str(audience).strip(), str(issuer).strip()
+
+
+def warn_jwt_audience_issuer_not_configured() -> None:
+    global _jwt_aud_iss_warned
+    if _jwt_aud_iss_warned:
+        return
+    _jwt_aud_iss_warned = True
+    logger.warning(
+        "JWT secret is configured but %s and %s are not set; JWT verification will fail",
+        JWT_AUDIENCE_ENV,
+        JWT_ISSUER_ENV,
+    )
+
+
+def decode_binding_jwt(token: str, secret: str) -> dict[str, Any]:
+    """
+    Verify an HS256 ingress JWT for MCP / REST / gRPC bindings.
+
+    Requires ``exp`` and ``iat`` claims and validates ``aud`` / ``iss`` against env.
+    """
+    aud_iss = load_jwt_audience_issuer_from_env()
+    if aud_iss is None:
+        warn_jwt_audience_issuer_not_configured()
+        raise JwtVerificationNotConfigured(
+            f"{JWT_AUDIENCE_ENV} and {JWT_ISSUER_ENV} must be set when JWT authentication is enabled"
+        )
+    audience, issuer = aud_iss
+    return jwt.decode(
+        token,
+        secret,
+        algorithms=["HS256"],
+        audience=audience,
+        issuer=issuer,
+        options={"require": ["exp", "iat"]},
+    )
+
+
 def verify_bearer_token_and_identity(
     token: str,
     *,
@@ -97,7 +155,7 @@ def verify_bearer_token_and_identity(
 
     if jwt_secret and token.count(".") == 2:
         try:
-            claims = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+            claims = decode_binding_jwt(token, jwt_secret)
         except jwt.PyJWTError:
             return False, None
         return True, build_caller_identity(claims, auth_type="jwt")

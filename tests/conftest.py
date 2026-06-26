@@ -27,6 +27,8 @@ os.environ["NW_REST_LOAD_DOTENV"] = "false"
 # Use a connector config where optional connectors (e.g. slack, salesforce) are disabled so CI and
 # devs without those packages still match the narrow allowlist (see tests/fixtures/connectors_for_tests.yaml).
 os.environ["NW_CONFIG_PATH"] = str(_TESTS_ROOT / "fixtures" / "connectors_for_tests.yaml")
+os.environ["NW_JWT_AUDIENCE"] = "node-wire-test"
+os.environ["NW_JWT_ISSUER"] = "node-wire-test-issuer"
 
 
 def _preload_connector_logic_modules() -> None:
@@ -65,6 +67,8 @@ def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
     monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "true")
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+    monkeypatch.setenv("NW_JWT_AUDIENCE", "node-wire-test")
+    monkeypatch.setenv("NW_JWT_ISSUER", "node-wire-test-issuer")
     monkeypatch.setenv("NW_RATE_LIMIT_BURST", "1000")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_REFILL_RATE", "100.0")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for tests
