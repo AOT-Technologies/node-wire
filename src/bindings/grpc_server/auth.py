@@ -73,31 +73,23 @@ def _wrap_unary_handler(
     handler: grpc.RpcMethodHandler,
     identity: CallerIdentity,
 ) -> grpc.RpcMethodHandler:
-    def _with_identity(fn: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapped(*args: Any, **kwargs: Any) -> Any:
-            token = _grpc_caller_identity_ctx.set(identity)
-            try:
-                return fn(*args, **kwargs)
-            finally:
-                _grpc_caller_identity_ctx.reset(token)
+    if handler.unary_unary is None:
+        return handler
 
-        return wrapped
+    original = handler.unary_unary
 
-    common = {
-        "request_deserializer": handler.request_deserializer,
-        "response_serializer": handler.response_serializer,
-    }
-    if handler.unary_unary is not None:
-        return grpc.unary_unary_rpc_method_handler(_with_identity(handler.unary_unary), **common)
-    if handler.unary_stream is not None:
-        return grpc.unary_stream_rpc_method_handler(_with_identity(handler.unary_stream), **common)
-    if handler.stream_unary is not None:
-        return grpc.stream_unary_rpc_method_handler(_with_identity(handler.stream_unary), **common)
-    if handler.stream_stream is not None:
-        return grpc.stream_stream_rpc_method_handler(
-            _with_identity(handler.stream_stream), **common
-        )
-    return handler
+    def wrapped(request: Any, context: grpc.ServicerContext) -> Any:
+        token = _grpc_caller_identity_ctx.set(identity)
+        try:
+            return original(request, context)
+        finally:
+            _grpc_caller_identity_ctx.reset(token)
+
+    return grpc.unary_unary_rpc_method_handler(
+        wrapped,
+        request_deserializer=handler.request_deserializer,
+        response_serializer=handler.response_serializer,
+    )
 
 
 class GrpcAuthInterceptor(grpc.ServerInterceptor):

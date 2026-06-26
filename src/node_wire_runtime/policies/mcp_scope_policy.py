@@ -18,7 +18,6 @@ DEFAULT_SCOPE_MODE_DENY = "deny"
 
 _warned_implicit_scope_default = False
 
-
 def _truthy_default_mode(val: str) -> str:
     v = val.strip().lower()
     if v in ("deny", "default-deny", "closed"):
@@ -108,13 +107,13 @@ class ScopePolicyHook(PolicyHook):
         self,
         action_scope_map: Mapping[str, str],
         *,
-        default_mode: str = DEFAULT_SCOPE_MODE_ALLOW,
+        default_mode: str = DEFAULT_SCOPE_MODE_DENY,
     ) -> None:
         self._map = dict(action_scope_map)
         self._default_mode = (
             default_mode
             if default_mode in (DEFAULT_SCOPE_MODE_ALLOW, DEFAULT_SCOPE_MODE_DENY)
-            else DEFAULT_SCOPE_MODE_ALLOW
+            else DEFAULT_SCOPE_MODE_DENY
         )
 
     def check(self, context: PolicyContext) -> None:

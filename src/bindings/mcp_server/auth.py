@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 from node_wire_runtime.caller_identity import (
     CallerIdentity,
+    api_key_matches,
     build_caller_identity,
     parse_api_key_scopes_from_env,
 )
@@ -156,7 +157,7 @@ def verify_mcp_token(token: str) -> tuple[dict[str, Any], str]:
     api_key = os.getenv("NW_MCP_API_KEY")
     jwt_secret = os.getenv("NW_MCP_JWT_SECRET")
 
-    if api_key and token == api_key:
+    if api_key and api_key_matches(token, api_key):
         scopes = list(parse_api_key_scopes_from_env("NW_MCP_API_KEY_SCOPES"))
         return ({"sub": "api-key-user", "tenant_id": None, "scopes": scopes}, "api_key")
 

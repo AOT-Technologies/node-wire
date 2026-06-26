@@ -8,6 +8,7 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from node_wire_smtp.logic import SmtpConnector
 from node_wire_smtp.relay import SmtpRelayNotAllowedError, resolve_smtp_relay
@@ -25,6 +26,14 @@ def test_resolve_smtp_relay_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert relay.use_tls is False
 
 
+def test_smtp_send_input_rejects_host_in_payload() -> None:
+    with pytest.raises(ValidationError, match="connection settings"):
+        SmtpSendInput(
+            host="evil.example.com",
+            to=["a@example.com"],
+            subject="s",
+            body="b",
+        )
 def test_smtp_send_input_strips_relay_fields_from_payload() -> None:
     inp = SmtpSendInput(
         host="evil.example.com",
