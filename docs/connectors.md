@@ -536,7 +536,7 @@ connectors:
 
 **HTTP Generic outbound policy** — `http_generic.request` allows only `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and input methods are normalized to uppercase before validation. URLs targeting internal destinations are rejected (`localhost`, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments so only scheme/host/path are retained.
 
-**SMTP outbound policy** — `smtp.send_email` accepts only message fields (`to`, `subject`, `body`, optional `from_email`). SMTP relay settings (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`) are server-side only and cannot be set in the request payload. Credentials are never sent to a caller-chosen host. For production, optionally set **`NW_SMTP_ALLOWED_HOSTS`** to a comma-separated list of permitted relay hostnames.
+**SMTP outbound policy** — `smtp.send_email` accepts only message fields (`to`, `subject`, `body`, optional `from_email`). SMTP relay settings (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`) are server-side only and cannot be set in the request payload. Credentials are never sent to a caller-chosen host. For production, optionally set **`NW_SMTP_ALLOWED_HOSTS`** to a comma-separated list of permitted relay hostnames. The `subject` field must not contain newline or ASCII control characters (header-injection defense); `body` may be multiline.
 
 **Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
 
