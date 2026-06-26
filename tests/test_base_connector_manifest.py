@@ -572,6 +572,52 @@ def test_normalize_mcp_tool_arguments_smtp_send_email_to_string_to_list():
     SmtpSendInput.model_validate({**out, "action": "send_email"})
 
 
+def _salesforce_connector_for_manifest() -> BaseConnector:
+    from node_wire_salesforce.logic import SalesforceConnector
+    from node_wire_runtime import SecretProvider
+
+    class _MockSecrets(SecretProvider):
+        def get_secret(self, key: str) -> str:
+            return {"salesforce_instance_url": "https://test.salesforce.com"}[key]
+
+    return SalesforceConnector(secret_provider=_MockSecrets())
+
+
+@pytest.mark.parametrize(
+    "raw_args",
+    [
+        {"contact_id": "003g500000Kziv3AAB", "last_name": "demo12"},
+        {"record_id": "003g500000Kziv3AAB", "last_name": "demo1"},
+        {"fields": {"LastName": "demo12"}, "record_id": "003g500000Kziv3AAB"},
+        {"contact_id": "003g500000Kziv3AAB", "LastName": "demo12"},
+        {"id": "003g500000Kziv3AAB", "last_name": "demo1"},
+    ],
+)
+def test_salesforce_update_contact_accepts_llm_retry_shapes(raw_args: Dict[str, Any]) -> None:
+    from node_wire_runtime.ingress import normalize_mcp_tool_arguments
+    from node_wire_salesforce.schema import UpdateContactInput
+
+    out = normalize_mcp_tool_arguments(
+        _salesforce_connector_for_manifest(), "update_contact", raw_args
+    )
+    model = UpdateContactInput.model_validate({**out, "action": "update_contact"})
+    assert model.record_id == "003g500000Kziv3AAB"
+    assert model.fields.get("LastName") in ("demo12", "demo1")
+
+
+def test_salesforce_update_manifest_does_not_require_fields_or_record_id():
+    connector = _salesforce_connector_for_manifest()
+    manifest = build_manifest([connector])
+    schema = next(
+        e["input_schema"]
+        for e in manifest
+        if e["connector_id"] == "salesforce" and e["action"] == "update_contact"
+    )
+    required = set(schema.get("required") or [])
+    assert "fields" not in required
+    assert "record_id" not in required
+
+
 @pytest.mark.asyncio
 async def test_mcp_server_invoke_smtp_send_email_normalizes_payload() -> None:
     """invoke_tool should normalize SMTP aliases before connector.run."""
