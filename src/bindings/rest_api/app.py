@@ -65,7 +65,7 @@ app.mount("/playground", StaticFiles(directory=str(DEMO_DIR), html=True), name="
 
 _factory: ConnectorFactory | None = None
 _rate_limiter: InMemoryRateLimiter | None = None
-_rate_limiter_cfg: tuple[int, int] | None = None
+_rate_limiter_cfg: tuple[int, int, int, int] | None = None
 
 
 def get_factory() -> ConnectorFactory:
@@ -117,11 +117,15 @@ def _get_rate_limiter() -> InMemoryRateLimiter:
     global _rate_limiter, _rate_limiter_cfg
     max_requests = int(os.environ.get("NW_REST_RATE_LIMIT_MAX_REQUESTS", "120"))
     window_seconds = int(os.environ.get("NW_REST_RATE_LIMIT_WINDOW_SECONDS", "60"))
-    cfg = (max_requests, window_seconds)
+    max_tracked_keys = int(os.environ.get("NW_REST_RATE_LIMIT_MAX_TRACKED_KEYS", "10000"))
+    key_ttl_seconds = int(os.environ.get("NW_REST_RATE_LIMIT_KEY_TTL_SECONDS", "3600"))
+    cfg = (max_requests, window_seconds, max_tracked_keys, key_ttl_seconds)
     if _rate_limiter is None or _rate_limiter_cfg != cfg:
         _rate_limiter = InMemoryRateLimiter(
             max_requests=max_requests,
             window_seconds=window_seconds,
+            max_tracked_keys=max_tracked_keys,
+            key_ttl_seconds=key_ttl_seconds,
         )
         _rate_limiter_cfg = cfg
     return _rate_limiter

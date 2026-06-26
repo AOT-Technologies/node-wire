@@ -51,6 +51,32 @@ def _is_public_path(path: str) -> bool:
     return p == "/health"
 
 
+def _trusted_proxy_hops() -> int:
+    raw = os.environ.get("NW_REST_TRUSTED_PROXY_HOPS", "0")
+    try:
+        hops = int(raw)
+    except ValueError:
+        return 0
+    return max(0, hops)
+
+
+def _client_ip_for_rate_limit(request: Request) -> str:
+    """
+    Resolve client IP for rate limiting.
+
+    X-Forwarded-For is honored only when ``NW_REST_TRUSTED_PROXY_HOPS`` is > 0.
+    """
+    hops = _trusted_proxy_hops()
+    if hops > 0:
+        forwarded = request.headers.get("x-forwarded-for") or ""
+        chain = [part.strip() for part in forwarded.split(",") if part.strip()]
+        if len(chain) >= hops:
+            return chain[0]
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
 def _extract_bearer_or_api_key(request: Request) -> str | None:
     auth = request.headers.get("authorization")
     if auth:
@@ -69,18 +95,13 @@ def get_request_identity_key(request: Request) -> str:
 
     Preference order:
     1) Auth token/API key (fingerprinted, never returned raw)
-    2) X-Forwarded-For first hop
-    3) request.client.host
+    2) Trusted client IP (``NW_REST_TRUSTED_PROXY_HOPS`` controls X-Forwarded-For use)
     """
     token = _extract_bearer_or_api_key(request)
     if token:
         digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
         return f"token:{digest}"
-    forwarded = (request.headers.get("x-forwarded-for") or "").split(",", maxsplit=1)[0].strip()
-    if forwarded:
-        return f"ip:{forwarded}"
-    client_host = request.client.host if request.client else "unknown"
-    return f"ip:{client_host}"
+    return f"ip:{_client_ip_for_rate_limit(request)}"
 
 
 def verify_rest_token_and_identity(
