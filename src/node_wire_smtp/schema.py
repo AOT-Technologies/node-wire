@@ -49,8 +49,7 @@ class SmtpSendInput(BaseModel):
             return values
 
         for key in _FORBIDDEN_RELAY_KEYS:
-            if key in values:
-                raise ValueError("SMTP connection settings cannot be set in the request payload")
+            values.pop(key, None)
 
         if "from" in values and not values.get("from_email"):
             values["from_email"] = values.pop("from")
