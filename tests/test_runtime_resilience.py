@@ -173,3 +173,22 @@ def test_fatal_errors_do_not_retry() -> None:
     assert response.success is False
     assert response.error_code == "FatalTestError"
     assert response.error_category == ErrorCategory.FATAL
+
+
+def test_with_resilience_opens_breaker_after_repeated_failures() -> None:
+    breaker = CircuitBreaker(fail_max=2, reset_timeout=30)
+
+    @with_resilience(breaker, max_attempts=1)
+    async def fail(*, trace_id: str = "t") -> str:
+        raise RetryableTestError("boom")
+
+    with pytest.raises(RetryableTestError):
+        asyncio.run(fail(trace_id="t1"))
+
+    with pytest.raises(CircuitBreakerError):
+        asyncio.run(fail(trace_id="t2"))
+
+    assert breaker.state.name == "open"
+
+    with pytest.raises(CircuitBreakerError):
+        asyncio.run(fail(trace_id="t3"))
