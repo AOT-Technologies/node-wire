@@ -2184,15 +2184,6 @@ agents = [
     { name = "mcp" },
     { name = "openai" },
 ]
-dev = [
-    { name = "bandit" },
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -2215,7 +2206,6 @@ dev = [
 requires-dist = [
     { name = "aiosmtplib", specifier = ">=3.0.1" },
     { name = "anthropic", marker = "extra == 'agents'", specifier = ">=0.28.0" },
-    { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.7.9" },
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "fastapi", specifier = ">=0.111.0" },
     { name = "google-api-python-client", specifier = ">=2.100.0" },
@@ -2226,32 +2216,25 @@ requires-dist = [
     { name = "grpcio-tools", specifier = ">=1.62.0" },
     { name = "httpx", extras = ["http2"], specifier = ">=0.27.0,<0.28.0" },
     { name = "mcp", marker = "extra == 'agents'", specifier = ">=1.6.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.9.0" },
     { name = "openai", marker = "extra == 'agents'", specifier = ">=1.30.0" },
     { name = "opentelemetry-api", specifier = ">=1.24.0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.24.0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.45b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.24.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pybreaker", specifier = ">=1.0.0,<2.0.0" },
     { name = "pydantic", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.3.5" },
     { name = "stripe", specifier = ">=10.0.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
     { name = "traceloop-sdk", specifier = ">=0.53.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
-provides-extras = ["dev", "agents"]
+provides-extras = ["agents"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "bandit", specifier = ">=1.7.0" },
     { name = "bandit", extras = ["toml"], specifier = ">=1.7.9" },
     { name = "cyclonedx-bom", specifier = "==4.6.1" },
     { name = "licenseheaders", specifier = ">=0.8.8" },

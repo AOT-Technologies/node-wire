@@ -209,7 +209,7 @@ For more detailed information, please refer to the following guides:
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
 - Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
-- Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)
+- Quality/security gates (Bandit, CodeQL): [docs/quality-security-gates.md](docs/quality-security-gates.md)
 
 ---
 
