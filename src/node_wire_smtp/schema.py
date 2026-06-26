@@ -19,6 +19,8 @@ def _reject_unsafe_header_value(value: str, field_name: str) -> str:
         raise ValueError(f"{field_name} must not contain control characters or newlines")
     return value
 
+_FORBIDDEN_RELAY_KEYS = frozenset({"host", "port", "use_tls"})
+
 
 def _strip_env(s: str) -> str:
     return s.strip(" '\"")
@@ -62,7 +64,7 @@ class SmtpSendInput(BaseModel):
 
         for key in _FORBIDDEN_RELAY_KEYS:
             if key in values:
-                raise ValueError("SMTP connection settings cannot be set in the request payload")
+                values.pop(key, None)
 
         if "from" in values and not values.get("from_email"):
             values["from_email"] = values.pop("from")
