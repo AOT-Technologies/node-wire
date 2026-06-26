@@ -10,7 +10,10 @@ from pydantic import BaseModel
 from node_wire_runtime import BaseConnector, nw_action
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
-from node_wire_runtime.policies.mcp_scope_policy import ScopePolicyHook
+from node_wire_runtime.policies.mcp_scope_policy import (
+    DEFAULT_SCOPE_MODE_ALLOW,
+    ScopePolicyHook,
+)
 from node_wire_runtime.policy import PolicyDenied
 
 
@@ -71,7 +74,10 @@ class _FailNestedConnector(BaseConnector):
 
 @pytest.mark.asyncio
 async def test_call_action_inherits_identity_for_nested_policy() -> None:
-    hook = ScopePolicyHook({"policy_test_composite.read_patient": "mcp:fhir.read_patient"})
+    hook = ScopePolicyHook(
+        {"policy_test_composite.read_patient": "mcp:fhir.read_patient"},
+        default_mode=DEFAULT_SCOPE_MODE_ALLOW,
+    )
     connector = _CompositeConnector(policy_hook=hook)
 
     resp = await connector.run(
@@ -87,7 +93,10 @@ async def test_call_action_inherits_identity_for_nested_policy() -> None:
 
 @pytest.mark.asyncio
 async def test_call_action_nested_policy_denied_raises() -> None:
-    hook = ScopePolicyHook({"policy_test_composite.read_patient": "mcp:fhir.read_patient"})
+    hook = ScopePolicyHook(
+        {"policy_test_composite.read_patient": "mcp:fhir.read_patient"},
+        default_mode=DEFAULT_SCOPE_MODE_ALLOW,
+    )
     connector = _CompositeConnector(policy_hook=hook)
 
     resp = await connector.run(
@@ -102,7 +111,10 @@ async def test_call_action_nested_policy_denied_raises() -> None:
 
 def test_call_action_direct_raises_policy_denied_sync_wrap() -> None:
     """PolicyDenied from nested run surfaces through async delegate body."""
-    hook = ScopePolicyHook({"policy_test_composite.read_patient": "mcp:fhir.read_patient"})
+    hook = ScopePolicyHook(
+        {"policy_test_composite.read_patient": "mcp:fhir.read_patient"},
+        default_mode=DEFAULT_SCOPE_MODE_ALLOW,
+    )
     connector = _CompositeConnector(policy_hook=hook)
 
     async def _run() -> None:
