@@ -49,7 +49,7 @@ class SmtpSendInput(BaseModel):
             return values
 
         for key in _FORBIDDEN_RELAY_KEYS:
-            if key in values:                
+            if key in values:
                 values.pop(key, None)
 
         if "from" in values and not values.get("from_email"):
