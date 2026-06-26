@@ -18,6 +18,7 @@ DEFAULT_SCOPE_MODE_DENY = "deny"
 
 _warned_implicit_scope_default = False
 
+
 def _truthy_default_mode(val: str) -> str:
     v = val.strip().lower()
     if v in ("deny", "default-deny", "closed"):
