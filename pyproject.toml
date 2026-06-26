@@ -8,9 +8,19 @@ version = "0.1.0"
 description = "Node Wire — runtime, connectors, and bindings"
 requires-python = ">=3.11"
 authors = [
-  { name = "AOT", email = "dev@aot.local" },
+  { name = "AOT Technologies", email = "opensource@aot-technologies.com" },
 ]
 readme = "README.md"
+keywords = ["connectors", "mcp", "rest", "grpc", "integration", "runtime"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 
 dependencies = [
   "pydantic>=2.6.0,<3.0.0",
@@ -35,6 +45,12 @@ dependencies = [
   "opentelemetry-exporter-otlp>=1.24.0",
   "traceloop-sdk>=0.53.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Documentation = "https://github.com/AOT-Technologies/node-wire/tree/main/docs"
 
 [project.scripts]
 node-wire = "bindings_entrypoint:main"

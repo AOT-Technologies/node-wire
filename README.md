@@ -24,7 +24,7 @@ Before getting started, make sure you have:
 
 ### 1. Install
 ```bash
-git clone <repo-url>
+git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --all-extras --dev
 ```
@@ -205,6 +205,19 @@ For more detailed information, please refer to the following guides:
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
 - Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
 - Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for
+the development setup, quality checks, and PR conventions, and our
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+To report a vulnerability, please follow our [Security Policy](SECURITY.md). Do
+not open a public issue for security reports.
 
 ---
 

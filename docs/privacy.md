@@ -31,4 +31,4 @@ By default, Node-Wire logging is configured to provide operational visibility wi
 
 ## Security Disclosures
 
-If you discover a potential privacy or security vulnerability within Node-Wire, please do not disclose it publicly. Refer to our [Security Policy](security-gap-report.md) for instructions on how to securely report issues to the maintainers.
+If you discover a potential privacy or security vulnerability within Node-Wire, please do not disclose it publicly. Refer to our [Security Policy](../SECURITY.md) for instructions on how to securely report issues to the maintainers.
