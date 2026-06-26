@@ -19,6 +19,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
+from node_wire_runtime.log_sanitization import (
+    install_sanitizing_log_filter,
+    sanitize_value,
+)
+
 logger = logging.getLogger("runtime.observability")
 
 _INITIALIZED: bool = False
@@ -37,25 +42,9 @@ class _OtelContextFilter(logging.Filter):
         return True
 
 
-_SENSITIVE_KEYS = {
-    "patient",
-    "ssn",
-    "secret",
-    "password",
-    "email",
-    "phone",
-    "dob",
-    "encounter",
-    "resourceid",
-}
-
-
-def _is_sensitive(key: str) -> bool:
-    k = key.lower().replace("_", "").replace("-", "").replace(" ", "")
-    for s in _SENSITIVE_KEYS:
-        if s in k:
-            return True
-    return False
+def _sanitize_otlp_attributes(attributes: dict[str, object]) -> None:
+    for key in list(attributes.keys()):
+        attributes[key] = sanitize_value(str(key), attributes[key])
 
 
 class SanitizingSpanExporter(SpanExporter):
@@ -65,9 +54,7 @@ class SanitizingSpanExporter(SpanExporter):
     def export(self, spans):
         for span in spans:
             if hasattr(span, "_attributes") and span._attributes:
-                for k in list(span._attributes.keys()):
-                    if _is_sensitive(k):
-                        span._attributes[k] = "***REDACTED***"
+                _sanitize_otlp_attributes(span._attributes)
         return self._delegate.export(spans)
 
     def shutdown(self):
@@ -86,9 +73,7 @@ class SanitizingLogExporter(LogExporter):
     def export(self, batch):
         for record in batch:
             if hasattr(record, "attributes") and record.attributes:
-                for k in list(record.attributes.keys()):
-                    if _is_sensitive(k):
-                        record.attributes[k] = "***REDACTED***"
+                _sanitize_otlp_attributes(record.attributes)
         return self._delegate.export(batch)
 
     def shutdown(self):
@@ -110,6 +95,8 @@ def init_observability(app_name: str = "node_wire") -> None:
     global _INITIALIZED
     if _INITIALIZED:
         return
+
+    install_sanitizing_log_filter()
 
     # Sampling ratio can be tuned per environment. Default to full sampling in dev-like setups.
     sampling_ratio_str: str = os.getenv("AOT_TRACING_SAMPLING_RATIO", "1.0")
