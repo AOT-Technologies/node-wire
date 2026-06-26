@@ -26,14 +26,19 @@ def test_resolve_smtp_relay_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert relay.use_tls is False
 
 
-def test_smtp_send_input_rejects_host_in_payload() -> None:
-    with pytest.raises(ValidationError, match="connection settings"):
-        SmtpSendInput(
-            host="evil.example.com",
-            to=["a@example.com"],
-            subject="s",
-            body="b",
-        )
+def test_smtp_send_input_strips_relay_fields_from_payload() -> None:
+    inp = SmtpSendInput(
+        host="evil.example.com",
+        port=25,
+        use_tls=False,
+        from_email="a@example.com",
+        to=["a@example.com"],
+        subject="s",
+        body="b",
+    )
+    assert inp.to == ["a@example.com"]
+    assert inp.subject == "s"
+    assert inp.body == "b"
 
 
 def test_resolve_smtp_relay_allowlist_blocks_unlisted_host(
