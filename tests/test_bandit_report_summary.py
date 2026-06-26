@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Regression tests for scripts/bandit_report_summary.py (CI log helper)."""
 
 from __future__ import annotations

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Quality and security gates
 
 This document defines how Node Wire enforces security scanning and SonarQube analysis in CI, plus the SonarQube Community Edition setup required for centralized reporting.
@@ -31,6 +35,8 @@ Required checks to add in branch protection:
 - `Python package security PR checks / Vulnerability scan (packages/connectors/google_drive)`
 - `Python package security PR checks / Vulnerability scan (packages/connectors/fhir_cerner)`
 - `Python package security PR checks / Vulnerability scan (packages/connectors/fhir_epic)`
+- `Python package security PR checks / Vulnerability scan (packages/connectors/salesforce)`
+- `Python package security PR checks / Vulnerability scan (packages/connectors/slack)`
 
 Configure branch protection so pull requests cannot merge unless all required checks pass.
 

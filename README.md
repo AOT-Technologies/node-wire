@@ -199,6 +199,11 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
+- **[Privacy](docs/privacy.md)** — Data handling and logging guidance.
+- **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying Node Wire in regulated healthcare environments.
+- **[ToolHive Agent Scenario](docs/toolhive_agent_scenario.md)** — End-to-end FHIR → Google Drive → email workflow.
+- **[Changelog](CHANGELOG.md)** — Release history.
+
 ## Developer docs
 
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)

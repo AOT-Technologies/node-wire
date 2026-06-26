@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Regression: ``BaseConnector.call_action`` must honor scope policy via ``run``."""
 
 from __future__ import annotations

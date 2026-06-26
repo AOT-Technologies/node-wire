@@ -21,6 +21,7 @@ Images:
   - nw-smartonfhir-cerner
   - nw-smtp
   - nw-stripe
+  - nw-salesforce
   - nw-slack
 EOF
 }

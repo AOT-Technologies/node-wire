@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Guardrails for REST app import during pytest collection.
 
 Requires ``conftest`` env + ``connectors_for_tests.yaml`` so enabled connectors match

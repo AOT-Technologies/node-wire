@@ -362,7 +362,7 @@ FROM_EMAIL=your-email@gmail.com
 | `STRIPE_API_KEY` | Your Stripe secret API key (starts with `sk_test_` or `sk_live_`) |
 
 ```env
-STRIPE_API_KEY=sk_test_4eC39HqLyjWDarjtT1zdp7dc
+STRIPE_API_KEY=sk_test_your_secret_key_here
 ```
 
 #### `nw-salesforce`

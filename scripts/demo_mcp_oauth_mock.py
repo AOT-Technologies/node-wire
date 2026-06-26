@@ -1,5 +1,7 @@
-# Copyright 2026 AOT Technologies
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
+#
 """Internal demo: MCP OAuth phases 0-4 with mock issuer (no real network)."""
 
 from __future__ import annotations

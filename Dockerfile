@@ -37,6 +37,7 @@ COPY packages/connectors/slack/dist/*.whl /wheels/
 COPY packages/connectors/google_drive/dist/*.whl /wheels/
 COPY packages/connectors/fhir_cerner/dist/*.whl /wheels/
 COPY packages/connectors/fhir_epic/dist/*.whl /wheels/
+COPY packages/connectors/salesforce/dist/*.whl /wheels/
 
 ENV PYTHONPATH=/app/src
 
@@ -50,6 +51,7 @@ RUN pip install --no-cache-dir --find-links=/wheels \
     node-wire-google-drive \
     node-wire-fhir-cerner \
     node-wire-fhir-epic \
+    node-wire-salesforce \
     "mcp>=1.6.0" \
     && rm -rf /wheels
 

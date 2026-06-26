@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Configuration Guide
 
 Node Wire is configured primarily through environment variables and a YAML configuration file.
@@ -39,6 +43,8 @@ copy sample.env .env
 |----------|-------------|---------|
 | `MODE` | Execution mode (`API`, `GRPC`, `MCP`) | `API` |
 | `PORT` | Port for the REST API | `8000` |
+| `NW_REST_HOST` | REST API bind address | `127.0.0.1` |
+| `NW_REST_PLAYGROUND_ENABLED` | Mount the interactive playground at `/playground/` when `true`; when unset, enabled only if a `playground/` directory exists at the repo root | _(auto)_ |
 | `NW_MCP_TRANSPORT` | MCP transport mode (`stdio` or `streamable-http`) | `stdio` |
 | `NW_MCP_HOST` | MCP streamable-http bind address | `127.0.0.1` |
 | `NW_MCP_PORT` | Port for streamable-http MCP | `8081` |

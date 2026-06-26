@@ -26,8 +26,6 @@ Node Wire ships as **nine independent PyPI packages** (the runtime plus eight co
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`.
 
-> **Note:** `salesforce` and `slack` build locally via `scripts/build-packages.sh` but are **not yet in the `.github/workflows/publish.yml` allowlist** (which currently publishes seven packages), so they do not auto-publish through that workflow.
-
 ---
 
 ## Python package build lifecycle
@@ -122,7 +120,7 @@ At startup, `auto_register()` discovers all installed connectors via the `node_w
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `NW_ALLOWED_CONNECTORS` | _(all discovered)_ | Comma-separated allowlist of entry-point names (e.g. `stripe,fhir_epic`). In development, leave unset to load everything. In production, set explicitly. |
+| `NW_ALLOWED_CONNECTORS` | _(empty — load nothing)_ | Comma-separated allowlist of entry-point names (e.g. `stripe,fhir_epic`). **Unset or empty loads no connectors** (fail-closed). Set explicitly in production and local `.env`. |
 | `NW_CONNECTOR_MODULE_PREFIX` | `node_wire_` | Connectors whose target module doesn't start with this prefix are skipped with a warning. Set to `""` to disable the check. |
 
 ---

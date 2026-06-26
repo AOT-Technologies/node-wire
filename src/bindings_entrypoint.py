@@ -35,7 +35,8 @@ def main() -> None:
 
     if mode == "API":
         port = int(os.getenv("PORT", "8000"))
-        uvicorn.run(rest_app, host="0.0.0.0", port=port)
+        host = os.getenv("NW_REST_HOST", "127.0.0.1")
+        uvicorn.run(rest_app, host=host, port=port)
     elif mode == "GRPC":
         # Import gRPC server lazily so API/MCP modes do not require
         # gRPC-specific dependencies or generated stubs at import time.

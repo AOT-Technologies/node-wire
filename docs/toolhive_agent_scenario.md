@@ -143,7 +143,7 @@ Below is the full set of environment variables used by the connector platform an
 | `FROM_EMAIL` | Email sending | Example: `from@example.com` |
 | `GROQ_API_KEY` | LLM (Groq) | Your Groq API key |
 | `GROQ_MODEL` | LLM | Example: `openai/gpt-oss-120b` |
-| `MCP_TRANSPORT` | ToolHive / local | `stdio` when running in ToolHive container |
+| `NW_MCP_TRANSPORT` | ToolHive / local | `stdio` when running in ToolHive container |
 | `PYTHONPATH` | Runtime | e.g. `/app/src` for container; `**/node-wire/src` locally |
 | `SMTP_HOST` | SMTP connector | Example: `sandbox.smtp.mailtrap.io` |
 | `SMTP_PORT` | SMTP connector | Example: `2525` |
@@ -210,7 +210,13 @@ Notes for non-developers:
 
 ## Step 1: Build the Docker image
 
-From the root of the repository:
+From the root of the repository, build the Python wheels first (required for the Docker image):
+
+```bash
+bash scripts/build-packages.sh
+```
+
+Then build the container image:
 
 ```bash
 docker build -t node-wire:latest .

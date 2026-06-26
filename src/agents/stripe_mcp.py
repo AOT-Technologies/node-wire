@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """MCP Server — Stripe connector only. Usage: python -m agents.stripe_mcp"""
 
 from __future__ import annotations

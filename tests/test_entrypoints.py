@@ -49,7 +49,7 @@ def test_bindings_entrypoint_api_mode_default(monkeypatch: pytest.MonkeyPatch) -
     mock_obs.assert_called_once_with(app_name="node-wire")
     mock_uv.assert_called_once()
     call_kw = mock_uv.call_args[1]
-    assert call_kw["host"] == "0.0.0.0"
+    assert call_kw["host"] == "127.0.0.1"
     assert call_kw["port"] == 8000
 
 

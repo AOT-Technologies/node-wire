@@ -1,7 +1,7 @@
 ##
 ## SPDX-FileCopyrightText: 2026 AOT Technologies
 ## SPDX-License-Identifier: Apache-2.0
-### Continuous security checks for publishable Python packages on pull requests.
+##
 
 
 name: Python package security PR checks
@@ -47,6 +47,8 @@ jobs:
           - packages/connectors/google_drive
           - packages/connectors/fhir_cerner
           - packages/connectors/fhir_epic
+          - packages/connectors/salesforce
+          - packages/connectors/slack
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

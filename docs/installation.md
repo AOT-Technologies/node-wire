@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Installation Guide
 
 ## Prerequisites
@@ -16,8 +20,8 @@
 
 ### 1. Clone the repository
 ```bash
-git clone <repo-url>
-cd <repository-directory>
+git clone https://github.com/AOT-Technologies/node-wire.git
+cd node-wire
 ```
 
 ### 2. Configure
@@ -57,8 +61,10 @@ uv lock
 
 ### 4. Verify the installation
 ```bash
-uv run node-wire --help
+uv run python -c "from importlib.metadata import version; print('node-wire', version('node-wire'))"
 ```
+
+To confirm the REST API starts, run `MODE=API uv run node-wire` and open `http://127.0.0.1:8000/health` (default bind is `127.0.0.1`; override with `NW_REST_HOST` if needed).
 
 ---
 

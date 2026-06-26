@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Print a concise Bandit JSON report summary for CI logs (always exits 0).
 
 Bandit exits with a non-zero status when *any* severity finding exists, even if

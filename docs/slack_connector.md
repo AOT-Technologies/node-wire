@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Slack Connector
 
 This document covers the Slack connector under `src/node_wire_slack` in two parts:

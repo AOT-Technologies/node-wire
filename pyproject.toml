@@ -6,6 +6,7 @@
 name = "node-wire"
 version = "0.1.0"
 description = "Node Wire — runtime, connectors, and bindings"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 authors = [
   { name = "AOT Technologies", email = "opensource@aot-technologies.com" },
@@ -15,7 +16,6 @@ keywords = ["connectors", "mcp", "rest", "grpc", "integration", "runtime"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -57,6 +57,10 @@ node-wire = "bindings_entrypoint:main"
 nw-google-drive = "agents.google_drive_mcp:main"
 nw-smartonfhir-epic = "agents.fhir_epic_mcp:main"
 nw-smartonfhir-cerner = "agents.fhir_cerner_mcp:main"
+nw-smtp = "agents.smtp_mcp:main"
+nw-stripe = "agents.stripe_mcp:main"
+nw-salesforce = "agents.salesforce_mcp:main"
+nw-slack = "agents.slack_mcp:main"
 
 [project.optional-dependencies]
 dev = [
@@ -111,10 +115,15 @@ dev = [
     "pre-commit>=4.0.0",
     "pytest-playwright>=0.4.0",
     "cyclonedx-bom==4.6.1",
+    "reuse>=5.0.0",
+    "licenseheaders>=0.8.8",
 ]
 
 [tool.uv]
 default-groups = ["dev"]
+override-dependencies = [
+  "lxml>=6.1.0",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
@@ -141,6 +150,10 @@ omit = [
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+extend-exclude = [
+  "*_pb2.py",
+  "*_pb2_grpc.py",
+]
 
 [tool.mypy]
 python_version = "3.11"
@@ -151,6 +164,7 @@ ignore_missing_imports = true
 files = ["src"]
 exclude = [
   ".*packages/.*/setup\\.py",
+  ".*_pb2(_grpc)?\\.py",
 ]
 [[tool.mypy.overrides]]
 module = "playground.*"
