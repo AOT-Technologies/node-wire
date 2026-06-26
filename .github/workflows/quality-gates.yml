@@ -23,15 +23,22 @@ jobs:
         uses: actions/setup-python@v5.3.0
         with:
           python-version: "3.11"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -e ".[dev,agents]"
+        run: uv sync --frozen --all-extras --dev
       # Bandit exits non-zero when *any* finding exists (incl. low/medium). The
       # enforce step below gates on high only; use --exit-zero here so this step
       # always produces the JSON artifact and the job can print a summary.
       - name: Generate Bandit JSON report
-        run: bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+        run: uv run bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
       - name: Bandit findings summary (log)
-        run: python scripts/bandit_report_summary.py bandit-report.json
+        run: uv run python scripts/bandit_report_summary.py bandit-report.json
       - name: Upload Bandit report artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
@@ -39,7 +46,7 @@ jobs:
           path: bandit-report.json
           if-no-files-found: error
       - name: Enforce high-severity Bandit gate
-        run: bandit -c pyproject.toml -r src --severity-level high
+        run: uv run bandit -c pyproject.toml -r src --severity-level high
 
   test:
     name: Tests and coverage
@@ -50,15 +57,30 @@ jobs:
         uses: actions/setup-python@v5.3.0
         with:
           python-version: "3.11"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -e ".[dev,agents]"
+        run: uv sync --frozen --all-extras --dev
       - name: Run tests (coverage.xml generated via pyproject addopts)
-        run: pytest tests/ -v
+        run: uv run pytest tests/ -v
+      - name: Generate SBOM
+        run: uv run cyclonedx-py environment -o sbom.json
       - name: Upload coverage artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: coverage-xml
           path: coverage.xml
+          if-no-files-found: error
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: sbom
+          path: sbom.json
           if-no-files-found: error
 
   sonar:

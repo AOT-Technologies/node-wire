@@ -24,8 +24,8 @@ service_account.json
 # Grafana exports (auto-generated)
 grafana/*.json
 
-# Python lock files
-uv.lock
+# Generated compliance artifacts
+sbom.json
 
 # Temporary test/upload files
 upload-test.txt

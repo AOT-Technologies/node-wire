@@ -36,11 +36,21 @@ Node Wire uses a fail-closed connector allowlist. If `NW_ALLOWED_CONNECTORS` is 
 ### 3. Install dependencies
 
 **Using `uv` (recommended):**
+
+The repository commits `uv.lock` for reproducible installs. Use `--frozen` in CI and local dev:
+
 ```bash
-uv sync --extra agents
+uv sync --frozen --all-extras --dev   # full dev + agents (matches CI)
+uv sync --frozen                      # runtime only
 ```
 
-**Using `pip`:**
+When you change dependencies in `pyproject.toml`, regenerate and commit the lockfile:
+
+```bash
+uv lock
+```
+
+**Using `pip` (unpinned; not recommended for reproducible builds):**
 - Full install (including AI agents): `pip install -e ".[agents]"`
 - Minimal install (REST/gRPC only): `pip install -e .`
 - Dev install (linting/tests): `pip install -e ".[dev,agents]"`
