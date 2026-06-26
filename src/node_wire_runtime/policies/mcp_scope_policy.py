@@ -16,6 +16,7 @@ logger = logging.getLogger("runtime.policy.scope")
 DEFAULT_SCOPE_MODE_ALLOW = "allow"
 DEFAULT_SCOPE_MODE_DENY = "deny"
 
+_warned_implicit_scope_default = False
 
 def _truthy_default_mode(val: str) -> str:
     v = val.strip().lower()
@@ -26,8 +27,16 @@ def _truthy_default_mode(val: str) -> str:
 
 def load_scope_policy_default_from_env() -> str:
     """Return ``allow`` or ``deny`` from ``NW_MCP_SCOPE_POLICY_DEFAULT`` (default: deny)."""
+    global _warned_implicit_scope_default
     raw = os.environ.get("NW_MCP_SCOPE_POLICY_DEFAULT")
     if not raw or not str(raw).strip():
+        if not _warned_implicit_scope_default:
+            logger.warning(
+                "NW_MCP_SCOPE_POLICY_DEFAULT is unset; using code default 'deny'. "
+                "Set NW_MCP_SCOPE_POLICY_DEFAULT explicitly and configure "
+                "NW_*_API_KEY_SCOPES (or JWT scopes) for each transport."
+            )
+            _warned_implicit_scope_default = True
         return DEFAULT_SCOPE_MODE_DENY
     return _truthy_default_mode(str(raw))
 
