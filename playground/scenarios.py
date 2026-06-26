@@ -1875,11 +1875,11 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
         from agents.toolhive import (
             MultiMcpClient,
             ToolHiveAgent,
-            ToolHiveMcpClient,
             StdioMcpClient,
             resolve_mcp_urls,
             resolve_max_tool_failures,
         )
+        from node_wire_runtime.mcp_client.client import create_http_mcp_client
 
         provider_name = os.environ.get("LLM_PROVIDER", "groq")
         logger.info("Agent Chat | creating LLM provider: %s", provider_name)
@@ -1899,9 +1899,9 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
             try:
                 if len(urls) == 1:
-                    mcp_client = ToolHiveMcpClient(urls[0])
+                    mcp_client = create_http_mcp_client(urls[0])
                 else:
-                    mcp_client = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
+                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -2016,10 +2016,10 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                 MultiMcpClient,
                 StdioMcpClient,
                 ToolHiveAgent,
-                ToolHiveMcpClient,
                 resolve_mcp_urls,
                 resolve_max_tool_failures,
             )
+            from node_wire_runtime.mcp_client.client import create_http_mcp_client
 
             if not payload.message.strip():
                 trace_id = str(uuid.uuid4())
@@ -2052,9 +2052,9 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
 
             if urls:
                 if len(urls) == 1:
-                    mcp_client = ToolHiveMcpClient(urls[0])
+                    mcp_client = create_http_mcp_client(urls[0])
                 else:
-                    mcp_client = MultiMcpClient([ToolHiveMcpClient(u) for u in urls])
+                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
