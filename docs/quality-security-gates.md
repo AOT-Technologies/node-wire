@@ -38,7 +38,7 @@ Configure branch protection so pull requests cannot merge unless all required ch
 
 - PR and push-to-main scanning runs in `.github/workflows/security-pr.yml`.
 - Release-time scanning remains in `.github/workflows/publish.yml` as defense in depth.
-- `pip-audit --fail-on HIGH` is the vulnerability gate threshold.
+- The PR/push gate (`security-pr.yml`) runs `pip-audit` with no `--fail-on` threshold, so it **blocks on any vulnerability**. The release workflow (`publish.yml`) uses `pip-audit --fail-on HIGH` as defense in depth.
 - Scheduled scans catch newly disclosed CVEs even when code does not change.
 
 **Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=0.1.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** each matrix package (`pip install packages/runtime "<matrix path>"`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.

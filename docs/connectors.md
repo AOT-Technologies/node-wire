@@ -213,7 +213,7 @@ class GoogleDriveConnector(BaseConnector):
             raw=raw,
             description=f"Successfully executed {action_name}",
         )
-
+```
 
 ## Connector Authentication
 
@@ -268,7 +268,6 @@ connectors:
 ```
 
 ---
-```
 
 Key points:
 - **`connector_id`** — unique string; used for routing, config, and registry lookup.
@@ -492,12 +491,13 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 
 ## Adding a new connector (checklist)
 
-3. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. 
-4. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
-5. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
-6. Optionally add `error_map` and/or `registration.py` for custom exception handling.
-7. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
-8. That's it — `auto_register()` handles the rest. No factory branch required.
+1. Create the package directory `src/node_wire_<name>/` with `schema.py` (Pydantic input/output models) and register the entry point under `[project.entry-points."node_wire.connectors"]`.
+2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`.
+3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
+4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
+5. Optionally add `error_map` and/or `registration.py` for custom exception handling.
+6. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
+7. That's it — `auto_register()` handles the rest. No factory branch required.
 
 ---
 

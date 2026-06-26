@@ -88,6 +88,8 @@ This builds:
 - `nw-smartonfhir-cerner`
 - `nw-smtp`
 - `nw-stripe`
+- `nw-salesforce`
+- `nw-slack`
 
 ### Build one image manually
 
@@ -108,7 +110,9 @@ Each Dockerfile expects specific wheel files to exist in `dist/`:
 | `docker/fhir-epic/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/fhir_epic/dist/*.whl` |
 | `docker/fhir-cerner/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/fhir_cerner/dist/*.whl` |
 | `docker/stripe/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/stripe/dist/*.whl` |
-| `Dockerfile` (unified MCP server) | runtime + all connector wheels (`http_generic`, `stripe`, `smtp`, `google_drive`, `fhir_epic`, `fhir_cerner`) |
+| `docker/salesforce/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/salesforce/dist/*.whl` |
+| `docker/slack/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/slack/dist/*.whl` |
+| `Dockerfile` (unified MCP server) | runtime + connector wheels (`http_generic`, `stripe`, `smtp`, `slack`, `google_drive`, `fhir_epic`, `fhir_cerner`) |
 
 ---
 

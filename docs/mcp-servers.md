@@ -544,10 +544,10 @@ thv run --name nw-stripe --transport stdio \
 # Salesforce
 thv run --name nw-salesforce --transport stdio \
   --secret SALESFORCE_INSTANCE_URL,target=SALESFORCE_INSTANCE_URL \
+  --secret SALESFORCE_TOKEN_URL,target=SALESFORCE_TOKEN_URL \
   --secret SALESFORCE_CLIENT_ID,target=SALESFORCE_CLIENT_ID \
   --secret SALESFORCE_CLIENT_SECRET,target=SALESFORCE_CLIENT_SECRET \
-  --secret SALESFORCE_USERNAME,target=SALESFORCE_USERNAME \
-  --secret SALESFORCE_PASSWORD,target=SALESFORCE_PASSWORD \
+  --secret SALESFORCE_REFRESH_TOKEN,target=SALESFORCE_REFRESH_TOKEN \
   nw-salesforce:latest
 
 # Slack

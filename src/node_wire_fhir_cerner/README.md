@@ -9,9 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 > **Platform:** Node Wire
 > **Standard:** FHIR R4
 > **Auth Method:** SMART Backend Services — `private_key_jwt` (RS384)
-> **Actions:** `read_patient` · `search_encounter` · `create_document_reference` · `search_document_reference`
+> **Actions:** `read_patient` · `search_patients` · `search_encounter` · `create_document_reference` · `search_document_reference`
 > **Source:** `src/node_wire_fhir_cerner/`
-> **Test Collection:** `postman_fhir_cerner_collection.json`
 
 ---
 
@@ -23,8 +22,7 @@ The FHIR Cerner connector is designed to interface with Cerner EHR systems using
 
 A single configuration entry in `connectors.yaml` exposes multiple distinct operations (actions), sharing the same authentication state and underlying infrastructure:
 
-- **`FhirCernerConnector`**: The central controller that encapsulates all shared logic, authentication flows, and specific implementation methods for each action.
-- **`_FhirCernerAction`**: A lightweight internal wrapper that inherits from `BaseConnector`. This ensures compatibility with the platform's standard routing and manifest generation while centralizing the actual execution logic.
+- **`FhirCernerConnector`**: A single `BaseConnector` subclass that encapsulates all shared logic, authentication flows, and the per-action implementation methods. Each action is a method decorated with **`@sdk_action`** or **`@nw_action`** (e.g. `read_patient`, `search_patients`, `search_encounter`). The runtime derives routing and manifest entries from that decorator metadata (`sdk_action_metas()` → `build_manifest`) — there is no separate per-action wrapper class.
 
 ---
 
@@ -51,7 +49,7 @@ The connector implements the **SMART Backend Services** specification (specifica
 
 ## 3. Supported Operations
 
-The connector exposes four primary actions, each with standardized request/response models.
+The connector exposes five primary actions, each with standardized request/response models.
 
 ### `read_patient`
 
@@ -61,6 +59,17 @@ Retrieves patient details either by a direct resource ID or through search param
 |---|---|
 | **Input** | `resource_id` OR `search_params` |
 | **Output** | Raw FHIR Patient resource |
+
+---
+
+### `search_patients`
+
+Fetches or searches for multiple FHIR Patient resources — either a list of `resource_ids` fetched concurrently, or demographic search parameters.
+
+| Field | Detail |
+|---|---|
+| **Input** | `resource_ids` OR demographic params (`given_name`, `family_name`, `name`, `birthdate`) / `search_params` |
+| **Output** | List of Patient resources and the total count |
 
 ---
 
@@ -118,7 +127,7 @@ Cerner's FHIR implementation (especially in the sandbox) has several unique requ
 | `src/node_wire_fhir_cerner/logic.py` | Core logic, authentication, and action dispatch |
 | `src/node_wire_fhir_cerner/schema.py` | Pydantic input/output models and field-level documentation |
 | `src/node_wire_fhir_cerner/registration.py` | Error mapping and exception handling specifically for Cerner API errors |
-| `postman_fhir_cerner_collection.json` | Pre-configured requests to test endpoints end-to-end (at repo root) |
+| `tests/playground/cerner/` | Runnable end-to-end verification scripts |
 
 ---
 
