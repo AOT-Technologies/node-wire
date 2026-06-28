@@ -190,6 +190,10 @@ pip install "node-wire-runtime[gcp]"    # google-cloud-secret-manager
 5. Generate SBOM via `cyclonedx-py`
 6. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations (all action SHAs pinned for immutability)
 
+If a published release must be withdrawn or replaced, follow
+[release-rollback.md](release-rollback.md) (PyPI yank, corrective patch release,
+and GitHub tag/release handling).
+
 ---
 
 ## Docker demo images

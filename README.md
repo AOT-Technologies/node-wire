@@ -204,6 +204,7 @@ For more detailed information, please refer to the following guides:
 - **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
+- **[Release Rollback](docs/release-rollback.md)** — PyPI yank and corrective release procedure.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
 - **[Privacy](docs/privacy.md)** — Data handling and logging guidance.
 - **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying Node Wire in regulated healthcare environments.
