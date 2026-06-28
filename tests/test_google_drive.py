@@ -177,3 +177,10 @@ def test_google_drive_execute_translates_http_errors(
     ):
         with pytest.raises(expected_exception):
             asyncio.run(connector.internal_execute(params, trace_id="test-trace"))
+
+
+@pytest.mark.asyncio
+async def test_google_drive_unknown_action_spec_raises():
+    connector = _connector()
+    with pytest.raises(ValueError, match="No action spec registered"):
+        await connector._execute_action_spec("not_a_real_action", {}, trace_id="test-trace")

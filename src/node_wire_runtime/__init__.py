@@ -17,9 +17,9 @@ from .auth import (
 from .base_connector import (
     BaseConnector,
     NestedConnectorActionError,
+    get_connector_registry,
     nw_action,
     sdk_action,
-    _CONNECTOR_REGISTRY,
 )
 from .sdk_action_spec import (
     SdkActionSpec,
@@ -33,6 +33,8 @@ from .streaming import (
     resolve_stream_buffer_ms,
     BufferedStreamIterator,
 )
+
+__version__ = "1.0.0"
 
 __all__ = [
     "ConnectorResponse",
@@ -55,7 +57,7 @@ __all__ = [
     "NestedConnectorActionError",
     "sdk_action",
     "nw_action",
-    "_CONNECTOR_REGISTRY",
+    "get_connector_registry",
     "SdkActionSpec",
     "default_build_kwargs",
     "execute_spec_in_thread",

@@ -26,3 +26,4 @@ SPDX-License-Identifier: Apache-2.0
 - [ ] I added or updated tests where appropriate.
 - [ ] I updated documentation where appropriate.
 - [ ] My commits use a correctly configured git identity (real name and email).
+- [ ] All my commits are signed off (`git commit -s`) per the [DCO](../CONTRIBUTING.md#developer-certificate-of-origin-dco).

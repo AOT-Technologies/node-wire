@@ -652,3 +652,240 @@ async def test_fhir_cerner_create_document_reference_operation_outcome_error() -
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=err_resp):
         with pytest.raises(ValueError, match="Cerner Error:.*Cerner rejected payload"):
             await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage: error paths and validation branches
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_read_patient_empty_bundle_raises():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerPatientReadInput
+
+    params = FhirCernerPatientReadInput(action="read_patient", name="Nobody")
+
+    empty_bundle = MagicMock()
+    empty_bundle.status_code = 200
+    empty_bundle.json.return_value = {"resourceType": "Bundle", "total": 0, "entry": []}
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=empty_bundle):
+        with pytest.raises(ValueError, match="No patients found"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_read_patient_http_error():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerPatientReadInput
+
+    params = FhirCernerPatientReadInput(action="read_patient", resource_id="999")
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = Exception("server error")
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(Exception, match="server error"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_patients_empty_resource_ids_raises():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerPatientSearchInput
+
+    params = FhirCernerPatientSearchInput(action="search_patients", resource_ids=["  "])
+
+    with pytest.raises(ValueError, match="resource_ids list is empty"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_patients_name_search_http_status_error():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerPatientSearchInput
+
+    params = FhirCernerPatientSearchInput(action="search_patients", family_name="Smith")
+
+    request = httpx.Request("GET", "https://fhir.cerner.com/Patient")
+    response = httpx.Response(403, request=request, text="Forbidden")
+    http_error = httpx.HTTPStatusError("Forbidden", request=request, response=response)
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = http_error
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_patients_name_search_generic_error():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerPatientSearchInput
+
+    params = FhirCernerPatientSearchInput(action="search_patients", family_name="Smith")
+
+    with patch(
+        "httpx.AsyncClient.get",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("connection refused"),
+    ):
+        with pytest.raises(httpx.ConnectError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_encounter_by_explicit_date():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerEncounterSearchInput
+
+    params = FhirCernerEncounterSearchInput(
+        action="search_encounter",
+        patient_id="12345678",
+        status="finished",
+        date="2024-06-01",
+    )
+
+    enc_response = MagicMock()
+    enc_response.status_code = 200
+    enc_response.json.return_value = {
+        "resourceType": "Bundle",
+        "total": 1,
+        "entry": [{"resource": {"resourceType": "Encounter", "id": "enc-date"}}],
+    }
+
+    with patch(
+        "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=enc_response
+    ) as mock_get:
+        result = await c.internal_execute(params, trace_id="test-trace")
+
+    assert result.resources[0]["id"] == "enc-date"
+    sent_params = mock_get.call_args.kwargs.get("params") or mock_get.call_args[1].get("params", {})
+    assert sent_params.get("date") == "2024-06-01"
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_encounter_no_params_raises():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerEncounterSearchInput
+
+    params = FhirCernerEncounterSearchInput(action="search_encounter")
+
+    with pytest.raises(ValueError, match="Provide at least patient_id"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_encounter_http_status_error():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerEncounterSearchInput
+
+    params = FhirCernerEncounterSearchInput(
+        action="search_encounter",
+        search_params={"patient": "12345678"},
+    )
+
+    request = httpx.Request("GET", "https://fhir.cerner.com/Encounter")
+    response = httpx.Response(403, request=request, text="Forbidden")
+    http_error = httpx.HTTPStatusError("Forbidden", request=request, response=response)
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = http_error
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_create_document_reference_with_text():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerDocumentReferenceCreateInput
+
+    params = FhirCernerDocumentReferenceCreateInput(
+        action="create_document_reference",
+        status="current",
+        doc_status="final",
+        type={
+            "coding": [
+                {
+                    "system": "urn:oid:4.5.6",
+                    "code": "18100",
+                    "display": "Note",
+                    "userSelected": True,
+                }
+            ],
+            "text": "Note",
+        },
+        subject="Patient/12724066",
+        text="plain note body",
+        attachment_title="Document",
+        author=[{"reference": "Practitioner/p1"}],
+    )
+
+    create_response = MagicMock()
+    create_response.status_code = 201
+    create_response.headers = {
+        "Location": "https://fhir-myrecord.cerner.com/r4/tenant-id/DocumentReference/doc-text/_history/1"
+    }
+    create_response.content = b""
+    create_response.text = ""
+
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response
+    ) as mock_post:
+        result = await c.internal_execute(params, trace_id="test-trace")
+
+    assert result.resource_id == "doc-text"
+    attachment = mock_post.call_args.kwargs["json"]["content"][0]["attachment"]
+    assert "data" in attachment
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_create_document_reference_missing_author_raises():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerDocumentReferenceCreateInput
+
+    params = FhirCernerDocumentReferenceCreateInput(
+        action="create_document_reference",
+        status="current",
+        doc_status="final",
+        type={
+            "coding": [
+                {
+                    "system": "urn:oid:4.5.6",
+                    "code": "18100",
+                    "display": "Note",
+                    "userSelected": True,
+                }
+            ],
+            "text": "Note",
+        },
+        subject="Patient/12724066",
+        data="dGVzdA==",
+        attachment_title="Document",
+    )
+
+    with pytest.raises(ValueError, match="Cerner requires 'author'"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_search_document_reference_generic_error():
+    c = _connector()
+    from node_wire_fhir_cerner.schema import FhirCernerDocumentReferenceSearchInput
+
+    params = FhirCernerDocumentReferenceSearchInput(
+        action="search_document_reference",
+        search_params={"patient": "12345678"},
+    )
+
+    with patch(
+        "httpx.AsyncClient.get",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("connection refused"),
+    ):
+        with pytest.raises(httpx.ConnectError):
+            await c.internal_execute(params, trace_id="test-trace")

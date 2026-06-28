@@ -9,7 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 Thanks for your interest in contributing! This guide covers how to set up a
 development environment, the quality checks we enforce, and the conventions for
 submitting changes. By contributing you agree that your contributions are
-licensed under the project's [Apache License 2.0](LICENSE).
+licensed under the project's [Apache License 2.0](LICENSE) and that you sign off
+each commit under the
+[Developer Certificate of Origin](#developer-certificate-of-origin-dco).
 
 Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -85,11 +87,75 @@ pre-commit and CI checks will fail if a file is missing its header.
 > default). Misconfigured identities get carried into the project history via
 > squash-merge co-author trailers and are difficult to remove later.
 
+## Developer Certificate of Origin (DCO)
+
+This project uses the [Developer Certificate of Origin](https://developercertificate.org/)
+(DCO) instead of a CLA. There is no agreement to sign and no paperwork — you
+simply add a `Signed-off-by` trailer to **every commit**, certifying that you
+have the right to submit it under the project's license.
+
+Git adds the trailer automatically when you commit with `-s`:
+
+```bash
+git commit -s -m "Your commit message"
+```
+
+This appends a line matching your configured git identity (so set it correctly
+first, per the section above):
+
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+CI (`.github/workflows/dco.yml`) verifies that every commit in a pull request
+carries a sign-off matching its author. If you forget, add sign-offs to your
+branch's commits and force-push:
+
+```bash
+git rebase --signoff main
+git push --force-with-lease
+```
+
+By signing off, you certify the following:
+
+> Developer Certificate of Origin
+> Version 1.1
+>
+> Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+>
+> Everyone is permitted to copy and distribute verbatim copies of this license
+> document, but changing it is not allowed.
+>
+> Developer's Certificate of Origin 1.1
+>
+> By making a contribution to this project, I certify that:
+>
+> (a) The contribution was created in whole or in part by me and I have the
+>     right to submit it under the open source license indicated in the file; or
+>
+> (b) The contribution is based upon previous work that, to the best of my
+>     knowledge, is covered under an appropriate open source license and I have
+>     the right under that license to submit that work with modifications,
+>     whether created in whole or in part by me, under the same open source
+>     license (unless I am permitted to submit under a different license), as
+>     indicated in the file; or
+>
+> (c) The contribution was provided directly to me by some other person who
+>     certified (a), (b) or (c) and I have not modified it.
+>
+> (d) I understand and agree that this project and the contribution are public
+>     and that a record of the contribution (including all personal information
+>     I submit with it, including my sign-off) is maintained indefinitely and
+>     may be redistributed consistent with this project or the open source
+>     license(s) involved.
+
 ## Submitting Changes
 
 1. Fork the repository and create a feature branch from `main`
    (e.g. `feature/short-description` or `fix/short-description`).
 2. Make your change, including tests and documentation updates where relevant.
+   Sign off every commit with `git commit -s` (see
+   [DCO](#developer-certificate-of-origin-dco)).
 3. Ensure all quality checks above pass locally.
 4. Open a pull request against `main` with a clear description of the change and
    the motivation behind it. Link any related issue.

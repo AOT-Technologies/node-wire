@@ -4,14 +4,14 @@
 
 [project]
 name = "node-wire-fhir-epic"
-version = "0.1.0"
+version = "1.0.0"
 description = "Node Wire connector — Epic FHIR R4 (read/search patients and encounters)"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 
 dependencies = [
-    "node-wire-runtime>=0.1.0",
+    "node-wire-runtime>=1.0.0",
     "httpx[http2]>=0.27.0,<0.28.0",
     "PyJWT[crypto]>=2.8.0",
 ]

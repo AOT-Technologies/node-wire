@@ -77,6 +77,11 @@ _caller_execution_ctx: contextvars.ContextVar[
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
 
 
+def get_connector_registry() -> Dict[str, Type["BaseConnector"]]:
+    """Return a copy of the global connector-id -> connector-class registry."""
+    return dict(_CONNECTOR_REGISTRY)
+
+
 def _make_spec_handler(
     action_name: str,
     input_model: Any,
@@ -588,8 +593,8 @@ class BaseConnector(ABC):
 
     @classmethod
     def get_registry(cls) -> Dict[str, Type[BaseConnector]]:
-        """Public access to the global connector registry."""
-        return dict(_CONNECTOR_REGISTRY)
+        """Backward-compatible alias for :func:`get_connector_registry`."""
+        return get_connector_registry()
 
     @classmethod
     def sdk_action_metas(cls) -> Dict[str, NwActionMeta]:

@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+version: 2
+updates:
+  # Python dependencies — root project plus each publishable package.
+  - package-ecosystem: "pip"
+    directories:
+      - "/"
+      - "/packages/runtime"
+      - "/packages/connectors/*"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      python-dependencies:
+        patterns: ["*"]
+
+  # GitHub Actions used by the workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ["*"]

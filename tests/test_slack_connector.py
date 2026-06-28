@@ -258,6 +258,30 @@ async def test_send_direct_message_success() -> None:
     assert result.data["ok"] is True
 
 
+@pytest.mark.asyncio
+async def test_send_direct_message_with_blocks() -> None:
+    connector = _make_connector()
+    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "dm blocks"}}]
+    captured: dict[str, Any] = {}
+
+    async def fake_post_json(url: str, token: str, body: dict) -> dict:
+        captured.update(body)
+        return {**_slack_ok_response(), "channel": _USER_ID}
+
+    with patch("node_wire_slack.logic._post_json", new=fake_post_json):
+        result = await connector.run(
+            {
+                "action": "send_direct_message",
+                "channel": _USER_ID,
+                "message": "Hi",
+                "blocks": blocks,
+            }
+        )
+
+    assert result.success is True
+    assert captured.get("blocks") == blocks
+
+
 # ---------------------------------------------------------------------------
 # 8. upload_file — base64 happy path
 # ---------------------------------------------------------------------------
@@ -293,6 +317,31 @@ async def test_upload_file_base64_success() -> None:
 
     assert result.success is True
     assert result.data["file_id"] == file_id
+
+
+@pytest.mark.asyncio
+async def test_upload_file_missing_filepath_in_sandbox_returns_business_error(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attachments_dir = tmp_path / "attachments"
+    attachments_dir.mkdir()
+    monkeypatch.setattr("node_wire_slack.logic._ATTACHMENTS_DIR", str(attachments_dir))
+
+    connector = _make_connector()
+    missing = attachments_dir / "missing.txt"
+
+    result = await connector.run(
+        {
+            "action": "upload_file",
+            "channel": _CHANNEL,
+            "filepath": str(missing),
+        }
+    )
+
+    assert result.success is False
+    assert result.error_code == "SLACK_UPLOAD_ERROR"
+    assert "No such file" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -419,6 +468,10 @@ def test_resolve_blocks_non_array_json_raises() -> None:
 
     with pytest.raises(SlackMessageError, match="must be a JSON array"):
         _resolve_blocks(json.dumps({"type": "section"}))
+
+
+def test_resolve_blocks_empty_string_returns_none() -> None:
+    assert _resolve_blocks("   ") is None
 
 
 @pytest.mark.asyncio
@@ -643,3 +696,209 @@ def test_default_timeout_honors_env(monkeypatch: pytest.MonkeyPatch) -> None:
         # Restore the module to its default-env state for the rest of the suite.
         monkeypatch.delenv("NW_SLACK_TIMEOUT", raising=False)
         importlib.reload(slack_logic)
+
+
+# ---------------------------------------------------------------------------
+# 14. _post_json — Slack API error translation via ok:false payloads
+# ---------------------------------------------------------------------------
+
+
+def _fake_slack_client(response_json: dict[str, Any], status_code: int = 200):
+    """Build a fake httpx.AsyncClient that returns a fixed JSON body."""
+
+    class FakeResponse:
+        def __init__(self) -> None:
+            self.status_code = status_code
+
+        def json(self) -> dict[str, Any]:
+            return response_json
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+            return None
+
+        async def post(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    return FakeAsyncClient
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_code,expected_exc",
+    [
+        ("invalid_auth", SlackAuthError),
+        ("missing_scope", SlackPermissionError),
+        ("ratelimited", SlackRateLimitError),
+        ("channel_not_found", SlackMessageError),
+    ],
+)
+async def test_post_json_ok_false_raises_typed_exception(
+    error_code: str, expected_exc: type[Exception]
+) -> None:
+    from node_wire_slack.logic import _post_json
+
+    payload = {
+        "ok": False,
+        "error": error_code,
+        "response_metadata": {"messages": ["detail message"]},
+    }
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=_fake_slack_client(payload)):
+        with pytest.raises(expected_exc):
+            await _post_json("https://slack.com/api/chat.postMessage", _FAKE_TOKEN, {"text": "hi"})
+
+
+@pytest.mark.asyncio
+async def test_post_json_http_429_raises_rate_limit() -> None:
+    from node_wire_slack.logic import _post_json
+
+    payload = {"ok": False, "error": "some_other_error"}
+
+    with patch(
+        "node_wire_slack.logic.httpx.AsyncClient",
+        new=_fake_slack_client(payload, status_code=429),
+    ):
+        with pytest.raises(SlackRateLimitError):
+            await _post_json("https://slack.com/api/chat.postMessage", _FAKE_TOKEN, {"text": "hi"})
+
+
+@pytest.mark.asyncio
+async def test_complete_upload_ok_false_raises() -> None:
+    payload = {"ok": False, "error": "invalid_auth"}
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=_fake_slack_client(payload)):
+        with pytest.raises(SlackAuthError):
+            await _complete_upload(_FAKE_TOKEN, "F0TEST", "title.txt", channel_id=_CHANNEL)
+
+
+# ---------------------------------------------------------------------------
+# 15. _resolve_channel_id — user DM success and ok:false fallback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resolve_channel_id_user_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_slack.logic import _resolve_channel_id
+
+    monkeypatch.delenv("NW_SLACK_SKIP_RESOLVE", raising=False)
+
+    dm_channel = "D0DMCHANNEL"
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, *args: object, **kwargs: object) -> object:
+            class FakeResponse:
+                status_code = 200
+
+                def json(self) -> dict[str, object]:
+                    return {"ok": True, "channel": {"id": dm_channel}}
+
+            return FakeResponse()
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=FakeAsyncClient):
+        resolved = await _resolve_channel_id(_FAKE_TOKEN, "U12345678")
+
+    assert resolved == dm_channel
+
+
+@pytest.mark.asyncio
+async def test_resolve_channel_id_user_ok_false_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from node_wire_slack.logic import _resolve_channel_id
+
+    monkeypatch.delenv("NW_SLACK_SKIP_RESOLVE", raising=False)
+    user_id = "U87654321"
+
+    class FakeAsyncClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        async def __aenter__(self) -> "FakeAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, *args: object, **kwargs: object) -> object:
+            class FakeResponse:
+                status_code = 200
+
+                def json(self) -> dict[str, object]:
+                    return {"ok": False, "error": "user_not_found"}
+
+            return FakeResponse()
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=FakeAsyncClient):
+        resolved = await _resolve_channel_id(_FAKE_TOKEN, user_id)
+
+    assert resolved == user_id
+
+
+@pytest.mark.asyncio
+async def test_resolve_channel_id_empty_target_returns_empty() -> None:
+    from node_wire_slack.logic import _resolve_channel_id
+
+    assert await _resolve_channel_id(_FAKE_TOKEN, "   ") == ""
+
+
+# ---------------------------------------------------------------------------
+# 16. Upload path and limit helpers
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_upload_path_relative_raises(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_slack.logic import _resolve_upload_path
+
+    attachments_dir = tmp_path / "attachments"
+    attachments_dir.mkdir()
+    monkeypatch.setattr("node_wire_slack.logic._ATTACHMENTS_DIR", str(attachments_dir))
+
+    with pytest.raises(SlackUploadError, match="must be an absolute path"):
+        _resolve_upload_path("relative/note.txt")
+
+
+def test_resolve_upload_path_escape_raises(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_slack.logic import _resolve_upload_path
+
+    attachments_dir = tmp_path / "attachments"
+    attachments_dir.mkdir()
+    monkeypatch.setattr("node_wire_slack.logic._ATTACHMENTS_DIR", str(attachments_dir))
+
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret")
+
+    with pytest.raises(SlackUploadError, match="must be under"):
+        _resolve_upload_path(str(outside))
+
+
+def test_get_upload_limit_bytes_invalid_env_uses_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from node_wire_slack.logic import _get_upload_limit_bytes
+
+    monkeypatch.setenv("NW_SLACK_UPLOAD_LIMIT_MB", "not-a-number")
+    assert _get_upload_limit_bytes() == 50 * 1024 * 1024
+
+
+@pytest.mark.asyncio
+async def test_resolve_channel_id_z_prefix_passthrough() -> None:
+    from node_wire_slack.logic import _resolve_channel_id
+
+    channel = "Z0123456789"
+    assert await _resolve_channel_id(_FAKE_TOKEN, channel) == channel
