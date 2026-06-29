@@ -38,21 +38,6 @@ commits = [
   "65ecd72a4d635359a1242f5b4c3d3c4d09916caa",  # Feature/merge prs       — Setup.md RSA stub
   "ab75ce91057be702e33fa4a25d5a8d189393e87b",  # Stripe connector         — docs Stripe test token + RSA stub
   "ccd272e5793c1625302c9bf19e1f489e9af8bdfd",  # Added Multiple MCPs      — docs RSA stub
+  "0e26561e7e956dd333252860881cf41c804a2dc8",  # Feature/python packages  — connectorplatform key (revoked)
+  "92f85f2c22fe1d0659828781e3afb4eb242c4048",  # Added connector package  — connectorplatform key (revoked)
 ]
-
-# ── ACTION REQUIRED: GCP service account key ─────────────────────────────────
-#
-# File connectorplatform-180d995a1c96.json (a real Google service account JSON
-# key) was committed and is present in the two commits below. The file has since
-# been removed from the working tree but the key material remains in git history.
-#
-# BEFORE adding these commits to the allowlist above:
-#   1. Delete or disable the key in GCP Console:
-#      https://console.cloud.google.com/iam-admin/serviceaccounts?project=connectorplatform
-#      Service account : node-wire-test@connectorplatform.iam.gserviceaccount.com
-#      Key ID          : 180d995a1c968838d624f6d650b7e5ad8ac8c05c
-#   2. Confirm the key is revoked and no service depends on it.
-#   3. Move the two SHAs below into the commits list and remove this comment block.
-#
-"0e26561e7e956dd333252860881cf41c804a2dc8",  # Feature/python packages  — connectorplatform key
-"92f85f2c22fe1d0659828781e3afb4eb242c4048",  # Added connector package  — connectorplatform key
