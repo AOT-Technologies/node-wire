@@ -306,12 +306,21 @@ class OAuth2AuthProvider(AuthProvider):
         if scope:
             claims["scope"] = scope
 
-        jwt_token = jwt.encode(
-            claims,
-            private_key_pem,
-            algorithm=self._algorithm,
-            headers={"alg": self._algorithm, "typ": "JWT", "kid": kid},
-        )
+        try:
+            jwt_token = jwt.encode(
+                claims,
+                private_key_pem,
+                algorithm=self._algorithm,
+                headers={"alg": self._algorithm, "typ": "JWT", "kid": kid},
+            )
+        except jwt.exceptions.InvalidKeyError as exc:
+            raise ValueError(
+                f"OAuth2 private_key_jwt: could not sign the JWT assertion — the private key is "
+                f"invalid or in an unexpected format (algorithm: {self._algorithm}). "
+                f"Check that the secret referenced by 'private_key_secret' contains a valid "
+                f"PEM-encoded RSA or EC private key (not a public key or certificate). "
+                f"Detail: {exc}"
+            ) from exc
 
         post_data: Dict[str, str] = {
             "grant_type": "client_credentials",

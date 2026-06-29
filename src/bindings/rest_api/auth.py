@@ -10,7 +10,7 @@ Environment:
   NW_REST_JWT_SECRET  — optional HS256 secret; if set, Bearer tokens with three segments are verified as JWTs.
   NW_REST_AUTH_DISABLED — if ``true``/``1``/``yes``, skip auth (local dev only; do not use in production).
 
-Public (unauthenticated): ``GET /health`` only. OpenAPI UI requires auth.
+Public (unauthenticated): ``GET /health``, ``/docs``, ``/redoc``, ``/openapi.json``, ``/playground/*``, ``/scenarios/*``. Auth is required for ``/connectors/*`` only.
 
 After successful auth, normalized caller identity (principal / tenant_id / scopes) is stored on
 ``request.state.nw_rest_caller_identity`` and forwarded to ``connector.run`` for policy hooks.
@@ -48,7 +48,15 @@ def _truthy(val: str | None) -> bool:
 
 def _is_public_path(path: str) -> bool:
     p = path.rstrip("/") or "/"
-    return p == "/health"
+    return (
+        p == "/health"
+        or p in ("/docs", "/redoc", "/openapi.json")
+        or p.startswith("/docs/")
+        or p == "/playground"
+        or p.startswith("/playground/")
+        or p == "/scenarios"
+        or p.startswith("/scenarios/")
+    )
 
 
 def _trusted_proxy_hops() -> int:
@@ -159,7 +167,12 @@ class RestAuthMiddleware(BaseHTTPMiddleware):
         if not token:
             return JSONResponse(
                 status_code=401,
-                content={"detail": "Authentication required"},
+                content={
+                    "detail": (
+                        "Authentication required. Provide an 'Authorization: Bearer <token>' "
+                        "or 'X-API-Key: <key>' header to call connector endpoints."
+                    )
+                },
                 headers={"WWW-Authenticate": 'Bearer realm="node-wire"'},
             )
 
