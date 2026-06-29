@@ -23,7 +23,8 @@ class DummySecretProvider(SecretProvider):
 
 def test_auto_register_runs_without_error(monkeypatch):
     monkeypatch.setenv(
-        "NW_ALLOWED_CONNECTORS", "fhir_cerner,fhir_epic,google_drive,smtp,stripe,http_generic"
+        "NW_ALLOWED_CONNECTORS",
+        "fhir_cerner,fhir_epic,google_drive,smtp,stripe,http_generic,salesforce,slack",
     )
     imported = auto_register()
     if not imported:
@@ -59,3 +60,24 @@ def test_salesforce_connector_instantiation_only():
     connector = BaseConnector.get_registry()["salesforce"](secret_provider=provider)
     assert connector.connector_id == "salesforce"
     assert "create_lead" in connector._action_registry
+
+
+_ALL_EIGHT_CONNECTOR_IDS = (
+    "http_generic",
+    "smtp",
+    "stripe",
+    "google_drive",
+    "fhir_epic",
+    "fhir_cerner",
+    "salesforce",
+    "slack",
+)
+
+
+def test_factory_loads_all_eight_connectors() -> None:
+    from bindings.factory import ConnectorFactory
+
+    factory = ConnectorFactory()
+    factory.load()
+    for connector_id in _ALL_EIGHT_CONNECTOR_IDS:
+        assert factory.get_for_protocol(connector_id, "rest") is not None, connector_id

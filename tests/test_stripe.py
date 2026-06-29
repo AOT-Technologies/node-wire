@@ -7,9 +7,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+import stripe
 from pydantic import ValidationError
 
 from node_wire_runtime import SecretProvider
+from node_wire_runtime.models import ErrorCategory
 from node_wire_stripe.logic import StripeConnector
 from node_wire_stripe.schema import (
     CancelSubscriptionInput,
@@ -229,3 +231,66 @@ def test_stripe_error_mapping():
         ErrorCategory.AUTH,
         "STRIPE_AUTH_ERROR",
     )
+
+
+# ---------------------------------------------------------------------------
+# Runtime error mapping via run()
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stripe_run_maps_card_error_to_business():
+    connector = _connector()
+    card_error = stripe.error.CardError(
+        message="Your card was declined.",
+        param="number",
+        code="card_declined",
+        http_status=402,
+    )
+
+    with patch("stripe.Charge.create", side_effect=card_error):
+        result = await connector.run(
+            {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
+        )
+
+    assert result.success is False
+    assert result.error_category == ErrorCategory.BUSINESS
+    assert result.error_code == "STRIPE_CARD_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_stripe_run_maps_rate_limit_to_retryable():
+    connector = _connector()
+    rate_error = stripe.error.RateLimitError(
+        message="Rate limit",
+        http_status=429,
+        code="rate_limit",
+    )
+
+    with patch("stripe.Charge.create", side_effect=rate_error):
+        result = await connector.run(
+            {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
+        )
+
+    assert result.success is False
+    assert result.error_category == ErrorCategory.RETRYABLE
+    assert result.error_code == "STRIPE_RATE_LIMIT"
+
+
+@pytest.mark.asyncio
+async def test_stripe_run_maps_authentication_error_to_auth():
+    connector = _connector()
+    auth_error = stripe.error.AuthenticationError(
+        message="Invalid API Key",
+        http_status=401,
+        code="api_key_invalid",
+    )
+
+    with patch("stripe.Charge.create", side_effect=auth_error):
+        result = await connector.run(
+            {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
+        )
+
+    assert result.success is False
+    assert result.error_category == ErrorCategory.AUTH
+    assert result.error_code == "STRIPE_AUTH_ERROR"
