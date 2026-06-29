@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Code owners are automatically requested for pull request review when matching
+# files change. Keep this file broad enough for maintainers to see risky changes
+# while still documenting the areas contributors are touching.
+
+# Default ownership for the repository.
+* @AOT-Technologies/nw-codeowners
+
+# Project governance, contribution, release, and security policy.
+/CODE_OF_CONDUCT.md @AOT-Technologies/nw-codeowners
+/CONTRIBUTING.md @AOT-Technologies/nw-codeowners
+/GOVERNANCE.md @AOT-Technologies/nw-codeowners
+/LICENSE @AOT-Technologies/nw-codeowners
+/SECURITY.md @AOT-Technologies/nw-codeowners
+/SUPPORT.md @AOT-Technologies/nw-codeowners
+/ROADMAP.md @AOT-Technologies/nw-codeowners
+/CHANGELOG.md @AOT-Technologies/nw-codeowners
+
+# Public documentation and examples.
+/README.md @AOT-Technologies/nw-codeowners
+/docs/ @AOT-Technologies/nw-codeowners
+/sample.env @AOT-Technologies/nw-codeowners
+
+# Runtime and connector packages.
+/packages/runtime/ @AOT-Technologies/nw-codeowners
+/packages/connectors/ @AOT-Technologies/nw-codeowners
+
+# Tests, fixtures, and local validation helpers.
+/tests/ @AOT-Technologies/nw-codeowners
+/scripts/ @AOT-Technologies/nw-codeowners
+
+# Build, packaging, dependency, and compliance configuration.
+/pyproject.toml @AOT-Technologies/nw-codeowners
+/uv.lock @AOT-Technologies/nw-codeowners
+/REUSE.toml @AOT-Technologies/nw-codeowners
+/.gitleaks.toml @AOT-Technologies/nw-codeowners
+/DEPENDENCIES.md @AOT-Technologies/nw-codeowners
+
+# GitHub project automation and ownership rules.
+/.github/ @AOT-Technologies/nw-codeowners
+/.github/CODEOWNERS @AOT-Technologies/nw-codeowners
+/.github/workflows/ @AOT-Technologies/nw-codeowners
