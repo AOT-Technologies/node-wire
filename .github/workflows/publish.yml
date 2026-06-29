@@ -48,7 +48,7 @@ jobs:
       artifact_slug: ${{ steps.validate.outputs.artifact_slug }}
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: refs/tags/${{ inputs.tag }}
           fetch-depth: 0
@@ -173,12 +173,12 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -240,7 +240,7 @@ jobs:
           (dist / "sha256sums.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
       - name: Upload wheel artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheels-${{ matrix.os }}-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
@@ -261,17 +261,17 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Download all wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: wheels-*-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist-all
@@ -286,7 +286,7 @@ jobs:
           sha256sum dist/*.whl | tee dist/sha256sums.txt
 
       - name: Upload wheel checksums
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheel-checksums-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist/sha256sums.txt
@@ -324,7 +324,7 @@ jobs:
           pip-audit --fail-on HIGH
 
       - name: Publish to PyPI (Trusted Publisher / OIDC + Sigstore attestations)
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           packages-dir: dist/
           attestations: true
