@@ -170,29 +170,83 @@ pip install "node-wire-runtime[gcp]"    # google-cloud-secret-manager
 
 ---
 
-## CI publish flow (Trusted Publisher)
+## Release process (tag-first)
 
-**Workflow:** `.github/workflows/publish.yml` — manual `workflow_dispatch`.
+Releases are **tag-driven**. Create and push a SemVer tag first; the GitHub Release
+workflow validates the tag and creates the release. Package publishing is a separate
+manual step per package, bound to that tag.
+
+### Step 1 — Prepare the release
+
+1. Bump version in the root `pyproject.toml` and all nine package `pyproject.toml` files.
+2. Add a dated `CHANGELOG.md` section and release link for the target version.
+3. Merge to `main` and confirm required CI checks are green.
+
+### Step 2 — Create the GitHub Release
+
+```bash
+git tag -a v1.0.0 -m "Release 1.0.0"
+git push origin v1.0.0
+```
+
+Then dispatch **GitHub Release** in Actions with `version` set to `1.0.0` (no leading `v`).
+
+**Workflow:** `.github/workflows/github-release.yml` — manual `workflow_dispatch`
+after the tag has been pushed.
+
+The workflow:
+
+1. Validates all package versions match the tag.
+2. Verifies `CHANGELOG.md` has the matching section and release link.
+3. Generates `sbom.json` (release-level SBOM).
+4. Creates `release-manifest.txt` listing all nine publishable package paths.
+5. Creates the GitHub Release with changelog notes, SBOM, and manifest attached.
+
+### Step 3 — Publish packages to PyPI
+
+After the GitHub Release exists, dispatch `.github/workflows/publish.yml` **once per
+package** (nine times for a full release).
 
 **Required inputs:**
 
 | Input | Example | Notes |
 |---|---|---|
-| `package_path` | `packages/connectors/stripe` | Must match an entry in the workflow's allowlist |
-| `version` | `0.1.0` | Must match `[project].version` in the package's `pyproject.toml` |
+| `tag` | `v1.0.0` | Must match an existing release tag |
+| `package_path` | `packages/connectors/stripe` | Must match the workflow allowlist |
+
+**Prerequisites checked before build:**
+
+- Tag resolves to a valid SemVer version.
+- `package_path` is allowlisted.
+- Package `pyproject.toml` version matches the tag.
+- `CHANGELOG.md` contains the matching release section/link.
+- A GitHub Release exists for the tag.
 
 **Pipeline steps:**
 
-1. Validate `package_path` against allowlist (prevents path traversal)
-2. Matrix-build wheels on Ubuntu, macOS, Windows via `cibuildwheel` (Python 3.11, 3.12; Linux manylinux + aarch64, macOS x86_64 + arm64, Windows amd64)
-3. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
-4. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
-5. Generate SBOM via `cyclonedx-py`
-6. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations (all action SHAs pinned for immutability)
+1. Matrix-build wheels on Ubuntu, macOS, Windows via `cibuildwheel` (Python 3.11, 3.12)
+2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
+3. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
+4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations
+
+> **Note:** The release-level SBOM is attached to the GitHub Release (step 2).
+> Package publish produces PyPI Sigstore attestations per wheel; it does not
+> generate a separate SBOM.
+
+> **PyPI Trusted Publisher:** The workflow file is kept as `publish.yml` and the
+> workflow name as `Publish Node Wire package` so existing PyPI publisher
+> configuration continues to work.
 
 If a published release must be withdrawn or replaced, follow
 [release-rollback.md](release-rollback.md) (PyPI yank, corrective patch release,
 and GitHub tag/release handling).
+
+---
+
+## CI publish flow (Trusted Publisher)
+
+See [Release process (tag-first)](#release-process-tag-first) above for the full
+end-to-end flow. The package publish workflow is `.github/workflows/publish.yml`.
 
 ---
 
@@ -226,4 +280,4 @@ Run these gates before triggering the CI publish workflow (default `build-packag
 - [ ] `auto_register()` loads expected connectors
 - [ ] `pytest tests/test_connector_registry.py tests/test_connectors_basic.py` passes
 - [ ] Wheel SHA256 checksums recorded and match expected values
-- [ ] `package_path` and `version` inputs match the allowlist and `pyproject.toml` version before dispatching the workflow
+- [ ] `package_path` and `tag` inputs match the allowlist and an existing release tag before dispatching the workflow

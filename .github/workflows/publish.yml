@@ -7,50 +7,75 @@
 # yamllint disable rule:line-length
 name: Publish Node Wire package
 
-# Manual trigger: go to Actions → "Publish Node Wire package" → Run workflow.
+# Manual trigger after a GitHub Release exists for the tag.
 # package_path must match the allowlist below (prevents confused-deputy path abuse).
 #
 # Examples:
+#   tag: v1.0.0
 #   package_path: packages/runtime
 #   package_path: packages/connectors/fhir_epic
-#   package_path: packages/connectors/google_drive
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: "Release tag to publish from (e.g. v1.0.0)"
+        required: true
+        type: string
       package_path:
         description: |
           Relative path to the package directory (must be allowlisted).
           Examples: packages/runtime | packages/connectors/fhir_epic
         required: true
         type: string
-      version:
-        description: "Semver version to publish (e.g. 0.2.0)"
-        required: true
-        type: string
 
 env:
   PIP_AUDIT_VERSION: "2.7.3"
-  CYCLONEDX_BOM_VERSION: "4.6.1"
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # Build a binary wheel for each platform (Linux / macOS / Windows).
-  # cibuildwheel compiles Cython extensions and produces manylinux / macosx /
-  # win_amd64 wheels. The NoPyBuild override in setup.py ensures .py source
-  # files are excluded from all wheels.
+  # Verify prerequisites before building wheels.
   # ─────────────────────────────────────────────────────────────────────────────
-  build-wheels:
-    name: Build (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+  prerequisites:
+    name: Verify prerequisites
+    runs-on: ubuntu-latest
     permissions:
       contents: read
 
+    outputs:
+      release_version: ${{ steps.resolve.outputs.release_version }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      package_path: ${{ steps.validate.outputs.package_path }}
+      artifact_slug: ${{ steps.validate.outputs.artifact_slug }}
+
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Resolve release version from tag
+        id: resolve
+        shell: python
+        run: |
+          import os
+          import re
+          import sys
+
+          tag = "${{ inputs.tag }}".strip()
+          version = tag[1:] if tag.startswith("v") else tag
+
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              print(f"ERROR: {version!r} is not a MAJOR.MINOR.PATCH version", file=sys.stderr)
+              sys.exit(1)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"release_version={version}\n")
+              out.write(f"release_tag={tag}\n")
+
+          print(f"Publishing from tag {tag} (version {version})")
+
       - name: Validate package path (allowlist)
+        id: validate
         shell: python
         run: |
           import os
@@ -58,7 +83,6 @@ jobs:
 
           raw = "${{ inputs.package_path }}".strip().replace("\\", "/")
           norm = os.path.normpath(raw).replace("\\", "/")
-          # Reject traversal / absolute paths
           if norm.startswith("..") or os.path.isabs(raw):
               print("ERROR: invalid package_path", file=sys.stderr)
               sys.exit(1)
@@ -77,9 +101,81 @@ jobs:
               print(f"ERROR: package_path {norm!r} is not allowlisted.", file=sys.stderr)
               print("Allowed:", sorted(allowed), file=sys.stderr)
               sys.exit(1)
+
+          artifact_slug = norm.replace("/", "-")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"package_path={norm}\n")
+              out.write(f"artifact_slug={artifact_slug}\n")
+
           print(f"PASS: package_path {norm!r} is allowlisted")
 
+      - name: Verify package version and changelog
+        shell: python
+        run: |
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          version = "${{ steps.resolve.outputs.release_version }}"
+          package_path = pathlib.Path("${{ steps.validate.outputs.package_path }}")
+
+          data = tomllib.loads((package_path / "pyproject.toml").read_text(encoding="utf-8"))
+          actual = data.get("project", {}).get("version")
+          if actual != version:
+              print(
+                  f"ERROR: {package_path}/pyproject.toml version {actual!r} "
+                  f"does not match tag version {version!r}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          heading = re.compile(
+              rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$",
+              re.MULTILINE,
+          )
+          if not heading.search(changelog):
+              print(f"ERROR: CHANGELOG.md is missing a dated [{version}] section", file=sys.stderr)
+              sys.exit(1)
+
+          link_pattern = rf"^\[{re.escape(version)}\]: .+/releases/tag/v{re.escape(version)}\s*$"
+          if not re.search(link_pattern, changelog, re.MULTILINE):
+              print(f"ERROR: CHANGELOG.md is missing the [{version}] release link", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"PASS: package version and changelog match {version}")
+
+      - name: Verify GitHub Release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ steps.resolve.outputs.release_tag }}" \
+            --json tagName \
+            --jq '.tagName'
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build a binary wheel for each platform (Linux / macOS / Windows).
+  # cibuildwheel compiles Cython extensions and produces manylinux / macosx /
+  # win_amd64 wheels. The NoPyBuild override in setup.py ensures .py source
+  # files are excluded from all wheels.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-wheels:
+    name: Build (${{ matrix.os }})
+    needs: prerequisites
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v5.3.0
@@ -91,21 +187,19 @@ jobs:
 
       - name: Build platform wheel(s)
         run: |
-          cd "${{ inputs.package_path }}"
+          cd "${{ needs.prerequisites.outputs.package_path }}"
           python -m cibuildwheel --output-dir dist
         env:
-          # Build only Python 3.11+ wheels (matches requires-python in pyproject.toml)
           CIBW_BUILD: "cp311-* cp312-*"
-          # Skip 32-bit targets and PyPy — not supported
           CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
 
-      # ── Security gate: verify no .py source files leaked into any wheel ──────
       - name: Verify binary-only wheel (no .py source)
         shell: python
         run: |
           import glob, sys, zipfile
 
-          wheels = glob.glob("${{ inputs.package_path }}/dist/*.whl")
+          package_path = "${{ needs.prerequisites.outputs.package_path }}"
+          wheels = glob.glob(f"{package_path}/dist/*.whl")
           if not wheels:
               print("ERROR: No wheels produced", file=sys.stderr)
               sys.exit(1)
@@ -130,8 +224,9 @@ jobs:
       - name: Record wheel SHA256 (artifact integrity)
         shell: python
         run: |
-          import glob, hashlib, pathlib, sys
-          dist = pathlib.Path("${{ inputs.package_path }}") / "dist"
+          import hashlib, pathlib, sys
+
+          dist = pathlib.Path("${{ needs.prerequisites.outputs.package_path }}") / "dist"
           wheels = sorted(dist.glob("*.whl"))
           if not wheels:
               print("ERROR: no wheels to hash", file=sys.stderr)
@@ -147,8 +242,8 @@ jobs:
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: wheels-${{ matrix.os }}
-          path: ${{ inputs.package_path }}/dist/*.whl
+          name: wheels-${{ matrix.os }}-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -159,14 +254,16 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   publish:
     name: Publish to PyPI
-    needs: build-wheels
+    needs: [prerequisites, build-wheels]
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # Required for Trusted Publisher OIDC
+      id-token: write
       contents: read
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
 
       - name: Set up Python
         uses: actions/setup-python@v5.3.0
@@ -176,7 +273,9 @@ jobs:
       - name: Download all wheel artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: wheels-*-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist-all
+          merge-multiple: true
 
       - name: Flatten into dist/ directory
         run: |
@@ -186,18 +285,28 @@ jobs:
           ls dist/
           sha256sum dist/*.whl | tee dist/sha256sums.txt
 
-      - name: Validate wheel version matches input
+      - name: Upload wheel checksums
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: wheel-checksums-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          path: dist/sha256sums.txt
+          if-no-files-found: error
+
+      - name: Validate wheel version matches tag
         shell: python
         run: |
           import glob, sys
 
-          expected = "${{ inputs.version }}"
+          expected = "${{ needs.prerequisites.outputs.release_version }}"
           wheels = glob.glob("dist/*.whl")
           if not wheels:
               print("ERROR: No wheels found for publish", file=sys.stderr)
               sys.exit(1)
 
-          bad = [w for w in wheels if f"-{expected}-" not in w and f"-{expected.replace('.', '_')}-" not in w]
+          bad = [
+              w for w in wheels
+              if f"-{expected}-" not in w and f"-{expected.replace('.', '_')}-" not in w
+          ]
           if bad:
               print(f"ERROR: Version mismatch. Expected {expected!r} in filename.", file=sys.stderr)
               for w in bad:
@@ -214,22 +323,8 @@ jobs:
           pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
           pip-audit --fail-on HIGH
 
-      - name: Generate SBOM
-        run: |
-          pip install "cyclonedx-bom==${{ env.CYCLONEDX_BOM_VERSION }}"
-          cyclonedx-py environment -o sbom.json
-          echo "SBOM generated: sbom.json"
-
-      - name: Upload SBOM as release artifact
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: sbom-${{ inputs.version }}
-          path: sbom.json
-
       - name: Publish to PyPI (Trusted Publisher / OIDC + Sigstore attestations)
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
         with:
           packages-dir: dist/
-          # attestations: true generates a Sigstore attestation automatically.
-          # Clients can verify with: pip download <pkg> && python -m pypi_attestation_viewer <whl>
           attestations: true

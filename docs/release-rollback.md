@@ -80,7 +80,7 @@ at the bad version).
 3. Update [CHANGELOG.md](../CHANGELOG.md) with the fix and yank notice.
 4. Run the local pre-publish checklist in [packaging.md](packaging.md#pre-pypi-local-validation-checklist).
 5. Dispatch `.github/workflows/publish.yml` for each affected `package_path`
-   with the new `version` input.
+   with the corrective release `tag` (e.g. `v1.0.1`).
 
 ## Step 4 — GitHub release and tags
 

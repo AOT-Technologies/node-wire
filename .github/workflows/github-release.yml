@@ -1,0 +1,191 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+name: GitHub Release
+
+# Manual trigger after pushing a release tag.
+# Go to Actions → "GitHub Release" → Run workflow with the target version.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver version to release, without leading v (for example, 1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  CYCLONEDX_BOM_VERSION: "4.6.1"
+
+jobs:
+  github-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          fetch-depth: 0
+
+      - name: Resolve release version
+        shell: python
+        run: |
+          import os
+          import re
+          import sys
+
+          version = "${{ inputs.version }}".strip()
+          tag = f"v{version}"
+
+          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+              print(f"ERROR: {version!r} is not a MAJOR.MINOR.PATCH version", file=sys.stderr)
+              sys.exit(1)
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"RELEASE_VERSION={version}\n")
+              env.write(f"RELEASE_TAG={tag}\n")
+
+          print(f"Preparing release {tag}")
+
+      - name: Verify tag exists
+        run: git rev-parse --verify "refs/tags/${RELEASE_TAG}"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Validate versions and changelog
+        shell: python
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          version = os.environ["RELEASE_VERSION"]
+          root = pathlib.Path(".")
+          pyprojects = [root / "pyproject.toml", *sorted(root.glob("packages/**/pyproject.toml"))]
+
+          mismatches = []
+          for path in pyprojects:
+              data = tomllib.loads(path.read_text(encoding="utf-8"))
+              actual = data.get("project", {}).get("version")
+              if actual != version:
+                  mismatches.append(f"{path}: expected {version}, found {actual}")
+
+          if mismatches:
+              print("ERROR: package versions do not match release tag", file=sys.stderr)
+              for mismatch in mismatches:
+                  print(f"  {mismatch}", file=sys.stderr)
+              sys.exit(1)
+
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          heading = re.compile(
+              rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$",
+              re.MULTILINE,
+          )
+          match = heading.search(changelog)
+          if not match:
+              print(f"ERROR: CHANGELOG.md is missing a dated [{version}] section", file=sys.stderr)
+              sys.exit(1)
+
+          next_heading = re.search(r"^## \[", changelog[match.end():], re.MULTILINE)
+          end = match.end() + next_heading.start() if next_heading else len(changelog)
+          release_body = changelog[match.start():end].strip()
+
+          link_pattern = rf"^\[{re.escape(version)}\]: .+/releases/tag/v{re.escape(version)}\s*$"
+          if not re.search(link_pattern, changelog, re.MULTILINE):
+              print(f"ERROR: CHANGELOG.md is missing the [{version}] release link", file=sys.stderr)
+              sys.exit(1)
+
+          pathlib.Path("release-notes.md").write_text(release_body + "\n", encoding="utf-8")
+          print(f"PASS: versions and changelog are ready for {version}")
+
+      - name: Install release dependencies
+        run: |
+          uv sync --frozen --all-extras --no-dev
+          uv pip install "cyclonedx-bom==${{ env.CYCLONEDX_BOM_VERSION }}"
+
+      - name: Generate SBOM
+        run: |
+          uv run cyclonedx-py environment -o sbom.json
+          echo "SBOM generated: sbom.json"
+
+      - name: Create release manifest
+        shell: python
+        run: |
+          import datetime
+          import hashlib
+          import os
+          import pathlib
+
+          version = os.environ["RELEASE_VERSION"]
+          tag = os.environ["RELEASE_TAG"]
+          sha = "${{ github.sha }}"
+          sbom_path = pathlib.Path("sbom.json")
+          sbom_sha = hashlib.sha256(sbom_path.read_bytes()).hexdigest()
+          created = datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat()
+
+          package_paths = [
+              "packages/runtime",
+              "packages/connectors/http_generic",
+              "packages/connectors/stripe",
+              "packages/connectors/smtp",
+              "packages/connectors/google_drive",
+              "packages/connectors/fhir_cerner",
+              "packages/connectors/fhir_epic",
+              "packages/connectors/salesforce",
+              "packages/connectors/slack",
+          ]
+
+          lines = [
+              f"Release: {tag}",
+              f"Version: {version}",
+              f"Commit: {sha}",
+              f"Created: {created}",
+              "Changelog: CHANGELOG.md",
+              "SBOM: sbom.json",
+              f"SBOM-SHA256: {sbom_sha}",
+              "",
+              "Publishable packages (dispatch publish.yml per package with this tag):",
+          ]
+          lines.extend(f"  - {path} @ {version}" for path in package_paths)
+          lines.append("")
+
+          pathlib.Path("release-manifest.txt").write_text("\n".join(lines), encoding="utf-8")
+
+      - name: Upload release artifacts to workflow run
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: github-release-artifacts
+          path: |
+            release-notes.md
+            release-manifest.txt
+            sbom.json
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${RELEASE_TAG}" \
+            --verify-tag \
+            --title "${RELEASE_TAG}" \
+            --notes-file release-notes.md \
+            sbom.json \
+            release-manifest.txt
