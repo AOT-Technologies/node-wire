@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import ANY, MagicMock, patch
+import socket
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -129,8 +130,14 @@ def test_http_generic_internal_execute() -> None:
             return mock_resp
 
     async def _run() -> None:
-        with patch(
-            "node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()
+        with (
+            patch(
+                "node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()
+            ),
+            patch(
+                "node_wire_http_generic.logic._assert_safe_destination",
+                new=AsyncMock(return_value=None),
+            ),
         ):
             c = HttpGenericConnector()
             inp = HttpRequestInput(url="http://example.com/path", method="GET")
@@ -175,6 +182,72 @@ def test_http_request_input_allows_public_url() -> None:
     assert str(parsed.url) == "https://example.com/path?q=1"
 
 
+# ---------------------------------------------------------------------------
+# H-2 regression: SSRF resolve-and-validate at connection time.
+# ---------------------------------------------------------------------------
+
+
+def _fake_getaddrinfo(ip: str):
+    """Return an async stand-in for ``loop.getaddrinfo`` that resolves to ``ip``."""
+
+    async def _resolver(host, port, *args, **kwargs):
+        family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+        return [(family, socket.SOCK_STREAM, 6, "", (ip, port))]
+
+    return _resolver
+
+
+@pytest.mark.parametrize(
+    "resolved_ip",
+    [
+        "127.0.0.1",  # loopback via DNS name
+        "10.1.2.3",  # RFC1918
+        "169.254.169.254",  # cloud metadata
+        "::ffff:127.0.0.1",  # IPv4-mapped IPv6 loopback
+        "::1",  # IPv6 loopback
+    ],
+)
+def test_http_blocks_dns_name_resolving_to_internal_ip(resolved_ip: str) -> None:
+    from node_wire_http_generic.logic import SsrfBlockedError, _assert_safe_destination
+
+    async def _run() -> None:
+        loop = asyncio.get_event_loop()
+        with patch.object(loop, "getaddrinfo", new=_fake_getaddrinfo(resolved_ip)):
+            with pytest.raises(SsrfBlockedError):
+                # A perfectly public-looking hostname that resolves internally.
+                await _assert_safe_destination("http://totally-public.example.com/x")
+
+    asyncio.run(_run())
+
+
+def test_http_allows_public_resolved_ip() -> None:
+    from node_wire_http_generic.logic import _assert_safe_destination
+
+    async def _run() -> None:
+        loop = asyncio.get_event_loop()
+        with patch.object(loop, "getaddrinfo", new=_fake_getaddrinfo("93.184.216.34")):
+            # Must not raise.
+            await _assert_safe_destination("https://example.com/path")
+
+    asyncio.run(_run())
+
+
+def test_http_egress_allowlist_blocks_unlisted_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_http_generic.logic import SsrfBlockedError, _assert_safe_destination
+
+    monkeypatch.setenv("NW_HTTP_GENERIC_ALLOWED_HOSTS", "api.allowed.example.com")
+
+    async def _run() -> None:
+        loop = asyncio.get_event_loop()
+        with patch.object(loop, "getaddrinfo", new=_fake_getaddrinfo("93.184.216.34")):
+            with pytest.raises(SsrfBlockedError):
+                await _assert_safe_destination("https://evil.example.com/x")
+            # Listed host with a public IP is allowed.
+            await _assert_safe_destination("https://api.allowed.example.com/x")
+
+    asyncio.run(_run())
+
+
 def test_http_generic_logs_sanitized_url() -> None:
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -195,6 +268,10 @@ def test_http_generic_logs_sanitized_url() -> None:
         with (
             patch(
                 "node_wire_http_generic.logic.httpx.AsyncClient", return_value=_FakeAsyncClient()
+            ),
+            patch(
+                "node_wire_http_generic.logic._assert_safe_destination",
+                new=AsyncMock(return_value=None),
             ),
             patch("node_wire_http_generic.logic.logger.info") as mocked_info,
         ):

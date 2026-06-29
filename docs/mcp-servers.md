@@ -163,13 +163,19 @@ When running in `streamable-http` mode, clients must comply with the strict MCP 
 Use these settings for production-style posture:
 
 ```env
-NW_MCP_AUTH_ENABLED=false
+# MCP auth is ENABLED by default — do NOT set NW_MCP_AUTH_DISABLED in production.
+# (Set NW_MCP_AUTH_DISABLED=true only for local development.)
+NW_MCP_API_KEY=replace-with-strong-random-value
 NW_MCP_SCOPE_POLICY_DEFAULT=deny
 # Optional guardrail: fail startup if scope policy would be disabled
 NW_MCP_SCOPE_POLICY_STRICT=true
 ```
 
 Notes:
+- MCP authentication is enforced unless `NW_MCP_AUTH_DISABLED=true` (the flag mirrors
+  `NW_REST_AUTH_DISABLED` / `NW_GRPC_AUTH_DISABLED`). The legacy `NW_MCP_AUTH_ENABLED`
+  flag is deprecated; it now honours its literal meaning (`=false` disables auth) and
+  logs a deprecation warning. Prefer `NW_MCP_AUTH_DISABLED`.
 - Code default is `deny` when `NW_MCP_SCOPE_POLICY_DEFAULT` is unset (fail-closed).
 - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
 - Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
@@ -356,7 +362,7 @@ FROM_EMAIL=your-email@gmail.com
 | `STRIPE_API_KEY` | Your Stripe secret API key (starts with `sk_test_` or `sk_live_`) |
 
 ```env
-STRIPE_API_KEY=sk_test_4eC39HqLyjWDarjtT1zdp7dc
+STRIPE_API_KEY=sk_test_your_secret_key_here
 ```
 
 #### `nw-salesforce`
@@ -538,10 +544,10 @@ thv run --name nw-stripe --transport stdio \
 # Salesforce
 thv run --name nw-salesforce --transport stdio \
   --secret SALESFORCE_INSTANCE_URL,target=SALESFORCE_INSTANCE_URL \
+  --secret SALESFORCE_TOKEN_URL,target=SALESFORCE_TOKEN_URL \
   --secret SALESFORCE_CLIENT_ID,target=SALESFORCE_CLIENT_ID \
   --secret SALESFORCE_CLIENT_SECRET,target=SALESFORCE_CLIENT_SECRET \
-  --secret SALESFORCE_USERNAME,target=SALESFORCE_USERNAME \
-  --secret SALESFORCE_PASSWORD,target=SALESFORCE_PASSWORD \
+  --secret SALESFORCE_REFRESH_TOKEN,target=SALESFORCE_REFRESH_TOKEN \
   nw-salesforce:latest
 
 # Slack

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Slack Connector — Technical Documentation
 
 > **Platform:** Node Wire

@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Section 11 conformance checklist — unit/integration coverage with mock AS + MCP RS.
 """

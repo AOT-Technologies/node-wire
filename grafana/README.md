@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 ## What is included
 
 - `docker-compose.yml` runs `grafana/otel-lgtm` (Grafana + Loki + OTLP endpoints).
-- `Connector Logs & Status - Updated-1773917850709.json` is the dashboard export you can import.
+- A sample dashboard JSON is not shipped in this repository; create panels from Loki logs or export your own dashboard after wiring the stack.
 - Exposed ports:
   - `3000` -> Grafana UI
   - `4317` -> OTLP gRPC ingest
@@ -34,11 +34,11 @@ docker compose down
 1. Open `http://localhost:3000`.
 2. If Grafana asks for a datasource during import, choose `Loki` (UID is usually `loki` in this stack).
 
-## Import the dashboard JSON
+## Import or build a dashboard
 
-1. In Grafana, go to **Dashboards** -> **Import**.
-2. Upload `Connector Logs & Status - Updated-1773917850709.json`.
-3. Map the datasource to **Loki** if prompted.
+1. In Grafana, go to **Dashboards** -> **New** -> **Import** (or build panels manually).
+2. Choose **Loki** as the datasource (UID is usually `loki` in this stack).
+3. Query connector logs with labels such as `connector_type` and `status`.
 4. Save the dashboard.
 
 ## Monitor the dashboard

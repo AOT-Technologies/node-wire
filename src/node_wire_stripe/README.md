@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Node Wire Connector — Stripe
 
 The Stripe connector provides a reliable, async adapter for processing payments and managing subscriptions using the Stripe Python SDK. It follows the Node Wire platform contract: consistent error handling, resilience (retries/circuit breaking), and standardized telemetry.

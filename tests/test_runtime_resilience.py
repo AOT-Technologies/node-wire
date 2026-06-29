@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import asyncio
@@ -192,3 +196,38 @@ def test_with_resilience_opens_breaker_after_repeated_failures() -> None:
 
     with pytest.raises(CircuitBreakerError):
         asyncio.run(fail(trace_id="t3"))
+
+
+def test_pybreaker_private_contract_still_present() -> None:
+    """Guard for Q-2: the resilience adapter depends on pybreaker private methods.
+
+    pybreaker exposes no clean asyncio public API, so ``_run_through_breaker``
+    deliberately uses ``CircuitBreakerState._handle_error`` / ``_handle_success``
+    and pins ``pybreaker<2.0.0``. If a future upgrade removes these, this test
+    fails loudly in CI instead of the breaker silently mis-counting failures.
+    """
+    from pybreaker import CircuitBreakerState
+
+    assert hasattr(CircuitBreakerState, "_handle_error")
+    assert hasattr(CircuitBreakerState, "_handle_success")
+
+
+def test_with_resilience_success_resets_failure_counter() -> None:
+    """A successful call after a failure resets the breaker's failure counter."""
+    breaker = CircuitBreaker(fail_max=3, reset_timeout=30)
+    state = {"fail": True}
+
+    @with_resilience(breaker, max_attempts=1)
+    async def sometimes(*, trace_id: str = "t") -> str:
+        if state["fail"]:
+            raise RetryableTestError("boom")
+        return "ok"
+
+    with pytest.raises(RetryableTestError):
+        asyncio.run(sometimes(trace_id="t1"))
+    assert breaker.fail_counter == 1
+
+    state["fail"] = False
+    assert asyncio.run(sometimes(trace_id="t2")) == "ok"
+    assert breaker.fail_counter == 0
+    assert breaker.state.name == "closed"

@@ -1,6 +1,12 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
+import json
 import logging
+import os
 from typing import Any, Dict, Optional, Tuple, Type, ClassVar
 import httpx
 
@@ -148,7 +154,11 @@ class SalesforceConnector(BaseConnector):
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.request(
-                    method, url, headers=headers, json=payload, timeout=30.0
+                    method,
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
                 )
 
                 # Handle transient errors (5xx) by raising a retryable exception
@@ -165,7 +175,17 @@ class SalesforceConnector(BaseConnector):
                 if response.content:
                     try:
                         data = response.json()
-                    except Exception:
+                    except (ValueError, json.JSONDecodeError) as parse_exc:
+                        logger.warning(
+                            "Salesforce response was not valid JSON; using raw text",
+                            extra={
+                                "trace_id": trace_id,
+                                "connector_id": self.connector_id,
+                                "method": method,
+                                "path": path,
+                                "error_type": type(parse_exc).__name__,
+                            },
+                        )
                         data = {"text": response.text}
 
                 obj_type = path.split("/")[0]

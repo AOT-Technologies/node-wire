@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Unit tests for the Node-Wire Slack connector.
 
@@ -483,3 +487,70 @@ async def test_upload_file_invalid_resolved_channel_returns_business_error() -> 
     assert result.error_code == "SLACK_UPLOAD_ERROR"
     assert "Could not resolve '#general' to a valid Slack channel ID" in result.message
     get_upload_url.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_resolve_channel_id_network_error_falls_back_and_logs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Q-4: a network error resolving a User ID falls back to the target and logs structured context."""
+    import httpx
+
+    from node_wire_slack.logic import _resolve_channel_id
+
+    # The repo .env sets NW_SLACK_SKIP_RESOLVE=true; clear it so the resolution
+    # (and its error path) actually runs when other tests have loaded dotenv.
+    monkeypatch.delenv("NW_SLACK_SKIP_RESOLVE", raising=False)
+
+    class _RaisingClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+
+        async def __aenter__(self) -> "_RaisingClient":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def post(self, *args: Any, **kwargs: Any) -> Any:
+            raise httpx.ConnectError("connection refused")
+
+    # Attach a handler directly to the connector logger so capture is independent
+    # of global logging state mutated by other test modules in the full suite.
+    slack_logger = logging.getLogger("connectors.slack")
+    records: list[logging.LogRecord] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    handler = _Capture(level=logging.WARNING)
+    prev_level = slack_logger.level
+    slack_logger.addHandler(handler)
+    slack_logger.setLevel(logging.WARNING)
+    try:
+        with patch("node_wire_slack.logic.httpx.AsyncClient", new=_RaisingClient):
+            resolved = await _resolve_channel_id("xoxb-fake-token", "U12345678")
+    finally:
+        slack_logger.removeHandler(handler)
+        slack_logger.setLevel(prev_level)
+
+    assert resolved == "U12345678"  # fell back to original target
+    warnings = [r for r in records if "Network error resolving" in r.getMessage()]
+    assert warnings, "expected a structured network-error warning"
+    assert getattr(warnings[0], "error_type", None) == "ConnectError"
+
+
+def test_default_timeout_honors_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Q-7: _DEFAULT_TIMEOUT is configurable via NW_SLACK_TIMEOUT / NW_TIMEOUT."""
+    import importlib
+
+    import node_wire_slack.logic as slack_logic
+
+    monkeypatch.setenv("NW_SLACK_TIMEOUT", "12.5")
+    try:
+        reloaded = importlib.reload(slack_logic)
+        assert reloaded._DEFAULT_TIMEOUT == 12.5
+    finally:
+        # Restore the module to its default-env state for the rest of the suite.
+        monkeypatch.delenv("NW_SLACK_TIMEOUT", raising=False)
+        importlib.reload(slack_logic)

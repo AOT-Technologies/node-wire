@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Salesforce Connector (`src/node_wire_salesforce`)
 
 The Salesforce connector provides a secure, asynchronous interface for managing CRM records (Leads and Contacts). It leverages Node Wire's `OAuth2AuthProvider` to handle token refresh automatically, allowing for seamless integration into agentic workflows and medical-to-CRM pipelines.

@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 In-memory Token Bucket rate limiter to prevent DoS across bindings.
 Configuration via environment variables:

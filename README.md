@@ -24,7 +24,7 @@ Before getting started, make sure you have:
 
 ### 1. Install
 ```bash
-git clone <repo-url>
+git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --all-extras --dev
 ```
@@ -199,12 +199,30 @@ For more detailed information, please refer to the following guides:
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
+- **[Privacy](docs/privacy.md)** — Data handling and logging guidance.
+- **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying Node Wire in regulated healthcare environments.
+- **[ToolHive Agent Scenario](docs/toolhive_agent_scenario.md)** — End-to-end FHIR → Google Drive → email workflow.
+- **[Changelog](CHANGELOG.md)** — Release history.
+
 ## Developer docs
 
 - Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
 - Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
-- Quality/security gates (Bandit, SonarQube): [docs/quality-security-gates.md](docs/quality-security-gates.md)
+- Quality/security gates (Bandit, CodeQL): [docs/quality-security-gates.md](docs/quality-security-gates.md)
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for
+the development setup, quality checks, and PR conventions, and our
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+To report a vulnerability, please follow our [Security Policy](SECURITY.md). Do
+not open a public issue for security reports.
 
 ---
 

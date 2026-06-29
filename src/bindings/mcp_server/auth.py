@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 import os
@@ -79,7 +83,7 @@ class McpAuthNotConfiguredError(McpAuthError):
         super().__init__(
             (
                 "MCP authentication is not configured. Set NW_MCP_API_KEY "
-                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_ENABLED=true "
+                "(and optionally NW_MCP_JWT_SECRET), or set NW_MCP_AUTH_DISABLED=true "
                 "for local development only."
             ),
             status_code=503,
@@ -116,7 +120,48 @@ def _bootstrap_mcp_auth_env() -> None:
 
 
 def mcp_auth_disabled() -> bool:
-    return _truthy(os.environ.get("NW_MCP_AUTH_ENABLED"))
+    """Return ``True`` when MCP authentication is disabled.
+
+    The canonical flag is ``NW_MCP_AUTH_DISABLED`` (truthy disables auth),
+    matching ``NW_REST_AUTH_DISABLED`` / ``NW_GRPC_AUTH_DISABLED`` across the
+    other bindings. The default (unset) keeps authentication **enabled**.
+
+    ``NW_MCP_AUTH_ENABLED`` is a deprecated legacy flag whose original
+    implementation inverted its own name — setting it to ``true`` *disabled*
+    authentication, the opposite of what an operator would expect. It is now
+    honored with its literal meaning (``false``/``0``/``no`` disables auth;
+    anything else keeps it enabled) and emits a deprecation warning.
+    ``NW_MCP_AUTH_DISABLED`` takes precedence when both are set.
+    """
+    disabled = os.environ.get("NW_MCP_AUTH_DISABLED")
+    if disabled is not None and disabled.strip():
+        return _truthy(disabled)
+
+    legacy = os.environ.get("NW_MCP_AUTH_ENABLED")
+    if legacy is not None and legacy.strip():
+        enabled = _truthy(legacy)
+        logger.warning(
+            "NW_MCP_AUTH_ENABLED is deprecated and its semantics have been "
+            "corrected; use NW_MCP_AUTH_DISABLED instead. Effective MCP auth "
+            "state: %s.",
+            "ENABLED" if enabled else "DISABLED",
+        )
+        return not enabled
+
+    return False
+
+
+def log_effective_mcp_auth_state() -> None:
+    """Emit a single, explicit startup line describing the MCP auth posture."""
+    disabled = mcp_auth_disabled()
+    logger.warning(
+        "MCP authentication is %s",
+        "DISABLED (local development only — do not use in production)" if disabled else "ENABLED",
+        extra={
+            "auth_disabled": disabled,
+            "auth_configured": mcp_auth_configured(),
+        },
+    )
 
 
 def mcp_auth_configured() -> bool:

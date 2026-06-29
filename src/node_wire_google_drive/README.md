@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 > **Connector ID:** `google_drive`
 > **REST:** One route per operation, e.g. `POST /connectors/google_drive/files.list` (the `action` field is still set on the body for `BaseConnector` dispatch).
 > **Discriminator:** `action` field (discriminated-union payload)
-> **Source:** `connectors/google_drive/`
+> **Source:** `src/node_wire_google_drive/`
 
 ---
 
@@ -24,7 +24,7 @@ The runtime validates requests against the discriminated union in `schema.py`, t
 |-------|------|
 | [`action_spec.py`](action_spec.py) | `GOOGLE_DRIVE_ACTION_SPECS`: per-action `SdkActionSpec` (resource path, method, field/body mapping, constants, optional `build_kwargs` / `post_process`). |
 | [`logic.py`](logic.py) | Client build, `_translate_and_raise_http_error`, `_execute_action_spec`, thin `@nw_action` methods. |
-| [`runtime/sdk_action_spec.py`](../../runtime/sdk_action_spec.py) | Reusable primitives: `SdkActionSpec`, `default_build_kwargs`, `execute_spec_in_thread`. |
+| [`node_wire_runtime/sdk_action_spec.py`](../node_wire_runtime/sdk_action_spec.py) | Reusable primitives: `SdkActionSpec`, `default_build_kwargs`, `execute_spec_in_thread`. |
 
 **Adding a new operation:** Add a Pydantic variant in `schema.py` (with an `action` discriminator literal), extend the `GoogleDriveOperationInput` union, and add an entry to `GOOGLE_DRIVE_ACTION_SPECS` in `action_spec.py` (or a `build_kwargs` hook for non-generic cases such as multipart upload). `BaseConnector.__init_subclass__` auto-generates the handler — do **not** also add an `@nw_action` method for the same action name, as that will raise a `TypeError` at class-definition time.
 

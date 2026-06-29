@@ -9,9 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 > **Platform:** Node Wire
 > **Standard:** FHIR R4
 > **Auth Method:** SMART Backend Services — RS384 JWT / OAuth2
-> **Actions:** `read_patient` · `search_encounter` · `create_document_reference` · `search_document_reference`
+> **Actions:** `read_patient` · `search_patients` · `search_encounter` · `create_document_reference` · `search_document_reference`
 > **Source:** `src/node_wire_fhir_epic/`
-> **Test Collection:** `postman_fhir_epic_collection.json`
 
 ---
 
@@ -21,10 +20,9 @@ The FHIR Epic connector is designed to interface with Epic EHR systems using the
 
 ### Logic Consolidation
 
-Initially, each action (e.g., `read_patient`, `search_encounter`) was implemented in its own class. This led to code duplication and a cluttered workspace. We refactored this into a single **"Fat Connector"** architecture:
+All actions live in a single **"Fat Connector"** class rather than one class per action:
 
-- **`FhirEpicConnector`**: A single class that encapsulates all shared logic, authentication flows (JWT/OAuth2), and the specific implementation methods for each action.
-- **`_FhirAction`**: A lightweight internal wrapper that inherits from `BaseConnector`. This allows the connector to remain compatible with the platform's standard routing and manifest generation while centralizing the actual execution logic.
+- **`FhirEpicConnector`**: A single `BaseConnector` subclass that encapsulates all shared logic, authentication flows (JWT/OAuth2), and the per-action implementation methods. Each action is a method decorated with **`@sdk_action`** or **`@nw_action`** (e.g. `read_patient`, `search_patients`, `search_encounter`). The base class derives routing and manifest entries from that decorator metadata — there is no separate per-action wrapper class.
 
 ---
 
@@ -36,8 +34,8 @@ To support this consolidated architecture while maintaining a clean codebase, se
 
 The `ConnectorFactory` was updated to support connectors that manage many actions internally.
 
-- **Design Decision**: Instead of the factory returning a list of 4 different connector instances for `fhir_epic`, it now returns **one instance** of the `FhirEpicConnector` class.
-- **Action Discovery**: The factory uses `list_actions()` and `get_action(name)` helpers on the connector instance to discover and dispatch specific operations. This keeps the `_connectors` dictionary clean (one entry per `connector_id`).
+- **Design Decision**: Instead of the factory returning a list of different connector instances for `fhir_epic`, it returns **one instance** of the `FhirEpicConnector` class. This keeps the `_connectors` dictionary clean (one entry per `connector_id`).
+- **Action Discovery**: The runtime discovers actions from the `@sdk_action`/`@nw_action` metadata on the connector (`sdk_action_metas()` → `build_manifest` in `node_wire_runtime/manifest.py`), emitting one manifest entry and one REST route per action.
 
 ### `app.py` — 422 Unprocessable Entity Fix
 
@@ -114,7 +112,7 @@ By using this standardized model, client consumers can handle errors predictably
 
 ## 4. Manual Verification
 
-A Postman collection is provided at the root: `postman_fhir_epic_collection.json`.
+Exercise the connector with the REST `curl` examples in [`docs/connectors.md`](../../docs/connectors.md) / the Swagger UI at `http://localhost:8000/docs`, or the runnable scripts under `tests/playground/epic_fhir/`.
 
 **Recommended Test Flow:**
 

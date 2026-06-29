@@ -1,10 +1,18 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bindings.grpc_server.tls_config import configure_grpc_server_port
+from bindings.grpc_server.tls_config import (
+    configure_grpc_server_port,
+    is_public_bind_host as grpc_is_public_bind_host,
+    resolve_grpc_host,
+)
 from bindings.mcp_server.server import (
     McpServer,
     is_public_bind_host,
@@ -87,8 +95,54 @@ def test_grpc_configure_insecure_when_tls_absent() -> None:
         require_tls=False,
     )
     assert mode == "insecure"
-    grpc_server.add_insecure_port.assert_called_once_with("[::]:50051")
+    # Default bind host is now loopback (parity with MCP), not all-interfaces.
+    grpc_server.add_insecure_port.assert_called_once_with("127.0.0.1:50051")
     grpc_server.add_secure_port.assert_not_called()
+
+
+def test_resolve_grpc_host_defaults_to_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NW_GRPC_HOST", raising=False)
+    assert resolve_grpc_host() == "127.0.0.1"
+
+
+def test_resolve_grpc_host_respects_explicit_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_GRPC_HOST", "::")
+    assert resolve_grpc_host() == "::"
+
+
+def test_grpc_is_public_bind_host() -> None:
+    assert grpc_is_public_bind_host("0.0.0.0")
+    assert grpc_is_public_bind_host("::")
+    assert not grpc_is_public_bind_host("127.0.0.1")
+
+
+def test_grpc_ipv6_host_is_bracketed(monkeypatch: pytest.MonkeyPatch) -> None:
+    grpc_server = MagicMock()
+    configure_grpc_server_port(
+        grpc_server,
+        port=50051,
+        host="::",
+        cert_path=None,
+        key_path=None,
+        require_tls=False,
+    )
+    grpc_server.add_insecure_port.assert_called_once_with("[::]:50051")
+
+
+def test_grpc_public_bind_logs_warning(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    grpc_server = MagicMock()
+    with caplog.at_level("WARNING", logger="bindings.grpc_server"):
+        configure_grpc_server_port(
+            grpc_server,
+            port=50051,
+            host="0.0.0.0",
+            cert_path=None,
+            key_path=None,
+            require_tls=False,
+        )
+    assert any("binding to all interfaces" in record.message for record in caplog.records)
 
 
 def test_grpc_require_tls_raises_without_creds() -> None:

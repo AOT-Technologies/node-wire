@@ -70,6 +70,8 @@ jobs:
               "packages/connectors/google_drive",
               "packages/connectors/fhir_cerner",
               "packages/connectors/fhir_epic",
+              "packages/connectors/salesforce",
+              "packages/connectors/slack",
           }
           if norm not in allowed:
               print(f"ERROR: package_path {norm!r} is not allowlisted.", file=sys.stderr)

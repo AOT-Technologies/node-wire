@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """
 Slack connector for Node-Wire.
 
@@ -47,7 +51,9 @@ _CHAT_POST_URL = "https://slack.com/api/chat.postMessage"
 _GET_UPLOAD_URL = "https://slack.com/api/files.getUploadURLExternal"
 _COMPLETE_UPLOAD_URL = "https://slack.com/api/files.completeUploadExternal"
 
-_DEFAULT_TIMEOUT = 30.0
+# Configurable for consistency with other connectors (NW_TIMEOUT); NW_SLACK_TIMEOUT
+# takes precedence when set.
+_DEFAULT_TIMEOUT = float(os.getenv("NW_SLACK_TIMEOUT", os.getenv("NW_TIMEOUT", "30.0")))
 _HARD_UPLOAD_LIMIT_MB = 100
 _DEFAULT_UPLOAD_LIMIT_MB = 50
 _CHANNEL_ID_RE = re.compile(r"^[CGDZ][A-Z0-9]{8,}$")
@@ -242,7 +248,7 @@ async def _resolve_channel_id(token: str, target: str) -> str:
         return target
 
     if os.environ.get("NW_SLACK_SKIP_RESOLVE", "").lower() == "true":
-        logger.debug(f"Skipping channel resolution for {target} (NW_SLACK_SKIP_RESOLVE=true)")
+        logger.debug("Skipping channel resolution for %s (NW_SLACK_SKIP_RESOLVE=true)", target)
         return target
 
     prefix = target[0].upper()
@@ -266,17 +272,21 @@ async def _resolve_channel_id(token: str, target: str) -> str:
                 data = response.json()
                 if data.get("ok"):
                     resolved_id = data["channel"]["id"]
-                    logger.debug(f"Resolved User ID {target} to DM channel {resolved_id}")
+                    logger.debug("Resolved User ID %s to DM channel %s", target, resolved_id)
                     return resolved_id
 
                 # If Slack returns ok: false, fallback to the original ID
                 logger.warning(
-                    f"Failed to resolve User ID {target} to DM channel: {data.get('error')}"
+                    "Failed to resolve User ID %s to DM channel: %s", target, data.get("error")
                 )
                 return target
         except Exception as exc:
             # Catch network errors (ConnectError, etc.) and fallback to original ID
-            logger.warning(f"Network error resolving User ID {target} to DM channel: {exc}")
+            logger.warning(
+                "Network error resolving User ID %s to DM channel; falling back to original",
+                target,
+                extra={"error_type": type(exc).__name__, "error_message": str(exc)},
+            )
             return target
 
     return target

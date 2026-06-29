@@ -13,7 +13,11 @@ from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bindings.factory import ConnectorFactory
-from bindings.mcp_server.auth import McpAuthError, authenticate_mcp_request
+from bindings.mcp_server.auth import (
+    McpAuthError,
+    authenticate_mcp_request,
+    log_effective_mcp_auth_state,
+)
 from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.policies.mcp_scope_policy import (
     action_allowed_for_identity_scopes,
@@ -466,6 +470,8 @@ class McpServer:
         from mcp.server.stdio import stdio_server
         from mcp.server import NotificationOptions
 
+        log_effective_mcp_auth_state()
+
         low = self._setup_lowlevel_server()
 
         async with stdio_server() as (read_stream, write_stream):
@@ -562,6 +568,8 @@ class McpServer:
                 extra={"host": host, "port": port},
             )
 
+        log_effective_mcp_auth_state()
+
         low = self._setup_lowlevel_server()
         session_manager = StreamableHTTPSessionManager(low, json_response=True)
         starlette_app = self._build_streamable_http_app(session_manager=session_manager, path=path)
@@ -587,6 +595,8 @@ class McpServer:
 
 
 if __name__ == "__main__":
-    # Simple demo runner that prints tool list and exits.
+    # Simple demo runner that emits the tool list as JSON to stdout and exits.
+    import sys
+
     server = McpServer()
-    print(json.dumps(server.list_tools(), indent=2))
+    sys.stdout.write(json.dumps(server.list_tools(), indent=2) + "\n")

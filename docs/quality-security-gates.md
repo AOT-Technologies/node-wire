@@ -1,6 +1,10 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Quality and security gates
 
-This document defines how Node Wire enforces security scanning and SonarQube analysis in CI, plus the SonarQube Community Edition setup required for centralized reporting.
+This document defines how Node Wire enforces security scanning in CI.
 
 This repository enforces security gates at both PR time and publish time.
 
@@ -13,17 +17,24 @@ Runs on every pull request and on pushes to `main`/`master`.
 Required jobs:
 
 - `bandit`: writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step.
-- `test`: runs `pytest`, produces `coverage.xml`, and uploads a CycloneDX `sbom.json` artifact.
-- `sonar`: runs SonarQube scan and waits for quality gate result (runs after `bandit` and `test`).
+
+Workflow: `.github/workflows/codeql.yml`
+
+Runs GitHub CodeQL static analysis for Python on pull requests, pushes to `main`/`master`, and weekly (Mondays). No repository secrets are required.
+
+Workflow: `.github/workflows/pytest.yml`
+
+Runs the full test suite (Python 3.11 and 3.12 matrix) with coverage on every pull request and push to `main`/`master`.
 
 Workflow: `.github/workflows/lint.yml` also runs `lockfile-check` (`uv lock --check`) to fail PRs when `pyproject.toml` changes without an updated `uv.lock`.
 
 Required checks to add in branch protection:
 
 - `Lint and Type Check / Lockfile freshness`
-
 - `Quality gates / Bandit security scan`
-- `Quality gates / Tests and coverage`
+- `CodeQL / Analyze (Python)`
+- `CI – Pytest / Run pytest (Python 3.11)`
+- `CI – Pytest / Run pytest (Python 3.12)`
 - `Python package security PR checks / Vulnerability scan (packages/runtime)`
 - `Python package security PR checks / Vulnerability scan (packages/connectors/http_generic)`
 - `Python package security PR checks / Vulnerability scan (packages/connectors/stripe)`
@@ -31,6 +42,8 @@ Required checks to add in branch protection:
 - `Python package security PR checks / Vulnerability scan (packages/connectors/google_drive)`
 - `Python package security PR checks / Vulnerability scan (packages/connectors/fhir_cerner)`
 - `Python package security PR checks / Vulnerability scan (packages/connectors/fhir_epic)`
+- `Python package security PR checks / Vulnerability scan (packages/connectors/salesforce)`
+- `Python package security PR checks / Vulnerability scan (packages/connectors/slack)`
 
 Configure branch protection so pull requests cannot merge unless all required checks pass.
 
@@ -38,7 +51,7 @@ Configure branch protection so pull requests cannot merge unless all required ch
 
 - PR and push-to-main scanning runs in `.github/workflows/security-pr.yml`.
 - Release-time scanning remains in `.github/workflows/publish.yml` as defense in depth.
-- `pip-audit --fail-on HIGH` is the vulnerability gate threshold.
+- The PR/push gate (`security-pr.yml`) runs `pip-audit` with no `--fail-on` threshold, so it **blocks on any vulnerability**. The release workflow (`publish.yml`) uses `pip-audit --fail-on HIGH` as defense in depth.
 - Scheduled scans catch newly disclosed CVEs even when code does not change.
 
 **Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=0.1.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** each matrix package (`pip install packages/runtime "<matrix path>"`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.
@@ -56,7 +69,7 @@ uv run bandit -c pyproject.toml -r src --severity-level high
 uv run bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
 python scripts/bandit_report_summary.py bandit-report.json
 
-# Tests + coverage.xml (required by SonarQube)
+# Tests + coverage (run via pytest.yml in CI)
 uv run pytest tests/ -v
 ```
 
@@ -77,29 +90,6 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## Local Sonar scan with Docker
-
-After generating `coverage.xml`, run scanner from the repository root:
-
-```bash
-docker run --rm \
-  -e SONAR_TOKEN=YOUR_TOKEN \
-  -v "G:\SPACE\node-wire:/usr/src" \
-  -w /usr/src \
-  sonarsource/sonar-scanner-cli \
-  -Dsonar.host.url=http://host.docker.internal:9000 \
-  -Dsonar.token=YOUR_TOKEN
-```
-
-## SonarQube configuration
-
-The repository includes `sonar-project.properties` and CI expects these GitHub secrets:
-
-- `SONAR_HOST_URL` (example: `https://sonarqube.company.internal`)
-- `SONAR_TOKEN` (project analysis token)
-
-For server setup and quality gate policy details, see this document's [SonarQube Community Edition setup](#sonarqube-community-edition-setup) section.
-
 ## Bandit policy
 
 Bandit is configured in `pyproject.toml` under `[tool.bandit]`.
@@ -110,7 +100,7 @@ By default, **Bandit exits with a non-zero status whenever it reports any findin
 
 CI splits responsibilities:
 
-1. **JSON artifact + log summary** — `bandit ... -f json -o bandit-report.json --exit-zero` so the workflow always produces the report and runs `scripts/bandit_report_summary.py` for readable logs. Low/medium issues are visible here and in Sonar/import without failing the job.
+1. **JSON artifact + log summary** — `bandit ... -f json -o bandit-report.json --exit-zero` so the workflow always produces the report and runs `scripts/bandit_report_summary.py` for readable logs. Low/medium issues are visible here without failing the job.
 2. **Enforcement** — `bandit ... --severity-level high` fails the job only on high-severity findings (matches branch-protection intent).
 
 Locally, mirror CI with the commands in [Run checks locally](#run-checks-locally).
@@ -131,53 +121,18 @@ bandit -c pyproject.toml -r src -f json -o bandit-baseline.json --exit-zero
 bandit -c pyproject.toml -r src --baseline bandit-baseline.json --severity-level high
 ```
 
-## SonarQube Community Edition setup
+## SBOM generation
 
-### 1) Run SonarQube CE (example Docker)
+CycloneDX SBOM (`sbom.json`) is generated by:
 
-```bash
-docker volume create sonarqube_data
-docker volume create sonarqube_logs
-docker volume create sonarqube_extensions
-
-docker run -d --name sonarqube \
-  -p 9000:9000 \
-  -v sonarqube_data:/opt/sonarqube/data \
-  -v sonarqube_logs:/opt/sonarqube/logs \
-  -v sonarqube_extensions:/opt/sonarqube/extensions \
-  sonarqube:lts-community
-```
-
-For production, place SonarQube behind HTTPS/reverse proxy and persistent backup strategy.
-
-### 2) Create project and token
-
-1. Open SonarQube UI (`http://<host>:9000`).
-2. Create project key `node-wire` (or update `sonar-project.properties` if using a different key).
-3. Generate project analysis token.
-
-### 3) Configure GitHub secrets
-
-In repository settings, add:
-
-- `SONAR_HOST_URL`
-- `SONAR_TOKEN`
-
-### 4) Configure quality gate
-
-Create or update a quality gate to enforce at minimum:
-
-- No new blocker issues.
-- No new critical vulnerabilities.
-- Coverage on new code >= 80%.
-
-Attach the gate to the Node Wire project.
+- `scripts/run-compliance-checks.sh` for local compliance runs.
+- `.github/workflows/publish.yml` at release time.
 
 ## Acceptance criteria mapping
 
-- Security scan runs on every PR: enforced by `quality-gates.yml` (Bandit).
+- Security scan runs on every PR: enforced by `quality-gates.yml` (Bandit) and `codeql.yml` (CodeQL).
 - Builds fail on high-severity Bandit findings: Bandit gate in CI.
-- SonarQube dashboard visible: SonarQube CE project + scanner upload from CI.
-- Coverage visible in SonarQube: `pytest-cov` generates `coverage.xml`, scanner consumes it via `sonar.python.coverage.reportPaths`.
+- Static analysis visible in GitHub Security tab: CodeQL upload from CI.
+- Tests run on every PR: enforced by `pytest.yml` (3.11 + 3.12 matrix).
 - Developers run checks locally: documented commands and pre-commit (Bandit).
-- Config version-controlled: `pyproject.toml`, `.pre-commit-config.yaml`, `sonar-project.properties`, workflow file.
+- Config version-controlled: `pyproject.toml`, `.pre-commit-config.yaml`, workflow files.

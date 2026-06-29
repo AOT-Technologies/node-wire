@@ -1,3 +1,8 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
 # Test fixture: mirrors ../config/connectors.yaml but optional connectors not on
 # the pytest allowlist are disabled (slack, salesforce).
 # Enabling them here would fail ConnectorFactory.load() when not registered

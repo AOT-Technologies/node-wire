@@ -1,3 +1,7 @@
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 """Value-aware log redaction for PHI and secrets across all handlers and OTLP export."""
 
 from __future__ import annotations

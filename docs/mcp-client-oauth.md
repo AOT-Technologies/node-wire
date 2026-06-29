@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # MCP Client OAuth (Outbound)
 
 Node Wire can act as an **OAuth 2.1 client** when connecting to **remote HTTP MCP servers** that require authorization per the MCP Authorization specification (2025-11-25).

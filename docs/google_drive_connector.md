@@ -6,10 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Google Drive Connector
 
-This document covers the Google Drive connector under `connectors/google_drive` in two parts:
+This document covers the Google Drive connector under `src/node_wire_google_drive` in two parts:
 
 1. **[Google Drive service account setup](#google-drive-service-account-setup)** — Create a GCP service account, enable the Drive API, configure `.env`, share a folder, and verify connectivity.
-2. **[REST API reference](#rest-api-reference)** — The `execute` action, all seven operations, request/response shapes, and the platform error taxonomy.
+2. **[REST API reference](#rest-api-reference)** — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.
 
 For **MCP** (e.g. ToolHive), tools are named `google_drive.<action>` from the connector manifest (e.g. `google_drive.files.upload`). End-to-end agent setup is documented in [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
@@ -156,7 +156,7 @@ Start the platform and test the connection with a quick file list:
 python -m bindings_entrypoint
 
 # In another terminal, list files visible to the service account
-curl -X POST http://localhost:8000/connectors/google_drive/execute \
+curl -X POST http://localhost:8000/connectors/google_drive/files.list \
   -H "Content-Type: application/json" \
   -d '{"action": "files.list", "page_size": 5}'
 ```
@@ -193,14 +193,14 @@ To upload a test file, use the request body documented under [files.upload](#fil
 
 ## REST API reference
 
-The connector exposes a single action `execute` with a discriminated-union payload. The `action` field decides which Google Drive operation runs. All responses share a common output shape and error taxonomy enforced by the runtime.
+The connector exposes **one REST route per operation** (`POST /connectors/google_drive/<action>`, e.g. `files.list`). The `action` field on the request body selects which Google Drive operation runs for `BaseConnector` dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.
 
 ### Operations overview
 
 All requests go through:
 
 - Connector ID: `google_drive`
-- REST endpoint: `POST /connectors/google_drive/execute`
+- REST endpoint: `POST /connectors/google_drive/<action>` (e.g. `POST /connectors/google_drive/files.list`)
 
 Each operation uses `action` as a discriminator:
 

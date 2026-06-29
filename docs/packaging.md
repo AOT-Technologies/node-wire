@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Packaging & Publishing
 
-Node Wire ships as **seven independent PyPI packages** built from a single monorepo. All wheels are binary-only (Cython-compiled `.so`/`.pyd` files) — no `.py` source is included in any published wheel.
+Node Wire ships as **nine independent PyPI packages** (the runtime plus eight connectors) built from a single monorepo. All wheels are binary-only (Cython-compiled `.so`/`.pyd` files) — no `.py` source is included in any published wheel.
 
 ---
 
@@ -19,6 +19,8 @@ Node Wire ships as **seven independent PyPI packages** built from a single monor
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
 | `node-wire-http-generic` | `src/node_wire_http_generic/` | `http_generic` |
+| `node-wire-salesforce` | `src/node_wire_salesforce/` | `salesforce` |
+| `node-wire-slack` | `src/node_wire_slack/` | `slack` |
 | `node-wire-smtp` | `src/node_wire_smtp/` | `smtp` |
 | `node-wire-stripe` | `src/node_wire_stripe/` | `stripe` |
 
@@ -36,7 +38,7 @@ Prerequisites: `pip install build cython wheel` (and a usable `python` on the ho
 bash scripts/build-packages.sh
 ```
 
-Default mode builds each of the **seven** known package paths (see inventory above): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
+Default mode builds each of the **nine** known package paths (see inventory above): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
 
 
 ### Artifact layout and safe command usage
@@ -118,7 +120,7 @@ At startup, `auto_register()` discovers all installed connectors via the `node_w
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `NW_ALLOWED_CONNECTORS` | _(all discovered)_ | Comma-separated allowlist of entry-point names (e.g. `stripe,fhir_epic`). In development, leave unset to load everything. In production, set explicitly. |
+| `NW_ALLOWED_CONNECTORS` | _(empty — load nothing)_ | Comma-separated allowlist of entry-point names (e.g. `stripe,fhir_epic`). **Unset or empty loads no connectors** (fail-closed). Set explicitly in production and local `.env`. |
 | `NW_CONNECTOR_MODULE_PREFIX` | `node_wire_` | Connectors whose target module doesn't start with this prefix are skipped with a warning. Set to `""` to disable the check. |
 
 ---
@@ -202,6 +204,8 @@ docker build -f docker/google-drive/Dockerfile -t nw-google-drive .
 docker build -f docker/fhir-epic/Dockerfile -t nw-smartonfhir-epic .
 docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner .
 docker build -f docker/stripe/Dockerfile -t nw-stripe .
+docker build -f docker/salesforce/Dockerfile -t nw-salesforce .
+docker build -f docker/slack/Dockerfile -t nw-slack .
 ```
 
 For compose and ToolHive registration see `docs/mcp-servers.md`.

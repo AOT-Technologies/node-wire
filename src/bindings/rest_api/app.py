@@ -40,16 +40,56 @@ from bindings.rest_api.auth import (
 )
 from bindings.rest_api.body_limit import MaxBodySizeMiddleware
 
-# Add project root to sys.path to allow importing from 'playground' package
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.append(str(PROJECT_ROOT))
-
-from playground.scenarios import router as scenarios_router  # noqa: E402
-
-
 logger = logging.getLogger("bindings.rest_api")
 tracer = trace.get_tracer("bindings.rest_api")
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _truthy_env(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _playground_enabled() -> bool:
+    """Return True when demo playground routes/static files should be mounted."""
+    raw = os.environ.get("NW_REST_PLAYGROUND_ENABLED")
+    if raw is not None and raw.strip():
+        return _truthy_env(raw)
+    return (_REPO_ROOT / "playground").is_dir()
+
+
+def _mount_playground(app: FastAPI) -> None:
+    """Attach scenario API routes and static UI when playground is available."""
+    if not _playground_enabled():
+        logger.info(
+            "REST playground disabled",
+            extra={"reason": "NW_REST_PLAYGROUND_ENABLED=false or playground/ missing"},
+        )
+        return
+
+    playground_dir = _REPO_ROOT / "playground"
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.append(str(_REPO_ROOT))
+
+    try:
+        from playground.scenarios import router as scenarios_router  # noqa: E402
+    except ImportError as exc:
+        logger.warning(
+            "Playground directory present but scenarios module could not be imported; skipping",
+            extra={"error": str(exc)},
+        )
+        return
+
+    app.include_router(scenarios_router)
+    app.mount(
+        "/playground",
+        StaticFiles(directory=str(playground_dir), html=True),
+        name="playground",
+    )
+    logger.info("REST playground mounted at /playground")
+
 
 app = FastAPI(title="Node Wire - REST API")
 FastAPIInstrumentor.instrument_app(app)
@@ -58,13 +98,7 @@ _max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
 app.add_middleware(RestAuthMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 
-# Include the professional scenarios orchestrator
-app.include_router(scenarios_router)
-
-# Serve the playground UI - use absolute path
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-DEMO_DIR = BASE_DIR / "playground"
-app.mount("/playground", StaticFiles(directory=str(DEMO_DIR), html=True), name="playground")
+_mount_playground(app)
 
 _factory: ConnectorFactory | None = None
 _rate_limiter: InMemoryRateLimiter | None = None

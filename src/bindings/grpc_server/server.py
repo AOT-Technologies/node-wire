@@ -21,7 +21,7 @@ from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from .async_runner import BackgroundAsyncRunner
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
 from .auth import GrpcAuthInterceptor, get_grpc_caller_identity
-from .tls_config import configure_grpc_server_port
+from .tls_config import configure_grpc_server_port, resolve_grpc_host
 
 logger = logging.getLogger("bindings.grpc_server")
 
@@ -35,12 +35,13 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         self._factory.load()
 
     async def _invoke_async(
-        self, request: connector_pb2.InvokeRequest
-    ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined]
+        self,
+        request: connector_pb2.InvokeRequest,  # type: ignore[name-defined, attr-defined]
+    ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined, attr-defined]
         try:
             await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,
                 error_code="RATE_LIMIT_EXCEEDED",
                 error_category=ErrorCategory.RETRYABLE.value,
@@ -50,7 +51,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
         connector = self._factory.get_for_protocol(request.connector_id, "grpc")
         if connector is None:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,
                 error_code="CONNECTOR_NOT_AVAILABLE",
                 error_category=ErrorCategory.BUSINESS.value,
@@ -63,7 +64,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             try:
                 payload = json.loads(request.payload_json)
             except json.JSONDecodeError as e:
-                return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
+                return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                     success=False,
                     error_code="INVALID_JSON",
                     error_category=ErrorCategory.BUSINESS.value,
@@ -92,7 +93,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             response.error_category.value if response.error_category is not None else ""
         )
 
-        return connector_pb2.InvokeResponse(  # type: ignore[name-defined]
+        return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
             success=response.success,
             data_json=data_json,
             error_code=response.error_code or "",
@@ -113,7 +114,8 @@ def serve(port: int = 50051) -> None:
 
     cert_path = os.environ.get("NW_GRPC_TLS_CERT_PATH")
     key_path = os.environ.get("NW_GRPC_TLS_KEY_PATH")
-    configure_grpc_server_port(server, port=port, cert_path=cert_path, key_path=key_path)
+    host = resolve_grpc_host()
+    configure_grpc_server_port(server, port=port, host=host, cert_path=cert_path, key_path=key_path)
 
     server.start()
     server.wait_for_termination()

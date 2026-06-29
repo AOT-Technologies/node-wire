@@ -7,7 +7,8 @@ name = "node-wire-smtp"
 version = "0.1.0"
 description = "Node Wire connector — SMTP email sending (async)"
 requires-python = ">=3.11"
-authors = [{ name = "AOT", email = "dev@aot.local" }]
+license = "Apache-2.0"
+authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 
 dependencies = [
     "node-wire-runtime>=0.1.0",
