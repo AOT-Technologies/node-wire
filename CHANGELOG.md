@@ -23,7 +23,7 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Public API reference enumerating the frozen surface (`docs/public-api.md`).
 - `node_wire_runtime.__version__`.
 - DCO sign-off enforcement, Dependabot, weekly secret scanning, and `SUPPORT` /
-  `ROADMAP` / `GOVERNANCE` docs.
+  `GOVERNANCE` docs.
 - Automated GitHub Release workflow with version and changelog validation, SBOM
   generation, release manifest generation, and GitHub release artifact upload.
 - Tag-based PyPI publish workflow with release prerequisite checks, wheel checksum

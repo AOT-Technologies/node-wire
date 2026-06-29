@@ -185,6 +185,7 @@ jobs:
         run: |
           gh release create "${RELEASE_TAG}" \
             --verify-tag \
+            --draft \
             --title "${RELEASE_TAG}" \
             --notes-file release-notes.md \
             sbom.json \
