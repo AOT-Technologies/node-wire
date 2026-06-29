@@ -394,7 +394,10 @@ def test_sanitize_url_for_log_ipv6_and_invalid() -> None:
 
     from node_wire_http_generic.logic import _sanitize_url_for_log
 
-    assert _sanitize_url_for_log("https://[2001:db8::1]:8443/path?q=1") == "https://[2001:db8::1]:8443/path"
+    assert (
+        _sanitize_url_for_log("https://[2001:db8::1]:8443/path?q=1")
+        == "https://[2001:db8::1]:8443/path"
+    )
     with patch("node_wire_http_generic.logic.urlsplit", side_effect=ValueError("bad url")):
         assert _sanitize_url_for_log("not-a-url") == "<invalid-url>"
 
