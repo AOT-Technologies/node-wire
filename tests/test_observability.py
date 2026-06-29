@@ -124,7 +124,9 @@ def test_init_observability_installs_sanitizing_log_filter() -> None:
 
 def test_init_observability_traceloop_failure_does_not_raise(
     caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("TRACELOOP_API_KEY", "test-key")
     with _observability_test_patches() as (_s, _l, mock_tl):
         mock_tl.init = MagicMock(side_effect=RuntimeError("traceloop unavailable"))
         with caplog.at_level(logging.WARNING, logger="runtime.observability"):
