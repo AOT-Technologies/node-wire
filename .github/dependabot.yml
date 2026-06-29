@@ -13,6 +13,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # Internal monorepo dependency; connector packages are versioned together
+      # during releases, not independently by Dependabot.
+      - dependency-name: "node-wire-runtime"
     groups:
       python-dependencies:
         patterns: ["*"]
