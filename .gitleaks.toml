@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+
+title = "Node Wire gitleaks configuration"
+
+[allowlist]
+description = "Known false positives: placeholder values, test fixtures, and documentation stubs"
+
+# regexTarget = "secret" matches against the extracted secret value only,
+# not surrounding context — keeps these allowlist rules as narrow as possible.
+regexTarget = "secret"
+
+regexes = [
+  # sample.env instructional placeholder — not a real credential.
+  '''replace-with-hs256-secret''',
+
+  # Stripe's canonical documentation test token. This specific value is
+  # published in Stripe's own public docs and is not a live key.
+  '''sk_test_4eC39HqLyjWDarjtT1zdp7dc''',
+
+  # RSA/EC key stubs used in documentation examples whose body is the literal
+  # string "..." — structurally valid PEM headers with no real key material.
+  # Real keys never contain "..." as body content.
+  '''\.\.\.''',
+]
+
+# tests/test_payload_redaction.py contains dummy PEM key material (body marked
+# "...dummy...") that is required to exercise the payload-redaction logic.
+# The file exists solely to test that fake-looking keys are redacted correctly.
+paths = [
+  '''tests/test_payload_redaction\.py''',
+]
+
+# Historical commits where documentation used RSA key stubs or Stripe's test
+# token. These values were removed from the working tree in later commits.
+commits = [
+  "1d14bc1236beb7da3687e2eae648f07f947c36b8",  # Initial Commit          — Setup.md RSA stub
+  "65ecd72a4d635359a1242f5b4c3d3c4d09916caa",  # Feature/merge prs       — Setup.md RSA stub
+  "ab75ce91057be702e33fa4a25d5a8d189393e87b",  # Stripe connector         — docs Stripe test token + RSA stub
+  "ccd272e5793c1625302c9bf19e1f489e9af8bdfd",  # Added Multiple MCPs      — docs RSA stub
+]
+
+# ── ACTION REQUIRED: GCP service account key ─────────────────────────────────
+#
+# File connectorplatform-180d995a1c96.json (a real Google service account JSON
+# key) was committed and is present in the two commits below. The file has since
+# been removed from the working tree but the key material remains in git history.
+#
+# BEFORE adding these commits to the allowlist above:
+#   1. Delete or disable the key in GCP Console:
+#      https://console.cloud.google.com/iam-admin/serviceaccounts?project=connectorplatform
+#      Service account : node-wire-test@connectorplatform.iam.gserviceaccount.com
+#      Key ID          : 180d995a1c968838d624f6d650b7e5ad8ac8c05c
+#   2. Confirm the key is revoked and no service depends on it.
+#   3. Move the two SHAs below into the commits list and remove this comment block.
+#
+"0e26561e7e956dd333252860881cf41c804a2dc8",  # Feature/python packages  — connectorplatform key
+"92f85f2c22fe1d0659828781e3afb4eb242c4048",  # Added connector package  — connectorplatform key
