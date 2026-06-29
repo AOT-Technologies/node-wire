@@ -374,10 +374,15 @@ class OAuth2AuthProvider(AuthProvider):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
         if response.status_code != 200:
+            body_preview = (response.text or "").strip()[:300]
             logger.error(
                 "OAuth2 token request failed | status=%s | body_length=%s",
                 response.status_code,
                 len(response.text or ""),
             )
-            response.raise_for_status()
+            raise ValueError(
+                f"OAuth2 token request failed (HTTP {response.status_code}) from {token_url!r}. "
+                f"Verify the token URL, client_id, and credential configuration. "
+                f"Server response: {body_preview or '(empty)'}"
+            )
         return response.json()  # type: ignore[no-any-return]

@@ -84,12 +84,34 @@ class ServiceAccountAuthProvider(AuthProvider):
         raw = self._sp.get_secret(self._sa_json_secret)
         try:
             info = json.loads(raw)
-            creds = service_account.Credentials.from_service_account_info(info, scopes=self._scopes)
-        except (json.JSONDecodeError, ValueError):
-            # Fallback: treat the secret value as a file path.
-            creds = service_account.Credentials.from_service_account_file(
-                raw.strip(), scopes=self._scopes
-            )
+        except json.JSONDecodeError:
+            # Not inline JSON — treat as a file path.
+            path = raw.strip()
+            try:
+                creds = service_account.Credentials.from_service_account_file(
+                    path, scopes=self._scopes
+                )
+            except FileNotFoundError:
+                raise ValueError(
+                    f"Google service account file not found at path {path!r}. "
+                    f"The secret '{self._sa_json_secret}' must be either a valid service account "
+                    f"JSON string or a path to an existing key file."
+                ) from None
+            except Exception as exc:
+                raise ValueError(
+                    f"Failed to load Google service account credentials from file {path!r}: {exc}. "
+                    f"Ensure the file contains a valid service account key in JSON format."
+                ) from exc
+        else:
+            try:
+                creds = service_account.Credentials.from_service_account_info(
+                    info, scopes=self._scopes
+                )
+            except Exception as exc:
+                raise ValueError(
+                    f"Google service account JSON (secret '{self._sa_json_secret}') is invalid "
+                    f"or missing required fields: {exc}"
+                ) from exc
 
         logger.debug(
             "ServiceAccountAuthProvider: credentials built",

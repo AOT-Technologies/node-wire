@@ -75,20 +75,39 @@ class GoogleDriveConnector(BaseConnector):
             # Fallback for NoAuthProvider or unconfigured provider —
             # attempt direct secret resolution for backward compatibility.
             raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
-            try:
-                from google.oauth2 import service_account  # type: ignore[import]
-                import json as _json
+            from google.oauth2 import service_account  # type: ignore[import]
+            import json as _json
 
+            try:
                 info = _json.loads(raw_sa)
-                creds = service_account.Credentials.from_service_account_info(
-                    info,
-                    scopes=["https://www.googleapis.com/auth/drive"],
-                )
-            except Exception:
-                creds = service_account.Credentials.from_service_account_file(
-                    raw_sa.strip(),
-                    scopes=["https://www.googleapis.com/auth/drive"],
-                )
+            except _json.JSONDecodeError:
+                # Not inline JSON — treat as a file path.
+                path = raw_sa.strip()
+                try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        path,
+                        scopes=["https://www.googleapis.com/auth/drive"],
+                    )
+                except FileNotFoundError:
+                    raise ValueError(
+                        f"Google Drive: service account file not found at {path!r}. "
+                        "Set GOOGLE_DRIVE_SA_JSON to a valid service account JSON string "
+                        "or a path to an existing key file."
+                    ) from None
+                except Exception as exc:
+                    raise ValueError(
+                        f"Google Drive: failed to load service account from file {path!r}: {exc}"
+                    ) from exc
+            else:
+                try:
+                    creds = service_account.Credentials.from_service_account_info(
+                        info,
+                        scopes=["https://www.googleapis.com/auth/drive"],
+                    )
+                except Exception as exc:
+                    raise ValueError(
+                        f"Google Drive: GOOGLE_DRIVE_SA_JSON is not valid service account JSON: {exc}"
+                    ) from exc
 
         return build("drive", "v3", credentials=creds)
 

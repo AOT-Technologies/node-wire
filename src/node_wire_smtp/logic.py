@@ -82,6 +82,21 @@ class SmtpConnector(BaseConnector):
             )
         except SmtpRelayNotAllowedError:
             raise
+        except aiosmtplib.SMTPAuthenticationError as exc:
+            raise ValueError(
+                f"SMTP authentication failed for {relay.host}:{relay.port}. "
+                f"Check SMTP_USERNAME and SMTP_PASSWORD. Detail: {exc}"
+            ) from exc
+        except (aiosmtplib.SMTPConnectError, aiosmtplib.SMTPServerDisconnected) as exc:
+            raise ValueError(
+                f"Could not connect to SMTP server {relay.host}:{relay.port}. "
+                f"Check SMTP_HOST, SMTP_PORT, and SMTP_USE_TLS. Detail: {exc}"
+            ) from exc
+        except aiosmtplib.SMTPTimeoutError as exc:
+            raise ValueError(
+                f"SMTP connection to {relay.host}:{relay.port} timed out. "
+                f"The server may be unreachable or NW_TIMEOUT may be too low. Detail: {exc}"
+            ) from exc
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "SMTP send failed",
