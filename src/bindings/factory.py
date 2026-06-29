@@ -13,8 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from node_wire_runtime import BaseConnector, SecretProvider
-from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
+from node_wire_runtime import BaseConnector, SecretProvider, get_connector_registry
 from node_wire_runtime.policy import PolicyHook
 from node_wire_runtime.policies.mcp_scope_policy import (
     DEFAULT_SCOPE_MODE_DENY,
@@ -190,7 +189,7 @@ class ConnectorFactory:
                 )
                 continue
 
-            if connector_id not in _CONNECTOR_REGISTRY:
+            if connector_id not in get_connector_registry():
                 logger.warning(
                     "Connector enabled in configuration but not registered; skipping instantiation",
                     extra={
@@ -281,7 +280,7 @@ class ConnectorFactory:
         return NoAuthProvider()
 
     def _instantiate(self, connector_id: str) -> "BaseConnector | None":
-        connector_cls = _CONNECTOR_REGISTRY.get(connector_id)
+        connector_cls = get_connector_registry().get(connector_id)
         if connector_cls is not None:
             cfg = self._configs[connector_id]
             auth_provider = self._build_auth_provider(connector_id, cfg.raw)

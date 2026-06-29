@@ -15,12 +15,13 @@ on:
 
 jobs:
   test:
-    name: Run pytest (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Run pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12"]
 
     steps:
@@ -50,7 +51,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: coverage-html-py${{ matrix.python-version }}
+          name: coverage-html-${{ matrix.os }}-py${{ matrix.python-version }}
           path: htmlcov/
           if-no-files-found: ignore
 

@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # Node Wire
 
+[![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
+[![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
+[![PyPI](https://img.shields.io/pypi/v/node-wire.svg)](https://pypi.org/project/node-wire/)
+[![Python](https://img.shields.io/pypi/pyversions/node-wire.svg)](https://pypi.org/project/node-wire/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, etc.) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
 ## Prerequisites
@@ -115,20 +121,20 @@ All MCP server images are built from the repository root using the automation sc
 To tag with a specific version (defaults to the version in `pyproject.toml`):
 
 ```bash
-./scripts/build-mcp-images.sh --version 0.1.0
+./scripts/build-mcp-images.sh --version 1.0.0
 ```
 
 This produces images tagged as both `latest` and the version string:
 
 | Image name | Tags |
 |---|---|
-| `nw-google-drive` | `nw-google-drive:latest`, `nw-google-drive:0.1.0` |
-| `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
-| `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
-| `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
-| `nw-stripe` | `nw-stripe:latest`, `nw-stripe:0.1.0` |
-| `nw-salesforce` | `nw-salesforce:latest`, `nw-salesforce:0.1.0` |
-| `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
+| `nw-google-drive` | `nw-google-drive:latest`, `nw-google-drive:1.0.0` |
+| `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:1.0.0` |
+| `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:1.0.0` |
+| `nw-smtp` | `nw-smtp:latest`, `nw-smtp:1.0.0` |
+| `nw-stripe` | `nw-stripe:latest`, `nw-stripe:1.0.0` |
+| `nw-salesforce` | `nw-salesforce:latest`, `nw-salesforce:1.0.0` |
+| `nw-slack` | `nw-slack:latest`, `nw-slack:1.0.0` |
 
 ### Build one image manually
 
@@ -198,6 +204,7 @@ For more detailed information, please refer to the following guides:
 - **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
+- **[Release Rollback](docs/release-rollback.md)** — PyPI yank and corrective release procedure.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
 - **[Privacy](docs/privacy.md)** — Data handling and logging guidance.
 - **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying Node Wire in regulated healthcare environments.

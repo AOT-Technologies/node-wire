@@ -93,7 +93,7 @@ def auto_register() -> List[str]:
 
     For each entry point:
     1. Load the ``logic`` module — triggers ``BaseConnector.__init_subclass__``,
-       which populates ``_CONNECTOR_REGISTRY``.
+       which populates the registry exposed via ``get_connector_registry()``.
     2. Attempt to load a sibling ``registration`` module (optional) for
        ``ErrorMapper`` registrations and other import-time side effects.
 

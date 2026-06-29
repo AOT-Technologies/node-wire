@@ -113,3 +113,114 @@ def test_smtp_connector_rejects_allowlist_before_send(monkeypatch: pytest.Monkey
 
     asyncio.run(_run())
     assert send_called is False
+
+
+def test_resolve_smtp_relay_empty_host_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "")
+
+    with pytest.raises(SmtpRelayNotAllowedError, match="SMTP_HOST is empty"):
+        resolve_smtp_relay()
+
+
+def test_resolve_smtp_relay_invalid_port_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "not-a-port")
+
+    with pytest.raises(SmtpRelayNotAllowedError, match="port is invalid"):
+        resolve_smtp_relay()
+
+
+def test_smtp_connector_uses_auth_provider_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_runtime.auth.base import AuthProvider
+
+    class CredsAuthProvider(AuthProvider):
+        async def get_client_credentials(self) -> tuple[str, str]:
+            return ("auth-user", "auth-pass")
+
+        async def get_headers(self) -> dict[str, str]:
+            return {}
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_USE_TLS", "false")
+
+    captured: dict[str, object] = {}
+
+    async def fake_send(*args: object, **kwargs: object) -> tuple[int, str]:
+        captured.update(kwargs)
+        return (250, "OK")
+
+    async def _run() -> None:
+        with patch("node_wire_smtp.logic.aiosmtplib.send", new=fake_send):
+            connector = SmtpConnector(auth_provider=CredsAuthProvider())
+            inp = SmtpSendInput(
+                from_email="a@example.com",
+                to=["b@example.com"],
+                subject="s",
+                body="hi",
+            )
+            out = await connector.internal_execute(inp, trace_id="t-auth")
+        assert out.sent is True
+
+    asyncio.run(_run())
+    assert captured["username"] == "auth-user"
+    assert captured["password"] == "auth-pass"
+    assert captured["use_tls"] is True
+    assert captured["start_tls"] is False
+
+
+def test_smtp_connector_send_failure_logs_and_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USE_TLS", "true")
+
+    async def failing_send(*args: object, **kwargs: object) -> tuple[int, str]:
+        raise ConnectionError("smtp down")
+
+    async def _run() -> None:
+        with patch("node_wire_smtp.logic.aiosmtplib.send", new=failing_send):
+            connector = SmtpConnector()
+            inp = SmtpSendInput(
+                from_email="a@example.com",
+                to=["b@example.com"],
+                subject="s",
+                body="hi",
+            )
+            with pytest.raises(ConnectionError, match="smtp down"):
+                await connector.internal_execute(inp, trace_id="t-fail")
+
+    asyncio.run(_run())
+
+
+def test_smtp_connector_falls_back_to_env_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FailingSecrets:
+        def get_secret(self, key: str) -> str:
+            raise KeyError(key)
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USE_TLS", "true")
+    monkeypatch.setenv("SMTP_USERNAME", "env-user")
+    monkeypatch.setenv("SMTP_PASSWORD", "env-pass")
+
+    captured: dict[str, object] = {}
+
+    async def fake_send(*args: object, **kwargs: object) -> tuple[int, str]:
+        captured.update(kwargs)
+        return (250, "OK")
+
+    async def _run() -> None:
+        with patch("node_wire_smtp.logic.aiosmtplib.send", new=fake_send):
+            connector = SmtpConnector(secret_provider=FailingSecrets())
+            inp = SmtpSendInput(
+                from_email="a@example.com",
+                to=["b@example.com"],
+                subject="s",
+                body="hi",
+            )
+            out = await connector.internal_execute(inp, trace_id="t-env")
+        assert out.sent is True
+
+    asyncio.run(_run())
+    assert captured["username"] == "env-user"
+    assert captured["password"] == "env-pass"

@@ -633,8 +633,6 @@ class ToolHiveAgent:
                         next_token = pagination_meta.get("next_page_token")
 
                         if next_token:
-                            print("\n=== PAGINATION TOKEN DETECTED ===", file=sys.stderr)
-
                             # Add pagination info to tool result for LLM to see
                             pagination_info = (
                                 f"\n\n[PAGINATION INFO]\n"
@@ -644,17 +642,9 @@ class ToolHiveAgent:
                                 f"To get next page, call the same tool with page_token='{next_token}'"
                             )
                             tool_result_str += pagination_info
-                            print("=== ADDED PAGINATION INFO TO RESULT ===", file=sys.stderr)
-                        else:
-                            print("\n=== NO PAGINATION TOKEN FOUND ===", file=sys.stderr)
+                            logger.debug("Added pagination info for tool %s", tc.name)
                     except (json.JSONDecodeError, KeyError) as e:
-                        print(f"Error parsing pagination metadata: {e}", file=sys.stderr)
-
-                    print(
-                        "=================================================\n",
-                        file=sys.stderr,
-                        flush=True,
-                    )
+                        logger.debug("Could not parse pagination metadata: %s", e)
 
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"

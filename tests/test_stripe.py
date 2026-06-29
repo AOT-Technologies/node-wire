@@ -69,6 +69,20 @@ async def test_stripe_charge_happy_path():
     )
 
 
+@pytest.mark.asyncio
+async def test_stripe_charge_unpaid_returns_failed_status():
+    connector = _connector()
+    params = ChargeInput(amount=1000, currency="usd", source="tok_visa")
+
+    mock_charge = MagicMock(id="ch_456", receipt_url=None, paid=False)
+
+    with patch("stripe.Charge.create", return_value=mock_charge):
+        result = await connector.charge(params, trace_id="test-trace")
+
+    assert result.charge_id == "ch_456"
+    assert result.status == "failed"
+
+
 # ---------------------------------------------------------------------------
 # Create Payment Intent
 # ---------------------------------------------------------------------------
@@ -134,6 +148,100 @@ async def test_stripe_create_subscription_with_card_token():
     assert mock_sub_create.call_args.kwargs["idempotency_key"] == "test-trace"
 
 
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_with_default_payment_method():
+    connector = _connector()
+    params = CreateSubscriptionInput(
+        customer_id="cus_123",
+        price_id="price_abc",
+        default_payment_method="pm_existing",
+    )
+
+    mock_sub = MagicMock(
+        id="sub_456", status="active", pending_setup_intent=None, latest_invoice=None
+    )
+
+    with patch("stripe.Subscription.create", return_value=mock_sub) as mock_sub_create:
+        result = await connector.create_subscription(params, trace_id="test-trace")
+
+    assert result.subscription_id == "sub_456"
+    assert mock_sub_create.call_args.kwargs["default_payment_method"] == "pm_existing"
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_pending_setup_intent_client_secret():
+    connector = _connector()
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+
+    mock_sub = MagicMock(
+        id="sub_si",
+        status="incomplete",
+        pending_setup_intent="seti_abc",
+        latest_invoice=None,
+    )
+    mock_si = MagicMock(client_secret="seti_secret_xyz")
+
+    with (
+        patch("stripe.Subscription.create", return_value=mock_sub),
+        patch("stripe.SetupIntent.retrieve", return_value=mock_si) as mock_si_retrieve,
+    ):
+        result = await connector.create_subscription(params, trace_id="test-trace")
+
+    assert result.client_secret == "seti_secret_xyz"
+    mock_si_retrieve.assert_called_once_with("seti_abc", api_key="sk_test_mock")
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_latest_invoice_payment_intent_client_secret():
+    connector = _connector()
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+
+    mock_sub = MagicMock(
+        id="sub_inv",
+        status="incomplete",
+        pending_setup_intent=None,
+        latest_invoice="in_abc",
+    )
+    mock_inv = MagicMock(payment_intent="pi_abc")
+    mock_pi = MagicMock(client_secret="pi_secret_xyz")
+
+    with (
+        patch("stripe.Subscription.create", return_value=mock_sub),
+        patch("stripe.Invoice.retrieve", return_value=mock_inv) as mock_inv_retrieve,
+        patch("stripe.PaymentIntent.retrieve", return_value=mock_pi) as mock_pi_retrieve,
+    ):
+        result = await connector.create_subscription(params, trace_id="test-trace")
+
+    assert result.client_secret == "pi_secret_xyz"
+    mock_inv_retrieve.assert_called_once_with("in_abc", api_key="sk_test_mock")
+    mock_pi_retrieve.assert_called_once_with("pi_abc", api_key="sk_test_mock")
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_setup_intent_object_id():
+    """Cover _stripe_obj_id when pending_setup_intent is an object, not a string."""
+    connector = _connector()
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+
+    setup_intent_obj = MagicMock(id="seti_obj")
+    mock_sub = MagicMock(
+        id="sub_obj",
+        status="incomplete",
+        pending_setup_intent=setup_intent_obj,
+        latest_invoice=None,
+    )
+    mock_si = MagicMock(client_secret="seti_obj_secret")
+
+    with (
+        patch("stripe.Subscription.create", return_value=mock_sub),
+        patch("stripe.SetupIntent.retrieve", return_value=mock_si) as mock_si_retrieve,
+    ):
+        result = await connector.create_subscription(params, trace_id="test-trace")
+
+    assert result.client_secret == "seti_obj_secret"
+    mock_si_retrieve.assert_called_once_with("seti_obj", api_key="sk_test_mock")
+
+
 # ---------------------------------------------------------------------------
 # Cancel Subscription
 # ---------------------------------------------------------------------------
@@ -153,6 +261,26 @@ async def test_stripe_cancel_subscription_immediate():
     assert result.status == "canceled"
     mock_cancel.assert_called_once_with(
         "sub_123", api_key="sk_test_mock", idempotency_key="test-trace"
+    )
+
+
+@pytest.mark.asyncio
+async def test_stripe_cancel_subscription_at_period_end():
+    connector = _connector()
+    params = CancelSubscriptionInput(subscription_id="sub_123", cancel_at_period_end=True)
+
+    mock_sub = MagicMock(id="sub_123", status="active")
+
+    with patch("stripe.Subscription.modify", return_value=mock_sub) as mock_modify:
+        result = await connector.cancel_subscription(params, trace_id="test-trace")
+
+    assert result.subscription_id == "sub_123"
+    assert result.status == "active"
+    mock_modify.assert_called_once_with(
+        "sub_123",
+        api_key="sk_test_mock",
+        cancel_at_period_end=True,
+        idempotency_key="test-trace",
     )
 
 
@@ -294,3 +422,48 @@ async def test_stripe_run_maps_authentication_error_to_auth():
     assert result.success is False
     assert result.error_category == ErrorCategory.AUTH
     assert result.error_code == "STRIPE_AUTH_ERROR"
+
+
+# ---------------------------------------------------------------------------
+# Exception logging branches
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_payment_intent_failure_logs_and_raises():
+    connector = _connector()
+    params = CreatePaymentIntentInput(amount=1000, currency="usd")
+
+    with patch("stripe.PaymentIntent.create", side_effect=RuntimeError("stripe down")):
+        with pytest.raises(RuntimeError, match="stripe down"):
+            await connector.create_payment_intent(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_failure_logs_and_raises():
+    connector = _connector()
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+
+    with patch("stripe.Subscription.create", side_effect=RuntimeError("sub failed")):
+        with pytest.raises(RuntimeError, match="sub failed"):
+            await connector.create_subscription(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_stripe_cancel_subscription_failure_logs_and_raises():
+    connector = _connector()
+    params = CancelSubscriptionInput(subscription_id="sub_123")
+
+    with patch("stripe.Subscription.cancel", side_effect=RuntimeError("cancel failed")):
+        with pytest.raises(RuntimeError, match="cancel failed"):
+            await connector.cancel_subscription(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_stripe_issue_refund_failure_logs_and_raises():
+    connector = _connector()
+    params = IssueRefundInput(payment_intent_id="pi_123")
+
+    with patch("stripe.Refund.create", side_effect=RuntimeError("refund failed")):
+        with pytest.raises(RuntimeError, match="refund failed"):
+            await connector.issue_refund(params, trace_id="test-trace")

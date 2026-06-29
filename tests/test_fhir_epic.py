@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from node_wire_fhir_epic.logic import FhirEpicConnector
@@ -458,3 +459,405 @@ async def test_fhir_epic_search_document_reference():
 
     assert result.total == 1
     assert result.resources[0]["id"] == "doc-789"
+
+
+# ---------------------------------------------------------------------------
+# search_encounter — explicit patient_id / status / date fields
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_encounter_by_explicit_fields():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirEncounterSearchInput
+
+    params = FhirEncounterSearchInput(
+        action="search_encounter",
+        patient_id="  eXYZ123  ",
+        status="finished",
+        date="2024-01-01",
+    )
+
+    enc_response = MagicMock()
+    enc_response.status_code = 200
+    enc_response.json.return_value = {
+        "resourceType": "Bundle",
+        "total": 1,
+        "entry": [{"resource": {"resourceType": "Encounter", "id": "enc-explicit"}}],
+    }
+
+    with patch(
+        "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=enc_response
+    ) as mock_get:
+        result = await c.internal_execute(params, trace_id="test-trace")
+
+    assert result.total == 1
+    assert result.resources[0]["id"] == "enc-explicit"
+    call_kwargs = mock_get.call_args
+    sent_params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params", {})
+    assert sent_params.get("patient") == "eXYZ123"
+    assert sent_params.get("status") == "finished"
+    assert sent_params.get("date") == "2024-01-01"
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_encounter_no_params_raises():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirEncounterSearchInput
+
+    params = FhirEncounterSearchInput(action="search_encounter")
+
+    with pytest.raises(ValueError, match="Provide at least patient_id"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_encounter_http_status_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirEncounterSearchInput
+
+    params = FhirEncounterSearchInput(
+        action="search_encounter",
+        search_params={"patient": "eXYZ123"},
+    )
+
+    request = httpx.Request("GET", "https://fhir.epic.com/api/FHIR/R4/Encounter")
+    response = httpx.Response(403, request=request, text="Forbidden")
+    http_error = httpx.HTTPStatusError("Forbidden", request=request, response=response)
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = http_error
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_encounter_generic_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirEncounterSearchInput
+
+    params = FhirEncounterSearchInput(
+        action="search_encounter",
+        search_params={"patient": "eXYZ123"},
+    )
+
+    with patch(
+        "httpx.AsyncClient.get",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("connection refused"),
+    ):
+        with pytest.raises(httpx.ConnectError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_document_reference_with_optional_fields():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100", "display": "Scan"}]},
+        subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
+        data="dGVzdA==",
+        category=[{"coding": [{"code": "clinical-note"}]}],
+        author=[{"reference": "Practitioner/p1"}],
+        description="Test document",
+        context={"related": [{"reference": "Group/eqv3buSV"}]},
+        additional_fields={"custodian": {"reference": "Organization/org1"}},
+    )
+
+    create_response = MagicMock()
+    create_response.status_code = 201
+    create_response.headers = {
+        "Location": "https://fhir.epic.com/api/FHIR/R4/DocumentReference/doc-opt/_history/1"
+    }
+    create_response.content = b""
+    create_response.text = ""
+
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response
+    ) as mock_post:
+        result = await c.internal_execute(params, trace_id="test-trace")
+
+    assert result.resource_id == "doc-opt"
+    payload = mock_post.call_args.kwargs["json"]
+    assert payload["category"] == params.category
+    assert payload["author"] == params.author
+    assert payload["description"] == "Test document"
+    assert payload["custodian"] == {"reference": "Organization/org1"}
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_document_reference_malformed_json_body():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+        subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
+        data="dGVzdA==",
+    )
+
+    create_response = MagicMock()
+    create_response.status_code = 201
+    create_response.headers = {"content-length": "10"}
+    create_response.content = b"not-json"
+    create_response.json.side_effect = ValueError("invalid json")
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response):
+        with pytest.raises(ValueError, match="Could not extract resource ID"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# read_patient — empty Bundle / HTTP errors
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_read_patient_empty_bundle_raises():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirPatientReadInput
+
+    params = FhirPatientReadInput(action="read_patient", name="Nobody")
+
+    empty_bundle = MagicMock()
+    empty_bundle.status_code = 200
+    empty_bundle.json.return_value = {"resourceType": "Bundle", "total": 0, "entry": []}
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=empty_bundle):
+        with pytest.raises(ValueError, match="No patients found"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_read_patient_http_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirPatientReadInput
+
+    params = FhirPatientReadInput(action="read_patient", resource_id="eFAIL")
+
+    error_resp = MagicMock()
+    error_resp.status_code = 500
+    error_resp.raise_for_status.side_effect = Exception("server error")
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(Exception, match="server error"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# search_patients — HTTPStatusError vs generic error
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_patients_name_search_http_status_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
+    params = FhirPatientSearchInput(action="search_patients", family_name="Smith")
+
+    request = httpx.Request("GET", "https://fhir.epic.com/api/FHIR/R4/Patient")
+    response = httpx.Response(403, request=request, text="Forbidden")
+    http_error = httpx.HTTPStatusError("Forbidden", request=request, response=response)
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = http_error
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_patients_name_search_generic_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
+    params = FhirPatientSearchInput(action="search_patients", family_name="Smith")
+
+    with patch(
+        "httpx.AsyncClient.get",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("connection refused"),
+    ):
+        with pytest.raises(httpx.ConnectError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_patients_empty_resource_ids_raises():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirPatientSearchInput
+
+    params = FhirPatientSearchInput(action="search_patients", resource_ids=["  ", ""])
+
+    with pytest.raises(ValueError, match="resource_ids list is empty"):
+        await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# create_document_reference — error paths and ID extraction
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_document_reference_operation_outcome_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+        subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
+        data="dGVzdA==",
+    )
+
+    request = httpx.Request("POST", "https://fhir.epic.com/api/FHIR/R4/DocumentReference")
+    response = httpx.Response(
+        422,
+        request=request,
+        json={
+            "resourceType": "OperationOutcome",
+            "issue": [{"diagnostics": "Invalid subject reference"}],
+        },
+    )
+    http_error = httpx.HTTPStatusError("Unprocessable", request=request, response=response)
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = http_error
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(ValueError, match="Epic Error: Invalid subject reference"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_document_reference_id_from_json_body():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+        subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
+        data="dGVzdA==",
+    )
+
+    create_response = MagicMock()
+    create_response.status_code = 201
+    create_response.headers = {"content-length": "42"}
+    create_response.content = b'{"id":"doc-from-body"}'
+    create_response.json.return_value = {"id": "doc-from-body"}
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response):
+        result = await c.internal_execute(params, trace_id="test-trace")
+
+    assert result.resource_id == "doc-from-body"
+    assert result.resource == {"id": "doc-from-body"}
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_document_reference_no_id_raises():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+        subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
+        data="dGVzdA==",
+    )
+
+    create_response = MagicMock()
+    create_response.status_code = 201
+    create_response.headers = {"content-length": "0"}
+    create_response.content = b""
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response):
+        with pytest.raises(ValueError, match="Could not extract resource ID"):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_document_reference_generic_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        action="create_document_reference",
+        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+        subject="Patient/ePD0eeFq.GMHG.aXttqP.Lw3",
+        data="dGVzdA==",
+    )
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("connection refused"),
+    ):
+        with pytest.raises(httpx.ConnectError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# search_document_reference — error paths
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_document_reference_http_status_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceSearchInput
+
+    params = FhirDocumentReferenceSearchInput(
+        action="search_document_reference",
+        search_params={"patient": "eXYZ123"},
+    )
+
+    request = httpx.Request("GET", "https://fhir.epic.com/api/FHIR/R4/DocumentReference")
+    response = httpx.Response(403, request=request, text="Forbidden")
+    http_error = httpx.HTTPStatusError("Forbidden", request=request, response=response)
+
+    error_resp = MagicMock()
+    error_resp.raise_for_status.side_effect = http_error
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=error_resp):
+        with pytest.raises(httpx.HTTPStatusError):
+            await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_search_document_reference_generic_error():
+    c = _connector()
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceSearchInput
+
+    params = FhirDocumentReferenceSearchInput(
+        action="search_document_reference",
+        search_params={"patient": "eXYZ123"},
+    )
+
+    with patch(
+        "httpx.AsyncClient.get",
+        new_callable=AsyncMock,
+        side_effect=httpx.ConnectError("connection refused"),
+    ):
+        with pytest.raises(httpx.ConnectError):
+            await c.internal_execute(params, trace_id="test-trace")

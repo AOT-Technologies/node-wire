@@ -58,7 +58,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Connector packages declare node-wire-runtime>=0.1.0 as a PyPI-style dep; install
+      # Connector packages declare node-wire-runtime>=1.0.0 as a PyPI-style dep; install
       # packages/runtime from the repo so pip resolves it without requiring a published wheel.
       - name: Install package and audit tool
         run: |

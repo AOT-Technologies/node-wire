@@ -12,13 +12,13 @@ vulnerability responsibly.
 
 ## Supported Versions
 
-Node Wire is pre-1.0 and under active development. Security fixes are applied to
-the latest released minor version and the `main` branch.
+Node Wire follows [Semantic Versioning](https://semver.org/). Security fixes are
+applied to the latest 1.x release and the `main` branch.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 1.0.x   | :white_check_mark: |
+| < 1.0   | :x:                |
 
 ## Reporting a Vulnerability
 

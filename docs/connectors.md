@@ -29,7 +29,7 @@ Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epi
 | `registration.py` | Optional: registers connector-specific exceptions with `ErrorMapper`. |
 | `exceptions.py` | Optional: custom exception types. |
 
-At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors`, imports each connector's `logic` module (triggering `BaseConnector.__init_subclass__` and `_CONNECTOR_REGISTRY`), then imports optional `registration.py` for `ErrorMapper` side effects.
+At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors`, imports each connector's `logic` module (triggering `BaseConnector.__init_subclass__` and registration via `get_connector_registry()`), then imports optional `registration.py` for `ErrorMapper` side effects.
 
 ---
 
@@ -295,7 +295,7 @@ connectors:
 
 ### Step 5 — Auto-registration (nothing extra needed)
 
-`BaseConnector.__init_subclass__` adds your class to `_CONNECTOR_REGISTRY[connector_id]` as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
+`BaseConnector.__init_subclass__` registers your class (exposed via `get_connector_registry()`) as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
 
 ---
 
@@ -520,7 +520,7 @@ connectors:
 
 | Method | Description |
 |--------|-------------|
-| `load()` | Reads YAML, instantiates all enabled connectors from `_CONNECTOR_REGISTRY`. |
+| `load()` | Reads YAML, instantiates all enabled connectors from the connector registry (`get_connector_registry()`). |
 | `get_for_protocol(id, protocol, action=None)` | Returns connector if enabled and exposed for that protocol; `None` otherwise. |
 | `list_for_protocol(protocol)` | All connectors exposed for a given protocol. |
 

@@ -4,14 +4,14 @@
 
 [project]
 name = "node-wire-stripe"
-version = "0.1.0"
+version = "1.0.0"
 description = "Node Wire connector — Stripe payments"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 
 dependencies = [
-    "node-wire-runtime>=0.1.0",
+    "node-wire-runtime>=1.0.0",
     "stripe>=10.0.0",
 ]
 

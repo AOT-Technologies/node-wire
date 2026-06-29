@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 [project]
 name = "node-wire"
-version = "0.1.0"
+version = "1.0.0"
 description = "Node Wire — runtime, connectors, and bindings"
 license = "Apache-2.0"
 requires-python = ">=3.11"
@@ -14,7 +14,7 @@ authors = [
 readme = "README.md"
 keywords = ["connectors", "mcp", "rest", "grpc", "integration", "runtime"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
@@ -132,6 +132,10 @@ source = ["src"]
 branch = false
 
 [tool.coverage.report]
+# 1.0 release gate: the test run fails if total coverage drops below this floor.
+# Current coverage is well below 80% — raise coverage before tagging v1.0.0, or
+# temporarily lower this value during the ramp (do not remove the gate).
+fail_under = 80
 omit = [
   "*/__pycache__/*",
   "*/node_wire.egg-info/*",

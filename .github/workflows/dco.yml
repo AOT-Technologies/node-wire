@@ -1,0 +1,81 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+
+name: DCO
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: DCO sign-off check
+    # Bots (Dependabot, GitHub Actions, Renovate, etc.) cannot sign off commits.
+    # Skip the check entirely for bot-authored PRs.
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      github.actor != 'renovate[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Verify every commit carries a DCO sign-off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Bot email domains used by GitHub-managed bots. Commits authored by
+          # these are skipped — bots cannot provide a DCO sign-off.
+          BOT_PATTERN="noreply.github.com"
+
+          commits="$(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}")"
+          if [ -z "${commits}" ]; then
+            echo "No non-merge commits to check."
+            exit 0
+          fi
+
+          status=0
+          for sha in ${commits}; do
+            subject="$(git show -s --format='%s' "${sha}")"
+            author="$(git show -s --format='%an <%ae>' "${sha}")"
+            author_email="$(git show -s --format='%ae' "${sha}")"
+
+            if echo "${author_email}" | grep -qF "${BOT_PATTERN}"; then
+              echo "SKIP  ${sha:0:12}  ${subject}  (bot commit)"
+              continue
+            fi
+
+            if git show -s --format='%B' "${sha}" \
+                 | grep -iqF "Signed-off-by: ${author}"; then
+              echo "PASS  ${sha:0:12}  ${subject}"
+            else
+              echo "FAIL  ${sha:0:12}  ${subject}"
+              echo "        missing trailer: Signed-off-by: ${author}"
+              status=1
+            fi
+          done
+
+          if [ "${status}" -ne 0 ]; then
+            echo ""
+            echo "One or more commits are missing a Developer Certificate of Origin sign-off."
+            echo "See https://developercertificate.org/ and CONTRIBUTING.md."
+            echo ""
+            echo "Sign new commits with:   git commit -s"
+            echo "Fix existing commits:    git rebase --signoff ${BASE_SHA} && git push --force-with-lease"
+            exit 1
+          fi
+
+          echo ""
+          echo "All commits are signed off."

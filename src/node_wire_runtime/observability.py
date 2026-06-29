@@ -155,14 +155,16 @@ def init_observability(app_name: str = "node_wire") -> None:
 
     # Initialize Traceloop/OpenLLMetry in metadata-only mode. Advanced AI features
     # (prompt logging, workflows, tools) are intentionally deferred.
-    try:
-        from traceloop.sdk import Traceloop
+    # Skip silently when no API key is configured — Traceloop is optional.
+    if os.environ.get("TRACELOOP_API_KEY"):
+        try:
+            from traceloop.sdk import Traceloop
 
-        Traceloop.init(
-            app_name=app_name,
-        )
-    except Exception as exc:  # pragma: no cover - defensive; should not fail app startup
-        logger.warning("Failed to initialize Traceloop/OpenLLMetry: %s", exc)
+            Traceloop.init(
+                app_name=app_name,
+            )
+        except Exception as exc:  # pragma: no cover - defensive; should not fail app startup
+            logger.warning("Failed to initialize Traceloop/OpenLLMetry: %s", exc)
 
     _INITIALIZED = True
     logger.info("Observability initialized for app %s", app_name)

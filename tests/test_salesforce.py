@@ -280,3 +280,21 @@ async def test_salesforce_delete_lead_happy_path():
     assert result.success is True
     assert result.resource_id == "00Q123456789012"
     assert mock_request.call_args[0][0] == "DELETE"
+
+
+@pytest.mark.asyncio
+async def test_salesforce_read_contact_non_json_response_uses_text():
+    connector = _connector()
+    params = ReadContactInput(record_id="003123456789012")
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.content = b"not-json-body"
+    mock_response.text = "not-json-body"
+    mock_response.json.side_effect = ValueError("invalid json")
+
+    with patch("httpx.AsyncClient.request", return_value=mock_response):
+        result = await connector.read_contact(params, trace_id="test-trace")
+
+    assert result.success is True
+    assert result.data == {"text": "not-json-body"}
