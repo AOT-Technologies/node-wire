@@ -16,6 +16,12 @@ permissions:
 jobs:
   dco:
     name: DCO sign-off check
+    # Bots (Dependabot, GitHub Actions, Renovate, etc.) cannot sign off commits.
+    # Skip the check entirely for bot-authored PRs.
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      github.actor != 'renovate[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +36,10 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Bot email domains used by GitHub-managed bots. Commits authored by
+          # these are skipped — bots cannot provide a DCO sign-off.
+          BOT_PATTERN="noreply.github.com"
+
           commits="$(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}")"
           if [ -z "${commits}" ]; then
             echo "No non-merge commits to check."
@@ -40,6 +50,13 @@ jobs:
           for sha in ${commits}; do
             subject="$(git show -s --format='%s' "${sha}")"
             author="$(git show -s --format='%an <%ae>' "${sha}")"
+            author_email="$(git show -s --format='%ae' "${sha}")"
+
+            if echo "${author_email}" | grep -qF "${BOT_PATTERN}"; then
+              echo "SKIP  ${sha:0:12}  ${subject}  (bot commit)"
+              continue
+            fi
+
             if git show -s --format='%B' "${sha}" \
                  | grep -iqF "Signed-off-by: ${author}"; then
               echo "PASS  ${sha:0:12}  ${subject}"
