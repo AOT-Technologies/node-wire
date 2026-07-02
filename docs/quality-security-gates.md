@@ -12,7 +12,7 @@ This repository enforces security gates at both PR time and publish time.
 
 Workflow: `.github/workflows/quality-gates.yml`
 
-Runs on every pull request and on pushes to `main`/`master`.
+Runs on every pull request and on pushes to `main`.
 
 Required jobs:
 
@@ -20,12 +20,12 @@ Required jobs:
 
 Workflow: `.github/workflows/codeql.yml`
 
-Runs GitHub CodeQL static analysis for Python on pull requests, pushes to `main`/`master`, and weekly (Mondays). No repository secrets are required.
+Runs GitHub CodeQL static analysis for Python on pull requests, pushes to `main`, and weekly (Mondays). No repository secrets are required.
 
 Workflow: `.github/workflows/pytest.yml`
 
 Runs the full test suite on **Linux, macOS, and Windows** (Python 3.11 and 3.12
-matrix) with coverage on every pull request and push to `main`/`master`.
+matrix) with coverage on every pull request and push to `main`.
 Playground integration tests remain manual (`workflow_dispatch`) on Ubuntu only.
 
 Workflow: `.github/workflows/lint.yml` also runs `lockfile-check` (`uv lock --check`) to fail PRs when `pyproject.toml` changes without an updated `uv.lock`.
@@ -33,7 +33,7 @@ Workflow: `.github/workflows/lint.yml` also runs `lockfile-check` (`uv lock --ch
 Workflow: `.github/workflows/secret-scan.yml`
 
 Runs [Gitleaks](https://github.com/gitleaks/gitleaks) on pull requests, pushes to
-`main`/`master`, weekly (Mondays), and on manual dispatch. The workflow checks
+`main`, weekly (Mondays), and on manual dispatch. The workflow checks
 out **full git history** (`fetch-depth: 0`) so secrets in past commits are
 scanned, not only the working tree.
 
@@ -76,7 +76,7 @@ Workflow: `.github/workflows/secret-scan.yml` (Gitleaks).
 
 Policy:
 
-- Scan on every PR and push to `main`/`master`, plus a weekly scheduled run.
+- Scan on every PR and push to `main`, plus a weekly scheduled run.
 - Full repository history is included (`fetch-depth: 0`).
 - Findings fail the workflow; remediate by rotating exposed credentials and
   removing secrets from the codebase (never commit live secrets).

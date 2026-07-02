@@ -16,7 +16,7 @@ on:
       - "packages/**"
       - "src/**"
   push:
-    branches: [main, master]
+    branches: [main]
     paths:
       - ".github/workflows/security-pr.yml"
       - ".github/workflows/publish.yml"
@@ -26,6 +26,13 @@ on:
       - "src/**"
   schedule:
     - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   PIP_AUDIT_VERSION: "2.7.3"
@@ -54,7 +61,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
 
