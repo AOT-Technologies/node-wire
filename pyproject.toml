@@ -36,7 +36,7 @@ dependencies = [
   "grpcio>=1.62.0",
   "grpcio-tools>=1.62.0",
   "aiosmtplib>=3.0.1",
-  "httpx[http2]>=0.27.0,<0.28.0",
+  "httpx[http2]>=0.27.0,<0.29.0",
   "pyyaml>=6.0.1",
   "stripe>=10.0.0",
   "email-validator>=2.0.0",
@@ -107,7 +107,7 @@ dev = [
     "bandit[toml]>=1.7.9",
     "pre-commit>=4.0.0",
     "pytest-playwright>=0.4.0",
-    "cyclonedx-bom==4.6.1",
+    "cyclonedx-bom==7.3.0",
     "reuse>=5.0.0",
     "licenseheaders>=0.8.8",
 ]
