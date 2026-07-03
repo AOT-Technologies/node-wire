@@ -55,6 +55,8 @@ Connector authors depend on these stable modules:
 
 Connectors register via the `node_wire.connectors` entry-point group.
 
+**Bootstrap (not in `__all__`):** `node_wire_runtime.connector_registry.auto_register()` loads entry points at process startup (requires `NW_ALLOWED_CONNECTORS`). In-process usage typically goes through `bindings.factory.ConnectorFactory` after `auto_register()`, not direct registry access.
+
 ## Wire contracts
 
 - **REST** — routes and request/response schemas served by the API binding

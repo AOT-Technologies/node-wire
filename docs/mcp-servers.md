@@ -65,6 +65,106 @@ flowchart TD
 | Salesforce | `python -m agents.salesforce_mcp` | `nw-salesforce` | `nw-salesforce` | All manifest actions for `salesforce` (e.g., `salesforce.create_lead`) |
 | Slack | `python -m agents.slack_mcp` | `nw-slack` | `nw-slack` | All manifest actions for `slack` (e.g. `slack.post_message`) |
 
+### Adding a row for a new connector
+
+When you add a standalone MCP server for a connector, add a row to the table above and update these files:
+
+| Field | Convention |
+|-------|--------------|
+| Python entrypoint | `python -m agents.<connector_id>_mcp` (or `uv run nw-<kebab-name>` from root `pyproject.toml` `[project.scripts]`) |
+| Docker image | `nw-<kebab-name>` |
+| ToolHive name | Same as Docker image tag |
+| MCP tools | `<connector_id>.<action>` for each manifest action |
+
+Files to update: `src/agents/<name>_mcp.py`, root `pyproject.toml` `[project.scripts]`, `docker/<name>/Dockerfile`, `scripts/build-mcp-images.sh`, `docker-compose.mcp.yml`, this table, and [local-packages-to-images.md](local-packages-to-images.md). See [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector) for the full checklist.
+
+#### Per-connector MCP entrypoint template (`src/agents/<name>_mcp.py`)
+
+Every per-connector MCP file follows the same pattern — create `src/agents/<connector_id>_mcp.py`:
+
+```python
+# src/agents/<connector_id>_mcp.py
+"""MCP Server — <Name> connector only. Usage: python -m agents.<connector_id>_mcp"""
+from __future__ import annotations
+
+import logging
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("agents.<connector_id>_mcp")
+
+
+def main() -> None:
+    from bindings.mcp_server.server import McpServer
+
+    logger.info("Starting nw-<name> MCP server (stdio, manifest-driven)")
+    McpServer(
+        server_name="nw-<name>",
+        connector_ids=["<connector_id>"],
+    ).run_stdio()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+`McpServer` is the shared manifest-driven server from `bindings.mcp_server.server`. The `connector_ids` list filters the full connector registry to only the connectors this image should expose. `run_stdio()` starts the MCP stdio transport; call `run_streamable_http()` instead for the HTTP transport (reads `NW_MCP_HOST`/`NW_MCP_PORT`/`NW_MCP_PATH`).
+
+Then register the script in root `pyproject.toml`:
+
+```toml
+[project.scripts]
+nw-<name> = "agents.<connector_id>_mcp:main"
+```
+
+#### Dockerfile template (`docker/<name>/Dockerfile`)
+
+All per-connector Docker images follow the same structure. The key requirements are: copy `src/` and `config/` from the repo root, install pre-built wheels from `/wheels/`, pin `NW_ALLOWED_CONNECTORS` to the single connector ID, and run as a non-root user.
+
+```dockerfile
+FROM python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4
+
+LABEL org.opencontainers.image.title="nw-<name>" \
+      org.opencontainers.image.description="Node Wire — <Name> MCP server" \
+      org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY src/ ./src/
+COPY config/ ./config/
+COPY packages/runtime/dist/*.whl /wheels/
+COPY packages/connectors/<name>/dist/*.whl /wheels/
+
+ENV PYTHONPATH=/app/src \
+    NW_ALLOWED_CONNECTORS=<connector_id>
+
+RUN pip install --no-cache-dir --find-links=/wheels \
+    node-wire-runtime node-wire-<name> "mcp>=1.6.0" \
+    && rm -rf /wheels
+
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --home /app app \
+    && chown -R app:app /app
+
+USER app
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD \
+    python -c "from agents.<connector_id>_mcp import main; assert callable(main); print('ok')" || exit 1
+
+CMD ["python", "-m", "agents.<connector_id>_mcp"]
+```
+
+> **Note:** The `COPY packages/connectors/<name>/dist/*.whl` line requires the connector's publishable wheel (Tier 2) to be built first via `bash scripts/build-packages.sh packages/connectors/<name>`. Build wheels before building Docker images.
+
 
 The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, `stripe.create_payment_intent`, `stripe.create_subscription`, `stripe.cancel_subscription`, `stripe.issue_refund`, plus the rows above).
 
@@ -79,6 +179,21 @@ The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connect
 | Variable | Values | Purpose |
 |----------|--------|---------|
 | `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD` | `warn` (default), `allow` (same mapping, no deprecation log), `reject` | Legacy payload `action: "upload"` for `google_drive.files.upload`. Use `reject` once all clients omit `action` or use canonical `files.upload` only in pre-invoke validation paths. |
+
+---
+
+## Command reference
+
+| Goal | Command |
+|------|---------|
+| Combined MCP server (all MCP-enabled connectors) | `uv run python -m agents.mcp_entrypoint` |
+| Single-connector MCP | `uv run nw-<connector>` or `python -m agents.<connector>_mcp` |
+| REST API | `uv run node-wire` (default `MODE=API`) |
+| gRPC | `MODE=GRPC uv run node-wire` |
+
+For MCP transport configuration (`NW_MCP_TRANSPORT`, `streamable-http`, Inspector), see **[mcp.md](mcp.md)** (canonical MCP transport doc). For REST/gRPC setup see **[installation.md](installation.md)**.
+
+> **Note:** `uv run node-wire` and `python -m bindings_entrypoint` start the **REST API** by default (`MODE=API`). They do **not** start an MCP transport server. `MODE=MCP` on `bindings_entrypoint` is a POC stub only — use `agents.mcp_entrypoint` for real MCP.
 
 ---
 
@@ -103,7 +218,13 @@ You can switch modes and ports instantly using environment variables. No code ch
 No extra variables are needed. This is the mode expected by local stdio clients and ToolHive-style stdio wrapping.
 
 ```bash
+# Using uv
+uv run python -m agents.mcp_entrypoint
+
+# Using python
 python -m agents.mcp_entrypoint
+
+# Per-connector: uv run nw-slack
 ```
 
 PowerShell:
@@ -111,10 +232,10 @@ PowerShell:
 ```powershell
 $env:NW_MCP_TRANSPORT="stdio"
 # Using uv
-uv run node-wire
+uv run python -m agents.mcp_entrypoint
 
 # Using python
-python -m bindings_entrypoint
+python -m agents.mcp_entrypoint
 ```
 
 #### 2. Shifting to native HTTP mode (Port 8081)
@@ -127,10 +248,10 @@ $env:NW_MCP_HOST="127.0.0.1"
 $env:NW_MCP_PORT="8081"
 $env:NW_MCP_PATH="/mcp"
 # Using uv
-uv run node-wire
+uv run python -m agents.mcp_entrypoint
 
 # Using python
-python -m bindings_entrypoint
+python -m agents.mcp_entrypoint
 ```
 
 **Bash (Linux/macOS):**
@@ -140,10 +261,10 @@ export NW_MCP_HOST="127.0.0.1"
 export NW_MCP_PORT="8081"
 export NW_MCP_PATH="/mcp"
 # Using uv
-uv run node-wire
+uv run python -m agents.mcp_entrypoint
 
 # Using python
-python -m bindings_entrypoint
+python -m agents.mcp_entrypoint
 ```
 
 The native HTTP endpoint will be:
@@ -633,7 +754,10 @@ python -m agents.toolhive --local --patient-id 12724066 --recipient-email you@ex
 | `fhir_epic connector not configured` | Missing Epic env vars | Ensure all `EPIC_*` variables are set and non-empty |
 | `fhir_cerner connector not configured` | Missing Cerner env vars | Ensure all `CERNER_*` variables are set and non-empty |
 | Docker build fails with `COPY src/ not found` | Wrong build context | Always run `docker build` from the **repository root**, not from `docker/<name>/` |
+| Docker build fails with `COPY packages/connectors/.../dist/*.whl` | Missing wheel | Run `bash scripts/build-packages.sh packages/connectors/<name>` to build the wheel first (Tier 2 must exist before Docker image) |
 | Image healthcheck fails | Import error at startup | Run `docker logs <container>` to see the Python traceback; usually a missing env var |
+| Log shows many `Connector enabled in configuration but not registered; skipping instantiation` warnings | Expected behaviour | Per-connector images set `NW_ALLOWED_CONNECTORS` to one ID; all other connectors in `config/connectors.yaml` produce this warning and are correctly skipped. Not an error. |
+| `MCP server initialized \| manifest_contract=5` — what does the number mean? | Version indicator | `manifest_contract` is the MCP input-schema contract version (currently 5), **not** the number of tools. Use `tools/list` to count exposed tools. |
 
 ## Rollout verification checklist
 

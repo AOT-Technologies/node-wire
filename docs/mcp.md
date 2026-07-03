@@ -6,6 +6,8 @@
 
 Node Wire integrates with the Model Context Protocol to allow AI agents (like Claude or custom LLM orchestrators) to discover and use connectors as tools.
 
+For **per-connector Docker images and ToolHive registration**, see [mcp-servers.md](mcp-servers.md).
+
 For **outbound OAuth** when connecting to remote authorized MCP servers over HTTP, see [mcp-client-oauth.md](mcp-client-oauth.md).
 
 ## Transport Modes

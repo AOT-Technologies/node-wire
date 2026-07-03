@@ -14,7 +14,7 @@ The Dockerfiles in this repo install local wheel artifacts from `packages/**/dis
 
 ## Prerequisites
 
-- Python 3.12 available in your shell
+- Python 3.11+ available in your shell
 - Docker installed and running
 - Build tooling installed:
 

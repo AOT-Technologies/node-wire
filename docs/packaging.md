@@ -26,6 +26,56 @@ Node Wire ships as **nine independent PyPI packages** (the runtime plus eight co
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`.
 
+**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](../scripts/build-packages.sh). MCP Docker images are a **separate, smaller set** (seven connectors today) — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
+
+---
+
+## Adding a new publishable connector
+
+After implementing the connector runtime (see [connectors.md](connectors.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
+
+### Tier 1 — Runtime (dev, always required)
+
+| File / area | Purpose |
+|---|---|
+| `src/node_wire_<name>/` | `schema.py`, `logic.py`, optional `registration.py`, `action_spec.py`, `README.md` |
+| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
+| `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
+| [`sample.env`](../sample.env) | Commented placeholders for connector secrets |
+| Tests | e.g. `tests/test_connectors_basic.py`, registry tests |
+
+`auto_register()` discovers the connector via the entry point — no factory branch required.
+
+### Tier 2 — Publishable PyPI package
+
+| File | Purpose |
+|---|---|
+| `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point |
+| `packages/connectors/<name>/setup.py` | Cython/build glue (copy pattern from an existing connector) |
+| [`scripts/build-packages.sh`](../scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
+| [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) | Add to `allowed` set |
+| [`.github/workflows/github-release.yml`](../.github/workflows/github-release.yml) | Add to `package_paths` |
+| [`.github/workflows/security-pr.yml`](../.github/workflows/security-pr.yml) | Add to matrix `package_path` |
+| This doc — [Package inventory](#package-inventory) | Add row; update package count |
+| Root + all package `pyproject.toml` | Version bump on release |
+| `CHANGELOG.md` | Release section |
+
+### Tier 3 — Standalone MCP server (optional)
+
+> **Prerequisite:** Tier 2 (the PyPI wheel) must be completed first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
+
+Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined `agents.mcp_entrypoint` server). For the entrypoint code template and Dockerfile template see [mcp-servers.md — Adding a row for a new connector](mcp-servers.md#adding-a-row-for-a-new-connector).
+
+| File | Purpose |
+|---|---|
+| `src/agents/<name>_mcp.py` | Per-connector MCP agent entrypoint |
+| Root `pyproject.toml` | `[project.scripts]` e.g. `nw-<kebab-name>` |
+| `docker/<name>/Dockerfile` | Demo MCP image |
+| [`scripts/build-mcp-images.sh`](../scripts/build-mcp-images.sh) | `docker build` block |
+| [`docker-compose.mcp.yml`](../docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
+| [mcp-servers.md](mcp-servers.md) | Naming conventions table row |
+| [local-packages-to-images.md](local-packages-to-images.md) | Wheel → image mapping |
+
 ---
 
 ## Python package build lifecycle
