@@ -76,7 +76,7 @@ When you add a standalone MCP server for a connector, add a row to the table abo
 | ToolHive name | Same as Docker image tag |
 | MCP tools | `<connector_id>.<action>` for each manifest action |
 
-Files to update: `src/agents/<name>_mcp.py`, root `pyproject.toml` `[project.scripts]`, `docker/<name>/Dockerfile`, `scripts/build-mcp-images.sh`, `docker-compose.mcp.yml`, this table, and [local-packages-to-images.md](local-packages-to-images.md). See [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector) for the full checklist.
+Files to update: `src/agents/<name>_mcp.py`, root `pyproject.toml` `[project.scripts]`, `docker/<name>/Dockerfile`, `scripts/build-mcp-images.sh`, `docker-compose.mcp.yml`, this table (naming conventions + architecture diagram), and [local-packages-to-images.md](local-packages-to-images.md) (wheel requirements table). See [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector) for the full checklist.
 
 #### Per-connector MCP entrypoint template (`src/agents/<name>_mcp.py`)
 

@@ -23,6 +23,7 @@ Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epi
 
 | File | Role |
 |------|------|
+| `__init__.py` | Required empty file — marks the directory as a Python package. |
 | `schema.py` | Pydantic input/output models. Each input model has an `action: Literal[...]` discriminator field (often combined into a discriminated union). |
 | `logic.py` | Connector class: `BaseConnector` subclass — either explicit `@nw_action` methods, or **`action_specs`** plus an optional `_execute_action_spec` override for SDK dispatch. |
 | `action_spec.py` (optional) | Declarative `SdkActionSpec` entries mapping validated models to vendor SDK calls (see Google Drive). |
@@ -258,7 +259,7 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 |-------|----------|---------|-------|
 | `secret_key` | Yes | — | Env var name holding the raw token value (`EnvSecretProvider` tries the key as-is, then uppercased). |
 | `header_name` | No | `Authorization` | HTTP header the token is injected into. |
-| `prefix` | No | `Bearer ` (with trailing space) | String prepended to the token value. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token "` for older GitHub PAT style. |
+| `prefix` | No | `Bearer ` (with trailing space) | String prepended to the token value. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token "` for APIs that require the `token` scheme (check your vendor's auth docs). |
 
 So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
 
@@ -562,25 +563,25 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 
 ### Runtime (dev)
 
-1. Create the package directory `src/node_wire_<name>/` with `schema.py` (Pydantic input/output models) and register the entry point under `[project.entry-points."node_wire.connectors"]` in the root `pyproject.toml`.
-2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`.
+1. Create the package directory `src/node_wire_<name>/`. The directory **must contain `__init__.py`** (empty is fine) to be importable as a Python package. Add `schema.py` with Pydantic input/output models and register the entry point under `[project.entry-points."node_wire.connectors"]` in the root `pyproject.toml`.
+2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`.
 3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
 4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
 5. Optionally add `error_map` and/or `registration.py` for custom exception handling (see [registration.py example](#optional-registrationpy-for-errormapper) below).
 6. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
-7. **Environment template:** Add required secrets and connector-specific vars to [`sample.env`](../sample.env) (referenced by [configuration.md](configuration.md) and [installation.md](installation.md)). Use commented placeholders with the env var names your connector reads via `SecretProvider`.
+7. **Environment template:** Add required secrets and connector-specific vars to [`sample.env`](../sample.env) (referenced by [configuration.md](configuration.md) and [installation.md](installation.md)). Use commented placeholders with the env var names your connector reads via `SecretProvider`. Also add the new connector's entry-point name to the `NW_ALLOWED_CONNECTORS` line so the template stays current.
 8. `auto_register()` handles runtime registration — **no factory branch required**.
 
 ### Publishable PyPI package (when shipping on PyPI)
 
-9. Add `packages/connectors/<name>/pyproject.toml` and `setup.py`; register the entry point.
-10. Add the package path to **`scripts/build-packages.sh`** (`ALL_PACKAGES`) and CI allowlists (`.github/workflows/publish.yml`, `github-release.yml`, `security-pr.yml`).
+9. Create `packages/connectors/<name>/pyproject.toml` and `packages/connectors/<name>/setup.py`. See [packaging.md — Tier 2 templates](packaging.md#tier-2-templates) for copy-paste starting points for both files.
+10. Add the package path to **`scripts/build-packages.sh`** (`ALL_PACKAGES`) and to the three CI workflow allowlists — see [packaging.md — CI allowlist updates](packaging.md#ci-allowlist-updates) for the exact lines to add in each file.
 11. Update the inventory table in **[packaging.md](packaging.md)**.
 
 ### Standalone MCP server (optional — dedicated Docker/ToolHive image)
 
-12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`** and **`docker-compose.mcp.yml`**.
-13. Add a row to the naming table in **[mcp-servers.md](mcp-servers.md)**.
+12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
+13. Add a row to the naming table in **[mcp-servers.md](mcp-servers.md)** and update the architecture diagram in that file to include the new connector.
 
 For full file lists see [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
 
