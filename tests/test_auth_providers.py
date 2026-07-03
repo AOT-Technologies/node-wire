@@ -462,3 +462,65 @@ def test_factory_builds_service_account_provider() -> None:
     }
     provider = factory._build_auth_provider("google_drive", cfg)
     assert isinstance(provider, ServiceAccountAuthProvider)
+
+
+@pytest.mark.asyncio
+async def test_factory_builds_upstream_bearer_provider() -> None:
+    from bindings.factory import ConnectorFactory
+    from node_wire_runtime.auth.base import (
+        get_upstream_bearer,
+        reset_upstream_bearer,
+        set_upstream_bearer,
+    )
+
+    sp = _DictSecretProvider({})
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+
+    provider = factory._build_auth_provider(
+        "google_drive", {"auth": {"provider": "upstream_bearer"}}
+    )
+    assert getattr(provider, "per_request_credentials", False) is True
+
+    ctx = set_upstream_bearer("google-access-token")
+    try:
+        creds = await provider.get_client_credentials()
+        assert creds is not None
+        assert creds.token == "google-access-token"
+        headers = await provider.get_headers()
+        assert headers["Authorization"] == "Bearer google-access-token"
+    finally:
+        reset_upstream_bearer(ctx)
+
+    assert get_upstream_bearer() is None
+
+
+def test_google_drive_auth_provider_env_overrides_yaml(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from bindings.factory import ConnectorFactory
+
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    sp = _DictSecretProvider({})
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+
+    cfg = {
+        "auth": {
+            "provider": "service_account",
+            "sa_json_secret": "GOOGLE_DRIVE_SA_JSON",
+        }
+    }
+    provider = factory._build_auth_provider("google_drive", cfg)
+    assert getattr(provider, "per_request_credentials", False) is True
+    assert not isinstance(provider, ServiceAccountAuthProvider)
+
+
+def test_google_drive_auth_provider_env_invalid_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from bindings.factory import _resolve_google_drive_auth
+
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "oauth2")
+    with pytest.raises(ValueError, match="GOOGLE_DRIVE_AUTH_PROVIDER"):
+        _resolve_google_drive_auth({"provider": "service_account"})

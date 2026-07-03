@@ -16,6 +16,7 @@ from bindings.factory import ConnectorFactory
 from bindings.mcp_server.auth import (
     McpAuthError,
     authenticate_mcp_request,
+    reset_upstream_passthrough_context,
     log_effective_mcp_auth_state,
 )
 from node_wire_runtime.caller_identity import CallerIdentity
@@ -23,6 +24,7 @@ from node_wire_runtime.policies.mcp_scope_policy import (
     action_allowed_for_identity_scopes,
     load_scope_map_from_env,
     load_scope_policy_default_from_env,
+    resolve_required_scope_for_action,
 )
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
@@ -115,6 +117,45 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
     return data, False, 0, next_page_token
 
 
+def _resolve_upstream_passthrough(
+    factory: ConnectorFactory,
+    connector_ids: frozenset[str] | None,
+) -> bool:
+    """Enable when google_drive-only MCP server uses upstream_bearer auth."""
+    if connector_ids != frozenset({"google_drive"}):
+        return False
+    cfg = factory._configs.get("google_drive")
+    if cfg is None:
+        return False
+    auth = cfg.raw.get("auth") or {}
+    return auth.get("provider") == "upstream_bearer"
+
+
+def _upstream_passthrough_scopes(
+    factory: ConnectorFactory,
+    connector_ids: frozenset[str] | None,
+) -> tuple[str, ...]:
+    if connector_ids is None:
+        return ()
+    scope_map = load_scope_map_from_env()
+    default_mode = load_scope_policy_default_from_env()
+    manifest = build_manifest(factory.list_for_protocol("mcp"))
+    scopes: set[str] = set()
+    for entry in manifest:
+        cid = entry["connector_id"]
+        if cid not in connector_ids:
+            continue
+        required = resolve_required_scope_for_action(
+            connector_id=cid,
+            action=str(entry["action"]),
+            action_scope_map=scope_map,
+            default_mode=default_mode,
+        )
+        if required:
+            scopes.add(required)
+    return tuple(sorted(scopes))
+
+
 class McpServer:
     """
     Manifest-driven MCP server: tools come from connector metadata; execution
@@ -137,6 +178,14 @@ class McpServer:
         auto_register()
         self._factory = ConnectorFactory()
         self._factory.load()
+        self._upstream_passthrough = _resolve_upstream_passthrough(
+            self._factory, self._connector_ids
+        )
+        self._upstream_passthrough_scopes = (
+            _upstream_passthrough_scopes(self._factory, self._connector_ids)
+            if self._upstream_passthrough
+            else ()
+        )
         try:
             from importlib.metadata import version as pkg_version
 
@@ -225,6 +274,8 @@ class McpServer:
         return authenticate_mcp_request(
             headers=_http_request_headers.get(),
             meta=meta,
+            upstream_passthrough=self._upstream_passthrough,
+            upstream_granted_scopes=self._upstream_passthrough_scopes,
         )
 
     def _request_meta_from_context(self) -> Mapping[str, Any] | None:
@@ -495,6 +546,9 @@ class McpServer:
         from starlette.responses import JSONResponse
         from starlette.routing import Route
 
+        upstream_passthrough = self._upstream_passthrough
+        upstream_granted_scopes = self._upstream_passthrough_scopes
+
         @asynccontextmanager
         async def lifespan(app: Starlette):
             async with session_manager.run():
@@ -505,7 +559,11 @@ class McpServer:
                 if request.url.path != path:
                     return await call_next(request)
                 try:
-                    identity = authenticate_mcp_request(headers=request.headers)
+                    identity = authenticate_mcp_request(
+                        headers=request.headers,
+                        upstream_passthrough=upstream_passthrough,
+                        upstream_granted_scopes=upstream_granted_scopes,
+                    )
                 except McpAuthError as exc:
                     headers: Dict[str, str] = {}
                     if exc.www_authenticate:
@@ -522,6 +580,7 @@ class McpServer:
                     return await call_next(request)
                 finally:
                     _streamable_http_identity_ctx.reset(token)
+                    reset_upstream_passthrough_context()
 
         # Use a wrapper class to ensure Starlette treats this as an ASGI app
         # without the automatic redirection logic of Mount().
