@@ -19,10 +19,13 @@ from node_wire_google_drive.exceptions import (
 )
 from node_wire_google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnector
 from node_wire_google_drive.schema import (
+    FilesListOperation,
     FilesUploadOperation,
     GoogleDriveOperationInput,
 )
 from node_wire_runtime import SecretProvider
+from node_wire_runtime.auth import ServiceAccountAuthProvider
+from node_wire_runtime.auth.base import reset_upstream_bearer, set_upstream_bearer
 
 
 class MockSecretProvider(SecretProvider):
@@ -41,7 +44,14 @@ class DummyHttpError(Exception):
 
 
 def _connector() -> GoogleDriveConnector:
-    return GoogleDriveConnector(secret_provider=MockSecretProvider())
+    sp = MockSecretProvider()
+    return GoogleDriveConnector(
+        secret_provider=sp,
+        auth_provider=ServiceAccountAuthProvider(
+            secret_provider=sp,
+            sa_json_secret="GOOGLE_DRIVE_SA_JSON",
+        ),
+    )
 
 
 def test_files_upload_operation_requires_exactly_one_body_source() -> None:
@@ -123,6 +133,57 @@ def test_google_drive_schema_discriminator_validation():
 
     with pytest.raises(ValidationError):
         GoogleDriveOperationInput.model_validate({"action": "files.unknown", "file_id": "abc123"})
+
+
+@pytest.mark.asyncio
+async def test_google_drive_upstream_bearer_uses_request_token() -> None:
+    from bindings.factory import ConnectorFactory
+
+    sp = MockSecretProvider()
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+    provider = factory._build_auth_provider(
+        "google_drive", {"auth": {"provider": "upstream_bearer"}}
+    )
+    connector = GoogleDriveConnector(secret_provider=sp, auth_provider=provider)
+
+    drive = MagicMock()
+    files_api = drive.files.return_value
+    list_call = files_api.list.return_value
+    list_call.execute.return_value = {"files": []}
+
+    ctx = set_upstream_bearer("google-token-a")
+    try:
+        with patch("node_wire_google_drive.logic.build", return_value=drive) as mock_build:
+            await connector._execute_action_spec(
+                "files.list",
+                FilesListOperation(action="files.list", page_size=5),
+                trace_id="trace-1",
+            )
+            creds = mock_build.call_args.kwargs["credentials"]
+            assert creds.token == "google-token-a"
+    finally:
+        reset_upstream_bearer(ctx)
+
+
+@pytest.mark.asyncio
+async def test_google_drive_upstream_bearer_no_token_raises() -> None:
+    from bindings.factory import ConnectorFactory
+
+    sp = MockSecretProvider()
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+    provider = factory._build_auth_provider(
+        "google_drive", {"auth": {"provider": "upstream_bearer"}}
+    )
+    connector = GoogleDriveConnector(secret_provider=sp, auth_provider=provider)
+
+    with pytest.raises(GoogleDriveAuthError, match="Upstream bearer token required"):
+        await connector._execute_action_spec(
+            "files.list",
+            FilesListOperation(action="files.list", page_size=5),
+            trace_id="trace-1",
+        )
 
 
 @pytest.mark.parametrize(
