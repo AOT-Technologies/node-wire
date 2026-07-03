@@ -226,18 +226,37 @@ Node Wire provides a shared **`AuthProvider`** abstraction (`src/node_wire_runti
 
 To use authentication, call **`await self.get_auth_headers()`** (inherited from `BaseConnector`). This returns a dictionary of headers (e.g. `{"Authorization": "Bearer <token>"}`) injected by the configured provider.
 
+There are two patterns depending on how your connector talks to the vendor:
+
+**HTTP connectors** (direct REST calls via `httpx`) — create a short-lived client inside each `@nw_action` method. Do **not** override `build_client()`:
+
 ```python
-# logic.py usage
+# logic.py — HTTP connector pattern (e.g. Slack, FHIR, GitHub)
 # Base URL: read from the connector's own config, an env var, or a module constant.
 # There is no inherited _get_base_url() helper — connectors own their URL resolution.
 BASE_URL = "https://api.example.com"   # or: os.environ["MY_SERVICE_URL"]
 
+@nw_action("read_resource")
 async def read_resource(self, params: In, *, trace_id: str) -> Out:
     headers = await self.get_auth_headers()  # Fetched/cached by provider
-    
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{BASE_URL}/resource", headers=headers)
         resp.raise_for_status()
+    ...
+```
+
+**SDK connectors** (vendor Python SDK with a long-lived client object) — override `build_client()` so `get_client()` can cache the result across calls. Auth is handled inside `build_client()`, not via `get_auth_headers()`:
+
+```python
+# logic.py — SDK connector pattern (e.g. Google Drive)
+def build_client(self) -> Any:
+    # Read credential from secret provider and build the vendor client once.
+    raw_sa = self.secret_provider.get_secret("MY_SA_JSON")
+    creds = ...
+    return vendor_sdk.build("v1", credentials=creds)
+
+async def _execute_action_spec(self, action_name, params, *, trace_id, log_extra=None):
+    client = self.get_client()  # cached; calls build_client() on first use
     ...
 ```
 
@@ -564,7 +583,7 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 ### Runtime (dev)
 
 1. Create the package directory `src/node_wire_<name>/`. The directory **must contain `__init__.py`** (empty is fine) to be importable as a Python package. Add `schema.py` with Pydantic input/output models and register the entry point under `[project.entry-points."node_wire.connectors"]` in the root `pyproject.toml`.
-2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`.
+2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`. For HTTP-based connectors use an inline `async with httpx.AsyncClient() as client:` inside each `@nw_action` method (see [Using Auth in a Connector](#using-auth-in-a-connector)); only override `build_client()` / `get_client()` when wrapping a vendor SDK that requires a long-lived client object (e.g. `google_drive`).
 3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
 4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
 5. Optionally add `error_map` and/or `registration.py` for custom exception handling (see [registration.py example](#optional-registrationpy-for-errormapper) below).
@@ -579,6 +598,8 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 11. Update the inventory table in **[packaging.md](packaging.md)**.
 
 ### Standalone MCP server (optional — dedicated Docker/ToolHive image)
+
+> **Prerequisite:** Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
 
 12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
 13. Add a row to the naming table in **[mcp-servers.md](mcp-servers.md)** and update the architecture diagram in that file to include the new connector.
