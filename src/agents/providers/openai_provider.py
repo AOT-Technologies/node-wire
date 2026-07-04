@@ -17,7 +17,7 @@ import json
 import logging
 from typing import Any, Dict, List, cast
 
-from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
 logger = logging.getLogger("agents.providers.openai")
 

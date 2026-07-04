@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
 logger = logging.getLogger("agents.providers.anthropic")
 
