@@ -2081,13 +2081,18 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                     yield json.dumps(event) + "\n"
 
         except Exception as exc:
-            logger.error("Agent Chat stream failed: %s", exc, exc_info=True)
             trace_id = str(uuid.uuid4())
+            logger.error(
+                "Agent Chat stream failed (trace_id=%s): %s", trace_id, exc, exc_info=True
+            )
             yield (
                 json.dumps(
                     {
                         "type": "final_chunk",
-                        "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
+                        "content": (
+                            "Sorry, I encountered an internal error. "
+                            f"Please check the server configuration and try again. trace_id={trace_id}"
+                        ),
                     }
                 )
                 + "\n"
