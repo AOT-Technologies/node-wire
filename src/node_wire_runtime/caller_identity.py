@@ -12,6 +12,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Mapping
 
 import jwt
@@ -20,8 +21,6 @@ logger = logging.getLogger("runtime.caller_identity")
 
 JWT_AUDIENCE_ENV = "NW_JWT_AUDIENCE"
 JWT_ISSUER_ENV = "NW_JWT_ISSUER"
-
-_jwt_aud_iss_warned = False
 
 
 @dataclass(frozen=True)
@@ -101,11 +100,9 @@ def load_jwt_audience_issuer_from_env() -> tuple[str, str] | None:
     return str(audience).strip(), str(issuer).strip()
 
 
+@lru_cache(maxsize=None)
 def warn_jwt_audience_issuer_not_configured() -> None:
-    global _jwt_aud_iss_warned
-    if _jwt_aud_iss_warned:
-        return
-    _jwt_aud_iss_warned = True
+    """Warn once per process; ``lru_cache`` suppresses repeats."""
     logger.warning(
         "JWT secret is configured but %s and %s are not set; JWT verification will fail",
         JWT_AUDIENCE_ENV,

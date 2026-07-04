@@ -49,9 +49,9 @@ def _ensure_traceloop_stub_modules() -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def reset_observability_initialized() -> None:
-    obs._INITIALIZED = False
+    obs._STATE["initialized"] = False
     yield
-    obs._INITIALIZED = False
+    obs._STATE["initialized"] = False
 
 
 @contextmanager

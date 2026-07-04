@@ -90,6 +90,11 @@ _REST_SMOKE_CASES = [
 ]
 
 
+def test_smoke_cases_cover_all_eight_connectors() -> None:
+    covered = {case.values[0] for case in _REST_SMOKE_CASES}
+    assert covered == set(_ALL_EIGHT_CONNECTOR_IDS)
+
+
 def _stub_connector(response: ConnectorResponse) -> MagicMock:
     connector = MagicMock()
     connector.run = AsyncMock(return_value=response)

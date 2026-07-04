@@ -67,8 +67,6 @@ _LOG_RECORD_STANDARD_KEYS = frozenset(
     }
 )
 
-_SANITIZING_FILTER_INSTALLED = False
-
 
 def _normalize_key(key: str) -> str:
     return key.lower().replace("_", "").replace("-", "").replace(" ", "")
@@ -137,16 +135,10 @@ class SanitizingLogFilter(logging.Filter):
 
 def install_sanitizing_log_filter() -> None:
     """Attach :class:`SanitizingLogFilter` to the root logger once."""
-    global _SANITIZING_FILTER_INSTALLED
-    if _SANITIZING_FILTER_INSTALLED:
-        return
     root = logging.getLogger()
-    for flt in root.filters:
-        if isinstance(flt, SanitizingLogFilter):
-            _SANITIZING_FILTER_INSTALLED = True
-            return
+    if any(isinstance(flt, SanitizingLogFilter) for flt in root.filters):
+        return
     root.addFilter(SanitizingLogFilter())
-    _SANITIZING_FILTER_INSTALLED = True
 
 
 def fhir_log_extra(trace_id: str, *, mode: str) -> dict[str, str]:

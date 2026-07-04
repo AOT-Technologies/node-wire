@@ -26,7 +26,9 @@ from node_wire_runtime.log_sanitization import (
 
 logger = logging.getLogger("runtime.observability")
 
-_INITIALIZED: bool = False
+# Mutable holder so init_observability can flip the flag without rebinding a
+# module global (tests reset it via _STATE["initialized"] = False).
+_STATE: dict[str, bool] = {"initialized": False}
 
 
 class _OtelContextFilter(logging.Filter):
@@ -92,8 +94,7 @@ def init_observability(app_name: str = "node_wire") -> None:
     This is intended to be called once at process startup (e.g. from the
     bindings_entrypoint main()) and is safe to call multiple times.
     """
-    global _INITIALIZED
-    if _INITIALIZED:
+    if _STATE["initialized"]:
         return
 
     install_sanitizing_log_filter()
@@ -166,5 +167,5 @@ def init_observability(app_name: str = "node_wire") -> None:
         except Exception as exc:  # pragma: no cover - defensive; should not fail app startup
             logger.warning("Failed to initialize Traceloop/OpenLLMetry: %s", exc)
 
-    _INITIALIZED = True
+    _STATE["initialized"] = True
     logger.info("Observability initialized for app %s", app_name)

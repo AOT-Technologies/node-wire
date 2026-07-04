@@ -15,7 +15,7 @@ Authentication is handled via SecretProvider (never hard-coded here).
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -106,20 +106,6 @@ class SlackUploadFileInput(_BaseSlackInput):
         default="",
         description="Base64-encoded file content. Mutually exclusive with filepath.",
     )
-
-
-# ---------------------------------------------------------------------------
-# Discriminated union — used by BaseConnector internally
-# ---------------------------------------------------------------------------
-
-_SlackOperationUnion = Annotated[
-    Union[
-        SlackPostMessageInput,
-        SlackSendDirectMessageInput,
-        SlackUploadFileInput,
-    ],
-    Field(discriminator="action"),
-]
 
 
 # ---------------------------------------------------------------------------
