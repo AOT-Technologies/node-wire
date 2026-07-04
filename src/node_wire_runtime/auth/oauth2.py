@@ -224,9 +224,7 @@ class OAuth2AuthProvider(AuthProvider):
                 if val and val.strip():
                     return val.strip()
             except Exception as exc:
-                logger.debug(
-                    "Scope secret lookup failed, falling back to static scopes: %s", exc
-                )
+                logger.debug("Scope secret lookup failed, falling back to static scopes: %s", exc)
         if self._static_scopes:
             return " ".join(self._static_scopes)
         return None

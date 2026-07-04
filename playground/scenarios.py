@@ -313,8 +313,10 @@ async def execute_with_retry(
                 logger.error(f"Action failed after {max_retries + 1} attempts: {e}")
                 raise last_exception
     # Only reachable when max_retries < 0 leaves the loop with zero iterations.
-    raise last_exception if last_exception else RuntimeError(
-        f"execute_with_retry made no attempts (max_retries={max_retries})"
+    raise (
+        last_exception
+        if last_exception
+        else RuntimeError(f"execute_with_retry made no attempts (max_retries={max_retries})")
     )
 
 
@@ -2077,9 +2079,7 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
 
         except Exception as exc:
             trace_id = str(uuid.uuid4())
-            logger.error(
-                "Agent Chat stream failed (trace_id=%s): %s", trace_id, exc, exc_info=True
-            )
+            logger.error("Agent Chat stream failed (trace_id=%s): %s", trace_id, exc, exc_info=True)
             yield (
                 json.dumps(
                     {

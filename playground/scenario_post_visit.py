@@ -75,9 +75,7 @@ async def run_scenario():
 
     print("\n=== STEP 1: Patient Discovery ===")
     patient_search_params = {"family": "Smith", "given": "Jason", "birthdate": "1985-01-01"}
-    logger.info(
-        "Searching for patient by fields: %s", ", ".join(sorted(patient_search_params))
-    )
+    logger.info("Searching for patient by fields: %s", ", ".join(sorted(patient_search_params)))
 
     try:
         patient_result = await connector.internal_execute(
