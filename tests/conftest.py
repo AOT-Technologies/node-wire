@@ -69,6 +69,7 @@ _preload_connector_logic_modules()
 def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
     monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "true")
+    monkeypatch.delenv("GOOGLE_DRIVE_AUTH_PROVIDER", raising=False)
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     monkeypatch.setenv("NW_JWT_AUDIENCE", "node-wire-test")
     monkeypatch.setenv("NW_JWT_ISSUER", "node-wire-test-issuer")

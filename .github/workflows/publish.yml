@@ -56,12 +56,14 @@ jobs:
       - name: Resolve release version from tag
         id: resolve
         shell: python
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           import os
           import re
           import sys
 
-          tag = "${{ inputs.tag }}".strip()
+          tag = os.environ["INPUT_TAG"].strip()
           version = tag[1:] if tag.startswith("v") else tag
 
           if not re.fullmatch(r"\d+\.\d+\.\d+", version):
@@ -77,11 +79,13 @@ jobs:
       - name: Validate package path (allowlist)
         id: validate
         shell: python
+        env:
+          INPUT_PACKAGE_PATH: ${{ inputs.package_path }}
         run: |
           import os
           import sys
 
-          raw = "${{ inputs.package_path }}".strip().replace("\\", "/")
+          raw = os.environ["INPUT_PACKAGE_PATH"].strip().replace("\\", "/")
           norm = os.path.normpath(raw).replace("\\", "/")
           if norm.startswith("..") or os.path.isabs(raw):
               print("ERROR: invalid package_path", file=sys.stderr)
@@ -178,7 +182,7 @@ jobs:
           ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
 
@@ -266,12 +270,12 @@ jobs:
           ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
 
       - name: Download all wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: wheels-*-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist-all
@@ -315,8 +319,11 @@ jobs:
 
           print(f"PASS: {len(wheels)} wheel(s) match version {expected!r}")
 
+      # dist/ holds wheels for all platforms; only the linux cp311 wheel is
+      # installable on this runner (Python 3.11 / ubuntu). The dependency tree
+      # audited by pip-audit is identical across platform wheels.
       - name: Install built wheels for CVE scan
-        run: pip install dist/*.whl
+        run: pip install dist/*cp311*manylinux*.whl
 
       - name: Vulnerability scan (CVE gate — blocks publish on HIGH or higher)
         run: |

@@ -28,6 +28,24 @@ logger = logging.getLogger("bindings.factory")
 _PLATFORM_ROOT = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_CONFIG_PATH = _PLATFORM_ROOT / "config" / "connectors.yaml"
 
+_GOOGLE_DRIVE_AUTH_PROVIDER_ENV = "GOOGLE_DRIVE_AUTH_PROVIDER"
+_GOOGLE_DRIVE_AUTH_PROVIDERS = frozenset({"service_account", "upstream_bearer"})
+
+
+def _resolve_google_drive_auth(auth_cfg: dict[str, Any]) -> dict[str, Any]:
+    """Apply GOOGLE_DRIVE_AUTH_PROVIDER env override when set (wins over connectors.yaml)."""
+    override = os.environ.get(_GOOGLE_DRIVE_AUTH_PROVIDER_ENV, "").strip()
+    if not override:
+        return auth_cfg
+    if override not in _GOOGLE_DRIVE_AUTH_PROVIDERS:
+        raise ValueError(
+            f"{_GOOGLE_DRIVE_AUTH_PROVIDER_ENV} must be one of "
+            f"{sorted(_GOOGLE_DRIVE_AUTH_PROVIDERS)!r}, got {override!r}"
+        )
+    merged = dict(auth_cfg)
+    merged["provider"] = override
+    return merged
+
 
 def _resolve_env_vars(data: Any) -> Any:
     if isinstance(data, dict):
@@ -174,12 +192,15 @@ class ConnectorFactory:
         for connector_id, cfg in connectors_cfg.items():
             enabled = bool(cfg.get("enabled", False))
             exposed_via = list(cfg.get("exposed_via", []))
+            cfg_raw: Dict[str, Any] = dict(cfg)
+            if connector_id == "google_drive":
+                cfg_raw["auth"] = _resolve_google_drive_auth(cfg_raw.get("auth") or {})
 
             self._configs[connector_id] = ConnectorConfig(
                 id=connector_id,
                 enabled=enabled,
                 exposed_via=exposed_via,
-                raw=cfg,
+                raw=cfg_raw,
             )
 
             if not enabled:
@@ -215,6 +236,8 @@ class ConnectorFactory:
         )
 
         auth_cfg = cfg.get("auth") or {}
+        if connector_id == "google_drive":
+            auth_cfg = _resolve_google_drive_auth(auth_cfg)
         provider_type = auth_cfg.get("provider", "none")
 
         if provider_type in ("none", ""):
@@ -253,6 +276,28 @@ class ConnectorFactory:
                 sa_json_secret=auth_cfg["sa_json_secret"],
                 scopes=auth_cfg.get("scopes"),
             )
+
+        if provider_type == "upstream_bearer":
+            from node_wire_runtime.auth.base import AuthProvider, get_upstream_bearer
+
+            class _UpstreamBearerProvider(AuthProvider):  # type: ignore[misc]
+                per_request_credentials = True
+
+                async def get_headers(self) -> dict:
+                    token = get_upstream_bearer()
+                    if not token:
+                        raise RuntimeError("Upstream bearer token required")
+                    return {"Authorization": f"Bearer {token}"}
+
+                async def get_client_credentials(self):  # type: ignore[override]
+                    from google.oauth2.credentials import Credentials  # type: ignore[import]
+
+                    token = get_upstream_bearer()
+                    if not token:
+                        return None
+                    return Credentials(token=token)
+
+            return _UpstreamBearerProvider()
 
         if provider_type == "static_credentials":
             # SMTP-style: returns (username, password) tuple via get_client_credentials().
