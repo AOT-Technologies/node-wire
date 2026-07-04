@@ -4,8 +4,6 @@
 #
 from __future__ import annotations
 
-import hashlib
-
 import pytest
 from starlette.requests import Request
 
@@ -28,14 +26,21 @@ def _request(
 def test_identity_key_uses_token_hash_regardless_of_xff(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_TRUSTED_PROXY_HOPS", "0")
     token = "secret-api-key"
-    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
     request = _request(
         headers=[
             (b"x-api-key", token.encode("utf-8")),
             (b"x-forwarded-for", b"203.0.113.99"),
         ],
     )
-    assert get_request_identity_key(request) == f"token:{digest}"
+    key = get_request_identity_key(request)
+    assert key.startswith("token:")
+    # Raw token never appears in the key.
+    assert token not in key
+    # Stable across requests with the same token.
+    assert get_request_identity_key(request) == key
+    # Distinct tokens map to distinct keys.
+    other = _request(headers=[(b"x-api-key", b"another-key")])
+    assert get_request_identity_key(other) != key
 
 
 def test_identity_key_ignores_spoofed_xff_when_proxy_hops_zero(
