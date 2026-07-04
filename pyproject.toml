@@ -107,6 +107,7 @@ dev = [
     "bandit[toml]>=1.7.9",
     "pre-commit>=4.0.0",
     "pytest-playwright>=0.4.0",
+    "diff-cover>=9.0.0",
     "cyclonedx-bom==4.6.1",
     "reuse>=5.0.0",
     "licenseheaders>=0.8.8",
@@ -142,6 +143,9 @@ fail_under = 80
 omit = [
   "*/__pycache__/*",
   "*/node_wire.egg-info/*",
+  # Generated gRPC stubs — also excluded from Ruff, Mypy, and CodeQL.
+  "*_pb2.py",
+  "*_pb2_grpc.py",
 ]
 
 [tool.ruff]
