@@ -46,6 +46,10 @@ connectors:
       sa_json_secret: GOOGLE_DRIVE_SA_JSON
       scopes:
         - https://www.googleapis.com/auth/drive
+    # OIDC / per-user Drive (ToolHive upstream bearer passthrough):
+    # auth:
+    #   provider: upstream_bearer
+    # Or: GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer (overrides yaml when set)
 
   fhir_epic:
     enabled: true

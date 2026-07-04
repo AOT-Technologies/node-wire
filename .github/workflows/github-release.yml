@@ -34,12 +34,14 @@ jobs:
 
       - name: Resolve release version
         shell: python
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           import os
           import re
           import sys
 
-          version = "${{ inputs.version }}".strip()
+          version = os.environ["INPUT_VERSION"].strip()
           tag = f"v{version}"
 
           if not re.fullmatch(r"\d+\.\d+\.\d+", version):
@@ -56,12 +58,12 @@ jobs:
         run: git rev-parse --verify "refs/tags/${RELEASE_TAG}"
 
       - name: Set up Python
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
           cache-dependency-glob: |

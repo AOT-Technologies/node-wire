@@ -8,7 +8,7 @@ name: Docker policy
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
     paths:
       - "Dockerfile"
       - "docker/**"
@@ -16,6 +16,13 @@ on:
     paths:
       - "Dockerfile"
       - "docker/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:

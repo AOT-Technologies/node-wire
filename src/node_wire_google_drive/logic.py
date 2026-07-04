@@ -50,27 +50,21 @@ class GoogleDriveConnector(BaseConnector):
     def build_client(self) -> Any:
         import asyncio
 
-        # get_client_credentials() is async; run it synchronously here since
-        # build_client() is called from the synchronous get_client() accessor.
+        async def _fetch_creds() -> Any:
+            return await self._auth_provider.get_client_credentials()
+
         try:
             loop = asyncio.get_event_loop()
+        except RuntimeError:
+            creds = asyncio.run(_fetch_creds())
+        else:
             if loop.is_running():
-                # In an async context, we can't use run_until_complete.
-                # Instead, fetch credentials synchronously via the underlying
-                # ServiceAccountAuthProvider._build_credentials() pattern.
-                # This code path is reached during connector initialisation
-                # inside an async frame (e.g. in tests with pytest-asyncio).
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    creds = pool.submit(
-                        lambda: asyncio.run(self._auth_provider.get_client_credentials())
-                    ).result()
+                    creds = pool.submit(asyncio.run, _fetch_creds()).result()
             else:
-                creds = loop.run_until_complete(self._auth_provider.get_client_credentials())
-        except RuntimeError:
-            creds = asyncio.run(self._auth_provider.get_client_credentials())
-
+                creds = loop.run_until_complete(_fetch_creds())
         if creds is None:
             # Fallback for NoAuthProvider or unconfigured provider —
             # attempt direct secret resolution for backward compatibility.
@@ -111,6 +105,13 @@ class GoogleDriveConnector(BaseConnector):
 
         return build("drive", "v3", credentials=creds)
 
+    def get_client(self) -> Any:
+        if getattr(self._auth_provider, "per_request_credentials", False):
+            return self.build_client()
+        if self._client is None:
+            self._client = self.build_client()
+        return self._client
+
     def _translate_and_raise_http_error(self, exc: HttpError) -> None:
         status = exc.resp.status
         content_str = str(getattr(exc, "content", "") or "")
@@ -140,7 +141,13 @@ class GoogleDriveConnector(BaseConnector):
         spec = GOOGLE_DRIVE_ACTION_SPECS.get(action_name)
         if spec is None:
             raise ValueError(f"No action spec registered for {action_name!r}")
-        drive = self.get_client()
+        if getattr(self._auth_provider, "per_request_credentials", False):
+            creds = await self._auth_provider.get_client_credentials()
+            if creds is None:
+                raise GoogleDriveAuthError("Upstream bearer token required")
+            drive = build("drive", "v3", credentials=creds)
+        else:
+            drive = self.get_client()
         extra = {"trace_id": trace_id, **(log_extra or {})}
         logger.info("Google Drive %s", action_name, extra=extra)
         try:

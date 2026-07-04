@@ -18,8 +18,26 @@ Both are unified behind this interface so connectors stay credential-agnostic.
 
 from __future__ import annotations
 
+import contextvars
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+
+_upstream_bearer_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_upstream_bearer", default=None
+)
+
+
+def get_upstream_bearer() -> str | None:
+    """Bearer token from the current MCP request (upstream OIDC passthrough)."""
+    return _upstream_bearer_ctx.get()
+
+
+def set_upstream_bearer(token: str | None) -> contextvars.Token:
+    return _upstream_bearer_ctx.set(token)
+
+
+def reset_upstream_bearer(ctx_token: contextvars.Token) -> None:
+    _upstream_bearer_ctx.reset(ctx_token)
 
 
 class AuthProvider(ABC):
