@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
+import sys
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
@@ -252,7 +253,6 @@ def _safe_error_return(
 ) -> ScenarioResponse:
     from node_wire_runtime.errors import ErrorMapper
     from node_wire_runtime.models import ErrorCategory
-    import logging
 
     log = logging.getLogger("playground.scenarios")
 
@@ -717,8 +717,6 @@ async def report_incident_scenario(
         http_action = connector
         response = await execute_with_retry(http_action, request_input, trace_id, steps[-1])
 
-        import json
-
         resp_body = json.loads(response.body)
 
         steps[-1].status = "success"
@@ -760,8 +758,6 @@ async def report_incident_scenario(
     add_step("Audit", "pending", display_name="Update Audit Log")
     try:
         # Simulate background task
-        import asyncio
-
         await asyncio.sleep(0.4)
 
         steps[-1].status = "success"
@@ -1854,9 +1850,6 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
     Accepts a user message + conversation history, runs through the ToolHiveAgent,
     and returns the agent's reply with any tool steps executed.
     """
-    import os
-    import sys
-
     trace_id = str(uuid.uuid4())
     logger.info(
         "Agent Chat request | trace_id=%s | provider=%s",
@@ -2011,8 +2004,6 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
 
     async def stream_events():
         try:
-            import sys
-
             from agents.llm_factory import LLMProviderFactory
             from agents.toolhive import (
                 MultiMcpClient,
