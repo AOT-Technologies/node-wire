@@ -312,6 +312,10 @@ async def execute_with_retry(
             else:
                 logger.error(f"Action failed after {max_retries + 1} attempts: {e}")
                 raise last_exception
+    # Only reachable when max_retries < 0 leaves the loop with zero iterations.
+    raise last_exception if last_exception else RuntimeError(
+        f"execute_with_retry made no attempts (max_retries={max_retries})"
+    )
 
 
 # Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
