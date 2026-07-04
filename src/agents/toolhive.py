@@ -221,9 +221,11 @@ class AgentRunResult:
 
 @runtime_checkable
 class McpClient(Protocol):
-    async def list_tools(self) -> List[Dict[str, Any]]: ...
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """Return the tool definitions exposed by the MCP server."""
 
-    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str: ...
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
+        """Invoke the named tool with the given arguments and return its result."""
 
 
 class ToolHiveMcpClient:

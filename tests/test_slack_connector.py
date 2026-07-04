@@ -558,7 +558,8 @@ async def test_resolve_channel_id_network_error_falls_back_and_logs(
     monkeypatch.delenv("NW_SLACK_SKIP_RESOLVE", raising=False)
 
     class _RaisingClient:
-        def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
 
         async def __aenter__(self) -> "_RaisingClient":
             return self
