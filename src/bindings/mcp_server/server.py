@@ -300,7 +300,11 @@ class McpServer:
                             run_args[page_param] = min(val, max_items)
                             clamped_params[page_param] = run_args[page_param]
                         except (ValueError, TypeError):
-                            pass
+                            logger.debug(
+                                "Ignoring non-numeric pagination parameter %s=%r",
+                                page_param,
+                                current_val,
+                            )
 
         try:
             response = await connector.run(

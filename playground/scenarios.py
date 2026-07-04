@@ -266,8 +266,8 @@ def _safe_error_return(
     if hasattr(e, "errors") and callable(getattr(e, "errors", None)):
         try:
             safe_msg = e.errors()[0].get("msg", "Schema validation failed")
-        except Exception:
-            pass
+        except Exception as detail_exc:
+            log.debug("Could not extract validation error detail: %s", detail_exc)
 
     steps[-1].status = "error"
     steps[-1].details = f"[{mapped_err.category.value}] {safe_msg}"
@@ -1011,8 +1011,8 @@ async def cerner_post_consultation_scenario(
                     decoded_text = base64.b64decode(content[0]["attachment"]["data"]).decode(
                         "utf-8"
                     )
-            except Exception:
-                pass
+            except Exception as decode_exc:
+                logger.debug("Could not decode attachment content: %s", decode_exc)
 
             beautiful_data = {
                 "id": doc_res.resource_id,

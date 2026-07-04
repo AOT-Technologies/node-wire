@@ -66,13 +66,13 @@ def _messages_to_openai(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     return result
 
 
-OpenAI: Any = None
+OpenAI: Any
 try:
     from openai import OpenAI as _OpenAI
 
     OpenAI = _OpenAI
 except ImportError:
-    pass
+    OpenAI = None
 
 
 class OpenAIProvider(BaseLLMProvider):

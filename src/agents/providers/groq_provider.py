@@ -68,13 +68,13 @@ def _messages_to_groq(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     return result
 
 
-Groq: Any = None
+Groq: Any
 try:
     from groq import Groq as _Groq
 
     Groq = _Groq
 except ImportError:
-    pass
+    Groq = None
 
 
 class GroqProvider(BaseLLMProvider):

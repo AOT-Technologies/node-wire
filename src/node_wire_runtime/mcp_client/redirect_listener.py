@@ -157,8 +157,8 @@ class LoopbackRedirectListener:
                 writer.close()
                 try:
                     await writer.wait_closed()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Redirect listener connection close failed: %s", exc)
                 if self._server:
                     self._server.close()
 

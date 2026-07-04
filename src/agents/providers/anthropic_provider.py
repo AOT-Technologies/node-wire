@@ -75,13 +75,13 @@ def _messages_to_claude(
     return result, system_prompt
 
 
-anthropic: Any = None
+anthropic: Any
 try:
     import anthropic as _anthropic
 
     anthropic = _anthropic
 except ImportError:
-    pass
+    anthropic = None
 
 
 class AnthropicProvider(BaseLLMProvider):

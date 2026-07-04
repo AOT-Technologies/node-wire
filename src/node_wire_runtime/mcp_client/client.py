@@ -164,8 +164,8 @@ class McpOAuthClient:
         notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
         try:
             await self._request("POST", json_body=notif)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("MCP initialized notification failed (non-fatal): %s", exc)
         self._initialized = True
 
     async def _rpc(self, method: str, params: Dict[str, Any]) -> Any:

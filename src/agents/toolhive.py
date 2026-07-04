@@ -149,7 +149,7 @@ def _is_tool_failure(tool_result: str) -> bool:
             if isinstance(data, dict) and data.get("success") is False:
                 return True
         except json.JSONDecodeError:
-            pass
+            return False
     return False
 
 

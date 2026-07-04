@@ -170,8 +170,8 @@ class OsKeychainTokenStore(TokenStore):
         if self._keyring is not None:
             try:
                 self._keyring.delete_password(_KEYRING_SERVICE, partition_key)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Keychain delete failed (entry may not exist): %s", exc)
         self._fallback.delete(partition_key)
 
 
