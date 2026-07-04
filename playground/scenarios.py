@@ -408,7 +408,7 @@ async def post_consultation_scenario(
     add_step("Patient Discovery", "pending", display_name="Identify Patient")
     try:
         if payload.patient_id:
-            logger.info(f"Performing direct Patient ID lookup: {payload.patient_id}")
+            logger.info("Performing direct Patient ID lookup")
             p_res = await execute_with_retry(
                 connector, FhirPatientReadInput(resource_id=payload.patient_id), trace_id, steps[-1]
             )
@@ -423,7 +423,9 @@ async def post_consultation_scenario(
                 }.items()
                 if v is not None
             }
-            logger.info(f"Searching for patient: {patient_search_params}")
+            logger.info(
+                "Searching for patient by fields: %s", ", ".join(sorted(patient_search_params))
+            )
             p_res = await execute_with_retry(
                 connector,
                 FhirPatientReadInput(search_params=patient_search_params),
@@ -455,16 +457,14 @@ async def post_consultation_scenario(
     add_step("Encounter Identification", "pending", display_name="Locate Medical Visit")
     try:
         if payload.encounter_id:
-            logger.info(
-                f"Using manual Encounter ID: {payload.encounter_id}", extra={"trace_id": trace_id}
-            )
+            logger.info("Using manually supplied Encounter ID", extra={"trace_id": trace_id})
             encounter_id = payload.encounter_id
             enc_type = "Manual"
             enc_status = "verified"
         else:
             visit_date = payload.visit_date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
             logger.info(
-                f"Searching for encounter... patient={patient_id}, date={visit_date}",
+                f"Searching for encounter for resolved patient on date={visit_date}",
                 extra={"trace_id": trace_id},
             )
             enc_res = await execute_with_retry(
@@ -505,7 +505,7 @@ async def post_consultation_scenario(
                 raise ValueError("The found Encounter resource is missing a valid FHIR ID.")
 
         logger.info(
-            f"Selected Encounter: ID={encounter_id}, Type={enc_type}, Status={enc_status}",
+            f"Selected Encounter: Type={enc_type}, Status={enc_status}",
             extra={"trace_id": trace_id},
         )
 
@@ -800,7 +800,7 @@ async def cerner_post_consultation_scenario(
     add_step("Patient Discovery", "pending", display_name="Identify Patient")
     try:
         if payload.patient_id:
-            logger.info(f"Cerner: direct Patient ID lookup: {payload.patient_id}")
+            logger.info("Cerner: direct Patient ID lookup")
             p_res = await execute_with_retry(
                 connector,
                 FhirCernerPatientReadInput(resource_id=payload.patient_id),
@@ -818,7 +818,9 @@ async def cerner_post_consultation_scenario(
                 }.items()
                 if v
             }
-            logger.info(f"Cerner: searching for patient: {search_params}")
+            logger.info(
+                "Cerner: searching for patient by fields: %s", ", ".join(sorted(search_params))
+            )
             p_res = await execute_with_retry(
                 connector,
                 FhirCernerPatientReadInput(search_params=search_params),
@@ -2451,8 +2453,7 @@ async def external_patient_viewer_scenario(
     try:
         if payload.patient_id:
             logger.info(
-                "[ExtViewer] Direct Patient ID lookup: %s on %s",
-                payload.patient_id,
+                "[ExtViewer] Direct Patient ID lookup on %s",
                 system_label,
                 extra={"trace_id": trace_id},
             )
@@ -2489,8 +2490,8 @@ async def external_patient_viewer_scenario(
                 if v
             }
             logger.info(
-                "[ExtViewer] Identity-layer search: %s on %s",
-                search_params,
+                "[ExtViewer] Identity-layer search by fields [%s] on %s",
+                ", ".join(sorted(search_params)),
                 system_label,
                 extra={"trace_id": trace_id},
             )

@@ -115,10 +115,7 @@ class ServiceAccountAuthProvider(AuthProvider):
 
         logger.debug(
             "ServiceAccountAuthProvider: credentials built",
-            extra={
-                "sa_json_secret": self._sa_json_secret,
-                "scopes": self._scopes,
-            },
+            extra={"scopes": self._scopes},
         )
         return creds
 
@@ -149,8 +146,5 @@ class ServiceAccountAuthProvider(AuthProvider):
         Forces :meth:`get_client_credentials` to rebuild from the secret on the
         next call, picking up any rotated service-account JSON.
         """
-        logger.debug(
-            "ServiceAccountAuthProvider: credentials cache invalidated",
-            extra={"sa_json_secret": self._sa_json_secret},
-        )
+        logger.debug("ServiceAccountAuthProvider: credentials cache invalidated")
         self._credentials = None

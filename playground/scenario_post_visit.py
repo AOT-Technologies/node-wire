@@ -75,7 +75,9 @@ async def run_scenario():
 
     print("\n=== STEP 1: Patient Discovery ===")
     patient_search_params = {"family": "Smith", "given": "Jason", "birthdate": "1985-01-01"}
-    logger.info(f"Searching for patient: {patient_search_params}")
+    logger.info(
+        "Searching for patient by fields: %s", ", ".join(sorted(patient_search_params))
+    )
 
     try:
         patient_result = await connector.internal_execute(
@@ -83,7 +85,7 @@ async def run_scenario():
             trace_id=trace_id,
         )
         patient_id = patient_result.resource.get("id")
-        logger.info(f"Found Patient ID: {patient_id}")
+        logger.info("Patient resolved successfully")
     except Exception as e:
         logger.error(f"Patient search failed: {e}")
         return
@@ -91,7 +93,7 @@ async def run_scenario():
     print("\n=== STEP 2: Encounter Identification ===")
     today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
     encounter_params = {"patient": patient_id, "status": "finished", "date": today}
-    logger.info(f"Finding encounter for patient {patient_id} on {today}")
+    logger.info(f"Finding encounter for resolved patient on {today}")
 
     try:
         enc_result = await connector.internal_execute(
@@ -116,7 +118,7 @@ async def run_scenario():
             return
 
         encounter_id = enc_result.resources[0].get("id")
-        logger.info(f"Selected Encounter ID: {encounter_id}")
+        logger.info("Encounter selected")
     except Exception as e:
         logger.error(f"Encounter search failed: {e}")
         return
@@ -142,7 +144,7 @@ async def run_scenario():
         context={"encounter": [{"reference": f"Encounter/{encounter_id}"}]},
     )
 
-    logger.info(f"Uploading clinical note for Encounter {encounter_id}")
+    logger.info("Uploading clinical note for selected encounter")
     try:
         doc_result = await connector.internal_execute(doc_input, trace_id=trace_id)
         logger.info(f"SUCCESS! Created DocumentReference: {doc_result.resource_id}")

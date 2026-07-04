@@ -86,15 +86,12 @@ class StaticTokenAuthProvider(AuthProvider):
         if self._cached_header is None:
             logger.debug(
                 "StaticTokenAuthProvider: resolving secret",
-                extra={"secret_key": self._secret_key, "header": self._header_name},
+                extra={"header": self._header_name},
             )
             self._cached_header = self._build_header()
         return dict(self._cached_header)
 
     async def refresh(self) -> None:
         """Invalidate the cached header so the secret is re-read on the next call."""
-        logger.debug(
-            "StaticTokenAuthProvider: cache invalidated",
-            extra={"secret_key": self._secret_key},
-        )
+        logger.debug("StaticTokenAuthProvider: cache invalidated")
         self._cached_header = None
