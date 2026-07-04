@@ -28,6 +28,7 @@ Coverage
 from __future__ import annotations
 
 import base64
+import importlib
 import logging
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -51,7 +52,9 @@ from node_wire_slack.logic import (
     _resolve_blocks,
     _upload_bytes,
 )
-import node_wire_slack.registration  # noqa: F401
+# Load the ErrorMapper registrations the same way the production
+# connector_registry does — the error_code assertions below depend on them.
+importlib.import_module("node_wire_slack.registration")
 
 # ---------------------------------------------------------------------------
 # Helpers
