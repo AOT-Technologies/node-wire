@@ -11,6 +11,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -520,7 +521,8 @@ class FhirCernerConnector(BaseConnector):
             codings = doc_ref["type"].get("coding", [])
             for coding in codings:
                 # Validate CodeSet 72 vs LOINC
-                if "loinc.org" in coding.get("system", ""):
+                system_host = urlparse(coding.get("system", "")).hostname or ""
+                if system_host == "loinc.org" or system_host.endswith(".loinc.org"):
                     raise ValueError(
                         "Cerner requires the proprietary CodeSet 72 system for DocumentReference 'type', "
                         "not a LOINC system URL. "
