@@ -429,8 +429,16 @@ async def post_consultation_scenario(
                 }.items()
                 if v is not None
             }
+            # Log only literal field names (not the payload-derived dict) so no
+            # user-controlled data reaches the log record.
+            provided_fields = {
+                "family": payload.patient_family is not None,
+                "given": payload.patient_given is not None,
+                "birthdate": payload.patient_birthdate is not None,
+            }
             logger.info(
-                "Searching for patient by fields: %s", ", ".join(sorted(patient_search_params))
+                "Searching for patient by fields: %s",
+                ", ".join(sorted(k for k, present in provided_fields.items() if present)),
             )
             p_res = await execute_with_retry(
                 connector,
@@ -470,7 +478,8 @@ async def post_consultation_scenario(
         else:
             visit_date = payload.visit_date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
             logger.info(
-                f"Searching for encounter for resolved patient on date={visit_date}",
+                "Searching for encounter for resolved patient on date=%s",
+                visit_date.replace("\r", "").replace("\n", ""),
                 extra={"trace_id": trace_id},
             )
             enc_res = await execute_with_retry(
@@ -820,8 +829,16 @@ async def cerner_post_consultation_scenario(
                 }.items()
                 if v
             }
+            # Log only literal field names (not the payload-derived dict) so no
+            # user-controlled data reaches the log record.
+            provided_fields = {
+                "family": bool(payload.patient_family),
+                "given": bool(payload.patient_given),
+                "birthdate": bool(payload.patient_birthdate),
+            }
             logger.info(
-                "Cerner: searching for patient by fields: %s", ", ".join(sorted(search_params))
+                "Cerner: searching for patient by fields: %s",
+                ", ".join(sorted(k for k, present in provided_fields.items() if present)),
             )
             p_res = await execute_with_retry(
                 connector,
@@ -2489,9 +2506,16 @@ async def external_patient_viewer_scenario(
                 }.items()
                 if v
             }
+            # Log only literal field names (not the payload-derived dict) so no
+            # user-controlled data reaches the log record.
+            provided_fields = {
+                "family": bool(payload.patient_family),
+                "given": bool(payload.patient_given),
+                "birthdate": bool(payload.patient_birthdate),
+            }
             logger.info(
                 "[ExtViewer] Identity-layer search by fields [%s] on %s",
-                ", ".join(sorted(search_params)),
+                ", ".join(sorted(k for k, present in provided_fields.items() if present)),
                 system_label,
                 extra={"trace_id": trace_id},
             )
