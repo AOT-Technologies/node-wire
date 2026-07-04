@@ -26,7 +26,7 @@ def test_background_runner_uses_same_event_loop() -> None:
 def test_background_runner_handles_concurrent_calls() -> None:
     runner = BackgroundAsyncRunner()
     runner.start()
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
 
     async def echo(value: int) -> int:
         await asyncio.sleep(0.01)
@@ -35,7 +35,7 @@ def test_background_runner_handles_concurrent_calls() -> None:
     def worker(value: int) -> None:
         try:
             assert runner.run(echo(value)) == value
-        except BaseException as exc:
+        except Exception as exc:
             errors.append(exc)
 
     threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
