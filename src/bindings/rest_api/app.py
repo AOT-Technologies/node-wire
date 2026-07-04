@@ -128,6 +128,20 @@ async def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/ready", tags=["system"])
+async def ready() -> Dict[str, str]:
+    try:
+        factory = get_factory()
+        if not factory.list_for_protocol("rest") and not factory.list_for_protocol("grpc"):
+            raise HTTPException(status_code=503, detail="no connectors loaded")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Readiness check failed: %s", exc)
+        raise HTTPException(status_code=503, detail="factory not ready")
+    return {"status": "ready"}
+
+
 def _http_status_for_category(category: ErrorCategory | None) -> int:
     if category is None:
         return 200
