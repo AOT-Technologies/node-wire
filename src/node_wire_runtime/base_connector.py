@@ -549,7 +549,11 @@ class BaseConnector(ABC):
                         )
                         return _response
 
-                execute_with_resilience = with_resilience(self._breaker_for_tenant(tenant_id))
+                execute_with_resilience = with_resilience(
+                    self._breaker_for_tenant(tenant_id),
+                    connector_id=self.connector_id,
+                    action=self.action,
+                )
 
                 @execute_with_resilience
                 async def _do_execute(*, trace_id: str) -> Any:
@@ -629,9 +633,7 @@ class BaseConnector(ABC):
                         "connector.action": self.action,
                         "success": _response.success,
                         "error_category": (
-                            _response.error_category.value
-                            if _response.error_category
-                            else "none"
+                            _response.error_category.value if _response.error_category else "none"
                         ),
                     }
                     _invocation_counter.add(1, attributes=_metric_attrs)

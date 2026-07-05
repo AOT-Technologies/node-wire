@@ -12,8 +12,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import BaseModel
 
-from node_wire_runtime import BaseConnector, nw_action
+from node_wire_runtime import BaseConnector, ErrorCategory, ErrorMapper, nw_action
 import node_wire_runtime.base_connector as bc_module
+import node_wire_runtime.rate_limit as rl_module
+import node_wire_runtime.resilience as res_module
+from node_wire_runtime.rate_limit import RateLimitExceeded, TokenBucket
+from node_wire_runtime.resilience import with_resilience
+from pybreaker import CircuitBreaker
 
 
 class _MIn(BaseModel):
@@ -117,3 +122,73 @@ async def test_metric_attributes_include_connector_action() -> None:
             await connector.run({"action": "run"})
     attrs = mock_counter.add.call_args[1]["attributes"]
     assert attrs["connector.action"] == "execute"
+
+
+class _RetryableMetricError(Exception):
+    pass
+
+
+@pytest.fixture
+def _register_retryable() -> None:
+    ErrorMapper.register(_RetryableMetricError, ErrorCategory.RETRYABLE, code="RETRYABLE_METRIC")
+    try:
+        yield
+    finally:
+        ErrorMapper._registry.pop(_RetryableMetricError, None)
+
+
+@pytest.mark.asyncio
+async def test_retry_counter_incremented_on_retryable_error(_register_retryable: None) -> None:
+    attempts = {"n": 0}
+
+    @with_resilience(CircuitBreaker(), connector_id="retry_cx", action="do")
+    async def flaky(*, trace_id: str = "t") -> str:
+        attempts["n"] += 1
+        if attempts["n"] < 2:
+            raise _RetryableMetricError("boom")
+        return "ok"
+
+    mock_counter = MagicMock()
+    with patch.object(res_module, "_retry_counter", mock_counter):
+        result = await flaky(trace_id="t1")
+
+    assert result == "ok"
+    # One retryable failure occurred before the successful attempt.
+    mock_counter.add.assert_called_once()
+    attrs = mock_counter.add.call_args[1]["attributes"]
+    assert attrs["connector.id"] == "retry_cx"
+    assert attrs["connector.action"] == "do"
+    assert attrs["error_code"] == "RETRYABLE_METRIC"
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_rejection_counter_incremented() -> None:
+    breaker = CircuitBreaker()
+    breaker.open()
+
+    @with_resilience(breaker, connector_id="cb_cx", action="do")
+    async def never_runs(*, trace_id: str = "t") -> str:
+        return "unreachable"
+
+    mock_counter = MagicMock()
+    with patch.object(res_module, "_circuit_breaker_rejections", mock_counter):
+        with pytest.raises(Exception):
+            await never_runs(trace_id="t1")
+
+    mock_counter.add.assert_called_once()
+    attrs = mock_counter.add.call_args[1]["attributes"]
+    assert attrs["connector.id"] == "cb_cx"
+    assert attrs["connector.action"] == "do"
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_rejection_counter_incremented() -> None:
+    bucket = TokenBucket(capacity=1, refill_rate=0)
+    await bucket.acquire()  # consumes the only token
+
+    mock_counter = MagicMock()
+    with patch.object(rl_module, "_rate_limit_rejections", mock_counter):
+        with pytest.raises(RateLimitExceeded):
+            await bucket.acquire()
+
+    mock_counter.add.assert_called_once()
