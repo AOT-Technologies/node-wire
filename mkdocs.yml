@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 site_name: Node Wire
+site_description: Enterprise Connectors for AI & Workflow Systems
 site_url: https://aot-technologies.github.io/node-wire/
 repo_url: https://github.com/AOT-Technologies/node-wire
 repo_name: AOT-Technologies/node-wire
@@ -11,18 +12,89 @@ docs_dir: docs
 theme:
   name: material
   palette:
-    scheme: default
-    primary: indigo
-    accent: indigo
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.expand
-    - toc.integrate
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - toc.follow
     - search.highlight
+    - search.suggest
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - header.autohide
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/lan-connect
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AOT-Technologies/node-wire
+      name: Node Wire on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/aot-technologies
+      name: AOT Technologies on LinkedIn
+  generator: false
 
 plugins:
-  - search
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      permalink_title: Anchor link to this section
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tasklist:
+      custom_checkbox: true
 
 nav:
   - Home: index.md
