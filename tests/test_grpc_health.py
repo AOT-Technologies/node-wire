@@ -56,4 +56,6 @@ def test_grpc_health_servicer_is_registered():
         assert "" in set_calls, "Overall health (empty string) not set"
         assert "aot.connectors.ConnectorService" in set_calls, "ConnectorService health not set"
         assert set_calls[""] == health_pb2.HealthCheckResponse.SERVING
-        assert set_calls["aot.connectors.ConnectorService"] == health_pb2.HealthCheckResponse.SERVING
+        assert (
+            set_calls["aot.connectors.ConnectorService"] == health_pb2.HealthCheckResponse.SERVING
+        )

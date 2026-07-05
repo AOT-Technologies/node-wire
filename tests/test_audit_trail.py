@@ -114,7 +114,9 @@ async def test_audit_invocation_validation_failure_emitted(
         resp = await connector.run({"action": "nonexistent_action"})
     assert resp.success is False
     validation_records = [
-        r for r in caplog.records if r.__dict__.get("audit_event") == "invocation_validation_failure"
+        r
+        for r in caplog.records
+        if r.__dict__.get("audit_event") == "invocation_validation_failure"
     ]
     assert len(validation_records) >= 1
     rec = validation_records[0]
@@ -127,9 +129,7 @@ async def test_audit_policy_denial_unchanged(caplog: pytest.LogCaptureFixture) -
     with caplog.at_level(logging.WARNING, logger="runtime.base_connector"):
         resp = await connector.run({"action": "go"})
     assert resp.success is False
-    denial_records = [
-        r for r in caplog.records if r.__dict__.get("audit_event") == "policy_denial"
-    ]
+    denial_records = [r for r in caplog.records if r.__dict__.get("audit_event") == "policy_denial"]
     assert len(denial_records) == 1
     assert denial_records[0].__dict__.get("audit") is True
 

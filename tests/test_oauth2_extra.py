@@ -60,11 +60,13 @@ def test_oauth2_invalid_grant_method_raises() -> None:
 
 
 def test_resolve_scopes_from_secret() -> None:
-    sp = _DictSecretProvider({
-        "token_url": "x",
-        "client_id": "y",
-        "scope_val": "openid profile",
-    })
+    sp = _DictSecretProvider(
+        {
+            "token_url": "x",
+            "client_id": "y",
+            "scope_val": "openid profile",
+        }
+    )
     provider = OAuth2AuthProvider(
         secret_provider=sp,
         grant_method="client_secret_post",
@@ -192,12 +194,14 @@ async def test_oauth2_client_secret_post_with_scope() -> None:
 
 
 async def test_oauth2_refresh_token_success() -> None:
-    sp = _DictSecretProvider({
-        "token_url": "https://idp.example.com/token",
-        "client_id": "my-client",
-        "client_secret": "sec",
-        "refresh_token": "rt-123",
-    })
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "client_secret": "sec",
+            "refresh_token": "rt-123",
+        }
+    )
     provider = OAuth2AuthProvider(
         secret_provider=sp,
         grant_method="refresh_token",
@@ -224,11 +228,13 @@ async def test_oauth2_refresh_token_success() -> None:
 
 
 async def test_oauth2_refresh_token_without_client_secret() -> None:
-    sp = _DictSecretProvider({
-        "token_url": "https://idp.example.com/token",
-        "client_id": "my-client",
-        "refresh_token": "rt-456",
-    })
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-456",
+        }
+    )
     provider = OAuth2AuthProvider(
         secret_provider=sp,
         grant_method="refresh_token",
@@ -267,12 +273,14 @@ async def test_oauth2_refresh_token_missing_secret_raises() -> None:
 
 
 async def test_oauth2_private_key_jwt_invalid_key_raises() -> None:
-    sp = _DictSecretProvider({
-        "token_url": "https://idp.example.com/token",
-        "client_id": "client",
-        "private_key": "not-a-valid-pem-key",
-        "kid": "key-1",
-    })
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "client",
+            "private_key": "not-a-valid-pem-key",
+            "kid": "key-1",
+        }
+    )
     provider = OAuth2AuthProvider(
         secret_provider=sp,
         grant_method="private_key_jwt",
@@ -311,12 +319,14 @@ async def test_oauth2_private_key_jwt_success_with_rsa_key() -> None:
         encryption_algorithm=serialization.NoEncryption(),
     ).decode()
 
-    sp = _DictSecretProvider({
-        "token_url": "https://idp.example.com/token",
-        "client_id": "client-id",
-        "private_key": private_pem,
-        "kid": "rsa-key-1",
-    })
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "client-id",
+            "private_key": private_pem,
+            "kid": "rsa-key-1",
+        }
+    )
     provider = OAuth2AuthProvider(
         secret_provider=sp,
         grant_method="private_key_jwt",
@@ -348,9 +358,7 @@ async def test_oauth2_private_key_jwt_success_with_rsa_key() -> None:
 
 
 async def test_post_token_non_200_raises() -> None:
-    transport = httpx.MockTransport(
-        handler=lambda req: httpx.Response(401, text="Unauthorized")
-    )
+    transport = httpx.MockTransport(handler=lambda req: httpx.Response(401, text="Unauthorized"))
 
     with patch(
         "node_wire_runtime.auth.oauth2.httpx.AsyncClient",

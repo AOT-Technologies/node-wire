@@ -309,9 +309,7 @@ async def test_invoke_no_identity_passes_none(servicer: ConnectorServiceServicer
 
 async def test_invoke_empty_payload_json(servicer: ConnectorServiceServicer) -> None:
     fake_connector = MagicMock()
-    fake_connector.run = AsyncMock(
-        return_value=ConnectorResponse(success=True, trace_id="t4")
-    )
+    fake_connector.run = AsyncMock(return_value=ConnectorResponse(success=True, trace_id="t4"))
     with patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector):
         req = connector_pb2.InvokeRequest(connector_id="x", action="act")
         resp = await servicer._invoke_async(req)

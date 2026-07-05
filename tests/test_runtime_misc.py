@@ -133,9 +133,7 @@ async def test_buffered_stream_no_buffer() -> None:
         for i in range(3):
             yield {"i": i}
 
-    items = await _collect_async(
-        BufferedStreamIterator(source(), buffer_ms=0, trace_id="t1")
-    )
+    items = await _collect_async(BufferedStreamIterator(source(), buffer_ms=0, trace_id="t1"))
     assert items == [{"i": 0}, {"i": 1}, {"i": 2}]
 
 
@@ -144,9 +142,7 @@ async def test_buffered_stream_with_buffer() -> None:
         for i in range(4):
             yield {"i": i}
 
-    items = await _collect_async(
-        BufferedStreamIterator(source(), buffer_ms=1000, trace_id="t2")
-    )
+    items = await _collect_async(BufferedStreamIterator(source(), buffer_ms=1000, trace_id="t2"))
     assert items == [{"i": 0}, {"i": 1}, {"i": 2}, {"i": 3}]
 
 
@@ -179,9 +175,7 @@ async def test_buffered_stream_flush_mid_buffer(monkeypatch: pytest.MonkeyPatch)
             yield {"i": i}
 
     with patch("node_wire_runtime.streaming.time.monotonic", side_effect=patched_monotonic):
-        items = await _collect_async(
-            BufferedStreamIterator(source(), buffer_ms=100, trace_id="t4")
-        )
+        items = await _collect_async(BufferedStreamIterator(source(), buffer_ms=100, trace_id="t4"))
     assert len(items) == 3
 
 
@@ -260,8 +254,12 @@ def test_redact_sensitive_string_arg_safe() -> None:
 
 def test_sanitize_log_record_dict_args() -> None:
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname=__file__, lineno=1,
-        msg="%(patient)s %(action)s", args={"patient": "Smith", "action": "send"},
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="%(patient)s %(action)s",
+        args={"patient": "Smith", "action": "send"},
         exc_info=None,
     )
     sanitize_log_record(record)
@@ -271,8 +269,12 @@ def test_sanitize_log_record_dict_args() -> None:
 
 def test_sanitize_log_record_tuple_args() -> None:
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname=__file__, lineno=1,
-        msg="%s %s", args=("phi_marker_data", "safe"),
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="%s %s",
+        args=("phi_marker_data", "safe"),
         exc_info=None,
     )
     sanitize_log_record(record)
@@ -282,8 +284,13 @@ def test_sanitize_log_record_tuple_args() -> None:
 
 def test_sanitize_log_record_no_args() -> None:
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname=__file__, lineno=1,
-        msg="plain message", args=(), exc_info=None,
+        name="test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="plain message",
+        args=(),
+        exc_info=None,
     )
     sanitize_log_record(record)  # should not raise
 
@@ -447,9 +454,7 @@ def test_registration_module_missing_is_silently_skipped(
 ) -> None:
     """ModuleNotFoundError with name == reg_name is silently ignored."""
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "myconn")
-    ep = EntryPoint(
-        name="myconn", value="node_wire_myconn.logic", group="node_wire.connectors"
-    )
+    ep = EntryPoint(name="myconn", value="node_wire_myconn.logic", group="node_wire.connectors")
 
     def fake_import(name: str) -> MagicMock:
         if name == "node_wire_myconn.logic":
@@ -471,9 +476,7 @@ def test_registration_module_missing_is_silently_skipped(
 def test_registration_dep_error_is_reraised(monkeypatch: pytest.MonkeyPatch) -> None:
     """ModuleNotFoundError for a dep inside registration module is re-raised."""
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "myconn2")
-    ep = EntryPoint(
-        name="myconn2", value="node_wire_myconn2.logic", group="node_wire.connectors"
-    )
+    ep = EntryPoint(name="myconn2", value="node_wire_myconn2.logic", group="node_wire.connectors")
 
     def fake_import(name: str) -> MagicMock:
         if name == "node_wire_myconn2.logic":
@@ -492,9 +495,7 @@ def test_registration_dep_error_is_reraised(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_registration_unexpected_exception_is_reraised(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "myconn3")
-    ep = EntryPoint(
-        name="myconn3", value="node_wire_myconn3.logic", group="node_wire.connectors"
-    )
+    ep = EntryPoint(name="myconn3", value="node_wire_myconn3.logic", group="node_wire.connectors")
 
     def fake_import(name: str) -> MagicMock:
         if name == "node_wire_myconn3.logic":

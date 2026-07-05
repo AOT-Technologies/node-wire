@@ -110,9 +110,7 @@ def test_aws_resource_not_found_maps_to_secret_not_found(aws) -> None:
 
 def test_aws_other_client_error_maps_to_provider_error(aws) -> None:
     mod, state, exc = aws
-    state.error = exc.ClientError(
-        {"Error": {"Code": "AccessDeniedException"}}, "GetSecretValue"
-    )
+    state.error = exc.ClientError({"Error": {"Code": "AccessDeniedException"}}, "GetSecretValue")
     with pytest.raises(SecretProviderError, match="AccessDeniedException"):
         mod.AwsSecretsManagerProvider("forbidden-bundle")
 
