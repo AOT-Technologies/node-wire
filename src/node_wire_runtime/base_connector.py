@@ -29,6 +29,7 @@ from typing import (
 
 from opentelemetry import metrics, trace
 from opentelemetry.trace import Tracer
+from opentelemetry.util.types import AttributeValue
 from pybreaker import CircuitBreaker
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
@@ -628,7 +629,7 @@ class BaseConnector(ABC):
                 _caller_execution_ctx.reset(token)
                 if _response is not None:
                     _duration_ms = (time.monotonic() - _start) * 1000
-                    _metric_attrs = {
+                    _metric_attrs: Dict[str, AttributeValue] = {
                         "connector.id": self.connector_id,
                         "connector.action": self.action,
                         "success": _response.success,

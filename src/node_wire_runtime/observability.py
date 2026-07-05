@@ -114,7 +114,7 @@ class SanitizingMetricExporter(MetricExporter):
     def shutdown(self, timeout_millis=30_000, **kwargs):
         return self._delegate.shutdown(timeout_millis=timeout_millis, **kwargs)
 
-    def force_flush(self, timeout_millis: int = 10_000):
+    def force_flush(self, timeout_millis: float = 10_000):
         return self._delegate.force_flush(timeout_millis)
 
 
@@ -207,7 +207,7 @@ def init_observability(app_name: str = "node_wire") -> None:
         metric_exporter,
         export_interval_millis=metric_interval_ms,
     )
-    meter_provider = MeterProvider(resource=resource, readers=[metric_reader])
+    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
 
     # Initialize Traceloop/OpenLLMetry in metadata-only mode. Advanced AI features

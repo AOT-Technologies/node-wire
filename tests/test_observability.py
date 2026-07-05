@@ -143,8 +143,12 @@ def test_init_observability_traceloop_failure_does_not_raise(
 def test_init_observability_metric_exporter_initialized() -> None:
     """MeterProvider and OTLPMetricExporter should be set up on first call."""
     with _observability_test_patches() as (_span, _log, _tl, metric_exp):
-        obs.init_observability("app-metrics")
+        with patch("node_wire_runtime.observability.MeterProvider") as meter_provider:
+            obs.init_observability("app-metrics")
     assert metric_exp.call_count == 1
+    # The reader must be passed via the SDK's real kwarg name (`metric_readers`);
+    # `readers=` raises TypeError at runtime and would silently drop metrics export.
+    assert "metric_readers" in meter_provider.call_args.kwargs
 
 
 def test_init_observability_invalid_metric_interval_logs_warning(
