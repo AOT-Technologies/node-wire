@@ -127,8 +127,6 @@ async def test_oauth2_client_secret_post_success() -> None:
         mock_client.__aenter__ = MagicMock(return_value=mock_client)
         mock_client.__aexit__ = MagicMock(return_value=False)
         mock_client.post = MagicMock(return_value=mock_response)
-        # Make post awaitable
-        import asyncio
         mock_client.post = MagicMock(side_effect=lambda *a, **kw: mock_response)
 
         async def _fake_enter(_: Any) -> Any:

@@ -8,7 +8,6 @@ wrappers, and connector_registry error paths."""
 from __future__ import annotations
 
 import logging
-import sys
 from importlib.metadata import EntryPoint
 from unittest.mock import MagicMock, patch
 
@@ -58,8 +57,6 @@ async def test_token_bucket_acquire_raises_when_exhausted() -> None:
 
 
 async def test_token_bucket_refills_over_time() -> None:
-    import time
-
     bucket = TokenBucket(capacity=10, refill_rate=1000)
     await bucket.acquire(10)
     assert bucket.tokens == 0

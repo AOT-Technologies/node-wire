@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,8 +17,6 @@ from bindings.grpc_server.auth import (
     GrpcAuthInterceptor,
     _extract_token,
     _truthy,
-    get_grpc_caller_identity,
-    verify_grpc_token_and_identity,
 )
 from bindings.grpc_server.server import ConnectorServiceServicer
 from node_wire_runtime import ConnectorResponse, ErrorCategory
