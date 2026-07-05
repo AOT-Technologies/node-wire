@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: Node Wire
+site_url: https://aot-technologies.github.io/node-wire/
+repo_url: https://github.com/AOT-Technologies/node-wire
+repo_name: AOT-Technologies/node-wire
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - toc.integrate
+    - search.highlight
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Configuration: configuration.md
+  - Architecture: architecture.md
+  - Connectors:
+    - Overview: connectors.md
+    - Google Drive: google_drive_connector.md
+    - Salesforce: salesforce_connector.md
+    - Slack: slack_connector.md
+  - MCP:
+    - Overview: mcp.md
+    - MCP Servers: mcp-servers.md
+    - Client OAuth: mcp-client-oauth.md
+    - Agent Scenario: toolhive_agent_scenario.md
+  - Development:
+    - Contributing: contributing.md
+    - Code Quality: code-quality-compliance.md
+    - Quality & Security Gates: quality-security-gates.md
+    - Versioning: versioning.md
+    - Packaging: packaging.md
+    - Public API: public-api.md
+  - Operations:
+    - Troubleshooting: troubleshooting.md
+    - Release & Rollback: release-rollback.md
+    - Local Images: local-packages-to-images.md
+  - Compliance:
+    - Privacy: privacy.md
+    - HIPAA Considerations: compliance/hipaa-considerations.md
