@@ -48,7 +48,7 @@ def test_grpc_health_servicer_is_registered():
         try:
             serve(port=0)
         except KeyboardInterrupt:
-            pass
+            pass  # serve() raises KeyboardInterrupt on shutdown; suppress to let assertions run
 
         assert "health" in added_servicers, "HealthServicer was not added to the gRPC server"
 

@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import node_wire_runtime.log_sanitization as ls
+
 from node_wire_runtime import connector_registry
 from node_wire_runtime.log_sanitization import (
     REDACTED,
@@ -298,8 +300,6 @@ def test_sanitize_log_record_no_args() -> None:
 def test_install_sanitizing_filter_finds_existing_without_flag() -> None:
     """When a SanitizingLogFilter is already present but the flag is False,
     it should detect it and not add a duplicate."""
-    import node_wire_runtime.log_sanitization as ls
-
     original_flag = ls._SANITIZING_FILTER_INSTALLED
     original_filters = list(logging.getLogger().filters)
     try:

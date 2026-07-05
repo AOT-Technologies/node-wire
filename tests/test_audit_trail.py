@@ -107,7 +107,7 @@ async def test_audit_invocation_validation_failure_emitted(
 ) -> None:
     connector = _AuditConnector()
     with caplog.at_level(logging.ERROR, logger="runtime.base_connector"):
-        resp = await connector.run({"action": "go", "unexpected_extra_field_that_breaks": True})
+        await connector.run({"action": "go", "unexpected_extra_field_that_breaks": True})
     # Validation may succeed (extra fields tolerated by default) or fail depending on model config.
     # Use a clearly wrong payload instead.
     with caplog.at_level(logging.ERROR, logger="runtime.base_connector"):
