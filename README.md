@@ -4,15 +4,17 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Node Wire
+# <img src="./docs/images/nw-favicon-black.png" alt="" width="90" align="center"/>node wire
 
 [![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
 [![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
 [![PyPI](https://img.shields.io/pypi/v/node-wire.svg)](https://pypi.org/project/node-wire/)
 [![GitHub Release](https://img.shields.io/github/v/release/AOT-Technologies/node-wire)](https://github.com/AOT-Technologies/node-wire/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-
-Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, etc.) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
+<p align="center">
+  <img src="./docs/images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
+</p>
+node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, etc.) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
 ## Prerequisites
 
@@ -200,14 +202,14 @@ For more detailed information, please refer to the following guides:
 - **[Installation](docs/installation.md)** — Detailed setup and prerequisites.
 - **[Configuration](docs/configuration.md)** — Environment variables and `connectors.yaml`.
 - **[Connectors Guide](docs/connectors.md)** — How to use and build connectors.
-- **[MCP Integration](docs/mcp.md)** — Using Node Wire with AI agents.
+- **[MCP Integration](docs/mcp.md)** — Using node wire with AI agents.
 - **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Release Rollback](docs/release-rollback.md)** — PyPI yank and corrective release procedure.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
 - **[Privacy](docs/privacy.md)** — Data handling and logging guidance.
-- **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying Node Wire in regulated healthcare environments.
+- **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying node wire in regulated healthcare environments.
 - **[ToolHive Agent Scenario](docs/toolhive_agent_scenario.md)** — End-to-end FHIR → Google Drive → email workflow.
 - **[Changelog](CHANGELOG.md)** — Release history.
 
