@@ -1,0 +1,168 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+openapi: "3.0.3"
+info:
+  title: Slack Web API (node-wire connector subset)
+  description: >
+    Minimal OpenAPI 3.0 spec for post_message, send_direct_message, and
+    upload_file actions mirrored from the node-wire Slack connector.
+  version: "1.0.0"
+
+servers:
+  - url: https://slack.com/api
+    description: Slack Web API base URL
+
+paths:
+  /chat.postMessage:
+    post:
+      operationId: chatPostMessage
+      summary: Post a message to a channel or DM
+      description: >
+        Sends a message to a channel ID, user ID, or channel name. Used by
+        both post_message and send_direct_message in the node-wire connector.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatPostMessageRequest"
+      responses:
+        "200":
+          description: Slack API response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlackApiResponse"
+
+  /files.getUploadURLExternal:
+    post:
+      operationId: filesGetUploadURLExternal
+      summary: Step 1 of external file upload — get upload URL
+      description: >
+        Returns a pre-signed upload_url and file_id for the external upload
+        flow. The node-wire connector chains this with a byte upload and
+        files.completeUploadExternal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GetUploadUrlRequest"
+      responses:
+        "200":
+          description: Slack API response with upload_url and file_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetUploadUrlResponse"
+
+  /files.completeUploadExternal:
+    post:
+      operationId: filesCompleteUploadExternal
+      summary: Step 3 of external file upload — finalize and share
+      description: >
+        Finalizes an external upload and optionally shares the file to a
+        channel. Requires file_id from files.getUploadURLExternal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteUploadRequest"
+      responses:
+        "200":
+          description: Slack API response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SlackApiResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Slack Bot Token (xoxb-…)
+
+  schemas:
+    ChatPostMessageRequest:
+      type: object
+      required:
+        - channel
+        - text
+      properties:
+        channel:
+          type: string
+          description: Channel ID (C…), user ID (U…), or channel name (#general).
+        text:
+          type: string
+          description: Plain-text message (mrkdwn supported).
+        blocks:
+          type: array
+          description: Optional Block Kit blocks array.
+          items:
+            type: object
+            additionalProperties: true
+
+    GetUploadUrlRequest:
+      type: object
+      required:
+        - filename
+        - length
+      properties:
+        filename:
+          type: string
+          description: Display filename for the upload.
+        length:
+          type: integer
+          description: File size in bytes.
+          minimum: 1
+
+    GetUploadUrlResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        upload_url:
+          type: string
+        file_id:
+          type: string
+        error:
+          type: string
+
+    CompleteUploadRequest:
+      type: object
+      required:
+        - files
+        - channel_id
+      properties:
+        files:
+          type: string
+          description: >
+            JSON-encoded array of file objects, e.g.
+            [{"id":"F123","title":"report.pdf"}].
+        channel_id:
+          type: string
+          description: Channel ID (C/G/D/Z…) to share the file with.
+        initial_comment:
+          type: string
+          description: Message posted alongside the file.
+
+    SlackApiResponse:
+      type: object
+      additionalProperties: true
+      properties:
+        ok:
+          type: boolean
+        error:
+          type: string
+        ts:
+          type: string
+        channel:
+          type: string
+
+security:
+  - bearerAuth: []

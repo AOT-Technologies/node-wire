@@ -1,0 +1,114 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+version: "1"
+
+server:
+  name: slack
+  description: "Slack MCP server for posting messages and uploading files (node-wire connector subset)"
+
+spec:
+  source: "e2e/fixtures/real/slack_openapi.yaml"
+  format: openapi3
+  base_url: "https://slack.com/api"
+  total_endpoints: 3
+  scoped_endpoints: 3
+
+workflows:
+  - "Team members post status updates and announcements to Slack channels"
+  - "Support agents send direct messages to users"
+  - "Bots upload files to channels with the external upload API"
+
+groups:
+  - name: messaging
+    description: "Post messages to channels and direct messages"
+    tools:
+      - tool_name: post_message
+        endpoint: POST /chat.postMessage
+        description: >
+          Send a message to a Slack channel. Target can be a channel ID (C…),
+          channel name (#general), or user ID (U…). Supports plain text and
+          optional Block Kit blocks. The authenticated bot appears as the
+          message author.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: >
+              Target channel ID (C…), channel name (#general), or user ID (U…).
+            required: true
+            location: body
+          - name: text
+            description: >
+              Plain-text message body (mrkdwn supported). Maps to the node-wire
+              connector "message" field.
+            required: true
+            location: body
+          - name: blocks
+            description: >
+              Optional Block Kit blocks as a JSON array. Omit for text-only
+              messages.
+            required: false
+            location: body
+        hints:
+          - "Requires chat:write scope on the Slack bot token."
+          - "Channel names like #general are accepted; uploads require channel IDs."
+
+      - tool_name: send_direct_message
+        endpoint: POST /chat.postMessage
+        description: >
+          Send a direct message to a Slack user. Uses the same chat.postMessage
+          API as post_message; provide a user ID (U…) or DM channel ID (D…).
+          Supports plain text and optional Block Kit blocks.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: >
+              Target user ID (U…), DM channel ID (D…), or channel name.
+            required: true
+            location: body
+          - name: text
+            description: "Plain-text DM body (mrkdwn supported)."
+            required: true
+            location: body
+          - name: blocks
+            description: "Optional Block Kit blocks as a JSON array."
+            required: false
+            location: body
+        hints:
+          - "Requires im:write or chat:write scope depending on workspace policy."
+          - "node-wire resolves user IDs to DM channel IDs via conversations.open."
+
+  - name: files
+    description: "File upload via Slack external upload API"
+    tools:
+      - tool_name: upload_file
+        endpoint: POST /files.getUploadURLExternal
+        description: >
+          Request an external upload URL from Slack (step 1 of 3). Provide
+          filename and file size in bytes. Returns upload_url and file_id;
+          bytes must be uploaded to upload_url separately, then finalized
+          with files.completeUploadExternal. For the full automated upload
+          flow including base64 content, use the node-wire nw-slack connector.
+        response_kind: json
+        parameters:
+          - name: filename
+            description: "Display name for the file being uploaded."
+            required: true
+            location: body
+          - name: length
+            description: "File size in bytes."
+            required: true
+            location: body
+        hints:
+          - "Thin MCP proxy: only performs getUploadURLExternal, not the full 3-step flow."
+          - "node-wire upload_file accepts content_base64 or filepath under NW_SLACK_ATTACHMENTS_DIR."
+          - "Channel ID (C/G/D/Z…) is required for sharing after upload completes."
+
+auth:
+  type: api_key
+  notes: >
+    Slack Web API expects a Bearer bot token (xoxb-…) in the Authorization
+    header. Set SLACK_BOT_TOKEN via ToolHive secret injection or pass the
+    token from MCP Inspector. Token is never stored by this MCP server.

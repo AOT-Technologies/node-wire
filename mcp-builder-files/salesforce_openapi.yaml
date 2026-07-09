@@ -1,0 +1,351 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+openapi: "3.0.3"
+info:
+  title: Salesforce sObject REST API (Lead/Contact subset)
+  description: >
+    Minimal OpenAPI 3.0 spec for Lead and Contact CRUD via Salesforce REST API v58.0.1
+    Handcrafted to mirror the node-wire Salesforce connector actions.
+  version: v58.0
+
+servers:
+  - url: https://your-instance.my.salesforce.com
+    description: Salesforce org instance URL (org-specific)
+
+paths:
+  /services/data/v58.0/sobjects/Lead:
+    post:
+      operationId: createLead
+      summary: Create a Lead record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadCreate"
+      responses:
+        "201":
+          description: Lead created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /services/data/v58.0/sobjects/Lead/{id}:
+    get:
+      operationId: readLead
+      summary: Retrieve a Lead record by ID
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Lead record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SObjectRecord"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateLead
+      summary: Update a Lead record
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadUpdate"
+      responses:
+        "204":
+          description: Lead updated
+        "200":
+          description: Lead updated with body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteLead
+      summary: Delete a Lead record
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Lead deleted
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /services/data/v58.0/sobjects/Contact:
+    post:
+      operationId: createContact
+      summary: Create a Contact record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactCreate"
+      responses:
+        "201":
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /services/data/v58.0/sobjects/Contact/{id}:
+    get:
+      operationId: readContact
+      summary: Retrieve a Contact record by ID
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Contact record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SObjectRecord"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateContact
+      summary: Update a Contact record
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactUpdate"
+      responses:
+        "204":
+          description: Contact updated
+        "200":
+          description: Contact updated with body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteContact
+      summary: Delete a Contact record
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Contact deleted
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    RecordId:
+      name: id
+      in: path
+      required: true
+      description: Salesforce record ID (15 or 18 alphanumeric characters)
+      schema:
+        type: string
+        pattern: "^[a-zA-Z0-9]{15,18}$"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: OAuth 2.0 access token for the Salesforce org
+
+  schemas:
+    LeadCreate:
+      type: object
+      required:
+        - LastName
+        - Company
+      properties:
+        FirstName:
+          type: string
+        LastName:
+          type: string
+        Company:
+          type: string
+        Title:
+          type: string
+        Email:
+          type: string
+          format: email
+        Phone:
+          type: string
+        MobilePhone:
+          type: string
+        Street:
+          type: string
+        City:
+          type: string
+        State:
+          type: string
+        PostalCode:
+          type: string
+        Country:
+          type: string
+        Description:
+          type: string
+        LeadSource:
+          type: string
+        Status:
+          type: string
+        Rating:
+          type: string
+        Website:
+          type: string
+        NumberOfEmployees:
+          type: integer
+        Industry:
+          type: string
+        AnnualRevenue:
+          type: number
+          format: double
+
+    LeadUpdate:
+      type: object
+      properties:
+        FirstName:
+          type: string
+        LastName:
+          type: string
+        Company:
+          type: string
+        Email:
+          type: string
+          format: email
+
+    ContactCreate:
+      type: object
+      required:
+        - LastName
+      properties:
+        FirstName:
+          type: string
+        LastName:
+          type: string
+        AccountId:
+          type: string
+          pattern: "^[a-zA-Z0-9]{15,18}$"
+        Title:
+          type: string
+        Email:
+          type: string
+          format: email
+        Phone:
+          type: string
+        MobilePhone:
+          type: string
+        MailingStreet:
+          type: string
+        MailingCity:
+          type: string
+        MailingState:
+          type: string
+        MailingPostalCode:
+          type: string
+        MailingCountry:
+          type: string
+        Description:
+          type: string
+        LeadSource:
+          type: string
+        Department:
+          type: string
+
+    ContactUpdate:
+      type: object
+      properties:
+        FirstName:
+          type: string
+        LastName:
+          type: string
+        Email:
+          type: string
+          format: email
+        AccountId:
+          type: string
+          pattern: "^[a-zA-Z0-9]{15,18}$"
+
+    CreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        success:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: object
+
+    SObjectRecord:
+      type: object
+      additionalProperties: true
+      description: Salesforce sObject record with attributes and field values
+
+    ErrorResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: string
+          errorCode:
+            type: string
+          fields:
+            type: array
+            items:
+              type: string
+
+security:
+  - bearerAuth: []
