@@ -60,10 +60,10 @@ manifest `deprecated` flag; deprecated MCP arguments follow a phased removal.
 ## Supported versions
 
 Security and bug fixes target the latest `1.x` release and `main`. See
-[SECURITY.md](../SECURITY.md) for the support matrix and reporting process.
+[SECURITY.md](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) for the support matrix and reporting process.
 
 ## Release process
 
 Each release is tagged `vMAJOR.MINOR.PATCH`, published to PyPI via Trusted
 Publisher (OIDC) with Sigstore attestations, and recorded in
-[CHANGELOG.md](../CHANGELOG.md).
+[CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md).

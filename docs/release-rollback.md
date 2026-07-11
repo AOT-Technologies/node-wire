@@ -36,7 +36,7 @@ reaches PyPI or GitHub. Read it together with
 - **Release maintainer** — executes PyPI yank, publishes corrective release,
   updates GitHub release/tag state.
 - **Security contact** — triages severity, coordinates advisory if needed
-  ([SECURITY.md](../SECURITY.md)).
+  ([SECURITY.md](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md)).
 - **Comms** — notifies users via GitHub Discussions, release notes, or advisory.
 
 ## Step 1 — Triage and freeze
@@ -77,7 +77,7 @@ at the bad version).
 
 1. Fix the defect on `main` (or a release branch) with tests.
 2. Bump **PATCH** per [SemVer](versioning.md) (e.g. `1.0.0` → `1.0.1`).
-3. Update [CHANGELOG.md](../CHANGELOG.md) with the fix and yank notice.
+3. Update [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) with the fix and yank notice.
 4. Run the local pre-publish checklist in [packaging.md](packaging.md#pre-pypi-local-validation-checklist).
 5. Dispatch `.github/workflows/publish.yml` for each affected `package_path`
    with the corrective release `tag` (e.g. `v1.0.1`).
@@ -107,14 +107,14 @@ Minimum user-facing notice (GitHub Release, Discussion, or advisory):
 - Any manual steps (config change, secret rotation, data fix)
 - Link to CHANGELOG entry
 
-For security issues, follow coordinated disclosure in [SECURITY.md](../SECURITY.md)
+For security issues, follow coordinated disclosure in [SECURITY.md](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md)
 before public announcement.
 
 ## Step 6 — Post-incident
 
 - [ ] Root cause documented (issue or post-mortem)
 - [ ] CI gap closed if the defect should have been caught pre-publish
-- [ ] [CHANGELOG.md](../CHANGELOG.md) and [docs/troubleshooting.md](troubleshooting.md) updated if user-visible
+- [ ] [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) and [docs/troubleshooting.md](troubleshooting.md) updated if user-visible
 - [ ] Branch protection / required checks reviewed
 - [ ] If secrets were exposed: rotate credentials, run secret scan (see
       [quality-security-gates.md](quality-security-gates.md#secret-scanning)),
@@ -140,5 +140,5 @@ pip install node-wire-runtime==1.0.1
 
 - [Packaging & Publishing](packaging.md) — publish workflow and pre-release checks
 - [Versioning policy](versioning.md) — when to bump MAJOR/MINOR/PATCH
-- [Security Policy](../SECURITY.md) — vulnerability reporting and advisories
+- [Security Policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) — vulnerability reporting and advisories
 - [Quality & security gates](quality-security-gates.md) — CI checks and scans

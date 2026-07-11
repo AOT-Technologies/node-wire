@@ -26,7 +26,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`.
 
-**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](../scripts/build-packages.sh). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
+**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
 
 ---
 
@@ -41,7 +41,7 @@ After implementing the connector runtime (see [connectors.md](connectors.md)), u
 | `src/node_wire_<name>/` | `schema.py`, `logic.py`, optional `registration.py`, `action_spec.py`, `README.md` |
 | Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
-| [`sample.env`](../sample.env) | Commented placeholders for connector secrets |
+| [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets |
 | Tests | e.g. `tests/test_connectors_basic.py`, registry tests |
 
 `auto_register()` discovers the connector via the entry point — no factory branch required.
@@ -52,10 +52,10 @@ After implementing the connector runtime (see [connectors.md](connectors.md)), u
 |---|---|
 | `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point |
 | `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates) below |
-| [`scripts/build-packages.sh`](../scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
-| [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) | Add to `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
-| [`.github/workflows/github-release.yml`](../.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
-| [`.github/workflows/security-pr.yml`](../.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
+| [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) below |
 | This doc — [Package inventory](#package-inventory) | Add row |
 | Root + all package `pyproject.toml` | Version bump on release |
 | `CHANGELOG.md` | Release section |
@@ -177,8 +177,8 @@ Use when you need a dedicated Docker/ToolHive image for a single connector (not 
 | `src/agents/<name>_mcp.py` | Per-connector MCP agent entrypoint |
 | Root `pyproject.toml` | `[project.scripts]` e.g. `nw-<kebab-name>` |
 | `docker/<name>/Dockerfile` | Demo MCP image |
-| [`scripts/build-mcp-images.sh`](../scripts/build-mcp-images.sh) | `docker build` block |
-| [`docker-compose.mcp.yml`](../docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
+| [`scripts/build-mcp-images.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-mcp-images.sh) | `docker build` block |
+| [`docker-compose.mcp.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
 | [mcp-servers.md](mcp-servers.md) | Naming conventions table row |
 | [local-packages-to-images.md](local-packages-to-images.md) | Wheel → image mapping |
 
