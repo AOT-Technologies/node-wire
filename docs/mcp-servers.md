@@ -30,18 +30,41 @@ This document covers everything needed to build, run, configure, and integrate t
 
 Each connector is deployed as an independent MCP server (Docker image). The Agentic Workflow connects to all of them simultaneously via ToolHive proxy URLs and merges their tools into a single tool list.
 
+<div class="nw-diagram" markdown="1">
+
 ```mermaid
-flowchart TD
-    Agent[AgenticWorkflow]
-    subgraph toolhive[ToolHive]
-        GDrive[nw-google-drive]
-        Epic[nw-smartonfhir-epic]
-        Cerner[nw-smartonfhir-cerner]
-        SMTP[nw-smtp]
-        Stripe[nw-stripe]
-        Salesforce[nw-salesforce]
-        Slack[nw-slack]
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#242930",
+    "primaryTextColor": "#E8EDF5",
+    "primaryBorderColor": "#37c4f0",
+    "lineColor": "#62d2f5",
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "fontSize": "13px"
+  },
+  "flowchart": {
+    "curve": "basis",
+    "padding": 24,
+    "nodeSpacing": 35,
+    "rankSpacing": 50,
+    "diagramPadding": 20
+  }
+}}%%
+flowchart TB
+    Agent["Agentic Workflow"]
+
+    subgraph toolhive ["ToolHive · MCP proxy layer"]
+        direction LR
+        GDrive["nw-google-drive"]
+        Epic["nw-smartonfhir-epic"]
+        Cerner["nw-smartonfhir-cerner"]
+        SMTP["nw-smtp"]
+        Stripe["nw-stripe"]
+        Salesforce["nw-salesforce"]
+        Slack["nw-slack"]
     end
+
     Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
     Agent -->|"TOOLHIVE_MCP_URLS"| Epic
     Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
@@ -49,7 +72,17 @@ flowchart TD
     Agent -->|"TOOLHIVE_MCP_URLS"| Stripe
     Agent -->|"TOOLHIVE_MCP_URLS"| Salesforce
     Agent -->|"TOOLHIVE_MCP_URLS"| Slack
+
+    classDef agent fill:#1a3a4a,stroke:#37c4f0,stroke-width:2px,color:#E8EDF5
+    classDef server fill:#3a2430,stroke:#e01d5a,stroke-width:2px,color:#E8EDF5
+
+    class Agent agent
+    class GDrive,Epic,Cerner,SMTP,Stripe,Salesforce,Slack server
+
+    style toolhive fill:#151920,stroke:#ecb32e,stroke-width:2px,color:#ecb32e
 ```
+
+</div>
 
 ---
 

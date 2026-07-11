@@ -4,14 +4,23 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Node Wire
+# <img src="images/nw-favicon-black.png" alt="" width="90" align="center"/>node wire
 
 [![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
 [![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
 [![PyPI](https://img.shields.io/pypi/v/node-wire.svg)](https://pypi.org/project/node-wire/)
+[![GitHub Release](https://img.shields.io/github/v/release/AOT-Technologies/node-wire)](https://github.com/AOT-Technologies/node-wire/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE)
 
-Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
+<p align="center">
+  <img src="images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
+</p>
+
+node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
+
+## Prerequisites
+
+Before getting started, see the [Installation guide](installation.md) for full setup. You will need Python 3.11+, `uv` (recommended) or `pip`, Git, and optionally Docker (MCP server images) and Node.js (MCP Inspector).
 
 ## Quick Start
 
@@ -23,7 +32,7 @@ cp sample.env .env
 MODE=API uv run node-wire
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI.
+Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI, or the [playground](http://localhost:8000/playground/) for interactive connector demos.
 
 ## Key Sections
 

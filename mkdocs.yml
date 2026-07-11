@@ -11,6 +11,7 @@ docs_dir: docs
 
 theme:
   name: material
+  logo: images/nw-favicon-black.png
   palette:
     - scheme: slate
       primary: custom
@@ -45,7 +46,6 @@ theme:
     - header.autohide
   icon:
     repo: fontawesome/brands/github
-    logo: material/lan-connect
 
 extra_css:
   - stylesheets/extra.css
