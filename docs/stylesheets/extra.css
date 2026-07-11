@@ -405,6 +405,22 @@
   min-width: min(100%, 720px);
 }
 
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid {
+  width: 100%;
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid svg {
+  width: 100% !important;
+  max-width: none !important;
+  height: auto;
+  min-width: min(100%, 900px);
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid .nodeLabel,
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid .label {
+  font-size: 16px !important;
+}
+
 .md-typeset .nw-flow-connector {
   display: flex;
   justify-content: center;

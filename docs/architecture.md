@@ -69,27 +69,29 @@ flowchart LR
 
 <div class="nw-flow-connector nw-flow-down"><span>ConnectorFactory ↓</span></div>
 
-<div class="nw-diagram nw-diagram--row" markdown="1">
+<div class="nw-diagram nw-diagram--row nw-diagram--runtime" markdown="1">
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "16px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 36, "rankSpacing": 40, "padding": 16}}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontSize": "40px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 156, "rankSpacing": 40, "padding": 16}}}%%
 flowchart LR
     subgraph layerA ["Layer A · Runtime · src/node_wire_runtime/"]
         direction LR
         Validate["Pydantic validation"]
         Policy["PolicyHook"]
         Resilience["Retries & circuit breaker"]
-        Errors["ErrorMapper · ConnectorResponse"]
+        Errors["ErrorMapper"]
         Otel["OpenTelemetry"]
     end
 
-    Validate --> Policy --> Resilience --> Errors
-    Validate -.-> Otel
-    Policy -.-> Otel
-    Resilience -.-> Otel
+    Validate --> Policy
+    Policy --> Resilience
+    Resilience --> Errors
+    Otel -. "traces" .-> Resilience
 
     classDef runtime fill:#3a3420,stroke:#ecb32e,stroke-width:2px,color:#E8EDF5
-    class Validate,Policy,Resilience,Errors,Otel runtime
+    classDef telemetry fill:#242930,stroke:#8A9BAC,stroke-width:2px,color:#E8EDF5
+    class Validate,Policy,Resilience,Errors runtime
+    class Otel telemetry
     style layerA fill:#151920,stroke:#ecb32e,stroke-width:2px,color:#ecb32e
 ```
 
