@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Connector-mode orchestration (no OpenAPI path)."""
 
 from __future__ import annotations

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Emit a thin MCP host that runs a node-wire connector via wheels.
 
 ponytail: Docker-parity packaging -- install runtime+connector ``.whl`` for
@@ -46,16 +50,12 @@ def write_connector_project(
 
     node_wire_root = node_wire_root.resolve()
     if not (node_wire_root / "pyproject.toml").is_file():
-        raise FileNotFoundError(
-            f"node-wire root missing pyproject.toml: {node_wire_root}"
-        )
+        raise FileNotFoundError(f"node-wire root missing pyproject.toml: {node_wire_root}")
 
     runtime_wheel, connector_wheel = _resolve_wheels(node_wire_root, connector_id)
     nw_src = node_wire_root / "src"
     if not (nw_src / "bindings").is_dir():
-        raise FileNotFoundError(
-            f"node-wire src/bindings package missing: {nw_src / 'bindings'}"
-        )
+        raise FileNotFoundError(f"node-wire src/bindings package missing: {nw_src / 'bindings'}")
 
     server_name = scope.server.name
     project_name = f"{server_name}-mcp"
@@ -147,9 +147,7 @@ def write_connector_project(
 
 def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path]:
     runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    connector_dist = (
-        node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    )
+    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
     runtime_wheels = sorted(
         runtime_dist.glob("*.whl"),
         key=lambda p: p.stat().st_mtime,

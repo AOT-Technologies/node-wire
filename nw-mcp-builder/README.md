@@ -1,10 +1,15 @@
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # nw-mcp-builder
 
 Self-contained tool inside the **node-wire** repo that turns a node-wire connector into a standalone MCP server project.
 
 It does **not** depend on the separate [mcp-builder](https://github.com/your-org/mcp-builder) repo. Everything needed to generate connector-mode MCP hosts lives in this folder.
 
-**ponytail:** connector mode only — no OpenAPI spec parsing, no `mcp-template-py` scaffolding.
 
 ---
 

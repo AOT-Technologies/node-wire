@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Automate node-wire connector → thin MCP host (wheels + fixture + generate).
 
 Steps:
@@ -192,9 +196,7 @@ def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
 
 def _require_wheels(node_wire_root: Path, connector_id: str) -> None:
     runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    connector_dist = (
-        node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    )
+    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
     if not list(runtime_dist.glob("*.whl")):
         raise FileNotFoundError(
             f"Missing runtime wheel in {runtime_dist} (omit --skip-build-wheels)"
@@ -260,9 +262,7 @@ def ensure_connector_fixture(
     fixtures_dir.mkdir(parents=True, exist_ok=True)
     path = fixtures_dir / f"{connector_id}_nw.yaml"
     if path.is_file() and not force:
-        logger.info(
-            "Fixture already exists (use --force-fixture to regenerate): %s", path
-        )
+        logger.info("Fixture already exists (use --force-fixture to regenerate): %s", path)
         return path
 
     logic = node_wire_root / "src" / f"node_wire_{connector_id}" / "logic.py"
@@ -312,16 +312,14 @@ def ensure_connector_fixture(
             "scoped_endpoints": len(tools),
         },
         "workflows": [
-            f"MCP tools for node-wire connector `{connector_id}` "
-            f"(actions from logic.py)",
+            f"MCP tools for node-wire connector `{connector_id}` (actions from logic.py)",
             "Auth and telemetry are handled by the node-wire connector runtime",
         ],
         "groups": [
             {
                 "name": "connector",
                 "description": (
-                    f"Actions from node_wire_{connector_id}.logic "
-                    f"(dispatched via McpServer)"
+                    f"Actions from node_wire_{connector_id}.logic (dispatched via McpServer)"
                 ),
                 "tools": tools,
             }
@@ -336,19 +334,22 @@ def ensure_connector_fixture(
         },
     }
 
-    path.write_text(
-        yaml.safe_dump(
-            doc, sort_keys=False, default_flow_style=False, allow_unicode=True
-        ),
-        encoding="utf-8",
+    # ponytail: prepend REUSE header so regenerated fixtures stay license-compliant
+    # REUSE-IgnoreStart
+    header = (
+        "##\n"
+        "## SPDX-FileCopyrightText: 2026 AOT Technologies\n"
+        "## SPDX-License-Identifier: Apache-2.0\n"
+        "##\n"
     )
+    # REUSE-IgnoreEnd
+    body = yaml.safe_dump(doc, sort_keys=False, default_flow_style=False, allow_unicode=True)
+    path.write_text(header + body, encoding="utf-8")
     logger.info("Wrote fixture %s (%d tools)", path, len(tools))
     return path
 
 
-def discover_secret_env_names(
-    connector_id: str, node_wire_root: Path
-) -> list[str]:
+def discover_secret_env_names(connector_id: str, node_wire_root: Path) -> list[str]:
     """Collect env var names for connector secrets from YAML + sample.env."""
     names: list[str] = []
     seen: set[str] = set()
@@ -393,9 +394,7 @@ def discover_secret_env_names(
     return names
 
 
-def write_env_example(
-    project_dir: Path, connector_id: str, node_wire_root: Path
-) -> Path:
+def write_env_example(project_dir: Path, connector_id: str, node_wire_root: Path) -> Path:
     """Write ``.env.example`` next to the generated host (does not overwrite `.env`)."""
     secrets = discover_secret_env_names(connector_id, node_wire_root)
     lines = [

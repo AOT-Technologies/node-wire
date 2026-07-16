@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Pydantic models for connector-mode mcp-scope.yaml validation.
 
 ponytail: kept the same shape as mcp-builder so hand-written fixtures
