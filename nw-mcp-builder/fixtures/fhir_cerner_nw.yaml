@@ -1,0 +1,65 @@
+version: '1'
+server:
+  name: fhir-cerner-nw
+  description: fhir_cerner MCP via node-wire connector (node-wire-fhir-cerner; auth/OTel
+    inside node-wire)
+runtime:
+  type: node_wire
+  connector_id: fhir_cerner
+spec:
+  source: node-wire/src/node_wire_fhir_cerner
+  format: openapi3
+  base_url: https://unused.invalid
+  total_endpoints: 5
+  scoped_endpoints: 5
+workflows:
+- MCP tools for node-wire connector `fhir_cerner` (actions from logic.py)
+- Auth and telemetry are handled by the node-wire connector runtime
+groups:
+- name: connector
+  description: Actions from node_wire_fhir_cerner.logic (dispatched via McpServer)
+  tools:
+  - tool_name: read_patient
+    endpoint: POST /connectors/fhir_cerner/read_patient
+    description: Execute node-wire fhir_cerner.read_patient (see src/node_wire_fhir_cerner/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_cerner.read_patient'
+    - 'Packaged wheel: node-wire-fhir-cerner'
+  - tool_name: search_patients
+    endpoint: POST /connectors/fhir_cerner/search_patients
+    description: Execute node-wire fhir_cerner.search_patients (see src/node_wire_fhir_cerner/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_cerner.search_patients'
+    - 'Packaged wheel: node-wire-fhir-cerner'
+  - tool_name: search_encounter
+    endpoint: POST /connectors/fhir_cerner/search_encounter
+    description: Execute node-wire fhir_cerner.search_encounter (see src/node_wire_fhir_cerner/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_cerner.search_encounter'
+    - 'Packaged wheel: node-wire-fhir-cerner'
+  - tool_name: create_document_reference
+    endpoint: POST /connectors/fhir_cerner/create_document_reference
+    description: Execute node-wire fhir_cerner.create_document_reference (see src/node_wire_fhir_cerner/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_cerner.create_document_reference'
+    - 'Packaged wheel: node-wire-fhir-cerner'
+  - tool_name: search_document_reference
+    endpoint: POST /connectors/fhir_cerner/search_document_reference
+    description: Execute node-wire fhir_cerner.search_document_reference (see src/node_wire_fhir_cerner/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_cerner.search_document_reference'
+    - 'Packaged wheel: node-wire-fhir-cerner'
+auth:
+  type: none
+  notes: Auth is handled inside node-wire for `fhir_cerner`. Set connector secrets
+    from node-wire sample.env / config/connectors.yaml (see generated .env.example).

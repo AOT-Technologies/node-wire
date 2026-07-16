@@ -1,0 +1,1 @@
+"""Connector-mode project emitters."""

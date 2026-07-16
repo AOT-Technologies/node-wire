@@ -1,0 +1,65 @@
+version: '1'
+server:
+  name: fhir-epic-nw
+  description: fhir_epic MCP via node-wire connector (node-wire-fhir-epic; auth/OTel
+    inside node-wire)
+runtime:
+  type: node_wire
+  connector_id: fhir_epic
+spec:
+  source: node-wire/src/node_wire_fhir_epic
+  format: openapi3
+  base_url: https://unused.invalid
+  total_endpoints: 5
+  scoped_endpoints: 5
+workflows:
+- MCP tools for node-wire connector `fhir_epic` (actions from logic.py)
+- Auth and telemetry are handled by the node-wire connector runtime
+groups:
+- name: connector
+  description: Actions from node_wire_fhir_epic.logic (dispatched via McpServer)
+  tools:
+  - tool_name: read_patient
+    endpoint: POST /connectors/fhir_epic/read_patient
+    description: Execute node-wire fhir_epic.read_patient (see src/node_wire_fhir_epic/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_epic.read_patient'
+    - 'Packaged wheel: node-wire-fhir-epic'
+  - tool_name: search_patients
+    endpoint: POST /connectors/fhir_epic/search_patients
+    description: Execute node-wire fhir_epic.search_patients (see src/node_wire_fhir_epic/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_epic.search_patients'
+    - 'Packaged wheel: node-wire-fhir-epic'
+  - tool_name: search_encounter
+    endpoint: POST /connectors/fhir_epic/search_encounter
+    description: Execute node-wire fhir_epic.search_encounter (see src/node_wire_fhir_epic/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_epic.search_encounter'
+    - 'Packaged wheel: node-wire-fhir-epic'
+  - tool_name: create_document_reference
+    endpoint: POST /connectors/fhir_epic/create_document_reference
+    description: Execute node-wire fhir_epic.create_document_reference (see src/node_wire_fhir_epic/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_epic.create_document_reference'
+    - 'Packaged wheel: node-wire-fhir-epic'
+  - tool_name: search_document_reference
+    endpoint: POST /connectors/fhir_epic/search_document_reference
+    description: Execute node-wire fhir_epic.search_document_reference (see src/node_wire_fhir_epic/logic.py
+      + schema).
+    response_kind: json
+    hints:
+    - 'MCP tool at runtime: fhir_epic.search_document_reference'
+    - 'Packaged wheel: node-wire-fhir-epic'
+auth:
+  type: none
+  notes: Auth is handled inside node-wire for `fhir_epic`. Set connector secrets from
+    node-wire sample.env / config/connectors.yaml (see generated .env.example).
