@@ -1,0 +1,496 @@
+/* SPDX-FileCopyrightText: 2026 AOT Technologies
+   SPDX-License-Identifier: Apache-2.0 */
+
+/* Node Wire — Brand Stylesheet
+   Matched to aot-technologies.com/products/node-wire
+   Background:  #1C2027  (dark charcoal grey)
+   Surface:     #242930  (card / panel charcoal)
+   Blue:        #37c4f0  (sky blue — links, nav, code borders, h1)
+   Amber:       #ecb32e  (gold — h2 accents, tips, table headers)
+   Pink:        #e01d5a  (red-pink — h3 accents, warnings, danger)
+   Text:        #E8EDF5  (near-white)
+*/
+
+/* ─── Primary color (text ON the primary-colored header/nav) ─ */
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color:        #37c4f0;
+  --md-primary-fg-color--light: #62d2f5;
+  --md-primary-fg-color--dark:  #1fa8d8;
+  --md-primary-bg-color:        #ffffff;        /* text on dark header — MUST be light */
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.72);
+}
+
+/* ─── Accent ───────────────────────────────────────────────── */
+[data-md-color-accent="custom"] {
+  --md-accent-fg-color:              #37c4f0;
+  --md-accent-fg-color--transparent: rgba(55, 196, 240, 0.12);
+  --md-accent-bg-color:              #1C2027;
+  --md-accent-bg-color--light:       rgba(28, 32, 39, 0.7);
+}
+
+/* ─── Dark scheme (slate) ──────────────────────────────────── */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color:            #1C2027;
+  --md-default-bg-color--light:     rgba(28, 32, 39, 0.54);
+  --md-default-bg-color--lighter:   rgba(28, 32, 39, 0.26);
+  --md-default-bg-color--lightest:  rgba(28, 32, 39, 0.12);
+
+  --md-default-fg-color:            #E8EDF5;
+  --md-default-fg-color--light:     rgba(232, 237, 245, 0.72);
+  --md-default-fg-color--lighter:   rgba(232, 237, 245, 0.44);
+  --md-default-fg-color--lightest:  rgba(232, 237, 245, 0.12);
+
+  --md-typeset-a-color:             #37c4f0;
+
+  --md-code-bg-color:               #242930;
+  --md-code-fg-color:               #E8EDF5;
+  --md-code-hl-color:               rgba(55, 196, 240, 0.15);
+
+  --md-footer-bg-color:             #13171C;
+  --md-footer-bg-color--dark:       #0D1015;
+  --md-footer-fg-color:             #8A9BAC;
+  --md-footer-fg-color--light:      rgba(138, 155, 172, 0.7);
+  --md-footer-fg-color--lighter:    rgba(138, 155, 172, 0.45);
+}
+
+/* ─── Light scheme ─────────────────────────────────────────── */
+[data-md-color-scheme="default"] {
+  --md-default-bg-color:    #F5F7FA;
+  --md-typeset-a-color:     #1a9fc8;
+  --md-code-bg-color:       #EAECF0;
+}
+
+/* ─── Header ───────────────────────────────────────────────── */
+/* Slightly lighter than page bg so it reads as a distinct bar */
+.md-header {
+  background: #252A32 !important;
+  border-bottom: 1px solid rgba(55, 196, 240, 0.25);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Force all header text/icons to white for contrast */
+.md-header,
+.md-header .md-header__title,
+.md-header .md-header__button,
+.md-header .md-search__input {
+  color: #ffffff !important;
+}
+
+.md-header__title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Search bar in header */
+.md-header .md-search__input {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px;
+}
+.md-header .md-search__input::placeholder {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+/* Header icons (search, color toggle, github) */
+.md-header .md-icon svg {
+  fill: rgba(255, 255, 255, 0.85);
+}
+.md-header .md-icon:hover svg {
+  fill: #37c4f0;
+}
+
+/* ─── Nav tabs ─────────────────────────────────────────────── */
+.md-tabs {
+  background: #1C2027 !important;
+  border-bottom: 1px solid rgba(55, 196, 240, 0.12);
+}
+
+.md-tabs__link {
+  color: rgba(232, 237, 245, 0.55) !important;
+  font-weight: 500;
+  transition: color 0.15s, box-shadow 0.15s;
+}
+
+.md-tabs__link:hover {
+  color: #37c4f0 !important;
+}
+
+/* Active tab — class is on the <li>, not the <a> */
+.md-tabs__item--active .md-tabs__link {
+  color: #37c4f0 !important;
+  font-weight: 700 !important;
+}
+
+/* ─── Sidebar ──────────────────────────────────────────────── */
+[data-md-color-scheme="slate"] .md-nav {
+  background: #1C2027;
+}
+
+[data-md-color-scheme="slate"] .md-nav__title {
+  background: #242930;
+  color: #E8EDF5;
+}
+
+.md-nav__link--active {
+  color: #37c4f0 !important;
+  font-weight: 600;
+}
+
+[data-md-color-scheme="default"] .md-nav__link--active {
+  color: #1a9fc8 !important;
+}
+
+.md-nav__item--active > .md-nav__link {
+  border-left: 3px solid #37c4f0;
+  padding-left: calc(0.6rem - 3px);
+}
+
+.md-nav__link:hover {
+  color: #37c4f0 !important;
+}
+
+/* ─── Content typography ───────────────────────────────────── */
+
+/* h1: blue underline */
+.md-typeset h1 {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  border-bottom: 2px solid #37c4f0;
+  padding-bottom: 0.25em;
+  display: inline-block;
+}
+
+[data-md-color-scheme="slate"] .md-typeset h1 {
+  color: #F0F4FA;
+}
+
+/* h2: amber left-bar + amber color */
+.md-typeset h2 {
+  font-weight: 700;
+  padding-left: 0.7rem;
+  border-left: 3px solid #ecb32e;
+  color: #ecb32e;
+}
+
+[data-md-color-scheme="default"] .md-typeset h2 {
+  color: #b07d00;
+  border-color: #ecb32e;
+}
+
+/* h3: pink/red accent dot via pseudo-element */
+.md-typeset h3 {
+  font-weight: 600;
+  color: #e01d5a;
+}
+
+[data-md-color-scheme="default"] .md-typeset h3 {
+  color: #b8003d;
+}
+
+.md-typeset a {
+  transition: color 0.15s;
+}
+
+.md-typeset a:hover {
+  color: #62d2f5 !important;
+}
+
+/* ─── Search highlight: sky blue, not yellow ───────────────── */
+.md-typeset mark,
+.md-search-result mark {
+  background-color: rgba(55, 196, 240, 0.22) !important;
+  color: inherit !important;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+[data-md-color-scheme="slate"] .md-search__input {
+  background: #242930;
+  color: #E8EDF5;
+}
+
+/* ─── Code blocks ──────────────────────────────────────────── */
+.md-typeset .highlight {
+  border-radius: 8px;
+  border-left: 3px solid #37c4f0;
+}
+
+[data-md-color-scheme="slate"] .md-typeset pre > code {
+  background: #242930;
+}
+
+.md-clipboard {
+  color: rgba(232, 237, 245, 0.35);
+  transition: color 0.15s;
+}
+.md-clipboard:hover {
+  color: #37c4f0 !important;
+}
+
+/* ─── Admonitions ──────────────────────────────────────────── */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 8px;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .admonition,
+[data-md-color-scheme="slate"] .md-typeset details {
+  background: #242930;
+}
+
+/* note / info → blue (#37c4f0) */
+.md-typeset .admonition.note,
+.md-typeset .admonition.info,
+.md-typeset .admonition.abstract,
+.md-typeset details.note,
+.md-typeset details.info {
+  border-color: #37c4f0;
+}
+.md-typeset .admonition.note > .admonition-title,
+.md-typeset .admonition.info > .admonition-title,
+.md-typeset .admonition.abstract > .admonition-title,
+.md-typeset details.note > summary,
+.md-typeset details.info > summary {
+  background: rgba(55, 196, 240, 0.12);
+  color: #37c4f0;
+}
+
+/* tip / hint / success → amber (#ecb32e) */
+.md-typeset .admonition.tip,
+.md-typeset .admonition.hint,
+.md-typeset .admonition.success,
+.md-typeset details.tip,
+.md-typeset details.hint {
+  border-color: #ecb32e;
+}
+.md-typeset .admonition.tip > .admonition-title,
+.md-typeset .admonition.hint > .admonition-title,
+.md-typeset .admonition.success > .admonition-title,
+.md-typeset details.tip > summary,
+.md-typeset details.hint > summary {
+  background: rgba(236, 179, 46, 0.12);
+  color: #ecb32e;
+}
+
+/* warning / danger / failure → pink (#e01d5a) */
+.md-typeset .admonition.warning,
+.md-typeset .admonition.danger,
+.md-typeset .admonition.failure,
+.md-typeset .admonition.bug,
+.md-typeset details.warning,
+.md-typeset details.danger {
+  border-color: #e01d5a;
+}
+.md-typeset .admonition.warning > .admonition-title,
+.md-typeset .admonition.danger > .admonition-title,
+.md-typeset .admonition.failure > .admonition-title,
+.md-typeset .admonition.bug > .admonition-title,
+.md-typeset details.warning > summary,
+.md-typeset details.danger > summary {
+  background: rgba(224, 29, 90, 0.12);
+  color: #e01d5a;
+}
+
+/* ─── Tables ───────────────────────────────────────────────── */
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) {
+  background: #242930;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background: #2D3340;
+  color: #ecb32e;
+  border-bottom: 2px solid #ecb32e;
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.md-typeset table:not([class]) tr:hover {
+  background: rgba(55, 196, 240, 0.05);
+}
+
+[data-md-color-scheme="default"] .md-typeset table:not([class]) th {
+  background: #1C2027;
+  color: #ecb32e;
+  border-bottom: 2px solid #ecb32e;
+}
+
+/* ─── TOC ──────────────────────────────────────────────────── */
+.md-nav--secondary .md-nav__link--active {
+  color: #37c4f0 !important;
+}
+
+[data-md-color-scheme="slate"] .md-nav--secondary .md-nav__link {
+  color: rgba(232, 237, 245, 0.60);
+}
+
+/* ─── Footer ───────────────────────────────────────────────── */
+/* Three-color brand stripe on footer top edge */
+.md-footer {
+  border-top: 2px solid;
+  border-image: linear-gradient(90deg, #37c4f0 33%, #ecb32e 33% 66%, #e01d5a 66%) 1;
+}
+
+[data-md-color-scheme="default"] .md-footer {
+  background: #1C2027;
+}
+
+[data-md-color-scheme="default"] .md-footer-meta {
+  background: #13171C;
+}
+
+/* ─── Back-to-top ──────────────────────────────────────────── */
+.md-top {
+  background: #242930;
+  color: #E8EDF5;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 196, 240, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.md-top:hover {
+  background: #37c4f0;
+  color: #13171C;
+  border-color: transparent;
+  box-shadow: 0 4px 24px rgba(55, 196, 240, 0.4);
+}
+
+/* ─── Mermaid diagrams ─────────────────────────────────────── */
+.md-typeset .nw-diagram-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 2rem 0 2.5rem;
+  padding: 1.25rem 1rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(55, 196, 240, 0.18);
+  background: linear-gradient(
+    180deg,
+    rgba(36, 41, 48, 0.65) 0%,
+    rgba(28, 32, 39, 0.35) 100%
+  );
+}
+
+[data-md-color-scheme="default"] .md-typeset .nw-diagram-stack {
+  background: linear-gradient(
+    180deg,
+    rgba(234, 236, 240, 0.9) 0%,
+    rgba(245, 247, 250, 0.6) 100%
+  );
+  border-color: rgba(26, 159, 200, 0.25);
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 0.75rem 0.5rem;
+  border: none;
+  background: transparent;
+  overflow-x: auto;
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram .mermaid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 0;
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram .mermaid svg {
+  width: auto !important;
+  max-width: none !important;
+  height: auto;
+  min-width: min(100%, 720px);
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid {
+  width: 100%;
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid svg {
+  width: 100% !important;
+  max-width: none !important;
+  height: auto;
+  min-width: min(100%, 900px);
+}
+
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid .nodeLabel,
+.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid .label {
+  font-size: 16px !important;
+}
+
+.md-typeset .nw-flow-connector {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.15rem 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.md-typeset .nw-flow-down {
+  color: #37c4f0;
+}
+
+.md-typeset .nw-flow-up {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(236, 179, 46, 0.45);
+  color: #ecb32e;
+  font-size: 0.78rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.md-typeset .nw-diagram {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0 2.5rem;
+  padding: 1.5rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(55, 196, 240, 0.18);
+  background: linear-gradient(
+    180deg,
+    rgba(36, 41, 48, 0.65) 0%,
+    rgba(28, 32, 39, 0.35) 100%
+  );
+  overflow-x: auto;
+}
+
+[data-md-color-scheme="default"] .md-typeset .nw-diagram {
+  background: linear-gradient(
+    180deg,
+    rgba(234, 236, 240, 0.9) 0%,
+    rgba(245, 247, 250, 0.6) 100%
+  );
+  border-color: rgba(26, 159, 200, 0.25);
+}
+
+.md-typeset .nw-diagram .mermaid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: min(100%, 960px);
+  margin: 0;
+}
+
+.md-typeset .nw-diagram .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-typeset .mermaid .cluster-label .nodeLabel,
+.md-typeset .mermaid .label {
+  font-weight: 600;
+}
+
+.md-typeset .mermaid .edgeLabel {
+  background: rgba(28, 32, 39, 0.92) !important;
+  color: #E8EDF5 !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+}

@@ -1,0 +1,3144 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Enterprise Connectors for AI & Workflow Systems">
+      
+      
+      
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/connectors/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../google_drive_connector/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Overview - Node Wire</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#connectors-guide-srcnode_wire_" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+      
+  <img src="../images/nw-favicon-black.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Node Wire
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Overview
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/AOT-Technologies/node-wire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AOT-Technologies/node-wire
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Connectors
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../mcp/" class="md-tabs__link">
+          
+  
+  
+  MCP
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../troubleshooting/" class="md-tabs__link">
+          
+  
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../privacy/" class="md-tabs__link">
+          
+  
+  
+  Compliance
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+      
+  <img src="../images/nw-favicon-black.png" alt="logo">
+
+    </a>
+    Node Wire
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/AOT-Technologies/node-wire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AOT-Technologies/node-wire
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connectors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Connectors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-connectors-fit-into-the-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How connectors fit into the platform
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#package-layout-and-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package layout and registration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-unified-baseconnector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The unified BaseConnector
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-a-connector-google-drive-sdk-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building a connector (Google Drive SDK example)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building a connector (Google Drive SDK example)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-define-your-schemas-schemapy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Define your schemas (schema.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-map-operations-to-the-sdk-action_specpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Map operations to the SDK (action_spec.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-implement-the-connector-class-logicpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Implement the connector class (logic.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connector-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector Authentication
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connector Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-auth-in-a-connector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Auth in a Connector
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-provider-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Provider Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-connectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration (connectors.yaml)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-register-in-configconnectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — Register in config/connectors.yaml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-auto-registration-nothing-extra-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5 — Auto-registration (nothing extra needed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connector-registry-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector registry API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-registrationpy-for-errormapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: registration.py for ErrorMapper
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-action-connector-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-action connector example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calling-a-connector-directly-in-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calling a connector directly (in-process)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integrating-with-binding-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integrating with binding layers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integrating with binding layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-mcp-under-srcagents-toolhive-stdio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: MCP under src/agents/ (ToolHive / stdio)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rest-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connector-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector inventory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-new-connector-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a new connector (checklist)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adding a new connector (checklist)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runtime-dev" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime (dev)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publishable-pypi-package-when-shipping-on-pypi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publishable PyPI package (when shipping on PyPI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#standalone-mcp-server-optional-dedicated-dockertoolhive-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone MCP server (optional — dedicated Docker/ToolHive image)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configconnectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config/connectors.yaml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connectorfactory-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ConnectorFactory API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-rest-plugins-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security (REST, plugins, secrets)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../google_drive_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Drive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../salesforce_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Salesforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slack_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    MCP
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-servers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Servers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client OAuth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Scenario
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-quality-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quality-security-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quality & Security Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../public-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local-packages-to-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Compliance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../privacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Privacy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compliance/hipaa-considerations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HIPAA Considerations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-connectors-fit-into-the-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How connectors fit into the platform
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#package-layout-and-registration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Package layout and registration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-unified-baseconnector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The unified BaseConnector
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-a-connector-google-drive-sdk-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Building a connector (Google Drive SDK example)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building a connector (Google Drive SDK example)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-define-your-schemas-schemapy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Define your schemas (schema.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-map-operations-to-the-sdk-action_specpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Map operations to the SDK (action_spec.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-implement-the-connector-class-logicpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Implement the connector class (logic.py)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connector-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector Authentication
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connector Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-auth-in-a-connector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using Auth in a Connector
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-provider-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Provider Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuration-connectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration (connectors.yaml)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-register-in-configconnectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — Register in config/connectors.yaml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-5-auto-registration-nothing-extra-needed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5 — Auto-registration (nothing extra needed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connector-registry-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector registry API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-registrationpy-for-errormapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: registration.py for ErrorMapper
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-action-connector-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-action connector example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calling-a-connector-directly-in-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calling a connector directly (in-process)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integrating-with-binding-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integrating with binding layers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Integrating with binding layers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-mcp-under-srcagents-toolhive-stdio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: MCP under src/agents/ (ToolHive / stdio)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rest-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connector-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector inventory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-a-new-connector-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a new connector (checklist)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adding a new connector (checklist)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#runtime-dev" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime (dev)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publishable-pypi-package-when-shipping-on-pypi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publishable PyPI package (when shipping on PyPI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#standalone-mcp-server-optional-dedicated-dockertoolhive-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone MCP server (optional — dedicated Docker/ToolHive image)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configconnectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config/connectors.yaml
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connectorfactory-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ConnectorFactory API
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-rest-plugins-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security (REST, plugins, secrets)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href=".." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="./" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Connectors
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<h1 id="connectors-guide-srcnode_wire_">Connectors guide (<code>src/node_wire_*</code>)<a class="headerlink" href="#connectors-guide-srcnode_wire_" title="Anchor link to this section">&para;</a></h1>
+<p>This guide explains how <strong>connectors</strong> fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under <code>src/node_wire_&lt;connector_id&gt;/</code> (e.g. <code>src/node_wire_google_drive/</code>); the shared base class lives at <strong><code>src/node_wire_runtime/base_connector.py</code></strong>.</p>
+<h2 id="how-connectors-fit-into-the-platform">How connectors fit into the platform<a class="headerlink" href="#how-connectors-fit-into-the-platform" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><strong>Layer B — Connectors</strong> (<code>src/node_wire_&lt;connector_id&gt;/</code>): adapter packages (schemas, logic, optional <code>registration.py</code>).</li>
+<li><strong>Layer C — Bindings</strong> (<code>src/bindings/</code>): REST, gRPC, and MCP servers plus <code>ConnectorFactory</code> loading from <code>config/connectors.yaml</code>.</li>
+</ul>
+<p>At startup, bindings call <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong>, which loads connector entry points, imports each connector’s <code>logic</code> module (registering the class), then imports optional <code>registration.py</code> for <code>ErrorMapper</code> side effects. <strong><code>ConnectorFactory</code></strong> resolves connectors from the registry — <strong>do not add per-connector branches in <code>src/bindings/factory.py</code>.</strong></p>
+<hr />
+<h2 id="package-layout-and-registration">Package layout and registration<a class="headerlink" href="#package-layout-and-registration" title="Anchor link to this section">&para;</a></h2>
+<p>Each connector is a <strong>top-level package</strong> under <code>src/</code> (e.g. <code>node_wire_fhir_epic</code>):</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>__init__.py</code></td>
+<td>Required empty file — marks the directory as a Python package.</td>
+</tr>
+<tr>
+<td><code>schema.py</code></td>
+<td>Pydantic input/output models. Each input model has an <code>action: Literal[...]</code> discriminator field (often combined into a discriminated union).</td>
+</tr>
+<tr>
+<td><code>logic.py</code></td>
+<td>Connector class: <code>BaseConnector</code> subclass — either explicit <code>@nw_action</code> methods, or <strong><code>action_specs</code></strong> plus an optional <code>_execute_action_spec</code> override for SDK dispatch.</td>
+</tr>
+<tr>
+<td><code>action_spec.py</code> (optional)</td>
+<td>Declarative <code>SdkActionSpec</code> entries mapping validated models to vendor SDK calls (see Google Drive).</td>
+</tr>
+<tr>
+<td><code>registration.py</code></td>
+<td>Optional: registers connector-specific exceptions with <code>ErrorMapper</code>.</td>
+</tr>
+<tr>
+<td><code>exceptions.py</code></td>
+<td>Optional: custom exception types.</td>
+</tr>
+</tbody>
+</table>
+<p>At startup, call <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong>: it loads entry points in group <code>node_wire.connectors</code>, imports each connector's <code>logic</code> module (triggering <code>BaseConnector.__init_subclass__</code>, which populates the registry returned by <code>get_connector_registry()</code>), then imports optional <code>registration.py</code> for <code>ErrorMapper</code> side effects.</p>
+<hr />
+<h2 id="the-unified-baseconnector">The unified <code>BaseConnector</code><a class="headerlink" href="#the-unified-baseconnector" title="Anchor link to this section">&para;</a></h2>
+<p>There is one base class for all connectors: <strong><code>BaseConnector</code></strong> (<code>src/node_wire_runtime/base_connector.py</code>). It handles:</p>
+<ul>
+<li>Input validation via a Pydantic <strong>discriminated union</strong> (the <code>action</code> field selects the right model)</li>
+<li>Optional <strong>policy hook</strong> enforcement</li>
+<li><strong>Retries and circuit breaking</strong> via <code>with_resilience</code></li>
+<li><strong>Error mapping</strong> via <code>ErrorMapper</code></li>
+<li>OpenTelemetry <strong>tracing</strong></li>
+<li>A standard <strong><code>ConnectorResponse</code></strong> envelope</li>
+</ul>
+<p>Actions are declared either with the <strong><code>@nw_action("name")</code></strong> decorator on async methods, or by listing them in <strong><code>action_specs</code></strong> (the runtime generates equivalent handlers). A connector can have <strong>one or many</strong> actions — there is no separate "single-action" type.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>flowchart LR
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  yaml[connectors.yaml]
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  factory[ConnectorFactory.load]
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  inst[BaseConnector subclass]
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  run[connector.run]
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  exec[internal_execute → @nw_action dispatch]
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  resp[ConnectorResponse]
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  yaml --&gt; factory --&gt; inst --&gt; run --&gt; exec --&gt; resp
+</span></code></pre></div>
+<hr />
+<h2 id="building-a-connector-google-drive-sdk-example">Building a connector (Google Drive SDK example)<a class="headerlink" href="#building-a-connector-google-drive-sdk-example" title="Anchor link to this section">&para;</a></h2>
+<p>The production <strong>Google Drive</strong> connector (<code>src/node_wire_google_drive/</code>) is a good template for wrapping a <strong>vendor Python SDK</strong> (here <code>googleapiclient</code> / Drive API v3): service-account auth in <code>build_client()</code>, a discriminated union of operations in <code>schema.py</code>, and <strong><code>action_specs</code></strong> so each API surface becomes a manifest action without duplicating boilerplate.</p>
+<h3 id="step-1-define-your-schemas-schemapy">Step 1 — Define your schemas (<code>schema.py</code>)<a class="headerlink" href="#step-1-define-your-schemas-schemapy" title="Anchor link to this section">&para;</a></h3>
+<p>Each operation is a Pydantic model with an <strong><code>action</code></strong> field whose type is a <code>Literal["…"]</code> unique to that operation. Those models are combined into a <strong>discriminated union</strong> (and often wrapped in <code>RootModel</code> for a single top-level validator), which the runtime uses to pick the correct handler.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># src/node_wire_google_drive/schema.py (conceptual excerpt)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Annotated</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ConfigDict</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">RootModel</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">BaseDriveOperation</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="k">class</span><span class="w"> </span><span class="nc">FilesListOperation</span><span class="p">(</span><span class="n">BaseDriveOperation</span><span class="p">):</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;files.list&quot;</span><span class="p">]</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">page_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">query</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">page_token</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="k">class</span><span class="w"> </span><span class="nc">FilesUploadOperation</span><span class="p">(</span><span class="n">BaseDriveOperation</span><span class="p">):</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;files.upload&quot;</span><span class="p">]</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">mime_type</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">parents</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="n">content</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="n">content_base64</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="c1"># …other operations (files.create, files.get, …) — see the repo.</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="n">_GoogleDriveOperationUnion</span> <span class="o">=</span> <span class="n">Annotated</span><span class="p">[</span>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="n">Union</span><span class="p">[</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>        <span class="n">FilesListOperation</span><span class="p">,</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>        <span class="n">FilesUploadOperation</span><span class="p">,</span>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>        <span class="c1"># … FilesCreateOperation, FilesGetOperation, …</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>    <span class="p">],</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="n">Field</span><span class="p">(</span><span class="n">discriminator</span><span class="o">=</span><span class="s2">&quot;action&quot;</span><span class="p">),</span>
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="p">]</span>
+</span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>
+</span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="n">GoogleDriveOperationInput</span> <span class="o">=</span> <span class="n">RootModel</span><span class="p">[</span><span class="n">_GoogleDriveOperationUnion</span><span class="p">]</span>
+</span><span id="__span-1-42"><a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>
+</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>
+</span><span id="__span-1-44"><a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a><span class="k">class</span><span class="w"> </span><span class="nc">GoogleDriveOperationOutput</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-1-45"><a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>    <span class="n">raw</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="nb">list</span>
+</span><span id="__span-1-46"><a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+</span></code></pre></div>
+<p>Use <code>dict | list</code> for <code>raw</code> when vendor APIs return arrays (e.g. list endpoints); Pydantic validates either shape. Per-action output models can use typed fields instead of a shared envelope.</p>
+<p>When a connector only has <strong>one</strong> action, the <code>action</code> field is still required — the runtime always validates through the discriminated union.</p>
+<h3 id="step-2-map-operations-to-the-sdk-action_specpy">Step 2 — Map operations to the SDK (<code>action_spec.py</code>)<a class="headerlink" href="#step-2-map-operations-to-the-sdk-action_specpy" title="Anchor link to this section">&para;</a></h3>
+<p><strong><code>SdkActionSpec</code></strong> describes how to turn a validated model into a single SDK call: resource path (<code>resource_segments</code>), HTTP-style method name (<code>method_name</code>), and how to build <code>body</code> / keyword arguments from the model. The full Drive registry lives in <a href="https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/action_spec.py"><code>src/node_wire_google_drive/action_spec.py</code></a>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># src/node_wire_google_drive/action_spec.py (illustrative)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.sdk_action_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">SdkActionSpec</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">FilesCreateOperation</span><span class="p">,</span> <span class="n">FilesListOperation</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># def _build_files_list_kwargs(drive, model): ...</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Real module builds this dict via register helpers — see repo for uploads, permissions, etc.</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">GOOGLE_DRIVE_ACTION_SPECS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SdkActionSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">&quot;files.list&quot;</span><span class="p">:</span> <span class="n">SdkActionSpec</span><span class="p">(</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">resource_segments</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;files&quot;</span><span class="p">,),</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">method_name</span><span class="o">=</span><span class="s2">&quot;list&quot;</span><span class="p">,</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">build_kwargs</span><span class="o">=</span><span class="n">_build_files_list_kwargs</span><span class="p">,</span>  <span class="c1"># optional: defaults, shared drives flags</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">input_model</span><span class="o">=</span><span class="n">FilesListOperation</span><span class="p">,</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="p">),</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="s2">&quot;files.create&quot;</span><span class="p">:</span> <span class="n">SdkActionSpec</span><span class="p">(</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">resource_segments</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;files&quot;</span><span class="p">,),</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="n">method_name</span><span class="o">=</span><span class="s2">&quot;create&quot;</span><span class="p">,</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="n">body_from_model</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;mime_type&quot;</span><span class="p">:</span> <span class="s2">&quot;mimeType&quot;</span><span class="p">,</span> <span class="s2">&quot;parents&quot;</span><span class="p">:</span> <span class="s2">&quot;parents&quot;</span><span class="p">},</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="n">constant_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;fields&quot;</span><span class="p">:</span> <span class="s2">&quot;id, name, webViewLink&quot;</span><span class="p">,</span> <span class="s2">&quot;supportsAllDrives&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="n">input_model</span><span class="o">=</span><span class="n">FilesCreateOperation</span><span class="p">,</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="p">),</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>googleapiclient</code> is <strong>synchronous</strong>. The shared helper <strong><code>execute_spec_in_thread</code></strong> runs the generated <code>.execute()</code> call in a thread pool so the connector’s public API stays async.</p>
+<h3 id="step-3-implement-the-connector-class-logicpy">Step 3 — Implement the connector class (<code>logic.py</code>)<a class="headerlink" href="#step-3-implement-the-connector-class-logicpy" title="Anchor link to this section">&para;</a></h3>
+<p>Subclass <code>BaseConnector</code>, set <strong><code>connector_id</code></strong>, <strong><code>output_model</code></strong>, and <strong><code>action_specs</code></strong>. The base class <strong>generates</strong> one async <code>@nw_action</code> handler per spec. Override <strong><code>_execute_action_spec</code></strong> to add logging, thread offload, and translation of vendor exceptions (e.g. <code>HttpError</code> → your <code>error_map</code> types).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># src/node_wire_google_drive/logic.py (conceptual excerpt)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">google.oauth2</span><span class="w"> </span><span class="kn">import</span> <span class="n">service_account</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">googleapiclient.discovery</span><span class="w"> </span><span class="kn">import</span> <span class="n">build</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">googleapiclient.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">HttpError</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseConnector</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ErrorCategory</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.sdk_action_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">execute_spec_in_thread</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.action_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">GOOGLE_DRIVE_ACTION_SPECS</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoogleDriveAuthError</span><span class="p">,</span> <span class="n">GoogleDriveRateLimitError</span>  <span class="c1"># + other mapped types</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">GoogleDriveOperationOutput</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
+</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">GoogleDriveConnector</span><span class="p">(</span><span class="n">BaseConnector</span><span class="p">):</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">&quot;google_drive&quot;</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">output_model</span> <span class="o">=</span> <span class="n">GoogleDriveOperationOutput</span>
+</span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="n">action_specs</span> <span class="o">=</span> <span class="n">GOOGLE_DRIVE_ACTION_SPECS</span>
+</span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
+</span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">error_map</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>        <span class="n">GoogleDriveAuthError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="s2">&quot;GDRIVE_AUTH&quot;</span><span class="p">),</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>        <span class="n">GoogleDriveRateLimitError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="s2">&quot;GDRIVE_RATE_LIMIT&quot;</span><span class="p">),</span>
+</span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>        <span class="c1"># …</span>
+</span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>    <span class="p">}</span>
+</span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>
+</span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>        <span class="n">raw_sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">&quot;GOOGLE_DRIVE_SA_JSON&quot;</span><span class="p">)</span>
+</span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>        <span class="n">info</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw_sa</span><span class="p">)</span>  <span class="c1"># or path to a JSON file — see production code</span>
+</span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>        <span class="n">creds</span> <span class="o">=</span> <span class="n">service_account</span><span class="o">.</span><span class="n">Credentials</span><span class="o">.</span><span class="n">from_service_account_info</span><span class="p">(</span>
+</span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>            <span class="n">info</span><span class="p">,</span>
+</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>            <span class="n">scopes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://www.googleapis.com/auth/drive&quot;</span><span class="p">],</span>
+</span><span id="__span-3-37"><a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>        <span class="p">)</span>
+</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>        <span class="k">return</span> <span class="n">build</span><span class="p">(</span><span class="s2">&quot;drive&quot;</span><span class="p">,</span> <span class="s2">&quot;v3&quot;</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">creds</span><span class="p">)</span>
+</span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>
+</span><span id="__span-3-40"><a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_execute_action_spec</span><span class="p">(</span>
+</span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>        <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-3-42"><a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>        <span class="n">action_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-3-43"><a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>        <span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span id="__span-3-44"><a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>        <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-3-45"><a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>        <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span id="__span-3-46"><a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>        <span class="n">log_extra</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-3-47"><a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GoogleDriveOperationOutput</span><span class="p">:</span>
+</span><span id="__span-3-48"><a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>        <span class="n">spec</span> <span class="o">=</span> <span class="n">GOOGLE_DRIVE_ACTION_SPECS</span><span class="p">[</span><span class="n">action_name</span><span class="p">]</span>
+</span><span id="__span-3-49"><a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a>        <span class="n">drive</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_client</span><span class="p">()</span>
+</span><span id="__span-3-50"><a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-3-51"><a id="__codelineno-3-51" name="__codelineno-3-51" href="#__codelineno-3-51"></a>            <span class="n">raw</span> <span class="o">=</span> <span class="k">await</span> <span class="n">execute_spec_in_thread</span><span class="p">(</span><span class="n">drive</span><span class="p">,</span> <span class="n">spec</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+</span><span id="__span-3-52"><a id="__codelineno-3-52" name="__codelineno-3-52" href="#__codelineno-3-52"></a>        <span class="k">except</span> <span class="n">HttpError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-3-53"><a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_translate_and_raise_http_error</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</span><span id="__span-3-54"><a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a>        <span class="k">return</span> <span class="n">GoogleDriveOperationOutput</span><span class="p">(</span>
+</span><span id="__span-3-55"><a id="__codelineno-3-55" name="__codelineno-3-55" href="#__codelineno-3-55"></a>            <span class="n">raw</span><span class="o">=</span><span class="n">raw</span><span class="p">,</span>
+</span><span id="__span-3-56"><a id="__codelineno-3-56" name="__codelineno-3-56" href="#__codelineno-3-56"></a>            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Successfully executed </span><span class="si">{</span><span class="n">action_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span id="__span-3-57"><a id="__codelineno-3-57" name="__codelineno-3-57" href="#__codelineno-3-57"></a>        <span class="p">)</span>
+</span></code></pre></div>
+<h2 id="connector-authentication">Connector Authentication<a class="headerlink" href="#connector-authentication" title="Anchor link to this section">&para;</a></h2>
+<p>Node Wire provides a shared <strong><code>AuthProvider</code></strong> abstraction (<code>src/node_wire_runtime/auth/</code>) that handles token acquisition, JWT construction (for SMART on FHIR), caching, and expiry. This ensures that connector logic (<code>logic.py</code>) does not need to handle raw credentials or IdP-specific handshake details.</p>
+<h3 id="using-auth-in-a-connector">Using Auth in a Connector<a class="headerlink" href="#using-auth-in-a-connector" title="Anchor link to this section">&para;</a></h3>
+<p>To use authentication, call <strong><code>await self.get_auth_headers()</code></strong> (inherited from <code>BaseConnector</code>). This returns a dictionary of headers (e.g. <code>{"Authorization": "Bearer &lt;token&gt;"}</code>) injected by the configured provider.</p>
+<p>There are two patterns depending on how your connector talks to the vendor:</p>
+<p><strong>HTTP connectors</strong> (direct REST calls via <code>httpx</code>) — create a short-lived client inside each <code>@nw_action</code> method. Do <strong>not</strong> override <code>build_client()</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># logic.py — HTTP connector pattern (e.g. Slack, FHIR, GitHub)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Base URL: read from the connector&#39;s own config, an env var, or a module constant.</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># There is no inherited _get_base_url() helper — connectors own their URL resolution.</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://api.example.com&quot;</span>   <span class="c1"># or: os.environ[&quot;MY_SERVICE_URL&quot;]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">&quot;read_resource&quot;</span><span class="p">)</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">In</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Out</span><span class="p">:</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">headers</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_auth_headers</span><span class="p">()</span>  <span class="c1"># Fetched/cached by provider</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">()</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="n">resp</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/resource&quot;</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="o">...</span>
+</span></code></pre></div>
+<p><strong>SDK connectors</strong> (vendor Python SDK with a long-lived client object) — override <code>build_client()</code> so <code>get_client()</code> can cache the result across calls. Auth is handled inside <code>build_client()</code>, not via <code>get_auth_headers()</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># logic.py — SDK connector pattern (e.g. Google Drive)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="c1"># Read credential from secret provider and build the vendor client once.</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">raw_sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">&quot;MY_SA_JSON&quot;</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">creds</span> <span class="o">=</span> <span class="o">...</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="k">return</span> <span class="n">vendor_sdk</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">creds</span><span class="p">)</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_execute_action_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action_name</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">,</span> <span class="n">log_extra</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_client</span><span class="p">()</span>  <span class="c1"># cached; calls build_client() on first use</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="o">...</span>
+</span></code></pre></div>
+<h3 id="supported-provider-types">Supported Provider Types<a class="headerlink" href="#supported-provider-types" title="Anchor link to this section">&para;</a></h3>
+<p>Choose a provider in your <strong><code>connectors.yaml</code></strong> via the <code>auth:</code> block:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+<th>Example connector</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>none</code></strong></td>
+<td>(Default) No auth headers added.</td>
+<td><code>http_generic</code></td>
+</tr>
+<tr>
+<td><strong><code>static_token</code></strong></td>
+<td>Uses a fixed token from a secret (Bearer, Basic, or custom). Supports refresh.</td>
+<td><code>stripe</code>, <code>slack</code></td>
+</tr>
+<tr>
+<td><strong><code>static_credentials</code></strong></td>
+<td>Username + password pair (e.g. SMTP relay).</td>
+<td><code>smtp</code></td>
+</tr>
+<tr>
+<td><strong><code>service_account</code></strong></td>
+<td>Google-style service account JSON + scopes.</td>
+<td><code>google_drive</code></td>
+</tr>
+<tr>
+<td><strong><code>oauth2</code></strong></td>
+<td>Token exchange (<code>private_key_jwt</code>, <code>refresh_token</code>, <code>client_secret_post</code>, etc.). Handles caching and expiry.</td>
+<td><code>fhir_epic</code>, <code>salesforce</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="static_token-field-reference"><code>static_token</code> field reference<a class="headerlink" href="#static_token-field-reference" title="Anchor link to this section">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>secret_key</code></td>
+<td>Yes</td>
+<td>—</td>
+<td>Env var name holding the raw token value (<code>EnvSecretProvider</code> tries the key as-is, then uppercased).</td>
+</tr>
+<tr>
+<td><code>header_name</code></td>
+<td>No</td>
+<td><code>Authorization</code></td>
+<td>HTTP header the token is injected into.</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>No</td>
+<td><code>Bearer</code> (with trailing space)</td>
+<td>String prepended to the token value. Set <code>prefix: ""</code> for APIs that expect the raw token (e.g. Stripe). Set <code>prefix: "token "</code> for APIs that require the <code>token</code> scheme (check your vendor's auth docs).</td>
+</tr>
+</tbody>
+</table>
+<p>So <code>slack</code> (no <code>header_name</code>/<code>prefix</code>) produces <code>Authorization: Bearer &lt;SLACK_BOT_TOKEN&gt;</code>, and <code>stripe</code> (with <code>prefix: ""</code>) produces <code>Authorization: &lt;STRIPE_API_KEY&gt;</code>.</p>
+<h3 id="configuration-connectorsyaml">Configuration (<code>connectors.yaml</code>)<a class="headerlink" href="#configuration-connectorsyaml" title="Anchor link to this section">&para;</a></h3>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">connectors</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">fhir_epic</span><span class="p">:</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oauth2</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">      </span><span class="nt">grant_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">private_key_jwt</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">token_url_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EPIC_TOKEN_URL</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">client_id_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EPIC_CLIENT_ID</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="nt">private_key_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EPIC_PRIVATE_KEY</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">      </span><span class="nt">kid_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EPIC_KID</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">      </span><span class="nt">algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">RS384</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="nt">stripe</span><span class="p">:</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">static_token</span>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">      </span><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stripe_api_key</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">      </span><span class="nt">header_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Authorization</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">      </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">  </span><span class="c1"># Stripe expects raw key; env var is STRIPE_API_KEY</span>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">  </span><span class="nt">smtp</span><span class="p">:</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">static_credentials</span>
+</span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="w">      </span><span class="nt">username_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SMTP_USERNAME</span>
+</span><span id="__span-6-26"><a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="w">      </span><span class="nt">password_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SMTP_PASSWORD</span>
+</span><span id="__span-6-27"><a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>
+</span><span id="__span-6-28"><a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="w">  </span><span class="nt">google_drive</span><span class="p">:</span>
+</span><span id="__span-6-29"><a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-6-30"><a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-6-31"><a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service_account</span>
+</span><span id="__span-6-32"><a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">      </span><span class="nt">sa_json_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GOOGLE_DRIVE_SA_JSON</span>
+</span><span id="__span-6-33"><a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">      </span><span class="nt">scopes</span><span class="p">:</span>
+</span><span id="__span-6-34"><a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://www.googleapis.com/auth/drive</span>
+</span></code></pre></div>
+<hr />
+<p>Key points:
+- <strong><code>connector_id</code></strong> — unique string; used for routing, config, and registry lookup.
+- <strong><code>output_model</code></strong> — the Pydantic class returned by every action. Shared envelopes often use <code>raw: dict | list</code> for list-heavy vendor APIs; per-action models can use typed fields instead (see SMS example below).
+- <strong><code>error_map</code></strong> — maps exception types to <code>(ErrorCategory, error_code)</code>. Entries are registered with <code>ErrorMapper</code> automatically at class definition time.
+- <strong><code>build_client()</code></strong> — override to create the Google API client. <code>get_client()</code> caches the result in <code>self._client</code>.
+- <strong><code>action_specs</code></strong> — each key becomes a manifest action (e.g. <code>files.list</code>). Do <strong>not</strong> also add a manual <code>@nw_action</code> with the same name.
+- <strong><code>_execute_action_spec</code></strong> — <strong>required</strong> when using <strong><code>action_specs</code></strong>: each generated handler delegates here. Typically call <strong><code>execute_spec_in_thread</code></strong> for blocking SDKs (such as <code>googleapiclient</code>). Connectors that only use hand-written <code>@nw_action</code> methods do not implement this hook.</p>
+<p><strong>Adding a new Drive operation:</strong> add a Pydantic variant and extend the union in <code>schema.py</code>, register a new <code>SdkActionSpec</code> in <code>action_spec.py</code>, and rely on auto-generated handlers (see <a href="https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/README.md"><code>src/node_wire_google_drive/README.md</code></a>).</p>
+<h3 id="step-4-register-in-configconnectorsyaml">Step 4 — Register in <code>config/connectors.yaml</code><a class="headerlink" href="#step-4-register-in-configconnectorsyaml" title="Anchor link to this section">&para;</a></h3>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">connectors</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">google_drive</span><span class="p">:</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rest</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">grpc</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcp</span>
+</span></code></pre></div>
+<p><code>exposed_via</code> controls which bindings surface the connector. Use any subset of <strong><code>rest</code></strong>, <strong><code>grpc</code></strong>, and <strong><code>mcp</code></strong> (omit protocols you do not need).</p>
+<h3 id="step-5-auto-registration-nothing-extra-needed">Step 5 — Auto-registration (nothing extra needed)<a class="headerlink" href="#step-5-auto-registration-nothing-extra-needed" title="Anchor link to this section">&para;</a></h3>
+<p><code>BaseConnector.__init_subclass__</code> registers your class in the global registry as soon as <code>logic.py</code> is imported. <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong> performs those imports at startup. <strong>No manual factory branch is required.</strong></p>
+<h3 id="connector-registry-api">Connector registry API<a class="headerlink" href="#connector-registry-api" title="Anchor link to this section">&para;</a></h3>
+<p><code>get_connector_registry()</code> is defined in <code>base_connector.py</code> and exported from the top-level <code>node_wire_runtime</code> package — it is <strong>not</strong> in <code>node_wire_runtime.connector_registry</code>. Use it to read the connector-id → class map after <code>auto_register()</code> has imported your <code>logic</code> module:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_connector_registry</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.connector_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">auto_register</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">auto_register</span><span class="p">()</span>  <span class="c1"># requires NW_ALLOWED_CONNECTORS</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">registry</span> <span class="o">=</span> <span class="n">get_connector_registry</span><span class="p">()</span>  <span class="c1"># Dict[str, Type[BaseConnector]]</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">connector_cls</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="s2">&quot;google_drive&quot;</span><span class="p">]</span>
+</span></code></pre></div>
+<p>For the full run pipeline (YAML config, instantiation, protocol routing), use <strong><code>ConnectorFactory</code></strong> (see <a href="#calling-a-connector-directly-in-process">Calling a connector directly</a>).</p>
+<h3 id="optional-registrationpy-for-errormapper">Optional: <code>registration.py</code> for ErrorMapper<a class="headerlink" href="#optional-registrationpy-for-errormapper" title="Anchor link to this section">&para;</a></h3>
+<p>When exceptions are raised outside the connector class (or shared across modules), register them in <code>registration.py</code> instead of inline <code>error_map</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># src/node_wire_&lt;name&gt;/registration.py</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ErrorCategory</span><span class="p">,</span> <span class="n">ErrorMapper</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyAuthError</span><span class="p">,</span> <span class="n">MyRateLimitError</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyAuthError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">&quot;MY_AUTH_ERROR&quot;</span><span class="p">)</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyRateLimitError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">&quot;MY_RATE_LIMIT&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>auto_register()</code> imports <code>registration.py</code> after <code>logic.py</code>, so these registrations run at startup. Alternatively, use inline <strong><code>error_map</code></strong> on the connector class (Google Drive example above).</p>
+<hr />
+<h2 id="single-action-connector-example">Single-action connector example<a class="headerlink" href="#single-action-connector-example" title="Anchor link to this section">&para;</a></h2>
+<p>A connector with one action is identical in structure — just add one <code>@nw_action</code> method:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># src/node_wire_sms/schema.py</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">SmsSendInput</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;send&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;send&quot;</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">to</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="k">class</span><span class="w"> </span><span class="nc">SmsSendOutput</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="n">message_sid</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>    <span class="n">status</span><span class="p">:</span> <span class="nb">str</span>
+</span></code></pre></div>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># src/node_wire_sms/logic.py</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseConnector</span><span class="p">,</span> <span class="n">nw_action</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">SmsSendInput</span><span class="p">,</span> <span class="n">SmsSendOutput</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">SmsConnector</span><span class="p">(</span><span class="n">BaseConnector</span><span class="p">):</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">&quot;sms&quot;</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">output_model</span> <span class="o">=</span> <span class="n">SmsSendOutput</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="nd">@nw_action</span><span class="p">(</span><span class="s2">&quot;send&quot;</span><span class="p">)</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">SmsSendInput</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SmsSendOutput</span><span class="p">:</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>        <span class="n">api_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">&quot;sms_api_key&quot;</span><span class="p">)</span>
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>        <span class="c1"># ... call SMS vendor API ...</span>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>        <span class="k">return</span> <span class="n">SmsSendOutput</span><span class="p">(</span><span class="n">message_sid</span><span class="o">=</span><span class="s2">&quot;SM123&quot;</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">&quot;queued&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="calling-a-connector-directly-in-process">Calling a connector directly (in-process)<a class="headerlink" href="#calling-a-connector-directly-in-process" title="Anchor link to this section">&para;</a></h2>
+<p>Use <code>connector.run(dict)</code> for the full pipeline (validation, policy, retries, error mapping).</p>
+<p>Set <strong><code>NW_ALLOWED_CONNECTORS</code></strong> to a comma-separated list of entry-point names (e.g. <code>google_drive</code>) before calling <code>auto_register()</code> — without it, <code>auto_register()</code> loads nothing (fail-closed).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.connector_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">auto_register</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bindings.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectorFactory</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;NW_ALLOWED_CONNECTORS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;google_drive&quot;</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">auto_register</span><span class="p">()</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">factory</span> <span class="o">=</span> <span class="n">ConnectorFactory</span><span class="p">()</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">factory</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">connector</span> <span class="o">=</span> <span class="n">factory</span><span class="o">.</span><span class="n">get_for_protocol</span><span class="p">(</span><span class="s2">&quot;google_drive&quot;</span><span class="p">,</span> <span class="s2">&quot;rest&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;files.list&quot;</span><span class="p">)</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">connector</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="p">{</span><span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.list&quot;</span><span class="p">,</span> <span class="s2">&quot;page_size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;mimeType = &#39;application/vnd.google-apps.folder&#39;&quot;</span><span class="p">}</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="p">)</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>   <span class="c1"># {&quot;raw&quot;: {&quot;files&quot;: [...], ...}, &quot;description&quot;: &quot;Successfully executed files.list&quot;}</span>
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="k">else</span><span class="p">:</span>
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+</span></code></pre></div>
+<p>For composing actions within a connector, use <strong><code>self.call_action</code></strong>. It routes through <strong><code>connector.run</code></strong> so <strong>policy hooks</strong>, <strong>resilience</strong>, and the <strong><code>ConnectorResponse</code></strong> error path apply (including MCP scope policy). It returns the nested action’s <strong>output model</strong> on success (validated from <code>run()</code>’s <code>data</code>). On policy denial it raises <strong><code>PolicyDenied</code></strong>, which the outer <code>run()</code> maps like any other action failure.</p>
+<p>Optional keyword args <code>principal</code>, <code>tenant_id</code>, and <code>scopes</code> override the caller identity for the nested call. When omitted, <strong><code>call_action</code> inherits</strong> identity from the outer <code>run()</code> (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseConnector</span><span class="p">,</span> <span class="n">nw_action</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">&quot;upload_then_describe&quot;</span><span class="p">)</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_then_describe</span><span class="p">(</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">MyInput</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GoogleDriveOperationOutput</span><span class="p">:</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">created</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_action</span><span class="p">(</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="s2">&quot;files.create&quot;</span><span class="p">,</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="p">{</span><span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.create&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;mime_type&quot;</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">mime_type</span><span class="p">},</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="p">)</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">file_id</span> <span class="o">=</span> <span class="n">created</span><span class="o">.</span><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_action</span><span class="p">(</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="s2">&quot;files.get&quot;</span><span class="p">,</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="p">{</span><span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.get&quot;</span><span class="p">,</span> <span class="s2">&quot;file_id&quot;</span><span class="p">:</span> <span class="n">file_id</span><span class="p">},</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>    <span class="p">)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="integrating-with-binding-layers">Integrating with binding layers<a class="headerlink" href="#integrating-with-binding-layers" title="Anchor link to this section">&para;</a></h2>
+<p>The factory and manifest drive all bindings. Once a connector is registered and <code>load()</code> is called, REST, gRPC, and MCP discover enabled connectors according to <code>exposed_via</code>.</p>
+<h3 id="optional-mcp-under-srcagents-toolhive-stdio">Optional: MCP under <code>src/agents/</code> (ToolHive / stdio)<a class="headerlink" href="#optional-mcp-under-srcagents-toolhive-stdio" title="Anchor link to this section">&para;</a></h3>
+<p>The repo also ships <strong>stdio MCP servers</strong> for agents and ToolHive under <code>src/agents/</code> (e.g. <code>python -m agents.mcp_entrypoint</code>, per-connector modules). Those are separate from <code>MODE=MCP</code> on <code>node-wire</code>; see <strong><a href="../mcp-servers/">mcp-servers.md</a></strong> for images, env, and registration. Wiring a connector in <code>config/connectors.yaml</code> does not by itself add a ToolHive image — follow <strong>mcp-servers.md</strong> when you need a dedicated MCP deployment.</p>
+<h3 id="rest-binding">REST binding<a class="headerlink" href="#rest-binding" title="Anchor link to this section">&para;</a></h3>
+<p><code>src/bindings/rest_api/app.py</code> calls <code>build_manifest(connectors)</code> and registers a <code>POST /connectors/{connector_id}/{action}</code> route for every manifest entry:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>POST /connectors/google_drive/files.list
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Content-Type: application/json
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>{ &quot;page_size&quot;: 10, &quot;query&quot;: &quot;name contains &#39;report&#39;&quot; }
+</span></code></pre></div>
+<p>The <code>action</code> field in the body is optional for REST — the binding injects it from the URL path (see <code>src/node_wire_runtime/ingress.py</code>). Per-action <strong>argument normalizers</strong> (<code>mcp_normalize</code> on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an <code>action</code> field, it <strong>must</strong> match the path segment; otherwise the API returns <strong>400</strong>.</p>
+<p>The runtime then performs full Pydantic validation and returns a <code>ConnectorResponse</code>.</p>
+<p><strong>Response envelope:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">&quot;raw&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mimeType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}],</span><span class="w"> </span><span class="nt">&quot;nextPageToken&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Successfully executed files.list&quot;</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;4f3a...&quot;</span><span class="p">,</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">  </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">  </span><span class="nt">&quot;error_category&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>HTTP status codes are mapped from <code>ErrorCategory</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>ErrorCategory</code></th>
+<th>HTTP status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BUSINESS</code></td>
+<td>400</td>
+</tr>
+<tr>
+<td><code>AUTH</code></td>
+<td>401</td>
+</tr>
+<tr>
+<td><code>RETRYABLE</code></td>
+<td>503</td>
+</tr>
+<tr>
+<td><code>FATAL</code> / other</td>
+<td>500</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mcp-binding">MCP binding<a class="headerlink" href="#mcp-binding" title="Anchor link to this section">&para;</a></h3>
+<p><code>src/bindings/mcp_server/server.py</code> registers one <strong>MCP tool</strong> per manifest entry. Tool names follow the pattern <code>{connector_id}.{action}</code> (e.g. <code>google_drive.files.list</code>, <code>google_drive.files.upload</code>).</p>
+<p>The MCP server calls <code>connector.run(args_dict)</code> and serialises the <code>ConnectorResponse</code> as the tool result.</p>
+<p>The <strong>tool name</strong> (<code>&lt;connector_id&gt;.&lt;action&gt;</code>) is authoritative: after normalizers run, the binding sets <code>action</code> from the tool name. A conflicting <code>action</code> in the payload is rejected (see <code>enforce_authoritative_action</code> in <code>src/node_wire_runtime/ingress.py</code>).</p>
+<p>Optional per-action <strong>argument normalizers</strong> (<code>mcp_normalize</code> on <code>@sdk_action</code> / <code>SdkActionSpec</code>) run before <code>connector.run</code> to map LLM aliases to canonical fields. Actions default to <strong>strict</strong> JSON Schema (<code>additionalProperties: false</code>); set <code>alias_tolerant=True</code> only where extra keys must pass MCP SDK validation before normalization.</p>
+<p>Published <strong><code>input_schema</code> omits the <code>action</code> property</strong> (manifest contract v2+): clients must not rely on sending <code>action</code> inside tool arguments; the MCP tool name (or REST path) is authoritative.</p>
+<p><strong>FHIR <code>search_encounter</code> (Epic/Cerner):</strong> normalizers map root-level <code>patient</code> / <code>patientId</code> to <code>patient_id</code>, and <code>sort</code> → <code>_sort</code> (via <code>search_params</code>). Encounter search <strong>requires</strong> a patient filter (<code>patient_id</code> or <code>patient</code> in <code>search_params</code>) before any outbound FHIR call.</p>
+<h3 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Anchor link to this section">&para;</a></h3>
+<p><code>build_manifest(connectors)</code> (from <code>node_wire_runtime.manifest</code>) is the single source of truth for both bindings (by default it strips <code>action</code> from each entry’s <code>input_schema</code>). It returns one entry per <code>@sdk_action</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">[</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  <span class="p">{</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="s2">&quot;connector_id&quot;</span><span class="p">:</span> <span class="s2">&quot;weather&quot;</span><span class="p">,</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;current_weather&quot;</span><span class="p">,</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="s2">&quot;input_schema&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>   <span class="c1"># JSON Schema from CurrentWeatherInput (action not required)</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="s2">&quot;output_schema&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>  <span class="c1"># ConnectorResponse envelope; data typed to the action output model (nullable on errors)</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>  <span class="p">},</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>  <span class="p">{</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="s2">&quot;connector_id&quot;</span><span class="p">:</span> <span class="s2">&quot;google_drive&quot;</span><span class="p">,</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.upload&quot;</span><span class="p">,</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    <span class="o">...</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>  <span class="p">}</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="p">]</span>
+</span></code></pre></div>
+<hr />
+<h2 id="connector-inventory">Connector inventory<a class="headerlink" href="#connector-inventory" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Connector</th>
+<th>Primary actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http_generic</code></td>
+<td><code>request</code></td>
+</tr>
+<tr>
+<td><code>smtp</code></td>
+<td><code>send_email</code></td>
+</tr>
+<tr>
+<td><code>stripe</code></td>
+<td><code>charge</code></td>
+</tr>
+<tr>
+<td><code>salesforce</code></td>
+<td><code>create_lead</code>, <code>read_lead</code>, <code>update_lead</code>, <code>delete_lead</code>, <code>create_contact</code>, <code>read_contact</code>, <code>update_contact</code>, <code>delete_contact</code></td>
+</tr>
+<tr>
+<td><code>google_drive</code></td>
+<td><code>files.list</code>, <code>files.upload</code>, … (see <code>action_specs</code>)</td>
+</tr>
+<tr>
+<td><code>fhir_epic</code></td>
+<td><code>read_patient</code>, <code>search_patients</code>, <code>search_encounter</code>, <code>create_document_reference</code>, <code>search_document_reference</code></td>
+</tr>
+<tr>
+<td><code>fhir_cerner</code></td>
+<td>Same family as Epic with Cerner-specific schemas</td>
+</tr>
+<tr>
+<td><code>slack</code></td>
+<td><code>post_message</code>, <code>send_direct_message</code>, <code>upload_file</code></td>
+</tr>
+</tbody>
+</table>
+<p>MCP tool names: <strong><code>&lt;connector_id&gt;.&lt;action&gt;</code></strong> (e.g. <code>fhir_epic.read_patient</code>). See <a href="../mcp-servers/"><code>docs/mcp-servers.md</code></a>.</p>
+<hr />
+<h2 id="adding-a-new-connector-checklist">Adding a new connector (checklist)<a class="headerlink" href="#adding-a-new-connector-checklist" title="Anchor link to this section">&para;</a></h2>
+<h3 id="runtime-dev">Runtime (dev)<a class="headerlink" href="#runtime-dev" title="Anchor link to this section">&para;</a></h3>
+<ol>
+<li>Create the package directory <code>src/node_wire_&lt;name&gt;/</code>. The directory <strong>must contain <code>__init__.py</code></strong> (empty is fine) to be importable as a Python package. Add <code>schema.py</code> with Pydantic input/output models and register the entry point under <code>[project.entry-points."node_wire.connectors"]</code> in the root <code>pyproject.toml</code>.</li>
+<li>In <code>logic.py</code>: subclass <code>BaseConnector</code>, set <code>connector_id</code> and <code>output_model</code>, then add <code>@nw_action</code> methods or wire <code>action_specs</code>. If your connector makes outbound HTTP calls (e.g. using <code>httpx</code>), declare that library as a dependency in the connector's <code>packages/connectors/&lt;name&gt;/pyproject.toml</code>. For HTTP-based connectors use an inline <code>async with httpx.AsyncClient() as client:</code> inside each <code>@nw_action</code> method (see <a href="#using-auth-in-a-connector">Using Auth in a Connector</a>); only override <code>build_client()</code> / <code>get_client()</code> when wrapping a vendor SDK that requires a long-lived client object (e.g. <code>google_drive</code>).</li>
+<li><strong>Authentication</strong>: Delegate all header construction to <strong><code>self.get_auth_headers()</code></strong>. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your <code>input_schema</code>.</li>
+<li>For SDK-style connectors, add an <code>action_spec.py</code> (or similar) with <code>SdkActionSpec</code> entries and use <strong><code>execute_spec_in_thread</code></strong> when the vendor client is blocking.</li>
+<li>Optionally add <code>error_map</code> and/or <code>registration.py</code> for custom exception handling (see <a href="#optional-registrationpy-for-errormapper">registration.py example</a> below).</li>
+<li>Add the connector to <strong><code>config/connectors.yaml</code></strong> with <code>enabled: true</code>, the desired <code>exposed_via</code> protocols, and an <strong><code>auth:</code></strong> block.</li>
+<li><strong>Environment template:</strong> Add required secrets and connector-specific vars to <a href="https://github.com/AOT-Technologies/node-wire/blob/main/sample.env"><code>sample.env</code></a> (referenced by <a href="../configuration/">configuration.md</a> and <a href="../installation/">installation.md</a>). Use commented placeholders with the env var names your connector reads via <code>SecretProvider</code>. Also add the new connector's entry-point name to the <code>NW_ALLOWED_CONNECTORS</code> line so the template stays current.</li>
+<li><code>auto_register()</code> handles runtime registration — <strong>no factory branch required</strong>.</li>
+</ol>
+<h3 id="publishable-pypi-package-when-shipping-on-pypi">Publishable PyPI package (when shipping on PyPI)<a class="headerlink" href="#publishable-pypi-package-when-shipping-on-pypi" title="Anchor link to this section">&para;</a></h3>
+<ol>
+<li>Create <code>packages/connectors/&lt;name&gt;/pyproject.toml</code> and <code>packages/connectors/&lt;name&gt;/setup.py</code>. See <a href="../packaging/#tier-2-templates">packaging.md — Tier 2 templates</a> for copy-paste starting points for both files.</li>
+<li>Add the package path to <strong><code>scripts/build-packages.sh</code></strong> (<code>ALL_PACKAGES</code>) and to the three CI workflow allowlists — see <a href="../packaging/#ci-allowlist-updates">packaging.md — CI allowlist updates</a> for the exact lines to add in each file.</li>
+<li>Update the inventory table in <strong><a href="../packaging/">packaging.md</a></strong>.</li>
+</ol>
+<h3 id="standalone-mcp-server-optional-dedicated-dockertoolhive-image">Standalone MCP server (optional — dedicated Docker/ToolHive image)<a class="headerlink" href="#standalone-mcp-server-optional-dedicated-dockertoolhive-image" title="Anchor link to this section">&para;</a></h3>
+<blockquote>
+<p><strong>Prerequisite:</strong> Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built <code>.whl</code> files from <code>packages/connectors/&lt;name&gt;/dist/</code>; that directory does not exist until you run <code>bash scripts/build-packages.sh packages/connectors/&lt;name&gt;</code>.</p>
+</blockquote>
+<ol>
+<li>Add <code>src/agents/&lt;name&gt;_mcp.py</code>, a <code>[project.scripts]</code> entry in root <code>pyproject.toml</code>, <code>docker/&lt;name&gt;/Dockerfile</code>, and entries in <strong><code>scripts/build-mcp-images.sh</code></strong>, <strong><code>docker-compose.mcp.yml</code></strong>, and <strong><a href="../local-packages-to-images/">local-packages-to-images.md</a></strong> (wheel → image mapping table).</li>
+<li>Add a row to the naming table in <strong><a href="../mcp-servers/">mcp-servers.md</a></strong> and update the architecture diagram in that file to include the new connector.</li>
+</ol>
+<p>For full file lists see <a href="../packaging/#adding-a-new-publishable-connector">packaging.md — Adding a new publishable connector</a>.</p>
+<hr />
+<h2 id="configuration-reference">Configuration reference<a class="headerlink" href="#configuration-reference" title="Anchor link to this section">&para;</a></h2>
+<h3 id="configconnectorsyaml"><code>config/connectors.yaml</code><a class="headerlink" href="#configconnectorsyaml" title="Anchor link to this section">&para;</a></h3>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">connectors</span><span class="p">:</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">&lt;connector_id&gt;</span><span class="p">:</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">          </span><span class="c1"># false → connector not instantiated</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w">           </span><span class="c1"># controls which bindings surface this connector</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rest</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">grpc</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcp</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="c1"># connector-specific keys passed via SecretProvider or connector __init__</span>
+</span></code></pre></div>
+<h3 id="connectorfactory-api"><code>ConnectorFactory</code> API<a class="headerlink" href="#connectorfactory-api" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load()</code></td>
+<td>Reads YAML, instantiates all enabled connectors from the connector registry (<code>get_connector_registry()</code>).</td>
+</tr>
+<tr>
+<td><code>get_for_protocol(id, protocol, action=None)</code></td>
+<td>Returns connector if enabled and exposed for that protocol; <code>None</code> otherwise.</td>
+</tr>
+<tr>
+<td><code>list_for_protocol(protocol)</code></td>
+<td>All connectors exposed for a given protocol.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="security-rest-plugins-secrets">Security (REST, plugins, secrets)<a class="headerlink" href="#security-rest-plugins-secrets" title="Anchor link to this section">&para;</a></h2>
+<p><strong>MCP (<code>bindings.mcp_server</code>)</strong> — Configure <strong><code>NW_MCP_API_KEY_SCOPES</code></strong> (and optionally <strong><code>NW_MCP_ACTION_SCOPE_MAP_JSON</code></strong>) so <code>tools/list</code> and <code>tools/call</code> align with the same scope rules. Code default is <strong><code>NW_MCP_SCOPE_POLICY_DEFAULT=deny</code></strong> when unset. Optional guardrail <strong><code>NW_MCP_SCOPE_POLICY_STRICT=true</code></strong> fails startup when scope policy would otherwise be effectively disabled (explicit <code>allow</code> + empty map). API key wildcard (<code>"*"</code>) is explicit and intentionally bypasses per-action scope restrictions; use only for deliberate super-user keys. JWTs use claim <code>scopes</code> / <code>scope</code> and must include <strong><code>exp</code></strong>, <strong><code>iat</code></strong>, <strong><code>aud</code></strong> (match <strong><code>NW_JWT_AUDIENCE</code></strong>), and <strong><code>iss</code></strong> (match <strong><code>NW_JWT_ISSUER</code></strong>) when <strong><code>NW_MCP_JWT_SECRET</code></strong> is set.</p>
+<p><strong>gRPC (<code>bindings.grpc_server</code>)</strong> — Configure <strong><code>NW_GRPC_API_KEY_SCOPES</code></strong> (and optionally <strong><code>NW_MCP_ACTION_SCOPE_MAP_JSON</code></strong>) so authenticated gRPC calls use the same scope rules as MCP/REST. Caller identity is propagated from the auth interceptor into <code>connector.run</code>.</p>
+<p><strong>REST API (<code>bindings.rest_api</code>)</strong> — <code>GET /health</code> is unauthenticated. All other routes (<code>/connectors/...</code>, <code>/playground/...</code>, <code>/scenarios/...</code>, OpenAPI) require <strong><code>NW_REST_API_KEY</code></strong> via <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>, optional <strong><code>NW_REST_JWT_SECRET</code></strong> for HS256 JWTs (with <strong><code>NW_JWT_AUDIENCE</code></strong> / <strong><code>NW_JWT_ISSUER</code></strong> and required <code>exp</code>/<code>iat</code>/<code>aud</code>/<code>iss</code> claims). API key scopes use <strong><code>NW_REST_API_KEY_SCOPES</code></strong> (same format as MCP). Set <strong><code>NW_REST_AUTH_DISABLED=true</code></strong> only for local development. Production: set <strong><code>NW_REST_LOAD_DOTENV=false</code></strong> so secrets are not read from a <code>.env</code> file on disk.</p>
+<p><strong>HTTP Generic outbound policy</strong> — <code>http_generic.request</code> allows only <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>, and input methods are normalized to uppercase before validation. URLs targeting internal destinations are rejected (<code>localhost</code>, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments so only scheme/host/path are retained.</p>
+<p><strong>SMTP outbound policy</strong> — <code>smtp.send_email</code> accepts only message fields (<code>to</code>, <code>subject</code>, <code>body</code>, optional <code>from_email</code>). SMTP relay settings (<code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USE_TLS</code>) are server-side only and cannot be set in the request payload. Credentials are never sent to a caller-chosen host. For production, optionally set <strong><code>NW_SMTP_ALLOWED_HOSTS</code></strong> to a comma-separated list of permitted relay hostnames. The <code>subject</code> field must not contain newline or ASCII control characters (header-injection defense); <code>body</code> may be multiline.</p>
+<p><strong>Connector entry points</strong> — Any installed distribution may register <code>node_wire.connectors</code>. For production, set <strong><code>NW_ALLOWED_CONNECTORS</code></strong> to a comma-separated list of entry point names (e.g. <code>fhir_epic,http_generic</code>). <strong><code>NW_CONNECTOR_MODULE_PREFIX</code></strong> defaults to <code>node_wire_</code>; modules not under that prefix are skipped.</p>
+<p><strong>Secrets</strong> — <code>EnvSecretProvider</code> looks up the key <strong>as given</strong>, then <strong><code>key.upper()</code></strong> (e.g. <code>my_key</code> then <code>MY_KEY</code>). It raises <strong><code>SecretNotFoundError</code></strong> when a variable is missing (fail-closed). Set <strong><code>NW_ENV_SECRET_LEGACY_EMPTY=true</code></strong> only if you need legacy empty-string behaviour. <strong><code>NW_SECRET_BACKEND=aws_env</code></strong> with <strong><code>NW_AWS_SECRETS_MANAGER_SECRET_ID</code></strong> composes AWS Secrets Manager JSON + env fallback via <code>ChainedSecretProvider</code> (see <code>bindings.factory._build_secret_provider</code>).</p>
+<hr />
+<h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><a href="../packaging/">packaging.md</a> — Wheel build lifecycle, PyPI publish flow, client install model, secrets config, and pre-publish checklist.</li>
+<li><a href="../mcp-servers/">mcp-servers.md</a> — MCP images, ToolHive, env vars.</li>
+<li><a href="../google_drive_connector/">google_drive_connector.md</a> — Drive REST API and setup.</li>
+<li><a href="../salesforce_connector/">salesforce_connector.md</a> — Salesforce CRM operations and playground.</li>
+<li><a href="../slack_connector/">slack_connector.md</a> — Slack bot token and setup.</li>
+<li>Per-connector READMEs under <code>src/node_wire_*/README.md</code> where present.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../google_drive_connector/" class="md-footer__link md-footer__link--next" aria-label="Next: Google Drive">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Google Drive
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/AOT-Technologies/node-wire" target="_blank" rel="noopener" title="Node Wire on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/aot-technologies" target="_blank" rel="noopener" title="AOT Technologies on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

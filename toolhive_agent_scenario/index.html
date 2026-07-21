@@ -1,0 +1,3265 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Enterprise Connectors for AI & Workflow Systems">
+      
+      
+      
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/toolhive_agent_scenario/">
+      
+      
+        <link rel="prev" href="../mcp-client-oauth/">
+      
+      
+        <link rel="next" href="../contributing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Agent Scenario - Node Wire</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#toolhive-agent-scenario-fhir-google-drive-email" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+      
+  <img src="../images/nw-favicon-black.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Node Wire
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Agent Scenario
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/AOT-Technologies/node-wire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AOT-Technologies/node-wire
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../connectors/" class="md-tabs__link">
+          
+  
+  
+  Connectors
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../mcp/" class="md-tabs__link">
+          
+  
+  
+  MCP
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../troubleshooting/" class="md-tabs__link">
+          
+  
+  
+  Operations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../privacy/" class="md-tabs__link">
+          
+  
+  
+  Compliance
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+      
+  <img src="../images/nw-favicon-black.png" alt="logo">
+
+    </a>
+    Node Wire
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/AOT-Technologies/node-wire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AOT-Technologies/node-wire
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connectors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Connectors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../google_drive_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Drive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../salesforce_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Salesforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slack_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    MCP
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-servers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Servers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client OAuth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Scenario
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Scenario
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#individual-connector-mcp-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Individual connector MCP servers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is ToolHive?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-does-the-node-wire-mcp-server-expose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What does the Node Wire MCP server expose?
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What does the Node Wire MCP server expose?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phi-protection-built-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PHI protection built-in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables-complete-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables (complete list)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-non-developers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start (non-developers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-build-the-docker-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Build the Docker image
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-prepare-your-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Prepare your secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-store-secrets-in-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Store secrets in ToolHive
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Store secrets in ToolHive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-toolhive-ui-recommended-for-beginners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: ToolHive UI (recommended for beginners)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-toolhive-cli-thv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: ToolHive CLI (thv)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-register-the-mcp-server-in-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Register the MCP server in ToolHive
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Register the MCP server in ToolHive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-toolhive-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: ToolHive UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-toolhive-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: ToolHive CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-should-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you should see
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-configure-the-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Configure the agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-run-the-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Run the agent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 6: Run the agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#install-agent-dependencies-one-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install agent dependencies (one-time)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execute-the-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execute the scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#switching-llm-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switching LLM providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sample-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-testing-no-toolhive-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local testing (no ToolHive required)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local testing (no ToolHive required)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-stdio-mode-local-flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: stdio mode (--local flag)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-mcp-inspector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: MCP Inspector
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-c-local-email-testing-with-mailhog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option C: local email testing with Mailhog
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#claude-desktop-and-cursor-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Desktop and Cursor integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Claude Desktop and Cursor integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claude-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Desktop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cursor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cursor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-layout-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File layout (agents)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../code-quality-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quality-security-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quality & Security Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../public-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local-packages-to-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Compliance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../privacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Privacy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compliance/hipaa-considerations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HIPAA Considerations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-of-contents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table of contents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#individual-connector-mcp-servers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Individual connector MCP servers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is ToolHive?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-does-the-node-wire-mcp-server-expose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What does the Node Wire MCP server expose?
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What does the Node Wire MCP server expose?">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phi-protection-built-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PHI protection built-in
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables-complete-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables (complete list)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start-non-developers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start (non-developers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-build-the-docker-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Build the Docker image
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-prepare-your-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Prepare your secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-store-secrets-in-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Store secrets in ToolHive
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 3: Store secrets in ToolHive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-toolhive-ui-recommended-for-beginners" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: ToolHive UI (recommended for beginners)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-toolhive-cli-thv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: ToolHive CLI (thv)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-register-the-mcp-server-in-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4: Register the MCP server in ToolHive
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Register the MCP server in ToolHive">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-toolhive-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: ToolHive UI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-toolhive-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: ToolHive CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-you-should-see" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What you should see
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-configure-the-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 5: Configure the agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-run-the-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 6: Run the agent
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 6: Run the agent">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#install-agent-dependencies-one-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install agent dependencies (one-time)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#execute-the-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Execute the scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#switching-llm-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switching LLM providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sample-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-testing-no-toolhive-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local testing (no ToolHive required)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local testing (no ToolHive required)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#option-a-stdio-mode-local-flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option A: stdio mode (--local flag)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-b-mcp-inspector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option B: MCP Inspector
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#option-c-local-email-testing-with-mailhog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Option C: local email testing with Mailhog
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#claude-desktop-and-cursor-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Desktop and Cursor integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Claude Desktop and Cursor integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claude-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Desktop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cursor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cursor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-layout-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File layout (agents)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href=".." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../mcp/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    MCP
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<h1 id="toolhive-agent-scenario-fhir-google-drive-email">ToolHive Agent Scenario: FHIR → Google Drive → Email<a class="headerlink" href="#toolhive-agent-scenario-fhir-google-drive-email" title="Anchor link to this section">&para;</a></h1>
+<blockquote>
+<p><strong>End-to-end guide for running Node Wire as an MCP server on ToolHive, and connecting an AI agent to orchestrate healthcare and enterprise workflows.</strong></p>
+</blockquote>
+<p>This guide walks you through running the platform as an MCP server using ToolHive and driving the <strong>FHIR → Google Drive → email</strong> workflow with the bundled agent (<code>agents.toolhive</code>).</p>
+<p><strong>What you'll build:</strong> An AI agent that can autonomously fetch patient data from an EHR (Epic or Cerner), upload a summary to Google Drive, and send a notification email — all driven by a single natural language prompt.</p>
+<p><strong>Time to complete:</strong> ~20 minutes (plus credential procurement time)</p>
+<hr />
+<h2 id="table-of-contents">Table of contents<a class="headerlink" href="#table-of-contents" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#what-is-toolhive">What is ToolHive?</a></li>
+<li><a href="#what-does-the-node-wire-mcp-server-expose">What does the Node Wire MCP server expose?</a></li>
+<li><a href="#prerequisites">Prerequisites</a></li>
+<li><a href="#step-1-build-the-docker-image">Step 1: Build the Docker image</a></li>
+<li><a href="#step-2-prepare-your-secrets">Step 2: Prepare your secrets</a></li>
+<li><a href="#step-3-store-secrets-in-toolhive">Step 3: Store secrets in ToolHive</a></li>
+<li><a href="#step-4-register-the-mcp-server-in-toolhive">Step 4: Register the MCP server in ToolHive</a></li>
+<li><a href="#step-5-configure-the-agent">Step 5: Configure the agent</a></li>
+<li><a href="#step-6-run-the-agent">Step 6: Run the agent</a></li>
+<li><a href="#local-testing-no-toolhive-required">Local testing (no ToolHive required)</a></li>
+<li><a href="#claude-desktop-and-cursor-integration">Claude Desktop and Cursor integration</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+<li><a href="#running-tests">Running tests</a></li>
+<li><a href="#file-layout-agents">File layout (<code>agents</code>)</a></li>
+<li><a href="#related-documentation">Related documentation</a></li>
+</ul>
+<hr />
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Anchor link to this section">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ToolHive UI  ──────────────────────────────────────────────────────
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  MCP Server (Docker): node-wire                     │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│  ├── Tool: fhir_cerner.read_patient   ← fetch patient from Cerner │
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  ├── Tool: fhir_epic.read_patient     ← fetch patient from Epic   │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│  ├── Tool: google_drive.files.upload  ← write file to Drive       │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  ├── Tool: stripe.charge              ← process payment           │
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│  └── Tool: smtp.send_email            ← email the summary         │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                         ↕ stdio → HTTP proxy                      │
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>──────────────────────────────────────────────────────────────────
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>         ↕ MCP JSON-RPC over HTTP
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a> ┌───────────────────────────┐
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a> │  Agent Script (local)     │
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a> │  toolhive.py              │
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a> │  LLM: Groq / OpenAI /     │
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a> │       Gemini / Claude      │
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a> └───────────────────────────┘
+</span></code></pre></div>
+<p>ToolHive runs the connector platform in a secure Docker container, injects secrets as environment variables, and exposes an HTTP proxy. The agent script connects to that proxy, discovers tools via <code>tools/list</code>, and orchestrates the workflow using an LLM's tool-calling capability.</p>
+<hr />
+<h2 id="individual-connector-mcp-servers">Individual connector MCP servers<a class="headerlink" href="#individual-connector-mcp-servers" title="Anchor link to this section">&para;</a></h2>
+<p>For modular deployments, each connector can be run as an independent MCP server container:</p>
+<ul>
+<li><code>nw-google-drive</code> (Google Drive)</li>
+<li><code>nw-smartonfhir-epic</code> (Epic SMART on FHIR)</li>
+<li><code>nw-smartonfhir-cerner</code> (Cerner SMART on FHIR)</li>
+<li><code>nw-smtp</code> (SMTP email)</li>
+</ul>
+<p>When running multiple MCP servers, configure the agent with <strong><code>TOOLHIVE_MCP_URLS</code></strong> (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.</p>
+<p><strong>Full guide:</strong> <a href="../mcp-servers/">docs/mcp-servers.md</a></p>
+<hr />
+<h2 id="what-is-toolhive">What is ToolHive?<a class="headerlink" href="#what-is-toolhive" title="Anchor link to this section">&para;</a></h2>
+<p><a href="https://stacklok.com/toolhive">ToolHive</a> is a desktop application that:
+- Runs MCP servers inside secure Docker containers
+- Injects secrets as environment variables (so they never appear in config files)
+- Exposes an HTTP proxy so any MCP-compatible client can connect</p>
+<p>You can think of it as a local "MCP server manager" — you register your server once, and ToolHive handles starting it, securing its secrets, and making it available to AI tools.</p>
+<hr />
+<h2 id="what-does-the-node-wire-mcp-server-expose">What does the Node Wire MCP server expose?<a class="headerlink" href="#what-does-the-node-wire-mcp-server-expose" title="Anchor link to this section">&para;</a></h2>
+<p>When running <strong>this scenario’s</strong> minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see <strong>four</strong> tools (Cerner read patient, Epic read patient, Drive upload, SMTP send). The <strong>unified</strong> MCP server (<code>python -m agents.mcp_entrypoint</code>) exposes <strong>all</strong> manifest actions for every connector enabled for MCP in <code>config/connectors.yaml</code> (often 18+ tools). This section describes the <strong>four-tool</strong> happy path; see <a href="../mcp-servers/">mcp-servers.md</a> for the full surface.</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fhir_cerner.read_patient</code></td>
+<td>Fetch a patient's record from a Cerner FHIR R4 endpoint</td>
+</tr>
+<tr>
+<td><code>fhir_epic.read_patient</code></td>
+<td>Fetch a patient's record from an Epic FHIR R4 endpoint</td>
+</tr>
+<tr>
+<td><code>google_drive.files.upload</code></td>
+<td>Create and upload a text file to Google Drive</td>
+</tr>
+<tr>
+<td><code>stripe.charge</code></td>
+<td>Process a payment</td>
+</tr>
+<tr>
+<td><code>smtp.send_email</code></td>
+<td>Send an email via SMTP</td>
+</tr>
+</tbody>
+</table>
+<p>The agent uses an LLM's tool-calling capability to decide which tools to call, in what order, and with what parameters.</p>
+<h3 id="phi-protection-built-in">PHI protection built-in<a class="headerlink" href="#phi-protection-built-in" title="Anchor link to this section">&para;</a></h3>
+<p>The MCP server automatically masks sensitive health information before any data leaves the FHIR system:
+- Date of birth: year is masked (<code>****-MM-DD</code>)
+- Patient IDs: partially masked (<code>123*****</code>)
+- When emailing summaries, the agent uploads data to Drive first and sends a <strong>link</strong> — not raw patient data</p>
+<hr />
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://stacklok.com/toolhive">ToolHive UI</a> installed</td>
+<td>Download for macOS / Linux / Windows</td>
+</tr>
+<tr>
+<td>Docker running</td>
+<td>Only needed to build the image</td>
+</tr>
+<tr>
+<td>Cerner FHIR credentials</td>
+<td><code>client_id</code>, <code>kid</code>, private key, tenant URL</td>
+</tr>
+<tr>
+<td>Google Drive service account JSON</td>
+<td><code>service_account.json</code> or file path</td>
+</tr>
+<tr>
+<td>SMTP credentials</td>
+<td>Gmail App Password recommended</td>
+</tr>
+<tr>
+<td>Groq API key (free)</td>
+<td><a href="https://console.groq.com">console.groq.com</a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="environment-variables-complete-list">Environment variables (complete list)<a class="headerlink" href="#environment-variables-complete-list" title="Anchor link to this section">&para;</a></h2>
+<p>Below is the full set of environment variables used by the connector platform and the agent. Values marked "Required" must be provided for the matching connector to work.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th style="text-align: right;">Required for</th>
+<th>Notes / Example value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CERNER_CLIENT_ID</code></td>
+<td style="text-align: right;">Cerner connector</td>
+<td>Required for Cerner FHIR OAuth</td>
+</tr>
+<tr>
+<td><code>CERNER_FHIR_BASE_URL</code></td>
+<td style="text-align: right;">Cerner connector</td>
+<td>Base FHIR URL for Cerner</td>
+</tr>
+<tr>
+<td><code>CERNER_KID</code></td>
+<td style="text-align: right;">Cerner connector</td>
+<td>Key ID for private key (kid)</td>
+</tr>
+<tr>
+<td><code>CERNER_PRIVATE_KEY</code></td>
+<td style="text-align: right;">Cerner connector</td>
+<td>PEM private key (paste full block)</td>
+</tr>
+<tr>
+<td><code>CERNER_TOKEN_URL</code></td>
+<td style="text-align: right;">Cerner connector</td>
+<td>Token endpoint URL</td>
+</tr>
+<tr>
+<td><code>EPIC_CLIENT_ID</code></td>
+<td style="text-align: right;">Epic connector</td>
+<td>Required for Epic OAuth</td>
+</tr>
+<tr>
+<td><code>EPIC_FHIR_BASE_URL</code></td>
+<td style="text-align: right;">Epic connector</td>
+<td>Base FHIR URL for Epic</td>
+</tr>
+<tr>
+<td><code>EPIC_KID</code></td>
+<td style="text-align: right;">Epic connector</td>
+<td>Key ID for private key (kid)</td>
+</tr>
+<tr>
+<td><code>EPIC_PRIVATE_KEY</code></td>
+<td style="text-align: right;">Epic connector</td>
+<td>PEM private key (paste full block)</td>
+</tr>
+<tr>
+<td><code>EPIC_TOKEN_URL</code></td>
+<td style="text-align: right;">Epic connector</td>
+<td>e.g. <code>https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token</code></td>
+</tr>
+<tr>
+<td><code>FROM_EMAIL</code></td>
+<td style="text-align: right;">Email sending</td>
+<td>Example: <code>from@example.com</code></td>
+</tr>
+<tr>
+<td><code>GROQ_API_KEY</code></td>
+<td style="text-align: right;">LLM (Groq)</td>
+<td>Your Groq API key</td>
+</tr>
+<tr>
+<td><code>GROQ_MODEL</code></td>
+<td style="text-align: right;">LLM</td>
+<td>Example: <code>openai/gpt-oss-120b</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_TRANSPORT</code></td>
+<td style="text-align: right;">ToolHive / local</td>
+<td><code>stdio</code> when running in ToolHive container</td>
+</tr>
+<tr>
+<td><code>PYTHONPATH</code></td>
+<td style="text-align: right;">Runtime</td>
+<td>e.g. <code>/app/src</code> for container; <code>**/node-wire/src</code> locally</td>
+</tr>
+<tr>
+<td><code>SMTP_HOST</code></td>
+<td style="text-align: right;">SMTP connector</td>
+<td>Example: <code>sandbox.smtp.mailtrap.io</code></td>
+</tr>
+<tr>
+<td><code>SMTP_PORT</code></td>
+<td style="text-align: right;">SMTP connector</td>
+<td>Example: <code>2525</code></td>
+</tr>
+<tr>
+<td><code>SMTP_USERNAME</code></td>
+<td style="text-align: right;">SMTP connector</td>
+<td>Mailtrap / SMTP user</td>
+</tr>
+<tr>
+<td><code>SMTP_PASSWORD</code></td>
+<td style="text-align: right;">SMTP connector</td>
+<td>Mailtrap / SMTP password</td>
+</tr>
+<tr>
+<td><code>SMTP_USE_TLS</code></td>
+<td style="text-align: right;">SMTP connector</td>
+<td><code>true</code> or <code>false</code></td>
+</tr>
+<tr>
+<td><code>GOOGLE_DRIVE_SA_JSON</code></td>
+<td style="text-align: right;">Google Drive</td>
+<td>Either paste full JSON into ToolHive secret or provide absolute file path to the service account JSON</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="quick-start-non-developers">Quick start (non-developers)<a class="headerlink" href="#quick-start-non-developers" title="Anchor link to this section">&para;</a></h2>
+<p>These two methods let a non-developer get the agent running quickly: the recommended path uses the ToolHive UI (no code), and the local path is for someone who can run a single PowerShell script.</p>
+<p>Option A — Recommended: ToolHive UI (no code)</p>
+<ol>
+<li>Open the ToolHive UI on your machine.</li>
+<li>Build or pull the Docker image <code>node-wire:latest</code> (admins can do this for you), then Add a new Server / Container.</li>
+<li>Name it <code>node-wire-connectors</code>. Set Transport to <code>stdio</code>.</li>
+<li>In the server's Environment / Secrets section, add the variables from the table above. For <code>GOOGLE_DRIVE_SA_JSON</code> paste the entire service account JSON into the secret value (do NOT upload a file path here).</li>
+<li>Start the server. ToolHive will show an Endpoint URL like <code>http://localhost:&lt;PORT&gt;/sse</code> or a proxy URL that contains <code>/sse</code> or <code>/mcp</code>.</li>
+<li>Copy the proxy URL and paste it into a local <code>.env</code> or give it to the person running the agent as <code>TOOLHIVE_MCP_URL</code>.</li>
+</ol>
+<p>Option B — Local quick run (Windows PowerShell)</p>
+<p>Prerequisite: Install Python 3.11+ and Git. If you cannot install, ask an administrator to run Option A.</p>
+<ol>
+<li>Open PowerShell and clone or navigate to the project folder.</li>
+<li>Create a simple <code>.env</code> file in the project root (replace placeholder values):</li>
+</ol>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="sh">@&#39;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="sh">TOOLHIVE_MCP_URL=http://localhost:7977/mcp</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sh">LLM_PROVIDER=groq</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="sh">GROQ_API_KEY=YOUR_GROQ_KEY</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="sh">GROQ_MODEL=openai/gpt-oss-120b</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="sh">FROM_EMAIL=from@example.com</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="sh">SMTP_HOST=sandbox.smtp.mailtrap.io</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="sh">SMTP_PORT=2525</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="sh">SMTP_USERNAME=your_smtp_user</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="sh">SMTP_PASSWORD=your_smtp_pass</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="sh">SMTP_USE_TLS=true</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="sh">GOOGLE_DRIVE_FOLDER_ID=YOUR_FOLDER_ID</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="sh">&#39;@</span>
+</span></code></pre></div>
+<ol>
+<li>Install the Python extras (one-time):</li>
+</ol>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="s2">&quot;.[agents]&quot;</span>
+</span></code></pre></div>
+<ol>
+<li>Run the agent (example):</li>
+</ol>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c">#$env:TOOLHIVE_MCP_URL=&quot;http://localhost:7977/mcp&quot;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">toolhive</span> <span class="p">-</span><span class="n">-patient-id</span> <span class="n">12724066</span> <span class="p">-</span><span class="n">-recipient-email</span> <span class="n">you</span><span class="nv">@example</span><span class="p">.</span><span class="n">com</span>
+</span></code></pre></div>
+<p>Notes for non-developers:
+- If you see errors about missing credentials, re-open <code>.env</code> and ensure each secret is filled in. Use the ToolHive UI option if you can't edit <code>.env</code> safely.
+- For email testing you can use Mailtrap or Mailhog (no real emails sent).</p>
+<h2 id="step-1-build-the-docker-image">Step 1: Build the Docker image<a class="headerlink" href="#step-1-build-the-docker-image" title="Anchor link to this section">&para;</a></h2>
+<p>From the root of the repository, build the Python wheels first (required for the Docker image):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bash<span class="w"> </span>scripts/build-packages.sh
+</span></code></pre></div>
+<p>Then build the container image:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>node-wire:latest<span class="w"> </span>.
+</span></code></pre></div>
+<p>This packages the MCP server and all dependencies into a self-contained image. The image's default command is <code>python -m agents.mcp_entrypoint</code>.</p>
+<p>Verify the build succeeded:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>images<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>node-wire
+</span></code></pre></div>
+<p>You should see <code>node-wire   latest   &lt;image-id&gt;   ...</code></p>
+<hr />
+<h2 id="step-2-prepare-your-secrets">Step 2: Prepare your secrets<a class="headerlink" href="#step-2-prepare-your-secrets" title="Anchor link to this section">&para;</a></h2>
+<p>ToolHive injects these as environment variables inside the container at runtime. They are never stored in config files or Docker images.</p>
+<p>Gather the following values before proceeding:</p>
+<table>
+<thead>
+<tr>
+<th>Secret Name</th>
+<th>Description</th>
+<th>Where to Get It</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CERNER_FHIR_BASE_URL</code></td>
+<td>Your Cerner FHIR R4 base URL</td>
+<td>Cerner developer portal, format: <code>https://fhir-ehr-code.cerner.com/r4/&lt;tenant-id&gt;</code></td>
+</tr>
+<tr>
+<td><code>CERNER_CLIENT_ID</code></td>
+<td>Cerner app client ID</td>
+<td>Cerner developer portal</td>
+</tr>
+<tr>
+<td><code>CERNER_KID</code></td>
+<td>Key ID for your RSA key pair</td>
+<td>You choose this when registering the app</td>
+</tr>
+<tr>
+<td><code>CERNER_PRIVATE_KEY</code></td>
+<td>RSA private key (full PEM block)</td>
+<td>Generated when you registered your app</td>
+</tr>
+<tr>
+<td><code>CERNER_TOKEN_URL</code></td>
+<td>Cerner OAuth2 token endpoint</td>
+<td>Format: <code>https://authorization.cerner.com/tenants/&lt;tenant-id&gt;/...</code></td>
+</tr>
+<tr>
+<td><code>GOOGLE_DRIVE_SA_JSON</code></td>
+<td>Contents of your service account JSON (not the file path — paste the full JSON string)</td>
+<td>See <a href="../google_drive_connector/#google-drive-service-account-setup">Google Drive service account setup</a></td>
+</tr>
+<tr>
+<td><code>SMTP_USERNAME</code></td>
+<td>Full email address (must include <code>@</code>)</td>
+<td>Your email address, e.g. <code>you@gmail.com</code></td>
+</tr>
+<tr>
+<td><code>SMTP_PASSWORD</code></td>
+<td>App password for SMTP</td>
+<td>For Gmail: <a href="https://support.google.com/accounts/answer/185833">create an App Password</a></td>
+</tr>
+<tr>
+<td><code>SMTP_HOST</code></td>
+<td>SMTP server hostname</td>
+<td><code>smtp.gmail.com</code> for Gmail</td>
+</tr>
+<tr>
+<td><code>SMTP_PORT</code></td>
+<td>SMTP port</td>
+<td><code>587</code> for STARTTLS, <code>465</code> for implicit TLS</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Epic users:</strong> If using Epic instead of Cerner, replace the <code>CERNER_*</code> variables with their <code>EPIC_*</code> equivalents (<code>EPIC_FHIR_BASE_URL</code>, <code>EPIC_TOKEN_URL</code>, <code>EPIC_CLIENT_ID</code>, <code>EPIC_KID</code>, <code>EPIC_PRIVATE_KEY</code>).</p>
+<p><strong>Note on <code>GOOGLE_DRIVE_SA_JSON</code>:</strong> Paste the <strong>entire contents</strong> of the service account JSON file as the secret value — not the file path. This is because the Docker container doesn't have access to your local filesystem.</p>
+</blockquote>
+<hr />
+<h2 id="step-3-store-secrets-in-toolhive">Step 3: Store secrets in ToolHive<a class="headerlink" href="#step-3-store-secrets-in-toolhive" title="Anchor link to this section">&para;</a></h2>
+<h3 id="option-a-toolhive-ui-recommended-for-beginners">Option A: ToolHive UI (recommended for beginners)<a class="headerlink" href="#option-a-toolhive-ui-recommended-for-beginners" title="Anchor link to this section">&para;</a></h3>
+<ol>
+<li>Open the <strong>ToolHive</strong> application.</li>
+<li>Navigate to <strong>Secrets</strong> (or <strong>Environment Variables</strong>) in the sidebar.</li>
+<li>For each secret in the table above, click <strong>Add Secret</strong> and enter the name and value.</li>
+</ol>
+<h3 id="option-b-toolhive-cli-thv">Option B: ToolHive CLI (<code>thv</code>)<a class="headerlink" href="#option-b-toolhive-cli-thv" title="Anchor link to this section">&para;</a></h3>
+<p>If you have the <code>thv</code> CLI installed:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_FHIR_BASE_URL
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># You&#39;ll be prompted to enter the value securely</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_CLIENT_ID
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_KID
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_PRIVATE_KEY
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_TOKEN_URL
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>GOOGLE_DRIVE_SA_JSON
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>SMTP_USERNAME
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>SMTP_PASSWORD
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>SMTP_HOST
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>SMTP_PORT
+</span></code></pre></div>
+<hr />
+<h2 id="step-4-register-the-mcp-server-in-toolhive">Step 4: Register the MCP server in ToolHive<a class="headerlink" href="#step-4-register-the-mcp-server-in-toolhive" title="Anchor link to this section">&para;</a></h2>
+<h3 id="option-a-toolhive-ui">Option A: ToolHive UI<a class="headerlink" href="#option-a-toolhive-ui" title="Anchor link to this section">&para;</a></h3>
+<ol>
+<li>In the ToolHive app, go to <strong>Servers</strong> → <strong>Add Server</strong>.</li>
+<li>Select <strong>Docker Container</strong> or <strong>Custom Server</strong>.</li>
+<li>Fill in the fields:</li>
+<li><strong>Name:</strong> <code>node-wire-connectors</code></li>
+<li><strong>Image:</strong> <code>node-wire:latest</code></li>
+<li><strong>Transport:</strong> <code>stdio</code></li>
+<li>Under the <strong>Secrets</strong> or <strong>Environment</strong> tab, link all the secrets you stored in Step 3.</li>
+<li>Click <strong>Start</strong> or <strong>Deploy</strong>.</li>
+</ol>
+<p>ToolHive will start the container and set up a stdio-to-HTTP proxy on a local port.</p>
+<h3 id="option-b-toolhive-cli">Option B: ToolHive CLI<a class="headerlink" href="#option-b-toolhive-cli" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>thv<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--name<span class="w"> </span>node-wire-connectors<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--transport<span class="w"> </span>stdio<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--secret<span class="w"> </span>CERNER_FHIR_BASE_URL,target<span class="o">=</span>CERNER_FHIR_BASE_URL<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>--secret<span class="w"> </span>CERNER_CLIENT_ID,target<span class="o">=</span>CERNER_CLIENT_ID<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span>--secret<span class="w"> </span>CERNER_KID,target<span class="o">=</span>CERNER_KID<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span>--secret<span class="w"> </span>CERNER_PRIVATE_KEY,target<span class="o">=</span>CERNER_PRIVATE_KEY<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span>--secret<span class="w"> </span>CERNER_TOKEN_URL,target<span class="o">=</span>CERNER_TOKEN_URL<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span>--secret<span class="w"> </span>GOOGLE_DRIVE_SA_JSON,target<span class="o">=</span>GOOGLE_DRIVE_SA_JSON<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span>--secret<span class="w"> </span>SMTP_USERNAME,target<span class="o">=</span>SMTP_USERNAME<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span>--secret<span class="w"> </span>SMTP_PASSWORD,target<span class="o">=</span>SMTP_PASSWORD<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span>--secret<span class="w"> </span>SMTP_HOST,target<span class="o">=</span>SMTP_HOST<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span>--secret<span class="w"> </span>SMTP_PORT,target<span class="o">=</span>SMTP_PORT<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span>node-wire:latest
+</span></code></pre></div>
+<h3 id="what-you-should-see">What you should see<a class="headerlink" href="#what-you-should-see" title="Anchor link to this section">&para;</a></h3>
+<p>In the ToolHive UI under <strong>Installed</strong>, you should see:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Name</td>
+<td><code>node-wire-connectors</code></td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>Running</code></td>
+</tr>
+<tr>
+<td>Tools</td>
+<td>Manifest-driven <code>&lt;connector_id&gt;.&lt;action&gt;</code> (e.g. <code>fhir_cerner.read_patient</code>, <code>fhir_epic.read_patient</code>, <code>google_drive.files.upload</code>, <code>smtp.send_email</code>; unified server also lists Stripe, HTTP generic, and other MCP-enabled connectors)</td>
+</tr>
+<tr>
+<td>Endpoint</td>
+<td><code>http://localhost:&lt;auto-port&gt;/sse</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="step-5-configure-the-agent">Step 5: Configure the agent<a class="headerlink" href="#step-5-configure-the-agent" title="Anchor link to this section">&para;</a></h2>
+<p>Copy the proxy URL from the ToolHive UI (shown in the server's details page) and add it to your local <code>.env</code> file:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a># Replace PORT with the actual port number shown in ToolHive
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>TOOLHIVE_MCP_URL=http://localhost:34567/mcp
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a># LLM provider (groq is recommended — it&#39;s fast and has a free tier)
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>LLM_PROVIDER=groq
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>GROQ_API_KEY=gsk_your_key_here
+</span></code></pre></div>
+<hr />
+<h2 id="step-6-run-the-agent">Step 6: Run the agent<a class="headerlink" href="#step-6-run-the-agent" title="Anchor link to this section">&para;</a></h2>
+<h3 id="install-agent-dependencies-one-time">Install agent dependencies (one-time)<a class="headerlink" href="#install-agent-dependencies-one-time" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[agents]&quot;</span>
+</span></code></pre></div>
+<h3 id="execute-the-scenario">Execute the scenario<a class="headerlink" href="#execute-the-scenario" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--patient-id<span class="w"> </span><span class="m">12724066</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>--recipient-email<span class="w"> </span>your-email@example.com<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>--drive-folder-id<span class="w"> </span><span class="s2">&quot;1ABCdef_your_folder_id&quot;</span>
+</span></code></pre></div>
+<p><strong>Arguments:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--patient-id</code></td>
+<td>Yes (or <code>--patient-family</code> + <code>--patient-given</code>)</td>
+<td>Numeric patient ID in the EHR system</td>
+</tr>
+<tr>
+<td><code>--patient-family</code></td>
+<td>Alternative to <code>--patient-id</code></td>
+<td>Patient last name for name-based search</td>
+</tr>
+<tr>
+<td><code>--patient-given</code></td>
+<td>Used with <code>--patient-family</code></td>
+<td>Patient first name</td>
+</tr>
+<tr>
+<td><code>--recipient-email</code></td>
+<td>Yes</td>
+<td>Where to send the patient summary</td>
+</tr>
+<tr>
+<td><code>--drive-folder-id</code></td>
+<td>No</td>
+<td>Google Drive folder ID; defaults to <code>GOOGLE_DRIVE_FOLDER_ID</code> env var</td>
+</tr>
+<tr>
+<td><code>--max-steps</code></td>
+<td>No</td>
+<td>Maximum LLM reasoning steps (default: 10)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="switching-llm-providers">Switching LLM providers<a class="headerlink" href="#switching-llm-providers" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Use OpenAI</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">LLM_PROVIDER</span><span class="o">=</span>openai<span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span>...
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Use Claude (Anthropic)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="nv">LLM_PROVIDER</span><span class="o">=</span>anthropic<span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span>sk-ant-...<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span>...
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Use Google Gemini</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="nv">LLM_PROVIDER</span><span class="o">=</span>gemini<span class="w"> </span><span class="nv">GEMINI_API_KEY</span><span class="o">=</span>AIza...<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span>...
+</span></code></pre></div>
+<h3 id="sample-output">Sample output<a class="headerlink" href="#sample-output" title="Anchor link to this section">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>============================================================
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Node Wire ToolHive Agent
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>Provider : groq
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>MCP URL  : http://localhost:34567/mcp
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>============================================================
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>Task: Patient ID: 12724066
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>Please:
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>1. Fetch the patient&#39;s details from Cerner FHIR (or Epic if the ID starts with &#39;e&#39;).
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>2. Create a text file named &#39;patient_summary_12724066.txt&#39; in Google Drive.
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>3. Send an email to your-email@example.com with a link to the Drive file.
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>============================================================
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>RESULT
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>============================================================
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>✅ Success  | trace_id=3e4f5a6b-...
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>Final Answer:
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>I have completed all three steps:
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>1. Fetched patient Nancy Smart (DOB: ****-03-15) from Cerner FHIR.
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>2. Created &#39;patient_summary_12724066.txt&#39; in Google Drive (file_id: 1XYZ...).
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>3. Sent a summary email to your-email@example.com with a link to the file.
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>Steps executed (3):
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>  ✓ Step 1: fhir_cerner.read_patient
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>       result : {&quot;patient_id&quot;: &quot;123*****&quot;, &quot;full_name&quot;: &quot;Nancy Smart&quot;, ...}
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>  ✓ Step 2: google_drive.files.upload
+</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>       result : {&quot;file_id&quot;: &quot;1XYZ...&quot;, &quot;web_view_link&quot;: &quot;https://docs.google.com/...&quot;}
+</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>  ✓ Step 3: smtp.send_email
+</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>       result : {&quot;sent&quot;: true}
+</span></code></pre></div>
+<hr />
+<h2 id="local-testing-no-toolhive-required">Local testing (no ToolHive required)<a class="headerlink" href="#local-testing-no-toolhive-required" title="Anchor link to this section">&para;</a></h2>
+<p>You can test the full end-to-end flow on your local machine without ToolHive.</p>
+<h3 id="option-a-stdio-mode-local-flag">Option A: stdio mode (<code>--local</code> flag)<a class="headerlink" href="#option-a-stdio-mode-local-flag" title="Anchor link to this section">&para;</a></h3>
+<p>This launches the MCP server as a subprocess and connects to it directly:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Set your credentials in .env first, then:</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GROQ_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-key&quot;</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span>--local<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span>--patient-id<span class="w"> </span><span class="m">12724066</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">  </span>--recipient-email<span class="w"> </span>your-email@example.com
+</span></code></pre></div>
+<blockquote>
+<p>The <code>--local</code> flag skips the ToolHive proxy and talks to the MCP server over stdio. This is the easiest way to test without Docker.</p>
+</blockquote>
+<h3 id="option-b-mcp-inspector">Option B: MCP Inspector<a class="headerlink" href="#option-b-mcp-inspector" title="Anchor link to this section">&para;</a></h3>
+<p>The MCP Inspector is a browser-based tool for inspecting and manually calling MCP tools:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.mcp_entrypoint
+</span></code></pre></div>
+<p>Open the URL it prints (usually <code>http://localhost:5173</code>) to browse the available tools and send test requests.</p>
+<h3 id="option-c-local-email-testing-with-mailhog">Option C: local email testing with Mailhog<a class="headerlink" href="#option-c-local-email-testing-with-mailhog" title="Anchor link to this section">&para;</a></h3>
+<p>If you don't want to use a real SMTP server while testing:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Start a local fake SMTP server</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>-p<span class="w"> </span><span class="m">1025</span>:1025<span class="w"> </span>-p<span class="w"> </span><span class="m">8025</span>:8025<span class="w"> </span>mailhog/mailhog
+</span></code></pre></div>
+<p>Update your <code>.env</code> (for a <strong>local</strong> agent, not inside ToolHive's container):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>SMTP_HOST=localhost
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>SMTP_PORT=1025
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>SMTP_USERNAME=
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>SMTP_PASSWORD=
+</span></code></pre></div>
+<p>View captured emails at <code>http://localhost:8025</code>.</p>
+<p><strong>ToolHive + Mailhog:</strong> If the MCP server runs in Docker and Mailhog runs on the host, point ToolHive secrets at the host SMTP port (e.g. <code>SMTP_HOST</code> = <code>host.docker.internal</code>, <code>SMTP_PORT</code> = <code>1025</code> on macOS/Windows Docker Desktop) and disable TLS if your Mailhog setup expects plain SMTP. Re-register or restart the server after changing secrets.</p>
+<hr />
+<h2 id="claude-desktop-and-cursor-integration">Claude Desktop and Cursor integration<a class="headerlink" href="#claude-desktop-and-cursor-integration" title="Anchor link to this section">&para;</a></h2>
+<p>Once ToolHive is running <code>node-wire-connectors</code>, any MCP-compatible client can connect to it.</p>
+<h3 id="claude-desktop">Claude Desktop<a class="headerlink" href="#claude-desktop" title="Anchor link to this section">&para;</a></h3>
+<p>Edit <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code>%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">&quot;node-wire-connectors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">      </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://localhost:&lt;PORT&gt;/sse&quot;</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Replace <code>&lt;PORT&gt;</code> with the port shown in ToolHive UI. The four Node Wire connector tools will appear in Claude's tool sidebar automatically.</p>
+<h3 id="cursor">Cursor<a class="headerlink" href="#cursor" title="Anchor link to this section">&para;</a></h3>
+<p>In Cursor's MCP settings, add the same endpoint URL. The tools will appear in the agent's tool list.</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Likely Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TOOLHIVE_MCP_URL is not set</code></td>
+<td>Missing env var</td>
+<td>Copy the endpoint URL from ToolHive UI → Installed → <code>node-wire-connectors</code> and add to <code>.env</code></td>
+</tr>
+<tr>
+<td><code>Failed to list MCP tools: Connection refused</code></td>
+<td>ToolHive server stopped</td>
+<td>Re-start via ToolHive UI, or run <code>thv run ...</code> again; check <code>thv list</code> to see running servers</td>
+</tr>
+<tr>
+<td><code>Secret 'CERNER_PRIVATE_KEY' is not configured</code></td>
+<td>Secret not stored in ToolHive</td>
+<td>Run <code>thv secret set CERNER_PRIVATE_KEY</code> or add it via the ToolHive UI</td>
+</tr>
+<tr>
+<td><code>google_drive connector: authentication failed</code></td>
+<td><code>GOOGLE_DRIVE_SA_JSON</code> is a file path, not JSON content</td>
+<td>For ToolHive, paste the actual JSON <em>contents</em> of the file (not the file path) as the secret value; for local <code>.env</code>, use an absolute path to the JSON file per <a href="../google_drive_connector/#google-drive-service-account-setup">Google Drive service account setup</a></td>
+</tr>
+<tr>
+<td><code>SMTP authentication failed</code></td>
+<td>Wrong username or password</td>
+<td>For Gmail, use an App Password not your regular password; confirm <code>SMTP_USERNAME</code> includes <code>@</code></td>
+</tr>
+<tr>
+<td><code>groq SDK not installed</code></td>
+<td>Missing optional dependency</td>
+<td><code>pip install -e ".[agents]"</code></td>
+</tr>
+<tr>
+<td>Agent loops forever without completing</td>
+<td>LLM reasoning issue</td>
+<td>Try increasing <code>--max-steps</code>; try a different LLM provider; check that the expected tools are visible in ToolHive (<code>tools/list</code>); refresh after MCP image upgrades</td>
+</tr>
+<tr>
+<td><code>docker: Cannot connect to the Docker daemon</code></td>
+<td>Docker not running</td>
+<td>Start Docker Desktop</td>
+</tr>
+<tr>
+<td>Container starts but shows 0 tools</td>
+<td>MCP server failed to start</td>
+<td>Check container logs: <code>docker logs &lt;container-id&gt;</code>; verify the image built successfully</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="running-tests">Running tests<a class="headerlink" href="#running-tests" title="Anchor link to this section">&para;</a></h2>
+<p>The test suite covers the agent and MCP server without making any real API calls:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,agents]&quot;</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>pytest<span class="w"> </span>tests/test_toolhive_agent.py<span class="w"> </span>-v
+</span></code></pre></div>
+<p>Expect every test collected from <code>tests/test_toolhive_agent.py</code> to pass (names and count change as the suite evolves). If a test fails, re-run with <code>-v</code> and compare against the current definitions in that file.</p>
+<hr />
+<h2 id="file-layout-agents">File layout (<code>agents</code>)<a class="headerlink" href="#file-layout-agents" title="Anchor link to this section">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>node-wire/
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>├── Dockerfile                              ← Docker image for ToolHive
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>├── pyproject.toml                          ← [agents] extras added
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>├── sample.env                              ← env var reference
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>└── src/
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    └── agents/
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>        ├── __init__.py
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>        ├── mcp_entrypoint.py               ← MCP stdio server (manifest; all MCP connectors)
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>        ├── toolhive.py                     ← ReAct agent + CLI
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>        ├── llm_factory.py                  ← Provider factory
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>        └── providers/
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>            ├── groq_provider.py            ← Default (Groq)
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>            ├── openai_provider.py
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>            ├── gemini_provider.py
+</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>            └── anthropic_provider.py
+</span></code></pre></div>
+<hr />
+<h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><a href="../installation/">Installation Guide</a> — Full platform setup guide</li>
+<li><a href="../configuration/">Configuration Guide</a> — Environment variables and settings</li>
+<li><a href="../google_drive_connector/">google_drive_connector.md</a> — Google Drive service account setup and REST API reference</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../mcp-client-oauth/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Client OAuth">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Client OAuth
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../contributing/" class="md-footer__link md-footer__link--next" aria-label="Next: Contributing">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Contributing
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/AOT-Technologies/node-wire" target="_blank" rel="noopener" title="Node Wire on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/aot-technologies" target="_blank" rel="noopener" title="AOT Technologies on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
