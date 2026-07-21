@@ -115,6 +115,8 @@ HTTP MCP (default) listens on port **8081**. For stdio (e.g. Cursor / MCP Inspec
 NW_MCP_TRANSPORT=stdio uv run python -m google_drive_nw_mcp
 ```
 
+</div>
+
 ---
 
 ## CLI reference
