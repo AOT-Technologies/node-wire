@@ -129,6 +129,11 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
     assert identity is not None
 
     server = McpServer(connector_ids=["smtp"])
+    # Rev4: configured = entitled. The JWT tenant must have a config to reach the
+    # scope policy (otherwise it fails closed at config resolution first).
+    server._factory.store.create(
+        "tenant-a", "smtp", {"name": "default", "default": True, "config": {}}
+    )
     resp = await server.invoke_tool(
         "smtp.send_email",
         {
@@ -162,7 +167,12 @@ async def test_mcp_execution_passes_principal_and_tenant(
     assert identity is not None
 
     server = McpServer(connector_ids=["smtp"])
-    smtp = server._factory.get_for_protocol("smtp", "mcp")
+    # Rev4: configured = entitled. Provision the JWT tenant's config and patch the
+    # tenant-scoped instance that invoke_tool will resolve.
+    server._factory.store.create(
+        "tenant-42", "smtp", {"name": "default", "default": True, "config": {}}
+    )
+    smtp = await server._factory.get("smtp", tenant_id="tenant-42")
     assert smtp is not None
 
     captured: dict[str, object] = {}

@@ -378,12 +378,19 @@ class BaseConnector(ABC):
         secret_provider: Optional[SecretProvider] = None,
         policy_hook: Optional[PolicyHook] = None,
         auth_provider: Optional[AuthProvider] = None,
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
         cls = type(self)
         self._input_model_cls = cls._union_input_model
         self._output_model_cls = cls.output_model
         self._secret_provider = secret_provider
         self._policy_hook = policy_hook
+        # Per-config settings (e.g. channel, base_url) from the resolved config
+        # record. Available for connectors that opt in; existing connectors keep
+        # reading settings from secrets. The concrete config name is set by the
+        # factory as ``_config_name`` for observability.
+        self.config: Dict[str, Any] = config or {}
+        self._config_name: Optional[str] = None
         # Default to NoAuthProvider (null-object) so connectors never receive None.
         self._auth_provider: AuthProvider = (
             auth_provider if auth_provider is not None else NoAuthProvider()
@@ -454,13 +461,14 @@ class BaseConnector(ABC):
         - Maps exceptions into the standard error taxonomy
         """
         trace_id = str(uuid.uuid4())
-        _start = time.monotonic()
+        config_name = getattr(self, "_config_name", None)
 
         with tracer.start_as_current_span(
             "connector.run",
             attributes={
                 "connector.id": self.connector_id,
                 "connector.action": self.action,
+                "config.name": config_name or "",
                 "tenant.id": tenant_id or "",
                 "principal.id": principal or "",
                 "trace.id": trace_id,
@@ -471,6 +479,7 @@ class BaseConnector(ABC):
                 extra={
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
+                    "config_name": config_name,
                     "action": self.action,
                     "principal": principal,
                     "tenant_id": tenant_id,

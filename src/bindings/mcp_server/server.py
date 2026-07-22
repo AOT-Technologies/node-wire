@@ -20,6 +20,8 @@ from bindings.mcp_server.auth import (
     log_effective_mcp_auth_state,
 )
 from node_wire_runtime.caller_identity import CallerIdentity
+from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.identity import resolve_tenant_id
 from node_wire_runtime.policies.mcp_scope_policy import (
     action_allowed_for_identity_scopes,
     load_scope_map_from_env,
@@ -250,11 +252,23 @@ class McpServer:
                     f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
                 )
             )
+            # config_name is an optional resolution-time argument (§6.3): an agent
+            # may target a named config; omitting it uses the tenant's default.
+            input_schema = entry["input_schema"]
+            props = input_schema.setdefault("properties", {})
+            props.setdefault(
+                "config_name",
+                {
+                    "type": "string",
+                    "description": "Optional named connector configuration; omit for the default.",
+                },
+            )
+
             tools.append(
                 {
                     "name": f"{cid}.{entry['action']}",
                     "description": tool_desc,
-                    "input_schema": entry["input_schema"],
+                    "input_schema": input_schema,
                     "output_schema": entry["output_schema"],
                 }
             )
@@ -323,8 +337,27 @@ class McpServer:
         if self._connector_ids is not None and connector_id not in self._connector_ids:
             raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
 
-        connector = self._factory.get_for_protocol(connector_id, "mcp")
-        if connector is None:
+        if not self._factory.is_exposed(connector_id, "mcp"):
+            raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+
+        # Tenant pinned from the session (SSE headers) / stdio env; config_name is a
+        # resolution-time argument, never a connector input.
+        arguments = dict(arguments or {})
+        config_name = arguments.pop("config_name", None)
+        tenant_id = resolve_tenant_id(
+            headers=_http_request_headers.get(),
+            jwt_identity=identity,
+            env_pin=os.getenv("NW_TENANT_ID"),
+        )
+
+        try:
+            connector = await self._factory.get(
+                connector_id,
+                tenant_id=tenant_id,
+                config_name=config_name,
+                action=action,
+            )
+        except ConfigNotFoundError:
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
 
         run_args = normalize_mcp_tool_arguments(connector, action, arguments)
@@ -357,7 +390,7 @@ class McpServer:
             response = await connector.run(
                 run_args,
                 principal=identity.principal if identity else None,
-                tenant_id=identity.tenant_id if identity else None,
+                tenant_id=tenant_id,
                 scopes=identity.scopes if identity else None,
             )
             stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
