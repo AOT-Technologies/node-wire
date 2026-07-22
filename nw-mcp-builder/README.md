@@ -38,7 +38,7 @@ For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
    - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
 4. **Generates** `out/<server-name>-mcp/` containing:
    - Copied wheels under `wheels/`
-   - Vendored `node-wire/src` → `vendor/node_wire_src` (Docker PYTHONPATH parity)
+   - Selective vendored `node-wire/src` → `vendor/node_wire_src` (`bindings`, `node_wire_runtime`, `node_wire_<connector_id>` only; Docker PYTHONPATH parity)
    - `config/connectors.yaml` from the monorepo
    - Thin `__main__.py` that runs `McpServer(connector_ids=[...])`
    - `pyproject.toml`, `README.md`, `Dockerfile`, `.env.example`
@@ -207,7 +207,7 @@ out/google-drive-nw-mcp/
   .env.example            # NW + connector secret env names
   wheels/                 # runtime + connector .whl
   config/connectors.yaml
-  vendor/node_wire_src/   # full node-wire src (bindings on PYTHONPATH)
+  vendor/node_wire_src/   # bindings + node_wire_runtime + node_wire_<id> only
   src/google_drive_nw_mcp/
     __main__.py           # McpServer entrypoint
 ```
@@ -251,7 +251,7 @@ The Dockerfile installs wheels from `./wheels`, sets `PYTHONPATH=/nw_src`, and r
 |---------|-------------|
 | `No node-wire-runtime wheel in .../dist` | Run without `--skip-build-wheels`, or build manually in `packages/runtime` |
 | `Output project already exists` | Pass `--force-output` |
-| `No module named node_wire_runtime.policies` | Regenerate — vendored `vendor/node_wire_src` should be present |
+| `No module named node_wire_runtime.policies` | Regenerate — vendored `vendor/node_wire_src/node_wire_runtime` should be present |
 | `uv sync` / import errors on generated host | Use `--python 3.14` (or whatever ABI your `.whl` files were built with) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `.env` has `NW_MCP_AUTH_DISABLED=true` for local use |
