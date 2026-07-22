@@ -25,6 +25,13 @@ from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime.config_store import (
+    ConfigNameConflictError,
+    ConfigNotFoundError,
+    ConfigStoreError,
+    DefaultDeletionError,
+)
+from node_wire_runtime.identity import resolve_tenant_id
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -128,18 +135,129 @@ async def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/ready", tags=["system"])
-async def ready() -> Dict[str, str]:
+# --- Runtime connector config API (thin wrappers over ConnectorConfigStore) ---
+# Tenant scope comes from the tenant header (never the path). The embedding
+# application authenticates callers before these endpoints are reachable
+# (RestAuthMiddleware); node-wire does not.
+
+
+def _config_tenant(request: Request) -> str:
+    return resolve_tenant_id(
+        headers=request.headers, jwt_identity=get_rest_caller_identity(request)
+    )
+
+
+def _map_config_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, ConfigNameConflictError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, DefaultDeletionError):
+        return HTTPException(status_code=400, detail=str(exc))
+    if isinstance(exc, ConfigNotFoundError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, ConfigStoreError):
+        return HTTPException(status_code=400, detail=str(exc))
+    raise exc
+
+
+@app.post("/v1/config/init", tags=["config"])
+async def config_init(
+    request: Request,
+    payload: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    """Bulk init. With the tenant header: payload is that tenant's
+    ``{connector_id: [docs]}`` map. Without it: full multi-tenant payload."""
+    from node_wire_runtime.identity import tenant_from_headers
+
+    header_tenant = tenant_from_headers(request.headers)
+    full_payload = {header_tenant: payload} if header_tenant else payload
     try:
-        factory = get_factory()
-        if not factory.list_for_protocol("rest") and not factory.list_for_protocol("grpc"):
-            raise HTTPException(status_code=503, detail="no connectors loaded")
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("Readiness check failed: %s", exc)
-        raise HTTPException(status_code=503, detail="factory not ready")
-    return {"status": "ready"}
+        factory_dep.store.init(full_payload)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"status": "ok"})
+
+
+@app.post("/v1/connectors/{cid}/configs", tags=["config"])
+async def config_create(
+    cid: str,
+    request: Request,
+    doc: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    try:
+        record = factory_dep.store.create(_config_tenant(request), cid, doc)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=201, content={"name": record.name, "default": record.default})
+
+
+@app.get("/v1/connectors/{cid}/configs", tags=["config"])
+async def config_list(
+    cid: str,
+    request: Request,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=200, content=factory_dep.store.list(_config_tenant(request), cid)
+    )
+
+
+@app.get("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+async def config_get(
+    cid: str,
+    name: str,
+    request: Request,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    doc = factory_dep.store.get(_config_tenant(request), cid, name)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return JSONResponse(status_code=200, content=doc)
+
+
+@app.put("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+async def config_update(
+    cid: str,
+    name: str,
+    request: Request,
+    doc: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    try:
+        record = factory_dep.store.update(_config_tenant(request), cid, name, doc)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"name": record.name, "default": record.default})
+
+
+@app.delete("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+async def config_delete(
+    cid: str,
+    name: str,
+    request: Request,
+    new_default: str | None = None,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    try:
+        factory_dep.store.delete(_config_tenant(request), cid, name, new_default=new_default)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"status": "ok"})
+
+
+@app.put("/v1/connectors/{cid}/configs/{name}/default", tags=["config"])
+async def config_set_default(
+    cid: str,
+    name: str,
+    request: Request,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    try:
+        factory_dep.store.set_default(_config_tenant(request), cid, name)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 
 def _http_status_for_category(category: ErrorCategory | None) -> int:
@@ -196,10 +314,14 @@ def _make_endpoint(cid: str, act: str) -> Any:
         span = trace.get_current_span()
         span.set_attribute("connector.id", cid)
         span.set_attribute("connector.action", act)
+
+        rest_id = get_rest_caller_identity(request)
+        tenant_id = resolve_tenant_id(headers=request.headers, jwt_identity=rest_id)
+
         if _rate_limit_enabled():
             limiter = _get_rate_limiter()
             identity_key = get_request_identity_key(request)
-            rate_key = f"{cid}:{act}:{identity_key}"
+            rate_key = f"{tenant_id}:{cid}:{act}:{identity_key}"
             result = limiter.consume(rate_key)
             if not result.allowed:
                 return JSONResponse(
@@ -208,10 +330,24 @@ def _make_endpoint(cid: str, act: str) -> Any:
                     headers={"Retry-After": str(result.retry_after_seconds)},
                 )
 
-        connector = factory_dep.get_for_protocol(cid, "rest", action=act)
-        if connector is None:
+        if not factory_dep.is_exposed(cid, "rest"):
             raise HTTPException(status_code=404, detail="Connector not available for REST")
+
         run_payload = dict(payload)
+        # config_name is a resolution-time argument, never a connector input.
+        config_name = run_payload.pop("config_name", None)
+
+        try:
+            connector = await factory_dep.get(
+                cid, tenant_id=tenant_id, config_name=config_name, action=act
+            )
+        except ConfigNotFoundError:
+            # Unknown scope and unknown config name return the same body so config
+            # names cannot be enumerated (fail-closed).
+            raise HTTPException(
+                status_code=403, detail="No connector configuration for this tenant"
+            )
+
         run_payload = normalize_mcp_tool_arguments(connector, act, run_payload)
         try:
             enforce_authoritative_action(run_payload, act)
@@ -220,11 +356,10 @@ def _make_endpoint(cid: str, act: str) -> Any:
         run_payload["action"] = act
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.
-        rest_id = get_rest_caller_identity(request)
         response: ConnectorResponse = await connector.run(
             run_payload,
             principal=rest_id.principal if rest_id else None,
-            tenant_id=rest_id.tenant_id if rest_id else None,
+            tenant_id=tenant_id,
             scopes=rest_id.scopes if rest_id else None,
         )
         status = _http_status_for_category(response.error_category)

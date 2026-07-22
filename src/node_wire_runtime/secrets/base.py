@@ -12,6 +12,10 @@ class SecretNotFoundError(KeyError):
     """The requested key does not exist in this provider."""
 
 
+class TenantSecretNotFoundError(SecretNotFoundError):
+    """A tenant-scoped secret is absent. Strict: never falls back to a shared value."""
+
+
 class SecretProviderError(RuntimeError):
     """The provider itself failed (auth, network, config). Do not swallow."""
 
@@ -61,3 +65,46 @@ class EnvSecretProvider(SecretProvider):
         if self._legacy_empty_on_missing:
             return ""
         raise SecretNotFoundError(key)
+
+
+def _sanitize_secret_segment(segment: str) -> str:
+    """Uppercase and replace every non-alphanumeric char with ``_`` for env names."""
+    return "".join(ch if ch.isalnum() else "_" for ch in segment).upper()
+
+
+class TenantSecretProvider(SecretProvider):
+    """Scopes secret lookups to a ``{tenant_id}/{connector_id}/{key}`` path.
+
+    Delegates to an inner :class:`SecretProvider`, translating the logical path to
+    the backend key ``NW_{TENANT}_{CONNECTOR}_{KEY}`` (uppercased; non-alphanumeric
+    characters become ``_``). Strict: a missing secret raises
+    :class:`TenantSecretNotFoundError` rather than resolving a shared value.
+
+    ``key`` is the bare logical name carried by a config's reference field
+    (e.g. ``announcement_token``).
+    """
+
+    def __init__(self, inner: SecretProvider, tenant_id: str, connector_id: str) -> None:
+        self._inner = inner
+        self._tenant_id = tenant_id
+        self._connector_id = connector_id
+
+    def _scoped_key(self, key: str) -> str:
+        return "_".join(
+            (
+                "NW",
+                _sanitize_secret_segment(self._tenant_id),
+                _sanitize_secret_segment(self._connector_id),
+                _sanitize_secret_segment(key),
+            )
+        )
+
+    def get_secret(self, key: str) -> str:
+        scoped = self._scoped_key(key)
+        try:
+            return self._inner.get_secret(scoped)
+        except SecretNotFoundError as exc:
+            raise TenantSecretNotFoundError(
+                f"tenant secret not found: {self._tenant_id}/{self._connector_id}/{key} "
+                f"(resolved key {scoped!r})"
+            ) from exc

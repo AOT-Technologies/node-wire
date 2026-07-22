@@ -267,9 +267,74 @@ body {
     background: rgba(37, 99, 235, 0.1);
     color: var(--brand-accent);
     padding: 0.25rem 0.75rem;
-    border-radius: 6px;
+    border-radius: 999px;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
+}
+
+.tenancy-bar {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.tenancy-bar-title {
+    margin-bottom: 1rem;
+}
+
+.tenancy-bar-title h2 {
+    font-size: 1.1rem;
+}
+
+.tenancy-config-admin {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.tenancy-config-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.tenancy-cfg-btn {
+    width: auto;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.85rem;
+}
+
+.tenancy-cfg-btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+}
+
+.tenancy-cfg-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tenancy-cfg-btn-danger {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #f87171;
+}
+
+.tenancy-cfg-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.tenancy-cfg-result {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border);
+    font-size: 0.8rem;
+    overflow: auto;
+    max-height: 220px;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* Form Styles */

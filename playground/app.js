@@ -779,6 +779,32 @@ document.addEventListener('DOMContentLoaded', () => {
         gdriveActionSelect.addEventListener('change', scheduleGdriveDriveActionSyncFromUser);
     }
 
+    function getPlaygroundTenantId() {
+        const el = document.getElementById('playground-tenant-id');
+        return (el && el.value ? el.value : '').trim();
+    }
+
+    function getPlaygroundConfigName() {
+        const el = document.getElementById('playground-config-name');
+        return (el && el.value ? el.value : '').trim();
+    }
+
+    function playgroundRequestHeaders(extra = {}) {
+        const headers = { 'Content-Type': 'application/json', ...extra };
+        const tenantId = getPlaygroundTenantId();
+        if (tenantId) {
+            headers['X-Tenant-ID'] = tenantId;
+        }
+        return headers;
+    }
+
+    function withTenancyQuery(endpoint) {
+        const configName = getPlaygroundConfigName();
+        if (!configName) return endpoint;
+        const sep = endpoint.includes('?') ? '&' : '?';
+        return `${endpoint}${sep}config_name=${encodeURIComponent(configName)}`;
+    }
+
     async function handleSubmission(payload, endpoint, btn, btnLbl, spinner, resetText, pipelineLabelOverride = null) {
         resetUI(pipelineLabelOverride);
 
@@ -787,22 +813,38 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLbl.textContent = 'Orchestrating...';
 
         log(`Initiating intelligent ${currentMode.toUpperCase()} orchestration...`, 'system');
+        const tenantId = getPlaygroundTenantId();
+        const configName = getPlaygroundConfigName();
+        if (tenantId) {
+            log(`Tenant: ${tenantId}`, 'system');
+        } else {
+            log('Tenant: __default__ (no X-Tenant-ID)', 'system');
+        }
+        if (configName) {
+            log(`Config name: ${configName}`, 'system');
+            payload = { ...payload, config_name: configName };
+        }
+
         const firstNode = nodes.find((n) => n && !n.classList.contains('hidden'));
         if (firstNode) firstNode.classList.add('active');
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch(withTenancyQuery(endpoint), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: playgroundRequestHeaders(),
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json().catch(() => ({}));
 
-            const data = await response.json();
-            traceDisplay.textContent = data.trace_id.toUpperCase();
+            if (!response.ok) {
+                const detail = data.detail || data.message || `Server returned ${response.status}`;
+                throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+            }
 
-            for (let i = 0; i < data.steps.length; i++) {
+            traceDisplay.textContent = (data.trace_id || '').toUpperCase() || '—';
+
+            for (let i = 0; i < (data.steps || []).length; i++) {
                 const step = data.steps[i];
                 const node = nodes[i];
                 if (!node) continue;
@@ -1247,6 +1289,98 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Standard text submission
             await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
+        }
+    });
+
+    // --- Google Drive runtime config CRUD (tenant-scoped via Tenancy bar) ---
+    const gdriveCfgResult = document.getElementById('gdrive-cfg-result');
+    const GDRIVE_CFG_BASE = '/v1/connectors/google_drive/configs';
+
+    function showGdriveCfgResult(obj) {
+        if (!gdriveCfgResult) return;
+        gdriveCfgResult.classList.remove('hidden');
+        gdriveCfgResult.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    }
+
+    async function gdriveCfgFetch(method, path = '', body = null) {
+        const tenantId = getPlaygroundTenantId();
+        if (!tenantId) {
+            throw new Error('Set Tenant ID in the Tenancy bar before managing configs (e.g. acme).');
+        }
+        const opts = { method, headers: playgroundRequestHeaders() };
+        if (body != null) {
+            opts.body = JSON.stringify(body);
+        }
+        const response = await fetch(`${GDRIVE_CFG_BASE}${path}`, opts);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = data.detail || `HTTP ${response.status}`;
+            throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
+        return data;
+    }
+
+    document.getElementById('gdrive-cfg-create')?.addEventListener('click', async () => {
+        try {
+            const name = (document.getElementById('gdrive-cfg-name')?.value || 'default').trim();
+            const isDefault = document.getElementById('gdrive-cfg-default')?.value === 'true';
+            const data = await gdriveCfgFetch('POST', '', {
+                name,
+                default: isDefault,
+                config: {},
+                // Same auth shape as connectors.yaml; tenant secrets resolve via
+                // NW_{TENANT}_GOOGLE_DRIVE_GOOGLE_DRIVE_SA_JSON (or plain GOOGLE_DRIVE_SA_JSON for __default__).
+                auth: {
+                    provider: 'service_account',
+                    sa_json_secret: 'GOOGLE_DRIVE_SA_JSON',
+                    scopes: ['https://www.googleapis.com/auth/drive'],
+                },
+            });
+            showGdriveCfgResult(data);
+            log(`Created google_drive config '${name}' for tenant '${getPlaygroundTenantId()}'`, 'success');
+        } catch (err) {
+            showGdriveCfgResult({ error: err.message });
+            log(`Config create failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('gdrive-cfg-list')?.addEventListener('click', async () => {
+        try {
+            const data = await gdriveCfgFetch('GET');
+            showGdriveCfgResult(data);
+            log(`Listed google_drive configs for tenant '${getPlaygroundTenantId()}'`, 'success');
+        } catch (err) {
+            showGdriveCfgResult({ error: err.message });
+            log(`Config list failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('gdrive-cfg-set-default')?.addEventListener('click', async () => {
+        try {
+            const name = (document.getElementById('gdrive-cfg-name')?.value || '').trim();
+            if (!name) throw new Error('Config name is required');
+            const data = await gdriveCfgFetch('PUT', `/${encodeURIComponent(name)}/default`);
+            showGdriveCfgResult(data);
+            log(`Set '${name}' as default for tenant '${getPlaygroundTenantId()}'`, 'success');
+        } catch (err) {
+            showGdriveCfgResult({ error: err.message });
+            log(`Set default failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('gdrive-cfg-delete')?.addEventListener('click', async () => {
+        try {
+            const name = (document.getElementById('gdrive-cfg-name')?.value || '').trim();
+            if (!name) throw new Error('Config name is required');
+            // If deleting the default while siblings exist, nominate "default" or leave blank for last-config case.
+            const newDefault = name === 'default' ? '' : 'default';
+            const q = newDefault ? `?new_default=${encodeURIComponent(newDefault)}` : '';
+            const data = await gdriveCfgFetch('DELETE', `/${encodeURIComponent(name)}${q}`);
+            showGdriveCfgResult(data);
+            log(`Deleted google_drive config '${name}' for tenant '${getPlaygroundTenantId()}'`, 'success');
+        } catch (err) {
+            showGdriveCfgResult({ error: err.message });
+            log(`Config delete failed: ${err.message}`, 'error');
         }
     });
 

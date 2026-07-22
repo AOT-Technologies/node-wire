@@ -29,7 +29,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0f\x63onnector.proto\x12\x0e\x61ot.connectors\"K\n\rInvokeRequest\x12\x14\n\x0c\x63onnector_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x14\n\x0cpayload_json\x18\x03 \x01(\t\"\x83\x01\n\x0eInvokeResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x11\n\tdata_json\x18\x02 \x01(\t\x12\x12\n\nerror_code\x18\x03 \x01(\t\x12\x16\n\x0e\x65rror_category\x18\x04 \x01(\t\x12\x0f\n\x07message\x18\x05 \x01(\t\x12\x10\n\x08trace_id\x18\x06 \x01(\t2[\n\x10\x43onnectorService\x12G\n\x06Invoke\x12\x1d.aot.connectors.InvokeRequest\x1a\x1e.aot.connectors.InvokeResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0f\x63onnector.proto\x12\x0e\x61ot.connectors\"u\n\rInvokeRequest\x12\x14\n\x0c\x63onnector_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x14\n\x0cpayload_json\x18\x03 \x01(\t\x12\x18\n\x0b\x63onfig_name\x18\x04 \x01(\tH\x00\x88\x01\x01\x42\x0e\n\x0c_config_name\"\x83\x01\n\x0eInvokeResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x11\n\tdata_json\x18\x02 \x01(\t\x12\x12\n\nerror_code\x18\x03 \x01(\t\x12\x16\n\x0e\x65rror_category\x18\x04 \x01(\t\x12\x0f\n\x07message\x18\x05 \x01(\t\x12\x10\n\x08trace_id\x18\x06 \x01(\t2[\n\x10\x43onnectorService\x12G\n\x06Invoke\x12\x1d.aot.connectors.InvokeRequest\x1a\x1e.aot.connectors.InvokeResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -37,9 +37,9 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'connector_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_INVOKEREQUEST']._serialized_start=35
-  _globals['_INVOKEREQUEST']._serialized_end=110
-  _globals['_INVOKERESPONSE']._serialized_start=113
-  _globals['_INVOKERESPONSE']._serialized_end=244
-  _globals['_CONNECTORSERVICE']._serialized_start=246
-  _globals['_CONNECTORSERVICE']._serialized_end=337
+  _globals['_INVOKEREQUEST']._serialized_end=152
+  _globals['_INVOKERESPONSE']._serialized_start=155
+  _globals['_INVOKERESPONSE']._serialized_end=286
+  _globals['_CONNECTORSERVICE']._serialized_start=288
+  _globals['_CONNECTORSERVICE']._serialized_end=379
 # @@protoc_insertion_point(module_scope)

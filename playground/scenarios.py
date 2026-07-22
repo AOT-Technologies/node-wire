@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
@@ -19,6 +19,8 @@ import os
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.identity import resolve_tenant_id
 from node_wire_fhir_epic.logic import FhirEpicConnector
 from node_wire_fhir_epic.schema import (
     FhirDocumentReferenceCreateInput,
@@ -153,6 +155,8 @@ class GoogleDriveArchivalInput(BaseModel):
     update_mime_type: Optional[str] = None
     update_add_parents: Optional[str] = None
     update_remove_parents: Optional[str] = None
+    # Resolution-time only (not a Drive API field); optional named config for the tenant.
+    config_name: Optional[str] = None
 
     @model_validator(mode="after")
     def require_upload_fields_when_not_list(self) -> "GoogleDriveArchivalInput":
@@ -314,76 +318,100 @@ async def execute_with_retry(
                 raise last_exception
 
 
-# Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
+# Share the REST binding factory so playground config CRUD (/v1/...) and scenarios
+# see the same in-memory ConnectorConfigStore.
 _playground_factory: Optional[Any] = None
 
 
 def get_playground_factory() -> Any:
-    """Lazily load connector config once; same pattern as bindings REST `get_factory`."""
+    """Reuse the REST API factory (same process, same config store)."""
     global _playground_factory
     if _playground_factory is None:
-        from bindings.factory import ConnectorFactory
-        from node_wire_runtime.connector_registry import auto_register
+        from bindings.rest_api.app import get_factory
 
-        _playground_factory = ConnectorFactory()
-        auto_register()
-        _playground_factory.load()
+        _playground_factory = get_factory()
     return _playground_factory
 
 
-def resolve_connector(connector_id: str, action: Optional[str] = None) -> Any:
-    """Resolve a connector via public factory API (protocol-aware)."""
+async def resolve_connector(
+    request: Request,
+    connector_id: str,
+    *,
+    action: Optional[str] = None,
+    config_name: Optional[str] = None,
+) -> Any:
+    """Resolve a tenant-scoped connector instance for the playground.
+
+    Tenant comes from ``X-Tenant-ID`` (then JWT, then ``__default__``).
+    ``config_name`` may be supplied as a query param or (for GDrive) payload field.
+    """
+    from bindings.rest_api.auth import get_rest_caller_identity
+
     factory = get_playground_factory()
-    return factory.get_for_protocol(connector_id, "rest", action=action)
+    if not factory.is_exposed(connector_id, "rest"):
+        raise HTTPException(
+            status_code=500, detail=f"Connector {connector_id!r} is not configured for REST"
+        )
+
+    tenant_id = resolve_tenant_id(
+        headers=request.headers,
+        jwt_identity=get_rest_caller_identity(request),
+    )
+    name = (config_name or "").strip() or None
+    try:
+        return await factory.get(
+            connector_id,
+            tenant_id=tenant_id,
+            config_name=name,
+            action=action,
+        )
+    except ConfigNotFoundError:
+        raise HTTPException(
+            status_code=403,
+            detail="No connector configuration for this tenant",
+        )
 
 
-def get_fhir_connector() -> FhirEpicConnector:
-    connector = resolve_connector("fhir_epic")
-    if not connector:
-        raise HTTPException(status_code=500, detail="FHIR Epic connector not configured")
+async def get_fhir_connector(
+    request: Request, config_name: Optional[str] = None
+) -> FhirEpicConnector:
+    connector = await resolve_connector(request, "fhir_epic", config_name=config_name)
     return connector  # type: ignore[return-value]
 
 
-def get_http_connector():
-    # Manifest action for http_generic is "request"; pass it for parity with REST routing.
-    connector = resolve_connector("http_generic", action="request")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Generic HTTP connector not configured")
+async def get_http_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(
+        request, "http_generic", action="request", config_name=config_name
+    )
     return connector
 
 
-def get_cerner_connector():
-    connector = resolve_connector("fhir_cerner")
-    if not connector:
-        raise HTTPException(status_code=500, detail="FHIR Cerner connector not configured")
+async def get_cerner_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "fhir_cerner", config_name=config_name)
     return connector
 
 
-def get_google_drive_connector():
-    connector = resolve_connector("google_drive")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Google Drive connector not configured")
+async def get_google_drive_connector(
+    request: Request, config_name: Optional[str] = None
+) -> Any:
+    """``config_name`` query param is optional; GDrive body may also carry it."""
+    return await resolve_connector(
+        request, "google_drive", config_name=config_name
+    )
+
+
+async def get_slack_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "slack", config_name=config_name)
     return connector
 
 
-def get_slack_connector():
-    connector = resolve_connector("slack")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Slack connector not configured")
+async def get_stripe_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "stripe", config_name=config_name)
     return connector
 
 
-def get_stripe_connector():
-    connector = resolve_connector("stripe")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Stripe connector not configured")
-    return connector
-
-
-def get_salesforce_connector():
-    connector = resolve_connector("salesforce")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Salesforce connector not configured")
+async def get_salesforce_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "salesforce", config_name=config_name)
     return connector
 
 
@@ -1348,9 +1376,15 @@ async def stripe_refund_scenario(
 
 @router.post("/gdrive-archival", response_model=ScenarioResponse)
 async def gdrive_archival_scenario(
-    payload: GoogleDriveArchivalInput, connector: Any = Depends(get_google_drive_connector)
+    request: Request,
+    payload: GoogleDriveArchivalInput,
 ) -> ScenarioResponse:
-    """4-step Google Drive archival and sharing demo."""
+    """4-step Google Drive archival and sharing demo (tenant-aware)."""
+    connector = await resolve_connector(
+        request,
+        "google_drive",
+        config_name=payload.config_name,
+    )
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
 

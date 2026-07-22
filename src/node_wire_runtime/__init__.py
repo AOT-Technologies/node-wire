@@ -4,9 +4,25 @@
 #
 from .models import ConnectorResponse, ErrorCategory
 from .errors import ErrorMapper
-from .secrets import SecretProvider, EnvSecretProvider, SecretNotFoundError, SecretProviderError
+from .secrets import (
+    SecretProvider,
+    EnvSecretProvider,
+    SecretNotFoundError,
+    SecretProviderError,
+    TenantSecretNotFoundError,
+    TenantSecretProvider,
+)
 from .policy import PolicyHook, PolicyDenied
 from .caller_identity import CallerIdentity, build_caller_identity
+from .config_store import (
+    ConnectorConfigStore,
+    ConfigRecord,
+    ConfigNotFoundError,
+    ConfigNameConflictError,
+    DefaultDeletionError,
+    DEFAULT_TENANT,
+)
+from .identity import resolve_tenant_id, tenant_from_headers
 from .auth import (
     AuthProvider,
     NoAuthProvider,
@@ -44,10 +60,20 @@ __all__ = [
     "EnvSecretProvider",
     "SecretNotFoundError",
     "SecretProviderError",
+    "TenantSecretNotFoundError",
+    "TenantSecretProvider",
     "PolicyHook",
     "PolicyDenied",
     "CallerIdentity",
     "build_caller_identity",
+    "ConnectorConfigStore",
+    "ConfigRecord",
+    "ConfigNotFoundError",
+    "ConfigNameConflictError",
+    "DefaultDeletionError",
+    "DEFAULT_TENANT",
+    "resolve_tenant_id",
+    "tenant_from_headers",
     "AuthProvider",
     "NoAuthProvider",
     "StaticTokenAuthProvider",

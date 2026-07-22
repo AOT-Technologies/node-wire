@@ -297,6 +297,28 @@ SPDX-License-Identifier: Apache-2.0
                                 Back to All Connectors
                             </button>
 
+                            <!-- Multi-tenancy controls: empty Tenant = __default__; empty Config = store default -->
+                            <div id="tenancy-bar" class="glass-card tenancy-bar">
+                                <div class="card-title tenancy-bar-title">
+                                    <h2>Tenancy</h2>
+                                    <span class="info-tip">Header-based tenant &amp; named config</span>
+                                </div>
+                                <div class="input-row">
+                                    <div class="field-group">
+                                        <label for="playground-tenant-id">Tenant ID</label>
+                                        <input type="text" id="playground-tenant-id" autocomplete="off"
+                                            placeholder="Leave empty for __default__">
+                                        <span class="field-help">Sent as <code>X-Tenant-ID</code>. Missing → <code>__default__</code> (YAML bootstrap).</span>
+                                    </div>
+                                    <div class="field-group">
+                                        <label for="playground-config-name">Config name</label>
+                                        <input type="text" id="playground-config-name" autocomplete="off"
+                                            placeholder="Leave empty for default config">
+                                        <span class="field-help">Optional named config for this tenant. Unknown name → same 403 as unconfigured tenant.</span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div id="ehr-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
                                     <h2>Consultation Summary</h2>
@@ -588,6 +610,34 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
                                         <div class="loading-spinner hidden"></div>
                                     </button>
                                 </form>
+
+                                <div class="input-section tenancy-config-admin" id="gdrive-config-admin">
+                                    <h3 class="section-label">Runtime config (this tenant)</h3>
+                                    <p class="field-help" style="margin-bottom: 0.75rem;">
+                                        Pushes configs into the in-memory store under the Tenant ID above.
+                                        Use after a fail-closed 403 to provision the tenant, then re-run.
+                                    </p>
+                                    <div class="input-row gdrive-metadata-grid">
+                                        <div class="field-group">
+                                            <label for="gdrive-cfg-name">Config name</label>
+                                            <input type="text" id="gdrive-cfg-name" value="default" autocomplete="off">
+                                        </div>
+                                        <div class="field-group">
+                                            <label for="gdrive-cfg-default">Default?</label>
+                                            <select id="gdrive-cfg-default">
+                                                <option value="true" selected>Yes</option>
+                                                <option value="false">No</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="tenancy-config-actions">
+                                        <button type="button" id="gdrive-cfg-create" class="action-btn tenancy-cfg-btn">Create config</button>
+                                        <button type="button" id="gdrive-cfg-list" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-secondary">List configs</button>
+                                        <button type="button" id="gdrive-cfg-set-default" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-secondary">Set default</button>
+                                        <button type="button" id="gdrive-cfg-delete" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-danger">Delete</button>
+                                    </div>
+                                    <pre id="gdrive-cfg-result" class="tenancy-cfg-result hidden"></pre>
+                                </div>
                             </div>
                             <div id="slack-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
