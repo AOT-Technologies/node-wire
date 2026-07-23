@@ -33,6 +33,14 @@ uv run nw-mcp-builder -c <connector_id> --force-output
 uv run nw-mcp-builder -c <connector_id> --force-fixture
 ```
 
+### Tests
+
+From the **node-wire** repo root (suite lives under `tests/nw_mcp_builder/`):
+
+```bash
+uv run pytest tests/nw_mcp_builder -v --no-cov
+```
+
 `<connector_id>` is any connector with `packages/connectors/<id>/` and `src/node_wire_<id>/` (e.g. `google_drive`, `salesforce`).
 
 ### Run the generated host

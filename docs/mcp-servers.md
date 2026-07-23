@@ -27,10 +27,10 @@ From the **node-wire** repository root (requires Docker; uses `python:3.12-slim`
 
 ```bash
 # Generic — runtime + one connector
-bash scripts/build-packages.sh packages/runtime packages/connectors/<connector_id>
+bash scripts/build-packages.sh packages/runtime packages/connectors/<connector-id>
 
 # Example — google_drive
-bash scripts/build-packages.sh packages/runtime packages/connectors/google_drive
+bash scripts/build-packages.sh packages/runtime packages/connectors/google-drive
 ```
 
 Wheels land in:
@@ -406,6 +406,12 @@ nw-mcp-builder/
 ```
 
 Dependencies: `pydantic`, `pyyaml` only (no mcp-builder dependency).
+
+Unit tests live under `tests/nw_mcp_builder/` (run from the node-wire repo root):
+
+```bash
+uv run pytest tests/nw_mcp_builder -v --no-cov
+```
 
 ---
 
