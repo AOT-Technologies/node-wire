@@ -257,16 +257,29 @@ def _project_root() -> Path | None:
     for root in (here, *here.parents):
         if (root / "vendor" / "node_wire_src" / "bindings").is_dir():
             return root
-        if (root / ".env").is_file() and (root / "pyproject.toml").is_file():
+        if (root / "pyproject.toml").is_file() and (root / "config").is_dir():
             return root
     return None
 
 
 def _load_env() -> None:
+    # Only this generated project's .env — never cwd / monorepo .env.
+    # Vendored MCP auth also merges cwd .env unless NW_REST_LOAD_DOTENV is false.
+    os.environ["NW_REST_LOAD_DOTENV"] = "false"
     root = _project_root()
-    if root is not None:
-        load_dotenv(root / ".env")
-    load_dotenv()
+    if root is None:
+        raise SystemExit(
+            "auth error: cannot locate generated MCP project root "
+            "(expected vendor/node_wire_src/bindings or config/ + pyproject.toml)."
+        )
+    env_path = root / ".env"
+    if not env_path.is_file():
+        raise SystemExit(
+            f"auth error: missing {{env_path}}. "
+            "Copy .env.example to .env and set connector secrets for this host. "
+            "Monorepo/cwd .env files are not loaded."
+        )
+    load_dotenv(env_path, override=True)
 
 
 def _ensure_bindings_on_path() -> None:
@@ -334,7 +347,8 @@ McpServer(connector_ids=["{connector_id}"])
 
 ```bash
 cd {project_name}
-# Put connector secrets in .env (see .env.example / node-wire sample.env)
+cp .env.example .env   # required — host loads only this project's .env
+# Fill connector secrets (see node-wire sample.env). Monorepo/cwd .env is ignored.
 uv sync
 ```
 
@@ -344,6 +358,8 @@ uv sync
 uv run python -m {module_name}
 NW_MCP_TRANSPORT=stdio uv run python -m {module_name}
 ```
+
+Startup exits with an auth error if `.env` is missing. A bare cwd/`node-wire` `.env` is never loaded.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
