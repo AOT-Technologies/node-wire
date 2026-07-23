@@ -430,7 +430,7 @@ def format_success_message(project_dir: Path, connector_id: str) -> str:
 
         Next:
           cd {project_dir}
-          # copy .env.example to .env and fill secrets
+          # set secrets via env (ToolHive/Docker) or copy .env.example to .env
           uv sync --python 3.14
           uv run python -m {module}
         """

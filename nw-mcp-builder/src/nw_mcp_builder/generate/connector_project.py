@@ -263,7 +263,8 @@ def _project_root() -> Path | None:
 
 
 def _load_env() -> None:
-    # Only this generated project's .env — never cwd / monorepo .env.
+    # Prefer process env (ToolHive secrets, Docker -e, K8s). Optional project
+    # .env fills unset keys only — never cwd / monorepo .env, never override.
     # Vendored MCP auth also merges cwd .env unless NW_REST_LOAD_DOTENV is false.
     os.environ["NW_REST_LOAD_DOTENV"] = "false"
     root = _project_root()
@@ -273,13 +274,8 @@ def _load_env() -> None:
             "(expected vendor/node_wire_src/bindings or config/ + pyproject.toml)."
         )
     env_path = root / ".env"
-    if not env_path.is_file():
-        raise SystemExit(
-            f"auth error: missing {{env_path}}. "
-            "Copy .env.example to .env and set connector secrets for this host. "
-            "Monorepo/cwd .env files are not loaded."
-        )
-    load_dotenv(env_path, override=True)
+    if env_path.is_file():
+        load_dotenv(env_path, override=False)
 
 
 def _ensure_bindings_on_path() -> None:
@@ -347,7 +343,7 @@ McpServer(connector_ids=["{connector_id}"])
 
 ```bash
 cd {project_name}
-cp .env.example .env   # required — host loads only this project's .env
+cp .env.example .env   # optional locally — process env / secrets win if already set
 # Fill connector secrets (see node-wire sample.env). Monorepo/cwd .env is ignored.
 uv sync
 ```
@@ -359,7 +355,7 @@ uv run python -m {module_name}
 NW_MCP_TRANSPORT=stdio uv run python -m {module_name}
 ```
 
-Startup exits with an auth error if `.env` is missing. A bare cwd/`node-wire` `.env` is never loaded.
+Process env (ToolHive secrets, Docker `-e`) is preferred. Project `.env` is optional and only fills unset keys (`override=False`). Monorepo/cwd `.env` is never loaded.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|

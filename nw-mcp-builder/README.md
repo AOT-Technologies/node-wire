@@ -25,12 +25,12 @@ cd nw-mcp-builder
 uv sync
 
 # Generate (build wheels + fixture + out/<name>-mcp/)
-uv run nw-mcp-builder <connector_id>
+uv run nw-mcp-builder -c <connector_id>
 
 # Common options
-uv run nw-mcp-builder <connector_id> --skip-build-wheels
-uv run nw-mcp-builder <connector_id> --force-output
-uv run nw-mcp-builder <connector_id> --force-fixture
+uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
+uv run nw-mcp-builder -c <connector_id> --force-output
+uv run nw-mcp-builder -c <connector_id> --force-fixture
 ```
 
 `<connector_id>` is any connector with `packages/connectors/<id>/` and `src/node_wire_<id>/` (e.g. `google_drive`, `salesforce`).
@@ -39,7 +39,7 @@ uv run nw-mcp-builder <connector_id> --force-fixture
 
 ```bash
 cd out/<name>-mcp
-cp .env.example .env    # required — only this .env is loaded
+cp .env.example .env    # optional locally — process env / secrets win if set
 uv sync                 # use a Python that matches the wheel ABI if needed
 uv run python -m <module_name>
 ```

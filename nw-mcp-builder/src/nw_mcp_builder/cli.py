@@ -5,8 +5,8 @@
 """CLI for nw-mcp-builder (connector mode only).
 
 Usage:
-  uv run nw-mcp-builder google_drive
-  uv run nw-mcp-builder salesforce --force-output --skip-build-wheels
+  uv run nw-mcp-builder -c google_drive
+  uv run nw-mcp-builder -c salesforce --force-output --skip-build-wheels
 """
 
 from __future__ import annotations
@@ -38,7 +38,10 @@ def main(argv: list[str] | None = None) -> None:
         ),
     )
     parser.add_argument(
-        "connector_id",
+        "-c",
+        "--connector-id",
+        required=True,
+        dest="connector_id",
         help="node-wire connector id (e.g. google_drive, salesforce, fhir_epic)",
     )
     parser.add_argument(
