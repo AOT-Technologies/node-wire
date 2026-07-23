@@ -42,7 +42,7 @@ def fake_node_wire(tmp_path: Path) -> Path:
     logic_dir = root / "src" / f"node_wire_{connector_id}"
     logic_dir.mkdir(parents=True)
     (logic_dir / "logic.py").write_text(
-        '''\
+        """\
 from node_wire_runtime import nw_action
 
 @nw_action("ping")
@@ -52,7 +52,7 @@ def ping():
 @nw_action("files.list")
 def files_list():
     return []
-''',
+""",
         encoding="utf-8",
     )
 

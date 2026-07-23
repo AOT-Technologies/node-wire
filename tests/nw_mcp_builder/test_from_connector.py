@@ -67,7 +67,9 @@ def test_discover_actions_sdk_spec_assign(tmp_path: Path) -> None:
     assert discover_actions(pkg / "logic.py") == ["files.create"]
 
 
-def test_ensure_connector_fixture_creates_and_skips(fake_node_wire: Path, package_root: Path) -> None:
+def test_ensure_connector_fixture_creates_and_skips(
+    fake_node_wire: Path, package_root: Path
+) -> None:
     fixtures = package_root / "fixtures"
     path = ensure_connector_fixture(
         "demo_conn",
@@ -173,18 +175,11 @@ def test_format_success_message(tmp_path: Path) -> None:
     assert "google_drive_nw_mcp" in msg
 
 
-def test_build_wheels_invoked_when_not_skipped(
-    fake_node_wire: Path, package_root: Path
-) -> None:
+def test_build_wheels_invoked_when_not_skipped(fake_node_wire: Path, package_root: Path) -> None:
     with patch("nw_mcp_builder.from_connector.build_connector_wheels") as build:
         build.return_value = (
             fake_node_wire / "packages" / "runtime" / "dist" / "x.whl",
-            fake_node_wire
-            / "packages"
-            / "connectors"
-            / "demo_conn"
-            / "dist"
-            / "y.whl",
+            fake_node_wire / "packages" / "connectors" / "demo_conn" / "dist" / "y.whl",
         )
         run_from_connector(
             "demo_conn",

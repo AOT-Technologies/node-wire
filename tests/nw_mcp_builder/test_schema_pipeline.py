@@ -66,10 +66,7 @@ def test_load_scope_rejects_bad_server_name(tmp_path: Path) -> None:
 
 def test_load_existing_google_drive_fixture() -> None:
     fixture = (
-        Path(__file__).resolve().parents[2]
-        / "nw-mcp-builder"
-        / "fixtures"
-        / "google_drive_nw.yaml"
+        Path(__file__).resolve().parents[2] / "nw-mcp-builder" / "fixtures" / "google_drive_nw.yaml"
     )
     if not fixture.is_file():
         pytest.skip("google_drive fixture not present")

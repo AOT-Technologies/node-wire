@@ -20,7 +20,9 @@ def test_cli_requires_connector_id() -> None:
     assert exc.value.code == 2
 
 
-def test_cli_accepts_short_and_long_connector_id(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_accepts_short_and_long_connector_id(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     project = tmp_path / "out" / "demo-mcp"
     project.mkdir(parents=True)
 
