@@ -22,7 +22,6 @@ Auth, telemetry, and connector logic stay in node-wire. The generated project is
 
 ```bash
 cd nw-mcp-builder
-uv sync
 
 # Generate (build wheels + fixture + out/<name>-mcp/)
 uv run nw-mcp-builder -c <connector_id>

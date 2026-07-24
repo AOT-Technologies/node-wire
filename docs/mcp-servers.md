@@ -27,10 +27,10 @@ From the **node-wire** repository root (requires Docker; uses `python:3.12-slim`
 
 ```bash
 # Generic — runtime + one connector
-bash scripts/build-packages.sh packages/runtime packages/connectors/<connector-id>
+bash scripts/build-packages.sh packages/runtime packages/connectors/<connector_id>
 
 # Example — google_drive
-bash scripts/build-packages.sh packages/runtime packages/connectors/google-drive
+bash scripts/build-packages.sh packages/runtime packages/connectors/google_drive
 ```
 
 Wheels land in:
@@ -129,7 +129,6 @@ Server name in the fixture is always `{connector_id with _ → -}-nw` (e.g. `goo
 
 ```bash
 cd nw-mcp-builder
-uv sync
 ```
 
 From the node-wire repo root:
@@ -142,6 +141,8 @@ uv run --directory nw-mcp-builder nw-mcp-builder --help
 
 ```bash
 # Full run: build host-OS wheels + use/create fixture + generate project
+# For Toolhive testing proceed with the second command if you alread have linux based wheel files.
+# This command will be generating platform depended wheels files
 uv run nw-mcp-builder -c <connector_id>
 # Example
 uv run nw-mcp-builder -c google_drive
