@@ -110,6 +110,20 @@ uv run node-wire
 
 After changing `NW_MCP_TRANSPORT`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
 
+#### Multitenancy (`NW_MULTITENANCY_ENABLED`)
+
+Defaults to off (legacy single-tenant). When enabled:
+
+```powershell
+$env:NW_MULTITENANCY_ENABLED="true"
+uv run node-wire
+```
+
+- **Tenant ID required**: connector/scenario calls without `X-Tenant-ID` return **400**. Explicit `__default__` is allowed.
+- **Header**: Tenant ID and Config dropdown appear next to Connectors Ready / Auto-retry.
+- **Add config**: On the System Connectors list, use **Add config** (beside Back to Workspace) to create/list/set-default/delete a named config for **all** playground connectors under that tenant. Each Create posts a self-contained auth block (secret refs matching `connectors.yaml`). Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` (e.g. `NW_ACME_GOOGLE_DRIVE_GOOGLE_DRIVE_SA_JSON`).
+- Per-connector panels do not embed their own runtime-config admin UI.
+
 #### Testing the MCP server with Inspector
 
 Use MCP Inspector to validate tools outside the playground:

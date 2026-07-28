@@ -20,7 +20,11 @@ import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.config_store import ConfigNotFoundError
-from node_wire_runtime.identity import resolve_tenant_id
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_fhir_epic.logic import FhirEpicConnector
 from node_wire_fhir_epic.schema import (
     FhirDocumentReferenceCreateInput,
@@ -342,8 +346,9 @@ async def resolve_connector(
 ) -> Any:
     """Resolve a tenant-scoped connector instance for the playground.
 
-    Tenant comes from ``X-Tenant-ID`` (then JWT, then ``__default__``).
-    ``config_name`` may be supplied as a query param or (for GDrive) payload field.
+    Tenant comes from ``X-Tenant-ID`` (then JWT). When multitenancy is enabled,
+    a tenant id is required. ``config_name`` may be supplied as a query param
+    or (for GDrive) payload field.
     """
     from bindings.rest_api.auth import get_rest_caller_identity
 
@@ -353,11 +358,14 @@ async def resolve_connector(
             status_code=500, detail=f"Connector {connector_id!r} is not configured for REST"
         )
 
-    tenant_id = resolve_tenant_id(
-        headers=request.headers,
-        jwt_identity=get_rest_caller_identity(request),
-    )
-    name = (config_name or "").strip() or None
+    try:
+        tenant_id = resolve_tenant_id(
+            headers=request.headers,
+            jwt_identity=get_rest_caller_identity(request),
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    name = resolve_config_name((config_name or "").strip() or None)
     try:
         return await factory.get(
             connector_id,
@@ -370,6 +378,9 @@ async def resolve_connector(
             status_code=403,
             detail="No connector configuration for this tenant",
         )
+    except ValueError as exc:
+        # Incomplete auth blocks (e.g. service_account without sa_json_secret).
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 async def get_fhir_connector(

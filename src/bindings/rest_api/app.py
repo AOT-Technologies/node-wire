@@ -31,7 +31,11 @@ from node_wire_runtime.config_store import (
     ConfigStoreError,
     DefaultDeletionError,
 )
-from node_wire_runtime.identity import resolve_tenant_id
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -90,6 +94,14 @@ def _mount_playground(app: FastAPI) -> None:
         return
 
     app.include_router(scenarios_router)
+
+    # Playground feature-flags endpoint: lets the UI query server-side config.
+    from node_wire_runtime.identity import is_multitenancy_enabled
+
+    @app.get("/playground/feature-flags", tags=["playground"], include_in_schema=False)
+    async def playground_feature_flags() -> Dict[str, Any]:
+        return {"multitenancy_enabled": is_multitenancy_enabled()}
+
     app.mount(
         "/playground",
         StaticFiles(directory=str(playground_dir), html=True),
@@ -142,12 +154,17 @@ async def health() -> Dict[str, str]:
 
 
 def _config_tenant(request: Request) -> str:
-    return resolve_tenant_id(
-        headers=request.headers, jwt_identity=get_rest_caller_identity(request)
-    )
+    try:
+        return resolve_tenant_id(
+            headers=request.headers, jwt_identity=get_rest_caller_identity(request)
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _map_config_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, MissingTenantError):
+        return HTTPException(status_code=400, detail=str(exc))
     if isinstance(exc, ConfigNameConflictError):
         return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, DefaultDeletionError):
@@ -316,7 +333,10 @@ def _make_endpoint(cid: str, act: str) -> Any:
         span.set_attribute("connector.action", act)
 
         rest_id = get_rest_caller_identity(request)
-        tenant_id = resolve_tenant_id(headers=request.headers, jwt_identity=rest_id)
+        try:
+            tenant_id = resolve_tenant_id(headers=request.headers, jwt_identity=rest_id)
+        except MissingTenantError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         if _rate_limit_enabled():
             limiter = _get_rate_limiter()
@@ -335,7 +355,8 @@ def _make_endpoint(cid: str, act: str) -> Any:
 
         run_payload = dict(payload)
         # config_name is a resolution-time argument, never a connector input.
-        config_name = run_payload.pop("config_name", None)
+        # Suppressed when multitenancy is disabled so legacy path is always used.
+        config_name = resolve_config_name(run_payload.pop("config_name", None))
 
         try:
             connector = await factory_dep.get(
@@ -347,6 +368,8 @@ def _make_endpoint(cid: str, act: str) -> Any:
             raise HTTPException(
                 status_code=403, detail="No connector configuration for this tenant"
             )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         run_payload = normalize_mcp_tool_arguments(connector, act, run_payload)
         try:
