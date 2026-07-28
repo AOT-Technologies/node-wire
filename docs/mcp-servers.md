@@ -10,6 +10,8 @@ Self-contained tool inside the **node-wire** repo that turns a node-wire connect
 
 It does **not** depend on the separate [mcp-builder](https://github.com/your-org/mcp-builder) repo. Everything needed to generate connector-mode MCP hosts lives in this folder.
 
+</div>
+
 ---
 
 ## Platform and ToolHive (read this first)
