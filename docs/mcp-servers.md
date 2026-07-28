@@ -4,808 +4,422 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Node Wire — Individual MCP Servers
+# nw-mcp-builder
 
-This document covers everything needed to build, run, configure, and integrate the per-connector MCP servers with ToolHive and the Agentic Workflow.
+Self-contained tool inside the **node-wire** repo that turns a node-wire connector into a standalone MCP server project.
 
----
-
-## Table of contents
-
-- [Architecture](#architecture)
-- [Naming conventions](#naming-conventions)
-- [Shifting between transport modes](#shifting-between-transport-modes)
-- [Testing with MCP Inspector](#testing-with-mcp-inspector)
-- [Environment configuration](#environment-configuration)
-- [Build images](#build-images)
-- [Run with docker-compose](#run-with-docker-compose)
-- [ToolHive registration](#toolhive-registration)
-- [Agentic workflow integration](#agentic-workflow-integration)
-- [Local testing (no ToolHive required)](#local-testing-no-toolhive-required)
-- [Troubleshooting](#troubleshooting)
-
----
-
-## Architecture
-
-Each connector is deployed as an independent MCP server (Docker image). The Agentic Workflow connects to all of them simultaneously via ToolHive proxy URLs and merges their tools into a single tool list.
-
-<div class="nw-diagram" markdown="1">
-
-```mermaid
-%%{init: {
-  "theme": "base",
-  "themeVariables": {
-    "primaryColor": "#242930",
-    "primaryTextColor": "#E8EDF5",
-    "primaryBorderColor": "#37c4f0",
-    "lineColor": "#62d2f5",
-    "fontFamily": "Inter, system-ui, sans-serif",
-    "fontSize": "13px"
-  },
-  "flowchart": {
-    "curve": "basis",
-    "padding": 24,
-    "nodeSpacing": 35,
-    "rankSpacing": 50,
-    "diagramPadding": 20
-  }
-}}%%
-flowchart TB
-    Agent["Agentic Workflow"]
-
-    subgraph toolhive ["ToolHive · MCP proxy layer"]
-        direction LR
-        GDrive["nw-google-drive"]
-        Epic["nw-smartonfhir-epic"]
-        Cerner["nw-smartonfhir-cerner"]
-        SMTP["nw-smtp"]
-        Stripe["nw-stripe"]
-        Salesforce["nw-salesforce"]
-        Slack["nw-slack"]
-    end
-
-    Agent -->|"TOOLHIVE_MCP_URLS"| GDrive
-    Agent -->|"TOOLHIVE_MCP_URLS"| Epic
-    Agent -->|"TOOLHIVE_MCP_URLS"| Cerner
-    Agent -->|"TOOLHIVE_MCP_URLS"| SMTP
-    Agent -->|"TOOLHIVE_MCP_URLS"| Stripe
-    Agent -->|"TOOLHIVE_MCP_URLS"| Salesforce
-    Agent -->|"TOOLHIVE_MCP_URLS"| Slack
-
-    classDef agent fill:#1a3a4a,stroke:#37c4f0,stroke-width:2px,color:#E8EDF5
-    classDef server fill:#3a2430,stroke:#e01d5a,stroke-width:2px,color:#E8EDF5
-
-    class Agent agent
-    class GDrive,Epic,Cerner,SMTP,Stripe,Salesforce,Slack server
-
-    style toolhive fill:#151920,stroke:#ecb32e,stroke-width:2px,color:#ecb32e
-```
+It does **not** depend on the separate [mcp-builder](https://github.com/your-org/mcp-builder) repo. Everything needed to generate connector-mode MCP hosts lives in this folder.
 
 </div>
 
 ---
 
-## Naming conventions
+## Platform and ToolHive (read this first)
 
-| Connector | Python entrypoint | Docker image | ToolHive name | MCP tools exposed |
-|---|---|---|---|---|
-| Google Drive | `python -m agents.google_drive_mcp` | `nw-google-drive` | `nw-google-drive` | All manifest actions for `google_drive` (names `google_drive.<action>`, e.g. `google_drive.files.upload`) |
-| SMART on FHIR (Epic) | `python -m agents.fhir_epic_mcp` | `nw-smartonfhir-epic` | `nw-smartonfhir-epic` | All manifest actions for `fhir_epic` (e.g. `fhir_epic.read_patient`) |
-| SMART on FHIR (Cerner) | `python -m agents.fhir_cerner_mcp` | `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner` | All manifest actions for `fhir_cerner` (e.g. `fhir_cerner.read_patient`) |
-| SMTP | `python -m agents.smtp_mcp` | `nw-smtp` | `nw-smtp` | `smtp.send_email` |
-| Stripe | `python -m agents.stripe_mcp` | `nw-stripe` | `nw-stripe` | All manifest actions for `stripe` (e.g., `stripe.charge`) |
-| Salesforce | `python -m agents.salesforce_mcp` | `nw-salesforce` | `nw-salesforce` | All manifest actions for `salesforce` (e.g., `salesforce.create_lead`) |
-| Slack | `python -m agents.slack_mcp` | `nw-slack` | `nw-slack` | All manifest actions for `slack` (e.g. `slack.post_message`) |
+Wheels for runtime and connectors are **Cython / platform-specific**. What you build must match how you run the host.
 
-### Adding a row for a new connector
+| Goal | Wheel platform | How to build wheels |
+|------|----------------|---------------------|
+| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`*linux_x86_64*` / manylinux), Python **3.12** (matches `python:3.12-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see below) |
+| **Local run / MCP Inspector / ToolHive remote MCP** on the same OS as your machine | Host OS (e.g. Windows → `*win_amd64*`) | Built automatically by `uv run nw-mcp-builder -c <connector_id>` |
 
-When you add a standalone MCP server for a connector, add a row to the table above and update these files:
+### Linux wheels for ToolHive Docker (local MCP server)
 
-| Field | Convention |
-|-------|--------------|
-| Python entrypoint | `python -m agents.<connector_id>_mcp` (or `uv run nw-<kebab-name>` from root `pyproject.toml` `[project.scripts]`) |
-| Docker image | `nw-<kebab-name>` |
-| ToolHive name | Same as Docker image tag |
-| MCP tools | `<connector_id>.<action>` for each manifest action |
+From the **node-wire** repository root (requires Docker; uses `python:3.12-slim` for the Linux build):
 
-Files to update: `src/agents/<name>_mcp.py`, root `pyproject.toml` `[project.scripts]`, `docker/<name>/Dockerfile`, `scripts/build-mcp-images.sh`, `docker-compose.mcp.yml`, this table (naming conventions + architecture diagram), and [local-packages-to-images.md](local-packages-to-images.md) (wheel requirements table). See [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector) for the full checklist.
+```bash
+# Generic — runtime + one connector
+bash scripts/build-packages.sh packages/runtime packages/connectors/<connector_id>
 
-#### Per-connector MCP entrypoint template (`src/agents/<name>_mcp.py`)
-
-Every per-connector MCP file follows the same pattern — create `src/agents/<connector_id>_mcp.py`:
-
-```python
-# src/agents/<connector_id>_mcp.py
-"""MCP Server — <Name> connector only. Usage: python -m agents.<connector_id>_mcp"""
-from __future__ import annotations
-
-import logging
-import os
-
-from dotenv import load_dotenv
-
-load_dotenv()
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("agents.<connector_id>_mcp")
-
-
-def main() -> None:
-    from bindings.mcp_server.server import McpServer
-
-    logger.info("Starting nw-<name> MCP server (stdio, manifest-driven)")
-    McpServer(
-        server_name="nw-<name>",
-        connector_ids=["<connector_id>"],
-    ).run_stdio()
-
-
-if __name__ == "__main__":
-    main()
+# Example — google_drive
+bash scripts/build-packages.sh packages/runtime packages/connectors/google_drive
 ```
 
-`McpServer` is the shared manifest-driven server from `bindings.mcp_server.server`. The `connector_ids` list filters the full connector registry to only the connectors this image should expose. `run_stdio()` starts the MCP stdio transport; call `run_streamable_http()` instead for the HTTP transport (reads `NW_MCP_HOST`/`NW_MCP_PORT`/`NW_MCP_PATH`).
+Wheels land in:
 
-Then register the script in root `pyproject.toml`:
+- `packages/runtime/dist/`
+- `packages/connectors/<connector_id>/dist/`
 
-```toml
-[project.scripts]
-nw-<name> = "agents.<connector_id>_mcp:main"
+Then generate (or regenerate) the host **without rebuilding host-OS wheels**, so the Linux artifacts stay selected:
+
+```bash
+cd nw-mcp-builder
+uv sync
+uv run nw-mcp-builder -c <connector_id> --skip-build-wheels --force-output
+
+# Example
+uv run nw-mcp-builder -c google_drive --skip-build-wheels --force-output
 ```
 
-#### Dockerfile template (`docker/<name>/Dockerfile`)
+### Host-OS wheels (`nw-mcp-builder` without a prior Linux build)
 
-All per-connector Docker images follow the same structure. The key requirements are: copy `src/` and `config/` from the repo root, install pre-built wheels from `/wheels/`, pin `NW_ALLOWED_CONNECTORS` to the single connector ID, and run as a non-root user.
-
-```dockerfile
-FROM python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4
-
-LABEL org.opencontainers.image.title="nw-<name>" \
-      org.opencontainers.image.description="Node Wire — <Name> MCP server" \
-      org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-COPY src/ ./src/
-COPY config/ ./config/
-COPY packages/runtime/dist/*.whl /wheels/
-COPY packages/connectors/<name>/dist/*.whl /wheels/
-
-ENV PYTHONPATH=/app/src \
-    NW_ALLOWED_CONNECTORS=<connector_id>
-
-RUN pip install --no-cache-dir --find-links=/wheels \
-    node-wire-runtime node-wire-<name> "mcp>=1.6.0" \
-    && rm -rf /wheels
-
-RUN groupadd --system --gid 1000 app \
-    && useradd --system --uid 1000 --gid app --home /app app \
-    && chown -R app:app /app
-
-USER app
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD \
-    python -c "from agents.<connector_id>_mcp import main; assert callable(main); print('ok')" || exit 1
-
-CMD ["python", "-m", "agents.<connector_id>_mcp"]
+```bash
+uv run nw-mcp-builder -c <connector_id>
 ```
 
-> **Note:** The `COPY packages/connectors/<name>/dist/*.whl` line requires the connector's publishable wheel (Tier 2) to be built first via `bash scripts/build-packages.sh packages/connectors/<name>`. Build wheels before building Docker images.
+builds wheels for **whatever OS/Python you are on** (Windows → `win_amd64`, Linux → linux, etc.) and copies the newest `.whl` into `out/<name>-mcp/wheels/`. Those host wheels are fine for:
 
+- running the generated host locally (`uv run python -m …`)
+- **MCP Inspector**
+- ToolHive **remote** MCP servers when the remote runtime matches that OS
 
-The unified server (`python -m agents.mcp_entrypoint`) exposes **every** connector enabled for MCP in `config/connectors.yaml` (e.g. `http_generic.request`, `stripe.charge`, `stripe.create_payment_intent`, `stripe.create_subscription`, `stripe.cancel_subscription`, `stripe.issue_refund`, plus the rows above).
-
-### Tool arguments and security
-
-- Tool name (`<connector_id>.<action>`) determines the routed action; do not rely on a separate `action` field in the JSON body to select a different operation.
-- Per-action normalizers in `src/node_wire_runtime/mcp_normalizers.py` map common LLM mistakes to canonical schema fields; see also `src/node_wire_runtime/ingress.py` for shared MCP/REST behavior.
-- **`tools/list` input schemas** omit the `action` field (manifest contract v2+). Pass only the fields shown in `inputSchema`; the server injects `action` from the tool name.
-
-**Legacy rollout (Google Drive `google_drive.files.upload` only):**
-
-| Variable | Values | Purpose |
-|----------|--------|---------|
-| `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD` | `warn` (default), `allow` (same mapping, no deprecation log), `reject` | Legacy payload `action: "upload"` for `google_drive.files.upload`. Use `reject` once all clients omit `action` or use canonical `files.upload` only in pre-invoke validation paths. |
+They are **not** suitable for the generated **Linux Docker** image used as a ToolHive **local** MCP server.
 
 ---
 
-## Command reference
+## What this folder is
 
-| Goal | Command |
+| Path | Purpose |
 |------|---------|
-| Combined MCP server (all MCP-enabled connectors) | `uv run python -m agents.mcp_entrypoint` |
-| Single-connector MCP | `uv run nw-<connector>` or `python -m agents.<connector>_mcp` |
-| REST API | `uv run node-wire` (default `MODE=API`) |
-| gRPC | `MODE=GRPC uv run node-wire` |
+| `src/nw_mcp_builder/` | Python package: CLI, fixture writer, project generator |
+| `fixtures/` | Connector-mode scope YAML files (`<connector_id>_nw.yaml`) |
+| `out/` | Generated MCP host projects (one folder per connector) |
 
-For MCP transport configuration (`NW_MCP_TRANSPORT`, `streamable-http`, Inspector), see **[mcp.md](mcp.md)** (canonical MCP transport doc). For REST/gRPC setup see **[installation.md](installation.md)**.
-
-> **Note:** `uv run node-wire` and `python -m bindings_entrypoint` start the **REST API** by default (`MODE=API`). They do **not** start an MCP transport server. `MODE=MCP` on `bindings_entrypoint` is a POC stub only — use `agents.mcp_entrypoint` for real MCP.
+Generated hosts are **thin wrappers** around node-wire’s `McpServer`. Auth, telemetry, and connector logic stay in node-wire — the host only wires wheels, config, and env.
 
 ---
 
-## Shifting between transport modes
+## What it does (end to end)
 
-Node Wire now supports two ways to expose tools to AI agents. By default, it uses `stdio`, but you can easily shift to the native `streamable-http` mode for web-native deployments.
+For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
 
-### Comparison: stdio vs. streamable-http
+1. **Validates** the connector exists under `packages/connectors/<id>` and `src/node_wire_<id>/logic.py`
+2. **Builds wheels** (unless `--skip-build-wheels`):
+   - `packages/runtime/dist/node_wire_runtime-*.whl`
+   - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
+   - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-read-this-first))
+3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`  
+   - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source  
+   - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
+4. **Generates** `out/<server-name>-mcp/` containing:
+   - Copied wheels under `wheels/`
+   - Selective vendored `node-wire/src` → `vendor/node_wire_src` (`bindings`, `node_wire_runtime`, `node_wire_<connector_id>` only; Docker PYTHONPATH parity)
+   - `config/connectors.yaml` from the monorepo
+   - Thin `__main__.py` that runs `McpServer(connector_ids=[...])`
+   - `pyproject.toml`, `README.md`, `Dockerfile`, `.env.example`
 
-| Feature | stdio (Default) | streamable-http |
-|---|---|---|
-| **Best For** | ToolHive, local development, subprocess-based clients | Direct web integration, persistent servers, remote MCP clients |
-| **Connectivity** | Standard input/output | HTTP POST plus server streaming support |
-| **Port Management** | Not applicable | Requires an open port (default: 8081) |
-| **Playground behavior** | Buffered agent response after the backend finishes | Tool steps appear as they complete; final answer streams into the UI |
+Example mapping:
 
-### How to configure and shift modes
+| `connector_id` | Generated folder | Python module |
+|----------------|------------------|---------------|
+| `google_drive` | `out/google-drive-nw-mcp/` | `google_drive_nw_mcp` |
+| `salesforce` | `out/salesforce-nw-mcp/` | `salesforce_nw_mcp` |
+| `fhir_epic` | `out/fhir-epic-nw-mcp/` | `fhir_epic_nw_mcp` |
 
-You can switch modes and ports instantly using environment variables. No code changes are required.
-
-#### 1. Running in stdio mode (Default)
-No extra variables are needed. This is the mode expected by local stdio clients and ToolHive-style stdio wrapping.
-
-```bash
-# Using uv
-uv run python -m agents.mcp_entrypoint
-
-# Using python
-python -m agents.mcp_entrypoint
-
-# Per-connector: uv run nw-slack
-```
-
-PowerShell:
-
-```powershell
-$env:NW_MCP_TRANSPORT="stdio"
-# Using uv
-uv run python -m agents.mcp_entrypoint
-
-# Using python
-python -m agents.mcp_entrypoint
-```
-
-#### 2. Shifting to native HTTP mode (Port 8081)
-To run as a standalone HTTP server on port 8081:
-
-**PowerShell (Windows):**
-```powershell
-$env:NW_MCP_TRANSPORT="streamable-http"
-$env:NW_MCP_HOST="127.0.0.1"
-$env:NW_MCP_PORT="8081"
-$env:NW_MCP_PATH="/mcp"
-# Using uv
-uv run python -m agents.mcp_entrypoint
-
-# Using python
-python -m agents.mcp_entrypoint
-```
-
-**Bash (Linux/macOS):**
-```bash
-export NW_MCP_TRANSPORT="streamable-http"
-export NW_MCP_HOST="127.0.0.1"
-export NW_MCP_PORT="8081"
-export NW_MCP_PATH="/mcp"
-# Using uv
-uv run python -m agents.mcp_entrypoint
-
-# Using python
-python -m agents.mcp_entrypoint
-```
-
-The native HTTP endpoint will be:
-
-```text
-http://127.0.0.1:8081/mcp
-```
-
-### Protocol-level requirements
-When running in `streamable-http` mode, clients must comply with the strict MCP Streamable-HTTP specification:
-- **Headers**: Clients must send `Accept: application/json, text/event-stream` on all requests.
-- **Handshake**: The server will respond with a `Mcp-Session-Id` header which must be forwarded in all subsequent messages for that session.
-- **Auth boundary**: Node Wire enforces MCP auth at the HTTP edge for the streamable endpoint (`/mcp`) before MCP handler dispatch. Missing/invalid credentials are rejected early with 401/403/503.
-
-### Production authz baseline (recommended)
-
-Use these settings for production-style posture:
-
-```env
-# MCP auth is ENABLED by default — do NOT set NW_MCP_AUTH_DISABLED in production.
-# (Set NW_MCP_AUTH_DISABLED=true only for local development.)
-NW_MCP_API_KEY=replace-with-strong-random-value
-NW_MCP_SCOPE_POLICY_DEFAULT=deny
-# Optional guardrail: fail startup if scope policy would be disabled
-NW_MCP_SCOPE_POLICY_STRICT=true
-```
-
-Notes:
-- MCP authentication is enforced unless `NW_MCP_AUTH_DISABLED=true` (the flag mirrors
-  `NW_REST_AUTH_DISABLED` / `NW_GRPC_AUTH_DISABLED`). The legacy `NW_MCP_AUTH_ENABLED`
-  flag is deprecated; it now honours its literal meaning (`=false` disables auth) and
-  logs a deprecation warning. Prefer `NW_MCP_AUTH_DISABLED`.
-- Code default is `deny` when `NW_MCP_SCOPE_POLICY_DEFAULT` is unset (fail-closed).
-- `NW_MCP_SCOPE_POLICY_DEFAULT=deny` enforces fallback scope `mcp:<connector>.<action>` even when no explicit action map is present.
-- Keep `NW_MCP_ACTION_SCOPE_MAP_JSON` for custom scope names across tools.
-- API keys with `NW_MCP_API_KEY_SCOPES=*` are super-user keys by design and bypass per-action scope checks.
-- JWT auth (`NW_MCP_JWT_SECRET`): set shared `NW_JWT_AUDIENCE` and `NW_JWT_ISSUER`; tokens must include `exp`, `iat`, `aud`, and `iss`.
-
-### Playground transport indicator
-
-The browser playground reads `/scenarios/agent-transport` and displays the current mode in the Agentic Workflow panel:
-
-- `Transport: stdio`: chat uses the buffered `/scenarios/agent-chat` endpoint. Tool cards and the final answer appear after the backend agent run completes.
-- `Transport: Streamable HTTP`: chat uses `/scenarios/agent-chat-stream`. Tool cards appear as each MCP tool finishes, and the final answer is appended to the assistant bubble as streamed chunks.
-
-If you switch `NW_MCP_TRANSPORT`, restart the API server and hard refresh the browser so the latest `app.js` is loaded.
+Server name in the fixture is always `{connector_id with _ → -}-nw` (e.g. `google-drive-nw`).
 
 ---
 
-## Testing with MCP Inspector
+## Requirements
 
-MCP Inspector is the official browser-based developer tool for testing and debugging MCP servers. It runs with `npx` and opens a local UI, usually at `http://localhost:6274`.
+- **[uv](https://docs.astral.sh/uv/)** — package manager and runner
+- **Python 3.11+** for `nw-mcp-builder` itself
+- **Python version matching wheels** for generated hosts — on Windows, wheels are often built as **cp314**, so use:
 
-### Inspect stdio mode
+  ```bash
+  uv sync --python 3.14
+  ```
 
-Use stdio mode when you want Inspector to launch the Python MCP server process itself:
+- **Docker** — required for Linux wheels via `scripts/build-packages.sh` and for ToolHive local MCP images
+- Connector secrets from node-wire `sample.env` / `config/connectors.yaml` (copied into generated `.env.example`)
 
-```powershell
-$env:NW_MCP_TRANSPORT="stdio"
-npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
+---
+
+## Quick start
+
+### 1. Install the tool
+
+```bash
+cd nw-mcp-builder
 ```
 
-Per-connector examples:
+From the node-wire repo root:
 
-```powershell
-npx @modelcontextprotocol/inspector uv run nw-google-drive
-npx @modelcontextprotocol/inspector uv run nw-smartonfhir-epic
-npx @modelcontextprotocol/inspector uv run nw-smartonfhir-cerner
-npx @modelcontextprotocol/inspector uv run python -m agents.smtp_mcp
+```bash
+uv run --directory nw-mcp-builder nw-mcp-builder --help
 ```
 
-In the Inspector UI:
+### 2. Generate an MCP host
 
-1. Select `stdio` transport if it is not already selected.
-2. Click `Connect`.
-3. Open the `Tools` tab.
-4. Click `List Tools`.
-5. Pick a safe tool and run it with valid JSON arguments.
+```bash
+# Full run: build host-OS wheels + use/create fixture + generate project
+# For Toolhive testing proceed with the second command if you alread have linux based wheel files.
+# This command will be generating platform depended wheels files
+uv run nw-mcp-builder -c <connector_id>
+# Example
+uv run nw-mcp-builder -c google_drive
 
-### Inspect streamable-http mode
+# Reuse existing wheels (required after Linux build-packages.sh for ToolHive Docker)
+uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
+# Example
+uv run nw-mcp-builder -c salesforce --skip-build-wheels
 
-Start the MCP server first:
+# Replace an existing generated project
+uv run nw-mcp-builder -c <connector_id> --force-output
+# Example
+uv run nw-mcp-builder -c fhir_epic --force-output
 
-```powershell
-$env:NW_MCP_TRANSPORT="streamable-http"
-$env:NW_MCP_HOST="127.0.0.1"
-$env:NW_MCP_PORT="8081"
-$env:NW_MCP_PATH="/mcp"
-python -m agents.mcp_entrypoint
+# Regenerate fixture from connector source
+uv run nw-mcp-builder -c <connector_id> --force-fixture
+# Example
+uv run nw-mcp-builder -c slack --force-fixture
 ```
 
-Then start Inspector in another terminal:
+### 3. Run the generated host
 
-```powershell
-npx @modelcontextprotocol/inspector
+```bash
+cd out/<name>-mcp
+# Example
+cd out/google-drive-nw-mcp
+cp .env.example .env    # optional locally; or inject secrets via env (ToolHive)
+uv sync --python 3.14   # match wheel ABI (cp314 on many Windows builds)
+uv run python -m <module_name>
+# Example
+uv run python -m google_drive_nw_mcp
 ```
 
-In the Inspector UI:
+HTTP MCP (default) listens on port **8081**. For stdio (e.g. Cursor / MCP Inspector):
 
-1. Set transport type to `Streamable HTTP`.
-2. Set URL to `http://127.0.0.1:8081/mcp`.
-3. Click `Connect`.
-4. Open `Tools`.
-5. Click `List Tools`.
-6. Run a tool call with valid arguments.
+```bash
+NW_MCP_TRANSPORT=stdio uv run python -m <module_name>
+# Example
+NW_MCP_TRANSPORT=stdio uv run python -m google_drive_nw_mcp
+```
 
-For reusable client config, a streamable HTTP server entry should look like:
+#### ToolHive local MCP (Docker image from the generated host)
 
-```json
-{
-  "type": "streamable-http",
-  "url": "http://127.0.0.1:8081/mcp"
-}
+If you will run this as a **local MCP server in ToolHive**, build the Docker image from the generated project (after placing **Linux** wheels — see [Platform and ToolHive](#platform-and-toolhive-read-this-first)):
+
+```bash
+cd nw-mcp-builder/out/<name>-mcp
+# Example
+cd nw-mcp-builder/out/google-drive-nw-mcp
+docker build -t <image-name>:latest .
+# Example
+docker build -t google-drive-nw-mcp:latest .
+```
+
+Point ToolHive at that image (e.g. `google-drive-nw-mcp:latest`).
+
+**Secrets / env** — pick one (or combine: process env wins; project `.env` only fills unset keys):
+
+1. **ToolHive Secrets** — set connector credentials directly (e.g. `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`).
+2. **Volume-mounted `.env`** — copy from `.env.example` (or values from node-wire `sample.env`), fill secrets, then mount the file into the container.
+
+**Recommended ToolHive environment variables:**
+
+| Name | Value |
+|------|--------|
+| `NW_MCP_TRANSPORT` | `streamable-http` |
+| `NW_MCP_HOST` | `0.0.0.0` |
+| `NW_MCP_PORT` | Same as ToolHive `FASTMCP_PORT` / `MCP_PORT` (e.g. if those are `33622`, set `NW_MCP_PORT=33622`) |
+| `NW_MCP_PATH` | `/mcp` |
+| `NW_MCP_AUTH_DISABLED` | `true` |
+
+Also set `NW_ALLOWED_CONNECTORS=<connector_id>` if not already baked into the image (generated Dockerfiles usually set it).
+
+**Volume example** (optional if all secrets are in ToolHive Secrets):
+
+| | |
+|--|--|
+| **Host path** | `{repo}\node-wire\nw-mcp-builder\out\<name>-mcp\.env` (use the file picker) |
+| **Container path** | `/app/.env` |
+| **Mode** | Read-only |
+
+Example host path: `G:\SPACE\node-wire\nw-mcp-builder\out\google-drive-nw-mcp\.env`
+
+---
+
+## CLI reference
+
+```
+uv run nw-mcp-builder -c <connector_id> [options]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-c`, `--connector-id` | — (required) | node-wire connector id (`google_drive`, `salesforce`, `fhir_epic`, …) |
+| `--node-wire-root` | Parent of `nw-mcp-builder/` | node-wire monorepo root |
+| `-o`, `--output-dir` | `nw-mcp-builder/out` | Where generated hosts are written |
+| `--fixtures-dir` | `nw-mcp-builder/fixtures` | Where `*_nw.yaml` fixtures live |
+| `--skip-build-wheels` | off | Use wheels already in `packages/*/dist` |
+| `--force-fixture` | off | Overwrite `fixtures/<id>_nw.yaml` from connector source |
+| `--force-output` | off | Delete and regenerate `out/<server>-mcp/` if it exists |
+| `--python` | — | Python for wheel builds (sets `UV_PYTHON`) |
+| `-v`, `--verbose` | off | Debug logging |
+
+Help:
+
+```bash
+uv run nw-mcp-builder --help
 ```
 
 ---
 
-## Environment configuration
+## Supported connectors
 
-Copy `sample.env` to `.env` and fill in the sections for the servers you plan to run. Each server only reads the env vars from its own section — you do not need to configure all connectors.
+Any connector with this layout in the node-wire repo:
 
-```bash
-cp sample.env .env
+```
+packages/connectors/<connector_id>/pyproject.toml
+src/node_wire_<connector_id>/logic.py
 ```
 
-### Shared Required Variables
+Currently in this monorepo:
 
-| Variable | Description |
-|---|---|
-| `NW_ALLOWED_CONNECTORS` | **Required.** Comma-separated list of allowed connector names (e.g. `fhir_epic,google_drive`). Individual servers still check this allowlist before loading. |
+- `google_drive`
+- `salesforce`
+- `fhir_epic`
+- `fhir_cerner`
+- `slack`
+- `stripe`
+- `smtp`
+- `http_generic`
 
-### Per-server required variables
+---
 
-#### `nw-google-drive`
+## Fixtures (`fixtures/`)
 
-| Variable | Description |
-|---|---|
-| `GOOGLE_DRIVE_SA_JSON` | Absolute path to the service account JSON key file **or** the full JSON content as a string |
-| `GOOGLE_DRIVE_FOLDER_ID` | Drive folder ID (from the URL: `.../folders/<ID>`) |
+Scope YAML files describe the MCP server metadata for connector mode. They are **not** used to codegen HTTP clients — node-wire dispatches tools at runtime from the connector wheel.
 
-```env
-GOOGLE_DRIVE_SA_JSON=/absolute/path/to/service-account.json
-GOOGLE_DRIVE_FOLDER_ID=your-google-drive-folder-id
-```
+- **Auto-generated** — scans `logic.py` (and sibling `.py` files) for action names when the fixture is missing or `--force-fixture` is set
+- **Hand-maintained** — files like `fhir_epic_nw.yaml` can include richer tool descriptions; existing fixtures are kept unless you pass `--force-fixture`
 
-> **ToolHive note:** When running inside ToolHive, set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) because ToolHive injects secrets as string values, not files.
+Minimal shape:
 
-#### `nw-smartonfhir-epic`
-
-| Variable | Description |
-|---|---|
-| `EPIC_FHIR_BASE_URL` | Epic FHIR R4 base URL |
-| `EPIC_TOKEN_URL` | Epic OAuth2 token endpoint |
-| `EPIC_CLIENT_ID` | Your registered application client ID |
-| `EPIC_KID` | Key ID that matches the public key registered in Epic |
-| `EPIC_PRIVATE_KEY` | RSA private key (PEM format, `\n`-escaped for single-line env var) |
-
-```env
-EPIC_FHIR_BASE_URL=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
-EPIC_TOKEN_URL=https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
-EPIC_CLIENT_ID=your-epic-client-id
-EPIC_KID=your-epic-kid
-EPIC_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-```
-
-Register your application at [Epic App Orchard](https://appmarket.epic.com/) or your organization's Epic sandbox.
-
-#### `nw-smartonfhir-cerner`
-
-| Variable | Description |
-|---|---|
-| `CERNER_FHIR_BASE_URL` | Cerner FHIR R4 base URL (includes tenant ID) |
-| `CERNER_TOKEN_URL` | Cerner OAuth2 token endpoint (includes tenant ID) |
-| `CERNER_CLIENT_ID` | Your registered application client ID |
-| `CERNER_KID` | Key ID that matches the JWKS registered in Cerner |
-| `CERNER_PRIVATE_KEY` | RSA private key (PEM format, `\n`-escaped for single-line env var) |
-| `CERNER_SCOPES` | Space-separated SMART scopes required by your app |
-
-```env
-CERNER_FHIR_BASE_URL=https://fhir-ehr-code.cerner.com/r4/your-tenant-id
-CERNER_TOKEN_URL=https://authorization.cerner.com/tenants/your-tenant-id/protocols/oauth2/profiles/smart-v1/token
-CERNER_CLIENT_ID=your-cerner-client-id
-CERNER_KID=your-cerner-kid
-CERNER_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-CERNER_SCOPES="system/Patient.read system/Encounter.read system/DocumentReference.read system/DocumentReference.write"
-```
-
-Register your application at the [Cerner Developer Portal](https://code.cerner.com/).
-
-#### `nw-smtp`
-
-The SMTP MCP server exposes one tool: `smtp.send_email`. Tool input is **`to`**, **`subject`**, **`body`**, and optional **`from_email`** only — relay settings cannot be passed in the payload. When running under ToolHive, inject these as secrets:
-
-| Variable | Description |
-|---|---|
-| `SMTP_HOST` | SMTP server hostname |
-| `SMTP_PORT` | Port: `587` (STARTTLS) or `465` (implicit TLS) |
-| `SMTP_USE_TLS` | Whether to use STARTTLS when on port 587 (default: `true`) |
-| `SMTP_USERNAME` | Login username (usually your email address) |
-| `SMTP_PASSWORD` | Login password (use an App Password for Gmail) |
-| `FROM_EMAIL` | Optional sender address override (defaults to `SMTP_USERNAME`) |
-
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USE_TLS=true
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-gmail-app-password
-FROM_EMAIL=your-email@gmail.com
-```
-
-#### `nw-stripe`
-
-| Variable | Description |
-|---|---|
-| `STRIPE_API_KEY` | Your Stripe secret API key (starts with `sk_test_` or `sk_live_`) |
-
-```env
-STRIPE_API_KEY=sk_test_your_secret_key_here
-```
-
-#### `nw-salesforce`
-
-| Variable | Description |
-|---|---|
-| `SALESFORCE_INSTANCE_URL` | Your Salesforce instance URL (e.g., `https://domain.my.salesforce.com`) |
-| `SALESFORCE_TOKEN_URL` | OAuth2 token endpoint (usually `https://login.salesforce.com/services/oauth2/token`) |
-| `SALESFORCE_CLIENT_ID` | Connected App Client ID |
-| `SALESFORCE_CLIENT_SECRET` | Connected App Client Secret |
-| `SALESFORCE_REFRESH_TOKEN` | Refresh token with `refresh_token` and `api` scopes |
-
-```env
-SALESFORCE_INSTANCE_URL=https://nodenet.my.salesforce.com
-SALESFORCE_TOKEN_URL=https://login.salesforce.com/services/oauth2/token
-SALESFORCE_CLIENT_ID=your-client-id
-SALESFORCE_CLIENT_SECRET=your-client-secret
-SALESFORCE_REFRESH_TOKEN=your-refresh-token
-```
-
-
-#### `nw-slack`
-
-| Variable | Description |
-|---|---|
-| `SLACK_BOT_TOKEN` | Slack Bot User OAuth Token (`xoxb-...`) |
-| `NW_SLACK_ATTACHMENTS_DIR` | Optional: sandboxed directory for uploads (default: `/slack_attachments`) |
-
-```env
-SLACK_BOT_TOKEN=xoxb-your-bot-token
-NW_SLACK_ATTACHMENTS_DIR=/slack_attachments
-```
-
-### ToolHive / Agent settings
-
-| Variable | Description |
-|---|---|
-| `TOOLHIVE_MCP_URL` | Single MCP proxy URL (backward compatible) |
-| `TOOLHIVE_MCP_URLS` | Comma-separated list of proxy URLs for multi-server deployments |
-| `LLM_PROVIDER` | `groq` \| `openai` \| `gemini` \| `anthropic` (default: `groq`) |
-| `GROQ_API_KEY` | API key for Groq (fast, free tier available) |
-| `OPENAI_API_KEY` | API key for OpenAI |
-| `GEMINI_API_KEY` | API key for Google Gemini |
-| `ANTHROPIC_API_KEY` | API key for Anthropic Claude |
-
-```env
-# Multi-server (preferred when running per-connector images)
-TOOLHIVE_MCP_URLS=http://localhost:7977/mcp,http://localhost:7978/mcp,http://localhost:7979/mcp
-
-# Single server (backward compatible)
-TOOLHIVE_MCP_URL=http://localhost:7977/mcp
-
-LLM_PROVIDER=groq
-GROQ_API_KEY=your-groq-api-key
+```yaml
+version: "1"
+server:
+  name: salesforce-nw
+  description: ...
+runtime:
+  type: node_wire
+  connector_id: salesforce
+spec:
+  source: node-wire/src/node_wire_salesforce
+  format: openapi3
+  base_url: https://unused.invalid
+groups:
+  - name: connector
+    tools: [...]
+auth:
+  type: none
 ```
 
 ---
 
-## Build images
+## Generated project layout
 
-Before building images, build local wheels first. See [docs/local-packages-to-images.md](local-packages-to-images.md) for the full package -> image workflow and required wheel artifacts per image.
+Each `out/<name>-mcp/` folder is a deployable MCP host:
 
-All MCP server images are built from the repository root using the automation script:
-
-```bash
-./scripts/build-mcp-images.sh
+```
+out/google-drive-nw-mcp/
+  pyproject.toml          # deps from local wheels
+  Dockerfile
+  README.md
+  .env.example            # NW + connector secret env names
+  wheels/                 # runtime + connector .whl
+  config/connectors.yaml
+  vendor/node_wire_src/   # bindings + node_wire_runtime + node_wire_<id> only
+  src/google_drive_nw_mcp/
+    __main__.py           # McpServer entrypoint
 ```
 
-To tag with a specific version (defaults to the version in `pyproject.toml`):
+### Environment variables (generated host)
 
-```bash
-./scripts/build-mcp-images.sh --version 0.1.0
-```
+Every generated thin host prefers **process environment** (ToolHive secrets, Docker `-e`, K8s). If `out/<name>-mcp/.env` exists, it fills **unset** keys only (`override=False`). It does **not** load the node-wire monorepo or cwd `.env`. Vendored MCP/REST dotenv merge is disabled via `NW_REST_LOAD_DOTENV=false`. A missing project `.env` is OK when secrets/env are already injected.
 
-This produces images tagged as both `latest` and the version string:
+Set these in `.env` (start from `.env.example`):
 
-| Image name | Tags |
-|---|---|
-| `nw-google-drive` | `nw-google-drive:latest`, `nw-google-drive:0.1.0` |
-| `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:0.1.0` |
-| `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:0.1.0` |
-| `nw-smtp` | `nw-smtp:latest`, `nw-smtp:0.1.0` |
-| `nw-stripe` | `nw-stripe:latest`, `nw-stripe:0.1.0` |
-| `nw-salesforce` | `nw-salesforce:latest`, `nw-salesforce:0.1.0` |
-| `nw-slack` | `nw-slack:latest`, `nw-slack:0.1.0` |
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `NW_MCP_TRANSPORT` | `streamable-http` | `stdio` or `streamable-http` |
+| `NW_MCP_PORT` | `8081` | HTTP port when using streamable-http |
+| `NW_ALLOWED_CONNECTORS` | `<connector_id>` | Forced by the thin host |
+| `NW_MCP_AUTH_DISABLED` | `true` | Local dev / MCP Inspector |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` | Local dev tool access |
+| `NW_CONFIG_PATH` | `config/connectors.yaml` | Connector registry config |
 
-To build a single image manually from the repo root:
+Connector-specific secrets (any connector) are listed in `.env.example` when auto-detected from `config/connectors.yaml` and `sample.env`. Provide them via process env (ToolHive/Docker) or copy into the **generated project** `.env` for unset keys — do not rely on the monorepo `.env`.
 
-```bash
-# Google Drive only
-docker build -f docker/google-drive/Dockerfile -t nw-google-drive:latest .
-
-# Epic FHIR only
-docker build -f docker/fhir-epic/Dockerfile -t nw-smartonfhir-epic:latest .
-
-# Cerner FHIR only
-docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
-
-# SMTP only
-docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
-
-# Stripe only
-docker build -f docker/stripe/Dockerfile -t nw-stripe:latest .
-
-# Salesforce only
-docker build -f docker/salesforce/Dockerfile -t nw-salesforce:latest .
-
-# Slack only
-docker build -f docker/slack/Dockerfile -t nw-slack:latest .
-```
-
-> **Note:** The build context must be the repository root (`.`) so the `COPY src/` and `COPY config/` instructions resolve correctly.
+**Note:** MCP Inspector “Bearer token” is for MCP server auth, not upstream API credentials. Put connector secrets in process env or the generated project’s `.env`.
 
 ---
 
-## Run with docker-compose
+## Docker
 
-`docker-compose.mcp.yml` starts all MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
-Each service pins `NW_ALLOWED_CONNECTORS` to its own connector so a broad value in `.env` does not make per-connector images import optional dependencies they do not contain.
-
-```bash
-# Ensure local wheels exist and your .env is populated, then:
-docker compose -f docker-compose.mcp.yml up --build
-```
-
-To start only a specific server:
+From a generated project (use **Linux** wheels for this path — see [Platform and ToolHive](#platform-and-toolhive-read-this-first)):
 
 ```bash
-docker compose -f docker-compose.mcp.yml up --build nw-smartonfhir-epic
+cd out/<name>-mcp
+docker build -t <image-name> .
+docker run -p 8081:8081 --env-file .env <image-name>
+
+# Example
+cd out/salesforce-nw-mcp
+docker build -t salesforce-nw-mcp .
+docker run -p 8081:8081 --env-file .env salesforce-nw-mcp
 ```
 
----
-
-## ToolHive registration
-
-ToolHive wraps each stdio MCP server in an HTTP proxy and manages secret injection and container lifecycle. Run `thv run` once per connector — ToolHive assigns a port and keeps the container running.
-
-```bash
-# Google Drive
-thv run --name nw-google-drive --transport stdio \
-  --secret GOOGLE_DRIVE_SA_JSON,target=GOOGLE_DRIVE_SA_JSON \
-  --secret GOOGLE_DRIVE_FOLDER_ID,target=GOOGLE_DRIVE_FOLDER_ID \
-  nw-google-drive:latest
-
-# Epic FHIR
-thv run --name nw-smartonfhir-epic --transport stdio \
-  --secret EPIC_FHIR_BASE_URL,target=EPIC_FHIR_BASE_URL \
-  --secret EPIC_TOKEN_URL,target=EPIC_TOKEN_URL \
-  --secret EPIC_CLIENT_ID,target=EPIC_CLIENT_ID \
-  --secret EPIC_KID,target=EPIC_KID \
-  --secret EPIC_PRIVATE_KEY,target=EPIC_PRIVATE_KEY \
-  nw-smartonfhir-epic:latest
-
-# Cerner FHIR
-thv run --name nw-smartonfhir-cerner --transport stdio \
-  --secret CERNER_FHIR_BASE_URL,target=CERNER_FHIR_BASE_URL \
-  --secret CERNER_TOKEN_URL,target=CERNER_TOKEN_URL \
-  --secret CERNER_CLIENT_ID,target=CERNER_CLIENT_ID \
-  --secret CERNER_KID,target=CERNER_KID \
-  --secret CERNER_PRIVATE_KEY,target=CERNER_PRIVATE_KEY \
-  --secret CERNER_SCOPES,target=CERNER_SCOPES \
-  nw-smartonfhir-cerner:latest
-
-# SMTP
-thv run --name nw-smtp --transport stdio \
-  --secret SMTP_HOST,target=SMTP_HOST \
-  --secret SMTP_PORT,target=SMTP_PORT \
-  --secret SMTP_USE_TLS,target=SMTP_USE_TLS \
-  --secret SMTP_USERNAME,target=SMTP_USERNAME \
-  --secret SMTP_PASSWORD,target=SMTP_PASSWORD \
-  --secret FROM_EMAIL,target=FROM_EMAIL \
-  nw-smtp:latest
-
-# Stripe
-thv run --name nw-stripe --transport stdio \
-  --secret STRIPE_API_KEY,target=STRIPE_API_KEY \
-  nw-stripe:latest
-
-# Salesforce
-thv run --name nw-salesforce --transport stdio \
-  --secret SALESFORCE_INSTANCE_URL,target=SALESFORCE_INSTANCE_URL \
-  --secret SALESFORCE_TOKEN_URL,target=SALESFORCE_TOKEN_URL \
-  --secret SALESFORCE_CLIENT_ID,target=SALESFORCE_CLIENT_ID \
-  --secret SALESFORCE_CLIENT_SECRET,target=SALESFORCE_CLIENT_SECRET \
-  --secret SALESFORCE_REFRESH_TOKEN,target=SALESFORCE_REFRESH_TOKEN \
-  nw-salesforce:latest
-
-# Slack
-thv run --name nw-slack --transport stdio \
-  --secret SLACK_BOT_TOKEN,target=SLACK_BOT_TOKEN \
-  nw-slack:latest
-```
-
-> **Google Drive + ToolHive:** Set `GOOGLE_DRIVE_SA_JSON` to the JSON *contents* (not a file path) when storing in ToolHive secrets, because ToolHive injects secrets as string values.
-
-After registration, copy the proxy URLs from the ToolHive UI and set them in your `.env`:
-
-```env
-TOOLHIVE_MCP_URLS=http://localhost:7977/mcp,http://localhost:7978/mcp,http://localhost:7979/mcp
-```
-
----
-
-## Agentic workflow integration
-
-The Agentic Workflow (`agents.toolhive`) discovers and merges tools from all registered MCP servers automatically.
-
-### Multi-server (per-connector images — preferred)
-
-```bash
-export TOOLHIVE_MCP_URLS="http://localhost:7977/mcp,http://localhost:7978/mcp,http://localhost:7979/mcp"
-python -m agents.toolhive --patient-id 12724066 --recipient-email you@example.com
-```
-
-### Single server (backward compatible)
-
-```bash
-export TOOLHIVE_MCP_URL="http://localhost:34567/mcp"
-python -m agents.toolhive --patient-id 12724066 --recipient-email you@example.com
-```
-
-### LLM provider selection
-
-Switch the AI backend by setting `LLM_PROVIDER` before running:
-
-```bash
-LLM_PROVIDER=openai python -m agents.toolhive --patient-id 12724066 --recipient-email you@example.com
-LLM_PROVIDER=anthropic python -m agents.toolhive --patient-id 12724066 --recipient-email you@example.com
-```
-
----
-
-## Local testing (no ToolHive required)
-
-Run each MCP server directly over stdio for quick iteration:
-
-```bash
-python -m agents.google_drive_mcp
-python -m agents.fhir_epic_mcp
-python -m agents.fhir_cerner_mcp
-python -m agents.smtp_mcp
-```
-
-Inspect any server's tool list interactively with MCP Inspector:
-
-```bash
-npx @modelcontextprotocol/inspector python -m agents.fhir_epic_mcp
-npx @modelcontextprotocol/inspector python -m agents.fhir_cerner_mcp
-npx @modelcontextprotocol/inspector python -m agents.google_drive_mcp
-npx @modelcontextprotocol/inspector python -m agents.smtp_mcp
-```
-
-Run the full agent locally (bypasses ToolHive, uses stdio directly):
-
-```bash
-python -m agents.toolhive --local --patient-id 12724066 --recipient-email you@example.com
-```
+The Dockerfile installs wheels from `./wheels`, sets `PYTHONPATH=/nw_src`, and runs `python -m <module>`.
 
 ---
 
 ## Troubleshooting
 
-| Problem | Likely cause | Fix |
-|---|---|---|
-| `TOOLHIVE_MCP_URL(S) is not set` | Missing env var | Set `TOOLHIVE_MCP_URL` (single) or `TOOLHIVE_MCP_URLS` (multi) in `.env` |
-| `Failed to list MCP tools: Connection refused` | ToolHive proxy stopped | Re-register with `thv run`; confirm the proxy URL matches what ToolHive UI shows |
-| Google Drive auth failures | Secret injected as a file path | For ToolHive, set `GOOGLE_DRIVE_SA_JSON` to JSON *contents* (not a path) |
-| `fhir_epic connector not configured` | Missing Epic env vars | Ensure all `EPIC_*` variables are set and non-empty |
-| `fhir_cerner connector not configured` | Missing Cerner env vars | Ensure all `CERNER_*` variables are set and non-empty |
-| Docker build fails with `COPY src/ not found` | Wrong build context | Always run `docker build` from the **repository root**, not from `docker/<name>/` |
-| Docker build fails with `COPY packages/connectors/.../dist/*.whl` | Missing wheel | Run `bash scripts/build-packages.sh packages/connectors/<name>` to build the wheel first (Tier 2 must exist before Docker image) |
-| Image healthcheck fails | Import error at startup | Run `docker logs <container>` to see the Python traceback; usually a missing env var |
-| Log shows many `Connector enabled in configuration but not registered; skipping instantiation` warnings | Expected behaviour | Per-connector images set `NW_ALLOWED_CONNECTORS` to one ID; all other connectors in `config/connectors.yaml` produce this warning and are correctly skipped. Not an error. |
-| `MCP server initialized \| manifest_contract=5` — what does the number mean? | Version indicator | `manifest_contract` is the MCP input-schema contract version (currently 5), **not** the number of tools. Use `tools/list` to count exposed tools. |
+| Problem | What to try |
+|---------|-------------|
+| `No node-wire-runtime wheel in .../dist` | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
+| Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.12-slim`) |
+| `Output project already exists` | Pass `--force-output` |
+| `No module named node_wire_runtime.policies` | Regenerate — vendored `vendor/node_wire_src/node_wire_runtime` should be present |
+| `uv sync` / import errors on generated host | Use `--python 3.14` (or whatever ABI your `.whl` files were built with) |
+| Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
+| 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
+| Connector secrets missing in Docker/ToolHive | Set secrets/env in the orchestrator, or mount project `.env` at `/app/.env` |
+| Connector action fails at runtime | Fill connector secrets via env or project `.env`; check `config/connectors.yaml` |
+| Wrong listen port in ToolHive | Set `NW_MCP_PORT` to the same value as ToolHive `FASTMCP_PORT` / `MCP_PORT` |
 
-## Rollout verification checklist
+Verbose logging during generation:
 
-Use this checklist when promoting streamable-http MCP to production:
+```bash
+uv run nw-mcp-builder -c <connector_id> -v
+# Example
+uv run nw-mcp-builder -c google_drive -v
+```
 
-1. Confirm edge auth gate behavior:
-   - No token -> `401 MCP_AUTH_REQUIRED`
-   - Invalid token -> `403 MCP_AUTH_INVALID`
-   - Valid token -> request reaches MCP handlers
-2. Confirm scope baseline:
-   - `NW_MCP_SCOPE_POLICY_DEFAULT=deny` is set in deployed env
-   - Optionally enforce `NW_MCP_SCOPE_POLICY_STRICT=true`
-3. Confirm authorization telemetry:
-   - Track trends for 401/403 and `POLICY_DENIED` responses after rollout
-   - Verify expected tool visibility changes in `tools/list` for scoped identities
-4. Confirm privileged-key controls:
-   - Any API key with wildcard scope (`*`) is documented and approved
-   - Non-admin API keys use minimal scopes only
+---
+
+## Package layout (source)
+
+```
+nw-mcp-builder/
+  pyproject.toml
+  README.md
+  fixtures/                 # *_nw.yaml scope files
+  out/                      # generated MCP hosts (gitignored content typical)
+  src/nw_mcp_builder/
+    cli.py                  # entrypoint: nw-mcp-builder
+    from_connector.py       # wheels → fixture → pipeline → .env.example
+    pipeline.py             # run_connector_pipeline
+    generate/
+      connector_project.py  # emit out/<server>-mcp/
+    schema/
+      models.py             # MCPScope validation for fixtures
+```
+
+Dependencies: `pydantic`, `pyyaml` only (no mcp-builder dependency).
+
+Unit tests live under `tests/nw_mcp_builder/` (run from the node-wire repo root):
+
+```bash
+uv run pytest tests/nw_mcp_builder -v --no-cov
+```
+
+---
+
+## Relationship to mcp-builder
+
+The same connector-mode logic originated in the **mcp-builder** repo (`mcp-builder from-connector`). **nw-mcp-builder** is a minimal copy that lives inside node-wire so you can generate and run MCP hosts without checking out mcp-builder.
+
+OpenAPI-based generation (from REST specs → custom Python MCP servers) remains in mcp-builder only.
