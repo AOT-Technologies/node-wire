@@ -21,7 +21,11 @@ from bindings.mcp_server.auth import (
 )
 from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.config_store import ConfigNotFoundError
-from node_wire_runtime.identity import resolve_tenant_id
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_runtime.policies.mcp_scope_policy import (
     action_allowed_for_identity_scopes,
     load_scope_map_from_env,
@@ -343,12 +347,15 @@ class McpServer:
         # Tenant pinned from the session (SSE headers) / stdio env; config_name is a
         # resolution-time argument, never a connector input.
         arguments = dict(arguments or {})
-        config_name = arguments.pop("config_name", None)
-        tenant_id = resolve_tenant_id(
-            headers=_http_request_headers.get(),
-            jwt_identity=identity,
-            env_pin=os.getenv("NW_TENANT_ID"),
-        )
+        config_name = resolve_config_name(arguments.pop("config_name", None))
+        try:
+            tenant_id = resolve_tenant_id(
+                headers=_http_request_headers.get(),
+                jwt_identity=identity,
+                env_pin=os.getenv("NW_TENANT_ID"),
+            )
+        except MissingTenantError as exc:
+            raise ValueError(str(exc)) from exc
 
         try:
             connector = await self._factory.get(

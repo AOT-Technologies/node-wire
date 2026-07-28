@@ -333,6 +333,12 @@ class ConnectorFactory:
             )
 
         if provider_type == "service_account":
+            if "sa_json_secret" not in auth_cfg:
+                raise ValueError(
+                    f"google_drive auth provider 'service_account' requires "
+                    f"'sa_json_secret' in the config auth block "
+                    f"(connector={connector_id!r})"
+                )
             return ServiceAccountAuthProvider(
                 secret_provider=sp,
                 sa_json_secret=auth_cfg["sa_json_secret"],

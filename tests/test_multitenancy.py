@@ -23,7 +23,13 @@ from node_wire_runtime.config_store import (
     DefaultDeletionError,
     redact,
 )
-from node_wire_runtime.identity import resolve_tenant_id, tenant_from_headers
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    is_multitenancy_enabled,
+    resolve_config_name,
+    resolve_tenant_id,
+    tenant_from_headers,
+)
 from node_wire_runtime.models import ConnectorResponse
 from node_wire_runtime.secrets import (
     EnvSecretProvider,
@@ -150,7 +156,8 @@ def test_tenant_from_headers_case_insensitive():
     assert tenant_from_headers({"x-tenant-id": "acme"}) == "acme"
 
 
-def test_missing_header_resolves_default():
+def test_missing_header_resolves_default(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
     assert resolve_tenant_id(headers={}) == "__default__"
     assert resolve_tenant_id(headers={"X-Tenant-ID": "  "}) == "__default__"
 
@@ -160,19 +167,22 @@ def test_header_override_env(monkeypatch: pytest.MonkeyPatch):
     assert tenant_from_headers({"X-Org-ID": "globex"}) == "globex"
 
 
-def test_jwt_fallback_when_no_header():
+def test_jwt_fallback_when_no_header(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     ident = MagicMock()
     ident.tenant_id = "t-1"
     assert resolve_tenant_id(headers={}, jwt_identity=ident) == "t-1"
 
 
-def test_header_wins_over_jwt():
+def test_header_wins_over_jwt(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     ident = MagicMock()
     ident.tenant_id = "t-1"
     assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident) == "acme"
 
 
-def test_env_pin_wins_over_everything():
+def test_env_pin_wins_over_everything(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     ident = MagicMock()
     ident.tenant_id = "t-1"
     assert (
@@ -290,7 +300,8 @@ async def test_unconfigured_and_unknown_name_both_raise(monkeypatch: pytest.Monk
         await factory.get("slack", tenant_id="nobody")
 
 
-def test_rest_fail_closed_returns_indistinguishable_403():
+def test_rest_fail_closed_returns_indistinguishable_403(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
     mock_factory = MagicMock()
     mock_factory.is_exposed.return_value = True
     mock_factory.get = AsyncMock(side_effect=ConfigNotFoundError("secret internals"))
@@ -308,6 +319,24 @@ def test_rest_fail_closed_returns_indistinguishable_403():
     # Same body: the internal reason is never leaked, so names cannot be enumerated.
     assert unknown_scope.json() == unknown_name.json()
     assert "secret internals" not in unknown_scope.text
+
+
+def test_rest_missing_tenant_returns_400_when_multitenancy_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    mock_factory = MagicMock()
+    mock_factory.is_exposed.return_value = True
+    mock_factory.get = AsyncMock()
+    app.dependency_overrides[get_factory] = lambda: mock_factory
+    try:
+        client = TestClient(app)
+        resp = client.post("/connectors/http_generic/request", json={})
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 400
+    assert "X-Tenant-ID is required" in resp.json()["detail"]
+    mock_factory.get.assert_not_called()
 
 
 # --------------------------------------------------------------------------- #
@@ -355,3 +384,82 @@ async def test_direct_integration_store_factory_run(monkeypatch: pytest.MonkeyPa
     assert resp.success is True
     assert resp.data["text"] == "hi"
     assert resp.data["channel"] == "#eng"  # per-config injection reached the connector
+
+
+# --------------------------------------------------------------------------- #
+# NW_MULTITENANCY_ENABLED feature flag
+# --------------------------------------------------------------------------- #
+
+
+def test_multitenancy_disabled_by_default(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("NW_MULTITENANCY_ENABLED", raising=False)
+    assert is_multitenancy_enabled() is False
+
+
+def test_multitenancy_enabled_truthy_values(monkeypatch: pytest.MonkeyPatch):
+    for val in ("true", "1", "yes", "on", "True", "YES"):
+        monkeypatch.setenv("NW_MULTITENANCY_ENABLED", val)
+        assert is_multitenancy_enabled() is True, f"Expected True for {val!r}"
+
+
+def test_multitenancy_disabled_falsy_values(monkeypatch: pytest.MonkeyPatch):
+    for val in ("false", "0", "no", "off", "False"):
+        monkeypatch.setenv("NW_MULTITENANCY_ENABLED", val)
+        assert is_multitenancy_enabled() is False, f"Expected False for {val!r}"
+
+
+def test_resolve_tenant_id_disabled_ignores_header(monkeypatch: pytest.MonkeyPatch):
+    """When disabled, resolve_tenant_id always returns DEFAULT_TENANT."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}) == "__default__"
+
+
+def test_resolve_tenant_id_disabled_ignores_jwt(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    ident = MagicMock()
+    ident.tenant_id = "t-1"
+    assert resolve_tenant_id(headers={}, jwt_identity=ident) == "__default__"
+
+
+def test_resolve_tenant_id_disabled_ignores_env_pin(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    assert resolve_tenant_id(env_pin="stdio-tenant") == "__default__"
+
+
+def test_resolve_tenant_id_enabled_reads_header(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}) == "acme"
+
+
+def test_resolve_tenant_id_enabled_allows_explicit_default(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "__default__"}) == "__default__"
+
+
+def test_resolve_tenant_id_enabled_missing_raises(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    with pytest.raises(MissingTenantError, match="X-Tenant-ID is required"):
+        resolve_tenant_id(headers={})
+    with pytest.raises(MissingTenantError):
+        resolve_tenant_id(headers={"X-Tenant-ID": "  "})
+
+
+def test_resolve_tenant_id_enabled_env_pin_wins(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    assert (
+        resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, env_pin="stdio-tenant")
+        == "stdio-tenant"
+    )
+
+
+def test_resolve_config_name_disabled_returns_none(monkeypatch: pytest.MonkeyPatch):
+    """When multitenancy is off, user-supplied config names are suppressed."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    assert resolve_config_name("my-config") is None
+    assert resolve_config_name(None) is None
+
+
+def test_resolve_config_name_enabled_passthrough(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    assert resolve_config_name("my-config") == "my-config"
+    assert resolve_config_name(None) is None

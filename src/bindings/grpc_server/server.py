@@ -18,7 +18,11 @@ from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory
 from node_wire_runtime.config_store import ConfigNotFoundError
-from node_wire_runtime.identity import resolve_tenant_id
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
@@ -55,7 +59,16 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             )
 
         identity = get_grpc_caller_identity()
-        tenant_id = resolve_tenant_id(headers=metadata or {}, jwt_identity=identity)
+        try:
+            tenant_id = resolve_tenant_id(headers=metadata or {}, jwt_identity=identity)
+        except MissingTenantError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="MISSING_TENANT",
+                error_category=ErrorCategory.AUTH.value,
+                message=str(exc),
+                trace_id="",
+            )
 
         if not self._factory.is_exposed(request.connector_id, "grpc"):
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
@@ -70,7 +83,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             connector = await self._factory.get(
                 request.connector_id,
                 tenant_id=tenant_id,
-                config_name=request.config_name or None,
+                config_name=resolve_config_name(request.config_name or None),
                 action=request.action,
             )
         except ConfigNotFoundError:

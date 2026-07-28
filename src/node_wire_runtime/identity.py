@@ -13,11 +13,15 @@ taken at face value (the ``X-Tenant-ID`` header is fully trusted, no verificatio
 If bindings are exposed to untrusted clients, deploy an authenticating gateway in
 front; node-wire itself performs no authentication here.
 
-Resolution order (see plan decision C / C2):
+Resolution order when NW_MULTITENANCY_ENABLED=true (see plan decision C / C2):
     1. ``env_pin``            transport with no headers (MCP stdio ``NW_TENANT_ID``)
     2. header                 ``X-Tenant-ID`` / ``NW_TENANT_ID_HEADER`` (case-insensitive)
     3. ``jwt_identity``       existing JWT-claim tenancy (unchanged)
-    4. ``DEFAULT_TENANT``     sentinel ``"__default__"``
+    4. raise MissingTenantError when none of the above are present
+
+When NW_MULTITENANCY_ENABLED=false (default), all calls return DEFAULT_TENANT
+regardless of headers, JWT, or env_pin so connectors behave exactly as before
+multi-tenancy was introduced.
 """
 
 from __future__ import annotations
@@ -29,6 +33,28 @@ from node_wire_runtime.config_store import DEFAULT_TENANT
 
 # Header name lookup is case-insensitive; store the configured name lowercased.
 TENANT_HEADER = os.getenv("NW_TENANT_ID_HEADER", "x-tenant-id").lower()
+
+MISSING_TENANT_MESSAGE = "X-Tenant-ID is required when multitenancy is enabled"
+
+
+class MissingTenantError(ValueError):
+    """Raised when multitenancy is enabled and no tenant id can be resolved."""
+
+    def __init__(self, message: str = MISSING_TENANT_MESSAGE) -> None:
+        super().__init__(message)
+
+
+def is_multitenancy_enabled() -> bool:
+    """Return True when NW_MULTITENANCY_ENABLED is set to a truthy value.
+
+    Defaults to False so existing single-tenant deployments are unaffected.
+    """
+    return os.getenv("NW_MULTITENANCY_ENABLED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 
 def tenant_from_headers(headers: Optional[Mapping[str, str]]) -> Optional[str]:
@@ -53,12 +79,21 @@ def resolve_tenant_id(
     jwt_identity: Any = None,
     env_pin: Optional[str] = None,
 ) -> str:
-    """Resolve the effective tenant id, never raising on a missing header.
+    """Resolve the effective tenant id.
+
+    When NW_MULTITENANCY_ENABLED is false (default), always returns DEFAULT_TENANT
+    regardless of inputs so connectors behave as legacy single-tenant.
+
+    When enabled, requires env_pin, header, or jwt tenant claim; otherwise raises
+    :class:`MissingTenantError`. Explicit ``__default__`` in the header is allowed.
 
     ``jwt_identity`` is any object exposing a ``tenant_id`` attribute (e.g.
-    :class:`~node_wire_runtime.caller_identity.CallerIdentity`). ``None`` for the
-    legacy API-key path is normalized to :data:`DEFAULT_TENANT`.
+    :class:`~node_wire_runtime.caller_identity.CallerIdentity`).
     """
+    # Simplified: early exit keeps all callers unchanged; no second code path.
+    if not is_multitenancy_enabled():
+        return DEFAULT_TENANT
+
     if env_pin is not None:
         pinned = env_pin.strip()
         if pinned:
@@ -73,4 +108,15 @@ def resolve_tenant_id(
         if claim is not None and str(claim).strip():
             return str(claim).strip()
 
-    return DEFAULT_TENANT
+    raise MissingTenantError()
+
+
+def resolve_config_name(config_name: Optional[str]) -> Optional[str]:
+    """Return config_name unchanged when multitenancy is enabled, else None.
+
+    Ensures user-supplied named configs are silently ignored in single-tenant
+    mode so the factory falls back to the YAML-bootstrapped default.
+    """
+    if not is_multitenancy_enabled():
+        return None
+    return config_name
