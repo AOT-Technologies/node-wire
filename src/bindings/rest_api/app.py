@@ -242,9 +242,7 @@ async def config_list(
 ) -> JSONResponse:
     # No per-list INFO: playground dropdown refresh would flood the terminal.
     tenant_id = _config_tenant(request)
-    return JSONResponse(
-        status_code=200, content=factory_dep.store.list(tenant_id, cid)
-    )
+    return JSONResponse(status_code=200, content=factory_dep.store.list(tenant_id, cid))
 
 
 @app.get("/v1/connectors/{cid}/configs/{name}", tags=["config"])

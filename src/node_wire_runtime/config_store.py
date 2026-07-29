@@ -263,9 +263,7 @@ class ConnectorConfigStore:
         with self._lock:
             scope = self._scope(tenant_id, connector_id)
             if scope is None or name not in scope:
-                raise ConfigNotFoundError(
-                    f"no config {name!r} for {tenant_id!r}/{connector_id!r}"
-                )
+                raise ConfigNotFoundError(f"no config {name!r} for {tenant_id!r}/{connector_id!r}")
             changed: List[str] = []
             for other_name, other in scope.items():
                 should_be = other_name == name
@@ -293,9 +291,7 @@ class ConnectorConfigStore:
         with self._lock:
             scope = self._scope(tenant_id, connector_id)
             if scope is None or name not in scope:
-                raise ConfigNotFoundError(
-                    f"no config {name!r} for {tenant_id!r}/{connector_id!r}"
-                )
+                raise ConfigNotFoundError(f"no config {name!r} for {tenant_id!r}/{connector_id!r}")
             record = scope[name]
             is_last = len(scope) == 1
 
@@ -333,9 +329,7 @@ class ConnectorConfigStore:
                 return None
             return self._public_view(scope[name])
 
-    def list(
-        self, tenant_id: str, connector_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def list(self, tenant_id: str, connector_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Redacted list. ``connector_id=None`` lists all configs for the tenant."""
         with self._lock:
             tenant_map = self._data.get(tenant_id)
@@ -359,9 +353,7 @@ class ConnectorConfigStore:
 
     # ---- internal (unredacted) -----------------------------------------
 
-    def resolve(
-        self, tenant_id: str, connector_id: str, name: Optional[str]
-    ) -> ConfigRecord:
+    def resolve(self, tenant_id: str, connector_id: str, name: Optional[str]) -> ConfigRecord:
         """INTERNAL (factory use). ``name=None`` resolves the default. Missing scope
         or name raises :class:`ConfigNotFoundError`. Returns the UNREDACTED record."""
         with self._lock:
@@ -376,18 +368,16 @@ class ConnectorConfigStore:
                         return record
                 # Defensive: a non-empty scope always has a default by construction.
                 return next(iter(scope.values()))
-            record = scope.get(name)
-            if record is None:
+            found = scope.get(name)
+            if found is None:
                 raise ConfigNotFoundError(
                     f"no config for tenant {tenant_id!r} / connector {connector_id!r}"
                 )
-            return record
+            return found
 
     # ---- helpers --------------------------------------------------------
 
-    def _scope(
-        self, tenant_id: str, connector_id: str
-    ) -> Optional[Dict[str, ConfigRecord]]:
+    def _scope(self, tenant_id: str, connector_id: str) -> Optional[Dict[str, ConfigRecord]]:
         tenant_map = self._data.get(tenant_id)
         if tenant_map is None:
             return None
@@ -396,9 +386,7 @@ class ConnectorConfigStore:
     def _require(self, tenant_id: str, connector_id: str, name: str) -> ConfigRecord:
         scope = self._scope(tenant_id, connector_id)
         if scope is None or name not in scope:
-            raise ConfigNotFoundError(
-                f"no config {name!r} for {tenant_id!r}/{connector_id!r}"
-            )
+            raise ConfigNotFoundError(f"no config {name!r} for {tenant_id!r}/{connector_id!r}")
         return scope[name]
 
     @staticmethod

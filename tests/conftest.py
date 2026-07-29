@@ -69,6 +69,9 @@ _preload_connector_logic_modules()
 def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
     monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "true")
+    # Isolate from developer .env: legacy REST tests expect single-tenant unless
+    # a test explicitly enables multitenancy.
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
     monkeypatch.delenv("GOOGLE_DRIVE_AUTH_PROVIDER", raising=False)
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     monkeypatch.setenv("NW_JWT_AUDIENCE", "node-wire-test")

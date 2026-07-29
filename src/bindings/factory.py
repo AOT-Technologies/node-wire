@@ -19,6 +19,7 @@ import yaml
 from node_wire_runtime import BaseConnector, SecretProvider, get_connector_registry
 from node_wire_runtime.config_store import (
     DEFAULT_TENANT,
+    ConfigNotFoundError,
     ConfigRecord,
     ConnectorConfigStore,
 )
@@ -188,9 +189,7 @@ class ConnectorFactory:
         self._store.attach_factory(self)
         # Scope policy takes precedence when configured; otherwise fall back to the
         # config-existence hook (defense in depth for configured = entitled).
-        self._policy_hook: PolicyHook | None = _build_policy_hook() or TenantConfigHook(
-            self._store
-        )
+        self._policy_hook: PolicyHook | None = _build_policy_hook() or TenantConfigHook(self._store)
         # YAML-derived metadata (enabled, exposed_via, raw) for enumeration,
         # protocol gating, and the MCP upstream-passthrough check.
         self._configs: Dict[str, ConnectorConfig] = {}
@@ -224,7 +223,9 @@ class ConnectorFactory:
         raw = _resolve_env_vars(raw)
 
         connectors_cfg: Dict[str, Any] = raw.get("connectors", {})
-        bootstrap_enabled = os.environ.get("NW_CONFIG_BOOTSTRAP_YAML", "true").strip().lower() not in (
+        bootstrap_enabled = os.environ.get(
+            "NW_CONFIG_BOOTSTRAP_YAML", "true"
+        ).strip().lower() not in (
             "0",
             "false",
             "no",
@@ -488,9 +489,7 @@ class ConnectorFactory:
             _, old = self._instances.popitem(last=False)
             self._schedule_aclose(old)
 
-    def invalidate_configs(
-        self, tenant_id: str, connector_id: str, names: List[str]
-    ) -> None:
+    def invalidate_configs(self, tenant_id: str, connector_id: str, names: List[str]) -> None:
         """Drop cached instances for the given config names and schedule teardown.
 
         Called synchronously by the store on every mutating write; may run on a
@@ -519,7 +518,8 @@ class ConnectorFactory:
         if loop is not None:
             loop.create_task(_safe_aclose())
         elif self._loop is not None and self._loop.is_running():
-            self._loop.call_soon_threadsafe(lambda: self._loop.create_task(_safe_aclose()))
+            running_loop = self._loop
+            running_loop.call_soon_threadsafe(lambda: running_loop.create_task(_safe_aclose()))
         # else: no running loop known; the instance is dropped without aclose.
 
     def _default_instance(self, connector_id: str) -> Optional[BaseConnector]:
