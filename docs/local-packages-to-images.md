@@ -14,7 +14,7 @@ The Dockerfiles in this repo install local wheel artifacts from `packages/**/dis
 
 ## Prerequisites
 
-- Python 3.12 available in your shell
+- Python 3.11+ available in your shell
 - Docker installed and running
 - Build tooling installed:
 
@@ -101,7 +101,7 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 
 ## Wheel requirements by image
 
-Each Dockerfile expects specific wheel files to exist in `dist/`:
+Each Dockerfile expects specific wheel files to exist in `dist/`. Keep this table in sync with the Dockerfiles in `docker/` — add a row here whenever you add a Tier 3 standalone MCP image (see [connectors.md — Step 12](connectors.md#adding-a-new-connector-checklist)).
 
 | Image | Required wheels |
 |---|---|

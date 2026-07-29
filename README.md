@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 <p align="center">
   <img src="./docs/images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
 </p>
-node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, etc.) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
+node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
 ## Prerequisites
 

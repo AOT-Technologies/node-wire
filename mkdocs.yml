@@ -1,0 +1,128 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+site_name: Node Wire
+site_description: Enterprise Connectors for AI & Workflow Systems
+site_url: https://aot-technologies.github.io/node-wire/
+repo_url: https://github.com/AOT-Technologies/node-wire
+repo_name: AOT-Technologies/node-wire
+docs_dir: docs
+
+theme:
+  name: material
+  logo: images/nw-favicon-black.png
+  palette:
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - search.suggest
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - header.autohide
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AOT-Technologies/node-wire
+      name: Node Wire on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/aot-technologies
+      name: AOT Technologies on LinkedIn
+  generator: false
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      permalink_title: Anchor link to this section
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Configuration: configuration.md
+  - Architecture: architecture.md
+  - Connectors:
+    - Overview: connectors.md
+    - Google Drive: google_drive_connector.md
+    - Salesforce: salesforce_connector.md
+    - Slack: slack_connector.md
+  - MCP:
+    - Overview: mcp.md
+    - MCP Servers: mcp-servers.md
+    - Client OAuth: mcp-client-oauth.md
+    - Agent Scenario: toolhive_agent_scenario.md
+  - Development:
+    - Contributing: contributing.md
+    - Code Quality: code-quality-compliance.md
+    - Quality & Security Gates: quality-security-gates.md
+    - Versioning: versioning.md
+    - Packaging: packaging.md
+    - Public API: public-api.md
+  - Operations:
+    - Troubleshooting: troubleshooting.md
+    - Release & Rollback: release-rollback.md
+    - Local Images: local-packages-to-images.md
+  - Compliance:
+    - Privacy: privacy.md
+    - HIPAA Considerations: compliance/hipaa-considerations.md
