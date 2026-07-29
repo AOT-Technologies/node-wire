@@ -25,8 +25,8 @@ from agents.llm_factory import (
     LLMProviderFactory,
     LLMResponse,
     ToolCall,
-    openai_compatible_tool_parameters,
 )
+from agents.schema_utils import openai_compatible_tool_parameters
 from agents.toolhive import (
     ToolHiveAgent,
     ToolHiveMcpClient,

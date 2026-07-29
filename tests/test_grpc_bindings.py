@@ -201,7 +201,7 @@ async def test_invoke_rate_limit_exceeded(servicer: ConnectorServiceServicer) ->
 async def test_invoke_unknown_connector_returns_not_available(
     servicer: ConnectorServiceServicer,
 ) -> None:
-    with patch.object(servicer._factory, "get_for_protocol", return_value=None):
+    with patch.object(servicer._factory, "is_exposed", return_value=False):
         req = connector_pb2.InvokeRequest(connector_id="no_such", action="act")
         resp = await servicer._invoke_async(req)
 
@@ -213,7 +213,10 @@ async def test_invoke_unknown_connector_returns_not_available(
 
 async def test_invoke_invalid_json_payload(servicer: ConnectorServiceServicer) -> None:
     fake_connector = MagicMock()
-    with patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector):
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+    ):
         req = connector_pb2.InvokeRequest(
             connector_id="x", action="y", payload_json="not-valid-json{"
         )
@@ -233,7 +236,10 @@ async def test_invoke_success_path(servicer: ConnectorServiceServicer) -> None:
             trace_id="trace-001",
         )
     )
-    with patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector):
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+    ):
         req = connector_pb2.InvokeRequest(
             connector_id="x", action="greet", payload_json='{"field": "val"}'
         )
@@ -253,7 +259,10 @@ async def test_invoke_action_injected_into_payload(servicer: ConnectorServiceSer
 
     fake_connector = MagicMock()
     fake_connector.run = mock_run
-    with patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector):
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+    ):
         req = connector_pb2.InvokeRequest(
             connector_id="x",
             action="do_thing",
@@ -266,6 +275,7 @@ async def test_invoke_action_injected_into_payload(servicer: ConnectorServiceSer
 
 async def test_invoke_identity_propagated(servicer: ConnectorServiceServicer) -> None:
     from node_wire_runtime.caller_identity import build_caller_identity
+    from node_wire_runtime.config_store import DEFAULT_TENANT
 
     identity = build_caller_identity({"sub": "grpc-svc"}, auth_type="grpc_api_key")
     captured: list[Any] = []
@@ -277,17 +287,21 @@ async def test_invoke_identity_propagated(servicer: ConnectorServiceServicer) ->
     fake_connector = MagicMock()
     fake_connector.run = mock_run
     with (
-        patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector),
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
         patch("bindings.grpc_server.server.get_grpc_caller_identity", return_value=identity),
     ):
         req = connector_pb2.InvokeRequest(connector_id="x", action="act", payload_json="{}")
         await servicer._invoke_async(req)
 
     assert captured[0]["principal"] == identity.principal
-    assert captured[0]["tenant_id"] == identity.tenant_id
+    # Multitenancy off in tests: resolve_tenant_id always returns DEFAULT_TENANT.
+    assert captured[0]["tenant_id"] == DEFAULT_TENANT
 
 
 async def test_invoke_no_identity_passes_none(servicer: ConnectorServiceServicer) -> None:
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
     captured: list[Any] = []
 
     async def mock_run(payload: Any, **kwargs: Any) -> ConnectorResponse:
@@ -297,20 +311,24 @@ async def test_invoke_no_identity_passes_none(servicer: ConnectorServiceServicer
     fake_connector = MagicMock()
     fake_connector.run = mock_run
     with (
-        patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector),
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
         patch("bindings.grpc_server.server.get_grpc_caller_identity", return_value=None),
     ):
         req = connector_pb2.InvokeRequest(connector_id="x", action="act", payload_json="{}")
         await servicer._invoke_async(req)
 
     assert captured[0]["principal"] is None
-    assert captured[0]["tenant_id"] is None
+    assert captured[0]["tenant_id"] == DEFAULT_TENANT
 
 
 async def test_invoke_empty_payload_json(servicer: ConnectorServiceServicer) -> None:
     fake_connector = MagicMock()
     fake_connector.run = AsyncMock(return_value=ConnectorResponse(success=True, trace_id="t4"))
-    with patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector):
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+    ):
         req = connector_pb2.InvokeRequest(connector_id="x", action="act")
         resp = await servicer._invoke_async(req)
     assert resp.success is True
@@ -329,7 +347,10 @@ async def test_invoke_error_response_maps_error_category(
             trace_id="t5",
         )
     )
-    with patch.object(servicer._factory, "get_for_protocol", return_value=fake_connector):
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+    ):
         req = connector_pb2.InvokeRequest(connector_id="x", action="act", payload_json="{}")
         resp = await servicer._invoke_async(req)
 
