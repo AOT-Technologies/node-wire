@@ -36,8 +36,6 @@ from node_wire_runtime.secrets import (
     TenantSecretNotFoundError,
     TenantSecretProvider,
 )
-import node_wire_runtime.identity as identity_mod
-
 
 # --------------------------------------------------------------------------- #
 # Config store lifecycle
@@ -163,7 +161,7 @@ def test_missing_header_resolves_default(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_header_override_env(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(identity_mod, "TENANT_HEADER", "x-org-id")
+    monkeypatch.setattr("node_wire_runtime.identity.TENANT_HEADER", "x-org-id")
     assert tenant_from_headers({"X-Org-ID": "globex"}) == "globex"
 
 
