@@ -160,9 +160,7 @@ async def test_mt_on_config_name_stripped_and_unknown_fail_closed(
         {"name": "primary", "default": True, "config": {}, "auth": {}},
     )
 
-    connector = await server._factory.get(
-        "http_generic", tenant_id="acme", config_name="primary"
-    )
+    connector = await server._factory.get("http_generic", tenant_id="acme", config_name="primary")
     captured: dict[str, object] = {}
 
     async def fake_run(raw_input, *, principal=None, tenant_id=None, scopes=None):

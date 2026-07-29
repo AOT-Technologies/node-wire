@@ -148,6 +148,18 @@ async def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/ready", tags=["system"])
+async def ready() -> Dict[str, str]:
+    try:
+        factory = get_factory()
+        connectors = factory.list_for_protocol("rest")
+    except Exception:
+        raise HTTPException(status_code=503, detail="factory not ready")
+    if not connectors:
+        raise HTTPException(status_code=503, detail="no connectors registered")
+    return {"status": "ready"}
+
+
 # --- Runtime connector config API (thin wrappers over ConnectorConfigStore) ---
 # Tenant scope comes from the tenant header (never the path). The embedding
 # application authenticates callers before these endpoints are reachable

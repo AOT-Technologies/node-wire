@@ -85,6 +85,8 @@ logger = logging.getLogger("playground.scenarios")
 def _sanitize_log(value: str) -> str:
     """Strip newlines/carriage-returns from user-supplied log values (log injection)."""
     return value.replace("\n", " ").replace("\r", " ") if value else value
+
+
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
