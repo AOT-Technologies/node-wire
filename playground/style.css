@@ -141,7 +141,7 @@ body {
     display: flex;
     gap: 0.75rem;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
 }
@@ -154,18 +154,20 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.45rem;
-    min-height: 2.75rem;
-    padding: 0.7rem 1.4rem;
-    border-radius: 12px;
+    gap: 0.35rem;
+    align-self: flex-end;
+    min-height: 2.05rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 8px;
     border: 1px solid color-mix(in srgb, var(--brand-accent) 55%, var(--border));
     background: color-mix(in srgb, var(--brand-accent) 18%, transparent);
     color: var(--text-main);
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 650;
     letter-spacing: 0.01em;
     cursor: pointer;
+    white-space: nowrap;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
     transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
@@ -182,8 +184,68 @@ body {
     outline-offset: 2px;
 }
 
+.config-admin-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+}
+
+.config-admin-modal.hidden {
+    display: none;
+}
+
+.config-admin-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+}
+
+.config-admin-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(40rem, 100%);
+    max-height: min(90vh, 52rem);
+    overflow: auto;
+    margin: 0;
+    padding: 1.35rem 1.6rem 1.5rem;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.config-admin-modal-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
+}
+
+.config-admin-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.config-admin-close:hover {
+    color: var(--text-main);
+    border-color: var(--brand-accent);
+    background: color-mix(in srgb, var(--brand-accent) 12%, transparent);
+}
+
 .config-admin-panel {
-    margin-bottom: 1.5rem;
     padding: 1.35rem 1.6rem 1.5rem;
 }
 

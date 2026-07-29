@@ -463,3 +463,11 @@ def test_resolve_config_name_enabled_passthrough(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     assert resolve_config_name("my-config") == "my-config"
     assert resolve_config_name(None) is None
+    assert resolve_config_name("") is None
+    assert resolve_config_name("  ") is None
+
+
+def test_resolve_config_name_enabled_rejects_non_string(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    # JSON null and LLM quirks must map to omit (tenant default), not fail closed.
+    assert resolve_config_name(None) is None  # type: ignore[arg-type]
