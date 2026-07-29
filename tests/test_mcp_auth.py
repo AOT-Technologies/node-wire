@@ -154,10 +154,12 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
 async def test_mcp_execution_passes_principal_and_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
+    monkeypatch.delenv("NW_TENANT_ID", raising=False)
 
     token = mint_test_jwt(
         {"sub": "service-account", "tenant_id": "tenant-42", "scopes": ["*"]},

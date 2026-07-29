@@ -25,14 +25,38 @@ from agents.llm_factory import (
     LLMProviderFactory,
     LLMResponse,
     ToolCall,
+    openai_compatible_tool_parameters,
 )
 from agents.toolhive import (
     ToolHiveAgent,
     ToolHiveMcpClient,
     _is_tool_failure,
+    omit_null_tool_args,
     resolve_max_tool_failures,
     truncate_tool_result_for_llm,
 )
+
+
+def test_omit_null_tool_args() -> None:
+    assert omit_null_tool_args({"a": 1, "b": None, "c": ""}) == {"a": 1, "c": ""}
+
+
+def test_openai_compatible_tool_parameters_allows_null_on_optional() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "required_str": {"type": "string"},
+            "optional_str": {"type": "string"},
+            "already": {"type": ["string", "null"]},
+        },
+        "required": ["required_str"],
+    }
+    out = openai_compatible_tool_parameters(schema)
+    assert out["properties"]["required_str"]["type"] == "string"
+    assert out["properties"]["optional_str"]["type"] == ["string", "null"]
+    assert out["properties"]["already"]["type"] == ["string", "null"]
+    # Input schema must not be mutated.
+    assert schema["properties"]["optional_str"]["type"] == "string"
 
 
 def test_truncate_tool_result_for_llm_respects_limit(monkeypatch: pytest.MonkeyPatch) -> None:

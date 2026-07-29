@@ -65,6 +65,16 @@ copy sample.env .env
 | `NW_JWT_ISSUER` | Expected JWT `iss` claim when any `*_JWT_SECRET` is set | _(required with JWT secret)_ |
 | `NW_SMTP_ALLOWED_HOSTS` | Optional comma-separated SMTP relay hostnames permitted for `smtp.send_email` (recommended for production) | _(unset = env relay only)_ |
 
+### Multi-tenancy
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_MULTITENANCY_ENABLED` | When `true`, resolve tenant from header / `NW_TENANT_ID` / JWT and require a tenant (missing → error). When `false`, always `__default__`. | `false` |
+| `NW_TENANT_ID` | **MCP stdio only** — pins the process to one tenant. Do not set on multi-tenant streamable-http (use `X-Tenant-ID` instead). Required when multitenancy is enabled for stdio. | _(unset)_ |
+| `NW_TENANT_ID_HEADER` | HTTP/gRPC header name for tenant id (case-insensitive) | `X-Tenant-ID` |
+
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` (see commented templates in `sample.env`). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
+
 ---
 
 ## Configuration File (`config/connectors.yaml`)

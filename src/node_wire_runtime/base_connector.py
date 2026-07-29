@@ -475,17 +475,21 @@ class BaseConnector(ABC):
             },
         ):
             logger.info(
-                "Starting connector execution",
+                "Starting connector execution | connector=%s | action=%s | tenant_id=%s | config_name=%s",
+                self.connector_id,
+                self.action,
+                tenant_id or "(none)",
+                config_name or "(default)",
                 extra={
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
                     "config_name": config_name,
                     "action": self.action,
-                    "principal": principal,
-                    "tenant_id": tenant_id,
+                    "principal": principal,                    
                     "scopes": list(scopes) if scopes else [],
                     "audit": True,
                     "audit_event": "invocation_start",
+                    "tenant_id": tenant_id or "",
                 },
             )
 

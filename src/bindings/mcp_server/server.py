@@ -23,6 +23,7 @@ from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
+    is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
 )
@@ -64,6 +65,13 @@ _streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = (
 
 _http_request_headers: ContextVar[Mapping[str, str] | None] = ContextVar(
     "mcp_http_request_headers",
+    default=None,
+)
+
+# Pinned factory tenant for the current streamable-http request (§6.3).
+# Set with env_pin=None so process NW_TENANT_ID cannot override X-Tenant-ID.
+_session_tenant_ctx: ContextVar[str | None] = ContextVar(
+    "mcp_session_tenant",
     default=None,
 )
 
@@ -176,14 +184,18 @@ class McpServer:
         *,
         server_name: str = "node-wire",
         connector_ids: Optional[List[str]] = None,
+        factory: ConnectorFactory | None = None,
     ) -> None:
         self._server_name = server_name
         self._connector_ids: Optional[frozenset[str]] = (
             None if connector_ids is None else frozenset(connector_ids)
         )
         auto_register()
-        self._factory = ConnectorFactory()
-        self._factory.load()
+        if factory is not None:
+            self._factory = factory
+        else:
+            self._factory = ConnectorFactory()
+            self._factory.load()
         self._upstream_passthrough = _resolve_upstream_passthrough(
             self._factory, self._connector_ids
         )
@@ -192,6 +204,8 @@ class McpServer:
             if self._upstream_passthrough
             else ()
         )
+        # §6.4: set in run_stdio from NW_TENANT_ID; unused on HTTP (session pin).
+        self._stdio_env_tenant_pin: str | None = None
         try:
             from importlib.metadata import version as pkg_version
 
@@ -258,15 +272,22 @@ class McpServer:
             )
             # config_name is an optional resolution-time argument (§6.3): an agent
             # may target a named config; omitting it uses the tenant's default.
+            # Only advertise when multitenancy is enabled (ignored when off anyway).
             input_schema = entry["input_schema"]
-            props = input_schema.setdefault("properties", {})
-            props.setdefault(
-                "config_name",
-                {
-                    "type": "string",
-                    "description": "Optional named connector configuration; omit for the default.",
-                },
-            )
+            if is_multitenancy_enabled():
+                props = input_schema.setdefault("properties", {})
+                # Allow null: Groq/OpenAI strict tool validation rejects
+                # ``config_name: null`` when type is only "string".
+                props.setdefault(
+                    "config_name",
+                    {
+                        "type": ["string", "null"],
+                        "description": (
+                            "Optional named connector configuration; omit or null "
+                            "for the tenant default."
+                        ),
+                    },
+                )
 
             tools.append(
                 {
@@ -344,18 +365,24 @@ class McpServer:
         if not self._factory.is_exposed(connector_id, "mcp"):
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
 
-        # Tenant pinned from the session (SSE headers) / stdio env; config_name is a
+        # Tenant: HTTP session pin (§6.3) or stdio env pin (§6.4). config_name is a
         # resolution-time argument, never a connector input.
         arguments = dict(arguments or {})
         config_name = resolve_config_name(arguments.pop("config_name", None))
-        try:
-            tenant_id = resolve_tenant_id(
-                headers=_http_request_headers.get(),
-                jwt_identity=identity,
-                env_pin=os.getenv("NW_TENANT_ID"),
-            )
-        except MissingTenantError as exc:
-            raise ValueError(str(exc)) from exc
+        # LLMs often fill optional schema keys with null; treat as omitted.
+        arguments = {k: v for k, v in arguments.items() if v is not None}
+        session_tenant = _session_tenant_ctx.get()
+        if session_tenant is not None:
+            tenant_id = session_tenant
+        else:
+            try:
+                tenant_id = resolve_tenant_id(
+                    headers=_http_request_headers.get(),
+                    jwt_identity=identity,
+                    env_pin=self._stdio_env_tenant_pin,
+                )
+            except MissingTenantError as exc:
+                raise ValueError(str(exc)) from exc
 
         try:
             connector = await self._factory.get(
@@ -366,6 +393,22 @@ class McpServer:
             )
         except ConfigNotFoundError:
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+
+        resolved_config_name = getattr(connector, "_config_name", config_name)
+        if is_multitenancy_enabled():
+            logger.info(
+                "MCP tool resolved | tool=%s | tenant_id=%s | config_name=%s",
+                name,
+                tenant_id,
+                resolved_config_name or "(default)",
+                extra={
+                    "tool_name": name,
+                    "connector_id": connector_id,
+                    "action": action,
+                    "tenant_id": tenant_id,
+                    "config_name": resolved_config_name or "",
+                },
+            )
 
         run_args = normalize_mcp_tool_arguments(connector, action, arguments)
         enforce_authoritative_action(run_args, action)
@@ -561,6 +604,10 @@ class McpServer:
         from mcp.server.stdio import stdio_server
         from mcp.server import NotificationOptions
 
+        # §6.4: one process, one tenant — pin from env at stdio start (not on HTTP).
+        raw = os.getenv("NW_TENANT_ID")
+        self._stdio_env_tenant_pin = raw.strip() if raw and raw.strip() else None
+
         log_effective_mcp_auth_state()
 
         low = self._setup_lowlevel_server()
@@ -615,10 +662,25 @@ class McpServer:
                     )
 
                 setattr(request.state, "nw_mcp_identity", identity)
+                # §6.3: pin tenant for this HTTP request/session context; never use
+                # process NW_TENANT_ID (stdio-only) so it cannot override X-Tenant-ID.
+                try:
+                    session_tenant = resolve_tenant_id(
+                        headers=request.headers,
+                        jwt_identity=identity,
+                        env_pin=None,
+                    )
+                except MissingTenantError as exc:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"detail": str(exc), "error_code": "MISSING_TENANT"},
+                    )
                 token = _streamable_http_identity_ctx.set(identity)
+                tenant_token = _session_tenant_ctx.set(session_tenant)
                 try:
                     return await call_next(request)
                 finally:
+                    _session_tenant_ctx.reset(tenant_token)
                     _streamable_http_identity_ctx.reset(token)
                     reset_upstream_passthrough_context()
 

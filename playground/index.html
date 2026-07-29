@@ -67,6 +67,7 @@ SPDX-License-Identifier: Apache-2.0
                             <option value="">— default —</option>
                         </select>
                     </div>
+                    <button type="button" id="add-config-btn" class="add-config-btn hidden">Add config</button>
                 </div>
             </div>
         </header>
@@ -148,7 +149,6 @@ SPDX-License-Identifier: Apache-2.0
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                     Back to Workspace
                 </button>
-                <button type="button" id="add-config-btn" class="add-config-btn hidden">Add config</button>
             </div>
             <div id="agent-panel" class="glass-card main-form-card agent-chat-card">
                 <div class="card-title">
@@ -200,45 +200,6 @@ SPDX-License-Identifier: Apache-2.0
             </div>
 
             <div id="connectors-view" class="hidden">
-                <!-- Generic runtime config admin: toggled by Add config -->
-                <div id="config-admin-panel" class="glass-card config-admin-panel hidden">
-                    <div class="card-title">
-                        <h2>Runtime config</h2>
-                        <span class="info-tip">Applies to all connectors for this tenant</span>
-                    </div>
-                    <p class="field-help config-admin-help">
-                        Set the Tenant ID below (synced with the header). Create provisions the same named config
-                        for every connector with auth secret references from connectors.yaml.
-                        Named tenants resolve secrets as <code>NW_{TENANT}_{CONNECTOR}_{KEY}</code>
-                        (e.g. <code>NW_ACME_GOOGLE_DRIVE_GOOGLE_DRIVE_SA_JSON</code>).
-                    </p>
-                    <div class="input-row config-admin-fields">
-                        <div class="field-group">
-                            <label for="cfg-tenant-id">Tenant ID</label>
-                            <input type="text" id="cfg-tenant-id" autocomplete="off"
-                                placeholder="e.g. acme (required)">
-                        </div>
-                        <div class="field-group">
-                            <label for="cfg-name">Config name</label>
-                            <input type="text" id="cfg-name" value="default" autocomplete="off">
-                        </div>
-                        <div class="field-group">
-                            <label for="cfg-default">Default?</label>
-                            <select id="cfg-default">
-                                <option value="true" selected>Yes</option>
-                                <option value="false">No</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="tenancy-config-actions">
-                        <button type="button" id="cfg-create" class="action-btn tenancy-cfg-btn">Create config</button>
-                        <button type="button" id="cfg-list" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-secondary">List configs</button>
-                        <button type="button" id="cfg-set-default" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-secondary">Set default</button>
-                        <button type="button" id="cfg-delete" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-danger">Delete</button>
-                    </div>
-                    <pre id="cfg-result" class="tenancy-cfg-result hidden"></pre>
-                </div>
-
                 <div id="connectors-list-panel">
                     <div class="card-title">
                         <h2>System Connectors</h2>
@@ -1105,6 +1066,56 @@ Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in
             </div>
         </main>
     </div>
+
+    <!-- Global runtime config modal (header Add config); applies to Agent + Connectors -->
+    <div id="config-admin-modal" class="config-admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="config-admin-title">
+        <div class="config-admin-modal-backdrop" data-config-admin-dismiss></div>
+        <div class="glass-card config-admin-panel config-admin-modal-card" id="config-admin-panel">
+            <div class="card-title config-admin-modal-title">
+                <div class="title-group">
+                    <h2 id="config-admin-title">Runtime config</h2>
+                    <span class="info-tip">Applies to all connectors for this tenant</span>
+                </div>
+                <button type="button" id="config-admin-close" class="config-admin-close" aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <p class="field-help config-admin-help">
+                Set the Tenant ID below (synced with the header). Create provisions the same named config
+                for every connector with auth secret references from connectors.yaml.
+                Named tenants resolve secrets as <code>NW_{TENANT}_{CONNECTOR}_{KEY}</code>
+                (e.g. <code>NW_ACME_GOOGLE_DRIVE_GOOGLE_DRIVE_SA_JSON</code>).
+            </p>
+            <div class="input-row config-admin-fields">
+                <div class="field-group">
+                    <label for="cfg-tenant-id">Tenant ID</label>
+                    <input type="text" id="cfg-tenant-id" autocomplete="off"
+                        placeholder="e.g. acme (required)">
+                </div>
+                <div class="field-group">
+                    <label for="cfg-name">Config name</label>
+                    <input type="text" id="cfg-name" value="default" autocomplete="off">
+                </div>
+                <div class="field-group">
+                    <label for="cfg-default">Default?</label>
+                    <select id="cfg-default">
+                        <option value="true" selected>Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+            </div>
+            <div class="tenancy-config-actions">
+                <button type="button" id="cfg-create" class="action-btn tenancy-cfg-btn">Create config</button>
+                <button type="button" id="cfg-list" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-secondary">List configs</button>
+                <button type="button" id="cfg-set-default" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-secondary">Set default</button>
+                <button type="button" id="cfg-delete" class="action-btn tenancy-cfg-btn tenancy-cfg-btn-danger">Delete</button>
+            </div>
+            <pre id="cfg-result" class="tenancy-cfg-result hidden"></pre>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 

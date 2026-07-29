@@ -795,21 +795,26 @@ document.addEventListener('DOMContentLoaded', () => {
             headerTenancy.classList.toggle('hidden', !_multitenancyEnabled);
         }
         const addConfigBtn = document.getElementById('add-config-btn');
-        const connectorsView = document.getElementById('connectors-view');
-        const listPanel = document.getElementById('connectors-list-panel');
-        const onConnectorsList =
-            connectorsView &&
-            !connectorsView.classList.contains('hidden') &&
-            listPanel &&
-            !listPanel.classList.contains('hidden');
         if (addConfigBtn) {
-            // Show Add config only when multitenancy is on and the connectors list is visible.
-            addConfigBtn.classList.toggle('hidden', !(_multitenancyEnabled && onConnectorsList));
+            // Global header control: show whenever multitenancy is on.
+            addConfigBtn.classList.toggle('hidden', !_multitenancyEnabled);
         }
-        const configAdmin = document.getElementById('config-admin-panel');
-        if (configAdmin && (!_multitenancyEnabled || !onConnectorsList)) {
-            configAdmin.classList.add('hidden');
+        if (!_multitenancyEnabled) {
+            closeConfigAdminModal();
         }
+    }
+
+    function openConfigAdminModal() {
+        const modal = document.getElementById('config-admin-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        if (_tenantInput) syncTenantInputs(_tenantInput);
+        refreshConfigDropdown(currentMode);
+    }
+
+    function closeConfigAdminModal() {
+        const modal = document.getElementById('config-admin-modal');
+        if (modal) modal.classList.add('hidden');
     }
 
     async function loadFeatureFlags() {
@@ -1018,6 +1023,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return (el && el.value ? el.value : '').trim();
     }
 
+    function logTenancyContext(actionLabel) {
+        if (!_multitenancyEnabled) return;
+        const tenantId = getPlaygroundTenantId();
+        const configName = getPlaygroundConfigName();
+        const label = actionLabel ? `${actionLabel} — ` : '';
+        log(
+            `${label}Tenant: ${tenantId || '(missing)'} | Config: ${configName || '(default)'}`,
+            'system'
+        );
+    }
+
     function playgroundRequestHeaders(extra = {}) {
         const headers = { 'Content-Type': 'application/json', ...extra };
         if (!_multitenancyEnabled) return headers;
@@ -1044,15 +1060,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLbl.textContent = 'Orchestrating...';
 
         log(`Initiating intelligent ${currentMode.toUpperCase()} orchestration...`, 'system');
-        const tenantId = getPlaygroundTenantId();
+        logTenancyContext(currentMode.toUpperCase());
         const configName = getPlaygroundConfigName();
-        if (tenantId) {
-            log(`Tenant: ${tenantId}`, 'system');
-        } else {
-            log('Tenant: __default__ (no X-Tenant-ID)', 'system');
-        }
         if (configName) {
-            log(`Config name: ${configName}`, 'system');
             payload = { ...payload, config_name: configName };
         }
 
@@ -1525,7 +1535,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Tenant-global runtime config CRUD (bulk across all connectors) ---
     const cfgResult = document.getElementById('cfg-result');
-    const configAdminPanel = document.getElementById('config-admin-panel');
     const addConfigBtn = document.getElementById('add-config-btn');
 
     function showCfgResult(obj) {
@@ -1558,6 +1567,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Simplified: run the same CRUD against every playground connector; report per-id results.
     // body may be a plain object or (connectorId) => object for per-connector Create docs.
     async function cfgBulk(method, pathBuilder, body = null) {
+        logTenancyContext(`Config ${method}`);
         const results = {};
         for (const connectorId of _allPlaygroundConnectors) {
             try {
@@ -1573,14 +1583,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (addConfigBtn) {
         addConfigBtn.addEventListener('click', () => {
-            if (!configAdminPanel) return;
-            configAdminPanel.classList.toggle('hidden');
-            if (!configAdminPanel.classList.contains('hidden')) {
-                if (_tenantInput) syncTenantInputs(_tenantInput);
-                refreshConfigDropdown(currentMode);
-            }
+            openConfigAdminModal();
         });
     }
+
+    document.getElementById('config-admin-close')?.addEventListener('click', () => {
+        closeConfigAdminModal();
+    });
+
+    document.getElementById('config-admin-modal')?.addEventListener('click', (ev) => {
+        if (ev.target && ev.target.hasAttribute('data-config-admin-dismiss')) {
+            closeConfigAdminModal();
+        }
+    });
+
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'Escape') return;
+        const modal = document.getElementById('config-admin-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeConfigAdminModal();
+        }
+    });
 
     document.getElementById('cfg-create')?.addEventListener('click', async () => {
         try {
@@ -1954,9 +1977,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 startRunningTimer();
 
-                const response = await fetch('/scenarios/agent-chat-stream', {
+                if (_multitenancyEnabled && !getPlaygroundTenantId()) {
+                    throw new Error('Tenant ID is required when multitenancy is enabled');
+                }
+                logTenancyContext('Agent chat (stream)');
+                const response = await fetch(withTenancyQuery('/scenarios/agent-chat-stream'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: playgroundRequestHeaders(),
                     body: JSON.stringify({
                         message: message,
                         history: agentConversationHistory.slice(0, -1)
@@ -2034,9 +2061,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const response = await fetch('/scenarios/agent-chat', {
+            if (_multitenancyEnabled && !getPlaygroundTenantId()) {
+                throw new Error('Tenant ID is required when multitenancy is enabled');
+            }
+            logTenancyContext('Agent chat');
+            const response = await fetch(withTenancyQuery('/scenarios/agent-chat'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: playgroundRequestHeaders(),
                 body: JSON.stringify({
                     message: message,
                     history: agentConversationHistory.slice(0, -1) // Exclude current message (already in payload)

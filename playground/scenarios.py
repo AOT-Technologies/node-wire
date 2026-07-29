@@ -22,6 +22,7 @@ from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
+    is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
 )
@@ -366,6 +367,13 @@ async def resolve_connector(
     except MissingTenantError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     name = resolve_config_name((config_name or "").strip() or None)
+    if is_multitenancy_enabled():
+        logger.info(
+            "Playground action | connector=%s | tenant_id=%s | config_name=%s",
+            connector_id,
+            tenant_id,
+            name or "(default)",
+        )
     try:
         return await factory.get(
             connector_id,
@@ -1890,15 +1898,47 @@ def _current_agent_transport() -> str:
     return transport if transport in {"stdio", "streamable-http"} else "stdio"
 
 
+def _resolve_agent_mcp_tenant(request: Request) -> str:
+    """Resolve tenant for playground agent → MCP (stdio pin / HTTP header)."""
+    from bindings.rest_api.auth import get_rest_caller_identity
+
+    try:
+        return resolve_tenant_id(
+            headers=request.headers,
+            jwt_identity=get_rest_caller_identity(request),
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _agent_mcp_extra_headers(tenant_id: str) -> Dict[str, str]:
+    from node_wire_runtime.identity import TENANT_HEADER
+
+    # TENANT_HEADER is lowercased; HTTP clients accept any casing.
+    return {TENANT_HEADER: tenant_id}
+
+
+def _playground_inprocess_mcp_client(tenant_id: str, request: Request):
+    """Share playground factory/store with agent tool calls (named tenants)."""
+    from agents.toolhive import InProcessMcpClient
+    from bindings.mcp_server.server import McpServer
+
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    factory = get_playground_factory()
+    server = McpServer(server_name="node-wire-playground-agent", factory=factory)
+    return InProcessMcpClient(server, tenant_id=tenant_id, config_name=config_name)
+
+
 @router.post("/agent-chat", response_model=AgentChatResponse)
-async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
+async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResponse:
     """
     AI Agent chatbot endpoint.
     Accepts a user message + conversation history, runs through the ToolHiveAgent,
     and returns the agent's reply with any tool steps executed.
     """
     import os
-    import sys
 
     trace_id = str(uuid.uuid4())
     logger.info(
@@ -1915,12 +1955,23 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             success=False,
         )
 
+    tenant_id = _resolve_agent_mcp_tenant(request)
+    mcp_headers = _agent_mcp_extra_headers(tenant_id)
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    if is_multitenancy_enabled():
+        logger.info(
+            "Agent Chat | mcp_tenant_id=%s | config_name=%s",
+            tenant_id,
+            config_name or "(default)",
+        )
+
     try:
         from agents.llm_factory import LLMProviderFactory
         from agents.toolhive import (
             MultiMcpClient,
             ToolHiveAgent,
-            StdioMcpClient,
             resolve_mcp_urls,
             resolve_max_tool_failures,
         )
@@ -1932,21 +1983,28 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
         task = _build_agent_chat_task(payload)
 
-        # Determine MCP transport — try proxy first, fallback to local stdio
+        # Determine MCP transport — try proxy first, fallback to local in-process
         transport = _current_agent_transport()
         urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
         fallback_to_stdio = (
-            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
+            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
         )
 
         if urls:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
             try:
                 if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(urls[0])
+                    mcp_client = create_http_mcp_client(
+                        urls[0], extra_headers=mcp_headers
+                    )
                 else:
-                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
+                    mcp_client = MultiMcpClient(
+                        [
+                            create_http_mcp_client(u, extra_headers=mcp_headers)
+                            for u in urls
+                        ]
+                    )
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -1996,10 +2054,9 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     )
 
         if run_result is None:
-            # Use local stdio transport
-            logger.info("Agent Chat | using local stdio MCP transport")
-            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-            async with StdioMcpClient(cmd) as mcp_client:
+            # In-process MCP shares the playground config store (named tenants).
+            logger.info("Agent Chat | using in-process MCP (shared factory)")
+            async with _playground_inprocess_mcp_client(tenant_id, request) as mcp_client:
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -2044,22 +2101,30 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
 
 @router.post("/agent-chat-stream")
-async def agent_chat_stream(payload: AgentChatInput) -> Any:
+async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
     """
     Stream agent progress and final-answer chunks to web clients.
 
     The terminal ``done`` event includes ``trace_id`` and ``message``. Clients
     should stop their streaming loader only when that event arrives.
     """
+    tenant_id = _resolve_agent_mcp_tenant(request)
+    mcp_headers = _agent_mcp_extra_headers(tenant_id)
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    if is_multitenancy_enabled():
+        logger.info(
+            "Agent Chat stream | mcp_tenant_id=%s | config_name=%s",
+            tenant_id,
+            config_name or "(default)",
+        )
 
     async def stream_events():
         try:
-            import sys
-
             from agents.llm_factory import LLMProviderFactory
             from agents.toolhive import (
                 MultiMcpClient,
-                StdioMcpClient,
                 ToolHiveAgent,
                 resolve_mcp_urls,
                 resolve_max_tool_failures,
@@ -2094,25 +2159,61 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
             task = _build_agent_chat_task(payload)
             transport = _current_agent_transport()
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
+            # Default true: playground should work without a separate MCP on :8081.
+            fallback_to_local = (
+                os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower()
+                == "true"
+            )
 
             if urls:
-                if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(urls[0])
-                else:
-                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
-                agent = ToolHiveAgent(
-                    mcp_client,
-                    llm_provider,
-                    max_steps=10,
-                    max_tool_failures=resolve_max_tool_failures(None),
-                )
-                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
-                async for event in agent.run_events(task):
-                    yield json.dumps(event) + "\n"
-                return
+                proxy_ok = False
+                try:
+                    if len(urls) == 1:
+                        mcp_client = create_http_mcp_client(
+                            urls[0], extra_headers=mcp_headers
+                        )
+                    else:
+                        mcp_client = MultiMcpClient(
+                            [
+                                create_http_mcp_client(u, extra_headers=mcp_headers)
+                                for u in urls
+                            ]
+                        )
+                    agent = ToolHiveAgent(
+                        mcp_client,
+                        llm_provider,
+                        max_steps=10,
+                        max_tool_failures=resolve_max_tool_failures(None),
+                    )
+                    agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                    async for event in agent.run_events(task):
+                        if (
+                            fallback_to_local
+                            and event.get("type") == "error"
+                            and "Failed to list MCP tools" in str(event.get("message") or "")
+                        ):
+                            logger.warning(
+                                "Agent Chat stream | proxy incomplete (%s) — "
+                                "falling back to in-process MCP",
+                                event.get("message"),
+                            )
+                            break
+                        proxy_ok = True
+                        yield json.dumps(event) + "\n"
+                    else:
+                        # Exhausted generator without break → proxy finished normally.
+                        return
+                    if proxy_ok:
+                        return
+                except Exception as proxy_err:
+                    if not fallback_to_local:
+                        raise
+                    logger.warning(
+                        "Agent Chat stream | proxy error: %s — falling back to in-process MCP",
+                        proxy_err,
+                    )
 
-            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-            async with StdioMcpClient(cmd) as mcp_client:
+            async with _playground_inprocess_mcp_client(tenant_id, request) as mcp_client:
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,

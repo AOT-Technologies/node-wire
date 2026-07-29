@@ -33,6 +33,7 @@ from node_wire_runtime.config_store import (
 )
 from node_wire_runtime.identity import (
     MissingTenantError,
+    is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
 )
@@ -162,6 +163,23 @@ def _config_tenant(request: Request) -> str:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _log_playground_tenant(
+    *,
+    action: str,
+    tenant_id: str,
+    connector_id: str | None = None,
+    config_name: str | None = None,
+) -> None:
+    """Emit tenant context when multitenancy is on (visible in default formatters)."""
+    if not is_multitenancy_enabled():
+        return
+    parts = [f"Playground action | op={action}", f"tenant_id={tenant_id}"]
+    if connector_id:
+        parts.append(f"connector={connector_id}")
+    parts.append(f"config_name={config_name or '(default)'}")
+    logger.info(" | ".join(parts))
+
+
 def _map_config_error(exc: Exception) -> HTTPException:
     if isinstance(exc, MissingTenantError):
         return HTTPException(status_code=400, detail=str(exc))
@@ -203,7 +221,14 @@ async def config_create(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     try:
-        record = factory_dep.store.create(_config_tenant(request), cid, doc)
+        tenant_id = _config_tenant(request)
+        _log_playground_tenant(
+            action="config.create",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=str(doc.get("name") or "") or None,
+        )
+        record = factory_dep.store.create(tenant_id, cid, doc)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=201, content={"name": record.name, "default": record.default})
@@ -215,8 +240,10 @@ async def config_list(
     request: Request,
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
+    # No per-list INFO: playground dropdown refresh would flood the terminal.
+    tenant_id = _config_tenant(request)
     return JSONResponse(
-        status_code=200, content=factory_dep.store.list(_config_tenant(request), cid)
+        status_code=200, content=factory_dep.store.list(tenant_id, cid)
     )
 
 
@@ -227,7 +254,8 @@ async def config_get(
     request: Request,
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
-    doc = factory_dep.store.get(_config_tenant(request), cid, name)
+    tenant_id = _config_tenant(request)
+    doc = factory_dep.store.get(tenant_id, cid, name)
     if doc is None:
         raise HTTPException(status_code=404, detail="Config not found")
     return JSONResponse(status_code=200, content=doc)
@@ -242,7 +270,14 @@ async def config_update(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     try:
-        record = factory_dep.store.update(_config_tenant(request), cid, name, doc)
+        tenant_id = _config_tenant(request)
+        _log_playground_tenant(
+            action="config.update",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+        )
+        record = factory_dep.store.update(tenant_id, cid, name, doc)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=200, content={"name": record.name, "default": record.default})
@@ -257,7 +292,14 @@ async def config_delete(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     try:
-        factory_dep.store.delete(_config_tenant(request), cid, name, new_default=new_default)
+        tenant_id = _config_tenant(request)
+        _log_playground_tenant(
+            action="config.delete",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+        )
+        factory_dep.store.delete(tenant_id, cid, name, new_default=new_default)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=200, content={"status": "ok"})
@@ -271,7 +313,14 @@ async def config_set_default(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     try:
-        factory_dep.store.set_default(_config_tenant(request), cid, name)
+        tenant_id = _config_tenant(request)
+        _log_playground_tenant(
+            action="config.set_default",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+        )
+        factory_dep.store.set_default(tenant_id, cid, name)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=200, content={"status": "ok"})
@@ -338,6 +387,17 @@ def _make_endpoint(cid: str, act: str) -> Any:
         except MissingTenantError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+        run_payload = dict(payload)
+        # config_name is a resolution-time argument, never a connector input.
+        # Suppressed when multitenancy is disabled so legacy path is always used.
+        config_name = resolve_config_name(run_payload.pop("config_name", None))
+        _log_playground_tenant(
+            action=f"rest.{act}",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=config_name,
+        )
+
         if _rate_limit_enabled():
             limiter = _get_rate_limiter()
             identity_key = get_request_identity_key(request)
@@ -352,11 +412,6 @@ def _make_endpoint(cid: str, act: str) -> Any:
 
         if not factory_dep.is_exposed(cid, "rest"):
             raise HTTPException(status_code=404, detail="Connector not available for REST")
-
-        run_payload = dict(payload)
-        # config_name is a resolution-time argument, never a connector input.
-        # Suppressed when multitenancy is disabled so legacy path is always used.
-        config_name = resolve_config_name(run_payload.pop("config_name", None))
 
         try:
             connector = await factory_dep.get(

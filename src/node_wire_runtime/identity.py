@@ -112,11 +112,18 @@ def resolve_tenant_id(
 
 
 def resolve_config_name(config_name: Optional[str]) -> Optional[str]:
-    """Return config_name unchanged when multitenancy is enabled, else None.
+    """Return a non-empty config name when multitenancy is enabled, else None.
 
     Ensures user-supplied named configs are silently ignored in single-tenant
     mode so the factory falls back to the YAML-bootstrapped default.
+
+    ``None``, non-strings, and blank strings are treated as omit (tenant default).
+    LLMs often emit ``config_name: null`` for optional fields; that must not
+    fail closed as an unknown name.
     """
     if not is_multitenancy_enabled():
         return None
-    return config_name
+    if not isinstance(config_name, str):
+        return None
+    stripped = config_name.strip()
+    return stripped or None
