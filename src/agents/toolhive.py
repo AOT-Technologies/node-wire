@@ -48,7 +48,17 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Protocol, Union, runtime_checkable
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Union,
+    runtime_checkable,
+)
 import re
 
 from dotenv import load_dotenv

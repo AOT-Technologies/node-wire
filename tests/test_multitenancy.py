@@ -184,7 +184,9 @@ def test_env_pin_wins_over_everything(monkeypatch: pytest.MonkeyPatch):
     ident = MagicMock()
     ident.tenant_id = "t-1"
     assert (
-        resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident, env_pin="stdio-tenant")
+        resolve_tenant_id(
+            headers={"X-Tenant-ID": "acme"}, jwt_identity=ident, env_pin="stdio-tenant"
+        )
         == "stdio-tenant"
     )
 
@@ -215,9 +217,7 @@ def test_tenant_secret_provider_is_strict(monkeypatch: pytest.MonkeyPatch):
 def _bare_factory(monkeypatch: pytest.MonkeyPatch) -> ConnectorFactory:
     """Factory whose instantiation returns a fresh stub per call (no real connector)."""
     factory = ConnectorFactory()
-    monkeypatch.setattr(
-        factory, "_instantiate", lambda record: MagicMock(spec=BaseConnector)
-    )
+    monkeypatch.setattr(factory, "_instantiate", lambda record: MagicMock(spec=BaseConnector))
     return factory
 
 
@@ -307,9 +307,7 @@ def test_rest_fail_closed_returns_indistinguishable_403(monkeypatch: pytest.Monk
     try:
         client = TestClient(app)
         unknown_scope = client.post("/connectors/http_generic/request", json={})
-        unknown_name = client.post(
-            "/connectors/http_generic/request", json={"config_name": "nope"}
-        )
+        unknown_name = client.post("/connectors/http_generic/request", json={"config_name": "nope"})
     finally:
         app.dependency_overrides.clear()
     assert unknown_scope.status_code == 403
@@ -366,9 +364,7 @@ async def test_direct_integration_store_factory_run(monkeypatch: pytest.MonkeyPa
     factory.store.init(
         {
             "acme": {
-                "test_echo": [
-                    {"name": "primary", "default": True, "config": {"channel": "#eng"}}
-                ]
+                "test_echo": [{"name": "primary", "default": True, "config": {"channel": "#eng"}}]
             }
         }
     )
@@ -445,8 +441,7 @@ def test_resolve_tenant_id_enabled_missing_raises(monkeypatch: pytest.MonkeyPatc
 def test_resolve_tenant_id_enabled_env_pin_wins(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     assert (
-        resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, env_pin="stdio-tenant")
-        == "stdio-tenant"
+        resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, env_pin="stdio-tenant") == "stdio-tenant"
     )
 
 

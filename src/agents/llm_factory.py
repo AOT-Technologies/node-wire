@@ -30,7 +30,9 @@ from typing import Any, Dict, List, Optional, Type
 
 # Re-export so existing callers can still do:
 #   from agents.llm_factory import openai_compatible_tool_parameters
-from agents.schema_utils import openai_compatible_tool_parameters as openai_compatible_tool_parameters  # noqa: F401
+from agents.schema_utils import (
+    openai_compatible_tool_parameters as openai_compatible_tool_parameters,
+)  # noqa: F401
 
 
 # ---------------------------------------------------------------------------

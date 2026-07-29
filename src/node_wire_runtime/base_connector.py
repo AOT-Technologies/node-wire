@@ -485,7 +485,7 @@ class BaseConnector(ABC):
                     "connector_id": self.connector_id,
                     "config_name": config_name,
                     "action": self.action,
-                    "principal": principal,                    
+                    "principal": principal,
                     "scopes": list(scopes) if scopes else [],
                     "audit": True,
                     "audit_event": "invocation_start",
@@ -494,6 +494,7 @@ class BaseConnector(ABC):
             )
 
             _response: Optional[ConnectorResponse] = None
+            _start = time.monotonic()
             token = _caller_execution_ctx.set((principal, tenant_id, scopes))
             try:
                 try:
@@ -573,7 +574,6 @@ class BaseConnector(ABC):
                 async def _do_execute(*, trace_id: str) -> Any:
                     return await self.internal_execute(input_model, trace_id=trace_id)
 
-                _start = time.monotonic()
                 output_model = await _do_execute(trace_id=trace_id)
 
                 logger.info(
