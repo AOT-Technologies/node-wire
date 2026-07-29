@@ -175,11 +175,6 @@ def _config_tenant(request: Request) -> str:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _sanitize_log(value: str) -> str:
-    """Strip newlines/carriage-returns from user-supplied log values (log injection)."""
-    return value.replace("\n", " ").replace("\r", " ") if value else value
-
-
 def _log_playground_tenant(
     *,
     action: str,
@@ -190,13 +185,14 @@ def _log_playground_tenant(
     """Emit tenant context when multitenancy is on (visible in default formatters)."""
     if not is_multitenancy_enabled():
         return
-    safe_tenant = _sanitize_log(tenant_id)
-    safe_config = _sanitize_log(config_name or "(default)")
-    parts = [f"Playground action | op={action}", f"tenant_id={safe_tenant}"]
-    if connector_id:
-        parts.append(f"connector={_sanitize_log(connector_id)}")
-    parts.append(f"config_name={safe_config}")
-    logger.info(" | ".join(parts))
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
+    logger.info(
+        "Playground action | op=%s | tenant_id=%s | connector=%s | config_name=%s",
+        str(action).replace("\r", " ").replace("\n", " "),
+        str(tenant_id).replace("\r", " ").replace("\n", " "),
+        str(connector_id or "-").replace("\r", " ").replace("\n", " "),
+        str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
+    )
 
 
 def _map_config_error(exc: Exception) -> HTTPException:

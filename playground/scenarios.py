@@ -82,11 +82,6 @@ ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_
 logger = logging.getLogger("playground.scenarios")
 
 
-def _sanitize_log(value: str) -> str:
-    """Strip newlines/carriage-returns from user-supplied log values (log injection)."""
-    return value.replace("\n", " ").replace("\r", " ") if value else value
-
-
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
@@ -375,11 +370,12 @@ async def resolve_connector(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     name = resolve_config_name((config_name or "").strip() or None)
     if is_multitenancy_enabled():
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.info(
             "Playground action | connector=%s | tenant_id=%s | config_name=%s",
-            _sanitize_log(connector_id),
-            _sanitize_log(tenant_id),
-            _sanitize_log(name or "(default)"),
+            str(connector_id).replace("\r", " ").replace("\n", " "),
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(name or "(default)").replace("\r", " ").replace("\n", " "),
         )
     try:
         return await factory.get(
@@ -1966,8 +1962,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
     if is_multitenancy_enabled():
         logger.info(
             "Agent Chat | mcp_tenant_id=%s | config_name=%s",
-            tenant_id,
-            config_name or "(default)",
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
         )
 
     try:
@@ -2114,8 +2110,8 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
     if is_multitenancy_enabled():
         logger.info(
             "Agent Chat stream | mcp_tenant_id=%s | config_name=%s",
-            tenant_id,
-            config_name or "(default)",
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
         )
 
     async def stream_events():
