@@ -28,6 +28,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
 
+# Re-export so existing callers can still do:
+#   from agents.llm_factory import openai_compatible_tool_parameters
+from agents.schema_utils import openai_compatible_tool_parameters as openai_compatible_tool_parameters  # noqa: F401
+
 
 # ---------------------------------------------------------------------------
 # Data models (provider-agnostic)
@@ -65,34 +69,6 @@ class LLMResponse:
     @property
     def wants_tool_call(self) -> bool:
         return bool(self.tool_calls)
-
-
-def openai_compatible_tool_parameters(input_schema: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Copy a JSON Schema so optional properties also accept ``null``.
-
-    Providers such as Groq validate model tool calls against the schema and reject
-    ``"field": null`` when the type is only ``"string"``. Models often emit null
-    for unused optional keys instead of omitting them.
-    """
-    import copy
-
-    schema = copy.deepcopy(input_schema) if input_schema else {"type": "object", "properties": {}}
-    props = schema.get("properties")
-    if not isinstance(props, dict):
-        return schema
-    required = set(schema.get("required") or [])
-    for key, prop in props.items():
-        if key in required or not isinstance(prop, dict):
-            continue
-        t = prop.get("type")
-        if t is None:
-            continue
-        if isinstance(t, list):
-            if "null" not in t:
-                prop["type"] = [*t, "null"]
-        elif t != "null":
-            prop["type"] = [t, "null"]
-    return schema
 
 
 # ---------------------------------------------------------------------------

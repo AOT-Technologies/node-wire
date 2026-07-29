@@ -18,7 +18,8 @@ import json
 import logging
 from typing import Any, Dict, List, cast
 
-from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall, openai_compatible_tool_parameters
+from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.schema_utils import openai_compatible_tool_parameters
 
 
 logger = logging.getLogger("agents.providers.groq")

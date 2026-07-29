@@ -573,6 +573,7 @@ class BaseConnector(ABC):
                 async def _do_execute(*, trace_id: str) -> Any:
                     return await self.internal_execute(input_model, trace_id=trace_id)
 
+                _start = time.monotonic()
                 output_model = await _do_execute(trace_id=trace_id)
 
                 logger.info(

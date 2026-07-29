@@ -80,6 +80,11 @@ ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_
 
 
 logger = logging.getLogger("playground.scenarios")
+
+
+def _sanitize_log(value: str) -> str:
+    """Strip newlines/carriage-returns from user-supplied log values (log injection)."""
+    return value.replace("\n", " ").replace("\r", " ") if value else value
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
@@ -370,9 +375,9 @@ async def resolve_connector(
     if is_multitenancy_enabled():
         logger.info(
             "Playground action | connector=%s | tenant_id=%s | config_name=%s",
-            connector_id,
-            tenant_id,
-            name or "(default)",
+            _sanitize_log(connector_id),
+            _sanitize_log(tenant_id),
+            _sanitize_log(name or "(default)"),
         )
     try:
         return await factory.get(
