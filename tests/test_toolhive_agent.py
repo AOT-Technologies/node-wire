@@ -48,6 +48,9 @@ def test_openai_compatible_tool_parameters_allows_null_on_optional() -> None:
             "required_str": {"type": "string"},
             "optional_str": {"type": "string"},
             "already": {"type": ["string", "null"]},
+            "list_no_null": {"type": ["string", "number"]},
+            "null_only": {"type": "null"},
+            "no_type": {"description": "untyped"},
         },
         "required": ["required_str"],
     }
@@ -55,8 +58,12 @@ def test_openai_compatible_tool_parameters_allows_null_on_optional() -> None:
     assert out["properties"]["required_str"]["type"] == "string"
     assert out["properties"]["optional_str"]["type"] == ["string", "null"]
     assert out["properties"]["already"]["type"] == ["string", "null"]
+    assert out["properties"]["list_no_null"]["type"] == ["string", "number", "null"]
+    assert out["properties"]["null_only"]["type"] == "null"
+    assert "type" not in out["properties"]["no_type"]
     # Input schema must not be mutated.
     assert schema["properties"]["optional_str"]["type"] == "string"
+    assert schema["properties"]["list_no_null"]["type"] == ["string", "number"]
 
 
 def test_truncate_tool_result_for_llm_respects_limit(monkeypatch: pytest.MonkeyPatch) -> None:

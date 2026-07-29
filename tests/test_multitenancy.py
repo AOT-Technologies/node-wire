@@ -464,3 +464,141 @@ def test_resolve_config_name_enabled_rejects_non_string(monkeypatch: pytest.Monk
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     # JSON null and LLM quirks must map to omit (tenant default), not fail closed.
     assert resolve_config_name(None) is None  # type: ignore[arg-type]
+
+
+# --------------------------------------------------------------------------- #
+# REST config CRUD (patch coverage for bindings.rest_api.app)
+# --------------------------------------------------------------------------- #
+
+
+def _config_factory() -> ConnectorFactory:
+    factory = ConnectorFactory()
+    # No YAML load needed — store starts empty; CRUD tests seed via API/store.
+    return factory
+
+
+def test_rest_config_crud_roundtrip(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _config_factory()
+    app.dependency_overrides[get_factory] = lambda: factory
+    headers = {"X-Tenant-ID": "acme"}
+    try:
+        client = TestClient(app)
+
+        create = client.post(
+            "/v1/connectors/slack/configs",
+            json={"name": "primary", "default": True, "config": {"channel": "#a"}},
+            headers=headers,
+        )
+        assert create.status_code == 201
+        assert create.json() == {"name": "primary", "default": True}
+
+        listed = client.get("/v1/connectors/slack/configs", headers=headers)
+        assert listed.status_code == 200
+        assert any(item["name"] == "primary" for item in listed.json())
+
+        got = client.get("/v1/connectors/slack/configs/primary", headers=headers)
+        assert got.status_code == 200
+        assert got.json()["name"] == "primary"
+
+        client.post(
+            "/v1/connectors/slack/configs",
+            json={"name": "secondary", "config": {"channel": "#b"}},
+            headers=headers,
+        )
+        updated = client.put(
+            "/v1/connectors/slack/configs/secondary",
+            json={"name": "secondary", "config": {"channel": "#b2"}},
+            headers=headers,
+        )
+        assert updated.status_code == 200
+
+        set_def = client.put(
+            "/v1/connectors/slack/configs/secondary/default",
+            headers=headers,
+        )
+        assert set_def.status_code == 200
+
+        deleted = client.delete(
+            "/v1/connectors/slack/configs/primary",
+            headers=headers,
+        )
+        assert deleted.status_code == 200
+
+        missing = client.get("/v1/connectors/slack/configs/primary", headers=headers)
+        assert missing.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_rest_config_missing_tenant_returns_400(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _config_factory()
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/connectors/slack/configs",
+            json={"name": "x", "config": {}},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 400
+    assert "X-Tenant-ID" in resp.json()["detail"]
+
+
+def test_rest_config_create_conflict_returns_409(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("dup", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/connectors/slack/configs",
+            json={"name": "dup", "config": {}},
+            headers={"X-Tenant-ID": "acme"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 409
+
+
+def test_rest_config_init_with_tenant_header(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _config_factory()
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={"slack": [{"name": "boot", "default": True, "config": {}}]},
+            headers={"X-Tenant-ID": "acme"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    assert factory.store.resolve("acme", "slack", None).name == "boot"
+
+
+def test_rest_config_delete_default_without_replacement_returns_400(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("keep", default=True))
+    factory.store.create("acme", "slack", _doc("other"))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.delete(
+            "/v1/connectors/slack/configs/keep",
+            headers={"X-Tenant-ID": "acme"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 400
+
+
+def test_tenant_from_headers_none_value():
+    assert tenant_from_headers({"X-Tenant-ID": None}) is None  # type: ignore[dict-item]
