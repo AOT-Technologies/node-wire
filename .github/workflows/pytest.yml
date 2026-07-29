@@ -63,6 +63,44 @@ jobs:
           if-no-files-found: ignore
 
 
+  patch-coverage:
+    name: Patch coverage (changed lines ≥ 80%)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Full history so diff-cover can diff against the base branch.
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Run pytest with coverage
+        run: uv run pytest --cov --cov-report=xml
+
+      - name: Enforce 80% coverage on changed lines
+        run: >
+          uv run diff-cover coverage.xml
+          --compare-branch origin/${{ github.base_ref }}
+          --fail-under 80
+          --show-uncovered
+
   playground-integration:
     name: Playground integration tests
     runs-on: ubuntu-latest
@@ -98,7 +136,7 @@ jobs:
           GOOGLE_DRIVE_SA_JSON: ${{ secrets.GOOGLE_DRIVE_SA_JSON }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           GDRIVE_TEST_RECIPIENT_EMAIL: ${{ secrets.GDRIVE_TEST_RECIPIENT_EMAIL }}
-          
+
           #stripe
           STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
           STRIPE_TEST_CUSTOMER_ID: ${{ secrets.STRIPE_TEST_CUSTOMER_ID }}

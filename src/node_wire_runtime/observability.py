@@ -9,12 +9,15 @@ import os
 from typing import Optional, cast
 
 from opentelemetry._logs import set_logger_provider
-from opentelemetry import trace
+from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import MetricExporter, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
@@ -85,6 +88,36 @@ class SanitizingLogExporter(LogExporter):
         return True
 
 
+class SanitizingMetricExporter(MetricExporter):
+    def __init__(self, delegate: MetricExporter):
+        self._delegate = delegate
+
+    @property
+    def _preferred_temporality(self):  # type: ignore[override]
+        return self._delegate._preferred_temporality
+
+    @property
+    def _preferred_aggregation(self):  # type: ignore[override]
+        return self._delegate._preferred_aggregation
+
+    def export(self, metrics_data, timeout_millis=10_000, **kwargs):
+        for rm in metrics_data.resource_metrics:
+            for sm in rm.scope_metrics:
+                for metric in sm.metrics:
+                    if hasattr(metric.data, "data_points"):
+                        for dp in metric.data.data_points:
+                            attrs = getattr(dp, "attributes", None)
+                            if attrs and isinstance(attrs, dict):
+                                _sanitize_otlp_attributes(attrs)
+        return self._delegate.export(metrics_data, timeout_millis=timeout_millis, **kwargs)
+
+    def shutdown(self, timeout_millis=30_000, **kwargs):
+        return self._delegate.shutdown(timeout_millis=timeout_millis, **kwargs)
+
+    def force_flush(self, timeout_millis: float = 10_000):
+        return self._delegate.force_flush(timeout_millis)
+
+
 def init_observability(app_name: str = "node_wire") -> None:
     """
     Initialize OpenTelemetry + OpenLLMetry/Traceloop for the process.
@@ -152,6 +185,30 @@ def init_observability(app_name: str = "node_wire") -> None:
     root_logger = logging.getLogger()
     root_logger.addFilter(_OtelContextFilter())
     root_logger.addHandler(LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider))
+
+    # Metrics: export to the local OTLP collector alongside traces and logs.
+    metric_interval_str: str = os.getenv("AOT_METRIC_EXPORT_INTERVAL_MS", "60000")
+    try:
+        metric_interval_ms = int(metric_interval_str)
+    except ValueError:
+        logger.warning(
+            "Invalid AOT_METRIC_EXPORT_INTERVAL_MS %r, falling back to 60000", metric_interval_str
+        )
+        metric_interval_ms = 60000
+
+    metric_exporter = SanitizingMetricExporter(
+        OTLPMetricExporter(
+            headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
+            if otlp_headers
+            else None,
+        )
+    )
+    metric_reader = PeriodicExportingMetricReader(
+        metric_exporter,
+        export_interval_millis=metric_interval_ms,
+    )
+    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+    metrics.set_meter_provider(meter_provider)
 
     # Initialize Traceloop/OpenLLMetry in metadata-only mode. Advanced AI features
     # (prompt logging, workflows, tools) are intentionally deferred.

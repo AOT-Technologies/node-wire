@@ -34,6 +34,35 @@ def test_health_endpoint():
     assert resp.json() == {"status": "ok"}
 
 
+def test_ready_endpoint_when_factory_has_connectors(monkeypatch: pytest.MonkeyPatch):
+    mock_factory = MagicMock()
+    mock_factory.list_for_protocol.return_value = [MagicMock()]
+    monkeypatch.setattr("bindings.rest_api.app._factory", mock_factory)
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ready"}
+
+
+def test_ready_endpoint_returns_503_when_no_connectors(monkeypatch: pytest.MonkeyPatch):
+    mock_factory = MagicMock()
+    mock_factory.list_for_protocol.return_value = []
+    monkeypatch.setattr("bindings.rest_api.app._factory", mock_factory)
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 503
+
+
+def test_ready_endpoint_returns_503_on_factory_error(monkeypatch: pytest.MonkeyPatch):
+    def _boom():
+        raise RuntimeError("factory load failed")
+
+    monkeypatch.setattr("bindings.rest_api.app.get_factory", _boom)
+    client = TestClient(app)
+    resp = client.get("/ready")
+    assert resp.status_code == 503
+
+
 def test_agent_transport_defaults_to_stdio(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("NW_MCP_TRANSPORT", raising=False)
     client = TestClient(app)

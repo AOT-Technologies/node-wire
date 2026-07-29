@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextvars
 import inspect
 import logging
+import time
 import uuid
 from abc import ABC
 from collections import defaultdict
@@ -26,8 +27,9 @@ from typing import (
     List,
 )
 
-from opentelemetry import trace
+from opentelemetry import metrics, trace
 from opentelemetry.trace import Tracer
+from opentelemetry.util.types import AttributeValue
 from pybreaker import CircuitBreaker
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
@@ -41,6 +43,17 @@ from .sdk_action_spec import SdkActionSpec
 
 logger = logging.getLogger("runtime.base_connector")
 tracer: Tracer = trace.get_tracer("runtime")
+_meter = metrics.get_meter("runtime")
+_invocation_counter = _meter.create_counter(
+    "connector.invocations",
+    unit="1",
+    description="Total number of connector invocations",
+)
+_invocation_duration = _meter.create_histogram(
+    "connector.duration_ms",
+    unit="ms",
+    description="Connector invocation wall-clock time in milliseconds",
+)
 ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
 
 
@@ -441,6 +454,7 @@ class BaseConnector(ABC):
         - Maps exceptions into the standard error taxonomy
         """
         trace_id = str(uuid.uuid4())
+        _start = time.monotonic()
 
         with tracer.start_as_current_span(
             "connector.run",
@@ -458,9 +472,15 @@ class BaseConnector(ABC):
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
                     "action": self.action,
+                    "principal": principal,
+                    "tenant_id": tenant_id,
+                    "scopes": list(scopes) if scopes else [],
+                    "audit": True,
+                    "audit_event": "invocation_start",
                 },
             )
 
+            _response: Optional[ConnectorResponse] = None
             token = _caller_execution_ctx.set((principal, tenant_id, scopes))
             try:
                 try:
@@ -474,12 +494,14 @@ class BaseConnector(ABC):
                             "action": self.action,
                             "error_type": type(exc).__name__,
                             "error_message": str(exc),
+                            "audit": True,
+                            "audit_event": "invocation_validation_failure",
                         },
                     )
                     details = [
                         {"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()
                     ]
-                    return ConnectorResponse(
+                    _response = ConnectorResponse(
                         success=False,
                         error_code="VALIDATION_ERROR",
                         error_category=ErrorCategory.BUSINESS,
@@ -487,6 +509,7 @@ class BaseConnector(ABC):
                         trace_id=trace_id,
                         details=details,
                     )
+                    return _response
 
                 # Policy hook
                 if self._policy_hook is not None:
@@ -518,15 +541,20 @@ class BaseConnector(ABC):
                             },
                         )
                         mapped = ErrorMapper.resolve(exc)
-                        return ConnectorResponse(
+                        _response = ConnectorResponse(
                             success=False,
                             error_code=mapped.code,
                             error_category=mapped.category,
                             message=str(exc),
                             trace_id=trace_id,
                         )
+                        return _response
 
-                execute_with_resilience = with_resilience(self._breaker_for_tenant(tenant_id))
+                execute_with_resilience = with_resilience(
+                    self._breaker_for_tenant(tenant_id),
+                    connector_id=self.connector_id,
+                    action=self.action,
+                )
 
                 @execute_with_resilience
                 async def _do_execute(*, trace_id: str) -> Any:
@@ -540,14 +568,18 @@ class BaseConnector(ABC):
                         "trace_id": trace_id,
                         "connector_id": self.connector_id,
                         "action": self.action,
+                        "duration_ms": round((time.monotonic() - _start) * 1000, 2),
+                        "audit": True,
+                        "audit_event": "invocation_success",
                     },
                 )
 
-                return ConnectorResponse(
+                _response = ConnectorResponse(
                     success=True,
                     data=output_model.model_dump(),
                     trace_id=trace_id,
                 )
+                return _response
             except NestedConnectorActionError as exc:
                 nested = exc.response
                 logger.warning(
@@ -559,7 +591,7 @@ class BaseConnector(ABC):
                         "nested_trace_id": nested.trace_id,
                     },
                 )
-                return ConnectorResponse(
+                _response = ConnectorResponse(
                     success=False,
                     error_code=nested.error_code,
                     error_category=nested.error_category,
@@ -567,6 +599,7 @@ class BaseConnector(ABC):
                     trace_id=trace_id,
                     details=_merge_nested_failure_details(nested),
                 )
+                return _response
             except Exception as exc:  # noqa: BLE001
                 mapped = ErrorMapper.resolve(exc)
                 logger.error(
@@ -579,17 +612,33 @@ class BaseConnector(ABC):
                         "error_category": mapped.category.value,
                         "error_type": type(exc).__name__,
                         "error_message": str(exc),
+                        "duration_ms": round((time.monotonic() - _start) * 1000, 2),
+                        "audit": True,
+                        "audit_event": "invocation_failure",
                     },
                 )
-                return ConnectorResponse(
+                _response = ConnectorResponse(
                     success=False,
                     error_code=mapped.code,
                     error_category=mapped.category,
                     message=str(exc),
                     trace_id=trace_id,
                 )
+                return _response
             finally:
                 _caller_execution_ctx.reset(token)
+                if _response is not None:
+                    _duration_ms = (time.monotonic() - _start) * 1000
+                    _metric_attrs: Dict[str, AttributeValue] = {
+                        "connector.id": self.connector_id,
+                        "connector.action": self.action,
+                        "success": _response.success,
+                        "error_category": (
+                            _response.error_category.value if _response.error_category else "none"
+                        ),
+                    }
+                    _invocation_counter.add(1, attributes=_metric_attrs)
+                    _invocation_duration.record(_duration_ms, attributes=_metric_attrs)
 
     @classmethod
     def get_registry(cls) -> Dict[str, Type[BaseConnector]]:

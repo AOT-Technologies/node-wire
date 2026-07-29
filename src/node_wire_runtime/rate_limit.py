@@ -15,6 +15,15 @@ import asyncio
 import os
 import time
 
+from opentelemetry import metrics
+
+_meter = metrics.get_meter("runtime")
+_rate_limit_rejections = _meter.create_counter(
+    "connector.rate_limit_rejections",
+    unit="1",
+    description="Requests rejected by the global token-bucket rate limiter",
+)
+
 
 class RateLimitExceeded(Exception):
     """Raised when the rate limit has been exceeded."""
@@ -50,6 +59,7 @@ class TokenBucket:
             if self.tokens >= amount:
                 self.tokens -= amount
             else:
+                _rate_limit_rejections.add(1)
                 raise RateLimitExceeded("Global rate limit exceeded. Please try again later.")
 
 
