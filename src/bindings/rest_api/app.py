@@ -163,6 +163,11 @@ def _config_tenant(request: Request) -> str:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _sanitize_log(value: str) -> str:
+    """Strip newlines/carriage-returns from user-supplied log values (log injection)."""
+    return value.replace("\n", " ").replace("\r", " ") if value else value
+
+
 def _log_playground_tenant(
     *,
     action: str,
@@ -173,10 +178,12 @@ def _log_playground_tenant(
     """Emit tenant context when multitenancy is on (visible in default formatters)."""
     if not is_multitenancy_enabled():
         return
-    parts = [f"Playground action | op={action}", f"tenant_id={tenant_id}"]
+    safe_tenant = _sanitize_log(tenant_id)
+    safe_config = _sanitize_log(config_name or "(default)")
+    parts = [f"Playground action | op={action}", f"tenant_id={safe_tenant}"]
     if connector_id:
-        parts.append(f"connector={connector_id}")
-    parts.append(f"config_name={config_name or '(default)'}")
+        parts.append(f"connector={_sanitize_log(connector_id)}")
+    parts.append(f"config_name={safe_config}")
     logger.info(" | ".join(parts))
 
 
