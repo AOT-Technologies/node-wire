@@ -301,9 +301,12 @@ def test_install_sanitizing_filter_finds_existing_without_flag() -> None:
     original_filters = list(root.filters)
     try:
         root.addFilter(SanitizingLogFilter())
+        # Count with our filter present; a SanitizingLogFilter may already be
+        # installed globally (e.g. bindings_entrypoint installs one at import).
+        count_before = sum(1 for f in root.filters if isinstance(f, SanitizingLogFilter))
         install_sanitizing_log_filter()
-        count = sum(1 for f in root.filters if isinstance(f, SanitizingLogFilter))
-        assert count == 1
+        count_after = sum(1 for f in root.filters if isinstance(f, SanitizingLogFilter))
+        assert count_after == count_before
     finally:
         for f in list(root.filters):
             root.removeFilter(f)
