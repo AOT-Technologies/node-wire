@@ -60,10 +60,14 @@ def _observability_test_patches():
     with _ensure_traceloop_stub_modules():
         with (
             patch("opentelemetry.trace.set_tracer_provider"),
+            patch("opentelemetry.metrics.set_meter_provider"),
             patch("node_wire_runtime.observability.OTLPSpanExporter") as span_exp,
             patch("node_wire_runtime.observability.OTLPLogExporter") as log_exp,
+            patch("node_wire_runtime.observability.OTLPMetricExporter") as metric_exp,
             patch("node_wire_runtime.observability.BatchSpanProcessor"),
             patch("node_wire_runtime.observability.BatchLogRecordProcessor"),
+            patch("node_wire_runtime.observability.PeriodicExportingMetricReader"),
+            patch("node_wire_runtime.observability.MeterProvider"),
             patch("node_wire_runtime.observability.set_logger_provider"),
             patch(
                 "node_wire_runtime.observability.LoggingHandler",
@@ -72,23 +76,24 @@ def _observability_test_patches():
             patch("traceloop.sdk.Traceloop") as mock_tl,
         ):
             mock_tl.init = MagicMock()
-            yield span_exp, log_exp, mock_tl
+            yield span_exp, log_exp, mock_tl, metric_exp
 
 
 def test_init_observability_idempotent() -> None:
     """Second call should not reconfigure exporters."""
-    with _observability_test_patches() as (span_exp, log_exp, _mock_tl):
+    with _observability_test_patches() as (span_exp, log_exp, _mock_tl, metric_exp):
         obs.init_observability("app-a")
         obs.init_observability("app-b")
     assert span_exp.call_count == 1
     assert log_exp.call_count == 1
+    assert metric_exp.call_count == 1
 
 
 def test_init_observability_invalid_sampling_ratio_logs_warning(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.setenv("AOT_TRACING_SAMPLING_RATIO", "not-a-number")
-    with _observability_test_patches():
+    with _observability_test_patches() as _:
         with caplog.at_level(logging.WARNING, logger="runtime.observability"):
             obs.init_observability("app-warn")
     assert any("Invalid AOT_TRACING_SAMPLING_RATIO" in r.message for r in caplog.records)
@@ -98,11 +103,12 @@ def test_init_observability_otel_headers_passed_to_exporters(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "key=value,foo=bar")
-    with _observability_test_patches() as (span_exp, log_exp, _mock_tl):
+    with _observability_test_patches() as (span_exp, log_exp, _mock_tl, metric_exp):
         obs.init_observability("app-h")
     expected_headers = {"key": "value", "foo": "bar"}
     assert span_exp.call_args.kwargs.get("headers") == expected_headers
     assert log_exp.call_args.kwargs.get("headers") == expected_headers
+    assert metric_exp.call_args.kwargs.get("headers") == expected_headers
 
 
 def test_otel_context_filter_sets_empty_trace_when_no_span() -> None:
@@ -116,7 +122,7 @@ def test_otel_context_filter_sets_empty_trace_when_no_span() -> None:
 
 
 def test_init_observability_installs_sanitizing_log_filter() -> None:
-    with _observability_test_patches():
+    with _observability_test_patches() as _:
         obs.init_observability("app-filter")
     root = logging.getLogger()
     assert any(isinstance(flt, SanitizingLogFilter) for flt in root.filters)
@@ -127,8 +133,30 @@ def test_init_observability_traceloop_failure_does_not_raise(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("TRACELOOP_API_KEY", "test-key")
-    with _observability_test_patches() as (_s, _l, mock_tl):
+    with _observability_test_patches() as (_s, _l, mock_tl, _m):
         mock_tl.init = MagicMock(side_effect=RuntimeError("traceloop unavailable"))
         with caplog.at_level(logging.WARNING, logger="runtime.observability"):
             obs.init_observability("app-tl")
     assert any("Failed to initialize Traceloop" in r.message for r in caplog.records)
+
+
+def test_init_observability_metric_exporter_initialized() -> None:
+    """MeterProvider and OTLPMetricExporter should be set up on first call."""
+    with _observability_test_patches() as (_span, _log, _tl, metric_exp):
+        with patch("node_wire_runtime.observability.MeterProvider") as meter_provider:
+            obs.init_observability("app-metrics")
+    assert metric_exp.call_count == 1
+    # The reader must be passed via the SDK's real kwarg name (`metric_readers`);
+    # `readers=` raises TypeError at runtime and would silently drop metrics export.
+    assert "metric_readers" in meter_provider.call_args.kwargs
+
+
+def test_init_observability_invalid_metric_interval_logs_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("AOT_METRIC_EXPORT_INTERVAL_MS", "not-a-number")
+    with _observability_test_patches() as _:
+        with caplog.at_level(logging.WARNING, logger="runtime.observability"):
+            obs.init_observability("app-metric-warn")
+    assert any("Invalid AOT_METRIC_EXPORT_INTERVAL_MS" in r.message for r in caplog.records)

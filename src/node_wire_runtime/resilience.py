@@ -8,6 +8,7 @@ import logging
 from functools import wraps
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
+from opentelemetry import metrics
 from pybreaker import CircuitBreaker, CircuitBreakerError
 from tenacity import (
     AsyncRetrying,
@@ -20,6 +21,18 @@ from .errors import ErrorMapper
 from .models import ErrorCategory
 
 logger = logging.getLogger("runtime.resilience")
+
+_meter = metrics.get_meter("runtime")
+_retry_counter = _meter.create_counter(
+    "connector.retries",
+    unit="1",
+    description="Retryable errors encountered during execution (triggers a retry unless attempts are exhausted)",
+)
+_circuit_breaker_rejections = _meter.create_counter(
+    "connector.circuit_breaker_rejections",
+    unit="1",
+    description="Calls rejected because the tenant circuit breaker was open",
+)
 
 T = TypeVar("T")
 
@@ -98,11 +111,17 @@ def with_resilience(
     max_attempts: int = 3,
     base_wait: float = 0.5,
     max_wait: float = 5.0,
+    connector_id: str = "",
+    action: str = "",
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Coroutine[Any, Any, T]]]:
     """
     Decorator that applies retry (Tenacity) and circuit breaking (PyBreaker)
     around an async function that may raise exceptions.
+
+    ``connector_id`` and ``action`` are low-cardinality labels attached to the
+    retry and circuit-breaker metrics; they carry no request-specific identity.
     """
+    _metric_attrs = {"connector.id": connector_id, "connector.action": action}
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Coroutine[Any, Any, T]]:
         @wraps(fn)
@@ -121,6 +140,8 @@ def with_resilience(
                             return await _run_through_breaker(breaker, fn, args, kwargs, trace_id)
                         except Exception as exc:  # noqa: BLE001
                             mapped = ErrorMapper.resolve(exc)
+                            if isinstance(exc, CircuitBreakerError):
+                                _circuit_breaker_rejections.add(1, attributes=_metric_attrs)
                             if mapped.category is not ErrorCategory.RETRYABLE:
                                 # Non-retryable: log, then escape the retry loop entirely.
                                 logger.error(
@@ -135,6 +156,10 @@ def with_resilience(
                                 )
                                 raise _AbortRetry(exc)
 
+                            _retry_counter.add(
+                                1,
+                                attributes={**_metric_attrs, "error_code": mapped.code},
+                            )
                             logger.warning(
                                 "Retryable error during execution; will retry",
                                 extra={
