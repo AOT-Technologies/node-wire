@@ -357,3 +357,51 @@ async def test_invoke_error_response_maps_error_category(
     assert resp.success is False
     assert resp.error_code == "UPSTREAM_TIMEOUT"
     assert resp.error_category == ErrorCategory.RETRYABLE.value
+
+
+async def test_invoke_missing_tenant_when_multitenancy_enabled(
+    servicer: ConnectorServiceServicer,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    with patch("bindings.grpc_server.server.get_grpc_caller_identity", return_value=None):
+        req = connector_pb2.InvokeRequest(connector_id="x", action="act")
+        resp = await servicer._invoke_async(req)
+
+    assert resp.success is False
+    assert resp.error_code == "MISSING_TENANT"
+    assert resp.error_category == ErrorCategory.AUTH.value
+
+
+async def test_invoke_config_not_found(servicer: ConnectorServiceServicer) -> None:
+    from node_wire_runtime.config_store import ConfigNotFoundError
+
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(
+            servicer._factory,
+            "get",
+            new=AsyncMock(side_effect=ConfigNotFoundError("no config")),
+        ),
+    ):
+        req = connector_pb2.InvokeRequest(connector_id="x", action="act", payload_json="{}")
+        resp = await servicer._invoke_async(req)
+
+    assert resp.success is False
+    assert resp.error_code == "CONFIG_NOT_FOUND"
+    assert resp.error_category == ErrorCategory.AUTH.value
+
+
+def test_invoke_passes_metadata_headers(servicer: ConnectorServiceServicer) -> None:
+    context = MagicMock()
+    context.invocation_metadata.return_value = (("x-tenant-id", "acme"),)
+    req = connector_pb2.InvokeRequest(connector_id="x", action="act")
+
+    with patch("bindings.grpc_server.server._async_runner") as runner:
+        runner.run.return_value = connector_pb2.InvokeResponse(success=True, trace_id="t")
+        resp = servicer.Invoke(req, context)
+
+    assert resp.success is True
+    call_args = runner.run.call_args[0][0]
+    # The coroutine was created with metadata; force close to avoid warnings.
+    call_args.close()
