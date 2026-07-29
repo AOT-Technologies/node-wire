@@ -13,8 +13,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import node_wire_runtime.log_sanitization as ls
-
 from node_wire_runtime import connector_registry
 from node_wire_runtime.log_sanitization import (
     REDACTED,
@@ -298,27 +296,19 @@ def test_sanitize_log_record_no_args() -> None:
 
 
 def test_install_sanitizing_filter_finds_existing_without_flag() -> None:
-    """When a SanitizingLogFilter is already present but the flag is False,
-    it should detect it and not add a duplicate."""
-    original_flag = ls._SANITIZING_FILTER_INSTALLED
-    original_filters = list(logging.getLogger().filters)
+    """When a SanitizingLogFilter is already present, do not add a duplicate."""
+    root = logging.getLogger()
+    original_filters = list(root.filters)
     try:
-        ls._SANITIZING_FILTER_INSTALLED = False
-        root = logging.getLogger()
-        # Add filter directly without going through install_sanitizing_log_filter
-        existing = SanitizingLogFilter()
-        root.addFilter(existing)
+        root.addFilter(SanitizingLogFilter())
         install_sanitizing_log_filter()
         count = sum(1 for f in root.filters if isinstance(f, SanitizingLogFilter))
-        assert count >= 1
-        assert ls._SANITIZING_FILTER_INSTALLED is True
+        assert count == 1
     finally:
-        ls._SANITIZING_FILTER_INSTALLED = original_flag
-        # Restore original filters
-        for f in list(logging.getLogger().filters):
-            logging.getLogger().removeFilter(f)
+        for f in list(root.filters):
+            root.removeFilter(f)
         for f in original_filters:
-            logging.getLogger().addFilter(f)
+            root.addFilter(f)
 
 
 # ---------------------------------------------------------------------------
