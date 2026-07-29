@@ -37,6 +37,9 @@ coverage.xml
 bandit-report.json
 .venv*/
 
+# MkDocs generated site
+/site/
+
 # debug
 launch.json
 

@@ -23,7 +23,7 @@ Thanks for using Node Wire! Here's how to get help.
 ## Security issues
 
 - **Do not** open a public issue. Follow the [Security Policy](SECURITY.md)
-  (GitHub private advisory or security@aot-technologies.com).
+  (GitHub private advisory or opensource@aot-technologies.com).
 
 ## Commercial support
 
