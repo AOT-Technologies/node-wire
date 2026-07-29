@@ -410,13 +410,9 @@ async def get_cerner_connector(request: Request, config_name: Optional[str] = No
     return connector
 
 
-async def get_google_drive_connector(
-    request: Request, config_name: Optional[str] = None
-) -> Any:
+async def get_google_drive_connector(request: Request, config_name: Optional[str] = None) -> Any:
     """``config_name`` query param is optional; GDrive body may also carry it."""
-    return await resolve_connector(
-        request, "google_drive", config_name=config_name
-    )
+    return await resolve_connector(request, "google_drive", config_name=config_name)
 
 
 async def get_slack_connector(request: Request, config_name: Optional[str] = None):
@@ -1995,15 +1991,10 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
             try:
                 if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(
-                        urls[0], extra_headers=mcp_headers
-                    )
+                    mcp_client = create_http_mcp_client(urls[0], extra_headers=mcp_headers)
                 else:
                     mcp_client = MultiMcpClient(
-                        [
-                            create_http_mcp_client(u, extra_headers=mcp_headers)
-                            for u in urls
-                        ]
+                        [create_http_mcp_client(u, extra_headers=mcp_headers) for u in urls]
                     )
                 agent = ToolHiveAgent(
                     mcp_client,
@@ -2161,23 +2152,17 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
             # Default true: playground should work without a separate MCP on :8081.
             fallback_to_local = (
-                os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower()
-                == "true"
+                os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
             )
 
             if urls:
                 proxy_ok = False
                 try:
                     if len(urls) == 1:
-                        mcp_client = create_http_mcp_client(
-                            urls[0], extra_headers=mcp_headers
-                        )
+                        mcp_client = create_http_mcp_client(urls[0], extra_headers=mcp_headers)
                     else:
                         mcp_client = MultiMcpClient(
-                            [
-                                create_http_mcp_client(u, extra_headers=mcp_headers)
-                                for u in urls
-                            ]
+                            [create_http_mcp_client(u, extra_headers=mcp_headers) for u in urls]
                         )
                     agent = ToolHiveAgent(
                         mcp_client,

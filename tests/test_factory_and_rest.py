@@ -159,6 +159,8 @@ def test_rest_post_propagates_api_key_identity_to_connector_run(
 def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    # JWT tenant claim is only applied when multitenancy is enabled.
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     secret = "rest-jwt-test-secret-at-least-32bytes!!"
     monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
 
