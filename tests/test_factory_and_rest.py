@@ -16,7 +16,7 @@ from tests.jwt_test_helpers import mint_test_jwt
 
 
 def test_factory_loads_config(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(ConnectorFactory, "_instantiate", lambda self, cid: MagicMock())
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", lambda self, record: MagicMock())
     factory = ConnectorFactory()
     factory.load()
 
@@ -111,9 +111,8 @@ def test_rest_post_with_bearer_succeeds_when_key_required(monkeypatch: pytest.Mo
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
     monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for this test
 
-    mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(
-        ConnectorResponse(success=True, data={"ok": True}, trace_id="t-rest")
+    mock_factory = _mock_factory(
+        _stub_connector(ConnectorResponse(success=True, data={"ok": True}, trace_id="t-rest"))
     )
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
@@ -137,10 +136,8 @@ def test_rest_post_propagates_api_key_identity_to_connector_run(
     monkeypatch.delenv("NW_REST_API_KEY_SCOPES", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", "unit-test-secret")
 
-    mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(
-        ConnectorResponse(success=True, data={}, trace_id="t-p")
-    )
+    stub = _stub_connector(ConnectorResponse(success=True, data={}, trace_id="t-p"))
+    mock_factory = _mock_factory(stub)
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
@@ -152,16 +149,18 @@ def test_rest_post_propagates_api_key_identity_to_connector_run(
     finally:
         app.dependency_overrides.clear()
 
-    stub = mock_factory.get_for_protocol.return_value
     kwargs = stub.run.await_args.kwargs
     assert kwargs["principal"] == "api-key-user"
-    assert kwargs["tenant_id"] is None
+    # No tenant header and no JWT claim -> normalized to the default sentinel.
+    assert kwargs["tenant_id"] == "__default__"
     assert kwargs["scopes"] == ()
 
 
 def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    # JWT tenant claim is only applied when multitenancy is enabled.
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     secret = "rest-jwt-test-secret-at-least-32bytes!!"
     monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
 
@@ -170,10 +169,8 @@ def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.Mo
         secret,
     )
 
-    mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(
-        ConnectorResponse(success=True, data={}, trace_id="t-j")
-    )
+    stub = _stub_connector(ConnectorResponse(success=True, data={}, trace_id="t-j"))
+    mock_factory = _mock_factory(stub)
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)
@@ -186,7 +183,6 @@ def test_rest_post_propagates_jwt_claims_to_connector_run(monkeypatch: pytest.Mo
         app.dependency_overrides.clear()
 
     # The connector needs to be called first to set up the mock
-    stub = mock_factory.get_for_protocol.return_value
     assert stub.run is not None, "Connector mock was not called"
     kwargs = stub.run.await_args.kwargs
     assert kwargs["principal"] == "alice"
@@ -221,11 +217,19 @@ def _stub_connector(response: ConnectorResponse) -> MagicMock:
     return c
 
 
+def _mock_factory(stub: MagicMock) -> MagicMock:
+    """Factory mock for the async, tenant-aware invoke path (``get`` + ``is_exposed``)."""
+    f = MagicMock()
+    f.is_exposed.return_value = True
+    f.get = AsyncMock(return_value=stub)
+    return f
+
+
 def test_rest_post_connector_success() -> None:
     """Dynamic POST forwards payload to connector.run and returns JSON with 200."""
     resp_body = ConnectorResponse(success=True, data={"ok": True}, trace_id="t-rest")
-    mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(resp_body)
+    stub = _stub_connector(resp_body)
+    mock_factory = _mock_factory(stub)
 
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
@@ -240,8 +244,9 @@ def test_rest_post_connector_success() -> None:
     body = r.json()
     assert body["success"] is True
     assert body["trace_id"] == "t-rest"
-    mock_factory.get_for_protocol.assert_called_with("http_generic", "rest", action="request")
-    stub = mock_factory.get_for_protocol.return_value
+    mock_factory.get.assert_awaited_with(
+        "http_generic", tenant_id="__default__", config_name=None, action="request"
+    )
     stub.run.assert_awaited_once()
     call_payload = stub.run.await_args[0][0]
     assert call_payload["action"] == "request"
@@ -250,9 +255,8 @@ def test_rest_post_connector_success() -> None:
 
 def test_rest_post_connector_rejects_conflicting_action_in_body() -> None:
     """Body action must match URL path segment (same as MCP tool name authority)."""
-    mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(
-        ConnectorResponse(success=True, data={}, trace_id="t")
+    mock_factory = _mock_factory(
+        _stub_connector(ConnectorResponse(success=True, data={}, trace_id="t"))
     )
 
     app.dependency_overrides[get_factory] = lambda: mock_factory
@@ -288,8 +292,7 @@ def test_rest_post_connector_error_category_http_status(
         error_code="E1",
         message="nope",
     )
-    mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(resp_body)
+    mock_factory = _mock_factory(_stub_connector(resp_body))
 
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
@@ -307,7 +310,7 @@ def test_rest_post_connector_error_category_http_status(
 
 def test_rest_post_connector_not_available_returns_404() -> None:
     mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = None
+    mock_factory.is_exposed.return_value = False
 
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
@@ -362,3 +365,70 @@ def test_factory_default_scope_policy_is_deny_without_env(
 
     factory = ConnectorFactory()
     assert factory._policy_hook is not None
+
+
+@pytest.mark.asyncio
+async def test_factory_instances_cache_safe_under_concurrent_get_and_invalidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """_instances is shared by async get, sync invalidate, and _default_instance."""
+    import asyncio
+    import threading
+
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
+    factory = ConnectorFactory()
+    factory.store.init(
+        {
+            DEFAULT_TENANT: {
+                "http_generic": [{"name": "default", "default": True, "config": {}}],
+            }
+        }
+    )
+
+    def _fake_instantiate(self: ConnectorFactory, record: object) -> MagicMock:
+        m = MagicMock()
+        m.aclose = AsyncMock()
+        return m
+
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", _fake_instantiate)
+
+    errors: list[BaseException] = []
+
+    async def hammer_get() -> None:
+        try:
+            for _ in range(40):
+                await factory.get("http_generic", tenant_id=DEFAULT_TENANT)
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def hammer_invalidate() -> None:
+        try:
+            for _ in range(40):
+                factory.invalidate_configs(DEFAULT_TENANT, "http_generic", ["default"])
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def hammer_default() -> None:
+        try:
+            for _ in range(40):
+                factory._default_instance("http_generic")
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=hammer_invalidate),
+        threading.Thread(target=hammer_default),
+        threading.Thread(target=hammer_invalidate),
+    ]
+    for t in threads:
+        t.start()
+    await asyncio.gather(hammer_get(), hammer_get(), hammer_get())
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    # Cache remains a usable OrderedDict after concurrent mutation.
+    with factory._instances_guard:
+        _ = list(factory._instances.items())
+        assert len(factory._instances) <= 1

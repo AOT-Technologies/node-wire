@@ -107,8 +107,11 @@ def test_rest_dispatch_smoke_per_connector(
     payload: dict,
 ) -> None:
     mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector(
-        ConnectorResponse(success=True, data={"ok": True}, trace_id=f"t-{connector_id}")
+    mock_factory.is_exposed.return_value = True
+    mock_factory.get = AsyncMock(
+        return_value=_stub_connector(
+            ConnectorResponse(success=True, data={"ok": True}, trace_id=f"t-{connector_id}")
+        )
     )
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
@@ -119,7 +122,9 @@ def test_rest_dispatch_smoke_per_connector(
 
     assert response.status_code == 200
     assert response.json()["success"] is True
-    mock_factory.get_for_protocol.assert_called_with(connector_id, "rest", action=action)
+    mock_factory.get.assert_awaited_with(
+        connector_id, tenant_id="__default__", config_name=None, action=action
+    )
 
 
 @pytest.mark.parametrize(

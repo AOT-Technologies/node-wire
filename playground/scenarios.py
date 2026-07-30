@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
@@ -19,6 +19,13 @@ import os
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    is_multitenancy_enabled,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_fhir_epic.logic import FhirEpicConnector
 from node_wire_fhir_epic.schema import (
     FhirDocumentReferenceCreateInput,
@@ -73,6 +80,8 @@ ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_
 
 
 logger = logging.getLogger("playground.scenarios")
+
+
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
@@ -153,6 +162,8 @@ class GoogleDriveArchivalInput(BaseModel):
     update_mime_type: Optional[str] = None
     update_add_parents: Optional[str] = None
     update_remove_parents: Optional[str] = None
+    # Resolution-time only (not a Drive API field); optional named config for the tenant.
+    config_name: Optional[str] = None
 
     @model_validator(mode="after")
     def require_upload_fields_when_not_list(self) -> "GoogleDriveArchivalInput":
@@ -314,76 +325,111 @@ async def execute_with_retry(
                 raise last_exception
 
 
-# Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
+# Share the REST binding factory so playground config CRUD (/v1/...) and scenarios
+# see the same in-memory ConnectorConfigStore.
 _playground_factory: Optional[Any] = None
 
 
 def get_playground_factory() -> Any:
-    """Lazily load connector config once; same pattern as bindings REST `get_factory`."""
+    """Reuse the REST API factory (same process, same config store)."""
     global _playground_factory
     if _playground_factory is None:
-        from bindings.factory import ConnectorFactory
-        from node_wire_runtime.connector_registry import auto_register
+        from bindings.rest_api.app import get_factory
 
-        _playground_factory = ConnectorFactory()
-        auto_register()
-        _playground_factory.load()
+        _playground_factory = get_factory()
     return _playground_factory
 
 
-def resolve_connector(connector_id: str, action: Optional[str] = None) -> Any:
-    """Resolve a connector via public factory API (protocol-aware)."""
+async def resolve_connector(
+    request: Request,
+    connector_id: str,
+    *,
+    action: Optional[str] = None,
+    config_name: Optional[str] = None,
+) -> Any:
+    """Resolve a tenant-scoped connector instance for the playground.
+
+    Tenant comes from ``X-Tenant-ID`` (then JWT). When multitenancy is enabled,
+    a tenant id is required. ``config_name`` may be supplied as a query param
+    or (for GDrive) payload field.
+    """
+    from bindings.rest_api.auth import get_rest_caller_identity
+
     factory = get_playground_factory()
-    return factory.get_for_protocol(connector_id, "rest", action=action)
+    if not factory.is_exposed(connector_id, "rest"):
+        raise HTTPException(
+            status_code=500, detail=f"Connector {connector_id!r} is not configured for REST"
+        )
+
+    try:
+        tenant_id = resolve_tenant_id(
+            headers=request.headers,
+            jwt_identity=get_rest_caller_identity(request),
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    name = resolve_config_name((config_name or "").strip() or None)
+    if is_multitenancy_enabled():
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "Playground action | connector=%s | tenant_id=%s | config_name=%s",
+            str(connector_id).replace("\r", " ").replace("\n", " "),
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(name or "(default)").replace("\r", " ").replace("\n", " "),
+        )
+    try:
+        return await factory.get(
+            connector_id,
+            tenant_id=tenant_id,
+            config_name=name,
+            action=action,
+        )
+    except ConfigNotFoundError:
+        raise HTTPException(
+            status_code=403,
+            detail="No connector configuration for this tenant",
+        )
+    except ValueError as exc:
+        # Incomplete auth blocks (e.g. service_account without sa_json_secret).
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def get_fhir_connector() -> FhirEpicConnector:
-    connector = resolve_connector("fhir_epic")
-    if not connector:
-        raise HTTPException(status_code=500, detail="FHIR Epic connector not configured")
+async def get_fhir_connector(
+    request: Request, config_name: Optional[str] = None
+) -> FhirEpicConnector:
+    connector = await resolve_connector(request, "fhir_epic", config_name=config_name)
     return connector  # type: ignore[return-value]
 
 
-def get_http_connector():
-    # Manifest action for http_generic is "request"; pass it for parity with REST routing.
-    connector = resolve_connector("http_generic", action="request")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Generic HTTP connector not configured")
+async def get_http_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(
+        request, "http_generic", action="request", config_name=config_name
+    )
     return connector
 
 
-def get_cerner_connector():
-    connector = resolve_connector("fhir_cerner")
-    if not connector:
-        raise HTTPException(status_code=500, detail="FHIR Cerner connector not configured")
+async def get_cerner_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "fhir_cerner", config_name=config_name)
     return connector
 
 
-def get_google_drive_connector():
-    connector = resolve_connector("google_drive")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Google Drive connector not configured")
+async def get_google_drive_connector(request: Request, config_name: Optional[str] = None) -> Any:
+    """``config_name`` query param is optional; GDrive body may also carry it."""
+    return await resolve_connector(request, "google_drive", config_name=config_name)
+
+
+async def get_slack_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "slack", config_name=config_name)
     return connector
 
 
-def get_slack_connector():
-    connector = resolve_connector("slack")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Slack connector not configured")
+async def get_stripe_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "stripe", config_name=config_name)
     return connector
 
 
-def get_stripe_connector():
-    connector = resolve_connector("stripe")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Stripe connector not configured")
-    return connector
-
-
-def get_salesforce_connector():
-    connector = resolve_connector("salesforce")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Salesforce connector not configured")
+async def get_salesforce_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "salesforce", config_name=config_name)
     return connector
 
 
@@ -1348,9 +1394,15 @@ async def stripe_refund_scenario(
 
 @router.post("/gdrive-archival", response_model=ScenarioResponse)
 async def gdrive_archival_scenario(
-    payload: GoogleDriveArchivalInput, connector: Any = Depends(get_google_drive_connector)
+    request: Request,
+    payload: GoogleDriveArchivalInput,
 ) -> ScenarioResponse:
-    """4-step Google Drive archival and sharing demo."""
+    """4-step Google Drive archival and sharing demo (tenant-aware)."""
+    connector = await resolve_connector(
+        request,
+        "google_drive",
+        config_name=payload.config_name,
+    )
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
 
@@ -1845,15 +1897,47 @@ def _current_agent_transport() -> str:
     return transport if transport in {"stdio", "streamable-http"} else "stdio"
 
 
+def _resolve_agent_mcp_tenant(request: Request) -> str:
+    """Resolve tenant for playground agent → MCP (stdio pin / HTTP header)."""
+    from bindings.rest_api.auth import get_rest_caller_identity
+
+    try:
+        return resolve_tenant_id(
+            headers=request.headers,
+            jwt_identity=get_rest_caller_identity(request),
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _agent_mcp_extra_headers(tenant_id: str) -> Dict[str, str]:
+    from node_wire_runtime.identity import TENANT_HEADER
+
+    # TENANT_HEADER is lowercased; HTTP clients accept any casing.
+    return {TENANT_HEADER: tenant_id}
+
+
+def _playground_inprocess_mcp_client(tenant_id: str, request: Request):
+    """Share playground factory/store with agent tool calls (named tenants)."""
+    from agents.toolhive import InProcessMcpClient
+    from bindings.mcp_server.server import McpServer
+
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    factory = get_playground_factory()
+    server = McpServer(server_name="node-wire-playground-agent", factory=factory)
+    return InProcessMcpClient(server, tenant_id=tenant_id, config_name=config_name)
+
+
 @router.post("/agent-chat", response_model=AgentChatResponse)
-async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
+async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResponse:
     """
     AI Agent chatbot endpoint.
     Accepts a user message + conversation history, runs through the ToolHiveAgent,
     and returns the agent's reply with any tool steps executed.
     """
     import os
-    import sys
 
     trace_id = str(uuid.uuid4())
     logger.info(
@@ -1870,12 +1954,23 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             success=False,
         )
 
+    tenant_id = _resolve_agent_mcp_tenant(request)
+    mcp_headers = _agent_mcp_extra_headers(tenant_id)
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    if is_multitenancy_enabled():
+        logger.info(
+            "Agent Chat | mcp_tenant_id=%s | config_name=%s",
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
+        )
+
     try:
         from agents.llm_factory import LLMProviderFactory
         from agents.toolhive import (
             MultiMcpClient,
             ToolHiveAgent,
-            StdioMcpClient,
             resolve_mcp_urls,
             resolve_max_tool_failures,
         )
@@ -1887,21 +1982,23 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
         task = _build_agent_chat_task(payload)
 
-        # Determine MCP transport — try proxy first, fallback to local stdio
+        # Determine MCP transport — try proxy first, fallback to local in-process
         transport = _current_agent_transport()
         urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
         fallback_to_stdio = (
-            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
+            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
         )
 
         if urls:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
             try:
                 if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(urls[0])
+                    mcp_client = create_http_mcp_client(urls[0], extra_headers=mcp_headers)
                 else:
-                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
+                    mcp_client = MultiMcpClient(
+                        [create_http_mcp_client(u, extra_headers=mcp_headers) for u in urls]
+                    )
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -1951,10 +2048,9 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     )
 
         if run_result is None:
-            # Use local stdio transport
-            logger.info("Agent Chat | using local stdio MCP transport")
-            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-            async with StdioMcpClient(cmd) as mcp_client:
+            # In-process MCP shares the playground config store (named tenants).
+            logger.info("Agent Chat | using in-process MCP (shared factory)")
+            async with _playground_inprocess_mcp_client(tenant_id, request) as mcp_client:
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -1999,22 +2095,30 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
 
 @router.post("/agent-chat-stream")
-async def agent_chat_stream(payload: AgentChatInput) -> Any:
+async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
     """
     Stream agent progress and final-answer chunks to web clients.
 
     The terminal ``done`` event includes ``trace_id`` and ``message``. Clients
     should stop their streaming loader only when that event arrives.
     """
+    tenant_id = _resolve_agent_mcp_tenant(request)
+    mcp_headers = _agent_mcp_extra_headers(tenant_id)
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    if is_multitenancy_enabled():
+        logger.info(
+            "Agent Chat stream | mcp_tenant_id=%s | config_name=%s",
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
+        )
 
     async def stream_events():
         try:
-            import sys
-
             from agents.llm_factory import LLMProviderFactory
             from agents.toolhive import (
                 MultiMcpClient,
-                StdioMcpClient,
                 ToolHiveAgent,
                 resolve_mcp_urls,
                 resolve_max_tool_failures,
@@ -2049,25 +2153,55 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
             task = _build_agent_chat_task(payload)
             transport = _current_agent_transport()
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
+            # Default true: playground should work without a separate MCP on :8081.
+            fallback_to_local = (
+                os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
+            )
 
             if urls:
-                if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(urls[0])
-                else:
-                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
-                agent = ToolHiveAgent(
-                    mcp_client,
-                    llm_provider,
-                    max_steps=10,
-                    max_tool_failures=resolve_max_tool_failures(None),
-                )
-                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
-                async for event in agent.run_events(task):
-                    yield json.dumps(event) + "\n"
-                return
+                proxy_ok = False
+                try:
+                    if len(urls) == 1:
+                        mcp_client = create_http_mcp_client(urls[0], extra_headers=mcp_headers)
+                    else:
+                        mcp_client = MultiMcpClient(
+                            [create_http_mcp_client(u, extra_headers=mcp_headers) for u in urls]
+                        )
+                    agent = ToolHiveAgent(
+                        mcp_client,
+                        llm_provider,
+                        max_steps=10,
+                        max_tool_failures=resolve_max_tool_failures(None),
+                    )
+                    agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                    async for event in agent.run_events(task):
+                        if (
+                            fallback_to_local
+                            and event.get("type") == "error"
+                            and "Failed to list MCP tools" in str(event.get("message") or "")
+                        ):
+                            logger.warning(
+                                "Agent Chat stream | proxy incomplete (%s) — "
+                                "falling back to in-process MCP",
+                                event.get("message"),
+                            )
+                            break
+                        proxy_ok = True
+                        yield json.dumps(event) + "\n"
+                    else:
+                        # Exhausted generator without break → proxy finished normally.
+                        return
+                    if proxy_ok:
+                        return
+                except Exception as proxy_err:
+                    if not fallback_to_local:
+                        raise
+                    logger.warning(
+                        "Agent Chat stream | proxy error: %s — falling back to in-process MCP",
+                        proxy_err,
+                    )
 
-            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-            async with StdioMcpClient(cmd) as mcp_client:
+            async with _playground_inprocess_mcp_client(tenant_id, request) as mcp_client:
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,

@@ -27,6 +27,8 @@ from node_wire_runtime.secrets.base import (
     SecretNotFoundError,
     SecretProvider,
     SecretProviderError,
+    TenantSecretNotFoundError,
+    TenantSecretProvider,
 )
 from node_wire_runtime.secrets.chained import ChainedSecretProvider
 
@@ -35,5 +37,7 @@ __all__ = [
     "EnvSecretProvider",
     "SecretNotFoundError",
     "SecretProviderError",
+    "TenantSecretNotFoundError",
+    "TenantSecretProvider",
     "ChainedSecretProvider",
 ]

@@ -329,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Back to Workspace
                     `;
                 }
+                syncMultitenancyUi();
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
             } else if (view === 'connector-apps-menu') {
                 rootSelectionView.classList.add('hidden');
@@ -345,6 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Back to Workspace
                     `;
                 }
+                syncMultitenancyUi();
                 log('Opened Connector Apps menu', 'system');
             } else if (view === 'ext-patient-viewer') {
                 document.getElementById('connector-apps-selection-view').classList.add('hidden');
@@ -365,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
                 setMode('ext-patient-viewer');
+                syncMultitenancyUi();
             } else {
                 rootSelectionView.classList.add('hidden');
                 layoutMain.classList.remove('hidden');
@@ -384,6 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Back to Workspace
                     `;
                 }
+                syncMultitenancyUi();
                 log('Switched to Connectors view', 'system');
             }
         });
@@ -724,6 +728,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (backSelectionBtn) backSelectionBtn.classList.add('hidden');
             if (backToConnectorsBtn) backToConnectorsBtn.classList.remove('hidden');
             setMode(mode);
+            refreshConfigDropdown(mode);
+            syncMultitenancyUi();
         });
     });
 
@@ -738,6 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
             connectorStatus.textContent = 'Connectors Ready';
             tagline.textContent = 'Enterprise Integration Suite';
             document.documentElement.style.setProperty('--brand-accent', '#2563eb');
+            syncMultitenancyUi();
             log('Returned to Connectors list', 'system');
         }
     });
@@ -779,6 +786,272 @@ document.addEventListener('DOMContentLoaded', () => {
         gdriveActionSelect.addEventListener('change', scheduleGdriveDriveActionSyncFromUser);
     }
 
+    // --- Multitenancy feature flag (fetched once on page load) ---
+    let _multitenancyEnabled = false;
+
+    function syncMultitenancyUi() {
+        const headerTenancy = document.getElementById('header-tenancy');
+        if (headerTenancy) {
+            headerTenancy.classList.toggle('hidden', !_multitenancyEnabled);
+        }
+        const addConfigBtn = document.getElementById('add-config-btn');
+        if (addConfigBtn) {
+            // Global header control: show whenever multitenancy is on.
+            addConfigBtn.classList.toggle('hidden', !_multitenancyEnabled);
+        }
+        if (!_multitenancyEnabled) {
+            closeConfigAdminModal();
+        }
+    }
+
+    function openConfigAdminModal() {
+        const modal = document.getElementById('config-admin-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        if (_tenantInput) syncTenantInputs(_tenantInput);
+        refreshConfigDropdown(currentMode);
+    }
+
+    function closeConfigAdminModal() {
+        const modal = document.getElementById('config-admin-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    async function loadFeatureFlags() {
+        try {
+            const res = await fetch('/playground/feature-flags');
+            if (res.ok) {
+                const flags = await res.json();
+                _multitenancyEnabled = !!flags.multitenancy_enabled;
+            }
+        } catch (_) {
+            // If endpoint is unreachable, keep default (disabled).
+        }
+        syncMultitenancyUi();
+    }
+
+    loadFeatureFlags();
+
+    // Keep header Tenant and Runtime config Tenant fields in sync (shared state).
+    const _tenantInput = document.getElementById('playground-tenant-id');
+    const _cfgTenantInput = document.getElementById('cfg-tenant-id');
+    let _tenantSyncLock = false;
+
+    function syncTenantInputs(source) {
+        if (_tenantSyncLock) return;
+        _tenantSyncLock = true;
+        try {
+            const value = source && source.value != null ? source.value : '';
+            if (_tenantInput && source !== _tenantInput) _tenantInput.value = value;
+            if (_cfgTenantInput && source !== _cfgTenantInput) _cfgTenantInput.value = value;
+        } finally {
+            _tenantSyncLock = false;
+        }
+    }
+
+    let _tenantDebounce = null;
+    function onTenantInput(ev) {
+        syncTenantInputs(ev.target);
+        clearTimeout(_tenantDebounce);
+        _tenantDebounce = setTimeout(() => refreshConfigDropdown(currentMode), 400);
+    }
+    if (_tenantInput) {
+        if (_cfgTenantInput && !_cfgTenantInput.value) {
+            _cfgTenantInput.value = _tenantInput.value || '';
+        }
+        _tenantInput.addEventListener('input', onTenantInput);
+    }
+    if (_cfgTenantInput) {
+        _cfgTenantInput.addEventListener('input', onTenantInput);
+    }
+
+    // Map playground mode names to connector_id strings used by the config API.
+    const _modeToConnectorId = {
+        ehr: 'fhir_epic',
+        cerner: 'fhir_cerner',
+        gdrive: 'google_drive',
+        itops: 'http_generic',
+        slack: 'slack',
+        stripe: 'stripe',
+        salesforce: 'salesforce',
+    };
+    // Fixed list for tenant-global config CRUD (store is still per-connector).
+    const _allPlaygroundConnectors = [
+        'fhir_epic',
+        'fhir_cerner',
+        'google_drive',
+        'http_generic',
+        'slack',
+        'stripe',
+        'salesforce',
+    ];
+
+    // Self-contained auth/config templates matching config/connectors.yaml (secret refs only).
+    // Simplified: kept inline so Create stays playground-local; no new API.
+    const _connectorCreateDocs = {
+        http_generic: {
+            config: {},
+            auth: {},
+        },
+        google_drive: {
+            config: {},
+            auth: {
+                provider: 'service_account',
+                sa_json_secret: 'GOOGLE_DRIVE_SA_JSON',
+                scopes: ['https://www.googleapis.com/auth/drive'],
+            },
+        },
+        fhir_epic: {
+            config: {
+                base_url: 'https://fhir.epic.sandbox/api/FHIR/R4',
+            },
+            auth: {
+                provider: 'oauth2',
+                grant_method: 'private_key_jwt',
+                token_url_secret: 'EPIC_TOKEN_URL',
+                client_id_secret: 'EPIC_CLIENT_ID',
+                private_key_secret: 'EPIC_PRIVATE_KEY',
+                kid_secret: 'EPIC_KID',
+                algorithm: 'RS384',
+            },
+        },
+        fhir_cerner: {
+            config: {
+                base_url: 'https://fhir-ehr-code.cerner.com/r4/your-tenant-id',
+            },
+            auth: {
+                provider: 'oauth2',
+                grant_method: 'private_key_jwt',
+                token_url_secret: 'CERNER_TOKEN_URL',
+                client_id_secret: 'CERNER_CLIENT_ID',
+                private_key_secret: 'CERNER_PRIVATE_KEY',
+                kid_secret: 'CERNER_KID',
+                algorithm: 'RS384',
+                scopes_secret: 'CERNER_SCOPES',
+                scopes: [
+                    'system/Patient.read',
+                    'system/Encounter.read',
+                    'system/DocumentReference.read',
+                    'system/DocumentReference.write',
+                ],
+            },
+        },
+        slack: {
+            config: {},
+            auth: {
+                provider: 'static_token',
+                secret_key: 'SLACK_BOT_TOKEN',
+            },
+        },
+        stripe: {
+            config: {},
+            auth: {
+                provider: 'static_token',
+                secret_key: 'stripe_api_key',
+                header_name: 'Authorization',
+                prefix: '',
+            },
+        },
+        salesforce: {
+            config: {},
+            auth: {
+                provider: 'oauth2',
+                grant_method: 'refresh_token',
+                token_url_secret: 'SALESFORCE_TOKEN_URL',
+                client_id_secret: 'SALESFORCE_CLIENT_ID',
+                client_secret_secret: 'SALESFORCE_CLIENT_SECRET',
+                refresh_token_secret: 'SALESFORCE_REFRESH_TOKEN',
+            },
+        },
+    };
+
+    async function refreshConfigDropdown(modeOrConnectorId) {
+        if (!_multitenancyEnabled) return;
+        const tenantId = getPlaygroundTenantId();
+        const select = document.getElementById('playground-config-name');
+        if (!select) return;
+        select.innerHTML = '<option value="">— default —</option>';
+        if (!tenantId) return;
+
+        // Prefer an explicit connector (opened mode), else google_drive, else first success.
+        const preferred =
+            _modeToConnectorId[modeOrConnectorId] ||
+            modeOrConnectorId ||
+            'google_drive';
+        const tryOrder = [
+            preferred,
+            ..._allPlaygroundConnectors.filter((c) => c !== preferred),
+        ];
+        const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
+        for (const connectorId of tryOrder) {
+            try {
+                const res = await fetch(
+                    `/v1/connectors/${encodeURIComponent(connectorId)}/configs`,
+                    { headers }
+                );
+                if (!res.ok) continue;
+                const data = await res.json();
+                const configs = Array.isArray(data.configs)
+                    ? data.configs
+                    : Array.isArray(data)
+                      ? data
+                      : [];
+                if (!configs.length) continue;
+                configs.forEach((cfg) => {
+                    const opt = document.createElement('option');
+                    opt.value = cfg.name || '';
+                    opt.textContent = cfg.name + (cfg.default ? ' (default)' : '');
+                    if (cfg.default) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                return;
+            } catch (_) {
+                // try next connector
+            }
+        }
+    }
+
+    function getPlaygroundTenantId() {
+        if (!_multitenancyEnabled) return '';
+        const el = document.getElementById('playground-tenant-id');
+        return (el && el.value ? el.value : '').trim();
+    }
+
+    function getPlaygroundConfigName() {
+        if (!_multitenancyEnabled) return '';
+        const el = document.getElementById('playground-config-name');
+        return (el && el.value ? el.value : '').trim();
+    }
+
+    function logTenancyContext(actionLabel) {
+        if (!_multitenancyEnabled) return;
+        const tenantId = getPlaygroundTenantId();
+        const configName = getPlaygroundConfigName();
+        const label = actionLabel ? `${actionLabel} — ` : '';
+        log(
+            `${label}Tenant: ${tenantId || '(missing)'} | Config: ${configName || '(default)'}`,
+            'system'
+        );
+    }
+
+    function playgroundRequestHeaders(extra = {}) {
+        const headers = { 'Content-Type': 'application/json', ...extra };
+        if (!_multitenancyEnabled) return headers;
+        const tenantId = getPlaygroundTenantId();
+        if (tenantId) {
+            headers['X-Tenant-ID'] = tenantId;
+        }
+        return headers;
+    }
+
+    function withTenancyQuery(endpoint) {
+        if (!_multitenancyEnabled) return endpoint;
+        const configName = getPlaygroundConfigName();
+        if (!configName) return endpoint;
+        const sep = endpoint.includes('?') ? '&' : '?';
+        return `${endpoint}${sep}config_name=${encodeURIComponent(configName)}`;
+    }
+
     async function handleSubmission(payload, endpoint, btn, btnLbl, spinner, resetText, pipelineLabelOverride = null) {
         resetUI(pipelineLabelOverride);
 
@@ -787,22 +1060,32 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLbl.textContent = 'Orchestrating...';
 
         log(`Initiating intelligent ${currentMode.toUpperCase()} orchestration...`, 'system');
+        logTenancyContext(currentMode.toUpperCase());
+        const configName = getPlaygroundConfigName();
+        if (configName) {
+            payload = { ...payload, config_name: configName };
+        }
+
         const firstNode = nodes.find((n) => n && !n.classList.contains('hidden'));
         if (firstNode) firstNode.classList.add('active');
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch(withTenancyQuery(endpoint), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: playgroundRequestHeaders(),
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json().catch(() => ({}));
 
-            const data = await response.json();
-            traceDisplay.textContent = data.trace_id.toUpperCase();
+            if (!response.ok) {
+                const detail = data.detail || data.message || `Server returned ${response.status}`;
+                throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+            }
 
-            for (let i = 0; i < data.steps.length; i++) {
+            traceDisplay.textContent = (data.trace_id || '').toUpperCase() || '—';
+
+            for (let i = 0; i < (data.steps || []).length; i++) {
                 const step = data.steps[i];
                 const node = nodes[i];
                 if (!node) continue;
@@ -1250,6 +1533,143 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Tenant-global runtime config CRUD (bulk across all connectors) ---
+    const cfgResult = document.getElementById('cfg-result');
+    const addConfigBtn = document.getElementById('add-config-btn');
+
+    function showCfgResult(obj) {
+        if (!cfgResult) return;
+        cfgResult.classList.remove('hidden');
+        cfgResult.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    }
+
+    async function cfgFetchFor(connectorId, method, path = '', body = null) {
+        const tenantId = getPlaygroundTenantId();
+        if (!tenantId) {
+            throw new Error('Set Tenant ID before managing configs (e.g. acme).');
+        }
+        const opts = { method, headers: playgroundRequestHeaders() };
+        if (body != null) {
+            opts.body = JSON.stringify(body);
+        }
+        const response = await fetch(
+            `/v1/connectors/${encodeURIComponent(connectorId)}/configs${path}`,
+            opts
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = data.detail || `HTTP ${response.status}`;
+            throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
+        return data;
+    }
+
+    // Simplified: run the same CRUD against every playground connector; report per-id results.
+    // body may be a plain object or (connectorId) => object for per-connector Create docs.
+    async function cfgBulk(method, pathBuilder, body = null) {
+        logTenancyContext(`Config ${method}`);
+        const results = {};
+        for (const connectorId of _allPlaygroundConnectors) {
+            try {
+                const path = typeof pathBuilder === 'function' ? pathBuilder(connectorId) : pathBuilder || '';
+                const payload = typeof body === 'function' ? body(connectorId) : body;
+                results[connectorId] = await cfgFetchFor(connectorId, method, path, payload);
+            } catch (err) {
+                results[connectorId] = { error: err.message };
+            }
+        }
+        return results;
+    }
+
+    if (addConfigBtn) {
+        addConfigBtn.addEventListener('click', () => {
+            openConfigAdminModal();
+        });
+    }
+
+    document.getElementById('config-admin-close')?.addEventListener('click', () => {
+        closeConfigAdminModal();
+    });
+
+    document.getElementById('config-admin-modal')?.addEventListener('click', (ev) => {
+        if (ev.target && ev.target.hasAttribute('data-config-admin-dismiss')) {
+            closeConfigAdminModal();
+        }
+    });
+
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'Escape') return;
+        const modal = document.getElementById('config-admin-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeConfigAdminModal();
+        }
+    });
+
+    document.getElementById('cfg-create')?.addEventListener('click', async () => {
+        try {
+            const name = (document.getElementById('cfg-name')?.value || 'default').trim();
+            const isDefault = document.getElementById('cfg-default')?.value === 'true';
+            // Self-contained docs per connector (auth secret refs from connectors.yaml shapes).
+            const data = await cfgBulk('POST', '', (connectorId) => {
+                const tmpl = _connectorCreateDocs[connectorId] || { config: {}, auth: {} };
+                return {
+                    name,
+                    default: isDefault,
+                    config: tmpl.config || {},
+                    auth: tmpl.auth || {},
+                };
+            });
+            showCfgResult(data);
+            log(`Created config '${name}' for tenant '${getPlaygroundTenantId()}' (all connectors)`, 'success');
+            await refreshConfigDropdown(currentMode);
+        } catch (err) {
+            showCfgResult({ error: err.message });
+            log(`Config create failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('cfg-list')?.addEventListener('click', async () => {
+        try {
+            const data = await cfgBulk('GET', '');
+            showCfgResult(data);
+            log(`Listed configs for tenant '${getPlaygroundTenantId()}' (all connectors)`, 'success');
+            await refreshConfigDropdown(currentMode);
+        } catch (err) {
+            showCfgResult({ error: err.message });
+            log(`Config list failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('cfg-set-default')?.addEventListener('click', async () => {
+        try {
+            const name = (document.getElementById('cfg-name')?.value || '').trim();
+            if (!name) throw new Error('Config name is required');
+            const data = await cfgBulk('PUT', `/${encodeURIComponent(name)}/default`);
+            showCfgResult(data);
+            log(`Set '${name}' as default for tenant '${getPlaygroundTenantId()}'`, 'success');
+            await refreshConfigDropdown(currentMode);
+        } catch (err) {
+            showCfgResult({ error: err.message });
+            log(`Set default failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('cfg-delete')?.addEventListener('click', async () => {
+        try {
+            const name = (document.getElementById('cfg-name')?.value || '').trim();
+            if (!name) throw new Error('Config name is required');
+            const newDefault = name === 'default' ? '' : 'default';
+            const q = newDefault ? `?new_default=${encodeURIComponent(newDefault)}` : '';
+            const data = await cfgBulk('DELETE', `/${encodeURIComponent(name)}${q}`);
+            showCfgResult(data);
+            log(`Deleted config '${name}' for tenant '${getPlaygroundTenantId()}'`, 'success');
+            await refreshConfigDropdown(currentMode);
+        } catch (err) {
+            showCfgResult({ error: err.message });
+            log(`Config delete failed: ${err.message}`, 'error');
+        }
+    });
+
     if (slackActionSelect) {
         slackActionSelect.addEventListener('change', () => {
             const action = slackActionSelect.value;
@@ -1557,9 +1977,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 startRunningTimer();
 
-                const response = await fetch('/scenarios/agent-chat-stream', {
+                if (_multitenancyEnabled && !getPlaygroundTenantId()) {
+                    throw new Error('Tenant ID is required when multitenancy is enabled');
+                }
+                logTenancyContext('Agent chat (stream)');
+                const response = await fetch(withTenancyQuery('/scenarios/agent-chat-stream'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: playgroundRequestHeaders(),
                     body: JSON.stringify({
                         message: message,
                         history: agentConversationHistory.slice(0, -1)
@@ -1637,9 +2061,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const response = await fetch('/scenarios/agent-chat', {
+            if (_multitenancyEnabled && !getPlaygroundTenantId()) {
+                throw new Error('Tenant ID is required when multitenancy is enabled');
+            }
+            logTenancyContext('Agent chat');
+            const response = await fetch(withTenancyQuery('/scenarios/agent-chat'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: playgroundRequestHeaders(),
                 body: JSON.stringify({
                     message: message,
                     history: agentConversationHistory.slice(0, -1) // Exclude current message (already in payload)

@@ -48,7 +48,17 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Union, runtime_checkable
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Union,
+    runtime_checkable,
+)
 import re
 
 from dotenv import load_dotenv
@@ -88,6 +98,11 @@ def _redact_tool_args_for_log(tool_name: str, args: Dict[str, Any]) -> Dict[str,
         else:
             scrubbed[key] = value
     return scrubbed
+
+
+def omit_null_tool_args(arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Drop keys whose value is ``None`` (LLM 'omit optional' often arrives as null)."""
+    return {k: v for k, v in dict(arguments or {}).items() if v is not None}
 
 
 def truncate_tool_result_for_llm(text: str) -> str:
@@ -241,19 +256,26 @@ class ToolHiveMcpClient:
     response header must be forwarded in all subsequent requests.
     """
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        extra_headers: Optional[Mapping[str, str]] = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._session_id: Optional[str] = None
         self._initialized: bool = False
         self._auth_token: Optional[str] = os.environ.get(
             "TOOLHIVE_MCP_BEARER_TOKEN"
         ) or os.environ.get("TOOLHIVE_MCP_API_KEY")
+        self._extra_headers: Dict[str, str] = dict(extra_headers or {})
 
     def _build_request_headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
         }
+        headers.update(self._extra_headers)
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
         # For MCP auth-gated servers, send both forms for compatibility.
@@ -425,8 +447,14 @@ class StdioMcpClient:
     Useful for local manual testing without ToolHive.
     """
 
-    def __init__(self, command: List[str]) -> None:
+    def __init__(
+        self,
+        command: List[str],
+        *,
+        env: Optional[Mapping[str, str]] = None,
+    ) -> None:
         self._command = command
+        self._env = dict(env) if env is not None else None
         self._exit_stack = AsyncExitStack()
         self._session: Any = None
 
@@ -437,10 +465,13 @@ class StdioMcpClient:
         except ImportError as exc:
             raise ImportError("mcp SDK not installed.") from exc
 
+        child_env = os.environ.copy()
+        if self._env:
+            child_env.update({k: str(v) for k, v in self._env.items() if v is not None})
         params = StdioServerParameters(
             command=self._command[0],
             args=self._command[1:],
-            env=os.environ.copy(),
+            env=child_env,
         )
         stdio_transport = await self._exit_stack.enter_async_context(stdio_client(params))
         self._read, self._write = stdio_transport
@@ -467,8 +498,50 @@ class StdioMcpClient:
         if not self._session:
             raise RuntimeError("Client not initialised. Use 'async with'")
         resp = await self._session.call_tool(name, arguments)
-        parts = [c.text for c in resp.content if hasattr(c, "text")]
+        # Extract text content
+        parts = []
+        for block in resp.content:
+            if hasattr(block, "text"):
+                parts.append(block.text)
+            else:
+                parts.append(str(block))
         return "\n".join(parts)
+
+
+class InProcessMcpClient:
+    """MCP client backed by an in-process :class:`McpServer` (shared factory/store).
+
+    Used by the playground agent so named-tenant configs created via REST are
+    visible to tool calls without spawning a separate stdio process.
+    """
+
+    def __init__(
+        self,
+        server: Any,
+        *,
+        tenant_id: str,
+        config_name: Optional[str] = None,
+    ) -> None:
+        self._server = server
+        self._tenant_id = tenant_id
+        self._config_name = config_name
+
+    async def __aenter__(self) -> InProcessMcpClient:
+        self._server._stdio_env_tenant_pin = self._tenant_id
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        return None
+
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        return self._server.list_tools()
+
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
+        args = omit_null_tool_args(arguments)
+        if self._config_name and not args.get("config_name"):
+            args["config_name"] = self._config_name
+        result = await self._server.invoke_tool(name, args)
+        return json.dumps(result, default=str)
 
 
 # ---------------------------------------------------------------------------
@@ -617,7 +690,9 @@ class ToolHiveAgent:
                 )
 
                 try:
-                    tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
+                    tool_result_str = await self._mcp.call_tool(
+                        tc.name, omit_null_tool_args(tc.arguments)
+                    )
                     logger.info(
                         "Tool %s returned response of length: %d chars",
                         tc.name,
@@ -786,7 +861,9 @@ class ToolHiveAgent:
                 logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
 
                 try:
-                    tool_result_str = await self._mcp.call_tool(tc.name, tc.arguments)
+                    tool_result_str = await self._mcp.call_tool(
+                        tc.name, omit_null_tool_args(tc.arguments)
+                    )
                     logger.info("Tool %s returned: %.200s", tc.name, tool_result_str)
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"

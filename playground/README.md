@@ -94,21 +94,49 @@ The Agentic Workflow panel displays the active transport as a pill:
 Set the mode before starting the REST API:
 
 ```powershell
-# Buffered stdio mode
+# Playground agent: in-process MCP (recommended for local MT testing)
+$env:MODE="API"
 $env:NW_MCP_TRANSPORT="stdio"
+# Leave TOOLHIVE_MCP_URL empty unless ToolHive / a separate MCP server is running
 uv run node-wire
 ```
 
 ```powershell
-# Streamable HTTP mode
+# Streamable HTTP UI + remote MCP proxy (requires something listening on the URL)
+$env:MODE="API"
 $env:NW_MCP_TRANSPORT="streamable-http"
-$env:NW_MCP_HOST="127.0.0.1"
-$env:NW_MCP_PORT="8081"
-$env:NW_MCP_PATH="/mcp"
+$env:TOOLHIVE_MCP_URL="http://127.0.0.1:8081/mcp"
+# In another terminal: start MCP — see docs/mcp.md
 uv run node-wire
 ```
 
-After changing `NW_MCP_TRANSPORT`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
+After changing `NW_MCP_TRANSPORT` / `TOOLHIVE_MCP_URL`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
+
+**Modes (do not confuse):**
+
+| Goal | What to run |
+|------|-------------|
+| Playground + connector scenarios + Agent (tenant-aware) | `MODE=API` → `http://127.0.0.1:8000/playground/` |
+| Standalone MCP tools (Inspector / Claude) | `python -m agents.mcp_entrypoint` (`NW_MCP_TRANSPORT=stdio` or `streamable-http` on `:8081`) — see [docs/mcp.md](../docs/mcp.md) |
+| Full binding as MCP process | `MODE=MCP` with same transport vars |
+
+If `TOOLHIVE_MCP_URL` points at `:8081` but nothing is listening, Agent chat fails with `All connection attempts failed`. Clear the URL or start an MCP server; by default the playground falls back to **in-process** MCP when the proxy cannot list tools.
+
+#### Multitenancy (`NW_MULTITENANCY_ENABLED`)
+
+Defaults to off (legacy single-tenant). When enabled:
+
+```powershell
+$env:NW_MULTITENANCY_ENABLED="true"
+uv run node-wire
+```
+
+- **Tenant ID required**: connector/scenario calls without `X-Tenant-ID` return **400**. Explicit `__default__` is allowed.
+- **Header**: Tenant ID, Config dropdown, and **Add config** appear in the header (next to Connectors Ready / Auto-retry) whenever multitenancy is on.
+- **Agentic Workflow**: sends the same `X-Tenant-ID` (and optional `config_name` query). Local agent MCP runs **in-process** against the playground factory, so configs from **Add config** apply. Streamable-HTTP / ToolHive proxy URLs receive `X-Tenant-ID` on each MCP HTTP request.
+- **Add config**: Use the header **Add config** button (Agent or Connectors) to open a modal for create/list/set-default/delete of a named config for **all** playground connectors under that tenant. Close via the X, backdrop click, or Escape. Each Create posts a self-contained auth block (secret refs matching `connectors.yaml`). Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` (e.g. `NW_ACME_GOOGLE_DRIVE_GOOGLE_DRIVE_SA_JSON`).
+- **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.
+- Per-connector panels do not embed their own runtime-config admin UI.
 
 #### Testing the MCP server with Inspector
 
