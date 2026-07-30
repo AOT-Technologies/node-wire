@@ -393,27 +393,27 @@ async def test_factory_instances_cache_safe_under_concurrent_get_and_invalidate(
 
     monkeypatch.setattr(ConnectorFactory, "_instantiate", _fake_instantiate)
 
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
 
     async def hammer_get() -> None:
         try:
             for _ in range(40):
                 await factory.get("http_generic", tenant_id=DEFAULT_TENANT)
-        except BaseException as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             errors.append(exc)
 
     def hammer_invalidate() -> None:
         try:
             for _ in range(40):
                 factory.invalidate_configs(DEFAULT_TENANT, "http_generic", ["default"])
-        except BaseException as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             errors.append(exc)
 
     def hammer_default() -> None:
         try:
             for _ in range(40):
                 factory._default_instance("http_generic")
-        except BaseException as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             errors.append(exc)
 
     threads = [
