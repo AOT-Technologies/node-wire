@@ -23,7 +23,7 @@ ENV PYTHONPATH=/app/src \
     NW_ALLOWED_CONNECTORS=slack
 
 RUN pip install --no-cache-dir --find-links=/wheels \
-    node-wire-runtime node-wire-slack "mcp>=1.6.0" \
+    node-wire-runtime node-wire-slack "mcp>=1.6.0,<2" \
     && rm -rf /wheels
 
 RUN groupadd --system --gid 1000 app \

@@ -23,7 +23,7 @@ ENV PYTHONPATH=/app/src \
     NW_ALLOWED_CONNECTORS=google_drive
 
 RUN pip install --no-cache-dir --find-links=/wheels \
-    node-wire-runtime node-wire-google-drive "mcp>=1.6.0" \
+    node-wire-runtime node-wire-google-drive "mcp>=1.6.0,<2" \
     && rm -rf /wheels
 
 RUN groupadd --system --gid 1000 app \

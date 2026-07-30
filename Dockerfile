@@ -52,7 +52,7 @@ RUN pip install --no-cache-dir --find-links=/wheels \
     node-wire-fhir-cerner \
     node-wire-fhir-epic \
     node-wire-salesforce \
-    "mcp>=1.6.0" \
+    "mcp>=1.6.0,<2" \
     && rm -rf /wheels
 
 RUN groupadd --system --gid 1000 app \
