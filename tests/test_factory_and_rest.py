@@ -365,3 +365,70 @@ def test_factory_default_scope_policy_is_deny_without_env(
 
     factory = ConnectorFactory()
     assert factory._policy_hook is not None
+
+
+@pytest.mark.asyncio
+async def test_factory_instances_cache_safe_under_concurrent_get_and_invalidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """_instances is shared by async get, sync invalidate, and _default_instance."""
+    import asyncio
+    import threading
+
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
+    factory = ConnectorFactory()
+    factory.store.init(
+        {
+            DEFAULT_TENANT: {
+                "http_generic": [{"name": "default", "default": True, "config": {}}],
+            }
+        }
+    )
+
+    def _fake_instantiate(self: ConnectorFactory, record: object) -> MagicMock:
+        m = MagicMock()
+        m.aclose = AsyncMock()
+        return m
+
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", _fake_instantiate)
+
+    errors: list[BaseException] = []
+
+    async def hammer_get() -> None:
+        try:
+            for _ in range(40):
+                await factory.get("http_generic", tenant_id=DEFAULT_TENANT)
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def hammer_invalidate() -> None:
+        try:
+            for _ in range(40):
+                factory.invalidate_configs(DEFAULT_TENANT, "http_generic", ["default"])
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def hammer_default() -> None:
+        try:
+            for _ in range(40):
+                factory._default_instance("http_generic")
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=hammer_invalidate),
+        threading.Thread(target=hammer_default),
+        threading.Thread(target=hammer_invalidate),
+    ]
+    for t in threads:
+        t.start()
+    await asyncio.gather(hammer_get(), hammer_get(), hammer_get())
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    # Cache remains a usable OrderedDict after concurrent mutation.
+    with factory._instances_guard:
+        _ = list(factory._instances.items())
+        assert len(factory._instances) <= 1
