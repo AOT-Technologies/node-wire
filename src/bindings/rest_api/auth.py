@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import secrets
+from functools import lru_cache
 from typing import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -33,6 +35,34 @@ from node_wire_runtime.caller_identity import (
 
 
 REST_CALLER_STATE_KEY = "nw_rest_caller_identity"
+
+# Per-process secret salt for fingerprinting credentials into rate-limit keys.
+# Per-process suffices because the rate limiter is in-memory and process-local.
+_IDENTITY_FINGERPRINT_SALT = secrets.token_bytes(32)
+
+# OWASP-recommended work factor for PBKDF2-HMAC-SHA256. Paid once per unique
+# token per process (see the lru_cache below), not per request.
+_IDENTITY_FINGERPRINT_ITERATIONS = 600_000
+
+
+@lru_cache(maxsize=1024)
+def _fingerprint_token(token: str) -> str:
+    """
+    Derive a non-reversible rate-limit key from a verified credential.
+
+    Uses PBKDF2 with a per-process secret salt so a leaked key (logs, metrics)
+    cannot be brute-forced offline back to the token. Auth middleware runs
+    before any caller, so only verified credentials reach this cache — the
+    input space is the small set of valid tokens, and the KDF cost is
+    amortized to once per token per process.
+    """
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        token.encode("utf-8"),
+        _IDENTITY_FINGERPRINT_SALT,
+        _IDENTITY_FINGERPRINT_ITERATIONS,
+    ).hex()[:16]
+    return f"token:{digest}"
 
 
 def get_rest_caller_identity(request: Request) -> CallerIdentity | None:
@@ -102,13 +132,14 @@ def get_request_identity_key(request: Request) -> str:
     Return a stable, non-sensitive identity key for request-level controls.
 
     Preference order:
-    1) Auth token/API key (fingerprinted, never returned raw)
+    1) Auth token/API key (PBKDF2-fingerprinted with a per-process salt, never returned raw)
     2) Trusted client IP (``NW_REST_TRUSTED_PROXY_HOPS`` controls X-Forwarded-For use)
+
+    Keys are stable within a process, which matches the process-local rate limiter.
     """
     token = _extract_bearer_or_api_key(request)
     if token:
-        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
-        return f"token:{digest}"
+        return _fingerprint_token(token)
     return f"ip:{_client_ip_for_rate_limit(request)}"
 
 

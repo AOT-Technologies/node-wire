@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
+import sys
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
@@ -252,7 +253,6 @@ def _safe_error_return(
 ) -> ScenarioResponse:
     from node_wire_runtime.errors import ErrorMapper
     from node_wire_runtime.models import ErrorCategory
-    import logging
 
     log = logging.getLogger("playground.scenarios")
 
@@ -266,8 +266,8 @@ def _safe_error_return(
     if hasattr(e, "errors") and callable(getattr(e, "errors", None)):
         try:
             safe_msg = e.errors()[0].get("msg", "Schema validation failed")
-        except Exception:
-            pass
+        except Exception as detail_exc:
+            log.debug("Could not extract validation error detail: %s", detail_exc)
 
     steps[-1].status = "error"
     steps[-1].details = f"[{mapped_err.category.value}] {safe_msg}"
@@ -312,6 +312,12 @@ async def execute_with_retry(
             else:
                 logger.error(f"Action failed after {max_retries + 1} attempts: {e}")
                 raise last_exception
+    # Only reachable when max_retries < 0 leaves the loop with zero iterations.
+    raise (
+        last_exception
+        if last_exception
+        else RuntimeError(f"execute_with_retry made no attempts (max_retries={max_retries})")
+    )
 
 
 # Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
@@ -408,7 +414,7 @@ async def post_consultation_scenario(
     add_step("Patient Discovery", "pending", display_name="Identify Patient")
     try:
         if payload.patient_id:
-            logger.info(f"Performing direct Patient ID lookup: {payload.patient_id}")
+            logger.info("Performing direct Patient ID lookup")
             p_res = await execute_with_retry(
                 connector, FhirPatientReadInput(resource_id=payload.patient_id), trace_id, steps[-1]
             )
@@ -423,7 +429,17 @@ async def post_consultation_scenario(
                 }.items()
                 if v is not None
             }
-            logger.info(f"Searching for patient: {patient_search_params}")
+            # Log only literal field names (not the payload-derived dict) so no
+            # user-controlled data reaches the log record.
+            provided_fields = {
+                "family": payload.patient_family is not None,
+                "given": payload.patient_given is not None,
+                "birthdate": payload.patient_birthdate is not None,
+            }
+            logger.info(
+                "Searching for patient by fields: %s",
+                ", ".join(sorted(k for k, present in provided_fields.items() if present)),
+            )
             p_res = await execute_with_retry(
                 connector,
                 FhirPatientReadInput(search_params=patient_search_params),
@@ -455,16 +471,15 @@ async def post_consultation_scenario(
     add_step("Encounter Identification", "pending", display_name="Locate Medical Visit")
     try:
         if payload.encounter_id:
-            logger.info(
-                f"Using manual Encounter ID: {payload.encounter_id}", extra={"trace_id": trace_id}
-            )
+            logger.info("Using manually supplied Encounter ID", extra={"trace_id": trace_id})
             encounter_id = payload.encounter_id
             enc_type = "Manual"
             enc_status = "verified"
         else:
             visit_date = payload.visit_date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
             logger.info(
-                f"Searching for encounter... patient={patient_id}, date={visit_date}",
+                "Searching for encounter for resolved patient on date=%s",
+                visit_date.replace("\r", "").replace("\n", ""),
                 extra={"trace_id": trace_id},
             )
             enc_res = await execute_with_retry(
@@ -505,7 +520,7 @@ async def post_consultation_scenario(
                 raise ValueError("The found Encounter resource is missing a valid FHIR ID.")
 
         logger.info(
-            f"Selected Encounter: ID={encounter_id}, Type={enc_type}, Status={enc_status}",
+            f"Selected Encounter: Type={enc_type}, Status={enc_status}",
             extra={"trace_id": trace_id},
         )
 
@@ -717,8 +732,6 @@ async def report_incident_scenario(
         http_action = connector
         response = await execute_with_retry(http_action, request_input, trace_id, steps[-1])
 
-        import json
-
         resp_body = json.loads(response.body)
 
         steps[-1].status = "success"
@@ -760,8 +773,6 @@ async def report_incident_scenario(
     add_step("Audit", "pending", display_name="Update Audit Log")
     try:
         # Simulate background task
-        import asyncio
-
         await asyncio.sleep(0.4)
 
         steps[-1].status = "success"
@@ -800,7 +811,7 @@ async def cerner_post_consultation_scenario(
     add_step("Patient Discovery", "pending", display_name="Identify Patient")
     try:
         if payload.patient_id:
-            logger.info(f"Cerner: direct Patient ID lookup: {payload.patient_id}")
+            logger.info("Cerner: direct Patient ID lookup")
             p_res = await execute_with_retry(
                 connector,
                 FhirCernerPatientReadInput(resource_id=payload.patient_id),
@@ -818,7 +829,17 @@ async def cerner_post_consultation_scenario(
                 }.items()
                 if v
             }
-            logger.info(f"Cerner: searching for patient: {search_params}")
+            # Log only literal field names (not the payload-derived dict) so no
+            # user-controlled data reaches the log record.
+            provided_fields = {
+                "family": bool(payload.patient_family),
+                "given": bool(payload.patient_given),
+                "birthdate": bool(payload.patient_birthdate),
+            }
+            logger.info(
+                "Cerner: searching for patient by fields: %s",
+                ", ".join(sorted(k for k, present in provided_fields.items() if present)),
+            )
             p_res = await execute_with_retry(
                 connector,
                 FhirCernerPatientReadInput(search_params=search_params),
@@ -1009,8 +1030,8 @@ async def cerner_post_consultation_scenario(
                     decoded_text = base64.b64decode(content[0]["attachment"]["data"]).decode(
                         "utf-8"
                     )
-            except Exception:
-                pass
+            except Exception as decode_exc:
+                logger.debug("Could not decode attachment content: %s", decode_exc)
 
             beautiful_data = {
                 "id": doc_res.resource_id,
@@ -1852,9 +1873,6 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
     Accepts a user message + conversation history, runs through the ToolHiveAgent,
     and returns the agent's reply with any tool steps executed.
     """
-    import os
-    import sys
-
     trace_id = str(uuid.uuid4())
     logger.info(
         "Agent Chat request | trace_id=%s | provider=%s",
@@ -2009,8 +2027,6 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
 
     async def stream_events():
         try:
-            import sys
-
             from agents.llm_factory import LLMProviderFactory
             from agents.toolhive import (
                 MultiMcpClient,
@@ -2079,13 +2095,16 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                     yield json.dumps(event) + "\n"
 
         except Exception as exc:
-            logger.error("Agent Chat stream failed: %s", exc, exc_info=True)
             trace_id = str(uuid.uuid4())
+            logger.error("Agent Chat stream failed (trace_id=%s): %s", trace_id, exc, exc_info=True)
             yield (
                 json.dumps(
                     {
                         "type": "final_chunk",
-                        "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
+                        "content": (
+                            "Sorry, I encountered an internal error. "
+                            f"Please check the server configuration and try again. trace_id={trace_id}"
+                        ),
                     }
                 )
                 + "\n"
@@ -2451,8 +2470,7 @@ async def external_patient_viewer_scenario(
     try:
         if payload.patient_id:
             logger.info(
-                "[ExtViewer] Direct Patient ID lookup: %s on %s",
-                payload.patient_id,
+                "[ExtViewer] Direct Patient ID lookup on %s",
                 system_label,
                 extra={"trace_id": trace_id},
             )
@@ -2488,9 +2506,16 @@ async def external_patient_viewer_scenario(
                 }.items()
                 if v
             }
+            # Log only literal field names (not the payload-derived dict) so no
+            # user-controlled data reaches the log record.
+            provided_fields = {
+                "family": bool(payload.patient_family),
+                "given": bool(payload.patient_given),
+                "birthdate": bool(payload.patient_birthdate),
+            }
             logger.info(
-                "[ExtViewer] Identity-layer search: %s on %s",
-                search_params,
+                "[ExtViewer] Identity-layer search by fields [%s] on %s",
+                ", ".join(sorted(k for k, present in provided_fields.items() if present)),
                 system_label,
                 extra={"trace_id": trace_id},
             )

@@ -523,8 +523,8 @@ class FhirEpicConnector(BaseConnector):
                 try:
                     body = response.json()
                     resource_id = body.get("id")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Could not parse create response body as JSON: %s", exc)
 
         if not resource_id:
             raise ValueError(

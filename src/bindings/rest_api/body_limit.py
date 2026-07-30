@@ -73,11 +73,13 @@ class MaxBodySizeMiddleware:
         content_length = _header_value(headers, "content-length")
         if content_length is not None:
             try:
-                if int(content_length) > max_bytes:
-                    await _send_payload_too_large(send)
-                    return
+                declared_length = int(content_length)
             except ValueError:
-                pass
+                # Malformed header; fall back to streaming enforcement below
+                declared_length = None
+            if declared_length is not None and declared_length > max_bytes:
+                await _send_payload_too_large(send)
+                return
 
         bytes_read = 0
 

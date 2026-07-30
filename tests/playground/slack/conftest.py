@@ -52,14 +52,15 @@ def slack_upload_channel() -> str:
     Falls back to SLACK_TEST_CHANNEL, but skips if that is still a name — the
     Slack external-upload API requires an ID, not a name.
     """
-    if _DEFAULT_CHANNEL_ID:
-        return _DEFAULT_CHANNEL_ID
-    if _DEFAULT_CHANNEL and _DEFAULT_CHANNEL[0].upper() in ("C", "G", "D"):
-        return _DEFAULT_CHANNEL
-    pytest.skip(
-        "upload_file tests require a channel ID. "
-        "Set SLACK_TEST_CHANNEL_ID (e.g. C0ANP6RADHU) in .env."
-    )
+    channel = _DEFAULT_CHANNEL_ID
+    if not channel and _DEFAULT_CHANNEL and _DEFAULT_CHANNEL[0].upper() in ("C", "G", "D"):
+        channel = _DEFAULT_CHANNEL
+    if not channel:
+        pytest.skip(
+            "upload_file tests require a channel ID. "
+            "Set SLACK_TEST_CHANNEL_ID (e.g. C0ANP6RADHU) in .env."
+        )
+    return channel
 
 
 @pytest.fixture(scope="session")

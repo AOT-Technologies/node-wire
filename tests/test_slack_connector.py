@@ -28,6 +28,8 @@ Coverage
 from __future__ import annotations
 
 import base64
+import importlib
+import json
 import logging
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -51,7 +53,10 @@ from node_wire_slack.logic import (
     _resolve_blocks,
     _upload_bytes,
 )
-import node_wire_slack.registration  # noqa: F401
+
+# Load the ErrorMapper registrations the same way the production
+# connector_registry does — the error_code assertions below depend on them.
+importlib.import_module("node_wire_slack.registration")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -143,8 +148,6 @@ async def test_post_message_with_blocks_json_string() -> None:
     """Blocks provided as a JSON string are parsed before being sent."""
     connector = _make_connector()
     blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "hello"}}]
-    import json
-
     blocks_str = json.dumps(blocks)
     captured: dict[str, Any] = {}
 
@@ -452,8 +455,6 @@ def test_resolve_blocks_list_passthrough() -> None:
 
 
 def test_resolve_blocks_valid_json_string() -> None:
-    import json
-
     blocks = [{"type": "section"}]
     assert _resolve_blocks(json.dumps(blocks)) == blocks
 
@@ -464,8 +465,6 @@ def test_resolve_blocks_invalid_json_raises() -> None:
 
 
 def test_resolve_blocks_non_array_json_raises() -> None:
-    import json
-
     with pytest.raises(SlackMessageError, match="must be a JSON array"):
         _resolve_blocks(json.dumps({"type": "section"}))
 
@@ -559,7 +558,8 @@ async def test_resolve_channel_id_network_error_falls_back_and_logs(
     monkeypatch.delenv("NW_SLACK_SKIP_RESOLVE", raising=False)
 
     class _RaisingClient:
-        def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
 
         async def __aenter__(self) -> "_RaisingClient":
             return self
@@ -684,9 +684,7 @@ async def test_upload_bytes_non_200_raises_slack_upload_error() -> None:
 
 def test_default_timeout_honors_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Q-7: _DEFAULT_TIMEOUT is configurable via NW_SLACK_TIMEOUT / NW_TIMEOUT."""
-    import importlib
-
-    import node_wire_slack.logic as slack_logic
+    slack_logic = importlib.import_module("node_wire_slack.logic")
 
     monkeypatch.setenv("NW_SLACK_TIMEOUT", "12.5")
     try:

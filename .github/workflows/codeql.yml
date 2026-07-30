@@ -38,6 +38,11 @@ jobs:
         with:
           languages: python
           queries: security-and-quality
+          config: |
+            paths-ignore:
+              # grpcio-tools output — regenerated from connector.proto, not hand-edited
+              - '**/*_pb2.py'
+              - '**/*_pb2_grpc.py'
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@8272c299f21ca24af15dfe9ac0971ba969e5e0d5 # v3.36.2

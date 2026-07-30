@@ -17,7 +17,7 @@ import json
 import logging
 from typing import Any, Dict, List, cast
 
-from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
 logger = logging.getLogger("agents.providers.openai")
 
@@ -66,13 +66,13 @@ def _messages_to_openai(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     return result
 
 
-OpenAI: Any = None
+OpenAI: Any
 try:
     from openai import OpenAI as _OpenAI
 
     OpenAI = _OpenAI
 except ImportError:
-    pass
+    OpenAI = None
 
 
 class OpenAIProvider(BaseLLMProvider):

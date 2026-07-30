@@ -50,10 +50,17 @@ def test_sanitizing_log_filter_redacts_long_body_arg() -> None:
 
 
 def test_install_sanitizing_log_filter_is_idempotent() -> None:
-    install_sanitizing_log_filter()
     root = logging.getLogger()
-    count_before = sum(1 for flt in root.filters if isinstance(flt, SanitizingLogFilter))
-    install_sanitizing_log_filter()
-    count_after = sum(1 for flt in root.filters if isinstance(flt, SanitizingLogFilter))
-    assert count_before == count_after
-    assert count_after >= 1
+    original_filters = list(root.filters)
+    try:
+        install_sanitizing_log_filter()
+        count_before = sum(1 for flt in root.filters if isinstance(flt, SanitizingLogFilter))
+        install_sanitizing_log_filter()
+        count_after = sum(1 for flt in root.filters if isinstance(flt, SanitizingLogFilter))
+        assert count_before == count_after
+        assert count_after >= 1
+    finally:
+        for flt in list(root.filters):
+            root.removeFilter(flt)
+        for flt in original_filters:
+            root.addFilter(flt)

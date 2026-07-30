@@ -18,7 +18,7 @@ import json
 import logging
 from typing import Any, Dict, List, cast
 
-from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
 logger = logging.getLogger("agents.providers.groq")
 
@@ -68,13 +68,13 @@ def _messages_to_groq(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     return result
 
 
-Groq: Any = None
+Groq: Any
 try:
     from groq import Groq as _Groq
 
     Groq = _Groq
 except ImportError:
-    pass
+    Groq = None
 
 
 class GroqProvider(BaseLLMProvider):

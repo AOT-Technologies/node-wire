@@ -97,18 +97,19 @@ class McpAuthNotConfiguredError(McpAuthError):
         )
 
 
-_mcp_auth_env_bootstrapped = False
+# Mutable holder so _bootstrap_mcp_auth_env can flip the flag without
+# rebinding a module global.
+_BOOTSTRAP_STATE: dict[str, bool] = {"done": False}
 
 
 def _bootstrap_mcp_auth_env() -> None:
-    global _mcp_auth_env_bootstrapped
-    if _mcp_auth_env_bootstrapped:
+    if _BOOTSTRAP_STATE["done"]:
         return
 
     # Some launch paths on Windows can miss .env loading for the MCP worker.
     # If MCP auth vars are missing/empty, try loading project .env once.
     if os.environ.get("NW_MCP_API_KEY") or os.environ.get("NW_MCP_JWT_SECRET"):
-        _mcp_auth_env_bootstrapped = True
+        _BOOTSTRAP_STATE["done"] = True
         return
 
     # Align with REST/bindings: when dotenv merge is disabled (pytest, CI, prod),
@@ -122,7 +123,7 @@ def _bootstrap_mcp_auth_env() -> None:
     repo_root_env = Path(__file__).resolve().parents[3] / ".env"
     load_dotenv(override=False)
     load_dotenv(repo_root_env, override=False)
-    _mcp_auth_env_bootstrapped = True
+    _BOOTSTRAP_STATE["done"] = True
 
 
 def mcp_auth_disabled() -> bool:

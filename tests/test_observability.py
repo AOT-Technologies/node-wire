@@ -49,9 +49,17 @@ def _ensure_traceloop_stub_modules() -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def reset_observability_initialized() -> None:
-    obs._INITIALIZED = False
+    obs._STATE["initialized"] = False
+    root = logging.getLogger()
+    original_filters = list(root.filters)
     yield
-    obs._INITIALIZED = False
+    obs._STATE["initialized"] = False
+    # init_observability() attaches filters to the root logger; restore the
+    # original set so filters don't leak into unrelated tests.
+    for flt in list(root.filters):
+        root.removeFilter(flt)
+    for flt in original_filters:
+        root.addFilter(flt)
 
 
 @contextmanager

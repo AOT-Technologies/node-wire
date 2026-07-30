@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from agents.llm_factory import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
 
 logger = logging.getLogger("agents.providers.anthropic")
 
@@ -75,13 +75,13 @@ def _messages_to_claude(
     return result, system_prompt
 
 
-anthropic: Any = None
+anthropic: Any
 try:
     import anthropic as _anthropic
 
     anthropic = _anthropic
 except ImportError:
-    pass
+    anthropic = None
 
 
 class AnthropicProvider(BaseLLMProvider):

@@ -149,7 +149,7 @@ def _is_tool_failure(tool_result: str) -> bool:
             if isinstance(data, dict) and data.get("success") is False:
                 return True
         except json.JSONDecodeError:
-            pass
+            return False
     return False
 
 
@@ -221,9 +221,11 @@ class AgentRunResult:
 
 @runtime_checkable
 class McpClient(Protocol):
-    async def list_tools(self) -> List[Dict[str, Any]]: ...
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """Return the tool definitions exposed by the MCP server."""
 
-    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str: ...
+    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
+        """Invoke the named tool with the given arguments and return its result."""
 
 
 class ToolHiveMcpClient:
@@ -549,7 +551,7 @@ class ToolHiveAgent:
     async def run(self, task: str) -> AgentRunResult:
         trace_id = str(uuid.uuid4())
         logger.info("Agent run started | trace_id=%s", trace_id)
-        logger.info("Task: %s", task)
+        logger.info("Task received (%d chars); content withheld from logs", len(task))
 
         # Import here to avoid circular dependency in tests
         from agents.llm_factory import LLMMessage
@@ -730,7 +732,7 @@ class ToolHiveAgent:
         are emitted immediately after each MCP tool call completes.
         """
         logger.info("Streaming agent run started | trace_id=%s", trace_id)
-        logger.info("Task: %s", task)
+        logger.info("Task received (%d chars); content withheld from logs", len(task))
 
         from agents.llm_factory import LLMMessage
 
@@ -909,7 +911,11 @@ async def _execute_task(
     print(f"Provider : {provider_name}")
     print(f"MCP info : {mcp_info}")
     print("=" * 60)
-    print(f"Task:\n{task}\n")
+    print(
+        "Task: fetch patient details from FHIR, create a summary file in Google Drive, "
+        "and email it to the recipient. (Patient identifiers and recipient address are "
+        "withheld from logs.)\n"
+    )
 
     run_result = await agent.run(task)
 
