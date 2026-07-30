@@ -217,7 +217,7 @@ requires-python = ">=3.11"
 dependencies = [
     "node-wire-runtime",
     "{connector_pkg}",
-    "mcp>=1.6.0",
+    "mcp>=1.6.0,<2",
     "httpx[http2]>=0.27.0,<0.28.0",
     "python-dotenv>=1.0.0",
 ]
@@ -401,7 +401,7 @@ ENV PYTHONPATH=/nw_src \\
     NW_CONFIG_PATH=/app/config/connectors.yaml
 
 RUN pip install --no-cache-dir --find-links=/wheels \\
-    node-wire-runtime {connector_pkg} "mcp>=1.6.0" "httpx[http2]>=0.27.0,<0.28.0" \\
+    node-wire-runtime {connector_pkg} "mcp>=1.6.0,<2" "httpx[http2]>=0.27.0,<0.28.0" \\
     && pip install --no-cache-dir -e /app \\
     && rm -rf /wheels
 
