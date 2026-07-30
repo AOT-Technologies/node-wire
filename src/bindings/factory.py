@@ -194,6 +194,9 @@ class ConnectorFactory:
         # protocol gating, and the MCP upstream-passthrough check.
         self._configs: Dict[str, ConnectorConfig] = {}
         self._instances: "OrderedDict[Tuple[str, str, str], BaseConnector]" = OrderedDict()
+        # Guards all OrderedDict mutations. asyncio.Lock is per-key single-flight only
+        # and does not protect sync/off-loop callers (invalidate, list_for_protocol).
+        self._instances_guard = threading.RLock()
         self._locks: Dict[Tuple[str, str, str], asyncio.Lock] = {}
         self._locks_guard = threading.Lock()
         self._max_instances = int(os.environ.get("NW_FACTORY_MAX_INSTANCES", "512"))
@@ -449,21 +452,23 @@ class ConnectorFactory:
         record = self._store.resolve(tenant_id, connector_id, config_name)
         key = (tenant_id, connector_id, record.name)
 
-        inst = self._instances.get(key)
-        if inst is not None:
-            self._instances.move_to_end(key)
-            return inst
-
-        lock = self._lock_for(key)
-        async with lock:
+        with self._instances_guard:
             inst = self._instances.get(key)
             if inst is not None:
                 self._instances.move_to_end(key)
                 return inst
-            inst = self._instantiate(record)
-            self._instances[key] = inst
-            self._evict_if_needed()
-            return inst
+
+        lock = self._lock_for(key)
+        async with lock:
+            with self._instances_guard:
+                inst = self._instances.get(key)
+                if inst is not None:
+                    self._instances.move_to_end(key)
+                    return inst
+                inst = self._instantiate(record)
+                self._instances[key] = inst
+                self._evict_if_needed()
+                return inst
 
     def is_exposed(self, connector_id: str, protocol: str) -> bool:
         """Whether ``connector_id`` may be reached over ``protocol``.
@@ -494,10 +499,11 @@ class ConnectorFactory:
 
         Called synchronously by the store on every mutating write; may run on a
         non-loop thread (store writes are plain sync Python)."""
-        for name in names:
-            old = self._instances.pop((tenant_id, connector_id, name), None)
-            if old is not None:
-                self._schedule_aclose(old)
+        with self._instances_guard:
+            for name in names:
+                old = self._instances.pop((tenant_id, connector_id, name), None)
+                if old is not None:
+                    self._schedule_aclose(old)
 
     def _schedule_aclose(self, inst: BaseConnector) -> None:
         aclose = getattr(inst, "aclose", None)
@@ -526,7 +532,7 @@ class ConnectorFactory:
         """Return (and cache) the ``__default__`` instance for a connector.
 
         Shares :attr:`_instances` with the async :meth:`get`, so enumeration and
-        the default-tenant invoke path resolve the SAME object. Sync (no lock):
+        the default-tenant invoke path resolve the SAME object. Sync:
         only invoked at import/enumeration and by the default-tenant fast path.
         """
         try:
@@ -534,13 +540,14 @@ class ConnectorFactory:
         except ConfigNotFoundError:
             return None
         key = (DEFAULT_TENANT, connector_id, record.name)
-        inst = self._instances.get(key)
-        if inst is None:
-            inst = self._instantiate(record)
-            self._instances[key] = inst
-        else:
-            self._instances.move_to_end(key)
-        return inst
+        with self._instances_guard:
+            inst = self._instances.get(key)
+            if inst is None:
+                inst = self._instantiate(record)
+                self._instances[key] = inst
+            else:
+                self._instances.move_to_end(key)
+            return inst
 
     def get_for_protocol(
         self, connector_id: str, protocol: str, action: Optional[str] = None

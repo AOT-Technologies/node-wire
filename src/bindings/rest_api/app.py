@@ -152,11 +152,13 @@ async def health() -> Dict[str, str]:
 async def ready() -> Dict[str, str]:
     try:
         factory = get_factory()
-        connectors = factory.list_for_protocol("rest")
-    except Exception:
+        if not factory.list_for_protocol("rest") and not factory.list_for_protocol("grpc"):
+            raise HTTPException(status_code=503, detail="no connectors loaded")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Readiness check failed: %s", exc)
         raise HTTPException(status_code=503, detail="factory not ready")
-    if not connectors:
-        raise HTTPException(status_code=503, detail="no connectors registered")
     return {"status": "ready"}
 
 
