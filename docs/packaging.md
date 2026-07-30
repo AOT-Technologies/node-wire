@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Packaging & Publishing
 
-Node Wire ships as **nine independent PyPI packages** (the runtime plus eight connectors) built from a single monorepo. All wheels are binary-only (Cython-compiled `.so`/`.pyd` files) — no `.py` source is included in any published wheel.
+Node Wire ships as multiple independent PyPI packages (the runtime plus one package per connector) built from a single monorepo. All wheels are binary-only (Cython-compiled `.so`/`.pyd` files) — no `.py` source is included in any published wheel.
 
 ---
 
@@ -26,6 +26,162 @@ Node Wire ships as **nine independent PyPI packages** (the runtime plus eight co
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`.
 
+**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
+
+---
+
+## Adding a new publishable connector
+
+After implementing the connector runtime (see [connectors.md](connectors.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
+
+### Tier 1 — Runtime (dev, always required)
+
+| File / area | Purpose |
+|---|---|
+| `src/node_wire_<name>/` | `schema.py`, `logic.py`, optional `registration.py`, `action_spec.py`, `README.md` |
+| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
+| `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
+| [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets |
+| Tests | e.g. `tests/test_connectors_basic.py`, registry tests |
+
+`auto_register()` discovers the connector via the entry point — no factory branch required.
+
+### Tier 2 — Publishable PyPI package
+
+| File | Purpose |
+|---|---|
+| `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point |
+| `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates) below |
+| [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
+| [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) below |
+| This doc — [Package inventory](#package-inventory) | Add row |
+| Root + all package `pyproject.toml` | Version bump on release |
+| `CHANGELOG.md` | Release section |
+
+### Tier 2 templates
+
+#### `pyproject.toml` template
+
+```toml
+# packages/connectors/<name>/pyproject.toml
+[project]
+name = "node-wire-<name>"
+version = "1.0.0"
+description = "Node Wire connector — <short description>"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+
+dependencies = [
+    "node-wire-runtime>=1.0.0",
+    # Add vendor SDK or HTTP client here, e.g.:
+    # "httpx>=0.27.0,<0.28.0",
+]
+
+[project.entry-points."node_wire.connectors"]
+<connector_id> = "node_wire_<name>.logic"
+
+[build-system]
+requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["../../../src"]
+include = ["node_wire_<name>*"]
+```
+
+#### `setup.py` template
+
+```python
+# packages/connectors/<name>/setup.py
+import glob
+import os
+from Cython.Build import cythonize
+from setuptools import setup
+from setuptools.command.build_py import build_py as _BuildPy
+
+
+class NoPyBuild(_BuildPy):
+    def find_package_modules(self, package, package_dir):
+        return []
+
+
+src_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src/node_wire_<name>"))
+py_files = glob.glob(os.path.join(src_root, "**", "*.py"), recursive=True)
+
+setup(
+    cmdclass={"build_py": NoPyBuild},
+    ext_modules=cythonize(py_files, compiler_directives={"language_level": "3"}, build_dir="build"),
+)
+```
+
+Replace `<name>` with the connector's snake_case name (e.g. `my_service`) and `<connector_id>` with the entry-point key (same string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`).
+
+### CI allowlist updates
+
+Three workflow files each maintain a hardcoded list of publishable packages. Add one entry to each when shipping a new connector.
+
+#### `.github/workflows/publish.yml` — `allowed` set
+
+Inside the `validate` step, add your package path to the `allowed` Python set:
+
+```python
+# .github/workflows/publish.yml  (inside the inline Python script)
+allowed = {
+    "packages/runtime",
+    "packages/connectors/http_generic",
+    "packages/connectors/stripe",
+    # ... existing entries ...
+    "packages/connectors/<name>",   # ← add this line
+}
+```
+
+#### `.github/workflows/github-release.yml` — `package_paths` list
+
+Inside the release-manifest step, add your path to the `package_paths` Python list:
+
+```python
+# .github/workflows/github-release.yml  (inside the inline Python script)
+package_paths = [
+    "packages/runtime",
+    "packages/connectors/http_generic",
+    # ... existing entries ...
+    "packages/connectors/<name>",   # ← add this line
+]
+```
+
+#### `.github/workflows/security-pr.yml` — matrix `package_path`
+
+Add a new YAML list item under `jobs.<job>.strategy.matrix.package_path`:
+
+```yaml
+# .github/workflows/security-pr.yml
+matrix:
+  package_path:
+    - packages/runtime
+    - packages/connectors/http_generic
+    # ... existing entries ...
+    - packages/connectors/<name>   # ← add this line
+```
+
+### Tier 3 — Standalone MCP server (optional)
+
+> **Prerequisite:** Tier 2 (the PyPI wheel) must be completed first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
+
+Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined `agents.mcp_entrypoint` server). For the entrypoint code template and Dockerfile template see [mcp-servers.md — Adding a row for a new connector](mcp-servers.md#adding-a-row-for-a-new-connector).
+
+| File | Purpose |
+|---|---|
+| `src/agents/<name>_mcp.py` | Per-connector MCP agent entrypoint |
+| Root `pyproject.toml` | `[project.scripts]` e.g. `nw-<kebab-name>` |
+| `docker/<name>/Dockerfile` | Demo MCP image |
+| [`scripts/build-mcp-images.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-mcp-images.sh) | `docker build` block |
+| [`docker-compose.mcp.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
+| [mcp-servers.md](mcp-servers.md) | Naming conventions table row |
+| [local-packages-to-images.md](local-packages-to-images.md) | Wheel → image mapping |
+
 ---
 
 ## Python package build lifecycle
@@ -38,7 +194,7 @@ Prerequisites: `pip install build cython wheel` (and a usable `python` on the ho
 bash scripts/build-packages.sh
 ```
 
-Default mode builds each of the **nine** known package paths (see inventory above): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
+Default mode builds each package path listed in `ALL_PACKAGES` in the script (see the [Package inventory](#package-inventory) for the current set): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
 
 
 ### Artifact layout and safe command usage
@@ -178,7 +334,7 @@ manual step per package, bound to that tag.
 
 ### Step 1 — Prepare the release
 
-1. Bump version in the root `pyproject.toml` and all nine package `pyproject.toml` files.
+1. Bump version in the root `pyproject.toml` and all connector package `pyproject.toml` files (one per entry in `ALL_PACKAGES` in `scripts/build-packages.sh`).
 2. Add a dated `CHANGELOG.md` section and release link for the target version.
 3. Merge to `main` and confirm required CI checks are green.
 
@@ -199,13 +355,13 @@ The workflow:
 1. Validates all package versions match the tag.
 2. Verifies `CHANGELOG.md` has the matching section and release link.
 3. Generates `sbom.json` (release-level SBOM).
-4. Creates `release-manifest.txt` listing all nine publishable package paths.
+4. Creates `release-manifest.txt` listing all publishable package paths (one per entry in `github-release.yml`'s `package_paths` list).
 5. Creates the GitHub Release with changelog notes, SBOM, and manifest attached.
 
 ### Step 3 — Publish packages to PyPI
 
 After the GitHub Release exists, dispatch `.github/workflows/publish.yml` **once per
-package** (nine times for a full release).
+package** (once per entry in the `allowed` set in that workflow).
 
 **Required inputs:**
 

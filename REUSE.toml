@@ -8,7 +8,7 @@ SPDX-PackageSupplier = "AOT Technologies <opensource@aot-technologies.com>"
 SPDX-PackageDownloadLocation = "https://github.com/AOT-Technologies/node-wire"
 
 [[annotations]]
-path = "uv.lock"
+path = ["uv.lock", "nw-mcp-builder/uv.lock"]
 precedence = "override"
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"

@@ -23,13 +23,14 @@ Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epi
 
 | File | Role |
 |------|------|
+| `__init__.py` | Required empty file — marks the directory as a Python package. |
 | `schema.py` | Pydantic input/output models. Each input model has an `action: Literal[...]` discriminator field (often combined into a discriminated union). |
 | `logic.py` | Connector class: `BaseConnector` subclass — either explicit `@nw_action` methods, or **`action_specs`** plus an optional `_execute_action_spec` override for SDK dispatch. |
 | `action_spec.py` (optional) | Declarative `SdkActionSpec` entries mapping validated models to vendor SDK calls (see Google Drive). |
 | `registration.py` | Optional: registers connector-specific exceptions with `ErrorMapper`. |
 | `exceptions.py` | Optional: custom exception types. |
 
-At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors`, imports each connector's `logic` module (triggering `BaseConnector.__init_subclass__` and registration via `get_connector_registry()`), then imports optional `registration.py` for `ErrorMapper` side effects.
+At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors`, imports each connector's `logic` module (triggering `BaseConnector.__init_subclass__`, which populates the registry returned by `get_connector_registry()`), then imports optional `registration.py` for `ErrorMapper` side effects.
 
 ---
 
@@ -112,15 +113,17 @@ GoogleDriveOperationInput = RootModel[_GoogleDriveOperationUnion]
 
 
 class GoogleDriveOperationOutput(BaseModel):
-    raw: dict
+    raw: dict | list
     description: str
 ```
+
+Use `dict | list` for `raw` when vendor APIs return arrays (e.g. list endpoints); Pydantic validates either shape. Per-action output models can use typed fields instead of a shared envelope.
 
 When a connector only has **one** action, the `action` field is still required — the runtime always validates through the discriminated union.
 
 ### Step 2 — Map operations to the SDK (`action_spec.py`)
 
-**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/node_wire_google_drive/action_spec.py`](../src/node_wire_google_drive/action_spec.py).
+**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/node_wire_google_drive/action_spec.py`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/action_spec.py).
 
 ```python
 # src/node_wire_google_drive/action_spec.py (illustrative)
@@ -223,15 +226,37 @@ Node Wire provides a shared **`AuthProvider`** abstraction (`src/node_wire_runti
 
 To use authentication, call **`await self.get_auth_headers()`** (inherited from `BaseConnector`). This returns a dictionary of headers (e.g. `{"Authorization": "Bearer <token>"}`) injected by the configured provider.
 
+There are two patterns depending on how your connector talks to the vendor:
+
+**HTTP connectors** (direct REST calls via `httpx`) — create a short-lived client inside each `@nw_action` method. Do **not** override `build_client()`:
+
 ```python
-# logic.py usage
+# logic.py — HTTP connector pattern (e.g. Slack, FHIR, GitHub)
+# Base URL: read from the connector's own config, an env var, or a module constant.
+# There is no inherited _get_base_url() helper — connectors own their URL resolution.
+BASE_URL = "https://api.example.com"   # or: os.environ["MY_SERVICE_URL"]
+
+@nw_action("read_resource")
 async def read_resource(self, params: In, *, trace_id: str) -> Out:
-    base_url = self._get_base_url()
     headers = await self.get_auth_headers()  # Fetched/cached by provider
-    
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{base_url}/resource", headers=headers)
+        resp = await client.get(f"{BASE_URL}/resource", headers=headers)
         resp.raise_for_status()
+    ...
+```
+
+**SDK connectors** (vendor Python SDK with a long-lived client object) — override `build_client()` so `get_client()` can cache the result across calls. Auth is handled inside `build_client()`, not via `get_auth_headers()`:
+
+```python
+# logic.py — SDK connector pattern (e.g. Google Drive)
+def build_client(self) -> Any:
+    # Read credential from secret provider and build the vendor client once.
+    raw_sa = self.secret_provider.get_secret("MY_SA_JSON")
+    creds = ...
+    return vendor_sdk.build("v1", credentials=creds)
+
+async def _execute_action_spec(self, action_name, params, *, trace_id, log_extra=None):
+    client = self.get_client()  # cached; calls build_client() on first use
     ...
 ```
 
@@ -239,11 +264,23 @@ async def read_resource(self, params: In, *, trace_id: str) -> Out:
 
 Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 
-| Type | Description |
-|------|-------------|
-| **`none`** | (Default) No auth headers added. |
-| **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). Supports refresh. |
-| **`oauth2`** | Full Client Credentials flow. Supports `private_key_jwt` (RS384) and `client_secret_post`. Handles caching and expiry automagically. |
+| Type | Description | Example connector |
+|------|-------------|-------------------|
+| **`none`** | (Default) No auth headers added. | `http_generic` |
+| **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). Supports refresh. | `stripe`, `slack` |
+| **`static_credentials`** | Username + password pair (e.g. SMTP relay). | `smtp` |
+| **`service_account`** | Google-style service account JSON + scopes. | `google_drive` |
+| **`oauth2`** | Token exchange (`private_key_jwt`, `refresh_token`, `client_secret_post`, etc.). Handles caching and expiry. | `fhir_epic`, `salesforce` |
+
+#### `static_token` field reference
+
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `secret_key` | Yes | — | Env var name holding the raw token value (`EnvSecretProvider` tries the key as-is, then uppercased). |
+| `header_name` | No | `Authorization` | HTTP header the token is injected into. |
+| `prefix` | No | `Bearer ` (with trailing space) | String prepended to the token value. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token "` for APIs that require the `token` scheme (check your vendor's auth docs). |
+
+So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
 
 ### Configuration (`connectors.yaml`)
 
@@ -264,20 +301,37 @@ connectors:
     enabled: true
     auth:
       provider: static_token
-      secret_key: STRIPE_API_KEY
+      secret_key: stripe_api_key
+      header_name: Authorization
+      prefix: ""  # Stripe expects raw key; env var is STRIPE_API_KEY
+
+  smtp:
+    enabled: true
+    auth:
+      provider: static_credentials
+      username_secret: SMTP_USERNAME
+      password_secret: SMTP_PASSWORD
+
+  google_drive:
+    enabled: true
+    auth:
+      provider: service_account
+      sa_json_secret: GOOGLE_DRIVE_SA_JSON
+      scopes:
+        - https://www.googleapis.com/auth/drive
 ```
 
 ---
 
 Key points:
 - **`connector_id`** — unique string; used for routing, config, and registry lookup.
-- **`output_model`** — the Pydantic class returned by every action (Drive uses one shared envelope with `raw` + `description`).
+- **`output_model`** — the Pydantic class returned by every action. Shared envelopes often use `raw: dict | list` for list-heavy vendor APIs; per-action models can use typed fields instead (see SMS example below).
 - **`error_map`** — maps exception types to `(ErrorCategory, error_code)`. Entries are registered with `ErrorMapper` automatically at class definition time.
 - **`build_client()`** — override to create the Google API client. `get_client()` caches the result in `self._client`.
 - **`action_specs`** — each key becomes a manifest action (e.g. `files.list`). Do **not** also add a manual `@nw_action` with the same name.
 - **`_execute_action_spec`** — **required** when using **`action_specs`**: each generated handler delegates here. Typically call **`execute_spec_in_thread`** for blocking SDKs (such as `googleapiclient`). Connectors that only use hand-written `@nw_action` methods do not implement this hook.
 
-**Adding a new Drive operation:** add a Pydantic variant and extend the union in `schema.py`, register a new `SdkActionSpec` in `action_spec.py`, and rely on auto-generated handlers (see [`src/node_wire_google_drive/README.md`](../src/node_wire_google_drive/README.md)).
+**Adding a new Drive operation:** add a Pydantic variant and extend the union in `schema.py`, register a new `SdkActionSpec` in `action_spec.py`, and rely on auto-generated handlers (see [`src/node_wire_google_drive/README.md`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/README.md)).
 
 ### Step 4 — Register in `config/connectors.yaml`
 
@@ -295,7 +349,38 @@ connectors:
 
 ### Step 5 — Auto-registration (nothing extra needed)
 
-`BaseConnector.__init_subclass__` registers your class (exposed via `get_connector_registry()`) as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
+`BaseConnector.__init_subclass__` registers your class in the global registry as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
+
+### Connector registry API
+
+`get_connector_registry()` is defined in `base_connector.py` and exported from the top-level `node_wire_runtime` package — it is **not** in `node_wire_runtime.connector_registry`. Use it to read the connector-id → class map after `auto_register()` has imported your `logic` module:
+
+```python
+from node_wire_runtime import get_connector_registry
+from node_wire_runtime.connector_registry import auto_register
+
+auto_register()  # requires NW_ALLOWED_CONNECTORS
+registry = get_connector_registry()  # Dict[str, Type[BaseConnector]]
+connector_cls = registry["google_drive"]
+```
+
+For the full run pipeline (YAML config, instantiation, protocol routing), use **`ConnectorFactory`** (see [Calling a connector directly](#calling-a-connector-directly-in-process)).
+
+### Optional: `registration.py` for ErrorMapper
+
+When exceptions are raised outside the connector class (or shared across modules), register them in `registration.py` instead of inline `error_map`:
+
+```python
+# src/node_wire_<name>/registration.py
+from node_wire_runtime import ErrorCategory, ErrorMapper
+
+from .exceptions import MyAuthError, MyRateLimitError
+
+ErrorMapper.register(MyAuthError, ErrorCategory.AUTH, code="MY_AUTH_ERROR")
+ErrorMapper.register(MyRateLimitError, ErrorCategory.RETRYABLE, code="MY_RATE_LIMIT")
+```
+
+`auto_register()` imports `registration.py` after `logic.py`, so these registrations run at startup. Alternatively, use inline **`error_map`** on the connector class (Google Drive example above).
 
 ---
 
@@ -342,12 +427,17 @@ class SmsConnector(BaseConnector):
 
 ## Calling a connector directly (in-process)
 
-Use `connector.run(dict)` for the full pipeline (validation, policy, retries, error mapping):
+Use `connector.run(dict)` for the full pipeline (validation, policy, retries, error mapping).
+
+Set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry-point names (e.g. `google_drive`) before calling `auto_register()` — without it, `auto_register()` loads nothing (fail-closed).
 
 ```python
+import os
+
 from node_wire_runtime.connector_registry import auto_register
 from bindings.factory import ConnectorFactory
 
+os.environ["NW_ALLOWED_CONNECTORS"] = "google_drive"
 auto_register()
 factory = ConnectorFactory()
 factory.load()
@@ -451,7 +541,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 
 ### Manifest
 
-`build_manifest(connectors)` is the single source of truth for both bindings (by default it strips `action` from each entry’s `input_schema`). It returns one entry per `@sdk_action`:
+`build_manifest(connectors)` (from `node_wire_runtime.manifest`) is the single source of truth for both bindings (by default it strips `action` from each entry’s `input_schema`). It returns one entry per `@sdk_action`:
 
 ```python
 [
@@ -480,7 +570,6 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 | `stripe` | `charge` |
 | `salesforce` | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` |
 | `google_drive` | `files.list`, `files.upload`, … (see `action_specs`) |
-
 | `fhir_epic` | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
 | `fhir_cerner` | Same family as Epic with Cerner-specific schemas |
 | `slack` | `post_message`, `send_direct_message`, `upload_file` |
@@ -491,13 +580,31 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 
 ## Adding a new connector (checklist)
 
-1. Create the package directory `src/node_wire_<name>/` with `schema.py` (Pydantic input/output models) and register the entry point under `[project.entry-points."node_wire.connectors"]`.
-2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`.
+### Runtime (dev)
+
+1. Create the package directory `src/node_wire_<name>/`. The directory **must contain `__init__.py`** (empty is fine) to be importable as a Python package. Add `schema.py` with Pydantic input/output models and register the entry point under `[project.entry-points."node_wire.connectors"]` in the root `pyproject.toml`.
+2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`. For HTTP-based connectors use an inline `async with httpx.AsyncClient() as client:` inside each `@nw_action` method (see [Using Auth in a Connector](#using-auth-in-a-connector)); only override `build_client()` / `get_client()` when wrapping a vendor SDK that requires a long-lived client object (e.g. `google_drive`).
 3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
 4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
-5. Optionally add `error_map` and/or `registration.py` for custom exception handling.
+5. Optionally add `error_map` and/or `registration.py` for custom exception handling (see [registration.py example](#optional-registrationpy-for-errormapper) below).
 6. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
-7. That's it — `auto_register()` handles the rest. No factory branch required.
+7. **Environment template:** Add required secrets and connector-specific vars to [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) (referenced by [configuration.md](configuration.md) and [installation.md](installation.md)). Use commented placeholders with the env var names your connector reads via `SecretProvider`. Also add the new connector's entry-point name to the `NW_ALLOWED_CONNECTORS` line so the template stays current.
+8. `auto_register()` handles runtime registration — **no factory branch required**.
+
+### Publishable PyPI package (when shipping on PyPI)
+
+9. Create `packages/connectors/<name>/pyproject.toml` and `packages/connectors/<name>/setup.py`. See [packaging.md — Tier 2 templates](packaging.md#tier-2-templates) for copy-paste starting points for both files.
+10. Add the package path to **`scripts/build-packages.sh`** (`ALL_PACKAGES`) and to the three CI workflow allowlists — see [packaging.md — CI allowlist updates](packaging.md#ci-allowlist-updates) for the exact lines to add in each file.
+11. Update the inventory table in **[packaging.md](packaging.md)**.
+
+### Standalone MCP server (optional — dedicated Docker/ToolHive image)
+
+> **Prerequisite:** Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
+
+12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
+13. Add a row to the naming table in **[mcp-servers.md](mcp-servers.md)** and update the architecture diagram in that file to include the new connector.
+
+For full file lists see [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
 
 ---
 

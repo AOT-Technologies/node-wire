@@ -1,6 +1,8 @@
-# SPDX-FileCopyrightText: 2026 AOT Technologies
-#
-# SPDX-License-Identifier: Apache-2.0
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
 
 # Privacy Policy and Compliance
 
@@ -35,4 +37,4 @@ By default, Node Wire logging is configured to provide operational visibility wi
 
 ## Security Disclosures
 
-If you discover a potential privacy or security vulnerability within Node Wire, please do not disclose it publicly. Refer to our [Security Policy](../SECURITY.md) for instructions on how to securely report issues to the maintainers.
+If you discover a potential privacy or security vulnerability within Node Wire, please do not disclose it publicly. Refer to our [Security Policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) for instructions on how to securely report issues to the maintainers.

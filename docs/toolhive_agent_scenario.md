@@ -29,7 +29,7 @@ This guide walks you through running the platform as an MCP server using ToolHiv
 - [Step 5: Configure the agent](#step-5-configure-the-agent)
 - [Step 6: Run the agent](#step-6-run-the-agent)
 - [Local testing (no ToolHive required)](#local-testing-no-toolhive-required)
-- [Claude Desktop and Cursor integration](#claude-desktop--cursor-integration)
+- [Claude Desktop and Cursor integration](#claude-desktop-and-cursor-integration)
 - [Troubleshooting](#troubleshooting)
 - [Running tests](#running-tests)
 - [File layout (`agents`)](#file-layout-agents)

@@ -11,6 +11,8 @@ from concurrent import futures
 from typing import Any
 
 import grpc
+from grpc_health.v1 import health as grpc_health
+from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
@@ -116,6 +118,11 @@ def serve(port: int = 50051) -> None:
     key_path = os.environ.get("NW_GRPC_TLS_KEY_PATH")
     host = resolve_grpc_host()
     configure_grpc_server_port(server, port=port, host=host, cert_path=cert_path, key_path=key_path)
+
+    health_servicer = grpc_health.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+    health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)
+    health_servicer.set("aot.connectors.ConnectorService", health_pb2.HealthCheckResponse.SERVING)
 
     server.start()
     server.wait_for_termination()

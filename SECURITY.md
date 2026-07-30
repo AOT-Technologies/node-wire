@@ -29,7 +29,7 @@ Report suspected vulnerabilities privately through either of the following:
 - **GitHub Security Advisories** — use the
   [private vulnerability reporting](https://github.com/AOT-Technologies/node-wire/security/advisories/new)
   form for this repository (preferred).
-- **Email** — send details to **security@aot-technologies.com**.
+- **Email** — send details to **opensource@aot-technologies.com**.
 
 When reporting, please include as much of the following as you can:
 
