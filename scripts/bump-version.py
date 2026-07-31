@@ -70,18 +70,7 @@ def _changelog_has_link(text: str, version: str) -> bool:
 
 def _scaffold_changelog(text: str, version: str) -> str:
     today = dt.date.today().isoformat()
-    stub = (
-        f"## [{version}] - {today}\n"
-        "\n"
-        "### Added\n"
-        "\n"
-        "- \n"
-        "\n"
-        "### Changed\n"
-        "\n"
-        "- \n"
-        "\n"
-    )
+    stub = f"## [{version}] - {today}\n\n### Added\n\n- \n\n### Changed\n\n- \n\n"
 
     updated = text
     if not _changelog_has_section(updated, version):
@@ -171,7 +160,9 @@ def main(argv: list[str] | None = None) -> int:
     if not changed:
         print(f"Nothing to change; already at {version}")
     else:
-        print(f"{'Dry-run complete' if args.dry_run else 'Done'}: {len(changed)} file(s) for {version}")
+        print(
+            f"{'Dry-run complete' if args.dry_run else 'Done'}: {len(changed)} file(s) for {version}"
+        )
         if not args.dry_run:
             print("Fill in CHANGELOG.md notes before tagging and running Create Release Tag.")
 

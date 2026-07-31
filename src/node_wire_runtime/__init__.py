@@ -34,6 +34,7 @@ from .streaming import (
     BufferedStreamIterator,
 )
 
+
 def _resolve_version() -> str:
     from importlib.metadata import PackageNotFoundError, version as pkg_version
 
