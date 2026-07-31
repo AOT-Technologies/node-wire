@@ -11,6 +11,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-30
+
+### Added
+
+- Tooling to generate thin MCP hosts from node-wire connectors.
+- Scripts and configs to build MCP servers from connectors, including Slack and
+  Salesforce.
+- Google Drive MCP upstream OIDC / bearer passthrough so MCP requests can forward
+  the caller’s OAuth token to Drive.
+- OpenTelemetry metrics and structured audit-trail events on connector
+  invocations.
+- REST `/ready` readiness endpoint (requires at least one REST or gRPC connector).
+- Automated release-tag workflow and a lockstep package version-bump script with
+  changelog scaffolding.
+- Branded documentation site with architecture overview, published from CI.
+- PR patch-coverage gate and static security analysis on pull requests.
+- Broader automated test coverage for bindings, secrets, auth, metrics, and audit
+  trail.
+
+### Changed
+
+- Documentation updates for connector authoring, MCP servers, packaging/release
+  flow, configuration, and architecture.
+- README and docs branding aligned on Node Wire logos.
+- CI workflows hardened for consistency across quality, security, and publish
+  checks.
+
+### Fixed
+
+- Security and logging hardening: safer hashing, sanitized sensitive fields in
+  logs, stricter URL handling, reduced exception information exposure, and related
+  cleanups across runtime, agents, playground scenarios, and connectors.
+- gRPC health-check behavior for readiness/liveness reporting.
+- Log-sanitization test isolation so logger filters do not leak across the suite.
+
 ## [1.0.0] - 2026-06-27
 
 First stable release. The public API is now **frozen under Semantic Versioning** —
@@ -81,5 +116,6 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Dependency lockfile upgraded to resolve known CVEs in transitive packages.
 - Packaging, publish workflow, and security scanning aligned on the nine-package surface.
 
+[1.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.0
 [1.0.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.0.0
 [0.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v0.1.0
