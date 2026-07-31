@@ -14,9 +14,7 @@ from node_wire_runtime import _resolve_version
 
 
 def test_resolve_version_from_installed_distribution() -> None:
-    with patch(
-        "importlib.metadata.version", side_effect=["9.9.9"]
-    ) as pkg_version:
+    with patch("importlib.metadata.version", side_effect=["9.9.9"]) as pkg_version:
         assert _resolve_version() == "9.9.9"
     pkg_version.assert_called_once_with("node-wire-runtime")
 
@@ -24,9 +22,7 @@ def test_resolve_version_from_installed_distribution() -> None:
 def test_resolve_version_falls_back_to_pyproject() -> None:
     # Both distribution names unavailable -> read version from the src-layout
     # pyproject.toml on disk.
-    with patch(
-        "importlib.metadata.version", side_effect=PackageNotFoundError
-    ):
+    with patch("importlib.metadata.version", side_effect=PackageNotFoundError):
         version = _resolve_version()
 
     # Matches the version declared in the repository's root pyproject.toml.
@@ -36,9 +32,10 @@ def test_resolve_version_falls_back_to_pyproject() -> None:
 
 def test_resolve_version_returns_default_when_everything_fails() -> None:
     # Distributions missing and pyproject read raises -> hard-coded default.
-    with patch(
-        "importlib.metadata.version", side_effect=PackageNotFoundError
-    ), patch("pathlib.Path.read_text", side_effect=OSError("boom")):
+    with (
+        patch("importlib.metadata.version", side_effect=PackageNotFoundError),
+        patch("pathlib.Path.read_text", side_effect=OSError("boom")),
+    ):
         assert _resolve_version() == "0.0.0"
 
 
