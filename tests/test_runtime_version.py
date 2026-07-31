@@ -9,8 +9,7 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError
 from unittest.mock import patch
 
-import node_wire_runtime
-from node_wire_runtime import _resolve_version
+from node_wire_runtime import __version__, _resolve_version
 
 
 def test_resolve_version_from_installed_distribution() -> None:
@@ -40,5 +39,5 @@ def test_resolve_version_returns_default_when_everything_fails() -> None:
 
 
 def test_module_exposes_version_string() -> None:
-    assert isinstance(node_wire_runtime.__version__, str)
-    assert node_wire_runtime.__version__
+    assert isinstance(__version__, str)
+    assert __version__
