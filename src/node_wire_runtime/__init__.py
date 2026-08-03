@@ -24,6 +24,9 @@ from .base_connector import (
 from .sdk_action_spec import (
     SdkActionSpec,
     default_build_kwargs,
+    default_invoke,
+    default_resolve_method,
+    execute_spec_async,
     execute_spec_in_thread,
     navigate_resource,
 )
@@ -60,6 +63,9 @@ __all__ = [
     "get_connector_registry",
     "SdkActionSpec",
     "default_build_kwargs",
+    "default_invoke",
+    "default_resolve_method",
+    "execute_spec_async",
     "execute_spec_in_thread",
     "navigate_resource",
     "StreamSignal",
