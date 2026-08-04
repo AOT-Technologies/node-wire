@@ -1,0 +1,36 @@
+swagger: "2.0"
+info:
+  title: Legacy Demo
+  version: "1.0"
+host: api.legacy.example.com
+basePath: /v2
+schemes:
+  - https
+securityDefinitions:
+  key:
+    type: apiKey
+    name: api_key
+    in: query
+paths:
+  /items/{id}:
+    get:
+      operationId: getItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: tags
+          in: query
+          type: array
+          items:
+            type: string
+          collectionFormat: csv
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: object
+            properties:
+              id:
+                type: string

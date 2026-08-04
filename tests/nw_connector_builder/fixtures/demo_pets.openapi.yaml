@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: Demo Pets API
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: verbose
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: A pet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+              example:
+                id: "1"
+                name: Fido
+  /pets:
+    post:
+      operationId: createPet
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+            example:
+              name: Spot
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+  /health:
+    get:
+      operationId: healthCheck
+      security: []
+      responses:
+        "204":
+          description: OK
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas: {}

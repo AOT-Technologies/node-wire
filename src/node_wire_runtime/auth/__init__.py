@@ -34,8 +34,13 @@ ServiceAccountAuthProvider
     ``google.oauth2.service_account.Credentials`` via
     :meth:`~AuthProvider.get_client_credentials`. Used by the Google Drive
     connector; returns empty HTTP headers.
+
+ApiKeyQueryAuthProvider
+    Injects an API key as a query-string parameter via
+    :meth:`~AuthProvider.get_query_params`. Returns empty HTTP headers.
 """
 
+from .apikey_query import ApiKeyQueryAuthProvider
 from .base import AuthProvider
 from .no_auth import NoAuthProvider
 from .oauth2 import OAuth2AuthProvider
@@ -48,4 +53,5 @@ __all__ = [
     "StaticTokenAuthProvider",
     "OAuth2AuthProvider",
     "ServiceAccountAuthProvider",
+    "ApiKeyQueryAuthProvider",
 ]
