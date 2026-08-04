@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -19,11 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 def _py_type(hint: str, required: bool, default: Any) -> str:
-    if hint in {"str", "int", "float", "bool"} or hint.startswith("list[") or hint.startswith("dict["):
-        base = hint
-    elif re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", hint):
+    if hint in {"str", "int", "float", "bool"} or hint.startswith("list[") or hint.startswith(
+        "dict["
+    ):
         base = hint
     else:
+        # Unresolved / unknown names → Any (never emit dangling class refs).
         base = "Any"
     if not required and default is None:
         return f"{base} | None"
@@ -33,9 +33,7 @@ def _py_type(hint: str, required: bool, default: Any) -> str:
 def _field_extra(plan_param) -> str:  # noqa: ANN001
     style = repr(plan_param.style) if plan_param.style is not None else "None"
     explode = repr(plan_param.explode) if plan_param.explode is not None else "None"
-    media = (
-        repr(plan_param.media_type) if plan_param.media_type is not None else "None"
-    )
+    media = repr(plan_param.media_type) if plan_param.media_type is not None else "None"
     return (
         "{"
         f'"nw_in": "{plan_param.location}", '
@@ -47,6 +45,23 @@ def _field_extra(plan_param) -> str:  # noqa: ANN001
     )
 
 
+def _example_placeholder(param) -> Any:  # noqa: ANN001
+    if param.default is not None:
+        return param.default
+    hint = param.python_type_hint
+    if hint == "int":
+        return 1
+    if hint == "bool":
+        return True
+    if hint == "float":
+        return 1.0
+    if hint.startswith("list["):
+        return []
+    if hint.startswith("dict["):
+        return {}
+    return "example"
+
+
 def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
     """Hand-roll input envelopes; use Any/dict for complex body/output when needed."""
     lines: list[str] = [
@@ -55,7 +70,7 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         "# SPDX-License-Identifier: Apache-2.0",
         "from __future__ import annotations",
         "",
-        "from typing import Any, Literal, Optional",
+        "from typing import Any, Literal",
         "",
         "from pydantic import BaseModel, ConfigDict, Field",
         "",
@@ -69,8 +84,8 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         in_name = _pascal(action.name) + "Input"
         out_name = _pascal(action.name) + "Output"
         lines.append(f"class {in_name}(BaseModel):")
-        lines.append(f'    model_config = ConfigDict(populate_by_name=True, extra="forbid")')
-        lines.append(f'    action: Literal[{action.name!r}] = {action.name!r}')
+        lines.append('    model_config = ConfigDict(populate_by_name=True, extra="forbid")')
+        lines.append(f"    action: Literal[{action.name!r}] = {action.name!r}")
         for p in action.params:
             typ = _py_type(p.python_type_hint, p.required, p.default)
             alias = ""
@@ -93,8 +108,7 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 "nw_media_type": action.body_media_type or "application/json",
             }
             lines.append(
-                f"    body: Any | None = Field("
-                f"None, json_schema_extra={body_extra!r})"
+                f"    body: Any | None = Field(" f"None, json_schema_extra={body_extra!r})"
             )
         if len(action.params) == 0 and action.body_schema is None:
             lines.append("    pass")
@@ -104,9 +118,10 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         if action.use_rest_response_output:
             lines.append(f"{out_name} = RestResponseOutput")
         else:
+            # Object-shaped success schema only (see _success_response_schema).
             lines.append(f"class {out_name}(BaseModel):")
             lines.append('    model_config = ConfigDict(extra="allow")')
-            lines.append("    # OpenAPI success schema — permissive allow for nested props")
+            lines.append("    # OpenAPI object success schema — permissive allow for nested props")
             lines.append("    pass")
         lines.append("")
         lines.append("")
@@ -267,11 +282,19 @@ def generate_model_tests(connector_id: str, result: DeriveResult) -> str:
             f"    assert again.action == {a.name!r}",
             "",
         ]
-        if a.examples.get("request") is not None:
+        if a.examples.get("request") is not None and a.body_schema is not None:
+            # Build a payload that satisfies required path/query/header fields so
+            # the example→model gate does not abort on otherwise-valid specs.
+            payload_bits = [f"'action': {a.name!r}", f"'body': example"]
+            for p in a.params:
+                if not p.required:
+                    continue
+                payload_bits.append(f"{p.field_name!r}: {json.dumps(_example_placeholder(p))}")
+            payload_expr = "{" + ", ".join(payload_bits) + "}"
             lines += [
                 f"def test_{a.name}_example_parses() -> None:",
                 f"    example = {json.dumps(a.examples['request'])}",
-                f"    payload = {{'action': {a.name!r}, 'body': example}}",
+                f"    payload = {payload_expr}",
                 f"    sch.{in_name}.model_validate(payload)",
                 "",
             ]

@@ -243,11 +243,20 @@ def _encode_request_body(
 
 
 def _looks_base64(value: str) -> bool:
-    if len(value) < 8 or len(value) % 4 != 0:
-        return False
+    """Conservative base64 heuristic for multipart binary fields.
+
+    Requires substantial length and padding so short form-field strings that
+    merely happen to use the base64 alphabet (e.g. ``abcdefgh``) are not
+    silently promoted to file uploads.
+    """
     import re
 
-    return bool(re.fullmatch(r"[A-Za-z0-9+/]+=*", value))
+    if len(value) < 64 or len(value) % 4 != 0:
+        return False
+    if "=" not in value[-3:]:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", value))
+
 
 
 class RestConnector(BaseConnector):

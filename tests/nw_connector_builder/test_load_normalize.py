@@ -73,3 +73,14 @@ def test_load_rejects_remote_ref(tmp_path: Path) -> None:
     )
     with pytest.raises(SpecLoadError, match="Remote"):
         load_openapi_document(str(bad))
+
+
+def test_local_relative_ref_resolves() -> None:
+    doc, _ = load_openapi_document(str(FIXTURES / "multifile" / "openapi.yaml"))
+    schema = doc["paths"]["/items"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    # prance should have inlined the relative file $ref
+    assert "$ref" not in schema
+    assert schema.get("type") == "object"
+    assert "id" in (schema.get("properties") or {})

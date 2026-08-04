@@ -93,12 +93,27 @@ def _sanitize_field_name(wire: str) -> str:
     return name
 
 
+def _dedupe_field_names(params: list[ParamPlan]) -> list[ParamPlan]:
+    """Ensure sanitized field names are unique within an action (document order)."""
+    used: set[str] = set()
+    for p in params:
+        base = p.field_name
+        name = base
+        n = 2
+        while name in used:
+            name = f"{base}_{n}"
+            n += 1
+        used.add(name)
+        p.field_name = name
+    return params
+
+
 def _schema_type_hint(schema: dict[str, Any] | None) -> str:
     if not schema:
         return "Any"
     if "$ref" in schema:
-        ref = schema["$ref"].rsplit("/", 1)[-1]
-        return ref
+        # Generator does not emit component classes; avoid dangling annotations.
+        return "Any"
     t = schema.get("type")
     if t == "string":
         return "str"
@@ -157,7 +172,13 @@ def _pick_json_media(content: dict[str, Any]) -> tuple[str, dict[str, Any]] | No
 
 
 def _success_response_schema(op: dict[str, Any]) -> tuple[dict[str, Any] | None, bool]:
-    """Return (schema, use_envelope)."""
+    """Return ``(schema, use_envelope)``.
+
+    Typed (non-envelope) output is only used for JSON **object** schemas. Array
+    and scalar success bodies go through ``RestResponseOutput`` so
+    ``model_validate`` is never asked to parse a list/scalar into an empty
+    BaseModel (which would raise at call time).
+    """
     responses = op.get("responses") or {}
     # explicit 2xx ascending
     codes = []
@@ -178,13 +199,32 @@ def _success_response_schema(op: dict[str, Any]) -> tuple[dict[str, Any] | None,
             _mt, media = picked
             schema = media.get("schema")
             if schema:
-                return schema, False
+                if _schema_is_object(schema):
+                    return schema, False
+                # array / scalar / unresolved $ref → envelope
+                return schema, True
         # 204 / no content
         if not content:
             return None, True
 
     # no success JSON → envelope
     return None, True
+
+
+def _schema_is_object(schema: dict[str, Any]) -> bool:
+    """True when the schema is (or clearly describes) a JSON object."""
+    if not isinstance(schema, dict):
+        return False
+    if "$ref" in schema:
+        # Unresolved refs are unsafe for empty typed models; prefer envelope.
+        return False
+    t = schema.get("type")
+    if t == "object":
+        return True
+    if t is not None:
+        return False
+    # typeless but object-shaped
+    return "properties" in schema or "allOf" in schema or "additionalProperties" in schema
 
 
 def resolve_base_url(doc: dict[str, Any], override: str | None) -> str:
@@ -300,6 +340,8 @@ def derive_operations(
         if drop_reason:
             drops.append(SoftDrop(method, path, op.get("operationId"), drop_reason))
             continue
+
+        param_plans = _dedupe_field_names(param_plans)
 
         body_schema = None
         body_media = None

@@ -16,7 +16,7 @@ import httpx
 import yaml
 
 from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
-from nw_connector_builder.refs import assert_no_remote_refs, collect_remote_refs
+from nw_connector_builder.refs import collect_remote_refs
 
 logger = logging.getLogger(__name__)
 
@@ -94,34 +94,41 @@ def resolve_and_validate(
     doc: dict[str, Any],
     *,
     from_url: bool,
-    spec_dir: Path | None,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
-    """Apply remote-$ref policy then prance ResolvingParser."""
+    """Apply remote-$ref policy then resolve + validate.
+
+    Uses ``prance.util.resolver.RefResolver`` (not ``ResolvingParser(spec_string=…,
+    url=…)``, which breaks on ``ParseResult`` in this prance version) so local
+    relative-file ``$ref``s resolve when ``base_url`` is the absolute path of the
+    root file. Absolute remote ``$ref``s are rejected by the pre-scan first.
+    """
     remotes = collect_remote_refs(doc, from_url=from_url)
     if remotes:
         listed = "\n".join(f"  - {r}" for r in remotes)
         raise SpecLoadError(f"Remote $ref values are not allowed:\n{listed}")
 
-    assert_no_remote_refs(doc, from_url=from_url)
-
     try:
-        from prance import ResolvingParser
+        from openapi_spec_validator import validate
+        from prance.util.resolver import RefResolver
     except ImportError as exc:
-        raise SpecLoadError("prance is required (pip install 'prance[osv]')") from exc
+        raise SpecLoadError(
+            "prance[osv] / openapi-spec-validator required "
+            "(pip install 'prance[osv]')"
+        ) from exc
 
-    spec_string = json.dumps(doc)
     try:
-        parser = ResolvingParser(
-            spec_string=spec_string,
-            backend="openapi-spec-validator",
-            strict=False,
-        )
+        resolver = RefResolver(doc, url=base_url) if base_url else RefResolver(doc)
+        resolver.resolve_references()
+        resolved = resolver.specs
+        if not isinstance(resolved, dict):
+            raise SpecLoadError("ref resolver returned a non-object specification")
+        validate(resolved)
+    except SpecLoadError:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise SpecLoadError(f"OpenAPI validation/deref failed: {exc}") from exc
 
-    resolved = parser.specification
-    if not isinstance(resolved, dict):
-        raise SpecLoadError("prance returned a non-object specification")
     return resolved
 
 
@@ -138,14 +145,16 @@ def load_openapi_document(
 
     doc, origin, from_url = load_raw_document(source)
     version = detect_version(doc)
-    content_hash = hashlib.sha256(json.dumps(doc, sort_keys=True, default=str).encode()).hexdigest()
+    content_hash = hashlib.sha256(
+        json.dumps(doc, sort_keys=True, default=str).encode()
+    ).hexdigest()
 
     if version == "2.0":
         logger.info("Normalizing Swagger 2.0 → OpenAPI 3.0")
         doc = normalize_swagger2_to_openapi3(doc)
 
-    spec_dir = None if from_url else Path(origin).parent
-    resolved = resolve_and_validate(doc, from_url=from_url, spec_dir=spec_dir)
+    base_url = None if from_url else str(Path(origin).resolve())
+    resolved = resolve_and_validate(doc, from_url=from_url, base_url=base_url)
 
     meta = {
         "origin": origin,
