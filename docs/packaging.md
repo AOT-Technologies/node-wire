@@ -32,7 +32,7 @@ Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject
 
 ## Adding a new publishable connector
 
-After implementing the connector runtime (see [connectors.md](connectors.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
+After implementing the connector runtime (see [connectors.md](connectors.md), or generate a REST skeleton with [nw-connector-builder](nw-connector-builder.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
 
 ### Tier 1 — Runtime (dev, always required)
 

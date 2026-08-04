@@ -56,6 +56,12 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
     [:octicons-arrow-right-24: Connectors Guide](connectors.md)
 
+-   **OpenAPI Builder**
+
+    Generate a REST connector (and optional MCP host) from a Swagger/OpenAPI spec.
+
+    [:octicons-arrow-right-24: nw-connector-builder](nw-connector-builder.md)
+
 -   **MCP Integration**
 
     Deploy connectors as Model Context Protocol servers for AI agents.

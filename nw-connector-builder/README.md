@@ -1,22 +1,36 @@
-# SPDX-FileCopyrightText: 2026 AOT Technologies
-#
-# SPDX-License-Identifier: Apache-2.0
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
 
 # nw-connector-builder
 
 Generate a `node_wire_<id>` connector (and optionally an MCP server) from a
 Swagger 2.0 / OpenAPI 3.x document.
 
+**Full documentation:** [docs/nw-connector-builder.md](../docs/nw-connector-builder.md)
+
 ```bash
-# from repo root, with the package installed
-nw-connector-builder --path path/to/openapi.yaml --id my_api --no-mcp
-nw-connector-builder --path https://example.com/openapi.json --id my_api --wire --force
+cd nw-connector-builder
+uv sync
+
+# Connector only
+uv run nw-connector-builder --path path/to/openapi.yaml --id my_api --no-mcp
+
+# Remote spec + overwrite + wire config + MCP host
+uv run nw-connector-builder \
+  --path https://petstore.swagger.io/v2/swagger.json \
+  --id pet_store \
+  --force \
+  --wire
 ```
 
-See the hand-off spec under `.scratch/nw-connector-builder/spec.md` for the
-full contract (auth mapping, soft-drop rules, staging gate, MCP hand-off).
+From the node-wire repo root:
 
-Environment:
+```bash
+uv run --directory nw-connector-builder nw-connector-builder --help
+uv run pytest tests/nw_connector_builder -v --no-cov
+```
 
-- `NW_REST_ALLOWED_HOSTS` — egress allowlist for generated `RestConnector`s
-- `NW_REST_TRUST_ENV` — set `true` to honor `HTTP(S)_PROXY` (default off)
+See also: [connectors.md](../docs/connectors.md), [mcp-servers.md](../docs/mcp-servers.md), [packaging.md](../docs/packaging.md).
