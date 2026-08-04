@@ -16,14 +16,17 @@ cd nw-connector-builder
 uv sync
 
 # Connector only
-uv run nw-connector-builder --path path/to/openapi.yaml --id my_api --no-mcp
+uv run nw-connector-builder from-openapi --path path/to/openapi.yaml --id my_api --no-mcp
 
 # Remote spec + overwrite + wire config + MCP host
-uv run nw-connector-builder \
+uv run nw-connector-builder from-openapi \
   --path https://petstore.swagger.io/v2/swagger.json \
   --id pet_store \
   --force \
   --wire
+
+# MCP host from an existing connector
+uv run nw-connector-builder mcp -c pet_store --force-output
 ```
 
 From the node-wire repo root:

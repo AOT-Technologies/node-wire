@@ -26,6 +26,9 @@ cd nw-mcp-builder
 # Generate (build wheels + fixture + out/<name>-mcp/)
 uv run nw-mcp-builder -c <connector_id>
 
+# Same flow via nw-connector-builder
+uv run --directory ../nw-connector-builder nw-connector-builder mcp -c <connector_id>
+
 # Common options
 uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
 uv run nw-mcp-builder -c <connector_id> --force-output

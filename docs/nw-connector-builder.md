@@ -6,9 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-connector-builder
 
-Self-contained tool inside the **node-wire** repo that turns a **Swagger 2.0** or **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host via [nw-mcp-builder](mcp-servers.md)).
+Self-contained tool inside the **node-wire** repo with two subcommands:
 
-Use this when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](connectors.md).
+| Command | Purpose |
+|---------|---------|
+| `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
+| `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
+
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](mcp-servers.md)) for hand-written connectors. For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](connectors.md).
 
 ---
 
@@ -91,13 +96,13 @@ uv run --directory nw-connector-builder nw-connector-builder --help
 
 ```bash
 # Local file — connector only (skip MCP)
-uv run --directory nw-connector-builder nw-connector-builder \
+uv run --directory nw-connector-builder nw-connector-builder from-openapi \
   --path path/to/openapi.yaml \
   --id my_api \
   --no-mcp
 
 # Remote Swagger/OpenAPI — overwrite if present, wire config, build MCP host
-uv run --directory nw-connector-builder nw-connector-builder \
+uv run --directory nw-connector-builder nw-connector-builder from-openapi \
   --path https://petstore.swagger.io/v2/swagger.json \
   --id pet_store \
   --force \
@@ -105,6 +110,13 @@ uv run --directory nw-connector-builder nw-connector-builder \
 ```
 
 `--id` must match `[a-z][a-z0-9_]*` (e.g. `pet_store`, not `PetStore`).
+
+To regenerate an MCP host from an existing connector (no OpenAPI step):
+
+```bash
+uv run --directory nw-connector-builder nw-connector-builder mcp \
+  -c pet_store --force-output
+```
 
 ### 3. Run and verify
 
@@ -143,8 +155,13 @@ uv run pytest tests/nw_connector_builder -v --no-cov
 ## CLI reference
 
 ```
-nw-connector-builder --path <SPEC> --id <connector_id> [options]
+nw-connector-builder from-openapi --path <SPEC> --id <connector_id> [options]
+nw-connector-builder mcp -c <connector_id> [options]
 ```
+
+Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `from-openapi`.
+
+### `from-openapi`
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -158,10 +175,16 @@ nw-connector-builder --path <SPEC> --id <connector_id> [options]
 | `--report-path` | `./report.json` | Where to write `report.json` on **abort** (success writes beside the package) |
 | `-v`, `--verbose` | off | Debug logging |
 
+### `mcp`
+
+Same flags as standalone `nw-mcp-builder` (see [mcp-servers.md](mcp-servers.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
+
 Help:
 
 ```bash
 uv run --directory nw-connector-builder nw-connector-builder --help
+uv run --directory nw-connector-builder nw-connector-builder from-openapi --help
+uv run --directory nw-connector-builder nw-connector-builder mcp --help
 ```
 
 ### Exit codes
@@ -306,7 +329,13 @@ Unless `--no-mcp` is set, the builder calls `nw-mcp-builder` with:
 - `force_fixture=True` (fixture must track the newly promoted connector)
 - `force_output=<value of --force>`
 
-MCP details (wheels, ToolHive, Inspector) live in [mcp-servers.md](mcp-servers.md). A failed hand-off returns exit code `1` after a successful promote — re-run `uv run nw-mcp-builder -c <id> --force-output` once the connector tree is good.
+MCP details (wheels, ToolHive, Inspector) live in [mcp-servers.md](mcp-servers.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
+
+```bash
+uv run --directory nw-connector-builder nw-connector-builder mcp -c <id> --force-output
+# equivalent:
+uv run --directory nw-mcp-builder nw-mcp-builder -c <id> --force-output
+```
 
 ---
 

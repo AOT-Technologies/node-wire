@@ -12,6 +12,14 @@ It does **not** depend on the separate [mcp-builder](https://github.com/your-org
 
 To **create** a connector from OpenAPI/Swagger first, use [nw-connector-builder](nw-connector-builder.md) (it can hand off to this tool automatically unless you pass `--no-mcp`).
 
+You can also run MCP generation as a subcommand of the connector builder (same flags):
+
+```bash
+uv run --directory nw-connector-builder nw-connector-builder mcp -c <connector_id>
+```
+
+The standalone `nw-mcp-builder` entry point remains supported.
+
 </div>
 
 ---
