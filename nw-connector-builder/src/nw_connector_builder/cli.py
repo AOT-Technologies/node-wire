@@ -5,7 +5,7 @@
 """CLI for nw-connector-builder.
 
 Usage:
-  nw-connector-builder <SPEC> --id <connector_id> [--wire] [--force] [--no-mcp]
+  nw-connector-builder --path <SPEC> --id <connector_id> [--wire] [--force] [--no-mcp]
 """
 
 from __future__ import annotations
@@ -35,7 +35,12 @@ def main(argv: list[str] | None = None) -> None:
             "(and optionally an MCP server via nw-mcp-builder)."
         ),
     )
-    parser.add_argument("spec", help="Local path or http(s) URL to an OpenAPI/Swagger document")
+    parser.add_argument(
+        "--path",
+        required=True,
+        dest="spec",
+        help="Local path or http(s) URL to an OpenAPI/Swagger document",
+    )
     parser.add_argument(
         "--id",
         required=True,

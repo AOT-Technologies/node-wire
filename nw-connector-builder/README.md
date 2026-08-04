@@ -9,8 +9,8 @@ Swagger 2.0 / OpenAPI 3.x document.
 
 ```bash
 # from repo root, with the package installed
-nw-connector-builder path/to/openapi.yaml --id my_api --no-mcp
-nw-connector-builder https://example.com/openapi.json --id my_api --wire --force
+nw-connector-builder --path path/to/openapi.yaml --id my_api --no-mcp
+nw-connector-builder --path https://example.com/openapi.json --id my_api --wire --force
 ```
 
 See the hand-off spec under `.scratch/nw-connector-builder/spec.md` for the
