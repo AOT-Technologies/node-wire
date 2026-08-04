@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import tomllib
 from pathlib import Path
 
 from nw_mcp_builder.schema.models import MCPScope
@@ -31,6 +32,10 @@ _VENDOR_IGNORE = shutil.ignore_patterns(
     ".ruff_cache",
     "*.egg-info",
 )
+
+# node-wire McpServer uses the mcp 1.x decorator API (@server.list_tools()),
+# which was removed in mcp 2.0. Prefer the version locked in the monorepo.
+_MCP_DEP_FALLBACK = "mcp>=1.6.0,<2"
 
 
 def server_name_to_module(name: str) -> str:
@@ -96,6 +101,7 @@ def write_connector_project(
     shutil.copy2(config_src, config_dir / "connectors.yaml")
 
     connector_pkg = connector_dist_package_name(connector_id)
+    mcp_dep = resolve_mcp_dependency(node_wire_root)
 
     (project_dir / "pyproject.toml").write_text(
         _pyproject_toml(
@@ -105,6 +111,7 @@ def write_connector_project(
             connector_pkg=connector_pkg,
             runtime_wheel_name=runtime_dest.name,
             connector_wheel_name=connector_dest.name,
+            mcp_dep=mcp_dep,
         ),
         encoding="utf-8",
     )
@@ -133,6 +140,7 @@ def write_connector_project(
             module_name=module_name,
             connector_id=connector_id,
             connector_pkg=connector_pkg,
+            mcp_dep=mcp_dep,
         ),
         encoding="utf-8",
     )
@@ -172,6 +180,47 @@ def _vendor_minimal_node_wire_src(
         logger.info("Vendored %s -> %s", src, vendor_src / name)
 
 
+def resolve_mcp_dependency(node_wire_root: Path) -> str:
+    """Return a pip requirement for ``mcp`` matching the monorepo lockfile.
+
+    Reads ``uv.lock`` under ``node_wire_root`` and pins ``mcp==<locked>``.
+    Falls back to an mcp 1.x upper-bound when the lockfile is missing
+    (e.g. unit-test fixtures).
+    """
+    lock_path = node_wire_root / "uv.lock"
+    if not lock_path.is_file():
+        logger.warning(
+            "node-wire uv.lock missing at %s; using fallback %s",
+            lock_path,
+            _MCP_DEP_FALLBACK,
+        )
+        return _MCP_DEP_FALLBACK
+
+    try:
+        data = tomllib.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        logger.warning(
+            "Failed to parse %s (%s); using fallback %s",
+            lock_path,
+            exc,
+            _MCP_DEP_FALLBACK,
+        )
+        return _MCP_DEP_FALLBACK
+
+    for pkg in data.get("package", []):
+        if pkg.get("name") == "mcp" and pkg.get("version"):
+            spec = f"mcp=={pkg['version']}"
+            logger.info("Pinning generated host mcp dependency to %s", spec)
+            return spec
+
+    logger.warning(
+        "mcp package not found in %s; using fallback %s",
+        lock_path,
+        _MCP_DEP_FALLBACK,
+    )
+    return _MCP_DEP_FALLBACK
+
+
 def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path]:
     runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
     connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
@@ -207,6 +256,7 @@ def _pyproject_toml(
     connector_pkg: str,
     runtime_wheel_name: str,
     connector_wheel_name: str,
+    mcp_dep: str,
 ) -> str:
     return f'''\
 [project]
@@ -217,7 +267,7 @@ requires-python = ">=3.11"
 dependencies = [
     "node-wire-runtime",
     "{connector_pkg}",
-    "mcp>=1.6.0,<2",
+    "{mcp_dep}",
     "httpx[http2]>=0.27.0,<0.28.0",
     "python-dotenv>=1.0.0",
 ]
@@ -379,6 +429,7 @@ def _dockerfile(
     module_name: str,
     connector_id: str,
     connector_pkg: str,
+    mcp_dep: str,
 ) -> str:
     return f'''\
 FROM python:3.12-slim
@@ -401,7 +452,7 @@ ENV PYTHONPATH=/nw_src \\
     NW_CONFIG_PATH=/app/config/connectors.yaml
 
 RUN pip install --no-cache-dir --find-links=/wheels \\
-    node-wire-runtime {connector_pkg} "mcp>=1.6.0,<2" "httpx[http2]>=0.27.0,<0.28.0" \\
+    node-wire-runtime {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
     && pip install --no-cache-dir -e /app \\
     && rm -rf /wheels
 
