@@ -55,7 +55,10 @@ def run_build(
         )
     except SpecLoadError as exc:
         report = build_report(
-            connector_id=connector_id, meta=meta, result=None, error=str(exc)
+            connector_id=connector_id,
+            meta=exc.meta or meta,
+            result=None,
+            error=str(exc),
         )
         print_report(report)
         write_report(report, abort_report_path)

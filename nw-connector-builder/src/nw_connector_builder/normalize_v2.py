@@ -30,17 +30,30 @@ def _rewrite_refs(obj: Any) -> Any:
     return obj
 
 
+def _strip_nones(obj: Any) -> Any:
+    """Drop keys whose value is ``None`` (Swagger often emits null optionals)."""
+    if isinstance(obj, dict):
+        return {k: _strip_nones(v) for k, v in obj.items() if v is not None}
+    if isinstance(obj, list):
+        return [_strip_nones(x) for x in obj]
+    return obj
+
+
 def _map_security_scheme(name: str, scheme: dict[str, Any]) -> dict[str, Any]:
     stype = scheme.get("type")
     if stype == "apiKey":
-        return {
-            "type": "apiKey",
-            "name": scheme.get("name"),
-            "in": scheme.get("in"),
-            "description": scheme.get("description"),
-        }
+        return _strip_nones(
+            {
+                "type": "apiKey",
+                "name": scheme.get("name"),
+                "in": scheme.get("in"),
+                "description": scheme.get("description"),
+            }
+        )
     if stype == "basic":
-        return {"type": "http", "scheme": "basic", "description": scheme.get("description")}
+        return _strip_nones(
+            {"type": "http", "scheme": "basic", "description": scheme.get("description")}
+        )
     if stype == "oauth2":
         flows: dict[str, Any] = {}
         flow = scheme.get("flow")
@@ -63,9 +76,33 @@ def _map_security_scheme(name: str, scheme: dict[str, Any]) -> dict[str, Any]:
                 "tokenUrl": scheme.get("tokenUrl", ""),
                 "scopes": scopes,
             }
-        return {"type": "oauth2", "flows": flows, "description": scheme.get("description")}
+        return _strip_nones(
+            {"type": "oauth2", "flows": flows, "description": scheme.get("description")}
+        )
     # pass through unknown
-    return dict(scheme)
+    return _strip_nones(dict(scheme))
+
+
+_SCHEMA_KEYS = frozenset(
+    {
+        "type",
+        "format",
+        "items",
+        "enum",
+        "default",
+        "maximum",
+        "exclusiveMaximum",
+        "minimum",
+        "exclusiveMinimum",
+        "maxLength",
+        "minLength",
+        "pattern",
+        "maxItems",
+        "minItems",
+        "uniqueItems",
+        "multipleOf",
+    }
+)
 
 
 def _param_collection_to_style(param: dict[str, Any]) -> None:
@@ -112,18 +149,19 @@ def _convert_parameters(
                 schema = {"type": "string", "format": "binary"}
                 form_is_multipart = True
             else:
-                for key in ("type", "format", "items", "enum", "default", "description"):
-                    if key in p:
-                        schema[key] = p[key]
+                for key in list(p.keys()):
+                    if key in _SCHEMA_KEYS or key == "description":
+                        if key in p:
+                            schema[key] = p[key]
             form_props[name] = _rewrite_refs(schema)
             if p.get("required"):
                 form_required.append(name)
             continue
 
-        # path / query / header
-        schema = {}
-        for key in ("type", "format", "items", "enum", "default"):
-            if key in p:
+        # path / query / header — move schema keywords into ``schema``
+        schema = dict(p.pop("schema", None) or {})
+        for key in list(p.keys()):
+            if key in _SCHEMA_KEYS:
                 schema[key] = p.pop(key)
         if schema:
             p["schema"] = _rewrite_refs(schema)
@@ -143,6 +181,20 @@ def _convert_parameters(
     return kept, request_body
 
 
+def _convert_header(header: dict[str, Any]) -> dict[str, Any]:
+    """Swagger 2 response header → OpenAPI 3 header (schema wrapper)."""
+    if "$ref" in header:
+        return _rewrite_refs(header)
+    h = copy.deepcopy(header)
+    schema = dict(h.pop("schema", None) or {})
+    for key in list(h.keys()):
+        if key in _SCHEMA_KEYS:
+            schema[key] = h.pop(key)
+    if schema:
+        h["schema"] = _rewrite_refs(schema)
+    return _rewrite_refs(h)
+
+
 def _convert_responses(
     responses: dict[str, Any],
     *,
@@ -158,6 +210,9 @@ def _convert_responses(
         if schema is not None:
             media = produces[0] if produces else "application/json"
             r["content"] = {media: {"schema": _rewrite_refs(schema)}}
+        headers = r.get("headers")
+        if isinstance(headers, dict):
+            r["headers"] = {name: _convert_header(h) for name, h in headers.items()}
         out[code] = _rewrite_refs(r)
     return out
 
@@ -232,4 +287,4 @@ def normalize_swagger2_to_openapi3(doc: dict[str, Any]) -> dict[str, Any]:
         result["security"] = src["security"]
     if src.get("tags") is not None:
         result["tags"] = src["tags"]
-    return _rewrite_refs(result)
+    return _strip_nones(_rewrite_refs(result))

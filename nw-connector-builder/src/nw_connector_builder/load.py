@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 class SpecLoadError(Exception):
     """Hard failure while loading or validating a spec."""
 
+    def __init__(self, message: str, *, meta: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.meta = meta or {}
+
 
 def _is_url(source: str) -> bool:
     parsed = urlparse(source)
@@ -117,8 +121,13 @@ def resolve_and_validate(
             "(pip install 'prance[osv]')"
         ) from exc
 
+    if not base_url:
+        raise SpecLoadError(
+            "Internal error: RefResolver requires a base_url for fragment $ref resolution"
+        )
+
     try:
-        resolver = RefResolver(doc, url=base_url) if base_url else RefResolver(doc)
+        resolver = RefResolver(doc, url=base_url)
         resolver.resolve_references()
         resolved = resolver.specs
         if not isinstance(resolved, dict):
@@ -153,9 +162,10 @@ def load_openapi_document(
         logger.info("Normalizing Swagger 2.0 → OpenAPI 3.0")
         doc = normalize_swagger2_to_openapi3(doc)
 
-    base_url = None if from_url else str(Path(origin).resolve())
-    resolved = resolve_and_validate(doc, from_url=from_url, base_url=base_url)
-
+    # RefResolver needs a base URL even for same-document ``#/…`` fragments.
+    # URL-fetched specs: use the origin http(s) URL (remote absolute/relative
+    # refs are already rejected by the pre-scan). Local specs: filesystem path.
+    base_url = origin if from_url else str(Path(origin).resolve())
     meta = {
         "origin": origin,
         "from_url": from_url,
@@ -163,4 +173,8 @@ def load_openapi_document(
         "content_hash": content_hash,
         "base_url_override": base_url_override,
     }
+    try:
+        resolved = resolve_and_validate(doc, from_url=from_url, base_url=base_url)
+    except SpecLoadError as exc:
+        raise SpecLoadError(str(exc), meta=meta) from exc
     return resolved, meta
