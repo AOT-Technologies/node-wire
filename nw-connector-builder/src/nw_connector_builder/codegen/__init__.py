@@ -99,7 +99,8 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 f"{default}{alias}, json_schema_extra={_field_extra(p)})"
             )
         if action.body_schema is not None:
-            # Nested body as Any/dict for v1 robustness (datamodel-codegen optional)
+            # dict[str, Any] (not bare Any) so MCP inputSchema is a valid object
+            # schema — Pydantic emits anyOf[{}, null] for Any, which clients reject.
             body_extra = {
                 "nw_in": "body",
                 "nw_wire_name": "body",
@@ -108,7 +109,8 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 "nw_media_type": action.body_media_type or "application/json",
             }
             lines.append(
-                f"    body: Any | None = Field(" f"None, json_schema_extra={body_extra!r})"
+                f"    body: dict[str, Any] | None = Field("
+                f"None, json_schema_extra={body_extra!r})"
             )
         if len(action.params) == 0 and action.body_schema is None:
             lines.append("    pass")
