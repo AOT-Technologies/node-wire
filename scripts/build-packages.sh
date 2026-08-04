@@ -6,17 +6,24 @@
 
 # build-packages.sh — Build Node Wire packages as binary-only wheels.
 #
-# Default mode (host + Linux via Docker):
+# Default mode (host + Linux via local Docker builder image):
 #   scripts/build-packages.sh
 #   scripts/build-packages.sh packages/runtime
+#
+# Host-only / Linux-only:
+#   scripts/build-packages.sh --host-only
+#   scripts/build-packages.sh --linux-only packages/runtime
 #
 # All-platform mode (local cibuildwheel; see notes below):
 #   scripts/build-packages.sh --all
 #   scripts/build-packages.sh --all packages/runtime
 #
-# Prerequisites (default mode):
+# Prerequisites (default / --linux-only):
+#   python3 or python on PATH; pip install build cython wheel (host build)
+#   docker (for Linux wheels); builds local image nw-wheel-builder:local
+#
+# Prerequisites (--host-only):
 #   python3 or python on PATH; pip install build cython wheel
-#   docker (for Linux wheels)
 #
 # Prerequisites (--all mode):
 #   python -m pip install 'cibuildwheel>=2.16.0'
@@ -29,6 +36,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+
+WHEEL_BUILDER_IMAGE="nw-wheel-builder:local"
+WHEEL_BUILDER_CONTEXT="$ROOT_DIR/docker/wheel-builder"
 
 ALL_PACKAGES=(
   packages/runtime
@@ -47,26 +57,46 @@ usage() {
   cat <<'USAGE'
 Usage:
   scripts/build-packages.sh [--help]
-  scripts/build-packages.sh [packages/...]
+  scripts/build-packages.sh [--host-only|--linux-only] [packages/...]
   scripts/build-packages.sh --all [packages/...]
 
-  Default: build each package on the host and again in Docker (Linux wheels).
-  --all:    build with cibuildwheel (targets depend on host; for full OS matrix use CI publish.yml).
+  Default:     build each package on the host and again in Docker (Linux wheels).
+  --host-only: build host wheels only (no Docker).
+  --linux-only: build Linux wheels only (via local nw-wheel-builder image).
+  --all:       build with cibuildwheel (targets depend on host; for full OS matrix use CI publish.yml).
+
+  --host-only and --linux-only cannot be combined with each other or with --all.
+
+  Linux builds use a local Docker image (nw-wheel-builder:local) built from
+  docker/wheel-builder/Dockerfile. It is never pushed to a registry; Docker
+  layer cache makes subsequent builds fast when the Dockerfile is unchanged.
 
 Examples:
   scripts/build-packages.sh
   scripts/build-packages.sh packages/connectors/smtp
+  scripts/build-packages.sh --host-only packages/connectors/smtp
+  scripts/build-packages.sh --linux-only packages/runtime
   scripts/build-packages.sh --all
   scripts/build-packages.sh --all packages/runtime
 USAGE
 }
 
 ALL_MODE=0
+HOST_ONLY=0
+LINUX_ONLY=0
 PACKAGES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --all)
       ALL_MODE=1
+      shift
+      ;;
+    --host-only)
+      HOST_ONLY=1
+      shift
+      ;;
+    --linux-only)
+      LINUX_ONLY=1
       shift
       ;;
     --help|-h)
@@ -79,6 +109,16 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "$HOST_ONLY" -eq 1 && "$LINUX_ONLY" -eq 1 ]]; then
+  echo "ERROR: --host-only and --linux-only cannot be combined." >&2
+  exit 1
+fi
+
+if [[ "$ALL_MODE" -eq 1 && ( "$HOST_ONLY" -eq 1 || "$LINUX_ONLY" -eq 1 ) ]]; then
+  echo "ERROR: --host-only and --linux-only cannot be combined with --all." >&2
+  exit 1
+fi
 
 if [[ ${#PACKAGES[@]} -eq 0 ]]; then
   PACKAGES=("${ALL_PACKAGES[@]}")
@@ -202,8 +242,23 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
   exit 0
 fi
 
-# ─── Default mode (host + Linux Docker) ───────────────────────────────────
-echo "=== Node Wire — building ${#PACKAGES[@]} package(s) (host + linux) ==="
+# ─── Default mode (host and/or Linux Docker) ───────────────────────────────
+BUILD_HOST=1
+BUILD_LINUX=1
+if [[ "$HOST_ONLY" -eq 1 ]]; then
+  BUILD_LINUX=0
+elif [[ "$LINUX_ONLY" -eq 1 ]]; then
+  BUILD_HOST=0
+fi
+
+MODE_LABEL="host + linux"
+if [[ "$BUILD_HOST" -eq 1 && "$BUILD_LINUX" -eq 0 ]]; then
+  MODE_LABEL="host-only"
+elif [[ "$BUILD_HOST" -eq 0 && "$BUILD_LINUX" -eq 1 ]]; then
+  MODE_LABEL="linux-only"
+fi
+
+echo "=== Node Wire — building ${#PACKAGES[@]} package(s) ($MODE_LABEL) ==="
 
 FAILED=()
 
@@ -237,14 +292,25 @@ if [[ ${#FAILED[@]} -gt 0 ]]; then
   exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "ERROR: docker is required to build Linux wheels but was not found in PATH." >&2
-  exit 1
-fi
+if [[ "$BUILD_LINUX" -eq 1 ]]; then
+  if [[ ! -f "$WHEEL_BUILDER_CONTEXT/Dockerfile" ]]; then
+    echo "ERROR: Wheel builder Dockerfile not found: $WHEEL_BUILDER_CONTEXT/Dockerfile" >&2
+    exit 1
+  fi
 
-if ! docker info >/dev/null 2>&1; then
-  echo "ERROR: Docker daemon is not running. Start Docker and retry." >&2
-  exit 1
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: docker is required to build Linux wheels but was not found in PATH." >&2
+    exit 1
+  fi
+
+  if ! docker info >/dev/null 2>&1; then
+    echo "ERROR: Docker daemon is not running. Start Docker and retry." >&2
+    exit 1
+  fi
+
+  echo ""
+  echo "--- Ensuring local wheel builder image ($WHEEL_BUILDER_IMAGE) ---"
+  docker build -t "$WHEEL_BUILDER_IMAGE" "$WHEEL_BUILDER_CONTEXT"
 fi
 
 FAILED=()
@@ -253,20 +319,24 @@ for PKG in "${PACKAGES[@]}"; do
   echo ""
   echo "--- Building: $PKG ---"
 
-  (
-    cd "$PKG"
-    "$PYTHON_HOST" -m build --wheel --no-isolation
-  )
+  if [[ "$BUILD_HOST" -eq 1 ]]; then
+    (
+      cd "$PKG"
+      "$PYTHON_HOST" -m build --wheel --no-isolation
+    )
+  fi
 
-  docker run --rm \
-    -v "$ROOT_DIR:/work" \
-    -w "/work/$PKG" \
-    python:3.12-slim \
-    bash -lc "apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/* && python -m pip install --no-cache-dir setuptools build cython wheel && python -m build --wheel --no-isolation" || {
-      echo "ERROR: Linux wheel build failed for $PKG" >&2
-      FAILED+=("$PKG (linux build failed)")
-      continue
-    }
+  if [[ "$BUILD_LINUX" -eq 1 ]]; then
+    docker run --rm \
+      -v "$ROOT_DIR:/work" \
+      -w "/work/$PKG" \
+      "$WHEEL_BUILDER_IMAGE" \
+      python -m build --wheel --no-isolation || {
+        echo "ERROR: Linux wheel build failed for $PKG" >&2
+        FAILED+=("$PKG (linux build failed)")
+        continue
+      }
+  fi
 
   shopt -s nullglob
   WHEELS=("$PKG"/dist/*.whl)

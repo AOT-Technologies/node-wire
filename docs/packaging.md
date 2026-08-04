@@ -194,8 +194,23 @@ Prerequisites: `pip install build cython wheel` (and a usable `python` on the ho
 bash scripts/build-packages.sh
 ```
 
-Default mode builds each package path listed in `ALL_PACKAGES` in the script (see the [Package inventory](#package-inventory) for the current set): `python -m build --wheel` on the **host**, then again inside **Docker** (`python:3.12-slim`) so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running.** After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
+Default mode builds each package path listed in `ALL_PACKAGES` in the script (see the [Package inventory](#package-inventory) for the current set): `python -m build --wheel` on the **host**, then again inside **Docker** so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running** (unless you use `--host-only`). After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
 
+Linux builds use a **local-only** image `nw-wheel-builder:local` from [`docker/wheel-builder/Dockerfile`](https://github.com/AOT-Technologies/node-wire/blob/main/docker/wheel-builder/Dockerfile) (build-essential + Cython toolchain). The script runs `docker build` once per invocation; Docker layer cache makes later runs fast when the Dockerfile is unchanged. This image is **not published** to Docker Hub or any registry.
+
+### Host-only or Linux-only
+
+```bash
+# Fast local iteration — host OS wheels only (no Docker)
+bash scripts/build-packages.sh --host-only
+bash scripts/build-packages.sh --host-only packages/connectors/stripe
+
+# Container / ToolHive wheels only
+bash scripts/build-packages.sh --linux-only
+bash scripts/build-packages.sh --linux-only packages/runtime
+```
+
+`--host-only` and `--linux-only` cannot be combined with each other or with `--all`.
 
 ### Artifact layout and safe command usage
 
