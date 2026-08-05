@@ -2,13 +2,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Brand-styled rich.progress output for multi-stage ``nw generate``."""
+"""Brand-styled rich.progress output for multi-stage ``nw generate``.
+
+Logs are always printed *above* the live progress bars via the Progress
+console (and stdout/stderr redirection). Subprocess output must be fed
+through :meth:`GenerateProgress.log` — never written to the raw TTY.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from rich.console import Console
 from rich.panel import Panel
@@ -73,6 +78,15 @@ class GenerateProgress:
                 s.status = StageStatus.SKIPPED
                 break
 
+    def log(self, message: str = "", *, markup: bool = False) -> None:
+        """Print a log line above the live progress bars."""
+        # Progress.console.print goes through Live and stays above the bars.
+        target = self._progress.console if self._progress is not None else self.console
+        if markup:
+            target.print(message)
+        else:
+            target.print(message, markup=False, highlight=False)
+
     def __enter__(self) -> GenerateProgress:
         self._progress = Progress(
             SpinnerColumn(style=AMBER),
@@ -81,6 +95,9 @@ class GenerateProgress:
             TimeElapsedColumn(),
             console=self.console,
             expand=True,
+            # Route Python print()/logging through Live so they stay above bars.
+            redirect_stdout=True,
+            redirect_stderr=True,
         )
         self._progress.start()
         for s in self.stages:
@@ -103,6 +120,7 @@ class GenerateProgress:
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         if self._progress is not None:
             self._progress.stop()
+            self._progress = None
         self._print_summary()
 
     def _desc(self, stage: Stage) -> Text:
@@ -114,30 +132,27 @@ class GenerateProgress:
             return Text(stage.label, style=Style(color=BLUE))
         if stage.status == StageStatus.RUNNING:
             return Text(stage.label, style=Style(color=AMBER, bold=True))
-        return Text(stage.label, style=TEXT)
+        return Text(stage.label, style="dim")
 
     def _refresh(self, stage: Stage) -> None:
         assert self._progress is not None and stage.task_id is not None
-        completed = 1 if stage.status in (StageStatus.DONE, StageStatus.SKIPPED, StageStatus.FAILED) else 0
-        style = BLUE
-        if stage.status == StageStatus.FAILED:
-            style = PINK
-        elif stage.status == StageStatus.SKIPPED:
-            style = "dim"
+        completed = 1 if stage.status in (
+            StageStatus.DONE,
+            StageStatus.SKIPPED,
+            StageStatus.FAILED,
+        ) else 0
         self._progress.update(
             stage.task_id,
             description=self._desc(stage),
             completed=completed,
-            style=style,
         )
-        # Re-color the bar for failure
         if stage.status == StageStatus.FAILED:
             for col in self._progress.columns:
                 if isinstance(col, BarColumn):
                     col.complete_style = PINK
                     col.finished_style = PINK
 
-    def run_stage(self, key: str, fn: Any) -> Any:
+    def run_stage(self, key: str, fn: Callable[[], Any]) -> Any:
         """Mark stage running, call *fn*, mark done/failed. Re-raises on failure."""
         stage = next(s for s in self.stages if s.key == key)
         if stage.skipped:
@@ -159,7 +174,6 @@ class GenerateProgress:
 
         stage.status = StageStatus.DONE
         self._refresh(stage)
-        # Reset bar colors for subsequent stages
         if self._progress is not None:
             for col in self._progress.columns:
                 if isinstance(col, BarColumn):

@@ -90,7 +90,9 @@ def generate(
             if not no_wheel:
                 progress.run_stage(
                     "wheel",
-                    lambda: run_wheel_build(node_wire_root, connector_id=id),
+                    lambda: run_wheel_build(
+                        node_wire_root, connector_id=id, log=progress.log
+                    ),
                 )
 
             if not no_mcp:
@@ -105,7 +107,9 @@ def generate(
                             ),
                             fix_command=f"nw wheel --id {id}",
                             build_fn=lambda: run_wheel_build(
-                                node_wire_root, connector_id=id
+                                node_wire_root,
+                                connector_id=id,
+                                log=progress.log,
                             ),
                         )
                         if not runtime_wheel_present(node_wire_root):
@@ -114,7 +118,9 @@ def generate(
                                 prompt="Runtime wheel still missing — build it now?",
                                 fix_command="nw wheel --runtime",
                                 build_fn=lambda: run_wheel_build(
-                                    node_wire_root, runtime=True
+                                    node_wire_root,
+                                    runtime=True,
+                                    log=progress.log,
                                 ),
                             )
                     return run_mcp_build(

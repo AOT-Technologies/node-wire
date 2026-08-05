@@ -8,15 +8,48 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 from nw_mcp_builder.from_connector import run_from_connector
 
 from nw_cli.names import docker_image_tag, mcp_project_dir
 
+LogFn = Callable[[str], None]
+
 
 class StageError(Exception):
     """A pipeline stage failed."""
+
+
+def run_logged_command(
+    cmd: list[str],
+    *,
+    cwd: Path,
+    log: LogFn | None = None,
+) -> int:
+    """Run *cmd*, streaming combined stdout/stderr line-by-line through *log*.
+
+    When *log* is None, lines go to the process stdout (for standalone commands).
+    Callers that own a live Progress must pass ``progress.log`` so output stays
+    above the bars instead of writing to the raw TTY.
+    """
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        text = line.rstrip("\n")
+        if log is not None:
+            log(text)
+        else:
+            print(text, flush=True)
+    return proc.wait()
 
 
 def wheels_present(node_wire_root: Path, connector_id: str) -> bool:
@@ -60,6 +93,7 @@ def run_wheel_build(
     runtime: bool = False,
     host: bool = False,
     all_: bool = False,
+    log: LogFn | None = None,
 ) -> None:
     """Subprocess ``scripts/build-packages.sh`` for connector and/or runtime."""
     if not runtime and not connector_id:
@@ -77,10 +111,10 @@ def run_wheel_build(
         targets = [f"packages/connectors/{connector_id}"]
 
     cmd = ["bash", str(script), mode, *targets]
-    result = subprocess.run(cmd, cwd=node_wire_root, check=False)
-    if result.returncode != 0:
+    code = run_logged_command(cmd, cwd=node_wire_root, log=log)
+    if code != 0:
         raise StageError(
-            f"Wheel build failed (exit {result.returncode}): {' '.join(cmd)}"
+            f"Wheel build failed (exit {code}): {' '.join(cmd)}"
         )
 
 
@@ -106,6 +140,7 @@ def run_docker_build(
     connector_id: str,
     *,
     tag: str = "latest",
+    log: LogFn | None = None,
 ) -> str:
     """``docker build -t <server>-mcp:<tag> .`` inside the generated project dir."""
     project = mcp_project_dir(node_wire_root, connector_id)
@@ -114,9 +149,9 @@ def run_docker_build(
 
     image = docker_image_tag(connector_id, tag)
     cmd = ["docker", "build", "-t", image, "."]
-    result = subprocess.run(cmd, cwd=project, check=False)
-    if result.returncode != 0:
-        raise StageError(f"docker build failed (exit {result.returncode}): {image}")
+    code = run_logged_command(cmd, cwd=project, log=log)
+    if code != 0:
+        raise StageError(f"docker build failed (exit {code}): {image}")
     return image
 
 
@@ -154,6 +189,12 @@ def register_all_packages(node_wire_root: Path, connector_id: str) -> bool:
             break
 
     new_body = body.rstrip("\n") + f"\n{indent}{entry}"
-    new_text = text[: match.start()] + match.group(1) + new_body + match.group(3) + text[match.end() :]
+    new_text = (
+        text[: match.start()]
+        + match.group(1)
+        + new_body
+        + match.group(3)
+        + text[match.end() :]
+    )
     script.write_text(new_text, encoding="utf-8")
     return True

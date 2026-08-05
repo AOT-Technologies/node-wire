@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -145,7 +146,11 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         patch("nw_cli.cli.run_mcp_build", side_effect=fake_mcp) as mp,
         patch("nw_cli.cli.register_all_packages", side_effect=fake_register) as reg,
         patch("subprocess.run") as sub_run,
+        patch("nw_cli.stages.subprocess.Popen") as popen,
     ):
+        popen.return_value = MagicMock(
+            stdout=iter([]), wait=MagicMock(return_value=0)
+        )
         result = runner.invoke(
             app,
             ["generate", "--id", "pet_store", "--path", "spec.yaml"],
@@ -256,8 +261,7 @@ def test_register_all_packages_idempotent(fake_root: Path) -> None:
 def test_run_wheel_build_subprocess_args(fake_root: Path) -> None:
     from nw_cli.stages import run_wheel_build
 
-    with patch("nw_cli.stages.subprocess.run") as run:
-        run.return_value = MagicMock(returncode=0)
+    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         run_wheel_build(fake_root, connector_id="pet_store")
         cmd = run.call_args.args[0]
         assert "--linux-only" in cmd
@@ -271,10 +275,27 @@ def test_run_docker_build_subprocess_args(fake_root: Path) -> None:
     project = fake_root / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
 
-    with patch("nw_cli.stages.subprocess.run") as run:
-        run.return_value = MagicMock(returncode=0)
+    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         image = run_docker_build(fake_root, "pet_store", tag="v1")
         assert image == "pet-store-nw-mcp:v1"
         cmd = run.call_args.args[0]
         assert cmd == ["docker", "build", "-t", "pet-store-nw-mcp:v1", "."]
         assert run.call_args.kwargs["cwd"] == project
+
+
+def test_run_logged_command_streams_to_log(fake_root: Path) -> None:
+    from nw_cli.stages import run_logged_command
+
+    lines: list[str] = []
+    proc = MagicMock()
+    proc.stdout = iter(["hello\n", "world\n"])
+    proc.wait.return_value = 0
+
+    with patch("nw_cli.stages.subprocess.Popen", return_value=proc) as popen:
+        code = run_logged_command(
+            ["echo", "hi"], cwd=fake_root, log=lines.append
+        )
+    assert code == 0
+    assert lines == ["hello", "world"]
+    assert popen.call_args.kwargs["stdout"] == subprocess.PIPE
+    assert popen.call_args.kwargs["stderr"] == subprocess.STDOUT

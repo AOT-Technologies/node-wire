@@ -13,6 +13,8 @@ Unified CLI (`nw`) for the OpenAPI → connector → wheel → MCP → Docker pi
 | `src/nw_cli/` | Typer app and stage helpers |
 | `../docs/nw-cli.md` | Full reference |
 
+Installed with the monorepo `dev` group — after `uv sync` at the **node-wire** repo root, `nw` is on PATH via `uv run`.
+
 ---
 
 ## Commands
@@ -20,17 +22,16 @@ Unified CLI (`nw`) for the OpenAPI → connector → wheel → MCP → Docker pi
 From the **node-wire** repo root:
 
 ```bash
-cd nw-cli && uv sync
-cd ..
+uv sync
 
 # One-shot: codegen → Linux wheels → MCP host → wire
-uv run --project nw-cli nw generate --id pet_store --path ./openapi.yaml
+uv run nw generate --id pet_store --path ./openapi.yaml
 
 # Standalone stages
-uv run --project nw-cli nw wheel --id pet_store
-uv run --project nw-cli nw wheel --runtime
-uv run --project nw-cli nw mcp --id pet_store --force-output
-uv run --project nw-cli nw docker-build --id pet_store --tag latest
+uv run nw wheel --id pet_store
+uv run nw wheel --runtime
+uv run nw mcp --id pet_store --force-output
+uv run nw docker-build --id pet_store --tag latest
 ```
 
 ToolHive deploy/verify stays manual — see `scripts/deploy-openapi-mcp-toolhive.md`.
@@ -40,5 +41,5 @@ ToolHive deploy/verify stays manual — see `scripts/deploy-openapi-mcp-toolhive
 From the node-wire repo root:
 
 ```bash
-uv run --project nw-cli pytest tests/nw_cli -v -o addopts=
+uv run pytest tests/nw_cli -v --no-cov
 ```

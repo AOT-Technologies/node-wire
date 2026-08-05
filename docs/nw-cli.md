@@ -14,14 +14,12 @@ ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-bui
 
 ## Install
 
-From the **node-wire** repo root (hard assumption — there is no `--node-wire-root` flag):
+`nw-cli` is part of the monorepo **dev** dependency group. From the **node-wire** repo root (hard assumption — there is no `--node-wire-root` flag):
 
 ```bash
-cd nw-cli && uv sync && cd ..
-uv run --project nw-cli nw --help
+uv sync
+uv run nw --help
 ```
-
-Prefer `uv run --project nw-cli` over `--directory nw-cli` so the working directory stays the repo root.
 
 ---
 
@@ -48,7 +46,7 @@ flowchart LR
 ### `nw generate`
 
 ```bash
-uv run --project nw-cli nw generate \
+uv run nw generate \
   --id pet_store \
   --path path/to/openapi.yaml
 ```
@@ -69,10 +67,10 @@ When wire is enabled, `run_build` updates `config/connectors.yaml` and `sample.e
 ### `nw wheel`
 
 ```bash
-uv run --project nw-cli nw wheel --id pet_store          # Linux-only (default)
-uv run --project nw-cli nw wheel --id pet_store --host   # host-only
-uv run --project nw-cli nw wheel --id pet_store --all    # cibuildwheel matrix
-uv run --project nw-cli nw wheel --runtime               # packages/runtime only
+uv run nw wheel --id pet_store          # Linux-only (default)
+uv run nw wheel --id pet_store --host   # host-only
+uv run nw wheel --id pet_store --all    # cibuildwheel matrix
+uv run nw wheel --runtime               # packages/runtime only
 ```
 
 Default mode is **`--linux-only`** (not the script’s host+Linux combined default). Runtime is not rebuilt with every connector build — use `--runtime` when needed.
@@ -80,8 +78,8 @@ Default mode is **`--linux-only`** (not the script’s host+Linux combined defau
 ### `nw mcp`
 
 ```bash
-uv run --project nw-cli nw mcp --id pet_store
-uv run --project nw-cli nw mcp --id pet_store --force-output
+uv run nw mcp --id pet_store
+uv run nw mcp --id pet_store --force-output
 ```
 
 Always `skip_build_wheels=True`. If wheels are missing:
@@ -94,8 +92,8 @@ There is no `--yes` / auto-confirm flag.
 ### `nw docker-build`
 
 ```bash
-uv run --project nw-cli nw docker-build --id pet_store
-uv run --project nw-cli nw docker-build --id pet_store --tag v1
+uv run nw docker-build --id pet_store
+uv run nw docker-build --id pet_store --tag v1
 ```
 
 Builds `docker build -t <id-with-hyphens>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<server>-mcp/`. `--tag` defaults to `latest`.
@@ -123,7 +121,7 @@ Deprecating the standalone builder entry points is **not** part of this CLI.
 ## Tests
 
 ```bash
-uv run --project nw-cli pytest tests/nw_cli -v -o addopts=
+uv run pytest tests/nw_cli -v --no-cov
 ```
 
 Coverage is unit/mocked only (no live Docker or network spec fetch).
