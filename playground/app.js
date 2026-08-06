@@ -622,6 +622,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (slackPanel) slackPanel.classList.add('hidden');
         if (extViewerPanel) extViewerPanel.classList.add('hidden');
 
+        if (typeof syncMultitenancyUi === 'function') {
+            syncMultitenancyUi();
+        }
+
         if (mode === 'ehr') {
 
             ehrPanel.classList.remove('hidden');
@@ -796,25 +800,162 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const addConfigBtn = document.getElementById('add-config-btn');
         if (addConfigBtn) {
-            // Global header control: show whenever multitenancy is on.
-            addConfigBtn.classList.toggle('hidden', !_multitenancyEnabled);
+            // Simplified: always hide header Add config (Agent work later).
+            addConfigBtn.classList.add('hidden');
+            addConfigBtn.hidden = true;
+        }
+        const connectorAddBtn = document.getElementById('connector-add-config-btn');
+        if (connectorAddBtn) {
+            const onConnector =
+                !!_modeToConnectorId[currentMode] &&
+                playgroundView &&
+                !playgroundView.classList.contains('hidden');
+            connectorAddBtn.classList.toggle('hidden', !_multitenancyEnabled || !onConnector);
         }
         if (!_multitenancyEnabled) {
             closeConfigAdminModal();
         }
     }
 
-    function openConfigAdminModal() {
+    async function openConfigAdminModal() {
         const modal = document.getElementById('config-admin-modal');
         if (!modal) return;
+        const connectorId = currentConnectorId();
+        if (!connectorId) {
+            log('Open a connector page before adding config.', 'error');
+            return;
+        }
+        const tip = document.getElementById('config-admin-connector-tip');
+        if (tip) tip.textContent = connectorId;
+
+        const tenantId = getPlaygroundTenantId();
+        const configName = getPlaygroundConfigName();
+        if (_cfgTenantInput) {
+            _cfgTenantInput.value = tenantId || '';
+        }
+
         modal.classList.remove('hidden');
-        if (_tenantInput) syncTenantInputs(_tenantInput);
+        setConfigAdminError('');
+        await refreshModalConfigSelect(tenantId, connectorId, configName);
+        await applyModalConfigSelection(connectorId);
         refreshConfigDropdown(currentMode);
     }
 
     function closeConfigAdminModal() {
         const modal = document.getElementById('config-admin-modal');
         if (modal) modal.classList.add('hidden');
+        setConfigAdminError('');
+    }
+
+    function syncCfgNameGroupVisibility() {
+        const select = document.getElementById('cfg-select');
+        const nameGroup = document.getElementById('cfg-name-group');
+        const nameEl = document.getElementById('cfg-name');
+        if (!select || !nameGroup || !nameEl) return;
+        const isNew = !select.value;
+        nameGroup.classList.toggle('hidden', !isNew);
+        if (!isNew) {
+            nameEl.value = select.value;
+            nameEl.readOnly = true;
+        } else {
+            nameEl.readOnly = false;
+            if (!nameEl.value.trim()) nameEl.value = 'test';
+        }
+    }
+
+    async function listConfigsForTenantConnector(tenantId, connectorId) {
+        if (!tenantId || !connectorId) return [];
+        const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
+        const res = await fetch(
+            `/v1/connectors/${encodeURIComponent(connectorId)}/configs`,
+            { headers }
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data.configs)
+            ? data.configs
+            : Array.isArray(data)
+              ? data
+              : [];
+    }
+
+    async function refreshModalConfigSelect(tenantId, connectorId, preferredName) {
+        const select = document.getElementById('cfg-select');
+        if (!select) return;
+        const prev = preferredName != null ? preferredName : select.value;
+        select.innerHTML = '<option value="">— new config —</option>';
+        if (!tenantId || !connectorId) {
+            syncCfgNameGroupVisibility();
+            return;
+        }
+        try {
+            const configs = await listConfigsForTenantConnector(tenantId, connectorId);
+            configs.forEach((cfg) => {
+                const opt = document.createElement('option');
+                opt.value = cfg.name || '';
+                opt.textContent = (cfg.name || '') + (cfg.default ? ' (default)' : '');
+                select.appendChild(opt);
+            });
+            if (prev && [...select.options].some((o) => o.value === prev)) {
+                select.value = prev;
+            } else if (prev && configs.length === 0) {
+                // Deleted / unknown name: stay on new, keep typed name.
+                select.value = '';
+                const nameEl = document.getElementById('cfg-name');
+                if (nameEl && prev) nameEl.value = prev;
+            } else {
+                select.value = '';
+            }
+        } catch (_) {
+            // ignore
+        }
+        syncCfgNameGroupVisibility();
+    }
+
+    async function applyModalConfigSelection(connectorId) {
+        const select = document.getElementById('cfg-select');
+        const nameEl = document.getElementById('cfg-name');
+        const defaultEl = document.getElementById('cfg-default');
+        const tenantId = modalTenantId();
+        const selected = select && select.value ? select.value : '';
+        syncCfgNameGroupVisibility();
+
+        let existingKeys = [];
+        if (defaultEl) defaultEl.value = 'true';
+
+        if (tenantId && selected && connectorId) {
+            if (nameEl) nameEl.value = selected;
+            try {
+                const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
+                const cfgRes = await fetch(
+                    `/v1/connectors/${encodeURIComponent(connectorId)}/configs/${encodeURIComponent(selected)}`,
+                    { headers }
+                );
+                if (cfgRes.ok) {
+                    const doc = await cfgRes.json();
+                    if (defaultEl && typeof doc.default === 'boolean') {
+                        defaultEl.value = doc.default ? 'true' : 'false';
+                    }
+                    const secRes = await fetch(
+                        `/v1/connectors/${encodeURIComponent(connectorId)}/secrets?config_name=${encodeURIComponent(selected)}`,
+                        { headers }
+                    );
+                    if (secRes.ok) {
+                        const sec = await secRes.json();
+                        existingKeys = Array.isArray(sec.keys) ? sec.keys : [];
+                    }
+                }
+            } catch (_) {
+                // Prefill is best-effort.
+            }
+        }
+        renderSecretFields(connectorId || currentConnectorId(), existingKeys);
+    }
+
+    function modalSelectedConfigName() {
+        const select = document.getElementById('cfg-select');
+        if (select && select.value) return select.value.trim();
+        return (document.getElementById('cfg-name')?.value || 'test').trim();
     }
 
     async function loadFeatureFlags() {
@@ -828,11 +969,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // If endpoint is unreachable, keep default (disabled).
         }
         syncMultitenancyUi();
+        if (_multitenancyEnabled) {
+            await refreshTenantDropdown();
+            await refreshConfigDropdown(currentMode);
+        }
     }
 
-    loadFeatureFlags();
-
-    // Keep header Tenant and Runtime config Tenant fields in sync (shared state).
+    // Header Tenant is a select of existing tenants; modal Tenant ID is free-text for new ones.
     const _tenantInput = document.getElementById('playground-tenant-id');
     const _cfgTenantInput = document.getElementById('cfg-tenant-id');
     let _tenantSyncLock = false;
@@ -841,29 +984,96 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_tenantSyncLock) return;
         _tenantSyncLock = true;
         try {
-            const value = source && source.value != null ? source.value : '';
-            if (_tenantInput && source !== _tenantInput) _tenantInput.value = value;
-            if (_cfgTenantInput && source !== _cfgTenantInput) _cfgTenantInput.value = value;
+            const value = source && source.value != null ? String(source.value).trim() : '';
+            if (_cfgTenantInput && source !== _cfgTenantInput) {
+                // Do not overwrite free-text while user types a new tenant in the modal.
+                if (source === _tenantInput) _cfgTenantInput.value = value;
+            }
+            if (_tenantInput && source === _cfgTenantInput && value) {
+                ensureTenantOption(value, true);
+            }
         } finally {
             _tenantSyncLock = false;
         }
     }
 
+    function ensureTenantOption(tenantId, selectIt) {
+        if (!_tenantInput || !tenantId) return;
+        let found = false;
+        for (const opt of _tenantInput.options) {
+            if (opt.value === tenantId) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            const opt = document.createElement('option');
+            opt.value = tenantId;
+            opt.textContent = tenantId;
+            _tenantInput.appendChild(opt);
+        }
+        if (selectIt) _tenantInput.value = tenantId;
+    }
+
+    async function refreshTenantDropdown() {
+        if (!_multitenancyEnabled || !_tenantInput) return;
+        const prev = _tenantInput.value;
+        try {
+            const res = await fetch('/v1/tenants');
+            if (!res.ok) return;
+            const data = await res.json();
+            const tenants = Array.isArray(data.tenants) ? data.tenants : [];
+            _tenantInput.innerHTML = '<option value="">— select tenant —</option>';
+            tenants.forEach((tid) => {
+                const opt = document.createElement('option');
+                opt.value = tid;
+                opt.textContent = tid;
+                _tenantInput.appendChild(opt);
+            });
+            if (prev && tenants.includes(prev)) {
+                _tenantInput.value = prev;
+            } else if (prev) {
+                ensureTenantOption(prev, true);
+            }
+        } catch (_) {
+            // ignore
+        }
+    }
+
     let _tenantDebounce = null;
-    function onTenantInput(ev) {
-        syncTenantInputs(ev.target);
+    function onTenantChanged() {
         clearTimeout(_tenantDebounce);
-        _tenantDebounce = setTimeout(() => refreshConfigDropdown(currentMode), 400);
+        _tenantDebounce = setTimeout(() => refreshConfigDropdown(currentMode), 200);
+        if (_cfgTenantInput && _tenantInput) {
+            syncTenantInputs(_tenantInput);
+        }
     }
     if (_tenantInput) {
-        if (_cfgTenantInput && !_cfgTenantInput.value) {
-            _cfgTenantInput.value = _tenantInput.value || '';
-        }
-        _tenantInput.addEventListener('input', onTenantInput);
+        _tenantInput.addEventListener('change', onTenantChanged);
     }
     if (_cfgTenantInput) {
-        _cfgTenantInput.addEventListener('input', onTenantInput);
+        _cfgTenantInput.addEventListener('input', () => syncTenantInputs(_cfgTenantInput));
+        let _cfgTenantDebounce = null;
+        _cfgTenantInput.addEventListener('change', () => {
+            clearTimeout(_cfgTenantDebounce);
+            _cfgTenantDebounce = setTimeout(async () => {
+                const connectorId = currentConnectorId();
+                const tenantId = modalTenantId();
+                await refreshModalConfigSelect(tenantId, connectorId, '');
+                await applyModalConfigSelection(connectorId);
+            }, 150);
+        });
+        _cfgTenantInput.addEventListener('blur', async () => {
+            const connectorId = currentConnectorId();
+            const tenantId = modalTenantId();
+            await refreshModalConfigSelect(tenantId, connectorId, document.getElementById('cfg-select')?.value || '');
+            await applyModalConfigSelection(connectorId);
+        });
     }
+
+    document.getElementById('cfg-select')?.addEventListener('change', async () => {
+        await applyModalConfigSelection(currentConnectorId());
+    });
 
     // Map playground mode names to connector_id strings used by the config API.
     const _modeToConnectorId = {
@@ -875,19 +1085,12 @@ document.addEventListener('DOMContentLoaded', () => {
         stripe: 'stripe',
         salesforce: 'salesforce',
     };
-    // Fixed list for tenant-global config CRUD (store is still per-connector).
-    const _allPlaygroundConnectors = [
-        'fhir_epic',
-        'fhir_cerner',
-        'google_drive',
-        'http_generic',
-        'slack',
-        'stripe',
-        'salesforce',
-    ];
+
+    function currentConnectorId() {
+        return _modeToConnectorId[currentMode] || '';
+    }
 
     // Self-contained auth/config templates matching config/connectors.yaml (secret refs only).
-    // Simplified: kept inline so Create stays playground-local; no new API.
     const _connectorCreateDocs = {
         http_generic: {
             config: {},
@@ -965,49 +1168,158 @@ document.addEventListener('DOMContentLoaded', () => {
         },
     };
 
+    // Varying-only secret fields shown in Add config (shared env auto-copied server-side).
+    // Format / required secret validation is server-side only (tenant_store).
+    const _connectorSecretFields = {
+        google_drive: [
+            { key: 'GOOGLE_DRIVE_SA_JSON', label: 'Service account JSON', type: 'textarea', required: true },
+        ],
+        fhir_epic: [
+            { key: 'EPIC_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'EPIC_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
+            { key: 'EPIC_KID', label: 'Key ID (kid)', type: 'text', required: true },
+        ],
+        fhir_cerner: [
+            { key: 'CERNER_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'CERNER_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
+            { key: 'CERNER_KID', label: 'Key ID (kid)', type: 'text', required: true },
+            { key: 'CERNER_SCOPES', label: 'Scopes (space-separated)', type: 'text', required: false },
+        ],
+        slack: [
+            { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
+        ],
+        stripe: [
+            { key: 'stripe_api_key', label: 'API key', type: 'text', required: true },
+        ],
+        salesforce: [
+            { key: 'SALESFORCE_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'SALESFORCE_CLIENT_SECRET', label: 'Client secret', type: 'text', required: true },
+            { key: 'SALESFORCE_REFRESH_TOKEN', label: 'Refresh token', type: 'text', required: true },
+        ],
+        http_generic: [],
+    };
+
+    function setConfigAdminError(message) {
+        const el = document.getElementById('cfg-error');
+        if (!el) return;
+        if (message) {
+            el.textContent = message;
+            el.classList.remove('hidden');
+        } else {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+    }
+
+    function renderSecretFields(connectorId, existingKeys = []) {
+        const host = document.getElementById('cfg-secret-fields');
+        if (!host) return;
+        host.innerHTML = '';
+        const fields = _connectorSecretFields[connectorId] || [];
+        const existing = new Set(existingKeys || []);
+        if (!fields.length) {
+            host.innerHTML = '<p class="field-help">No credential fields for this connector.</p>';
+            return;
+        }
+        fields.forEach((f) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'field-group';
+            const alreadySet = existing.has(f.key);
+            const label = document.createElement('label');
+            label.setAttribute('for', `cfg-secret-${f.key}`);
+            label.textContent =
+                f.label + (f.required && !alreadySet ? ' *' : '') + (alreadySet ? ' (saved)' : '');
+            let input;
+            if (f.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.rows = 5;
+            } else {
+                input = document.createElement('input');
+                input.type = 'text';
+            }
+            input.id = `cfg-secret-${f.key}`;
+            input.dataset.secretKey = f.key;
+            input.dataset.alreadySet = alreadySet ? '1' : '0';
+            input.autocomplete = 'off';
+            input.value = '';
+            if (alreadySet) {
+                input.placeholder = '(already set — leave blank to keep)';
+            } else if (f.required) {
+                input.placeholder = 'Required';
+            }
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            host.appendChild(wrap);
+        });
+        if ([...existing].some((k) => fields.some((f) => f.key === k))) {
+            const hint = document.createElement('p');
+            hint.className = 'field-help';
+            hint.textContent =
+                'Blank credential fields keep the previously saved value. Only type a field to change it.';
+            host.appendChild(hint);
+        }
+    }
+
+    function collectSecretFields() {
+        const host = document.getElementById('cfg-secret-fields');
+        const secrets = {};
+        if (!host) return secrets;
+        host.querySelectorAll('[data-secret-key]').forEach((el) => {
+            const key = el.dataset.secretKey;
+            const val = (el.value || '').trim();
+            if (key && val) secrets[key] = val;
+        });
+        return secrets;
+    }
+
     async function refreshConfigDropdown(modeOrConnectorId) {
         if (!_multitenancyEnabled) return;
         const tenantId = getPlaygroundTenantId();
         const select = document.getElementById('playground-config-name');
         if (!select) return;
+        const previous = select.value;
         select.innerHTML = '<option value="">— default —</option>';
         if (!tenantId) return;
 
-        // Prefer an explicit connector (opened mode), else google_drive, else first success.
-        const preferred =
+        const connectorId =
             _modeToConnectorId[modeOrConnectorId] ||
-            modeOrConnectorId ||
-            'google_drive';
-        const tryOrder = [
-            preferred,
-            ..._allPlaygroundConnectors.filter((c) => c !== preferred),
-        ];
+            (Object.values(_modeToConnectorId).includes(modeOrConnectorId)
+                ? modeOrConnectorId
+                : currentConnectorId());
+        if (!connectorId) return;
+
         const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
-        for (const connectorId of tryOrder) {
-            try {
-                const res = await fetch(
-                    `/v1/connectors/${encodeURIComponent(connectorId)}/configs`,
-                    { headers }
-                );
-                if (!res.ok) continue;
-                const data = await res.json();
-                const configs = Array.isArray(data.configs)
-                    ? data.configs
-                    : Array.isArray(data)
-                      ? data
-                      : [];
-                if (!configs.length) continue;
-                configs.forEach((cfg) => {
-                    const opt = document.createElement('option');
-                    opt.value = cfg.name || '';
-                    opt.textContent = cfg.name + (cfg.default ? ' (default)' : '');
-                    if (cfg.default) opt.selected = true;
-                    select.appendChild(opt);
-                });
-                return;
-            } catch (_) {
-                // try next connector
+        try {
+            const res = await fetch(
+                `/v1/connectors/${encodeURIComponent(connectorId)}/configs`,
+                { headers }
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            const configs = Array.isArray(data.configs)
+                ? data.configs
+                : Array.isArray(data)
+                  ? data
+                  : [];
+            let matched = false;
+            configs.forEach((cfg) => {
+                const opt = document.createElement('option');
+                opt.value = cfg.name || '';
+                opt.textContent = cfg.name + (cfg.default ? ' (default)' : '');
+                select.appendChild(opt);
+                if (previous && opt.value === previous) matched = true;
+            });
+            if (previous && matched) {
+                select.value = previous;
+            } else if (previous && !matched) {
+                // Clear stale name from another connector (e.g. Drive → Epic).
+                select.value = '';
+            } else {
+                const def = configs.find((c) => c.default);
+                if (def) select.value = def.name || '';
             }
+        } catch (_) {
+            // ignore
         }
     }
 
@@ -1022,6 +1334,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById('playground-config-name');
         return (el && el.value ? el.value : '').trim();
     }
+
+    loadFeatureFlags();
 
     function logTenancyContext(actionLabel) {
         if (!_multitenancyEnabled) return;
@@ -1080,7 +1394,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const detail = data.detail || data.message || `Server returned ${response.status}`;
-                throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+                let msg = typeof detail === 'string' ? detail : JSON.stringify(detail);
+                if (response.status === 403 && /No connector configuration/i.test(msg)) {
+                    msg = `${msg} Open Add config on this connector page.`;
+                }
+                throw new Error(msg);
             }
 
             traceDisplay.textContent = (data.trace_id || '').toUpperCase() || '—';
@@ -1533,22 +1851,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Tenant-global runtime config CRUD (bulk across all connectors) ---
-    const cfgResult = document.getElementById('cfg-result');
+    // --- Per-connector runtime config CRUD ---
     const addConfigBtn = document.getElementById('add-config-btn');
+    const connectorAddConfigBtn = document.getElementById('connector-add-config-btn');
 
-    function showCfgResult(obj) {
-        if (!cfgResult) return;
-        cfgResult.classList.remove('hidden');
-        cfgResult.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    function modalTenantId() {
+        const fromModal = (_cfgTenantInput && _cfgTenantInput.value ? _cfgTenantInput.value : '').trim();
+        return fromModal || getPlaygroundTenantId();
     }
 
-    async function cfgFetchFor(connectorId, method, path = '', body = null) {
-        const tenantId = getPlaygroundTenantId();
+    async function cfgFetchFor(connectorId, method, path = '', body = null, tenantOverride = null) {
+        const tenantId = (tenantOverride || getPlaygroundTenantId() || '').trim();
         if (!tenantId) {
             throw new Error('Set Tenant ID before managing configs (e.g. acme).');
         }
-        const opts = { method, headers: playgroundRequestHeaders() };
+        const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
+        };
         if (body != null) {
             opts.body = JSON.stringify(body);
         }
@@ -1564,25 +1884,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    // Simplified: run the same CRUD against every playground connector; report per-id results.
-    // body may be a plain object or (connectorId) => object for per-connector Create docs.
-    async function cfgBulk(method, pathBuilder, body = null) {
-        logTenancyContext(`Config ${method}`);
-        const results = {};
-        for (const connectorId of _allPlaygroundConnectors) {
-            try {
-                const path = typeof pathBuilder === 'function' ? pathBuilder(connectorId) : pathBuilder || '';
-                const payload = typeof body === 'function' ? body(connectorId) : body;
-                results[connectorId] = await cfgFetchFor(connectorId, method, path, payload);
-            } catch (err) {
-                results[connectorId] = { error: err.message };
-            }
-        }
-        return results;
-    }
-
     if (addConfigBtn) {
         addConfigBtn.addEventListener('click', () => {
+            openConfigAdminModal();
+        });
+    }
+    if (connectorAddConfigBtn) {
+        connectorAddConfigBtn.addEventListener('click', () => {
             openConfigAdminModal();
         });
     }
@@ -1606,66 +1914,68 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('cfg-create')?.addEventListener('click', async () => {
+        setConfigAdminError('');
         try {
-            const name = (document.getElementById('cfg-name')?.value || 'default').trim();
-            const isDefault = document.getElementById('cfg-default')?.value === 'true';
-            // Self-contained docs per connector (auth secret refs from connectors.yaml shapes).
-            const data = await cfgBulk('POST', '', (connectorId) => {
-                const tmpl = _connectorCreateDocs[connectorId] || { config: {}, auth: {} };
-                return {
-                    name,
-                    default: isDefault,
-                    config: tmpl.config || {},
-                    auth: tmpl.auth || {},
-                };
-            });
-            showCfgResult(data);
-            log(`Created config '${name}' for tenant '${getPlaygroundTenantId()}' (all connectors)`, 'success');
-            await refreshConfigDropdown(currentMode);
-        } catch (err) {
-            showCfgResult({ error: err.message });
-            log(`Config create failed: ${err.message}`, 'error');
-        }
-    });
-
-    document.getElementById('cfg-list')?.addEventListener('click', async () => {
-        try {
-            const data = await cfgBulk('GET', '');
-            showCfgResult(data);
-            log(`Listed configs for tenant '${getPlaygroundTenantId()}' (all connectors)`, 'success');
-            await refreshConfigDropdown(currentMode);
-        } catch (err) {
-            showCfgResult({ error: err.message });
-            log(`Config list failed: ${err.message}`, 'error');
-        }
-    });
-
-    document.getElementById('cfg-set-default')?.addEventListener('click', async () => {
-        try {
-            const name = (document.getElementById('cfg-name')?.value || '').trim();
+            const connectorId = currentConnectorId();
+            if (!connectorId) throw new Error('Open a connector page first.');
+            const tenantId = modalTenantId();
+            if (!tenantId) throw new Error('Tenant ID is required');
+            const name = modalSelectedConfigName();
             if (!name) throw new Error('Config name is required');
-            const data = await cfgBulk('PUT', `/${encodeURIComponent(name)}/default`);
-            showCfgResult(data);
-            log(`Set '${name}' as default for tenant '${getPlaygroundTenantId()}'`, 'success');
+            const isDefault = document.getElementById('cfg-default')?.value === 'true';
+            const secrets = collectSecretFields();
+            const tmpl = _connectorCreateDocs[connectorId] || { config: {}, auth: {} };
+            const body = {
+                name,
+                default: isDefault,
+                config: tmpl.config || {},
+                auth: tmpl.auth || {},
+                secrets,
+            };
+            logTenancyContext(`Config SAVE ${connectorId}`);
+            await cfgFetchFor(connectorId, 'POST', '', body, tenantId);
+            ensureTenantOption(tenantId, true);
+            await refreshTenantDropdown();
+            ensureTenantOption(tenantId, true);
             await refreshConfigDropdown(currentMode);
+            const headerCfg = document.getElementById('playground-config-name');
+            if (headerCfg) headerCfg.value = name;
+            await refreshModalConfigSelect(tenantId, connectorId, name);
+            await applyModalConfigSelection(connectorId);
+            log(`Saved config '${name}' for ${connectorId} / tenant '${tenantId}'`, 'success');
         } catch (err) {
-            showCfgResult({ error: err.message });
-            log(`Set default failed: ${err.message}`, 'error');
+            setConfigAdminError(err.message);
+            log(`Config save failed: ${err.message}`, 'error');
         }
     });
 
     document.getElementById('cfg-delete')?.addEventListener('click', async () => {
+        setConfigAdminError('');
         try {
-            const name = (document.getElementById('cfg-name')?.value || '').trim();
+            const connectorId = currentConnectorId();
+            if (!connectorId) throw new Error('Open a connector page first.');
+            const tenantId = modalTenantId();
+            const name = modalSelectedConfigName();
             if (!name) throw new Error('Config name is required');
             const newDefault = name === 'default' ? '' : 'default';
             const q = newDefault ? `?new_default=${encodeURIComponent(newDefault)}` : '';
-            const data = await cfgBulk('DELETE', `/${encodeURIComponent(name)}${q}`);
-            showCfgResult(data);
-            log(`Deleted config '${name}' for tenant '${getPlaygroundTenantId()}'`, 'success');
+            await cfgFetchFor(
+                connectorId,
+                'DELETE',
+                `/${encodeURIComponent(name)}${q}`,
+                null,
+                tenantId
+            );
+            log(`Deleted config '${name}' for ${connectorId} / tenant '${tenantId}'`, 'success');
+            const configSelect = document.getElementById('playground-config-name');
+            if (configSelect && configSelect.value === name) {
+                configSelect.value = '';
+            }
             await refreshConfigDropdown(currentMode);
+            await refreshModalConfigSelect(tenantId, connectorId, '');
+            await applyModalConfigSelection(connectorId);
         } catch (err) {
-            showCfgResult({ error: err.message });
+            setConfigAdminError(err.message);
             log(`Config delete failed: ${err.message}`, 'error');
         }
     });

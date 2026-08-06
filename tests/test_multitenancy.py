@@ -202,6 +202,14 @@ def test_tenant_secret_provider_env_translation(monkeypatch: pytest.MonkeyPatch)
     assert provider.get_secret("announcement_token") == "xoxb-1"
 
 
+def test_tenant_secret_provider_with_config_name(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_ACME_SLACK_DEMO_ANNOUNCEMENT_TOKEN", "xoxb-cfg")
+    provider = TenantSecretProvider(
+        EnvSecretProvider(), "acme", "slack", config_name="demo"
+    )
+    assert provider.get_secret("announcement_token") == "xoxb-cfg"
+
+
 def test_tenant_secret_provider_is_strict(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("NW_ACME_SLACK_MISSING", raising=False)
     provider = TenantSecretProvider(EnvSecretProvider(), "acme", "slack")
@@ -547,7 +555,8 @@ def test_rest_config_missing_tenant_returns_400(monkeypatch: pytest.MonkeyPatch)
     assert "X-Tenant-ID" in resp.json()["detail"]
 
 
-def test_rest_config_create_conflict_returns_409(monkeypatch: pytest.MonkeyPatch):
+def test_rest_config_create_upserts_on_conflict(monkeypatch: pytest.MonkeyPatch):
+    """POST create is create-or-update for playground per-connector Add config."""
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     factory = _config_factory()
     factory.store.create("acme", "slack", _doc("dup", default=True))
@@ -556,12 +565,16 @@ def test_rest_config_create_conflict_returns_409(monkeypatch: pytest.MonkeyPatch
         client = TestClient(app)
         resp = client.post(
             "/v1/connectors/slack/configs",
-            json={"name": "dup", "config": {}},
+            json={"name": "dup", "config": {"channel": "#updated"}},
             headers={"X-Tenant-ID": "acme"},
         )
     finally:
         app.dependency_overrides.clear()
-    assert resp.status_code == 409
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "dup"
+    got = factory.store.get("acme", "slack", "dup")
+    assert got is not None
+    assert got.get("config", {}).get("channel") == "#updated"
 
 
 def test_rest_config_init_with_tenant_header(monkeypatch: pytest.MonkeyPatch):

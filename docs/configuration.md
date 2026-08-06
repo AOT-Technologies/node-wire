@@ -72,8 +72,9 @@ copy sample.env .env
 | `NW_MULTITENANCY_ENABLED` | When `true`, resolve tenant from header / `NW_TENANT_ID` / JWT and require a tenant (missing → error). When `false`, always `__default__`. | `false` |
 | `NW_TENANT_ID` | **MCP stdio only** — pins the process to one tenant. Do not set on multi-tenant streamable-http (use `X-Tenant-ID` instead). Required when multitenancy is enabled for stdio. | _(unset)_ |
 | `NW_TENANT_ID_HEADER` | HTTP/gRPC header name for tenant id (case-insensitive) | `X-Tenant-ID` |
+| `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored) | `config/tenants.yaml` |
 
-Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` (see commented templates in `sample.env`). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` (one credential vault per named config). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
 
 ---
 

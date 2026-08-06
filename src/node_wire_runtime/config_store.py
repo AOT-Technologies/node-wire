@@ -351,6 +351,11 @@ class ConnectorConfigStore:
             scope = self._scope(tenant_id, connector_id)
             return bool(scope)
 
+    def list_tenants(self) -> List[str]:
+        """Tenant ids that currently have at least one connector config."""
+        with self._lock:
+            return sorted(self._data.keys())
+
     # ---- internal (unredacted) -----------------------------------------
 
     def resolve(self, tenant_id: str, connector_id: str, name: Optional[str]) -> ConfigRecord:
