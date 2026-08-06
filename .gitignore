@@ -11,6 +11,10 @@ __pycache__/
 *.egg-info/
 dist/
 .env
+config/tenants.yaml
+config/tenants.yaml.tmp
+config/playground_tenants.yaml
+config/playground_tenants.yaml.tmp
 .DS_Store
 **/.DS_Store
 .coverage
@@ -46,3 +50,7 @@ launch.json
 # log
 mcp_debug.log
 .cursor/
+
+# nw-mcp-builder
+nw-mcp-builder/fixtures/
+nw-mcp-builder/out/

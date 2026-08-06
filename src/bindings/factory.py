@@ -33,6 +33,7 @@ from node_wire_runtime.policies.mcp_scope_policy import (
 from node_wire_runtime.secrets import (
     ChainedSecretProvider,
     EnvSecretProvider,
+    OverlaySecretProvider,
     TenantSecretProvider,
 )
 
@@ -111,9 +112,11 @@ def _build_secret_provider() -> SecretProvider:
         ``NW_AWS_SECRETS_MANAGER_SECRET_ID`` — Secrets Manager secret id or ARN
         ``AWS_REGION`` — optional, default ``us-east-1``
     """
+    # Simplified: tenant secret overlay sits in front of env (and aws_env chain).
+    overlay = OverlaySecretProvider.instance()
     mode = os.environ.get("NW_SECRET_BACKEND", "env").strip().lower()
     if mode in ("", "env"):
-        return EnvSecretProvider()
+        return ChainedSecretProvider(overlay, EnvSecretProvider())
     if mode == "aws_env":
         secret_id = os.environ.get("NW_AWS_SECRETS_MANAGER_SECRET_ID")
         if not secret_id:
@@ -124,6 +127,7 @@ def _build_secret_provider() -> SecretProvider:
 
         region = os.environ.get("AWS_REGION", "us-east-1")
         return ChainedSecretProvider(
+            overlay,
             AwsSecretsManagerProvider(secret_name=secret_id, region=region),
             EnvSecretProvider(),
         )
@@ -411,12 +415,15 @@ class ConnectorFactory:
 
         # Simplified: the __default__ tenant keeps the plain (legacy) secret names
         # so existing single-tenant env vars (e.g. EPIC_FHIR_BASE_URL) keep working.
-        # Named tenants are scoped to NW_{TENANT}_{CONNECTOR}_{KEY}.
+        # Named tenants are scoped to NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}.
         if record.tenant_id == DEFAULT_TENANT:
             scoped: SecretProvider = self._secret_provider
         else:
             scoped = TenantSecretProvider(
-                self._secret_provider, record.tenant_id, record.connector_id
+                self._secret_provider,
+                record.tenant_id,
+                record.connector_id,
+                config_name=record.name,
             )
 
         auth_provider = self._build_auth_provider(

@@ -79,3 +79,18 @@ def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_RATE_LIMIT_BURST", "1000")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_REFILL_RATE", "100.0")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for tests
+
+
+@pytest.fixture(autouse=True)
+def _tenants_isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep tenants.yaml off the repo and clear overlay between tests."""
+    path = tmp_path / "tenants.yaml"
+    monkeypatch.setenv("NW_TENANTS_PATH", str(path))
+    from node_wire_runtime.secrets import OverlaySecretProvider
+    import bindings.rest_api.tenant_store as pt
+
+    OverlaySecretProvider.instance().clear()
+    pt._nested_secrets_mirror.clear()
+    yield
+    OverlaySecretProvider.instance().clear()
+    pt._nested_secrets_mirror.clear()

@@ -264,6 +264,30 @@ body {
     margin-bottom: 0.25rem;
 }
 
+.config-admin-secret-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.config-admin-secret-fields .field-group textarea {
+    min-height: 6rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.config-admin-error {
+    margin: 0.5rem 0 0;
+    color: #f87171;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.config-admin-error.hidden {
+    display: none;
+}
+
 .config-admin-fields .field-group {
     flex: 1 1 12rem;
     min-width: 10rem;
@@ -458,17 +482,6 @@ body {
     border-radius: 10px;
 }
 
-.tenancy-cfg-btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-main);
-}
-
-.tenancy-cfg-btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: color-mix(in srgb, var(--brand-accent) 40%, var(--border));
-}
-
 .tenancy-cfg-btn-danger {
     background: transparent;
     border: 1px solid rgba(239, 68, 68, 0.45);
@@ -477,20 +490,6 @@ body {
 
 .tenancy-cfg-btn-danger:hover {
     background: rgba(239, 68, 68, 0.12);
-}
-
-.tenancy-cfg-result {
-    margin-top: 1rem;
-    padding: 0.85rem 1rem;
-    border-radius: 0.75rem;
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px solid var(--border);
-    font-size: 0.8rem;
-    line-height: 1.4;
-    max-height: 16rem;
-    overflow: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
 }
 
 /* Form Styles */
@@ -1317,6 +1316,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 0.9rem;
     color: var(--text-muted);
     line-height: 1.6;
+}
+
+/* Connector page top bar: back + Add config */
+.connector-page-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+    margin: 0 0 1.25rem;
+    min-height: 2.25rem;
+}
+
+.connector-page-toolbar .back-link {
+    margin-bottom: 0;
+}
+
+.connector-page-toolbar .add-config-btn {
+    align-self: center;
+    margin: 0;
+    flex-shrink: 0;
 }
 
 /* Back Link Navigation */

@@ -132,11 +132,11 @@ uv run node-wire
 ```
 
 - **Tenant ID required**: connector/scenario calls without `X-Tenant-ID` return **400**. Explicit `__default__` is allowed.
-- **Header**: Tenant ID, Config dropdown, and **Add config** appear in the header (next to Connectors Ready / Auto-retry) whenever multitenancy is on.
-- **Agentic Workflow**: sends the same `X-Tenant-ID` (and optional `config_name` query). Local agent MCP runs **in-process** against the playground factory, so configs from **Add config** apply. Streamable-HTTP / ToolHive proxy URLs receive `X-Tenant-ID` on each MCP HTTP request.
-- **Add config**: Use the header **Add config** button (Agent or Connectors) to open a modal for create/list/set-default/delete of a named config for **all** playground connectors under that tenant. Close via the X, backdrop click, or Escape. Each Create posts a self-contained auth block (secret refs matching `connectors.yaml`). Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` (e.g. `NW_ACME_GOOGLE_DRIVE_GOOGLE_DRIVE_SA_JSON`).
+- **Header**: Tenant dropdown (existing tenants) and Config dropdown appear when multitenancy is on. Header **Add config** is hidden; use **Add config** on each System Connector page.
+- **Config dropdown**: lists configs for the **active connector** only under the selected tenant. Switching connectors clears a name that does not exist for the new connector.
+- **Agentic Workflow**: sends the same `X-Tenant-ID` (and optional `config_name` query). Local agent MCP runs **in-process** against the playground factory. Streamable-HTTP / ToolHive proxy URLs receive `X-Tenant-ID` on each MCP HTTP request. (Agent Add-config UI is unchanged / out of scope for this flow.)
+- **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (e.g. `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
 - **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.
-- Per-connector panels do not embed their own runtime-config admin UI.
 
 #### Testing the MCP server with Inspector
 
