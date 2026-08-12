@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import base64
 from typing import Any, Literal
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 from pydantic import BaseModel, Field
 
@@ -294,3 +296,289 @@ def test_factory_missing_auth_still_no_auth() -> None:
     factory._secret_provider = _DictSecrets({})
     provider = factory._build_auth_provider("demo", {})
     assert isinstance(provider, NoAuthProvider)
+
+
+# ---------------------------------------------------------------------------
+# encode_param_value / body encoding / resolve_base_url edge coverage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "style", "explode", "expected"),
+    [
+        (["a", "b"], "simple", False, "a%2Cb"),
+        ({"k": "v", "x": "y"}, "simple", False, "k%2Cv%2Cx%2Cy"),
+        ({"k": "v"}, "simple", True, "k%3Dv"),
+    ],
+)
+def test_encode_path_styles(value: Any, style: str, explode: bool, expected: str) -> None:
+    assert (
+        encode_param_value(value, style=style, explode=explode, location="path") == expected
+    )
+
+
+def test_encode_path_rejects_non_simple_style() -> None:
+    with pytest.raises(ValueError, match="unsupported path style"):
+        encode_param_value("x", style="label", explode=False, location="path")
+
+
+def test_encode_header_list_and_rejects_style() -> None:
+    assert encode_param_value(["a", "b"], style="simple", explode=False, location="header") == (
+        "a,b"
+    )
+    with pytest.raises(ValueError, match="unsupported header style"):
+        encode_param_value("x", style="form", explode=False, location="header")
+
+
+def test_encode_query_dict_explode_and_no_explode() -> None:
+    exploded = encode_param_value({"a": 1, "b": 2}, style="form", explode=True, location="query")
+    assert exploded == [("a", "1"), ("b", "2")]
+    joined = encode_param_value({"a": 1, "b": 2}, style="form", explode=False, location="query")
+    assert joined == "a,1,b,2"
+
+
+def test_encode_query_rejects_non_form_style() -> None:
+    with pytest.raises(ValueError, match="unsupported query style"):
+        encode_param_value("x", style="deepObject", explode=True, location="query")
+
+
+def test_split_params_body_and_unknown_location_ignored() -> None:
+    class _BodyInput(BaseModel):
+        action: Literal["create"] = "create"
+        payload: dict[str, str] = Field(
+            ...,
+            json_schema_extra={
+                "nw_in": "body",
+                "nw_media_type": "application/json",
+            },
+        )
+        orphan: str = Field(
+            "x",
+            json_schema_extra={"nw_in": "cookie"},
+        )
+
+    path, query, header, body, media = split_params_by_location(
+        _BodyInput(payload={"name": "n"})
+    )
+    assert path == {} and query == {} and header == {}
+    assert body == {"name": "n"}
+    assert media == "application/json"
+
+
+def test_encode_request_body_json_form_multipart_and_raw() -> None:
+    from node_wire_runtime.rest import _encode_request_body, _looks_base64
+
+    assert _encode_request_body(None, None) == {}
+    assert _encode_request_body({"a": 1}, "application/json") == {"json": {"a": 1}}
+    assert _encode_request_body({"a": 1}, "application/vnd.api+json") == {"json": {"a": 1}}
+
+    form = _encode_request_body({"a": 1, "b": True}, "application/x-www-form-urlencoded")
+    assert form == {"data": {"a": "1", "b": "True"}}
+    with pytest.raises(ValueError, match="form-urlencoded"):
+        _encode_request_body("not-object", "application/x-www-form-urlencoded")
+
+    padded = ("ABCD" * 15) + "ab=="  # 64 chars, valid padding
+    assert _looks_base64(padded) is True
+    multi = _encode_request_body(
+        {"file": padded, "note": "hi", "raw": b"bytes"},
+        "multipart/form-data",
+    )
+    assert multi["data"] == {"note": "hi"}
+    assert len(multi["files"]) == 2
+    with pytest.raises(ValueError, match="multipart"):
+        _encode_request_body("x", "multipart/form-data")
+
+    assert _encode_request_body(b"abc", "application/octet-stream") == {"content": b"abc"}
+    assert _encode_request_body("plain", "application/octet-stream") == {
+        "content": b"plain"
+    }
+    # base64 string for binary media
+    b64 = base64.b64encode(b"hi").decode()
+    assert _encode_request_body(b64, "application/octet-stream") == {"content": b"hi"}
+
+
+def test_encode_request_body_model_binary_and_fallback() -> None:
+    from node_wire_runtime.rest import _encode_request_body
+
+    class _Bin(BaseModel):
+        data: str
+
+    encoded = base64.b64encode(b"payload").decode()
+    out = _encode_request_body(_Bin(data=encoded), "application/octet-stream")
+    assert out == {"content": b"payload"}
+
+    class _Multi(BaseModel):
+        a: str = "1"
+        b: str = "2"
+
+    out2 = _encode_request_body(_Multi(), "application/octet-stream")
+    assert isinstance(out2["content"], bytes)
+
+    assert _encode_request_body(123, "application/octet-stream") == {"content": b"123"}
+
+
+def test_resolve_base_url_override_and_missing() -> None:
+    class _NoDefault(RestConnector):
+        connector_id = "no_default"
+        default_base_url = ""
+        output_model = RestResponseOutput
+
+        @nw_action("noop")
+        async def noop(self, params: _ListInput, *, trace_id: str) -> RestResponseOutput:
+            return RestResponseOutput(status_code=204)
+
+    with pytest.raises(RuntimeError, match="no base_url"):
+        _NoDefault().resolve_base_url()
+
+    assert (
+        _NoDefault(base_url="https://override.example.com/").resolve_base_url()
+        == "https://override.example.com"
+    )
+    assert _DemoConnector().resolve_base_url() == "https://api.example.com"
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_typed_output_and_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Out(BaseModel):
+        ok: bool
+
+    class _OkResponse:
+        status_code = 200
+        content = b'{"ok": true}'
+        headers = {"content-type": "application/json"}
+        text = '{"ok": true}'
+
+        def json(self) -> dict:
+            return {"ok": True}
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class _Client:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "_Client":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def request(self, **kwargs: Any) -> _OkResponse:
+            return _OkResponse()
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _Client)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination",
+        AsyncMock(return_value=None),
+    )
+    connector = _DemoConnector(base_url="https://api.example.com")
+    result = await connector.execute_rest(
+        "GET",
+        "users/{username}/things",  # missing leading slash → normalized
+        _ListInput(username="octocat"),
+        output_model=_Out,
+        trace_id="t",
+        auth=False,
+    )
+    assert result == _Out(ok=True)
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_http_error_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _ErrResponse:
+        status_code = 404
+        content = b"missing"
+        headers: dict[str, str] = {}
+        text = "missing"
+
+        def raise_for_status(self) -> None:
+            raise httpx.HTTPStatusError(
+                "404",
+                request=MagicMock(),
+                response=MagicMock(status_code=404),
+            )
+
+    class _Client:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "_Client":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def request(self, **kwargs: Any) -> _ErrResponse:
+            return _ErrResponse()
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _Client)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination",
+        AsyncMock(return_value=None),
+    )
+    connector = _DemoConnector(base_url="https://api.example.com")
+    with pytest.raises(httpx.HTTPStatusError):
+        await connector.execute_rest(
+            "GET",
+            "/users/{username}/things",
+            _ListInput(username="octocat"),
+            output_model=RestResponseOutput,
+            trace_id="t",
+            auth=False,
+        )
+
+
+# ---------------------------------------------------------------------------
+# http_safety SSRF helpers
+# ---------------------------------------------------------------------------
+
+
+def test_is_blocked_ip_ranges() -> None:
+    import ipaddress
+
+    from node_wire_runtime.http_safety import is_blocked_ip
+
+    assert is_blocked_ip(ipaddress.ip_address("127.0.0.1")) is True
+    assert is_blocked_ip(ipaddress.ip_address("10.0.0.1")) is True
+    assert is_blocked_ip(ipaddress.ip_address("169.254.169.254")) is True
+    assert is_blocked_ip(ipaddress.ip_address("8.8.8.8")) is False
+    # IPv4-mapped IPv6 loopback
+    assert is_blocked_ip(ipaddress.ip_address("::ffff:127.0.0.1")) is True
+
+
+def test_sanitize_url_ipv6_and_invalid() -> None:
+    from node_wire_runtime.http_safety import sanitize_url_for_log
+
+    cleaned = sanitize_url_for_log("https://[2001:db8::1]/path?token=secret")
+    assert "token" not in cleaned
+    assert "2001:db8::1" in cleaned or "[2001:db8::1]" in cleaned
+
+
+@pytest.mark.asyncio
+async def test_assert_safe_destination_blocks_localhost_and_literal() -> None:
+    from node_wire_runtime.http_safety import SsrfBlockedError, assert_safe_destination
+
+    with pytest.raises(SsrfBlockedError, match="missing"):
+        await assert_safe_destination("http:///nohost")
+    with pytest.raises(SsrfBlockedError, match="blocked"):
+        await assert_safe_destination("http://localhost/x")
+    with pytest.raises(SsrfBlockedError, match="blocked"):
+        await assert_safe_destination("http://127.0.0.1/x")
+
+
+@pytest.mark.asyncio
+async def test_assert_safe_destination_resolves_public_ok(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from node_wire_runtime.http_safety import assert_safe_destination
+
+    async def fake_getaddrinfo(host: str, port: int, **kwargs: Any) -> list:
+        return [(None, None, None, None, ("93.184.216.34", port))]
+
+    monkeypatch.setattr(
+        "node_wire_runtime.http_safety.asyncio.get_event_loop",
+        lambda: MagicMock(getaddrinfo=AsyncMock(side_effect=fake_getaddrinfo)),
+    )
+    monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
+    await assert_safe_destination("https://example.com/ok")
