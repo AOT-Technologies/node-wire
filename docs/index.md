@@ -62,6 +62,12 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
     [:octicons-arrow-right-24: nw-connector-builder](nw-connector-builder.md)
 
+-   **nw CLI**
+
+    One-shot OpenAPI → connector → wheels → MCP host → Docker image pipeline.
+
+    [:octicons-arrow-right-24: nw CLI](nw-cli.md)
+
 -   **MCP Integration**
 
     Deploy connectors as Model Context Protocol servers for AI agents.

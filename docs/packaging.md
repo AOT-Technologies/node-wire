@@ -190,6 +190,8 @@ Prerequisites: `pip install build cython wheel` (and a usable `python` on the ho
 
 ### Build all packages (default)
 
+For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](nw-cli.md) — it wraps this script with Linux-only as the default.
+
 ```bash
 bash scripts/build-packages.sh
 ```
@@ -204,10 +206,13 @@ Linux builds use a **local-only** image `nw-wheel-builder:local` from [`docker/w
 # Fast local iteration — host OS wheels only (no Docker)
 bash scripts/build-packages.sh --host-only
 bash scripts/build-packages.sh --host-only packages/connectors/stripe
+# or: uv run nw gen-whl --connector-id stripe --host
 
 # Container / ToolHive wheels only
 bash scripts/build-packages.sh --linux-only
 bash scripts/build-packages.sh --linux-only packages/runtime
+# or: uv run nw gen-whl --connector-id stripe
+#     uv run nw gen-whl --runtime
 ```
 
 `--host-only` and `--linux-only` cannot be combined with each other or with `--all`.

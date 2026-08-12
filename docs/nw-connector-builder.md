@@ -13,7 +13,7 @@ Self-contained tool inside the **node-wire** repo with two subcommands:
 | `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
 | `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
 
-Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](mcp-servers.md)) for hand-written connectors. For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](connectors.md).
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](mcp-servers.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](connectors.md).
 
 ---
 
@@ -375,7 +375,7 @@ Plus connector-specific secrets from the auth plan (`<ID>_API_KEY`, `<ID>_TOKEN`
 
 - [ ] Add `packages/connectors/<id>/setup.py` (Cython build glue) if publishing binary wheels
 - [ ] Register the entry point in the **root** `pyproject.toml` for editable monorepo installs (if not already covered by your workflow)
-- [ ] Add the path to `scripts/build-packages.sh` (`ALL_PACKAGES`) and CI allowlists
+- [ ] Add the path to `scripts/build-packages.sh` (`ALL_PACKAGES`) and CI allowlists (`nw gen-all` without `--no-wire` inserts the `ALL_PACKAGES` entry; CI allowlists stay manual)
 - [ ] Update the package inventory in [packaging.md](packaging.md)
 - [ ] Optional standalone MCP image rows in [mcp-servers.md](mcp-servers.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
 
@@ -385,6 +385,7 @@ Plus connector-specific secrets from the auth plan (`<ID>_API_KEY`, `<ID>_TOKEN`
 
 | Doc | When to read it |
 |-----|-----------------|
+| [nw-cli.md](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
 | [connectors.md](connectors.md) | Hand-written connectors, `BaseConnector`, auth patterns |
 | [mcp-servers.md](mcp-servers.md) | Running / packaging the generated MCP host |
 | [packaging.md](packaging.md) | Wheels, PyPI, CI allowlists |

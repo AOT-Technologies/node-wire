@@ -590,7 +590,7 @@ MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). S
 
 ## Adding a new connector (checklist)
 
-> **OpenAPI / Swagger APIs:** Prefer [nw-connector-builder](nw-connector-builder.md) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the hand-written steps below for SDK-style or non-REST connectors.
+> **OpenAPI / Swagger APIs:** Prefer [nw-connector-builder](nw-connector-builder.md) (or the full [`nw gen-all`](nw-cli.md) pipeline) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the hand-written steps below for SDK-style or non-REST connectors.
 
 ### Runtime (dev)
 
