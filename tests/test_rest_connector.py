@@ -13,7 +13,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from node_wire_runtime import nw_action
-from node_wire_runtime.auth import ApiKeyQueryAuthProvider, NoAuthProvider
+from node_wire_runtime.auth import ApiKeyQueryAuthProvider
 from node_wire_runtime.http_safety import (
     SsrfBlockedError,
     assert_safe_destination,

@@ -97,7 +97,8 @@ def print_report(report: dict[str, Any]) -> None:
         print(f"    - {d['method']} {d['path']}: {d['reason']}")
     auth = report.get("auth")
     if auth:
-        print(f"  auth: provider={auth.get('provider')} secret_key={auth.get('secret_key')}")
+        # Do not print secret_key (env name) — keep it in report.json only.
+        print(f"  auth: provider={auth.get('provider')}")
     gate = report.get("gate")
     if gate:
         print(f"  gate: {gate}")

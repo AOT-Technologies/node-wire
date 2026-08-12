@@ -13,7 +13,6 @@ from urllib.parse import urlparse
 
 from nw_connector_builder.derive.auth import (
     ConnectorAuthPlan,
-    OpSecurityDecision,
     build_auth_plan,
     choose_connector_scheme,
     connector_fingerprint,

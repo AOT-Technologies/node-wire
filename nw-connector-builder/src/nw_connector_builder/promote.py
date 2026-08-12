@@ -38,10 +38,11 @@ def _backup_if_exists(dest: Path) -> Path | None:
 
 
 def _restore_backup(backup: Path | None, dest: Path) -> None:
+    if backup is None or not backup.exists():
+        return
     if dest.exists():
         shutil.rmtree(dest)
-    if backup is not None and backup.exists():
-        backup.rename(dest)
+    backup.rename(dest)
 
 
 def _cleanup_backup(backup: Path | None) -> None:
@@ -76,39 +77,32 @@ def promote(
     src_promoting = _prepare_promoting(src_stage, src_dest)
     pkg_promoting = _prepare_promoting(pkg_stage, pkg_dest)
 
-    src_backup: Path | None = None
-    pkg_backup: Path | None = None
+    # (backup_path | None, destination) — built incrementally so a mid-backup
+    # failure still restores whatever was already moved aside.
+    backups: list[tuple[Path | None, Path]] = []
     try:
-        src_backup = _backup_if_exists(src_dest)
-        pkg_backup = _backup_if_exists(pkg_dest)
+        backups.append((_backup_if_exists(src_dest), src_dest))
+        backups.append((_backup_if_exists(pkg_dest), pkg_dest))
 
         src_promoting.rename(src_dest)
         try:
             pkg_promoting.rename(pkg_dest)
         except Exception:
-            # Roll back src promote; restore both backups.
+            # Undo src rename; outer handler restores *.bak trees.
             if src_dest.exists():
                 shutil.rmtree(src_dest)
-            _restore_backup(src_backup, src_dest)
-            _restore_backup(pkg_backup, pkg_dest)
-            src_backup = None
-            pkg_backup = None
             raise
 
-        _cleanup_backup(src_backup)
-        _cleanup_backup(pkg_backup)
-        src_backup = None
-        pkg_backup = None
+        for backup, _ in backups:
+            _cleanup_backup(backup)
     except Exception:
-        # Ensure promoting leftovers are cleaned up; backups restored above on
-        # the inner failure path. Outer failures before rename restore nothing.
         if src_promoting.exists():
             shutil.rmtree(src_promoting, ignore_errors=True)
         if pkg_promoting.exists():
             shutil.rmtree(pkg_promoting, ignore_errors=True)
-        if src_backup is not None or pkg_backup is not None:
-            _restore_backup(src_backup, src_dest)
-            _restore_backup(pkg_backup, pkg_dest)
+        # After successful cleanup above, backup dirs are already gone.
+        for backup, dest in backups:
+            _restore_backup(backup, dest)
         raise
 
     logger.info("Promoted connector %s", connector_id)
