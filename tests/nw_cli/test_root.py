@@ -34,3 +34,23 @@ def test_resolve_fails_without_layout(tmp_path: Path, monkeypatch: pytest.Monkey
         (tmp_path / "nw-cli").mkdir()
         with pytest.raises(RootError, match="repo root"):
             resolve_node_wire_root()
+
+
+def test_resolve_falls_back_to_package_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When cwd is not node-wire, use parent of the nw-cli package dir."""
+    root = tmp_path / "node-wire"
+    root.mkdir()
+    (root / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "connectors.yaml").write_text("{}\n", encoding="utf-8")
+    (root / "scripts").mkdir()
+    (root / "scripts" / "build-packages.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+    pkg = root / "nw-cli"
+    pkg.mkdir()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setattr("nw_cli.root._package_dir", lambda: pkg)
+    assert resolve_node_wire_root() == root.resolve()
