@@ -46,7 +46,7 @@ def test_wheel_invokes_build_packages_linux_only(fake_root: Path) -> None:
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.cli.run_wheel_build") as wheel,
     ):
-        result = runner.invoke(app, ["wheel", "--id", "pet_store"])
+        result = runner.invoke(app, ["gen-whl", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
     wheel.assert_called_once_with(
         fake_root,
@@ -62,7 +62,7 @@ def test_wheel_runtime_and_host_flags(fake_root: Path) -> None:
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.cli.run_wheel_build") as wheel,
     ):
-        result = runner.invoke(app, ["wheel", "--runtime", "--host"])
+        result = runner.invoke(app, ["gen-whl", "--runtime", "--host"])
     assert result.exit_code == 0, result.output
     wheel.assert_called_once_with(
         fake_root,
@@ -75,7 +75,7 @@ def test_wheel_runtime_and_host_flags(fake_root: Path) -> None:
 
 def test_wheel_host_and_all_conflict(fake_root: Path) -> None:
     with patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root):
-        result = runner.invoke(app, ["wheel", "--id", "pet_store", "--host", "--all"])
+        result = runner.invoke(app, ["gen-whl", "--connector-id", "pet_store", "--host", "--all"])
     assert result.exit_code == 2
 
 
@@ -89,7 +89,7 @@ def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.cli.run_mcp_build", return_value=project) as mcp,
     ):
-        result = runner.invoke(app, ["mcp", "--id", "pet_store", "--force-output"])
+        result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store", "--force-output"])
     assert result.exit_code == 0, result.output
     mcp.assert_called_once_with(fake_root, "pet_store", force_output=True)
 
@@ -104,7 +104,7 @@ def test_docker_build_subprocess(fake_root: Path) -> None:
             "nw_cli.cli.run_docker_build", return_value="pet-store-nw-mcp:latest"
         ) as docker,
     ):
-        result = runner.invoke(app, ["docker-build", "--id", "pet_store"])
+        result = runner.invoke(app, ["docker-build", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
     docker.assert_called_once_with(fake_root, "pet_store", tag="latest")
 
@@ -153,7 +153,7 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         )
         result = runner.invoke(
             app,
-            ["generate", "--id", "pet_store", "--path", "spec.yaml"],
+            ["gen-all", "--connector-id", "pet_store", "--path", "spec.yaml"],
         )
 
     assert result.exit_code == 0, result.output
@@ -181,8 +181,8 @@ def test_generate_skip_flags(fake_root: Path) -> None:
         result = runner.invoke(
             app,
             [
-                "generate",
-                "--id",
+                "gen-all",
+                "--connector-id",
                 "pet_store",
                 "--path",
                 "spec.yaml",
@@ -205,9 +205,9 @@ def test_prerequisite_non_interactive_exits(fake_root: Path) -> None:
         patch("nw_cli.prerequisites.is_interactive", return_value=False),
         patch("nw_cli.cli.run_mcp_build") as mcp,
     ):
-        result = runner.invoke(app, ["mcp", "--id", "pet_store"])
+        result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store"])
     assert result.exit_code == 1
-    assert "nw wheel --runtime" in result.output or "nw wheel --runtime" in (
+    assert "nw gen-whl --runtime" in result.output or "nw gen-whl --runtime" in (
         result.stderr or ""
     )
     mcp.assert_not_called()
@@ -241,7 +241,7 @@ def test_prerequisite_interactive_builds_then_continues(fake_root: Path) -> None
         ),
         patch("nw_cli.cli.run_mcp_build", return_value=project) as mcp,
     ):
-        result = runner.invoke(app, ["mcp", "--id", "pet_store"])
+        result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
     assert "runtime" in built
     assert "connector" in built

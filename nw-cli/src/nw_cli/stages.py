@@ -97,7 +97,7 @@ def run_wheel_build(
 ) -> None:
     """Subprocess ``scripts/build-packages.sh`` for connector and/or runtime."""
     if not runtime and not connector_id:
-        raise StageError("--id is required unless --runtime is set")
+        raise StageError("--connector-id is required unless --runtime is set")
 
     mode = build_mode_flag(host=host, all_=all_)
     script = node_wire_root / "scripts" / "build-packages.sh"

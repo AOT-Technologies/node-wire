@@ -27,33 +27,33 @@ uv run nw --help
 
 | Command | What it does |
 |---------|----------------|
-| `nw generate` | One-shot: connector codegen → Linux wheels → MCP host → wire |
-| `nw wheel` | Standalone wheel build via `scripts/build-packages.sh` |
-| `nw mcp` | Standalone MCP host (requires existing wheels) |
+| `nw gen-all` | One-shot: connector codegen → Linux wheels → MCP host → wire |
+| `nw gen-whl` | Standalone wheel build via `scripts/build-packages.sh` |
+| `nw gen-mcp` | Standalone MCP host (requires existing wheels) |
 | `nw docker-build` | `docker build` inside `nw-mcp-builder/out/<server>-mcp/` |
 
 ```mermaid
 flowchart LR
-  generate["nw generate"] --> runBuild["run_build no_mcp=True"]
+  generate["nw gen-all"] --> runBuild["run_build no_mcp=True"]
   generate --> wheelStage["build-packages.sh"]
   generate --> mcpStage["run_from_connector"]
   generate --> allPkgs["ALL_PACKAGES"]
-  wheelCmd["nw wheel"] --> wheelStage
-  mcpCmd["nw mcp"] --> mcpStage
+  wheelCmd["nw gen-whl"] --> wheelStage
+  mcpCmd["nw gen-mcp"] --> mcpStage
   dockerCmd["nw docker-build"] --> dockerBuild["docker build"]
 ```
 
-### `nw generate`
+### `nw gen-all`
 
 ```bash
-uv run nw generate \
-  --id pet_store \
+uv run nw gen-all \
+  --connector-id pet_store \
   --path path/to/openapi.yaml
 ```
 
 | Flag | Effect |
 |------|--------|
-| `--id` | Connector id (required) |
+| `--connector-id` | Connector id (required) |
 | `--path` | OpenAPI/Swagger file or URL (required) |
 | `--no-wheel` | Skip wheel build |
 | `--no-mcp` | Skip MCP host build |
@@ -64,36 +64,36 @@ Stages are **in-process** function calls (never re-invokes `nw`). Connector code
 
 When wire is enabled, `run_build` updates `config/connectors.yaml` and `sample.env`, and `nw` also inserts `packages/connectors/<id>` into `scripts/build-packages.sh`’s `ALL_PACKAGES` list if missing.
 
-### `nw wheel`
+### `nw gen-whl`
 
 ```bash
-uv run nw wheel --id pet_store          # Linux-only (default)
-uv run nw wheel --id pet_store --host   # host-only
-uv run nw wheel --id pet_store --all    # cibuildwheel matrix
-uv run nw wheel --runtime               # packages/runtime only
+uv run nw gen-whl --connector-id pet_store          # Linux-only (default)
+uv run nw gen-whl --connector-id pet_store --host   # host-only
+uv run nw gen-whl --connector-id pet_store --all    # cibuildwheel matrix
+uv run nw gen-whl --runtime               # packages/runtime only
 ```
 
 Default mode is **`--linux-only`** (not the script’s host+Linux combined default). Runtime is not rebuilt with every connector build — use `--runtime` when needed.
 
-### `nw mcp`
+### `nw gen-mcp`
 
 ```bash
-uv run nw mcp --id pet_store
-uv run nw mcp --id pet_store --force-output
+uv run nw gen-mcp --connector-id pet_store
+uv run nw gen-mcp --connector-id pet_store --force-output
 ```
 
 Always `skip_build_wheels=True`. If wheels are missing:
 
 - **Interactive (TTY):** prompts to build the missing prerequisite
-- **Non-interactive:** exits non-zero with the exact fix command (e.g. `nw wheel --runtime`)
+- **Non-interactive:** exits non-zero with the exact fix command (e.g. `nw gen-whl --runtime`)
 
 There is no `--yes` / auto-confirm flag.
 
 ### `nw docker-build`
 
 ```bash
-uv run nw docker-build --id pet_store
-uv run nw docker-build --id pet_store --tag v1
+uv run nw docker-build --connector-id pet_store
+uv run nw docker-build --connector-id pet_store --tag v1
 ```
 
 Builds `docker build -t <id-with-hyphens>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<server>-mcp/`. `--tag` defaults to `latest`.
@@ -102,7 +102,7 @@ Builds `docker build -t <id-with-hyphens>-nw-mcp:<tag> .` inside `nw-mcp-builder
 
 ## Output
 
-`nw generate` uses brand-colored `rich.progress` (amber spinner, blue bar, pink on failure) with a bordered summary panel. Single-stage commands use a simpler status spinner.
+`nw gen-all` uses brand-colored `rich.progress` (amber spinner, blue bar, pink on failure) with a bordered summary panel. Single-stage commands use a simpler status spinner.
 
 ---
 

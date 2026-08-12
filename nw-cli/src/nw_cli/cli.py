@@ -2,15 +2,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Typer CLI for ``nw`` — generate / wheel / mcp / docker-build."""
+"""Typer CLI for ``nw`` — gen-all / gen-whl / gen-mcp / docker-build."""
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
+from typer.core import TyperGroup
+
+try:
+    __version__ = _pkg_version("nw-cli")
+except PackageNotFoundError:  # running from a source tree without install
+    __version__ = "0.0.0"
 
 from nw_cli.names import mcp_project_dir
 from nw_cli.prerequisites import ensure
@@ -27,14 +34,65 @@ from nw_cli.stages import (
     wheels_present,
 )
 
-app = typer.Typer(
-    name="nw",
-    help="Node Wire CLI — OpenAPI connector → wheel → MCP → Docker",
-    no_args_is_help=True,
-    add_completion=False,
-)
+_BANNER = r"""
+                _                   _
+ _ __   ___   __| | ___   __      _(_)_ __ ___
+| '_ \ / _ \ / _` |/ _ \  \ \ /\ / / | '__/ _ \
+| | | | (_) | (_| |  __/   \ V  V /| | | |  __/
+|_| |_|\___/ \__,_|\___|    \_/\_/ |_|_|  \___|
+"""
+
+_HELP = """\
+Turn an OpenAPI/Swagger spec into a runnable MCP server.
+
+The pipeline runs in four stages, each also available on its own:
+[bold]gen-all[/bold] (codegen → wheel → mcp → wire), then [bold]gen-whl[/bold],
+[bold]gen-mcp[/bold], and [bold]docker-build[/bold].
+
+Run [cyan]nw COMMAND --help[/cyan] for a command's options.
+"""
+
 console = Console()
 err_console = Console(stderr=True)
+
+
+class _BannerGroup(TyperGroup):
+    """Print the node-wire banner + version above the group help page."""
+
+    def format_help(self, ctx: typer.Context, formatter) -> None:  # type: ignore[override]
+        console.print(_BANNER, style="#37c4f0", highlight=False)
+        console.print(f"  node-wire CLI v{__version__}", style="dim", highlight=False)
+        super().format_help(ctx, formatter)
+
+
+app = typer.Typer(
+    name="nw",
+    cls=_BannerGroup,
+    help=_HELP,
+    no_args_is_help=True,
+    add_completion=False,
+    rich_markup_mode="rich",
+)
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"nw {__version__}", highlight=False)
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the node-wire CLI version and exit.",
+    ),
+) -> None:
+    """Node Wire CLI entry point."""
 
 
 def _root() -> Path:
@@ -45,9 +103,9 @@ def _root() -> Path:
         raise typer.Exit(1) from exc
 
 
-@app.command("generate")
-def generate(
-    id: str = typer.Option(..., "--id", help="Connector id (e.g. pet_store)"),
+@app.command("gen-all")
+def gen_all(
+    id: str = typer.Option(..., "--connector-id", help="Connector id (e.g. pet_store)"),
     path: str = typer.Option(..., "--path", help="OpenAPI/Swagger spec path or URL"),
     no_wheel: bool = typer.Option(False, "--no-wheel", help="Skip wheel build"),
     no_mcp: bool = typer.Option(False, "--no-mcp", help="Skip MCP host build"),
@@ -105,7 +163,7 @@ def generate(
                                 f"(packages/runtime/dist or "
                                 f"packages/connectors/{id}/dist) — build now?"
                             ),
-                            fix_command=f"nw wheel --id {id}",
+                            fix_command=f"nw gen-whl --connector-id {id}",
                             build_fn=lambda: run_wheel_build(
                                 node_wire_root,
                                 connector_id=id,
@@ -116,7 +174,7 @@ def generate(
                             ensure(
                                 False,
                                 prompt="Runtime wheel still missing — build it now?",
-                                fix_command="nw wheel --runtime",
+                                fix_command="nw gen-whl --runtime",
                                 build_fn=lambda: run_wheel_build(
                                     node_wire_root,
                                     runtime=True,
@@ -139,10 +197,10 @@ def generate(
         raise typer.Exit(1) from exc
 
 
-@app.command("wheel")
-def wheel(
+@app.command("gen-whl")
+def gen_whl(
     id: Optional[str] = typer.Option(
-        None, "--id", help="Connector id (required unless --runtime)"
+        None, "--connector-id", help="Connector id (required unless --runtime)"
     ),
     host: bool = typer.Option(False, "--host", help="Host-only wheel build"),
     all_: bool = typer.Option(False, "--all", help="Full cibuildwheel matrix"),
@@ -161,7 +219,7 @@ def wheel(
 
     if not runtime and not id:
         err_console.print(
-            "[bold #e01d5a]error:[/bold #e01d5a] --id is required unless --runtime is set"
+            "[bold #e01d5a]error:[/bold #e01d5a] --connector-id is required unless --runtime is set"
         )
         raise typer.Exit(2)
 
@@ -181,9 +239,9 @@ def wheel(
         raise typer.Exit(1) from exc
 
 
-@app.command("mcp")
-def mcp(
-    id: str = typer.Option(..., "--id", help="Connector id"),
+@app.command("gen-mcp")
+def gen_mcp(
+    id: str = typer.Option(..., "--connector-id", help="Connector id"),
     force_output: bool = typer.Option(
         False, "--force-output", help="Replace existing out/<server>-mcp/"
     ),
@@ -195,7 +253,7 @@ def mcp(
         ensure(
             False,
             prompt="Runtime wheel not found in packages/runtime/dist/ — build it now?",
-            fix_command="nw wheel --runtime",
+            fix_command="nw gen-whl --runtime",
             build_fn=lambda: run_wheel_build(node_wire_root, runtime=True),
         )
 
@@ -206,7 +264,7 @@ def mcp(
                 f"Connector wheel not found in packages/connectors/{id}/dist/ "
                 "— build it now?"
             ),
-            fix_command=f"nw wheel --id {id}",
+            fix_command=f"nw gen-whl --connector-id {id}",
             build_fn=lambda: run_wheel_build(node_wire_root, connector_id=id),
         )
 
@@ -223,7 +281,7 @@ def mcp(
 
 @app.command("docker-build")
 def docker_build(
-    id: str = typer.Option(..., "--id", help="Connector id"),
+    id: str = typer.Option(..., "--connector-id", help="Connector id"),
     tag: str = typer.Option("latest", "--tag", help="Docker image tag"),
 ) -> None:
     """Build a Docker image from the generated MCP host project."""
@@ -233,7 +291,7 @@ def docker_build(
     ensure(
         project.is_dir(),
         prompt=f"MCP project not found at {project} — generate it now?",
-        fix_command=f"nw mcp --id {id}",
+        fix_command=f"nw gen-mcp --connector-id {id}",
         build_fn=lambda: run_mcp_build(node_wire_root, id, force_output=True),
     )
 
