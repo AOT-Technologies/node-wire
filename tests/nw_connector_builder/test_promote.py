@@ -57,7 +57,9 @@ def test_promote_force_overwrites_existing(tmp_path: Path) -> None:
     dest.mkdir(parents=True)
     (dest / "old.py").write_text("old\n", encoding="utf-8")
     (root / "packages" / "connectors" / "pet_store").mkdir(parents=True)
-    (root / "packages" / "connectors" / "pet_store" / "old.toml").write_text("x\n", encoding="utf-8")
+    (root / "packages" / "connectors" / "pet_store" / "old.toml").write_text(
+        "x\n", encoding="utf-8"
+    )
 
     promote(staging, root, "pet_store", force=True)
 

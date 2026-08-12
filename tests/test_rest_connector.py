@@ -312,9 +312,7 @@ def test_factory_missing_auth_still_no_auth() -> None:
     ],
 )
 def test_encode_path_styles(value: Any, style: str, explode: bool, expected: str) -> None:
-    assert (
-        encode_param_value(value, style=style, explode=explode, location="path") == expected
-    )
+    assert encode_param_value(value, style=style, explode=explode, location="path") == expected
 
 
 def test_encode_path_rejects_non_simple_style() -> None:
@@ -357,9 +355,7 @@ def test_split_params_body_and_unknown_location_ignored() -> None:
             json_schema_extra={"nw_in": "cookie"},
         )
 
-    path, query, header, body, media = split_params_by_location(
-        _BodyInput(payload={"name": "n"})
-    )
+    path, query, header, body, media = split_params_by_location(_BodyInput(payload={"name": "n"}))
     assert path == {} and query == {} and header == {}
     assert body == {"name": "n"}
     assert media == "application/json"
@@ -389,9 +385,7 @@ def test_encode_request_body_json_form_multipart_and_raw() -> None:
         _encode_request_body("x", "multipart/form-data")
 
     assert _encode_request_body(b"abc", "application/octet-stream") == {"content": b"abc"}
-    assert _encode_request_body("plain", "application/octet-stream") == {
-        "content": b"plain"
-    }
+    assert _encode_request_body("plain", "application/octet-stream") == {"content": b"plain"}
     # base64 string for binary media
     b64 = base64.b64encode(b"hi").decode()
     assert _encode_request_body(b64, "application/octet-stream") == {"content": b"hi"}

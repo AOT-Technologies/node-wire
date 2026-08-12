@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 from nw_connector_builder.gate import GateResult, import_smoke, run_gate, run_pytest_gate
 
-_LOGIC_OK = '''\
+_LOGIC_OK = """\
 from __future__ import annotations
 
 from typing import ClassVar, Type
@@ -33,9 +33,9 @@ class Demo(RestConnector):
     @nw_action("ping")
     async def ping(self, params: PingInput, *, trace_id: str) -> RestResponseOutput:
         return RestResponseOutput()
-'''
+"""
 
-_LOGIC_ZERO = '''\
+_LOGIC_ZERO = """\
 from __future__ import annotations
 
 from node_wire_runtime import RestConnector
@@ -45,7 +45,7 @@ class Demo(RestConnector):
     connector_id = "gate_demo"
     _nw_abstract_base = True
     _action_registry = {}
-'''
+"""
 
 
 def _write_minimal_connector(staging: Path, *, logic: str) -> None:
