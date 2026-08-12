@@ -50,9 +50,7 @@ class _BlockBar(ProgressBar):
     track (not the pulsing animation) for not-yet-started tasks.
     """
 
-    def __rich_console__(
-        self, console: Console, options: ConsoleOptions
-    ) -> RenderResult:
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         width = min(self.width or options.max_width, options.max_width)
         track_style = console.get_style(self.style)
 
@@ -69,9 +67,7 @@ class _BlockBar(ProgressBar):
 
         ratio = min(1.0, max(0.0, self.completed / self.total))
         is_finished = self.completed >= self.total
-        fill_style = console.get_style(
-            self.finished_style if is_finished else self.complete_style
-        )
+        fill_style = console.get_style(self.finished_style if is_finished else self.complete_style)
         eighths = int(round(width * 8 * ratio))
         full, part = divmod(eighths, 8)
         if full:
@@ -107,9 +103,7 @@ class _BlockBarColumn(BarColumn):
 
     def render(self, task: Task) -> _BlockBar:
         # Animate only the active stage: started and not yet complete.
-        running = task.started and (
-            task.total is None or task.completed < task.total
-        )
+        running = task.started and (task.total is None or task.completed < task.total)
         return _BlockBar(
             total=max(0, task.total) if task.total is not None else None,
             completed=max(0, task.completed),
@@ -243,11 +237,16 @@ class GenerateProgress:
 
     def _refresh(self, stage: Stage) -> None:
         assert self._progress is not None and stage.task_id is not None
-        completed = 1 if stage.status in (
-            StageStatus.DONE,
-            StageStatus.SKIPPED,
-            StageStatus.FAILED,
-        ) else 0
+        completed = (
+            1
+            if stage.status
+            in (
+                StageStatus.DONE,
+                StageStatus.SKIPPED,
+                StageStatus.FAILED,
+            )
+            else 0
+        )
         self._progress.update(
             stage.task_id,
             description=self._desc(stage),
@@ -303,9 +302,7 @@ class GenerateProgress:
                 msg = f"Failed at stage [bold]{failed.label}[/bold]: {failed.error}{hint}"
             else:
                 msg = "Generate failed."
-            self.console.print(
-                Panel(msg, title="nw generate", border_style=PINK, style=TEXT)
-            )
+            self.console.print(Panel(msg, title="nw generate", border_style=PINK, style=TEXT))
         else:
             done = [s.label for s in self.stages if s.status == StageStatus.DONE]
             skipped = [s.label for s in self.stages if s.status == StageStatus.SKIPPED]
@@ -315,6 +312,4 @@ class GenerateProgress:
             if skipped:
                 parts.append(f"Skipped: {', '.join(skipped)}")
             body = "\n".join(parts) if parts else "Done."
-            self.console.print(
-                Panel(body, title="nw generate", border_style=BLUE, style=TEXT)
-            )
+            self.console.print(Panel(body, title="nw generate", border_style=BLUE, style=TEXT))

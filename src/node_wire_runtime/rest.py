@@ -258,7 +258,6 @@ def _looks_base64(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", value))
 
 
-
 class RestConnector(BaseConnector):
     """Base class for OpenAPI-generated REST connectors.
 
@@ -360,7 +359,8 @@ class RestConnector(BaseConnector):
                 method=method.upper(),
                 url=url,
                 headers=headers,
-                params=query_pairs or None,
+                # tuple[...] is covariant; list[...] is not — satisfies httpx QueryParamTypes.
+                params=tuple(query_pairs) if query_pairs else None,
                 timeout=timeout,
                 **body_kwargs,
             )

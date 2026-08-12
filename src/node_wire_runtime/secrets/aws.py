@@ -12,14 +12,18 @@ from node_wire_runtime.secrets.base import (
     SecretProviderError,
 )
 
-try:
-    import boto3
-    from botocore.exceptions import BotoCoreError, ClientError
-except ImportError as _e:
-    raise ImportError(
-        "boto3 is required for AwsSecretsManagerProvider. "
-        "Install it with: pip install 'node-wire-runtime[aws]'"
-    ) from _e
+
+def _import_boto():
+    """Import boto3 lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    try:
+        import boto3
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError as exc:
+        raise ImportError(
+            "boto3 is required for AwsSecretsManagerProvider. "
+            "Install it with: pip install 'node-wire-runtime[aws]'"
+        ) from exc
+    return boto3, BotoCoreError, ClientError
 
 
 class AwsSecretsManagerProvider(SecretProvider):
@@ -31,6 +35,7 @@ class AwsSecretsManagerProvider(SecretProvider):
     """
 
     def __init__(self, secret_name: str, region: str = "us-east-1") -> None:
+        boto3, BotoCoreError, ClientError = _import_boto()
         try:
             client = boto3.client("secretsmanager", region_name=region)
             raw = client.get_secret_value(SecretId=secret_name)["SecretString"]

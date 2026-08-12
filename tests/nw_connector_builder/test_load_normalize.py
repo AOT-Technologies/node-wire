@@ -25,10 +25,7 @@ def test_uniquify_truncates_and_suffixes() -> None:
 
 
 def test_fallback_operation_name() -> None:
-    assert (
-        fallback_operation_name("GET", "/users/{username}/repos")
-        == "get_users_username_repos"
-    )
+    assert fallback_operation_name("GET", "/users/{username}/repos") == "get_users_username_repos"
 
 
 def test_remote_ref_detected() -> None:
@@ -77,9 +74,9 @@ def test_load_rejects_remote_ref(tmp_path: Path) -> None:
 
 def test_local_relative_ref_resolves() -> None:
     doc, _ = load_openapi_document(str(FIXTURES / "multifile" / "openapi.yaml"))
-    schema = doc["paths"]["/items"]["get"]["responses"]["200"]["content"][
-        "application/json"
-    ]["schema"]
+    schema = doc["paths"]["/items"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]
     # prance should have inlined the relative file $ref
     assert "$ref" not in schema
     assert schema.get("type") == "object"

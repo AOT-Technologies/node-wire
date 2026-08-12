@@ -56,9 +56,7 @@ def wheels_present(node_wire_root: Path, connector_id: str) -> bool:
     """True when runtime and connector ``dist/`` each contain at least one ``.whl``."""
     runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
     connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    return bool(list(runtime_dist.glob("*.whl"))) and bool(
-        list(connector_dist.glob("*.whl"))
-    )
+    return bool(list(runtime_dist.glob("*.whl"))) and bool(list(connector_dist.glob("*.whl")))
 
 
 def runtime_wheel_present(node_wire_root: Path) -> bool:
@@ -67,11 +65,7 @@ def runtime_wheel_present(node_wire_root: Path) -> bool:
 
 def connector_wheel_present(node_wire_root: Path, connector_id: str) -> bool:
     return bool(
-        list(
-            (node_wire_root / "packages" / "connectors" / connector_id / "dist").glob(
-                "*.whl"
-            )
-        )
+        list((node_wire_root / "packages" / "connectors" / connector_id / "dist").glob("*.whl"))
     )
 
 
@@ -113,9 +107,7 @@ def run_wheel_build(
     cmd = ["bash", str(script), mode, *targets]
     code = run_logged_command(cmd, cwd=node_wire_root, log=log)
     if code != 0:
-        raise StageError(
-            f"Wheel build failed (exit {code}): {' '.join(cmd)}"
-        )
+        raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
 
 
 def run_mcp_build(
@@ -190,11 +182,7 @@ def register_all_packages(node_wire_root: Path, connector_id: str) -> bool:
 
     new_body = body.rstrip("\n") + f"\n{indent}{entry}"
     new_text = (
-        text[: match.start()]
-        + match.group(1)
-        + new_body
-        + match.group(3)
-        + text[match.end() :]
+        text[: match.start()] + match.group(1) + new_body + match.group(3) + text[match.end() :]
     )
     script.write_text(new_text, encoding="utf-8")
     return True

@@ -23,9 +23,7 @@ def test_resolve_from_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert resolve_node_wire_root() == tmp_path.resolve()
 
 
-def test_resolve_fails_without_layout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resolve_fails_without_layout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     # Package parent may still be a real node-wire checkout when tests run from
     # the monorepo — only assert failure when neither cwd nor package parent match.

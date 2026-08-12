@@ -16,3 +16,9 @@ RUN apt-get update \
     && pip install --no-cache-dir setuptools build cython wheel
 
 WORKDIR /work
+
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --home /work app \
+    && chown -R app:app /work
+
+USER app

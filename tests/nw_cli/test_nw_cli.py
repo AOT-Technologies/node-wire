@@ -28,11 +28,7 @@ def fake_root(tmp_path: Path) -> Path:
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     (scripts / "build-packages.sh").write_text(
-        "#!/bin/bash\n"
-        "ALL_PACKAGES=(\n"
-        "  packages/runtime\n"
-        "  packages/connectors/slack\n"
-        ")\n",
+        "#!/bin/bash\nALL_PACKAGES=(\n  packages/runtime\n  packages/connectors/slack\n)\n",
         encoding="utf-8",
     )
     (tmp_path / "nw-mcp-builder").mkdir()
@@ -100,9 +96,7 @@ def test_docker_build_subprocess(fake_root: Path) -> None:
 
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch(
-            "nw_cli.cli.run_docker_build", return_value="pet-store-nw-mcp:latest"
-        ) as docker,
+        patch("nw_cli.cli.run_docker_build", return_value="pet-store-nw-mcp:latest") as docker,
     ):
         result = runner.invoke(app, ["docker-build", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
@@ -139,18 +133,14 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
 
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch(
-            "nw_connector_builder.pipeline.run_build", side_effect=fake_run_build
-        ) as rb,
+        patch("nw_connector_builder.pipeline.run_build", side_effect=fake_run_build) as rb,
         patch("nw_cli.cli.run_wheel_build", side_effect=fake_wheel) as wh,
         patch("nw_cli.cli.run_mcp_build", side_effect=fake_mcp) as mp,
         patch("nw_cli.cli.register_all_packages", side_effect=fake_register) as reg,
         patch("subprocess.run") as sub_run,
         patch("nw_cli.stages.subprocess.Popen") as popen,
     ):
-        popen.return_value = MagicMock(
-            stdout=iter([]), wait=MagicMock(return_value=0)
-        )
+        popen.return_value = MagicMock(stdout=iter([]), wait=MagicMock(return_value=0))
         result = runner.invoke(
             app,
             ["gen-all", "--connector-id", "pet_store", "--path", "spec.yaml"],
@@ -225,9 +215,7 @@ def test_prerequisite_interactive_builds_then_continues(fake_root: Path) -> None
 
     def build_connector():
         built.append("connector")
-        (
-            fake_root / "packages" / "connectors" / "pet_store" / "dist" / "c.whl"
-        ).write_bytes(b"x")
+        (fake_root / "packages" / "connectors" / "pet_store" / "dist" / "c.whl").write_bytes(b"x")
 
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
@@ -292,9 +280,7 @@ def test_run_logged_command_streams_to_log(fake_root: Path) -> None:
     proc.wait.return_value = 0
 
     with patch("nw_cli.stages.subprocess.Popen", return_value=proc) as popen:
-        code = run_logged_command(
-            ["echo", "hi"], cwd=fake_root, log=lines.append
-        )
+        code = run_logged_command(["echo", "hi"], cwd=fake_root, log=lines.append)
     assert code == 0
     assert lines == ["hello", "world"]
     assert popen.call_args.kwargs["stdout"] == subprocess.PIPE

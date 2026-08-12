@@ -39,9 +39,7 @@ def ensure(
         if Confirm.ask(prompt, default=False, console=console):
             build_fn()
             return
-        console.print(
-            f"[#e01d5a]Aborted.[/#e01d5a] Fix with: [bold]{fix_command}[/bold]"
-        )
+        console.print(f"[#e01d5a]Aborted.[/#e01d5a] Fix with: [bold]{fix_command}[/bold]")
         raise typer.Exit(1)
 
     console.print(

@@ -70,9 +70,7 @@ def promote(
     pkg_stage = staging / "packages" / "connectors" / connector_id
 
     if (src_dest.exists() or pkg_dest.exists()) and not force:
-        raise PromoteError(
-            f"Destination already exists for {connector_id!r}; re-run with --force"
-        )
+        raise PromoteError(f"Destination already exists for {connector_id!r}; re-run with --force")
 
     src_promoting = _prepare_promoting(src_stage, src_dest)
     pkg_promoting = _prepare_promoting(pkg_stage, pkg_dest)

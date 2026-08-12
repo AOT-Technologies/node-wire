@@ -138,10 +138,7 @@ def _param_serialization_supported(param: dict[str, Any]) -> str | None:
     if loc == "cookie":
         return "in: cookie not supported"
     if param.get("x_nw_unsupported_collection_format"):
-        return (
-            f"unsupported collectionFormat "
-            f"{param['x_nw_unsupported_collection_format']}"
-        )
+        return f"unsupported collectionFormat {param['x_nw_unsupported_collection_format']}"
     style = param.get("style")
     if loc == "path":
         if style and style not in {"simple"}:
@@ -244,9 +241,7 @@ def resolve_base_url(doc: dict[str, Any], override: str | None) -> str:
         url = url.replace("{" + name + "}", str(default))
     parsed = urlparse(url)
     if not parsed.scheme or url.startswith("/"):
-        raise DeriveError(
-            f"Resolved server URL is relative ({url!r}); pass an absolute --base-url"
-        )
+        raise DeriveError(f"Resolved server URL is relative ({url!r}); pass an absolute --base-url")
     return url.rstrip("/")
 
 
@@ -264,8 +259,7 @@ def derive_operations(
 
     notes: list[str] = []
     if any(
-        isinstance(item, dict) and item.get("servers")
-        for item in (doc.get("paths") or {}).values()
+        isinstance(item, dict) and item.get("servers") for item in (doc.get("paths") or {}).values()
     ):
         notes.append("Operation/path-level servers present but ignored in v1")
 
@@ -292,13 +286,9 @@ def derive_operations(
     drops: list[SoftDrop] = []
 
     for (method, path, op, _cand), name in zip(raw_ops, names):
-        sec = evaluate_operation_security(
-            op.get("security"), doc.get("security"), schemes, fp
-        )
+        sec = evaluate_operation_security(op.get("security"), doc.get("security"), schemes, fp)
         if sec.mode in {"unsupported", "divergent", "and_multi"}:
-            drops.append(
-                SoftDrop(method, path, op.get("operationId"), sec.reason or sec.mode)
-            )
+            drops.append(SoftDrop(method, path, op.get("operationId"), sec.reason or sec.mode))
             continue
 
         # params
@@ -318,7 +308,11 @@ def derive_operations(
             wire = param.get("name") or "param"
             schema = param.get("schema") or {}
             if param.get("type") and not schema:
-                schema = {k: param[k] for k in ("type", "format", "items", "enum", "default") if k in param}
+                schema = {
+                    k: param[k]
+                    for k in ("type", "format", "items", "enum", "default")
+                    if k in param
+                }
             style = param.get("style")
             explode = param.get("explode")
             required = bool(param.get("required")) or loc == "path"

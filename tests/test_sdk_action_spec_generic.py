@@ -134,7 +134,7 @@ def test_execute_spec_sync_raises_on_coroutine_invoke():
     spec = SdkActionSpec(
         resource_segments=(),
         method_name="create",
-        resolve_method=lambda spec, client: (lambda **kw: _coro()),
+        resolve_method=lambda spec, client: lambda **kw: _coro(),
         invoke=lambda method, kwargs: method(**kwargs),
     )
 

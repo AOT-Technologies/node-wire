@@ -22,9 +22,7 @@ def test_array_success_schema_uses_envelope() -> None:
         "responses": {
             "200": {
                 "content": {
-                    "application/json": {
-                        "schema": {"type": "array", "items": {"type": "string"}}
-                    }
+                    "application/json": {"schema": {"type": "array", "items": {"type": "string"}}}
                 }
             }
         }
@@ -59,9 +57,7 @@ def test_unresolved_ref_success_uses_envelope() -> None:
     op = {
         "responses": {
             "200": {
-                "content": {
-                    "application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}
-                }
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Pet"}}}
             }
         }
     }

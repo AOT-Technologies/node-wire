@@ -89,9 +89,7 @@ def detect_version(doc: dict[str, Any]) -> str:
     oa = doc.get("openapi")
     if isinstance(oa, str) and oa.startswith("3."):
         return oa
-    raise SpecLoadError(
-        "Unrecognized OpenAPI version (expected swagger: '2.0' or openapi: '3.x')"
-    )
+    raise SpecLoadError("Unrecognized OpenAPI version (expected swagger: '2.0' or openapi: '3.x')")
 
 
 def resolve_and_validate(
@@ -117,8 +115,7 @@ def resolve_and_validate(
         from prance.util.resolver import RefResolver
     except ImportError as exc:
         raise SpecLoadError(
-            "prance[osv] / openapi-spec-validator required "
-            "(pip install 'prance[osv]')"
+            "prance[osv] / openapi-spec-validator required (pip install 'prance[osv]')"
         ) from exc
 
     if not base_url:
@@ -154,9 +151,7 @@ def load_openapi_document(
 
     doc, origin, from_url = load_raw_document(source)
     version = detect_version(doc)
-    content_hash = hashlib.sha256(
-        json.dumps(doc, sort_keys=True, default=str).encode()
-    ).hexdigest()
+    content_hash = hashlib.sha256(json.dumps(doc, sort_keys=True, default=str).encode()).hexdigest()
 
     if version == "2.0":
         logger.info("Normalizing Swagger 2.0 → OpenAPI 3.0")

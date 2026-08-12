@@ -44,7 +44,11 @@ def import_smoke(staging: Path, connector_id: str) -> tuple[bool, str]:
         cls = None
         for attr in dir(logic):
             obj = getattr(logic, attr)
-            if isinstance(obj, type) and issubclass(obj, RestConnector) and obj is not RestConnector:
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, RestConnector)
+                and obj is not RestConnector
+            ):
                 if getattr(obj, "connector_id", None) == connector_id:
                     cls = obj
                     break

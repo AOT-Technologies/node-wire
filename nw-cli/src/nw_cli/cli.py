@@ -112,9 +112,7 @@ def gen_all(
     no_wire: bool = typer.Option(
         False, "--no-wire", help="Skip connectors.yaml / sample.env / ALL_PACKAGES"
     ),
-    force: bool = typer.Option(
-        False, "--force", help="Overwrite existing connector / MCP output"
-    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing connector / MCP output"),
 ) -> None:
     """One-shot: connector codegen → wheel → MCP host → wire."""
     from nw_connector_builder.pipeline import BuildError, UsageError, run_build
@@ -130,6 +128,7 @@ def gen_all(
 
     try:
         with progress:
+
             def _connector() -> int:
                 code = run_build(
                     spec=path,
@@ -148,12 +147,11 @@ def gen_all(
             if not no_wheel:
                 progress.run_stage(
                     "wheel",
-                    lambda: run_wheel_build(
-                        node_wire_root, connector_id=id, log=progress.log
-                    ),
+                    lambda: run_wheel_build(node_wire_root, connector_id=id, log=progress.log),
                 )
 
             if not no_mcp:
+
                 def _mcp() -> Path:
                     if not wheels_present(node_wire_root, id):
                         ensure(
@@ -181,9 +179,7 @@ def gen_all(
                                     log=progress.log,
                                 ),
                             )
-                    return run_mcp_build(
-                        node_wire_root, id, force_output=force
-                    )
+                    return run_mcp_build(node_wire_root, id, force_output=force)
 
                 progress.run_stage("mcp", _mcp)
 
@@ -192,7 +188,15 @@ def gen_all(
                     "wire",
                     lambda: register_all_packages(node_wire_root, id),
                 )
-    except (BuildError, UsageError, StageError, FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
+    except (
+        BuildError,
+        UsageError,
+        StageError,
+        FileNotFoundError,
+        FileExistsError,
+        ValueError,
+        RuntimeError,
+    ) as exc:
         err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")
         raise typer.Exit(1) from exc
 
@@ -204,9 +208,7 @@ def gen_whl(
     ),
     host: bool = typer.Option(False, "--host", help="Host-only wheel build"),
     all_: bool = typer.Option(False, "--all", help="Full cibuildwheel matrix"),
-    runtime: bool = typer.Option(
-        False, "--runtime", help="Build only packages/runtime"
-    ),
+    runtime: bool = typer.Option(False, "--runtime", help="Build only packages/runtime"),
 ) -> None:
     """Build binary wheels via scripts/build-packages.sh (Linux-only by default)."""
     node_wire_root = _root()
@@ -260,19 +262,14 @@ def gen_mcp(
     if not connector_wheel_present(node_wire_root, id):
         ensure(
             False,
-            prompt=(
-                f"Connector wheel not found in packages/connectors/{id}/dist/ "
-                "— build it now?"
-            ),
+            prompt=(f"Connector wheel not found in packages/connectors/{id}/dist/ — build it now?"),
             fix_command=f"nw gen-whl --connector-id {id}",
             build_fn=lambda: run_wheel_build(node_wire_root, connector_id=id),
         )
 
     try:
         with console.status("[bold]Building MCP host…[/bold]", spinner="dots"):
-            project = run_mcp_build(
-                node_wire_root, id, force_output=force_output
-            )
+            project = run_mcp_build(node_wire_root, id, force_output=force_output)
         console.print(f"[green]MCP host ready[/green]: {project}")
     except (StageError, FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
         err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")

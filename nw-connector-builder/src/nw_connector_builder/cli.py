@@ -99,8 +99,7 @@ def _add_from_openapi_arguments(parser: argparse.ArgumentParser) -> None:
 def _run_from_openapi(args: argparse.Namespace) -> None:
     if not re.fullmatch(r"[a-z][a-z0-9_]*", args.connector_id):
         print(
-            f"usage error: invalid --id {args.connector_id!r} "
-            "(must match [a-z][a-z0-9_]*)",
+            f"usage error: invalid --id {args.connector_id!r} (must match [a-z][a-z0-9_]*)",
             file=sys.stderr,
         )
         raise SystemExit(2)

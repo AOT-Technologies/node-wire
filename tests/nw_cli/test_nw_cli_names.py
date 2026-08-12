@@ -18,9 +18,7 @@ def test_server_name() -> None:
 
 def test_mcp_project_dir() -> None:
     root = Path("/tmp/nw")
-    assert mcp_project_dir(root, "pet_store") == Path(
-        "/tmp/nw/nw-mcp-builder/out/pet-store-nw-mcp"
-    )
+    assert mcp_project_dir(root, "pet_store") == Path("/tmp/nw/nw-mcp-builder/out/pet-store-nw-mcp")
 
 
 def test_docker_image_tag() -> None:

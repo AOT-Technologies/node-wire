@@ -133,7 +133,7 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert (project_dir / "vendor" / "node_wire_src" / "bindings").is_dir()
     assert (project_dir / "Dockerfile").is_file()
     # fake_node_wire has no uv.lock → fallback pin that excludes mcp 2.x
-    assert 'mcp>=1.6.0,<2' in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert "mcp>=1.6.0,<2" in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
     assert '"mcp>=1.6.0,<2"' in (project_dir / "Dockerfile").read_text(encoding="utf-8")
 
     with pytest.raises(FileExistsError, match="already exists"):

@@ -50,9 +50,7 @@ def run_build(
 
     try:
         doc, meta = load_openapi_document(spec, base_url_override=base_url)
-        result = derive_operations(
-            doc, connector_id=connector_id, base_url_override=base_url
-        )
+        result = derive_operations(doc, connector_id=connector_id, base_url_override=base_url)
     except SpecLoadError as exc:
         report = build_report(
             connector_id=connector_id,
@@ -64,9 +62,7 @@ def run_build(
         write_report(report, abort_report_path)
         raise BuildError(str(exc)) from exc
     except DeriveError as exc:
-        report = build_report(
-            connector_id=connector_id, meta=meta, result=None, error=str(exc)
-        )
+        report = build_report(connector_id=connector_id, meta=meta, result=None, error=str(exc))
         print_report(report)
         write_report(report, abort_report_path)
         raise BuildError(str(exc)) from exc
@@ -103,9 +99,7 @@ def run_build(
             raise UsageError(str(exc)) from exc
 
         # Canonical report beside package
-        pkg_report = (
-            node_wire_root / "packages" / "connectors" / connector_id / "report.json"
-        )
+        pkg_report = node_wire_root / "packages" / "connectors" / connector_id / "report.json"
 
         mcp_info = None
         if not no_mcp:

@@ -122,16 +122,12 @@ async def test_assert_safe_destination_allowlist(monkeypatch: pytest.MonkeyPatch
 
 
 def test_encode_query_form_explode_array() -> None:
-    encoded = encode_param_value(
-        ["a", "b"], style="form", explode=True, location="query"
-    )
+    encoded = encode_param_value(["a", "b"], style="form", explode=True, location="query")
     assert encoded == ["a", "b"]
 
 
 def test_encode_query_form_no_explode_array() -> None:
-    encoded = encode_param_value(
-        ["a", "b"], style="form", explode=False, location="query"
-    )
+    encoded = encode_param_value(["a", "b"], style="form", explode=False, location="query")
     assert encoded == "a,b"
 
 

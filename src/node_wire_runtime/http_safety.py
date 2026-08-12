@@ -34,9 +34,7 @@ def load_rest_allowed_hosts() -> frozenset[str]:
     raw = os.environ.get(_ALLOWED_HOSTS_ENV)
     if not raw or not raw.strip():
         return frozenset()
-    return frozenset(
-        h.strip().lower().rstrip(".") for h in re.split(r"[\s,]+", raw) if h.strip()
-    )
+    return frozenset(h.strip().lower().rstrip(".") for h in re.split(r"[\s,]+", raw) if h.strip())
 
 
 def rest_trust_env() -> bool:

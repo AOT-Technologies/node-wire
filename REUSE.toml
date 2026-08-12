@@ -8,13 +8,19 @@ SPDX-PackageSupplier = "AOT Technologies <opensource@aot-technologies.com>"
 SPDX-PackageDownloadLocation = "https://github.com/AOT-Technologies/node-wire"
 
 [[annotations]]
-path = ["uv.lock", "nw-mcp-builder/uv.lock"]
+path = ["uv.lock", "nw-mcp-builder/uv.lock", "nw-cli/uv.lock", "nw-connector-builder/uv.lock"]
 precedence = "override"
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
 path = "tests/fixtures/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 AOT Technologies"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "tests/nw_connector_builder/fixtures/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"
