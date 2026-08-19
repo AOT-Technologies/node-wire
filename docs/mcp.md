@@ -104,9 +104,17 @@ Each connector runs as its own independent MCP server (often in a dedicated Dock
 
 ---
 
+## Multi-tenancy
+
+When `NW_MULTITENANCY_ENABLED=true`, MCP loads `config/tenants.yaml` (or `NW_TENANTS_PATH`) and exposes `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. One tenant/config selection applies to **every connector** on that MCP process; connector tools do not take `tenant_id` or `config_name`. Env (`NW_TENANT_ID`) or HTTP header (`X-Tenant-ID`) is the default pin until select.
+
+**Full guide:** [Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp)
+
+---
+
 ## FHIR Tool Arguments (Cerner / Epic)
 
-Tool names follow the pattern `fhir_cerner.<action>` and `fhir_epic.<action>`. The MCP server normalizes common LLM aliases (e.g., `patientId` → `resource_id`).
+Tool names follow the pattern `fhir_cerner_<action>` and `fhir_epic_<action>` (e.g. `fhir_cerner_read_patient`). The MCP server normalizes common LLM aliases (e.g., `patientId` → `resource_id`).
 
 | Action | When to use | Example arguments |
 |--------|-------------|-------------------|
@@ -119,7 +127,7 @@ Tool names follow the pattern `fhir_cerner.<action>` and `fhir_epic.<action>`. T
 ## Connector Manifests
 
 Each connector defines a manifest that MCP uses to understand available tools.
-- Tool names follow the pattern: `<connector_id>.<action>` (e.g., `google_drive.files.list`).
+- Tool names follow the pattern: `<connector_id>_<action>` with dots in the action replaced by underscores (e.g., `google_drive_files_list`). Legacy dotted names (`google_drive.files.list`) still work on `tools/call`.
 - The runtime handles argument normalization, so LLM-friendly aliases often work automatically.
 
 ## Related Docs

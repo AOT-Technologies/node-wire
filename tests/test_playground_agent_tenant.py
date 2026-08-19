@@ -85,19 +85,37 @@ async def test_inprocess_mcp_client_pins_tenant_and_config_name() -> None:
         assert server._stdio_env_tenant_pin == "acme"
         tools = await client.list_tools()
         assert tools[0]["name"] == "http_generic.request"
+        assert server._selected_tenant_id == "acme"
+        assert server._selected_config_name == "primary"
         out = await client.call_tool("http_generic.request", {"url": "https://example.com"})
         data = json.loads(out)
-        assert data["args"]["config_name"] == "primary"
         assert data["args"]["url"] == "https://example.com"
+        assert "config_name" not in data["args"]
 
-        # Null from LLM must not block host-injected config_name.
         out2 = await client.call_tool(
             "http_generic.request",
             {"url": "https://example.com", "config_name": None, "query": None},
         )
         data2 = json.loads(out2)
-        assert data2["args"]["config_name"] == "primary"
+        assert "config_name" not in data2["args"]
         assert "query" not in data2["args"]
+
+
+@pytest.mark.asyncio
+async def test_inprocess_enter_applies_host_config_overlay() -> None:
+    server = MagicMock()
+    server._selected_config_name = "overlay-cfg"
+
+    async def fake_invoke(name, arguments, identity=None):
+        return {"ok": True, "args": arguments}
+
+    server.invoke_tool = fake_invoke
+    client = InProcessMcpClient(server, tenant_id="acme", config_name="primary")
+    async with client:
+        assert server._selected_config_name == "primary"
+        out = await client.call_tool("http_generic.request", {"url": "https://example.com"})
+        data = json.loads(out)
+        assert "config_name" not in data["args"]
 
 
 def test_agent_chat_requires_tenant_when_mt_on(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -111,3 +129,18 @@ def test_agent_chat_requires_tenant_when_mt_on(monkeypatch: pytest.MonkeyPatch) 
     )
     assert resp.status_code == 400
     assert "X-Tenant-ID" in resp.json().get("detail", "")
+
+
+def test_tenancy_from_agent_steps_selects_tenant_and_config() -> None:
+    from playground.scenarios import _tenancy_from_agent_steps
+
+    tenant, config = _tenancy_from_agent_steps(
+        [
+            {"tool": "nw_select_tenant", "args": {"tenant_id": "acme-demo"}},
+            {"tool": "nw_select_config", "args": {"config_name": "test-work"}},
+        ],
+        "acme",
+        "primary",
+    )
+    assert tenant == "acme-demo"
+    assert config == "test-work"

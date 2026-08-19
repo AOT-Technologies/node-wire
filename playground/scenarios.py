@@ -1803,6 +1803,8 @@ class AgentChatResponse(BaseModel):
     steps: List[AgentChatStepResponse] = []
     trace_id: str
     success: bool
+    tenant_id: Optional[str] = None
+    config_name: Optional[str] = None
 
 
 def _current_agent_transport() -> str:
@@ -1839,18 +1841,19 @@ AGENT_GUARDRAIL_PROMPT = (
     "You are a healthcare data assistant. You have access to tools for fetching "
     "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
     "emails via SMTP.\n"
-    "Tool names are `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, "
-    "`fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`). "
+    "Tool names are `<connector_id>_<action>` with dots in the action replaced by "
+    "underscores (e.g. `fhir_cerner_read_patient`, `fhir_epic_read_patient`, "
+    "`google_drive_files_upload`, `smtp_send_email`). "
     "Use exactly the names and JSON-schema arguments from tools/list.\n\n"
     "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
     "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
     "  1. First turn: Obtain patient demographics from the EHR.\n"
-    '     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
+    '     - If the user gave a Patient ID: call `fhir_cerner_read_patient` or `fhir_epic_read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
     "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
     "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
     "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
     "  2. Second turn: Once you have the patient data from step 1, create a file on Google Drive containing the masked patient summary. Do NOT use placeholder content.\n"
-    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive.files.upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
+    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive_files_upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
     "     CRITICAL: You MUST ask the user for the recipient email address if they haven't provided it. DO NOT guess email addresses like 'recipient_email@example.com'.\n"
     "     CRITICAL: In the email body, you MUST insert the actual URL string returned from step 2 (e.g. 'https://drive.google.com/...'). Do NOT literally write the text '<web_view_link>'.\n\n"
     "DATA PRIVACY & MASKING — follow these strictly:\n"
@@ -1860,7 +1863,7 @@ AGENT_GUARDRAIL_PROMPT = (
     "  - NEVER use the placeholder values ('1990-05-12', '12724066', or 'Name') in your reports - always use the real patient data masked accordingly.\n"
     "- EMAIL WORKFLOW: When sending patient details to an email recipient:\n"
     "  1. ALWAYS upload the masked patient summary to Google Drive first.\n"
-    "  2. Use `data.raw.webViewLink` from the `google_drive.files.upload` tool result.\n"
+    "  2. Use `data.raw.webViewLink` from the `google_drive_files_upload` tool result.\n"
     "  3. In the email body, provide that link instead of the actual data.\n"
     "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
     "GUARDRAILS:\n"
@@ -1873,6 +1876,15 @@ AGENT_GUARDRAIL_PROMPT = (
     "- If a tool call fails, explain the error clearly and ask the user how to proceed.\n"
     "- Always confirm what you've done after completing the requested actions.\n"
     "- Keep responses concise and professional.\n"
+    "\n"
+    "MULTI-TENANCY:\n"
+    "- If the user names a tenant, call `nw_list_tenants` then `nw_select_tenant` "
+    "with that `tenant_id`. That tenant applies to every connector on this server.\n"
+    "- Then call `nw_select_config` with `config_name`. That name applies to every "
+    "connector. If a connector has no config with that name, its tools return an error.\n"
+    "- If the user does not name a tenant or config, use the default pin. "
+    "Do not invent tenant ids or config names. Do not pass tenant_id or "
+    "config_name on connector tools.\n"
 )
 
 
@@ -1928,6 +1940,63 @@ def _playground_inprocess_mcp_client(tenant_id: str, request: Request):
     factory = get_playground_factory()
     server = McpServer(server_name="node-wire-playground-agent", factory=factory)
     return InProcessMcpClient(server, tenant_id=tenant_id, config_name=config_name)
+
+
+def _tenancy_from_agent_steps(
+    steps: Any, tenant_id: str, config_name: Optional[str]
+) -> tuple[str, Optional[str]]:
+    from bindings.mcp_server.server import SELECT_CONFIG_TOOL_ALIASES, SELECT_TENANT_TOOL_ALIASES
+
+    def _field(step: Any, *names: str) -> Any:
+        for name in names:
+            if isinstance(step, dict) and name in step:
+                return step[name]
+            val = getattr(step, name, None)
+            if val is not None:
+                return val
+        return None
+
+    tenant, config = tenant_id, config_name
+    for step in steps or []:
+        tool = _field(step, "tool_called", "tool") or ""
+        args = _field(step, "tool_args", "args") or {}
+        if not isinstance(args, dict):
+            args = {}
+        if tool in SELECT_TENANT_TOOL_ALIASES:
+            tid = args.get("tenant_id")
+            if isinstance(tid, str) and tid.strip():
+                tenant = tid.strip()
+                config = None
+        elif tool in SELECT_CONFIG_TOOL_ALIASES:
+            name = args.get("config_name")
+            if isinstance(name, str) and name.strip():
+                config = name.strip()
+    return tenant, config
+
+
+def _tenancy_from_mcp_client(
+    mcp_client: Any, tenant_id: str, config_name: Optional[str]
+) -> tuple[str, Optional[str]]:
+    server = getattr(mcp_client, "_server", None)
+    if server is None:
+        return tenant_id, config_name
+    selected_t = getattr(server, "_selected_tenant_id", None)
+    selected_c = getattr(server, "_selected_config_name", None)
+    if selected_t:
+        return selected_t, selected_c
+    return tenant_id, selected_c if selected_c is not None else config_name
+
+
+def _agent_effective_tenancy(
+    mcp_client: Any,
+    steps: Any,
+    tenant_id: str,
+    config_name: Optional[str],
+) -> tuple[str, Optional[str]]:
+    from_steps = _tenancy_from_agent_steps(steps, tenant_id, config_name)
+    if mcp_client is not None and getattr(mcp_client, "_server", None) is not None:
+        return _tenancy_from_mcp_client(mcp_client, from_steps[0], from_steps[1])
+    return from_steps
 
 
 @router.post("/agent-chat", response_model=AgentChatResponse)
@@ -1986,6 +2055,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
         transport = _current_agent_transport()
         urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
+        mcp_used = None
         fallback_to_stdio = (
             os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
         )
@@ -2007,6 +2077,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
                 )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
+                mcp_used = mcp_client
                 # Fallback to local stdio if:
                 # (a) agent hard-failed due to missing tools, OR
                 # (b) agent "succeeded" but called zero tools (LLM gave up because
@@ -2023,6 +2094,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
                     if fallback_to_stdio:
                         logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
                         run_result = None
+                        mcp_used = None
                     else:
                         logger.warning(
                             "Agent Chat | proxy incomplete, returning proxy error to UI "
@@ -2034,6 +2106,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
                         "Agent Chat | proxy error: %s — falling back to local stdio", proxy_err
                     )
                     run_result = None
+                    mcp_used = None
                 else:
                     logger.warning(
                         "Agent Chat | proxy error: %s — returning error to UI "
@@ -2059,6 +2132,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
                 )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
+                mcp_used = mcp_client
 
         # Map agent steps to response format
         chat_steps = []
@@ -2077,11 +2151,23 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             or "I encountered an issue. Please try again."
         )
 
+        eff_tenant, eff_config = _agent_effective_tenancy(
+            mcp_used, run_result.steps, tenant_id, config_name
+        )
+        if is_multitenancy_enabled():
+            logger.info(
+                "Agent Chat | effective tenant_id=%s | config_name=%s",
+                str(eff_tenant).replace("\r", " ").replace("\n", " "),
+                str(eff_config or "(default)").replace("\r", " ").replace("\n", " "),
+            )
+
         return AgentChatResponse(
             reply=reply,
             steps=chat_steps,
             trace_id=trace_id,
             success=run_result.success,
+            tenant_id=eff_tenant,
+            config_name=eff_config,
         )
 
     except Exception as e:
@@ -2157,6 +2243,7 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
             fallback_to_local = (
                 os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
             )
+            step_tenant, step_config = tenant_id, config_name
 
             if urls:
                 proxy_ok = False
@@ -2175,6 +2262,14 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                     )
                     agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                     async for event in agent.run_events(task):
+                        if event.get("type") == "step":
+                            step_tenant, step_config = _tenancy_from_agent_steps(
+                                [event], step_tenant, step_config
+                            )
+                        if event.get("type") == "done":
+                            event = dict(event)
+                            event["tenant_id"] = step_tenant
+                            event["config_name"] = step_config
                         if (
                             fallback_to_local
                             and event.get("type") == "error"
@@ -2210,6 +2305,17 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                 )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 async for event in agent.run_events(task):
+                    if event.get("type") == "step":
+                        step_tenant, step_config = _tenancy_from_agent_steps(
+                            [event], step_tenant, step_config
+                        )
+                    if event.get("type") == "done":
+                        event = dict(event)
+                        eff_tenant, eff_config = _tenancy_from_mcp_client(
+                            mcp_client, step_tenant, step_config
+                        )
+                        event["tenant_id"] = eff_tenant
+                        event["config_name"] = eff_config
                     yield json.dumps(event) + "\n"
 
         except Exception as exc:
