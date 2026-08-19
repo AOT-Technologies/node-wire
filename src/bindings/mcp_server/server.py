@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import copy
 import contextvars
 import json
 import logging
@@ -20,7 +21,7 @@ from bindings.mcp_server.auth import (
     log_effective_mcp_auth_state,
 )
 from node_wire_runtime.caller_identity import CallerIdentity
-from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
     is_multitenancy_enabled,
@@ -44,6 +45,165 @@ logger = logging.getLogger("bindings.mcp_server")
 
 _DEFAULT_MCP_HOST = "127.0.0.1"
 _PUBLIC_BIND_HOSTS = frozenset({"0.0.0.0", "::"})
+
+# Read-only meta-tools (not connectors). Advertised names are OpenAI/NVIDIA-safe
+# (no dots). Legacy dotted names still invoke.
+LIST_CONFIGS_TOOL = "nw_list_configs"
+LIST_CONFIGS_TOOL_ALIASES = frozenset({LIST_CONFIGS_TOOL, "nw.list_configs"})
+LIST_TENANTS_TOOL = "nw_list_tenants"
+LIST_TENANTS_TOOL_ALIASES = frozenset({LIST_TENANTS_TOOL, "nw.list_tenants"})
+SELECT_TENANT_TOOL = "nw_select_tenant"
+SELECT_TENANT_TOOL_ALIASES = frozenset({SELECT_TENANT_TOOL, "nw.select_tenant"})
+SELECT_CONFIG_TOOL = "nw_select_config"
+SELECT_CONFIG_TOOL_ALIASES = frozenset({SELECT_CONFIG_TOOL, "nw.select_config"})
+
+_MISSING_TENANT_SELECT_MESSAGE = (
+    "No tenant is pinned. Call nw_list_tenants, then nw_select_tenant "
+    "with a tenant_id from that list."
+)
+_PIN_LOCKED_MESSAGE = (
+    "Tenant switch is disabled (NW_MCP_TENANT_PIN_LOCKED). "
+    "Use NW_TENANT_ID (stdio) or X-Tenant-ID (HTTP) to pin the tenant."
+)
+
+
+def mcp_tenant_pin_locked() -> bool:
+    return os.getenv("NW_MCP_TENANT_PIN_LOCKED", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def mcp_allowed_tenants() -> Optional[frozenset[str]]:
+    raw = os.getenv("NW_MCP_ALLOWED_TENANTS", "").strip()
+    if not raw:
+        return None
+    return frozenset(part.strip() for part in raw.split(",") if part.strip())
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+def format_list_tenants_text(
+    *,
+    tenants: List[str],
+    connector_id: Optional[str],
+    pinned_tenant_id: Optional[str],
+) -> str:
+    """Markdown listing used as the ``summary`` field of ``nw_list_tenants``."""
+    if connector_id:
+        heading = f"Tenants with `{connector_id}` configs"
+    else:
+        heading = "Tenants with configs on this server"
+    if pinned_tenant_id:
+        heading += f" (current: `{pinned_tenant_id}`)"
+    else:
+        heading += " (no tenant selected)"
+
+    if not tenants:
+        body = "No tenants found."
+    else:
+        lines = []
+        for tid in tenants:
+            suffix = "  *(current)*" if pinned_tenant_id and tid == pinned_tenant_id else ""
+            lines.append(f"- `{tid}`{suffix}")
+        body = "\n".join(lines)
+
+    return (
+        f"{heading}\n\n{body}\n\n"
+        "Call `nw_select_tenant` with a tenant_id from this list to switch "
+        "every connector on this server. Then call `nw_select_config` with a "
+        "config name that all connectors should use."
+    )
+
+
+def mcp_advertised_tool_name(connector_id: str, action: str) -> str:
+    """MCP tools/list name: ``{connector_id}_{action}`` with ``.``/``-`` → ``_``.
+
+    OpenAI-compatible function names allow only ``[a-zA-Z0-9_-]``. Internal
+    dispatch still uses ``connector_id`` + ``action`` (e.g. ``files.list``).
+    """
+    action_part = str(action).replace(".", "_").replace("-", "_")
+    return f"{connector_id}_{action_part}"
+
+
+def mcp_llm_safe_input_schema(schema: Any) -> Any:
+    """JSON Schema NVIDIA/OpenAI function calling will accept.
+
+    Drops ``null`` unions (``type: [T, null]`` / ``anyOf`` + null). Invoke already
+    treats JSON null as omitted, so advertised schemas can be plain types.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    return _strip_json_schema_nulls(copy.deepcopy(schema))
+
+
+def _strip_json_schema_nulls(node: Any) -> Any:
+    if isinstance(node, list):
+        return [_strip_json_schema_nulls(x) for x in node]
+    if not isinstance(node, dict):
+        return node
+
+    t = node.get("type")
+    if isinstance(t, list):
+        non_null = [x for x in t if x != "null"]
+        if len(non_null) == 1:
+            node["type"] = non_null[0]
+        elif non_null:
+            node["type"] = non_null
+        else:
+            node["type"] = "string"
+
+    for union_key in ("anyOf", "oneOf"):
+        variants = node.get(union_key)
+        if not isinstance(variants, list):
+            continue
+        kept = [
+            v
+            for v in variants
+            if not (isinstance(v, dict) and v.get("type") == "null" and len(v) == 1)
+        ]
+        if len(kept) == 1 and isinstance(kept[0], dict):
+            merged = {k: v for k, v in node.items() if k != union_key}
+            merged.update(kept[0])
+            return _strip_json_schema_nulls(merged)
+        node[union_key] = [_strip_json_schema_nulls(v) for v in kept]
+
+    if isinstance(node.get("properties"), dict):
+        node["properties"] = {
+            k: _strip_json_schema_nulls(v) for k, v in node["properties"].items()
+        }
+    if "items" in node:
+        node["items"] = _strip_json_schema_nulls(node["items"])
+    if isinstance(node.get("additionalProperties"), dict):
+        node["additionalProperties"] = _strip_json_schema_nulls(
+            node["additionalProperties"]
+        )
+    if "default" in node and node["default"] is None:
+        node.pop("default", None)
+    return node
+
+
+def _jsonrpc_method(item: Any) -> str | None:
+    try:
+        return str(item.message.root.method)
+    except Exception:
+        return None
+
+
+def _server_discover_result(server_name: str) -> Dict[str, Any]:
+    """Minimal success payload for ToolHive's non-spec ``server/discover`` probe."""
+    return {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {"tools": {"listChanged": False}},
+        "serverInfo": {"name": server_name, "version": "node-wire"},
+    }
 
 
 def resolve_mcp_host(env_value: str | None = None) -> str:
@@ -196,6 +356,10 @@ class McpServer:
         else:
             self._factory = ConnectorFactory()
             self._factory.load()
+            # Same YAML hydrate as REST; skip when factory is injected (playground).
+            from bindings.rest_api.tenant_store import load_tenants
+
+            load_tenants(self._factory.store)
         self._upstream_passthrough = _resolve_upstream_passthrough(
             self._factory, self._connector_ids
         )
@@ -206,6 +370,10 @@ class McpServer:
         )
         # §6.4: set in run_stdio from NW_TENANT_ID; unused on HTTP (session pin).
         self._stdio_env_tenant_pin: str | None = None
+        # Simplified: one in-memory overlay for this process (stdio and HTTP).
+        # Split ToolHive images do not share it — run one MCP with all connectors.
+        self._selected_tenant_id: str | None = None
+        self._selected_config_name: str | None = None
         try:
             from importlib.metadata import version as pkg_version
 
@@ -270,34 +438,443 @@ class McpServer:
                     f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
                 )
             )
-            # config_name is an optional resolution-time argument (§6.3): an agent
-            # may target a named config; omitting it uses the tenant's default.
-            # Only advertise when multitenancy is enabled (ignored when off anyway).
             input_schema = entry["input_schema"]
-            if is_multitenancy_enabled():
-                props = input_schema.setdefault("properties", {})
-                # Allow null: Groq/OpenAI strict tool validation rejects
-                # ``config_name: null`` when type is only "string".
-                props.setdefault(
-                    "config_name",
-                    {
-                        "type": ["string", "null"],
-                        "description": (
-                            "Optional named connector configuration; omit or null "
-                            "for the tenant default."
-                        ),
-                    },
-                )
 
             tools.append(
                 {
-                    "name": f"{cid}.{entry['action']}",
+                    "name": mcp_advertised_tool_name(cid, str(entry["action"])),
                     "description": tool_desc,
                     "input_schema": input_schema,
                     "output_schema": entry["output_schema"],
                 }
             )
+        if is_multitenancy_enabled():
+            tools.insert(
+                0,
+                {
+                    "name": SELECT_CONFIG_TOOL,
+                    "description": (
+                        "Select one config name for every connector on this server. "
+                        "Connectors that lack this name on the current tenant fail on "
+                        "the next tool call. Does not create configs."
+                    ),
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "config_name": {
+                                "type": "string",
+                                "description": "Config name from nw_list_configs / nw_select_tenant.",
+                            },
+                        },
+                        "required": ["config_name"],
+                    },
+                    "output_schema": {"type": "object"},
+                },
+            )
+            tools.insert(
+                0,
+                {
+                    "name": LIST_CONFIGS_TOOL,
+                    "description": (
+                        "List named connector configs for a tenant from the config store. "
+                        "Optional tenant_id; omit to use the selected or pinned tenant. "
+                        "Read-only; does not create configs. Call nw_select_config "
+                        "with a returned name to apply it to every connector."
+                    ),
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "connector_id": {
+                                "type": ["string", "null"],
+                                "description": (
+                                    "Optional connector id to filter (e.g. google_drive). "
+                                    "Omit or null to list all connectors for this tenant."
+                                ),
+                            },
+                            "tenant_id": {
+                                "type": ["string", "null"],
+                                "description": (
+                                    "Optional tenant id. Omit or null for the selected or "
+                                    "pinned tenant."
+                                ),
+                            },
+                        },
+                    },
+                    "output_schema": {"type": "object"},
+                },
+            )
+            tools.insert(
+                0,
+                {
+                    "name": SELECT_TENANT_TOOL,
+                    "description": (
+                        "Switch the tenant for every connector on this MCP server. "
+                        "Returns named configs for that tenant. Env/header pin is the "
+                        "default until this is called. Does not create tenants."
+                    ),
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "tenant_id": {
+                                "type": "string",
+                                "description": "Tenant id from nw_list_tenants.",
+                            },
+                            "connector_id": {
+                                "type": ["string", "null"],
+                                "description": (
+                                    "Optional connector id to filter returned configs."
+                                ),
+                            },
+                        },
+                        "required": ["tenant_id"],
+                    },
+                    "output_schema": {"type": "object"},
+                },
+            )
+            tools.insert(
+                0,
+                {
+                    "name": LIST_TENANTS_TOOL,
+                    "description": (
+                        "List tenant ids from the config store that have at least one named "
+                        "config. Optional connector_id filters to tenants that have that "
+                        "connector. After listing, call nw_select_tenant to switch."
+                    ),
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "connector_id": {
+                                "type": ["string", "null"],
+                                "description": (
+                                    "Optional connector id (e.g. google_drive). Omit or null "
+                                    "to list tenants that have any connector on this server."
+                                ),
+                            },
+                        },
+                    },
+                    "output_schema": {"type": "object"},
+                },
+            )
         return tools
+
+    def _resolve_tool_tenant_id(self, identity: CallerIdentity | None) -> str:
+        session_tenant = _session_tenant_ctx.get()
+        if session_tenant is not None:
+            return session_tenant
+        try:
+            return resolve_tenant_id(
+                headers=_http_request_headers.get(),
+                jwt_identity=identity,
+                env_pin=self._stdio_env_tenant_pin,
+            )
+        except MissingTenantError as exc:
+            raise ValueError(str(exc)) from exc
+
+    def _store_has_tenant(self, tenant_id: str) -> bool:
+        return tenant_id in self._factory.store.list_tenants()
+
+    def _assert_tenant_switch_allowed(self) -> None:
+        if mcp_tenant_pin_locked():
+            raise ValueError(_PIN_LOCKED_MESSAGE)
+
+    def _assert_tenant_allowed(self, tenant_id: str) -> None:
+        if not self._store_has_tenant(tenant_id):
+            raise ValueError(
+                f"Unknown tenant {tenant_id!r}. Call nw_list_tenants, then nw_select_tenant."
+            )
+        allowed = mcp_allowed_tenants()
+        if allowed is not None and tenant_id not in allowed:
+            raise ValueError(f"Tenant {tenant_id!r} is not allowed on this MCP server.")
+
+    def _filter_allowed_tenants(self, tenants: List[str]) -> List[str]:
+        allowed = mcp_allowed_tenants()
+        if allowed is None:
+            return tenants
+        return [tid for tid in tenants if tid in allowed]
+
+    def _effective_tenant_id(
+        self,
+        identity: CallerIdentity | None,
+        *,
+        tenant_arg: Optional[str] = None,
+    ) -> str:
+        if tenant_arg:
+            self._assert_tenant_switch_allowed()
+            self._assert_tenant_allowed(tenant_arg)
+            return tenant_arg
+        if self._selected_tenant_id:
+            return self._selected_tenant_id
+        try:
+            return self._resolve_tool_tenant_id(identity)
+        except ValueError:
+            if self._store_has_tenant(DEFAULT_TENANT):
+                try:
+                    self._assert_tenant_allowed(DEFAULT_TENANT)
+                except ValueError:
+                    pass
+                else:
+                    return DEFAULT_TENANT
+            raise ValueError(_MISSING_TENANT_SELECT_MESSAGE)
+
+    def _effective_config_name(self) -> Optional[str]:
+        return resolve_config_name(self._selected_config_name)
+
+    def _server_connector_ids(self) -> List[str]:
+        if self._connector_ids is not None:
+            return sorted(self._connector_ids)
+        return sorted(
+            c.connector_id for c in self._factory.list_for_protocol("mcp")
+        )
+
+    def _config_coverage(
+        self, tenant_id: str, config_name: str
+    ) -> Tuple[List[str], List[str]]:
+        have: List[str] = []
+        missing: List[str] = []
+        for cid in self._server_connector_ids():
+            if self._factory.store.get(tenant_id, cid, config_name) is not None:
+                have.append(cid)
+            else:
+                missing.append(cid)
+        return have, missing
+
+    def _clear_selected_config_if_missing(self, tenant_id: str) -> None:
+        name = self._selected_config_name
+        if not name:
+            return
+        have, _missing = self._config_coverage(tenant_id, name)
+        if not have:
+            self._selected_config_name = None
+
+    def _list_configs_for_tenant(
+        self, tenant_id: str, connector_id: Optional[str]
+    ) -> List[Dict[str, Any]]:
+        """Slim redacted config rows for agents (name / default / connector_id)."""
+        allow = self._connector_ids
+        if connector_id is not None:
+            if allow is not None and connector_id not in allow:
+                raise ValueError(
+                    f"Connector {connector_id!r} is not allowed on this MCP server."
+                )
+            docs = self._factory.store.list(tenant_id, connector_id)
+        elif allow is not None:
+            docs = []
+            for cid in sorted(allow):
+                docs.extend(self._factory.store.list(tenant_id, cid))
+        else:
+            docs = self._factory.store.list(tenant_id, None)
+
+        out: List[Dict[str, Any]] = []
+        for d in docs:
+            name = d.get("name")
+            cid = d.get("connector_id")
+            if not isinstance(name, str) or not isinstance(cid, str):
+                continue
+            if allow is not None and cid not in allow:
+                continue
+            out.append(
+                {
+                    "connector_id": cid,
+                    "name": name,
+                    "default": bool(d.get("default")),
+                }
+            )
+        return out
+
+    async def _invoke_list_configs(
+        self,
+        arguments: Dict[str, Any],
+        *,
+        identity: CallerIdentity | None,
+    ) -> Dict[str, Any]:
+        if not is_multitenancy_enabled():
+            raise ValueError(
+                f"Tool {LIST_CONFIGS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
+            )
+        tenant_arg = _optional_str(arguments.get("tenant_id"))
+        tenant_id = self._effective_tenant_id(identity, tenant_arg=tenant_arg)
+        raw_cid = arguments.get("connector_id")
+        connector_id: Optional[str] = None
+        if isinstance(raw_cid, str) and raw_cid.strip():
+            connector_id = raw_cid.strip()
+        # null / blank / non-string → all connectors
+
+        logger.info(
+            "MCP tool resolved | tool=%s | tenant_id=%s | connector_id=%s",
+            LIST_CONFIGS_TOOL,
+            tenant_id,
+            connector_id or "(all)",
+            extra={
+                "tool_name": LIST_CONFIGS_TOOL,
+                "tenant_id": tenant_id,
+                "connector_id": connector_id or "",
+            },
+        )
+        configs = self._list_configs_for_tenant(tenant_id, connector_id)
+        return {
+            "ok": True,
+            "tenant_id": tenant_id,
+            "configs": configs,
+        }
+
+    def _list_tenant_ids(self, connector_id: Optional[str]) -> List[str]:
+        """Tenant ids in the store that have at least one config (allowlist-aware)."""
+        return self._filter_allowed_tenants(self._list_tenant_ids_unfiltered(connector_id))
+
+    def _list_tenant_ids_unfiltered(self, connector_id: Optional[str]) -> List[str]:
+        allow = self._connector_ids
+        if connector_id is not None:
+            if allow is not None and connector_id not in allow:
+                raise ValueError(
+                    f"Connector {connector_id!r} is not allowed on this MCP server."
+                )
+            return [
+                tid
+                for tid in self._factory.store.list_tenants()
+                if self._factory.store.has_config(tid, connector_id)
+            ]
+        if allow is not None:
+            return [
+                tid
+                for tid in self._factory.store.list_tenants()
+                if any(self._factory.store.has_config(tid, cid) for cid in allow)
+            ]
+        return self._factory.store.list_tenants()
+
+    def _pinned_tenant_id_or_none(self, identity: CallerIdentity | None) -> Optional[str]:
+        try:
+            return self._effective_tenant_id(identity)
+        except ValueError:
+            return None
+
+    async def _invoke_list_tenants(
+        self,
+        arguments: Dict[str, Any],
+        *,
+        identity: CallerIdentity | None,
+    ) -> Dict[str, Any]:
+        if not is_multitenancy_enabled():
+            raise ValueError(
+                f"Tool {LIST_TENANTS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
+            )
+        raw_cid = arguments.get("connector_id")
+        connector_id: Optional[str] = None
+        if isinstance(raw_cid, str) and raw_cid.strip():
+            connector_id = raw_cid.strip()
+
+        tenants = self._list_tenant_ids(connector_id)
+        current = self._pinned_tenant_id_or_none(identity)
+        logger.info(
+            "MCP tool resolved | tool=%s | connector_id=%s | pinned_tenant_id=%s",
+            LIST_TENANTS_TOOL,
+            connector_id or "(all)",
+            current or "(none)",
+            extra={
+                "tool_name": LIST_TENANTS_TOOL,
+                "connector_id": connector_id or "",
+                "pinned_tenant_id": current or "",
+            },
+        )
+        # Must be a dict: a bare str is iterated char-by-char into CallToolResult.content.
+        return {
+            "ok": True,
+            "connector_id": connector_id,
+            "pinned_tenant_id": current,
+            "current_tenant_id": current,
+            "tenants": tenants,
+            "summary": format_list_tenants_text(
+                tenants=tenants,
+                connector_id=connector_id,
+                pinned_tenant_id=current,
+            ),
+        }
+
+    async def _invoke_select_tenant(
+        self,
+        arguments: Dict[str, Any],
+        *,
+        identity: CallerIdentity | None,
+    ) -> Dict[str, Any]:
+        if not is_multitenancy_enabled():
+            raise ValueError(
+                f"Tool {SELECT_TENANT_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
+            )
+        self._assert_tenant_switch_allowed()
+        tenant_id = _optional_str(arguments.get("tenant_id"))
+        if not tenant_id:
+            raise ValueError(f"{SELECT_TENANT_TOOL} requires tenant_id")
+        self._assert_tenant_allowed(tenant_id)
+        raw_cid = arguments.get("connector_id")
+        connector_id: Optional[str] = None
+        if isinstance(raw_cid, str) and raw_cid.strip():
+            connector_id = raw_cid.strip()
+        self._selected_tenant_id = tenant_id
+        self._clear_selected_config_if_missing(tenant_id)
+        configs = self._list_configs_for_tenant(tenant_id, connector_id)
+        have: List[str] = []
+        missing: List[str] = []
+        selected_name = self._selected_config_name
+        if selected_name:
+            have, missing = self._config_coverage(tenant_id, selected_name)
+        logger.info(
+            "MCP tool resolved | tool=%s | tenant_id=%s | connector_id=%s",
+            SELECT_TENANT_TOOL,
+            tenant_id,
+            connector_id or "(all)",
+            extra={
+                "tool_name": SELECT_TENANT_TOOL,
+                "tenant_id": tenant_id,
+                "connector_id": connector_id or "",
+            },
+        )
+        return {
+            "ok": True,
+            "tenant_id": tenant_id,
+            "connector_id": connector_id,
+            "configs": configs,
+            "selected_config_name": selected_name,
+            "connectors_with_config": have,
+            "connectors_missing_config": missing,
+        }
+
+    async def _invoke_select_config(
+        self,
+        arguments: Dict[str, Any],
+        *,
+        identity: CallerIdentity | None,
+    ) -> Dict[str, Any]:
+        if not is_multitenancy_enabled():
+            raise ValueError(
+                f"Tool {SELECT_CONFIG_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
+            )
+        config_name = _optional_str(arguments.get("config_name"))
+        if not config_name:
+            raise ValueError(f"{SELECT_CONFIG_TOOL} requires config_name")
+        tenant_id = self._effective_tenant_id(identity)
+        have, missing = self._config_coverage(tenant_id, config_name)
+        if not have:
+            raise ValueError(
+                f"Unknown config {config_name!r} for tenant {tenant_id!r}."
+            )
+        self._selected_config_name = config_name
+        logger.info(
+            "MCP tool resolved | tool=%s | tenant_id=%s | config_name=%s",
+            SELECT_CONFIG_TOOL,
+            tenant_id,
+            config_name,
+            extra={
+                "tool_name": SELECT_CONFIG_TOOL,
+                "tenant_id": tenant_id,
+                "config_name": config_name,
+            },
+        )
+        return {
+            "ok": True,
+            "tenant_id": tenant_id,
+            "config_name": config_name,
+            "connectors_with_config": have,
+            "connectors_missing_config": missing,
+        }
 
     def _ensure_identity(
         self,
@@ -335,6 +912,31 @@ class McpServer:
             return ctx.meta
         return None
 
+    def _resolve_tool_name(self, name: str) -> Tuple[str, str]:
+        """Map advertised or legacy MCP tool name to ``(connector_id, action)``."""
+        if "." in name:
+            connector_id, action = name.split(".", 1)
+            return connector_id, action
+
+        connectors = self._factory.list_for_protocol("mcp")
+        manifest = build_manifest(connectors)
+        matches: List[Tuple[str, str]] = []
+        for entry in manifest:
+            cid = str(entry["connector_id"])
+            if self._connector_ids is not None and cid not in self._connector_ids:
+                continue
+            action = str(entry["action"])
+            if mcp_advertised_tool_name(cid, action) == name:
+                matches.append((cid, action))
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous MCP tool name {name!r}")
+        raise ValueError(
+            f"Unknown tool {name!r}. Expected '<connector>_<action>' "
+            f"(or legacy '<connector>.<action>')."
+        )
+
     async def invoke_tool(
         self,
         name: str,
@@ -354,10 +956,20 @@ class McpServer:
         except RateLimitExceeded as e:
             raise ValueError(str(e))
 
-        try:
-            connector_id, action = name.split(".", 1)
-        except ValueError:
-            raise ValueError("Tool name must be in the form '<connector>.<action>'")
+        arguments = dict(arguments or {})
+        # LLMs often fill optional schema keys with null; treat as omitted.
+        arguments = {k: v for k, v in arguments.items() if v is not None}
+
+        if name in LIST_CONFIGS_TOOL_ALIASES:
+            return await self._invoke_list_configs(arguments, identity=identity)
+        if name in LIST_TENANTS_TOOL_ALIASES:
+            return await self._invoke_list_tenants(arguments, identity=identity)
+        if name in SELECT_TENANT_TOOL_ALIASES:
+            return await self._invoke_select_tenant(arguments, identity=identity)
+        if name in SELECT_CONFIG_TOOL_ALIASES:
+            return await self._invoke_select_config(arguments, identity=identity)
+
+        connector_id, action = self._resolve_tool_name(name)
 
         if self._connector_ids is not None and connector_id not in self._connector_ids:
             raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
@@ -365,24 +977,18 @@ class McpServer:
         if not self._factory.is_exposed(connector_id, "mcp"):
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
 
-        # Tenant: HTTP session pin (§6.3) or stdio env pin (§6.4). config_name is a
-        # resolution-time argument, never a connector input.
-        arguments = dict(arguments or {})
-        config_name = resolve_config_name(arguments.pop("config_name", None))
-        # LLMs often fill optional schema keys with null; treat as omitted.
-        arguments = {k: v for k, v in arguments.items() if v is not None}
-        session_tenant = _session_tenant_ctx.get()
-        if session_tenant is not None:
-            tenant_id = session_tenant
-        else:
-            try:
-                tenant_id = resolve_tenant_id(
-                    headers=_http_request_headers.get(),
-                    jwt_identity=identity,
-                    env_pin=self._stdio_env_tenant_pin,
+        # Overlay is process-wide (stdio and HTTP). Strip LLM extras so they
+        # never reach connector.run(); they do not override the overlay.
+        arguments.pop("tenant_id", None)
+        arguments.pop("config_name", None)
+        config_name = self._effective_config_name()
+        tenant_id = self._effective_tenant_id(identity)
+        if config_name is not None:
+            if self._factory.store.get(tenant_id, connector_id, config_name) is None:
+                raise ValueError(
+                    f"Config {config_name!r} is not defined for connector "
+                    f"{connector_id!r} on tenant {tenant_id!r}."
                 )
-            except MissingTenantError as exc:
-                raise ValueError(str(exc)) from exc
 
         try:
             connector = await self._factory.get(
@@ -553,13 +1159,13 @@ class McpServer:
                 )
             out: list[Tool] = []
             for t in self._list_tools_impl(identity=identity):
-                kwargs: Dict[str, Any] = {
-                    "name": t["name"],
-                    "description": t["description"],
-                    "inputSchema": t["input_schema"],
-                    "outputSchema": t["output_schema"],
-                }
-                out.append(Tool(**kwargs))
+                out.append(
+                    Tool(
+                        name=t["name"],
+                        description=t["description"],
+                        inputSchema=mcp_llm_safe_input_schema(t["input_schema"]),
+                    )
+                )
             return out
 
         @low.call_tool()
@@ -603,6 +1209,10 @@ class McpServer:
     async def _run_stdio_async(self) -> None:
         from mcp.server.stdio import stdio_server
         from mcp.server import NotificationOptions
+        from mcp.types import JSONRPCMessage, JSONRPCResponse
+        from mcp.shared.message import SessionMessage
+
+        import anyio
 
         # §6.4: one process, one tenant — pin from env at stdio start (not on HTTP).
         raw = os.getenv("NW_TENANT_ID")
@@ -611,13 +1221,45 @@ class McpServer:
         log_effective_mcp_auth_state()
 
         low = self._setup_lowlevel_server()
+        server_name = self._server_name
 
         async with stdio_server() as (read_stream, write_stream):
-            await low.run(
-                read_stream,
-                write_stream,
-                low.create_initialization_options(notification_options=NotificationOptions()),
-            )
+            filt_send, filt_recv = anyio.create_memory_object_stream(0)
+
+            async def filter_loop() -> None:
+                try:
+                    async with filt_send:
+                        async for item in read_stream:
+                            if (
+                                not isinstance(item, Exception)
+                                and _jsonrpc_method(item) == "server/discover"
+                            ):
+                                req_id = item.message.root.id
+                                reply = SessionMessage(
+                                    message=JSONRPCMessage(
+                                        JSONRPCResponse(
+                                            jsonrpc="2.0",
+                                            id=req_id,
+                                            result=_server_discover_result(server_name),
+                                        )
+                                    )
+                                )
+                                await write_stream.send(reply)
+                                continue
+                            await filt_send.send(item)
+                except anyio.ClosedResourceError:
+                    pass
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(filter_loop)
+                await low.run(
+                    filt_recv,
+                    write_stream,
+                    low.create_initialization_options(
+                        notification_options=NotificationOptions()
+                    ),
+                )
+                tg.cancel_scope.cancel()
 
     def run_stdio(self) -> None:
         import anyio
@@ -635,6 +1277,7 @@ class McpServer:
 
         upstream_passthrough = self._upstream_passthrough
         upstream_granted_scopes = self._upstream_passthrough_scopes
+        factory_store = self._factory.store
 
         @asynccontextmanager
         async def lifespan(app: Starlette):
@@ -671,10 +1314,13 @@ class McpServer:
                         env_pin=None,
                     )
                 except MissingTenantError as exc:
-                    return JSONResponse(
-                        status_code=400,
-                        content={"detail": str(exc), "error_code": "MISSING_TENANT"},
-                    )
+                    if DEFAULT_TENANT in factory_store.list_tenants():
+                        session_tenant = DEFAULT_TENANT
+                    else:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"detail": str(exc), "error_code": "MISSING_TENANT"},
+                        )
                 token = _streamable_http_identity_ctx.set(identity)
                 tenant_token = _session_tenant_ctx.set(session_tenant)
                 try:

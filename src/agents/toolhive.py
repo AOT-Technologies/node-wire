@@ -8,9 +8,9 @@ ToolHive Agent
 A ReAct-style AI agent that connects to an MCP server running in ToolHive,
 discovers its tools, and orchestrates a healthcare workflow:
 
-  1. Fetch patient details via fhir_cerner.read_patient / fhir_epic.read_patient (or search_* tools)
-  2. Write a patient summary file via google_drive.files.upload
-  3. Email the summary via smtp.send_email
+  1. Fetch patient details via fhir_cerner_read_patient / fhir_epic_read_patient (or search_* tools)
+  2. Write a patient summary file via google_drive_files_upload
+  3. Email the summary via smtp_send_email
 
 The LLM backend is fully configurable via the LLM_PROVIDER env var.
 
@@ -19,7 +19,9 @@ Usage::
     python -m agents.toolhive \\
         --patient-id 12724066 \\
         --recipient-email user@example.com \\
-        --drive-folder-id "1ABC..."   # optional
+        --drive-folder-id "1ABC..." \\
+        --tenant-id acme \\
+        --config-name test-drive
 
     # Swap to OpenAI:
     LLM_PROVIDER=openai python -m agents.toolhive --patient-id 12724066 ...
@@ -30,11 +32,13 @@ Environment variables:
     TOOLHIVE_MCP_API_KEY: Optional inbound MCP auth key (sent as Bearer + X-API-Key)
     TOOLHIVE_MCP_BEARER_TOKEN: Optional inbound MCP bearer token (JWT/API key)
     TOOLHIVE_MAX_TOOL_FAILURES: Stop after this many failed invocations per tool name (default: 2)
-    LLM_PROVIDER     : groq | openai | gemini | anthropic  (default: groq)
+    NW_TENANT_ID     : Default for --tenant-id (stdio pin / HTTP X-Tenant-ID)
+    LLM_PROVIDER     : groq | openai | gemini | anthropic | ollama  (default: groq)
     GROQ_API_KEY     : (when using groq)
     OPENAI_API_KEY   : (when using openai)
     GEMINI_API_KEY   : (when using gemini)
     ANTHROPIC_API_KEY: (when using anthropic)
+    OLLAMA_BASE_URL / OLLAMA_MODEL : (when using ollama)
 """
 
 from __future__ import annotations
@@ -83,7 +87,7 @@ def _redact_tool_args_for_log(tool_name: str, args: Dict[str, Any]) -> Dict[str,
     so that recipient and sender identifiers are never written to logs.
     All other tool args pass through unchanged.
     """
-    if not tool_name.startswith("smtp."):
+    if not (tool_name.startswith("smtp.") or tool_name.startswith("smtp_")):
         return args
 
     scrubbed: Dict[str, Any] = {}
@@ -528,6 +532,10 @@ class InProcessMcpClient:
 
     async def __aenter__(self) -> InProcessMcpClient:
         self._server._stdio_env_tenant_pin = self._tenant_id
+        if self._tenant_id:
+            self._server._selected_tenant_id = self._tenant_id
+        if self._config_name:
+            self._server._selected_config_name = self._config_name
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -538,8 +546,6 @@ class InProcessMcpClient:
 
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
         args = omit_null_tool_args(arguments)
-        if self._config_name and not args.get("config_name"):
-            args["config_name"] = self._config_name
         result = await self._server.invoke_tool(name, args)
         return json.dumps(result, default=str)
 
@@ -576,20 +582,21 @@ class ToolHiveAgent:
             "You are a healthcare data assistant. You have access to tools for fetching "
             "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
             "emails via SMTP.\n"
-            "Tool names are `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, "
-            "`fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`). "
+            "Tool names are `<connector_id>_<action>` with dots in the action replaced by "
+            "underscores (e.g. `fhir_cerner_read_patient`, `fhir_epic_read_patient`, "
+            "`google_drive_files_upload`, `smtp_send_email`). "
             "Use exactly the names and JSON-schema arguments from tools/list.\n\n"
             "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
             "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
             "  1. First turn: Obtain patient demographics from the EHR.\n"
-            '     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
+            '     - If the user gave a Patient ID: call `fhir_cerner_read_patient` or `fhir_epic_read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
             "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
             "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
             "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
             "  2. Second turn: Once you have the patient data from step 1, create a file on Google Drive containing the masked patient summary. Do NOT use placeholder content.\n"
-            "     For `google_drive.files.upload`, pass a flat JSON object: `name`, `mime_type` (snake_case — not `mimeType`), `parents`, and `content` (or `content_base64`). "
+            "     For `google_drive_files_upload`, pass a flat JSON object: `name`, `mime_type` (snake_case — not `mimeType`), `parents`, and `content` (or `content_base64`). "
             "If you include `action`, it must be exactly `files.upload`. Do not nest fields under a `file` object. Do NOT pass `media` / `media_body`.\n"
-            "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive.files.upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
+            "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive_files_upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
             "     CRITICAL: You MUST ask the user for the recipient email address if they haven't provided it. DO NOT guess email addresses like 'recipient_email@example.com'.\n"
             "     CRITICAL: In the email body, you MUST insert the actual URL string returned from step 2 (e.g. 'https://drive.google.com/...'). Do NOT literally write the text '<web_view_link>'.\n\n"
             "DATA PRIVACY & MASKING — follow these strictly:\n"
@@ -599,7 +606,7 @@ class ToolHiveAgent:
             "  - NEVER use the placeholder values ('1990-05-12', '12724066', or 'Name') in your reports - always use the real patient data masked accordingly.\n"
             "- EMAIL WORKFLOW: When sending patient details to an email recipient:\n"
             "  1. ALWAYS upload the masked patient summary to Google Drive first.\n"
-            "  2. Use `data.raw.webViewLink` from the `google_drive.files.upload` tool result.\n"
+            "  2. Use `data.raw.webViewLink` from the `google_drive_files_upload` tool result.\n"
             "  3. In the email body, provide that link instead of the actual data.\n"
             "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
             "PAGINATION HANDLING — IMPORTANT:\n"
@@ -617,6 +624,15 @@ class ToolHiveAgent:
             "- If a tool call fails, explain the error clearly and ask the user how to proceed.\n"
             "- Always confirm what you've done after completing the requested actions.\n"
             "- Keep responses concise and professional.\n"
+            "\n"
+            "MULTI-TENANCY:\n"
+            "- If the user names a tenant, call `nw_list_tenants` then `nw_select_tenant` "
+            "with that `tenant_id`. That tenant applies to every connector on this server.\n"
+            "- Then call `nw_select_config` with `config_name`. That name applies to every "
+            "connector. If a connector has no config with that name, its tools return an error.\n"
+            "- If the user does not name a tenant or config, use the default pin. "
+            "Do not invent tenant ids or config names. Do not pass tenant_id or "
+            "config_name on connector tools.\n"
         )
 
     async def run(self, task: str) -> AgentRunResult:
@@ -915,17 +931,27 @@ class ToolHiveAgent:
 
 async def _run_agent(args: argparse.Namespace) -> None:
     from agents.llm_factory import LLMProviderFactory
+    from node_wire_runtime.identity import TENANT_HEADER
 
     llm_provider_name = os.environ.get("LLM_PROVIDER", "groq")
     logger.info("Creating LLM provider: %s", llm_provider_name)
     provider = LLMProviderFactory.create_from_env()
 
-    mcp_client_context: Union[StdioMcpClient, ToolHiveMcpClient, MultiMcpClient]
+    tenant_id = (args.tenant_id or "").strip() or None
+    config_name = (args.config_name or "").strip() or None
+    mcp_headers: Dict[str, str] = {}
+    if tenant_id:
+        # Header name is lowercased in identity module; HTTP is case-insensitive.
+        mcp_headers[TENANT_HEADER] = tenant_id
+
+    mcp_client_context: Union[StdioMcpClient, ToolHiveMcpClient, MultiMcpClient, Any]
     if args.local:
         logger.info("Using local stdio transport (launching server as subprocess)")
-        # Launch the mcp_entrypoint.py as a subprocess
         cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-        mcp_client_context = StdioMcpClient(cmd)
+        child_env: Dict[str, str] = {}
+        if tenant_id:
+            child_env["NW_TENANT_ID"] = tenant_id
+        mcp_client_context = StdioMcpClient(cmd, env=child_env or None)
     else:
         urls = resolve_mcp_urls()
         if not urls:
@@ -936,29 +962,35 @@ async def _run_agent(args: argparse.Namespace) -> None:
             )
         from node_wire_runtime.mcp_client.client import create_http_mcp_client
 
+        extra = mcp_headers or None
         if len(urls) == 1:
-            mcp_client_context = create_http_mcp_client(urls[0])
+            mcp_client_context = create_http_mcp_client(urls[0], extra_headers=extra)
         else:
-            mcp_client_context = MultiMcpClient([create_http_mcp_client(u) for u in urls])
-
-    # Use the client (handle async context for stdio)
-    if isinstance(mcp_client_context, StdioMcpClient):
-        async with mcp_client_context as mcp_client:
-            agent = ToolHiveAgent(
-                mcp_client,
-                provider,
-                max_steps=args.max_steps,
-                max_tool_failures=args.max_tool_failures,
+            mcp_client_context = MultiMcpClient(
+                [create_http_mcp_client(u, extra_headers=extra) for u in urls]
             )
-            await _execute_task(agent, args, llm_provider_name, "local-stdio")
-    else:
+
+    async def _run_with_client(mcp_client: McpClient, mcp_info: str) -> None:
+        if config_name:
+            try:
+                await mcp_client.call_tool(
+                    "nw_select_config", {"config_name": config_name}
+                )
+            except Exception as exc:
+                logger.warning("nw_select_config skipped: %s", exc)
         agent = ToolHiveAgent(
-            mcp_client_context,
+            mcp_client,
             provider,
             max_steps=args.max_steps,
             max_tool_failures=args.max_tool_failures,
         )
-        await _execute_task(agent, args, llm_provider_name, ",".join(urls))
+        await _execute_task(agent, args, llm_provider_name, mcp_info)
+
+    if isinstance(mcp_client_context, StdioMcpClient):
+        async with mcp_client_context as mcp_client:
+            await _run_with_client(mcp_client, "local-stdio")
+    else:
+        await _run_with_client(mcp_client_context, ",".join(urls))
 
 
 async def _execute_task(
@@ -1035,6 +1067,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--local", action="store_true", help="Run against local server via stdio (no proxy)"
+    )
+    parser.add_argument(
+        "--tenant-id",
+        default=os.environ.get("NW_TENANT_ID", ""),
+        help="Pin MCP tenant (X-Tenant-ID on HTTP; NW_TENANT_ID for --local stdio)",
+    )
+    parser.add_argument(
+        "--config-name",
+        default="",
+        help="Select this config name for every connector (nw_select_config)",
     )
     args = parser.parse_args()
 

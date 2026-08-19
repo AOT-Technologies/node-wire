@@ -1335,6 +1335,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return (el && el.value ? el.value : '').trim();
     }
 
+    async function applyAgentTenancy(tenantId, configName) {
+        if (!_multitenancyEnabled) return;
+        const nextTenant = (tenantId || '').trim();
+        const nextConfig = (configName || '').trim();
+        if (!nextTenant && !nextConfig) return;
+        if (nextTenant && nextTenant !== getPlaygroundTenantId()) {
+            ensureTenantOption(nextTenant, true);
+            await refreshConfigDropdown(currentMode);
+        }
+        if (nextConfig) {
+            const select = document.getElementById('playground-config-name');
+            if (select) {
+                let found = false;
+                for (const opt of select.options) {
+                    if (opt.value === nextConfig) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const opt = document.createElement('option');
+                    opt.value = nextConfig;
+                    opt.textContent = nextConfig;
+                    select.appendChild(opt);
+                }
+                select.value = nextConfig;
+            }
+        }
+        logTenancyContext('Agent chat selected');
+    }
+
     loadFeatureFlags();
 
     function logTenancyContext(actionLabel) {
@@ -2338,6 +2369,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         traceId = event.trace_id || traceId;
                         success = Boolean(event.success);
                         doneMessage = event.message || `Streaming ${success ? 'completed' : 'failed'}. trace_id=${traceId}`;
+                        applyAgentTenancy(event.tenant_id, event.config_name);
                         
                         if (timerInterval) {
                             clearInterval(timerInterval);
@@ -2406,6 +2438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appendTraceBadge(data.trace_id);
 
             log(`Agent Chat: ${data.success ? 'Success' : 'Responded'} | steps=${data.steps ? data.steps.length : 0}`, data.success ? 'success' : 'system');
+            await applyAgentTenancy(data.tenant_id, data.config_name);
 
         } catch (error) {
             if (timerInterval) clearInterval(timerInterval);

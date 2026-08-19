@@ -399,6 +399,7 @@ class ConnectorConfigStore:
         view = redact(record.raw)
         view["name"] = record.name
         view["default"] = record.default
+        view["connector_id"] = record.connector_id
         return view
 
     def _invalidate(self, tenant_id: str, connector_id: str, names: List[str]) -> None:

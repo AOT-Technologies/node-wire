@@ -42,11 +42,11 @@ This guide walks you through running the platform as an MCP server using ToolHiv
 ```
 ToolHive UI  ──────────────────────────────────────────────────────
 │  MCP Server (Docker): node-wire                     │
-│  ├── Tool: fhir_cerner.read_patient   ← fetch patient from Cerner │
-│  ├── Tool: fhir_epic.read_patient     ← fetch patient from Epic   │
-│  ├── Tool: google_drive.files.upload  ← write file to Drive       │
-│  ├── Tool: stripe.charge              ← process payment           │
-│  └── Tool: smtp.send_email            ← email the summary         │
+│  ├── Tool: fhir_cerner_read_patient   ← fetch patient from Cerner │
+│  ├── Tool: fhir_epic_read_patient     ← fetch patient from Epic   │
+│  ├── Tool: google_drive_files_upload  ← write file to Drive       │
+│  ├── Tool: stripe_charge              ← process payment           │
+│  └── Tool: smtp_send_email            ← email the summary         │
 │                         ↕ stdio → HTTP proxy                      │
 ──────────────────────────────────────────────────────────────────
          ↕ MCP JSON-RPC over HTTP
@@ -94,11 +94,13 @@ When running **this scenario’s** minimal multi-connector stack (one MCP server
 
 | Tool | Description |
 |---|---|
-| `fhir_cerner.read_patient` | Fetch a patient's record from a Cerner FHIR R4 endpoint |
-| `fhir_epic.read_patient` | Fetch a patient's record from an Epic FHIR R4 endpoint |
-| `google_drive.files.upload` | Create and upload a text file to Google Drive |
-| `stripe.charge` | Process a payment |
-| `smtp.send_email` | Send an email via SMTP |
+| `fhir_cerner_read_patient` | Fetch a patient's record from a Cerner FHIR R4 endpoint |
+| `fhir_epic_read_patient` | Fetch a patient's record from an Epic FHIR R4 endpoint |
+| `google_drive_files_upload` | Create and upload a text file to Google Drive |
+| `stripe_charge` | Process a payment |
+| `smtp_send_email` | Send an email via SMTP |
+
+Advertised names use underscores (`connector_id_action`). Legacy dotted names (e.g. `fhir_epic.read_patient`) still work on `tools/call`.
 
 The agent uses an LLM's tool-calling capability to decide which tools to call, in what order, and with what parameters.
 
@@ -298,12 +300,27 @@ thv secret set SMTP_PORT
    - **Name:** `node-wire-connectors`
    - **Image:** `node-wire:latest`
    - **Transport:** `stdio`
-4. Under the **Secrets** or **Environment** tab, link all the secrets you stored in Step 3.
-5. Click **Start** or **Deploy**.
+4. Under **Environment**, set variables from the table below (multi-tenancy) or link flat secrets from Step 3 (single-tenant).
+5. If using multi-tenancy, add a **volume**: host `config/tenants.yaml` → container `/app/config/tenants.yaml` (read-only).
+6. Click **Start** or **Deploy**.
 
 ToolHive will start the container and set up a stdio-to-HTTP proxy on a local port.
 
-### Option B: ToolHive CLI
+**Multi-tenancy (recommended for unified MCP):**
+
+| Name | Value |
+|------|--------|
+| `NW_MCP_TRANSPORT` | `stdio` |
+| `NW_ALLOWED_CONNECTORS` | e.g. `google_drive,fhir_epic` |
+| `NW_MULTITENANCY_ENABLED` | `true` |
+| `NW_TENANTS_PATH` | `/app/config/tenants.yaml` |
+| `NW_MCP_AUTH_DISABLED` | `true` |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` |
+| `NW_MCP_TENANT_PIN_LOCKED` | `false` |
+
+Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [mcp-servers.md — Multi-tenancy](mcp-servers.md#multi-tenancy-mcp).
+
+### Option B: ToolHive CLI (single-tenant secrets)
 
 ```bash
 thv run \
@@ -322,6 +339,8 @@ thv run \
   node-wire:latest
 ```
 
+For multi-tenancy, add `-e` flags for the table above and mount `tenants.yaml` (ToolHive volume UI or Docker bind).
+
 ### What you should see
 
 In the ToolHive UI under **Installed**, you should see:
@@ -330,7 +349,7 @@ In the ToolHive UI under **Installed**, you should see:
 |---|---|
 | Name | `node-wire-connectors` |
 | Status | `Running` |
-| Tools | Manifest-driven `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, `fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`; unified server also lists Stripe, HTTP generic, and other MCP-enabled connectors) |
+| Tools | Manifest-driven `<connector_id>_<action>` (e.g. `fhir_cerner_read_patient`, `fhir_epic_read_patient`, `google_drive_files_upload`, `smtp_send_email`; with MT also `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, `nw_select_config`) |
 | Endpoint | `http://localhost:<auto-port>/sse` |
 
 ---
@@ -377,6 +396,10 @@ python -m agents.toolhive \
 | `--recipient-email` | Yes | Where to send the patient summary |
 | `--drive-folder-id` | No | Google Drive folder ID; defaults to `GOOGLE_DRIVE_FOLDER_ID` env var |
 | `--max-steps` | No | Maximum LLM reasoning steps (default: 10) |
+| `--tenant-id` | No | Pin MCP tenant (`X-Tenant-ID` on HTTP; `NW_TENANT_ID` for `--local`). Defaults from `NW_TENANT_ID` env. |
+| `--config-name` | No | Calls `nw_select_config` at start so every connector uses that name |
+
+With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that server. Env/header remains the default until select. See [mcp-servers.md — Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp).
 
 ### Switching LLM providers
 
@@ -417,11 +440,11 @@ I have completed all three steps:
 3. Sent a summary email to your-email@example.com with a link to the file.
 
 Steps executed (3):
-  ✓ Step 1: fhir_cerner.read_patient
+  ✓ Step 1: fhir_cerner_read_patient
        result : {"patient_id": "123*****", "full_name": "Nancy Smart", ...}
-  ✓ Step 2: google_drive.files.upload
+  ✓ Step 2: google_drive_files_upload
        result : {"file_id": "1XYZ...", "web_view_link": "https://docs.google.com/..."}
-  ✓ Step 3: smtp.send_email
+  ✓ Step 3: smtp_send_email
        result : {"sent": true}
 ```
 

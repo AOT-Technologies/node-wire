@@ -527,11 +527,11 @@ HTTP status codes are mapped from `ErrorCategory`:
 
 ### MCP binding
 
-`src/bindings/mcp_server/server.py` registers one **MCP tool** per manifest entry. Tool names follow the pattern `{connector_id}.{action}` (e.g. `google_drive.files.list`, `google_drive.files.upload`).
+`src/bindings/mcp_server/server.py` registers one **MCP tool** per manifest entry. Advertised tool names are `{connector_id}_{action}` with dots in the action replaced by underscores (e.g. `google_drive_files_list`, `google_drive_files_upload`) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.
 
 The MCP server calls `connector.run(args_dict)` and serialises the `ConnectorResponse` as the tool result.
 
-The **tool name** (`<connector_id>.<action>`) is authoritative: after normalizers run, the binding sets `action` from the tool name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/node_wire_runtime/ingress.py`).
+The **resolved action** (from the advertised or legacy tool name) is authoritative: after normalizers run, the binding sets `action` from that name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/node_wire_runtime/ingress.py`).
 
 Optional per-action **argument normalizers** (`mcp_normalize` on `@sdk_action` / `SdkActionSpec`) run before `connector.run` to map LLM aliases to canonical fields. Actions default to **strict** JSON Schema (`additionalProperties: false`); set `alias_tolerant=True` only where extra keys must pass MCP SDK validation before normalization.
 
@@ -574,7 +574,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 | `fhir_cerner` | Same family as Epic with Cerner-specific schemas |
 | `slack` | `post_message`, `send_direct_message`, `upload_file` |
 
-MCP tool names: **`<connector_id>.<action>`** (e.g. `fhir_epic.read_patient`). See [`docs/mcp-servers.md`](mcp-servers.md).
+MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). See [`docs/mcp-servers.md`](mcp-servers.md).
 
 ---
 
