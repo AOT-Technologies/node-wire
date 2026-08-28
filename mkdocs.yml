@@ -104,6 +104,9 @@ nav:
   - Architecture: architecture.md
   - Connectors:
     - Overview: connectors.md
+    - OpenAPI Builder: nw-connector-builder.md
+    - OpenAPI Builder Scope: nw-connector-builder-scope.md
+    - nw CLI: nw-cli.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md
     - Slack: slack_connector.md

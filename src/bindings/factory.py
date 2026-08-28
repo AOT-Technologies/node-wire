@@ -229,6 +229,7 @@ class ConnectorFactory:
         Falls back to :class:`NoAuthProvider` when the block is absent.
         """
         from node_wire_runtime.auth import (
+            ApiKeyQueryAuthProvider,
             NoAuthProvider,
             OAuth2AuthProvider,
             ServiceAccountAuthProvider,
@@ -250,6 +251,13 @@ class ConnectorFactory:
                 header_name=auth_cfg.get("header_name", "Authorization"),
                 prefix=auth_cfg.get("prefix", "Bearer"),
                 encoding=auth_cfg.get("encoding"),
+            )
+
+        if provider_type == "apikey_query":
+            return ApiKeyQueryAuthProvider(
+                secret_provider=self._secret_provider,
+                secret_key=auth_cfg["secret_key"],
+                name=auth_cfg["name"],
             )
 
         if provider_type == "oauth2":
@@ -317,23 +325,25 @@ class ConnectorFactory:
 
             return _SmtpCredentialsProvider()
 
-        logger.warning(
-            "Unknown auth provider type %r for connector %r — defaulting to NoAuthProvider",
-            provider_type,
-            connector_id,
+        raise ValueError(
+            f"Unknown auth provider type {provider_type!r} for connector {connector_id!r}"
         )
-        return NoAuthProvider()
 
     def _instantiate(self, connector_id: str) -> "BaseConnector | None":
         connector_cls = get_connector_registry().get(connector_id)
         if connector_cls is not None:
             cfg = self._configs[connector_id]
             auth_provider = self._build_auth_provider(connector_id, cfg.raw)
-            return connector_cls(
-                secret_provider=self._secret_provider,
-                auth_provider=auth_provider,
-                policy_hook=self._policy_hook,
-            )
+            from node_wire_runtime.rest import RestConnector
+
+            kwargs: dict[str, Any] = {
+                "secret_provider": self._secret_provider,
+                "auth_provider": auth_provider,
+                "policy_hook": self._policy_hook,
+            }
+            if issubclass(connector_cls, RestConnector) and cfg.raw.get("base_url"):
+                kwargs["base_url"] = cfg.raw["base_url"]
+            return connector_cls(**kwargs)
 
         raise RuntimeError(
             f"Connector {connector_id!r} is enabled in config but not registered "

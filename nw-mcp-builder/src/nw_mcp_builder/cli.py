@@ -7,6 +7,10 @@
 Usage:
   uv run nw-mcp-builder -c google_drive
   uv run nw-mcp-builder -c salesforce --force-output --skip-build-wheels
+
+Also available as a subcommand of nw-connector-builder:
+
+  uv run nw-connector-builder mcp -c google_drive
 """
 
 from __future__ import annotations
@@ -29,14 +33,8 @@ def _default_node_wire_root() -> Path:
     return _package_root().parent
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        prog="nw-mcp-builder",
-        description=(
-            "Build wheels, write a connector-mode scope fixture, and generate "
-            "a thin MCP host under out/."
-        ),
-    )
+def add_mcp_arguments(parser: argparse.ArgumentParser) -> None:
+    """Register MCP-from-connector flags on *parser* (shared with nw-connector-builder)."""
     parser.add_argument(
         "-c",
         "--connector-id",
@@ -89,13 +87,17 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Debug logging",
     )
-    args = parser.parse_args(argv)
 
+
+def configure_logging(*, verbose: bool) -> None:
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if verbose else logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
     )
 
+
+def run_mcp_from_args(args: argparse.Namespace) -> None:
+    """Execute MCP generation from parsed CLI args. Raises SystemExit on failure."""
     package_root = _package_root()
     node_wire_root = (args.node_wire_root or _default_node_wire_root()).resolve()
 
@@ -113,9 +115,25 @@ def main(argv: list[str] | None = None) -> None:
         )
     except (FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise SystemExit(1) from exc
 
     print(format_success_message(project_dir, args.connector_id))
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        prog="nw-mcp-builder",
+        description=(
+            "Build wheels, write a connector-mode scope fixture, and generate "
+            "a thin MCP host under out/. "
+            "Prefer: nw-connector-builder mcp -c <id>"
+        ),
+    )
+    add_mcp_arguments(parser)
+    args = parser.parse_args(argv)
+
+    configure_logging(verbose=args.verbose)
+    run_mcp_from_args(args)
 
 
 if __name__ == "__main__":

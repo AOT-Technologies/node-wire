@@ -19,7 +19,8 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 - `BaseConnector` — base class for connectors.
 - `get_connector_registry()` — returns a copy of the connector-id → class registry.
 - `nw_action`, `sdk_action` — action decorators.
-- `SdkActionSpec`, `default_build_kwargs`, `execute_spec_in_thread`, `navigate_resource`.
+- `SdkActionSpec`, `default_build_kwargs`, `default_resolve_method`, `default_invoke`, `execute_spec_in_thread`, `execute_spec_async`.
+- `navigate_resource` — deprecated; unused by the execute path, kept for backward compatibility.
 - `NestedConnectorActionError`.
 
 ### Responses & errors

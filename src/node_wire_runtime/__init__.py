@@ -9,6 +9,7 @@ from .policy import PolicyHook, PolicyDenied
 from .caller_identity import CallerIdentity, build_caller_identity
 from .auth import (
     AuthProvider,
+    ApiKeyQueryAuthProvider,
     NoAuthProvider,
     StaticTokenAuthProvider,
     OAuth2AuthProvider,
@@ -21,9 +22,13 @@ from .base_connector import (
     nw_action,
     sdk_action,
 )
+from .rest import RestConnector, RestResponseOutput
 from .sdk_action_spec import (
     SdkActionSpec,
     default_build_kwargs,
+    default_invoke,
+    default_resolve_method,
+    execute_spec_async,
     execute_spec_in_thread,
     navigate_resource,
 )
@@ -49,17 +54,23 @@ __all__ = [
     "CallerIdentity",
     "build_caller_identity",
     "AuthProvider",
+    "ApiKeyQueryAuthProvider",
     "NoAuthProvider",
     "StaticTokenAuthProvider",
     "OAuth2AuthProvider",
     "ServiceAccountAuthProvider",
     "BaseConnector",
+    "RestConnector",
+    "RestResponseOutput",
     "NestedConnectorActionError",
     "sdk_action",
     "nw_action",
     "get_connector_registry",
     "SdkActionSpec",
     "default_build_kwargs",
+    "default_invoke",
+    "default_resolve_method",
+    "execute_spec_async",
     "execute_spec_in_thread",
     "navigate_resource",
     "StreamSignal",
