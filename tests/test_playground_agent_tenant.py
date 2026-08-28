@@ -131,6 +131,86 @@ def test_agent_chat_requires_tenant_when_mt_on(monkeypatch: pytest.MonkeyPatch) 
     assert "X-Tenant-ID" in resp.json().get("detail", "")
 
 
+def test_llm_options_endpoint_filters_and_defaults_to_groq(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    monkeypatch.setenv("GROQ_API_KEY", "gk")
+    monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nk")
+    monkeypatch.setenv("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+    from bindings.rest_api.app import app
+
+    client = TestClient(app)
+    resp = client.get("/scenarios/llm-options")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["default_id"] == "groq/openai/gpt-oss-120b"
+    assert len(data["options"]) == 2
+
+
+def test_agent_chat_uses_llm_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    monkeypatch.setenv("GROQ_API_KEY", "gk")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nk")
+    monkeypatch.setenv("NW_MCP_TRANSPORT", "stdio")
+
+    from agents.toolhive import AgentRunResult
+
+    created: list[str | None] = []
+
+    class FakeProvider:
+        def chat_with_tools(self, messages, tools):  # noqa: ANN001
+            return None
+
+    def fake_create_from_option(llm_option=None):
+        created.append(llm_option)
+        return FakeProvider()
+
+    async def fake_run(self, task):
+        return AgentRunResult(
+            success=True, final_answer="hello from agent", steps=[], trace_id="t1"
+        )
+
+    class _CM:
+        async def __aenter__(self):
+            client = MagicMock()
+            client._server = None
+            return client
+
+        async def __aexit__(self, *args):
+            return None
+
+    with (
+        patch(
+            "agents.llm_factory.LLMProviderFactory.create_from_option",
+            side_effect=fake_create_from_option,
+        ),
+        patch("agents.toolhive.ToolHiveAgent.run", fake_run),
+        patch(
+            "playground.scenarios._playground_inprocess_mcp_client",
+            return_value=_CM(),
+        ),
+    ):
+        from bindings.rest_api.app import app
+
+        client = TestClient(app)
+        resp = client.post(
+            "/scenarios/agent-chat",
+            json={
+                "message": "hi",
+                "history": [],
+                "llm_option": "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+            },
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert body["reply"] == "hello from agent"
+    assert created == ["nvidia/nvidia/nemotron-3.5-lightning-30b-a3b"]
+
+
 def test_tenancy_from_agent_steps_selects_tenant_and_config() -> None:
     from playground.scenarios import _tenancy_from_agent_steps
 

@@ -152,6 +152,107 @@ def test_groq_provider_chat_with_tools_and_bad_json_args() -> None:
     assert out.tool_calls[1].arguments == {}
 
 
+def test_openai_provider_accepts_base_url() -> None:
+    mock_ctor = MagicMock(return_value=MagicMock())
+    with patch("agents.providers.openai_provider.OpenAI", mock_ctor):
+        from agents.providers.openai_provider import OpenAIProvider
+
+        OpenAIProvider(
+            api_key="k",
+            model="nvidia/nemotron-3.5-lightning-30b-a3b",
+            base_url="https://integrate.api.nvidia.com/v1",
+        )
+    mock_ctor.assert_called_once_with(
+        api_key="k",
+        base_url="https://integrate.api.nvidia.com/v1",
+    )
+
+
+def test_llm_factory_create_nvidia_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "nvidia")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nv-key")
+    monkeypatch.setenv("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+    monkeypatch.setenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    with patch("agents.providers.openai_provider.OpenAI") as ctor:
+        provider = LLMProviderFactory.create_from_env()
+    from agents.providers.openai_provider import OpenAIProvider
+
+    assert isinstance(provider, OpenAIProvider)
+    ctor.assert_called_once_with(
+        api_key="nv-key",
+        base_url="https://integrate.api.nvidia.com/v1",
+    )
+
+
+def test_llm_factory_create_from_option_groq_and_nvidia(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "gk")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nk")
+    monkeypatch.setenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+
+    with patch("agents.providers.groq_provider.Groq"):
+        groq = LLMProviderFactory.create_from_option("groq/openai/gpt-oss-120b")
+    from agents.providers.groq_provider import GroqProvider
+
+    assert isinstance(groq, GroqProvider)
+    assert groq._model == "openai/gpt-oss-120b"
+
+    with patch("agents.providers.openai_provider.OpenAI") as ctor:
+        nvidia = LLMProviderFactory.create_from_option(
+            "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b"
+        )
+    from agents.providers.openai_provider import OpenAIProvider
+
+    assert isinstance(nvidia, OpenAIProvider)
+    assert nvidia._model == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    ctor.assert_called_once_with(
+        api_key="nk",
+        base_url="https://integrate.api.nvidia.com/v1",
+    )
+
+
+def test_llm_factory_create_from_option_empty_defaults_to_groq(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("GROQ_API_KEY", "gk")
+    monkeypatch.setenv("GROQ_MODEL", "llama-x")
+    with patch("agents.providers.groq_provider.Groq"):
+        provider = LLMProviderFactory.create_from_option(None)
+    from agents.providers.groq_provider import GroqProvider
+
+    assert isinstance(provider, GroqProvider)
+    assert provider._model == "llama-x"
+
+
+def test_llm_factory_list_playground_options_prefers_groq_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "gk")
+    monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    monkeypatch.setenv("NVIDIA_API_KEY", "nk")
+    monkeypatch.setenv("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+
+    catalog = LLMProviderFactory.list_playground_options()
+    assert catalog["default_id"] == "groq/openai/gpt-oss-120b"
+    assert [o["id"] for o in catalog["options"]] == [
+        "groq/openai/gpt-oss-120b",
+        "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b",
+    ]
+    nvidia = catalog["options"][1]
+    assert nvidia["tools_note"]
+    assert "Groq" in nvidia["tools_note"]
+
+
+def test_parse_llm_option_and_tool_heuristic() -> None:
+    from agents.llm_factory import looks_like_tool_calling_unsupported, parse_llm_option
+
+    assert parse_llm_option("groq/openai/gpt-oss-120b") == ("groq", "openai/gpt-oss-120b")
+    with pytest.raises(ValueError):
+        parse_llm_option("groqonly")
+    assert looks_like_tool_calling_unsupported("model does not support tools")
+    assert not looks_like_tool_calling_unsupported("rate limit exceeded")
+
+
 def test_openai_provider_chat_with_tools() -> None:
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = _openai_style_response("done", [])
