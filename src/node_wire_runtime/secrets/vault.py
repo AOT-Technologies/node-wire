@@ -10,13 +10,17 @@ from node_wire_runtime.secrets.base import (
     SecretProviderError,
 )
 
-try:
-    import hvac
-except ImportError as _e:
-    raise ImportError(
-        "hvac is required for HashiCorpVaultProvider. "
-        "Install it with: pip install 'node-wire-runtime[vault]'"
-    ) from _e
+
+def _import_hvac():
+    """Import hvac lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    try:
+        import hvac
+    except ImportError as exc:
+        raise ImportError(
+            "hvac is required for HashiCorpVaultProvider. "
+            "Install it with: pip install 'node-wire-runtime[vault]'"
+        ) from exc
+    return hvac
 
 
 class HashiCorpVaultProvider(SecretProvider):
@@ -34,6 +38,7 @@ class HashiCorpVaultProvider(SecretProvider):
         token: str | None = None,
         mount_point: str = "secret",
     ) -> None:
+        hvac = _import_hvac()
         try:
             client = hvac.Client(url=url, token=token)
             if not client.is_authenticated():

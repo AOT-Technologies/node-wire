@@ -123,14 +123,18 @@ def test_aws_botocore_error_maps_to_provider_error(aws) -> None:
 
 
 def test_aws_import_error_has_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With boto3 absent the module import fails with an actionable hint."""
+    """With boto3 absent, constructing the provider fails with an actionable hint.
+
+    SDK imports are lazy (inside the constructor) so Cython-compiled modules and
+    test stubs both resolve via ``sys.modules`` on each construction.
+    """
     monkeypatch.delitem(sys.modules, "boto3", raising=False)
-    sys.modules.pop("node_wire_runtime.secrets.aws", None)
-    try:
-        with pytest.raises(ImportError, match=r"node-wire-runtime\[aws\]"):
-            importlib.import_module("node_wire_runtime.secrets.aws")
-    finally:
-        sys.modules.pop("node_wire_runtime.secrets.aws", None)
+    monkeypatch.delitem(sys.modules, "botocore", raising=False)
+    monkeypatch.delitem(sys.modules, "botocore.exceptions", raising=False)
+    # Ensure a fresh module object is not required; construction re-imports boto3.
+    mod = importlib.import_module("node_wire_runtime.secrets.aws")
+    with pytest.raises(ImportError, match=r"node-wire-runtime\[aws\]"):
+        mod.AwsSecretsManagerProvider("any-bundle")
 
 
 # ---------------------------------------------------------------------------

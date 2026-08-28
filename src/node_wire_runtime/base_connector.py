@@ -270,12 +270,18 @@ class BaseConnector(ABC):
 
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {}
     output_model: ClassVar[Type[BaseModel]]
+    # Intermediate bases (e.g. RestConnector) set this to skip action/registry validation.
+    _nw_abstract_base: ClassVar[bool] = False
 
     _action_registry: ClassVar[Dict[str, NwActionMeta]]
     _union_input_model: ClassVar[Type[RootModel[Any]]]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+
+        # Abstract intermediate bases provide shared helpers but no actions.
+        if cls.__dict__.get("_nw_abstract_base", False):
+            return
 
         # Phase 0: auto-generate @nw_action methods from action_specs (opt-in).
         # Must run before the dir(cls) discovery loop below.

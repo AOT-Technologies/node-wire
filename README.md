@@ -202,6 +202,8 @@ For more detailed information, please refer to the following guides:
 - **[Installation](docs/installation.md)** — Detailed setup and prerequisites.
 - **[Configuration](docs/configuration.md)** — Environment variables and `connectors.yaml`.
 - **[Connectors Guide](docs/connectors.md)** — How to use and build connectors.
+- **[OpenAPI Connector Builder](docs/nw-connector-builder.md)** — Generate connectors from Swagger/OpenAPI specs.
+- **[nw CLI](docs/nw-cli.md)** — OpenAPI → connector → wheels → MCP → Docker pipeline.
 - **[MCP Integration](docs/mcp.md)** — Using node wire with AI agents.
 - **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
 - **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.

@@ -132,6 +132,9 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert list((project_dir / "wheels").glob("*.whl"))
     assert (project_dir / "vendor" / "node_wire_src" / "bindings").is_dir()
     assert (project_dir / "Dockerfile").is_file()
+    # fake_node_wire has no uv.lock → fallback pin that excludes mcp 2.x
+    assert "mcp>=1.6.0,<2" in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"mcp>=1.6.0,<2"' in (project_dir / "Dockerfile").read_text(encoding="utf-8")
 
     with pytest.raises(FileExistsError, match="already exists"):
         run_from_connector(
@@ -163,6 +166,23 @@ def test_run_from_connector_requires_wheels_when_skip(
             package_root=package_root,
             skip_build_wheels=True,
         )
+
+
+def test_resolve_mcp_dependency_from_uv_lock(tmp_path: Path) -> None:
+    from nw_mcp_builder.generate.connector_project import (
+        _MCP_DEP_FALLBACK,
+        resolve_mcp_dependency,
+    )
+
+    root = tmp_path / "nw"
+    root.mkdir()
+    assert resolve_mcp_dependency(root) == _MCP_DEP_FALLBACK
+
+    (root / "uv.lock").write_text(
+        'version = 1\n[[package]]\nname = "mcp"\nversion = "1.27.2"\n',
+        encoding="utf-8",
+    )
+    assert resolve_mcp_dependency(root) == "mcp==1.27.2"
 
 
 def test_format_success_message(tmp_path: Path) -> None:

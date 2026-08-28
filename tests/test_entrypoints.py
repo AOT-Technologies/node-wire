@@ -30,11 +30,33 @@ def test_mcp_entrypoint_main_calls_run_stdio() -> None:
         "agents.smtp_mcp",
     ],
 )
-def test_per_connector_mcp_main_calls_run_stdio(module_path: str) -> None:
+def test_per_connector_mcp_main_calls_run(module_path: str) -> None:
     with patch("bindings.mcp_server.server.McpServer") as MockServer:
         mod = __import__(module_path, fromlist=["main"])
         mod.main()
         MockServer.return_value.run.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("module_path", "server_name", "connector_id"),
+    [
+        ("agents.salesforce_mcp", "nw-salesforce", "salesforce"),
+        ("agents.slack_mcp", "nw-slack", "slack"),
+        ("agents.stripe_mcp", "nw-stripe", "stripe"),
+    ],
+)
+def test_per_connector_mcp_main_calls_run_stdio(
+    module_path: str, server_name: str, connector_id: str
+) -> None:
+    with patch("bindings.mcp_server.server.McpServer") as MockServer:
+        mod = __import__(module_path, fromlist=["main"])
+        mod.main()
+        MockServer.assert_called_once_with(
+            server_name=server_name,
+            connector_ids=[connector_id],
+        )
+        MockServer.return_value.run_stdio.assert_called_once()
+        MockServer.return_value.run.assert_not_called()
 
 
 def test_bindings_entrypoint_api_mode_default(monkeypatch: pytest.MonkeyPatch) -> None:

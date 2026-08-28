@@ -74,6 +74,14 @@ class AuthProvider(ABC):
         """
         return None
 
+    async def get_query_params(self) -> Dict[str, str]:
+        """Return query-string auth parameters (default: none).
+
+        Override in providers that authenticate via query parameters
+        (e.g. :class:`~node_wire_runtime.auth.apikey_query.ApiKeyQueryAuthProvider`).
+        """
+        return {}
+
     async def refresh(self) -> None:
         """
         Force a refresh of any cached credentials on the next call.
