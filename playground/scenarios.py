@@ -1790,6 +1790,7 @@ class AgentChatMessage(BaseModel):
 class AgentChatInput(BaseModel):
     message: str
     history: List[Dict[str, str]] = []  # [{"role": "user/assistant", "content": "..."}]
+    llm_option: Optional[str] = None  # e.g. "groq/openai/gpt-oss-120b"
 
 
 class AgentChatStepResponse(BaseModel):
@@ -1805,6 +1806,12 @@ class AgentChatResponse(BaseModel):
     success: bool
     tenant_id: Optional[str] = None
     config_name: Optional[str] = None
+
+
+_TOOL_CALLING_FALLBACK_NOTE = (
+    " This model may not support OpenAI-style tool calling. Switch back to Groq in the "
+    "model selector and try again."
+)
 
 
 def _current_agent_transport() -> str:
@@ -1828,6 +1835,14 @@ def _build_agent_chat_task(payload: AgentChatInput) -> str:
     return payload.message
 
 
+def _augment_reply_for_tool_calling_errors(reply: str) -> str:
+    from agents.llm_factory import looks_like_tool_calling_unsupported
+
+    if looks_like_tool_calling_unsupported(reply) and "Switch back to Groq" not in reply:
+        return reply.rstrip() + _TOOL_CALLING_FALLBACK_NOTE
+    return reply
+
+
 @router.get("/agent-transport")
 async def agent_transport() -> Dict[str, str]:
     transport = _current_agent_transport()
@@ -1835,6 +1850,14 @@ async def agent_transport() -> Dict[str, str]:
         "transport": transport,
         "label": "Streamable HTTP" if transport == "streamable-http" else "stdio",
     }
+
+
+@router.get("/llm-options")
+async def llm_options() -> Dict[str, Any]:
+    """Configured playground LLM options (provider/model ids) for the chat selector."""
+    from agents.llm_factory import LLMProviderFactory
+
+    return LLMProviderFactory.list_playground_options()
 
 
 AGENT_GUARDRAIL_PROMPT = (
@@ -2009,10 +2032,11 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
     import os
 
     trace_id = str(uuid.uuid4())
+    llm_option = (payload.llm_option or "").strip() or None
     logger.info(
-        "Agent Chat request | trace_id=%s | provider=%s",
+        "Agent Chat request | trace_id=%s | llm_option=%s",
         trace_id,
-        os.environ.get("LLM_PROVIDER", "groq"),
+        llm_option or "groq(default)",
     )
 
     if not payload.message.strip():
@@ -2045,9 +2069,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
         )
         from node_wire_runtime.mcp_client.client import create_http_mcp_client
 
-        provider_name = os.environ.get("LLM_PROVIDER", "groq")
-        logger.info("Agent Chat | creating LLM provider: %s", provider_name)
-        llm_provider = LLMProviderFactory.create_from_env()
+        logger.info("Agent Chat | creating LLM provider from option: %s", llm_option or "(default groq)")
+        llm_provider = LLMProviderFactory.create_from_option(llm_option)
 
         task = _build_agent_chat_task(payload)
 
@@ -2150,6 +2173,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             or run_result.error
             or "I encountered an issue. Please try again."
         )
+        reply = _augment_reply_for_tool_calling_errors(reply)
 
         eff_tenant, eff_config = _agent_effective_tenancy(
             mcp_used, run_result.steps, tenant_id, config_name
@@ -2172,8 +2196,12 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
 
     except Exception as e:
         logger.error("Agent Chat failed: %s", e, exc_info=True)
+        reply = (
+            f"Sorry, I encountered an error: {str(e)}. "
+            "Please check the server configuration and try again."
+        )
         return AgentChatResponse(
-            reply=f"Sorry, I encountered an error: {str(e)}. Please check the server configuration and try again.",
+            reply=_augment_reply_for_tool_calling_errors(reply),
             steps=[],
             trace_id=trace_id,
             success=False,
@@ -2235,7 +2263,12 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                 )
                 return
 
-            llm_provider = LLMProviderFactory.create_from_env()
+            llm_option = (payload.llm_option or "").strip() or None
+            logger.info(
+                "Agent Chat stream | creating LLM provider from option: %s",
+                llm_option or "(default groq)",
+            )
+            llm_provider = LLMProviderFactory.create_from_option(llm_option)
             task = _build_agent_chat_task(payload)
             transport = _current_agent_transport()
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
@@ -2321,11 +2354,15 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
         except Exception as exc:
             logger.error("Agent Chat stream failed: %s", exc, exc_info=True)
             trace_id = str(uuid.uuid4())
+            err_content = (
+                f"Sorry, I encountered an error: {exc}. "
+                "Please check the server configuration and try again."
+            )
             yield (
                 json.dumps(
                     {
                         "type": "final_chunk",
-                        "content": f"Sorry, I encountered an error: {exc}. Please check the server configuration and try again.",
+                        "content": _augment_reply_for_tool_calling_errors(err_content),
                     }
                 )
                 + "\n"

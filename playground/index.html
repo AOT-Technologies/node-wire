@@ -194,11 +194,21 @@ SPDX-License-Identifier: Apache-2.0
                 </div>
 
                 <div class="chat-input-row">
+                    <div class="agent-llm-picker" id="agent-llm-picker">
+                        <button type="button" id="agent-llm-trigger" class="agent-llm-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="LLM provider and model" title="LLM provider/model">
+                            <span id="agent-llm-trigger-label" class="agent-llm-trigger-label">Loading…</span>
+                            <svg class="agent-llm-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+                                <path d="M6 9l6 6 6-6"/>
+                            </svg>
+                        </button>
+                        <ul id="agent-llm-menu" class="agent-llm-menu hidden" role="listbox"></ul>
+                    </div>
                     <input type="text" id="agent-input" placeholder="Ask me about a patient, workflow, or task..." autocomplete="off">
                     <button type="button" id="agent-send-btn" class="chat-send-btn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                     </button>
                 </div>
+                <div id="agent-llm-note" class="agent-llm-note hidden" role="note"></div>
             </div>
 
             <div id="connectors-view" class="hidden">

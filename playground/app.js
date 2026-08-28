@@ -123,9 +123,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const agentSendBtn = document.getElementById('agent-send-btn');
     const agentTyping = document.getElementById('agent-typing');
     const agentTransportStatus = document.getElementById('agent-transport-status');
+    const agentLlmPicker = document.getElementById('agent-llm-picker');
+    const agentLlmTrigger = document.getElementById('agent-llm-trigger');
+    const agentLlmTriggerLabel = document.getElementById('agent-llm-trigger-label');
+    const agentLlmMenu = document.getElementById('agent-llm-menu');
+    const agentLlmNote = document.getElementById('agent-llm-note');
     let agentConversationHistory = [];
     let agentBusy = false;
     let agentTransportMode = 'stdio';
+    let agentLlmOptions = [];
+    let agentLlmSelectedId = '';
+    const AGENT_LLM_STORAGE_KEY = 'nw_playground_llm_option';
 
     const pipelineLabels = {
         ehr: [
@@ -330,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
                 syncMultitenancyUi();
+                loadAgentLlmOptions();
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
             } else if (view === 'connector-apps-menu') {
                 rootSelectionView.classList.add('hidden');
@@ -706,6 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
+                loadAgentLlmOptions();
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
             } else {
                 agentPanel.classList.add('hidden');
@@ -2179,6 +2189,169 @@ document.addEventListener('DOMContentLoaded', () => {
         agentTransportStatus.querySelector('.transport-status-label').textContent = `Transport: ${label}`;
     }
 
+    function selectedAgentLlmOption() {
+        return agentLlmSelectedId || null;
+    }
+
+    function shortLlmLabel(optionId) {
+        if (!optionId) return 'Model';
+        const slash = optionId.indexOf('/');
+        const provider = (slash >= 0 ? optionId.slice(0, slash) : optionId).toLowerCase();
+        const model = slash >= 0 ? optionId.slice(slash + 1) : '';
+        const lastSeg = (model.split('/').pop() || model || provider).trim();
+        const providerLabel = provider === 'nvidia' ? 'NVIDIA' : provider.charAt(0).toUpperCase() + provider.slice(1);
+        // Prefer a compact model token for the closed button.
+        let shortModel = lastSeg;
+        if (provider === 'nvidia' && /nemotron/i.test(lastSeg)) {
+            shortModel = 'Nemotron';
+        } else if (provider === 'groq') {
+            if (/gpt-oss/i.test(lastSeg)) shortModel = 'GPT-OSS';
+            else if (/llama/i.test(lastSeg)) shortModel = 'Llama';
+        }
+        if (shortModel.length > 18) shortModel = shortModel.slice(0, 16) + '…';
+        return `${providerLabel} · ${shortModel}`;
+    }
+
+    function setAgentLlmOpen(open) {
+        if (!agentLlmTrigger || !agentLlmMenu) return;
+        agentLlmTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        agentLlmMenu.classList.toggle('hidden', !open);
+    }
+
+    function syncAgentLlmTrigger() {
+        if (!agentLlmTriggerLabel) return;
+        const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
+        if (!agentLlmOptions.length) {
+            agentLlmTriggerLabel.textContent = 'No LLM';
+            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            return;
+        }
+        if (agentLlmTrigger) agentLlmTrigger.disabled = false;
+        agentLlmTriggerLabel.textContent = shortLlmLabel(selected ? selected.id : agentLlmSelectedId);
+        if (agentLlmTrigger) {
+            agentLlmTrigger.title = selected ? (selected.label || selected.id) : 'LLM provider/model';
+        }
+        if (agentLlmMenu) {
+            agentLlmMenu.querySelectorAll('.agent-llm-menu-item').forEach((btn) => {
+                btn.setAttribute('aria-selected', btn.dataset.id === agentLlmSelectedId ? 'true' : 'false');
+            });
+        }
+    }
+
+    function updateAgentLlmNote() {
+        if (!agentLlmNote) return;
+        const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
+        const note = selected && selected.tools_note ? selected.tools_note : '';
+        if (note) {
+            agentLlmNote.textContent = note;
+            agentLlmNote.classList.remove('hidden');
+        } else {
+            agentLlmNote.textContent = '';
+            agentLlmNote.classList.add('hidden');
+        }
+    }
+
+    function chooseAgentLlm(optionId) {
+        if (!optionId || !agentLlmOptions.some((o) => o.id === optionId)) return;
+        agentLlmSelectedId = optionId;
+        try {
+            localStorage.setItem(AGENT_LLM_STORAGE_KEY, optionId);
+        } catch (_e) {
+            /* ignore */
+        }
+        syncAgentLlmTrigger();
+        updateAgentLlmNote();
+        setAgentLlmOpen(false);
+    }
+
+    function renderAgentLlmMenu() {
+        if (!agentLlmMenu) return;
+        agentLlmMenu.innerHTML = '';
+        for (const item of agentLlmOptions) {
+            const li = document.createElement('li');
+            li.setAttribute('role', 'presentation');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'agent-llm-menu-item';
+            btn.dataset.id = item.id;
+            btn.setAttribute('role', 'option');
+            btn.setAttribute('aria-selected', item.id === agentLlmSelectedId ? 'true' : 'false');
+
+            const shortEl = document.createElement('span');
+            shortEl.className = 'agent-llm-menu-item-short';
+            shortEl.textContent = shortLlmLabel(item.id);
+
+            const fullEl = document.createElement('span');
+            fullEl.className = 'agent-llm-menu-item-full';
+            fullEl.textContent = item.label || item.id;
+
+            btn.appendChild(shortEl);
+            btn.appendChild(fullEl);
+            btn.addEventListener('click', () => chooseAgentLlm(item.id));
+            li.appendChild(btn);
+            agentLlmMenu.appendChild(li);
+        }
+    }
+
+    async function loadAgentLlmOptions() {
+        if (!agentLlmTrigger) return;
+        try {
+            const response = await fetch('/scenarios/llm-options');
+            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json();
+            agentLlmOptions = Array.isArray(data.options) ? data.options : [];
+
+            if (!agentLlmOptions.length) {
+                agentLlmSelectedId = '';
+                if (agentLlmMenu) agentLlmMenu.innerHTML = '';
+                syncAgentLlmTrigger();
+                updateAgentLlmNote();
+                setAgentLlmOpen(false);
+                return;
+            }
+
+            let chosen = data.default_id || agentLlmOptions[0].id;
+            try {
+                const remembered = localStorage.getItem(AGENT_LLM_STORAGE_KEY);
+                if (remembered && agentLlmOptions.some((o) => o.id === remembered)) {
+                    chosen = remembered;
+                }
+            } catch (_e) {
+                /* ignore storage errors */
+            }
+            if (data.default_id && data.default_id.startsWith('groq/')) {
+                let remembered = null;
+                try {
+                    remembered = localStorage.getItem(AGENT_LLM_STORAGE_KEY);
+                } catch (_e) {
+                    remembered = null;
+                }
+                if (!remembered || !agentLlmOptions.some((o) => o.id === remembered)) {
+                    chosen = data.default_id;
+                }
+            }
+
+            agentLlmSelectedId = chosen;
+            try {
+                localStorage.setItem(AGENT_LLM_STORAGE_KEY, chosen);
+            } catch (_e) {
+                /* ignore */
+            }
+            renderAgentLlmMenu();
+            syncAgentLlmTrigger();
+            updateAgentLlmNote();
+        } catch (error) {
+            agentLlmOptions = [];
+            agentLlmSelectedId = '';
+            if (agentLlmMenu) agentLlmMenu.innerHTML = '';
+            if (agentLlmTriggerLabel) agentLlmTriggerLabel.textContent = 'Unavailable';
+            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            updateAgentLlmNote();
+            setAgentLlmOpen(false);
+            log(`LLM options unavailable (${error.message})`, 'system');
+        }
+    }
+
     async function loadAgentTransportMode() {
         try {
             const response = await fetch('/scenarios/agent-transport');
@@ -2327,7 +2500,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: playgroundRequestHeaders(),
                     body: JSON.stringify({
                         message: message,
-                        history: agentConversationHistory.slice(0, -1)
+                        history: agentConversationHistory.slice(0, -1),
+                        llm_option: selectedAgentLlmOption()
                     })
                 });
 
@@ -2412,7 +2586,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: playgroundRequestHeaders(),
                 body: JSON.stringify({
                     message: message,
-                    history: agentConversationHistory.slice(0, -1) // Exclude current message (already in payload)
+                    history: agentConversationHistory.slice(0, -1), // Exclude current message (already in payload)
+                    llm_option: selectedAgentLlmOption()
                 })
             });
 
@@ -2455,6 +2630,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners for chat
     loadAgentTransportMode();
+    loadAgentLlmOptions();
+    if (agentLlmTrigger) {
+        agentLlmTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (agentLlmTrigger.disabled) return;
+            const open = agentLlmTrigger.getAttribute('aria-expanded') !== 'true';
+            setAgentLlmOpen(open);
+        });
+    }
+    document.addEventListener('click', (e) => {
+        if (!agentLlmPicker) return;
+        if (agentLlmPicker.contains(e.target)) return;
+        setAgentLlmOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setAgentLlmOpen(false);
+    });
     agentSendBtn.addEventListener('click', sendAgentMessage);
     agentInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
