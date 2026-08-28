@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/contributing/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/nw-connector-builder-scope/">
       
       
-        <link rel="prev" href="../toolhive_agent_scenario/">
+        <link rel="prev" href="../nw-connector-builder/">
       
       
-        <link rel="next" href="../code-quality-compliance/">
+        <link rel="next" href="../nw-cli/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Contributing - Node Wire</title>
+        <title>OpenAPI Builder Scope - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing-to-node-wire" class="md-skip">
+        <a href="#nw-connector-builder-scope" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Contributing
+              OpenAPI Builder Scope
             
           </span>
         </div>
@@ -283,10 +283,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../connectors/" class="md-tabs__link">
           
   
@@ -323,13 +325,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../contributing/" class="md-tabs__link">
           
   
   
@@ -606,28 +606,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -645,7 +648,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -716,10 +719,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -735,6 +765,192 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="In scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spec-ingestion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec ingestion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codegen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Codegen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-build-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing &amp; build gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wiring-hand-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wiring &amp; hand-off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Out of scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auth-schemes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth schemes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behavior-not-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior not generated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registration-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registration &amp; deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-generated-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing generated output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#soft-drop-vs-hard-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Soft-drop vs. hard failure
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1036,31 +1252,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1078,7 +1291,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1093,37 +1306,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Contributing
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1139,114 +1325,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quality-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quality Checks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#licensing-reuse-compliance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Licensing &amp; REUSE Compliance
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#git-identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Git Identity
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#developer-certificate-of-origin-dco" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Developer Certificate of Origin (DCO)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#submitting-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Submitting Changes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-bugs-requesting-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting Bugs &amp; Requesting Features
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1688,87 +1766,165 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#in-scope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        In scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="In scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spec-ingestion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec ingestion
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#development-setup" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#auth" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Development Setup
+        Auth
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#quality-checks" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#codegen" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quality Checks
+        Codegen
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#licensing-reuse-compliance" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#testing-build-gate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Licensing &amp; REUSE Compliance
+        Testing &amp; build gate
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#git-identity" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#wiring-hand-off" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Git Identity
+        Wiring &amp; hand-off
       
     </span>
   </a>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#developer-certificate-of-origin-dco" class="md-nav__link">
+  <a href="#out-of-scope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Developer Certificate of Origin (DCO)
+        Out of scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Out of scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auth-schemes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth schemes
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#submitting-changes" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#spec-features" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Submitting Changes
+        Spec features
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-bugs-requesting-features" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#behavior-not-generated" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reporting Bugs &amp; Requesting Features
+        Behavior not generated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registration-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registration &amp; deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-generated-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing generated output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#soft-drop-vs-hard-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Soft-drop vs. hard failure
       
     </span>
   </a>
@@ -1818,10 +1974,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../connectors/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Development
+    Connectors
   </span>
 
         </a>
@@ -1849,104 +2005,126 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="contributing-to-node-wire">Contributing to Node Wire<a class="headerlink" href="#contributing-to-node-wire" title="Anchor link to this section">&para;</a></h1>
-<p>Thanks for your interest in contributing! This guide covers how to set up a
-development environment, the quality checks we enforce, and the conventions for
-submitting changes. By contributing you agree that your contributions are
-licensed under the project's <a href="https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE">Apache License 2.0</a> and that you sign off
-each commit under the
-<a href="#developer-certificate-of-origin-dco">Developer Certificate of Origin</a>.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Anchor link to this section">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Requirement</th>
-<th>Version</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Python</td>
-<td>3.11+</td>
-<td>Required to run the platform</td>
-</tr>
-<tr>
-<td><code>uv</code></td>
-<td>Latest</td>
-<td>Recommended for dependency management and reproducible installs</td>
-</tr>
-<tr>
-<td>Git</td>
-<td>Any recent version</td>
-<td></td>
-</tr>
-<tr>
-<td>Docker</td>
-<td>Latest</td>
-<td>Only needed for MCP server image builds</td>
-</tr>
-</tbody>
-</table>
-<h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Anchor link to this section">&para;</a></h2>
-<p>Install the project and all development dependencies from the committed
-lockfile:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AOT-Technologies/node-wire.git
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>node-wire
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
-</span></code></pre></div>
-<p>Install the pre-commit hooks so checks run automatically before each commit:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pre-commit<span class="w"> </span>install
-</span></code></pre></div>
-<h2 id="quality-checks">Quality Checks<a class="headerlink" href="#quality-checks" title="Anchor link to this section">&para;</a></h2>
-<p>All of the following run in CI on pull requests against <code>main</code>. Run them
-locally before opening a PR:</p>
+<h1 id="nw-connector-builder-scope">nw-connector-builder — scope<a class="headerlink" href="#nw-connector-builder-scope" title="Anchor link to this section">&para;</a></h1>
+<p><code>nw-connector-builder</code> targets a specific, common shape of REST API (single connector-level
+auth scheme, JSON-first bodies, no pagination) and <strong>soft-drops</strong> anything outside that shape
+rather than trying to support every corner of OpenAPI/Swagger. This page is the scope
+reference: what the generator handles today, what it deliberately does not, and what's
+skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself, see
+<a href="../nw-connector-builder/">nw-connector-builder.md</a>.</p>
+<hr />
+<h2 id="in-scope">In scope<a class="headerlink" href="#in-scope" title="Anchor link to this section">&para;</a></h2>
+<h3 id="spec-ingestion">Spec ingestion<a class="headerlink" href="#spec-ingestion" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>Lint:</strong> <code>uv run ruff check .</code></li>
-<li><strong>Auto-fix &amp; format:</strong> <code>uv run ruff check --fix . &amp;&amp; uv run ruff format .</code></li>
-<li><strong>Type-check:</strong> <code>uv run mypy</code></li>
-<li><strong>Security (SAST):</strong> <code>uv run bandit -c pyproject.toml -r src</code></li>
-<li><strong>Tests:</strong> <code>uv run pytest</code></li>
+<li>Swagger <strong>2.0</strong> and OpenAPI <strong>3.x</strong>, YAML or JSON, UTF-8</li>
+<li>Local file path or <code>http(s)</code> URL (remote fetch goes through Node Wire's SSRF guard,
+  <code>assert_safe_destination</code>, no redirects followed)</li>
+<li>In-house Swagger 2.0 → OpenAPI 3.0 normalization at the front door</li>
+<li>Local relative <code>$ref</code>s and in-document <code>#/</code> refs</li>
+<li>Structural + semantic validation via <code>prance</code> + <code>openapi-spec-validator</code></li>
 </ul>
-<p>See <a href="../code-quality-compliance/">Code Quality</a> and <a href="../quality-security-gates/">Quality &amp; Security Gates</a> for the full tooling reference.</p>
-<h2 id="licensing-reuse-compliance">Licensing &amp; REUSE Compliance<a class="headerlink" href="#licensing-reuse-compliance" title="Anchor link to this section">&para;</a></h2>
-<p>This project is <a href="https://reuse.software/">REUSE</a> compliant. <strong>Every new file
-must carry an SPDX header.</strong> For source and Markdown files use the project's
-standard header, e.g. for Python:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># SPDX-FileCopyrightText: 2026 AOT Technologies</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1">#</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-</span></code></pre></div>
-<p>and for Markdown/HTML, an HTML comment with the same two SPDX tags.</p>
-<h2 id="git-identity">Git Identity<a class="headerlink" href="#git-identity" title="Anchor link to this section">&para;</a></h2>
-<p>Configure your git identity before committing. Commits must use your real
-name and a valid email so attribution is accurate:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>config<span class="w"> </span>user.name<span class="w"> </span><span class="s2">"Your Name"</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>git<span class="w"> </span>config<span class="w"> </span>user.email<span class="w"> </span><span class="s2">"you@example.com"</span>
-</span></code></pre></div>
-<h2 id="developer-certificate-of-origin-dco">Developer Certificate of Origin (DCO)<a class="headerlink" href="#developer-certificate-of-origin-dco" title="Anchor link to this section">&para;</a></h2>
-<p>This project uses the <a href="https://developercertificate.org/">Developer Certificate of Origin</a>
-(DCO) instead of a CLA. Add a <code>Signed-off-by</code> trailer to <strong>every commit</strong>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>commit<span class="w"> </span>-s<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Your commit message"</span>
-</span></code></pre></div>
-<p>CI (<code>.github/workflows/dco.yml</code>) verifies that every commit in a pull request
-carries a sign-off matching its author. If you forget:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>rebase<span class="w"> </span>--signoff<span class="w"> </span>main
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>git<span class="w"> </span>push<span class="w"> </span>--force-with-lease
-</span></code></pre></div>
-<h2 id="submitting-changes">Submitting Changes<a class="headerlink" href="#submitting-changes" title="Anchor link to this section">&para;</a></h2>
-<ol>
-<li>Fork the repository and create a feature branch from <code>main</code>.</li>
-<li>Make your change, including tests and documentation updates where relevant.
-   Sign off every commit with <code>git commit -s</code>.</li>
-<li>Ensure all quality checks above pass locally.</li>
-<li>Open a pull request against <code>main</code> with a clear description and motivation.</li>
-<li>A maintainer will review your PR. Address feedback by pushing additional
-   commits to your branch.</li>
-</ol>
-<h2 id="reporting-bugs-requesting-features">Reporting Bugs &amp; Requesting Features<a class="headerlink" href="#reporting-bugs-requesting-features" title="Anchor link to this section">&para;</a></h2>
-<p>Use the GitHub issue templates. For <strong>security vulnerabilities</strong>, do not open a
-public issue — follow the <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md">Security Policy</a> instead.</p>
+<h3 id="auth">Auth<a class="headerlink" href="#auth" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>One connector-level scheme, chosen from the document's top-level <code>security</code> (or the most
+  common scheme across operations if none is declared)</li>
+<li><code>apiKey</code> in <code>header</code> or <code>query</code>, <code>http</code> <code>bearer</code>, <code>http</code> <code>basic</code> — mapped to Node Wire's
+  <code>static_token</code> / <code>apikey_query</code> auth providers</li>
+<li>Anonymous connectors (no scheme, or only unsupported schemes present) build as <code>auth: none</code></li>
+</ul>
+<h3 id="codegen">Codegen<a class="headerlink" href="#codegen" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Actions discoverable via <code>@nw_action</code> on a generated <code>RestConnector</code> subclass (regex-scrapable
+  by <code>nw-mcp-builder</code>, matching the hand-written-connector convention)</li>
+<li>A shared, hardened REST executor (<code>node-wire-runtime</code>) owns base URL, path templating,
+  parameter placement, auth injection, SSRF checks, and error mapping</li>
+<li>Hybrid schema translation: <code>datamodel-code-generator</code> for request/response schemas, hand-rolled
+  per-operation input envelope with an <code>action: Literal</code> discriminator</li>
+<li>Non-JSON request bodies (form data, files, raw content) encoded by declared media type</li>
+<li>Typed output models from the lowest documented 2xx JSON response, falling back to a generic
+  response envelope when no schema is documented</li>
+</ul>
+<h3 id="testing-build-gate">Testing &amp; build gate<a class="headerlink" href="#testing-build-gate" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Offline schema/contract tests only: parse the spec's <code>example</code> into the generated model when
+  present, else synthesize one with <code>polyfactory</code></li>
+<li>Generated tests ship with the connector (<code>packages/connectors/&lt;id&gt;/tests/</code>)</li>
+<li>Import smoke test + <code>pytest</code> on staged output is a hard gate — promote only happens on green</li>
+<li>Atomic two-phase promote into <code>src/node_wire_&lt;id&gt;/</code> and <code>packages/connectors/&lt;id&gt;/</code>; abort
+  leaves the repo untouched</li>
+</ul>
+<h3 id="wiring-hand-off">Wiring &amp; hand-off<a class="headerlink" href="#wiring-hand-off" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Optional <code>--wire</code>: upserts <code>config/connectors.yaml</code> (comment-preserving via <code>ruamel.yaml</code>) and
+  appends secret placeholders / allowlist entries to <code>sample.env</code></li>
+<li>Automatic hand-off to <code>nw-mcp-builder</code> after a clean promote (unless <code>--no-mcp</code>), producing an
+  MCP host under <code>nw-mcp-builder/out/</code></li>
+</ul>
+<hr />
+<h2 id="out-of-scope">Out of scope<a class="headerlink" href="#out-of-scope" title="Anchor link to this section">&para;</a></h2>
+<h3 id="auth-schemes">Auth schemes<a class="headerlink" href="#auth-schemes" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>OAuth2</strong> and <strong>OpenID Connect</strong> — operations secured only by these are soft-dropped, not
+  supported with a workaround</li>
+<li><strong>mutualTLS</strong></li>
+<li><strong>Cookie-based API keys</strong></li>
+<li><strong>AND-combined</strong> multi-scheme security (<code>security: [{a: [], b: []}]</code>)</li>
+<li>More than one auth provider per connector — a connector is single-scheme, even if the spec
+  declares several; operations needing a divergent scheme are soft-dropped</li>
+<li>Per-operation auth overrides — auth is connector-level only</li>
+</ul>
+<h3 id="spec-features">Spec features<a class="headerlink" href="#spec-features" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Remote <code>$ref</code>s</strong> (absolute URLs) — rejected outright; the input document must be
+  self-contained aside from local relative/<code>#/</code> refs</li>
+<li><strong>Path- or operation-level <code>servers</code> overrides</strong> — ignored; only the connector-level base URL
+  is used (noted in the build report when present)</li>
+<li>Uncommon parameter serialization: <code>deepObject</code> query style, non-<code>simple</code> path/header styles,
+  unsupported <code>collectionFormat</code> values (Swagger 2.0) — soft-dropped per operation</li>
+<li><code>in: cookie</code> parameters — soft-dropped per operation</li>
+</ul>
+<h3 id="behavior-not-generated">Behavior not generated<a class="headerlink" href="#behavior-not-generated" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Pagination</strong> — no auto-pagination in v1, even when the spec documents cursor/offset
+  patterns; generated actions return one page as-is</li>
+<li><strong>Rate-limit / observability metadata</strong> — not derived from the spec (e.g. <code>x-ratelimit-*</code>
+  extensions are ignored); deferred, not designed</li>
+<li>Complex/ambiguous request bodies and non-object success responses fall back to permissive
+  typing (<code>Any</code> / <code>RestResponseOutput</code>) rather than a fully modeled schema</li>
+</ul>
+<h3 id="testing-depth">Testing depth<a class="headerlink" href="#testing-depth" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Mock-server tests and live/integration tests against the real API are explicitly out of
+  scope</strong> — only offline schema/contract tests against generated models are produced</li>
+<li>No contract testing against the live upstream service as part of the generator's gate</li>
+</ul>
+<h3 id="registration-deployment">Registration &amp; deployment<a class="headerlink" href="#registration-deployment" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><code>--wire</code> never edits <code>connector_registry.py</code> or the root <code>pyproject.toml</code> — entry-point
+  registration for editable monorepo installs is a manual follow-up step</li>
+<li>Publishing (PyPI wheel <code>setup.py</code>/Cython glue, <code>scripts/build-packages.sh</code> allowlist entries,
+  CI allowlists, standalone MCP Docker image rows) is a manual <strong>Tier 2/3</strong> checklist in
+  <a href="../packaging/">packaging.md</a> — the builder produces the runtime + package skeleton only</li>
+<li>No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
+  <code>thv</code>/ToolHive deploy or verify is manual, per <code>scripts/deploy-openapi-mcp-toolhive.md</code> — this
+  was explicitly dropped from the companion <code>nw-cli</code> orchestrator's scope too, see
+  <a href="../nw-cli/">nw-cli.md</a></li>
+</ul>
+<h3 id="editing-generated-output">Editing generated output<a class="headerlink" href="#editing-generated-output" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Generated files are marked "do not hand-edit" — there is no supported workflow for
+  incrementally patching a generated connector; the only supported update path is regenerating
+  with <code>--force</code> (full overwrite, not a diff/merge)</li>
+</ul>
+<hr />
+<h2 id="soft-drop-vs-hard-failure">Soft-drop vs. hard failure<a class="headerlink" href="#soft-drop-vs-hard-failure" title="Anchor link to this section">&para;</a></h2>
+<p>Everything above that's "soft-dropped" means: the operation is skipped and listed in
+<code>report.json</code>, but the build continues. The only way an out-of-scope feature aborts the build
+is if it leaves <strong>zero usable operations</strong> — that's a hard failure (<code>DeriveError</code>), since a
+connector with no actions isn't useful. A coverage warning is also printed when fewer than 50%
+of the document's operations survive derivation, even if the build otherwise succeeds.</p>
+<p>This soft-fail-and-report design is deliberate: the generator is meant to get you most of the
+way there for typical REST APIs, with the report telling you exactly what to hand-write or
+follow up on for the rest — not to silently produce a broken or partial connector.</p>
 
 
 
@@ -1984,7 +2162,7 @@ public issue — follow the <a href="https://github.com/AOT-Technologies/node-wi
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../toolhive_agent_scenario/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Agent Scenario">
+          <a href="../nw-connector-builder/" class="md-footer__link md-footer__link--prev" aria-label="Previous: OpenAPI Builder">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1994,20 +2172,20 @@ public issue — follow the <a href="https://github.com/AOT-Technologies/node-wi
                 Previous
               </span>
               <div class="md-ellipsis">
-                Agent Scenario
+                OpenAPI Builder
               </div>
             </div>
           </a>
         
         
           
-          <a href="../code-quality-compliance/" class="md-footer__link md-footer__link--next" aria-label="Next: Code Quality">
+          <a href="../nw-cli/" class="md-footer__link md-footer__link--next" aria-label="Next: nw CLI">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Code Quality
+                nw CLI
               </div>
             </div>
             <div class="md-footer__button md-icon">

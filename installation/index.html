@@ -902,6 +902,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1979,7 +2063,7 @@ SPDX-License-Identifier: Apache-2.0
 - Minimal install (REST/gRPC only): <code>pip install -e .</code>
 - Dev install (linting/tests): <code>pip install -e ".[dev,agents]"</code></p>
 <h3 id="4-verify-the-installation">4. Verify the installation<a class="headerlink" href="#4-verify-the-installation" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from importlib.metadata import version; print(&#39;node-wire&#39;, version(&#39;node-wire&#39;))&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from importlib.metadata import version; print('node-wire', version('node-wire'))"</span>
 </span></code></pre></div>
 <p>To confirm the REST API starts, run <code>MODE=API uv run node-wire</code> and open <code>http://127.0.0.1:8000/health</code> (default bind is <code>127.0.0.1</code>; override with <code>NW_REST_HOST</code> if needed).</p>
 <hr />

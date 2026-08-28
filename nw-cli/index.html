@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/contributing/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/nw-cli/">
       
       
-        <link rel="prev" href="../toolhive_agent_scenario/">
+        <link rel="prev" href="../nw-connector-builder-scope/">
       
       
-        <link rel="next" href="../code-quality-compliance/">
+        <link rel="next" href="../google_drive_connector/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Contributing - Node Wire</title>
+        <title>nw CLI - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing-to-node-wire" class="md-skip">
+        <a href="#nw-cli" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Contributing
+              nw CLI
             
           </span>
         </div>
@@ -283,10 +283,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../connectors/" class="md-tabs__link">
           
   
@@ -323,13 +325,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../contributing/" class="md-tabs__link">
           
   
   
@@ -606,28 +606,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -645,7 +648,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -744,10 +747,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../nw-cli/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -763,6 +793,153 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-all
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-whl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-whl
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-mcp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-docker-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw docker-build
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relationship-to-sibling-clis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to sibling CLIs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1036,31 +1213,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
             
   
   
@@ -1078,7 +1252,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1093,37 +1267,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Contributing
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1139,114 +1286,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quality-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quality Checks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#licensing-reuse-compliance" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Licensing &amp; REUSE Compliance
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#git-identity" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Git Identity
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#developer-certificate-of-origin-dco" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Developer Certificate of Origin (DCO)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#submitting-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Submitting Changes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-bugs-requesting-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting Bugs &amp; Requesting Features
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1688,10 +1727,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        Install
       
     </span>
   </a>
@@ -1699,10 +1738,71 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#development-setup" class="md-nav__link">
+  <a href="#commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Development Setup
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-all
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-whl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-whl
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-mcp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-docker-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw docker-build
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
       
     </span>
   </a>
@@ -1710,10 +1810,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#quality-checks" class="md-nav__link">
+  <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quality Checks
+        Exit codes
       
     </span>
   </a>
@@ -1721,10 +1821,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#licensing-reuse-compliance" class="md-nav__link">
+  <a href="#relationship-to-sibling-clis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Licensing &amp; REUSE Compliance
+        Relationship to sibling CLIs
       
     </span>
   </a>
@@ -1732,10 +1832,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#git-identity" class="md-nav__link">
+  <a href="#tests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Git Identity
+        Tests
       
     </span>
   </a>
@@ -1743,32 +1843,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#developer-certificate-of-origin-dco" class="md-nav__link">
+  <a href="#related-docs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Developer Certificate of Origin (DCO)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#submitting-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Submitting Changes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reporting-bugs-requesting-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting Bugs &amp; Requesting Features
+        Related docs
       
     </span>
   </a>
@@ -1818,10 +1896,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../connectors/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Development
+    Connectors
   </span>
 
         </a>
@@ -1849,104 +1927,206 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="contributing-to-node-wire">Contributing to Node Wire<a class="headerlink" href="#contributing-to-node-wire" title="Anchor link to this section">&para;</a></h1>
-<p>Thanks for your interest in contributing! This guide covers how to set up a
-development environment, the quality checks we enforce, and the conventions for
-submitting changes. By contributing you agree that your contributions are
-licensed under the project's <a href="https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE">Apache License 2.0</a> and that you sign off
-each commit under the
-<a href="#developer-certificate-of-origin-dco">Developer Certificate of Origin</a>.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Anchor link to this section">&para;</a></h2>
+<h1 id="nw-cli">nw CLI<a class="headerlink" href="#nw-cli" title="Anchor link to this section">&para;</a></h1>
+<p><code>nw</code> is the unified CLI for the OpenAPI → connector → wheel → MCP host → Docker image pipeline. It orchestrates <a href="../nw-connector-builder/"><code>nw-connector-builder</code></a>, <a href="../packaging/"><code>scripts/build-packages.sh</code></a>, and <a href="../mcp-servers/"><code>nw-mcp-builder</code></a> without replacing those tools.</p>
+<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. See <code>scripts/deploy-openapi-mcp-toolhive.md</code> for manual deploy steps.</p>
+<hr />
+<h2 id="install">Install<a class="headerlink" href="#install" title="Anchor link to this section">&para;</a></h2>
+<p><code>nw-cli</code> is part of the monorepo <strong>dev</strong> dependency group. From the <strong>node-wire</strong> repo root (hard assumption — there is no <code>--node-wire-root</code> flag):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--help
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--version<span class="w">   </span><span class="c1"># or -V</span>
+</span></code></pre></div>
+<hr />
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Anchor link to this section">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Requirement</th>
-<th>Version</th>
-<th>Notes</th>
+<th>Command</th>
+<th>What it does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Python</td>
-<td>3.11+</td>
-<td>Required to run the platform</td>
+<td><code>nw gen-all</code></td>
+<td>One-shot: connector codegen → Linux wheels → MCP host → wire</td>
 </tr>
 <tr>
-<td><code>uv</code></td>
-<td>Latest</td>
-<td>Recommended for dependency management and reproducible installs</td>
+<td><code>nw gen-whl</code></td>
+<td>Standalone wheel build via <code>scripts/build-packages.sh</code></td>
 </tr>
 <tr>
-<td>Git</td>
-<td>Any recent version</td>
-<td></td>
+<td><code>nw gen-mcp</code></td>
+<td>Standalone MCP host (requires existing wheels)</td>
 </tr>
 <tr>
-<td>Docker</td>
-<td>Latest</td>
-<td>Only needed for MCP server image builds</td>
+<td><code>nw docker-build</code></td>
+<td><code>docker build</code> inside <code>nw-mcp-builder/out/&lt;server&gt;-mcp/</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Anchor link to this section">&para;</a></h2>
-<p>Install the project and all development dependencies from the committed
-lockfile:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AOT-Technologies/node-wire.git
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>node-wire
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
+<pre class="mermaid"><code>flowchart LR
+  generate["nw gen-all"] --&gt; runBuild["run_build no_mcp=True"]
+  generate --&gt; wheelStage["build-packages.sh"]
+  generate --&gt; mcpStage["run_from_connector"]
+  generate --&gt; allPkgs["ALL_PACKAGES"]
+  wheelCmd["nw gen-whl"] --&gt; wheelStage
+  mcpCmd["nw gen-mcp"] --&gt; mcpStage
+  dockerCmd["nw docker-build"] --&gt; dockerBuild["docker build"]</code></pre>
+<h3 id="nw-gen-all"><code>nw gen-all</code><a class="headerlink" href="#nw-gen-all" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-all<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--path<span class="w"> </span>path/to/openapi.yaml
 </span></code></pre></div>
-<p>Install the pre-commit hooks so checks run automatically before each commit:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pre-commit<span class="w"> </span>install
-</span></code></pre></div>
-<h2 id="quality-checks">Quality Checks<a class="headerlink" href="#quality-checks" title="Anchor link to this section">&para;</a></h2>
-<p>All of the following run in CI on pull requests against <code>main</code>. Run them
-locally before opening a PR:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--connector-id</code></td>
+<td>Connector id (required)</td>
+</tr>
+<tr>
+<td><code>--path</code></td>
+<td>OpenAPI/Swagger file or URL (required)</td>
+</tr>
+<tr>
+<td><code>--no-wheel</code></td>
+<td>Skip wheel build</td>
+</tr>
+<tr>
+<td><code>--no-mcp</code></td>
+<td>Skip MCP host build</td>
+</tr>
+<tr>
+<td><code>--no-wire</code></td>
+<td>Skip <code>connectors.yaml</code> / <code>sample.env</code> / <code>ALL_PACKAGES</code> registration</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>Overwrite existing connector / MCP output</td>
+</tr>
+</tbody>
+</table>
+<p>Stages are <strong>in-process</strong> function calls (never re-invokes <code>nw</code>). Connector codegen always passes <code>no_mcp=True</code> to <code>run_build</code> so the builder’s host-only MCP hand-off is skipped; MCP uses <code>skip_build_wheels=True</code> against wheels from <code>build-packages.sh</code>.</p>
+<p>When wire is enabled:</p>
 <ul>
-<li><strong>Lint:</strong> <code>uv run ruff check .</code></li>
-<li><strong>Auto-fix &amp; format:</strong> <code>uv run ruff check --fix . &amp;&amp; uv run ruff format .</code></li>
-<li><strong>Type-check:</strong> <code>uv run mypy</code></li>
-<li><strong>Security (SAST):</strong> <code>uv run bandit -c pyproject.toml -r src</code></li>
-<li><strong>Tests:</strong> <code>uv run pytest</code></li>
+<li><code>run_build(..., wire=True)</code> updates <code>config/connectors.yaml</code> and <code>sample.env</code></li>
+<li><code>nw</code> inserts <code>packages/connectors/&lt;id&gt;</code> into <code>scripts/build-packages.sh</code>’s <code>ALL_PACKAGES</code> list if missing</li>
 </ul>
-<p>See <a href="../code-quality-compliance/">Code Quality</a> and <a href="../quality-security-gates/">Quality &amp; Security Gates</a> for the full tooling reference.</p>
-<h2 id="licensing-reuse-compliance">Licensing &amp; REUSE Compliance<a class="headerlink" href="#licensing-reuse-compliance" title="Anchor link to this section">&para;</a></h2>
-<p>This project is <a href="https://reuse.software/">REUSE</a> compliant. <strong>Every new file
-must carry an SPDX header.</strong> For source and Markdown files use the project's
-standard header, e.g. for Python:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># SPDX-FileCopyrightText: 2026 AOT Technologies</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1">#</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
+<p>If MCP runs and wheels are missing, the same TTY / non-TTY prerequisite handling as <code>gen-mcp</code> applies (see below).</p>
+<h3 id="nw-gen-whl"><code>nw gen-whl</code><a class="headerlink" href="#nw-gen-whl" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">          </span><span class="c1"># Linux-only (default)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--host<span class="w">   </span><span class="c1"># host-only</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--all<span class="w">    </span><span class="c1"># cibuildwheel matrix</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--runtime<span class="w">                         </span><span class="c1"># packages/runtime only</span>
 </span></code></pre></div>
-<p>and for Markdown/HTML, an HTML comment with the same two SPDX tags.</p>
-<h2 id="git-identity">Git Identity<a class="headerlink" href="#git-identity" title="Anchor link to this section">&para;</a></h2>
-<p>Configure your git identity before committing. Commits must use your real
-name and a valid email so attribution is accurate:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>config<span class="w"> </span>user.name<span class="w"> </span><span class="s2">"Your Name"</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>git<span class="w"> </span>config<span class="w"> </span>user.email<span class="w"> </span><span class="s2">"you@example.com"</span>
+<p>Default mode passes <strong><code>--linux-only</code></strong> to <code>scripts/build-packages.sh</code> (not the script’s host+Linux combined default). The CLI does not expose a <code>--linux-only</code> flag — omit <code>--host</code> / <code>--all</code> to get that mode. <code>--host</code> and <code>--all</code> are mutually exclusive. Runtime is not rebuilt with every connector build — use <code>--runtime</code> when needed. <code>--connector-id</code> is required unless <code>--runtime</code> is set.</p>
+<h3 id="nw-gen-mcp"><code>nw gen-mcp</code><a class="headerlink" href="#nw-gen-mcp" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--force-output
 </span></code></pre></div>
-<h2 id="developer-certificate-of-origin-dco">Developer Certificate of Origin (DCO)<a class="headerlink" href="#developer-certificate-of-origin-dco" title="Anchor link to this section">&para;</a></h2>
-<p>This project uses the <a href="https://developercertificate.org/">Developer Certificate of Origin</a>
-(DCO) instead of a CLA. Add a <code>Signed-off-by</code> trailer to <strong>every commit</strong>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>commit<span class="w"> </span>-s<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Your commit message"</span>
+<p>Always <code>skip_build_wheels=True</code>. If the runtime or connector wheel is missing:</p>
+<ul>
+<li><strong>Interactive (TTY):</strong> prompts to build the missing prerequisite</li>
+<li><strong>Non-interactive:</strong> exits non-zero with the exact fix command (e.g. <code>nw gen-whl --runtime</code>)</li>
+</ul>
+<p>There is no <code>--yes</code> / auto-confirm flag.</p>
+<h3 id="nw-docker-build"><code>nw docker-build</code><a class="headerlink" href="#nw-docker-build" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--tag<span class="w"> </span>v1
 </span></code></pre></div>
-<p>CI (<code>.github/workflows/dco.yml</code>) verifies that every commit in a pull request
-carries a sign-off matching its author. If you forget:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>rebase<span class="w"> </span>--signoff<span class="w"> </span>main
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>git<span class="w"> </span>push<span class="w"> </span>--force-with-lease
+<p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (e.g. <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>.</p>
+<p>If the MCP project directory is missing, the same TTY / non-TTY prompt offers to run <code>nw gen-mcp</code> first.</p>
+<hr />
+<h2 id="output">Output<a class="headerlink" href="#output" title="Anchor link to this section">&para;</a></h2>
+<p><code>nw gen-all</code> uses brand-colored <code>rich.progress</code> (amber spinner, blue bar, pink on failure) with a bordered summary panel. Single-stage commands use a simpler status spinner.</p>
+<hr />
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Success</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Stage failure, missing prerequisite (non-interactive / declined), or root resolution error</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Usage error (e.g. <code>--host</code> with <code>--all</code>, or missing <code>--connector-id</code> without <code>--runtime</code>)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="relationship-to-sibling-clis">Relationship to sibling CLIs<a class="headerlink" href="#relationship-to-sibling-clis" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nw</code></td>
+<td>Orchestrator for the happy path</td>
+</tr>
+<tr>
+<td><code>nw-connector-builder</code></td>
+<td>Still available for low-level OpenAPI codegen</td>
+</tr>
+<tr>
+<td><code>nw-mcp-builder</code></td>
+<td>Still available for MCP-only generation</td>
+</tr>
+</tbody>
+</table>
+<p>Deprecating the standalone builder entry points is <strong>not</strong> part of this CLI.</p>
+<hr />
+<h2 id="tests">Tests<a class="headerlink" href="#tests" title="Anchor link to this section">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_cli<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </span></code></pre></div>
-<h2 id="submitting-changes">Submitting Changes<a class="headerlink" href="#submitting-changes" title="Anchor link to this section">&para;</a></h2>
-<ol>
-<li>Fork the repository and create a feature branch from <code>main</code>.</li>
-<li>Make your change, including tests and documentation updates where relevant.
-   Sign off every commit with <code>git commit -s</code>.</li>
-<li>Ensure all quality checks above pass locally.</li>
-<li>Open a pull request against <code>main</code> with a clear description and motivation.</li>
-<li>A maintainer will review your PR. Address feedback by pushing additional
-   commits to your branch.</li>
-</ol>
-<h2 id="reporting-bugs-requesting-features">Reporting Bugs &amp; Requesting Features<a class="headerlink" href="#reporting-bugs-requesting-features" title="Anchor link to this section">&para;</a></h2>
-<p>Use the GitHub issue templates. For <strong>security vulnerabilities</strong>, do not open a
-public issue — follow the <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md">Security Policy</a> instead.</p>
+<p>Coverage is unit/mocked only (no live Docker or network spec fetch).</p>
+<hr />
+<h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Doc</th>
+<th>When to read it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../nw-connector-builder/">nw-connector-builder.md</a></td>
+<td>OpenAPI → connector codegen details</td>
+</tr>
+<tr>
+<td><a href="../mcp-servers/">mcp-servers.md</a></td>
+<td>Generated MCP host layout, ToolHive, Inspector</td>
+</tr>
+<tr>
+<td><a href="../packaging/">packaging.md</a></td>
+<td><code>build-packages.sh</code>, wheels, PyPI</td>
+</tr>
+<tr>
+<td><a href="../configuration/">configuration.md</a></td>
+<td><code>connectors.yaml</code> and env vars</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -1984,7 +2164,7 @@ public issue — follow the <a href="https://github.com/AOT-Technologies/node-wi
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../toolhive_agent_scenario/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Agent Scenario">
+          <a href="../nw-connector-builder-scope/" class="md-footer__link md-footer__link--prev" aria-label="Previous: OpenAPI Builder Scope">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1994,20 +2174,20 @@ public issue — follow the <a href="https://github.com/AOT-Technologies/node-wi
                 Previous
               </span>
               <div class="md-ellipsis">
-                Agent Scenario
+                OpenAPI Builder Scope
               </div>
             </div>
           </a>
         
         
           
-          <a href="../code-quality-compliance/" class="md-footer__link md-footer__link--next" aria-label="Next: Code Quality">
+          <a href="../google_drive_connector/" class="md-footer__link md-footer__link--next" aria-label="Next: Google Drive">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Code Quality
+                Google Drive
               </div>
             </div>
             <div class="md-footer__button md-icon">

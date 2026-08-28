@@ -691,6 +691,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1902,10 +1986,10 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>packages/connectors/stripe
 </span></code></pre></div>
 <p>The script (<code>scripts/build-packages.sh</code> in default mode, not <code>--all</code>):
-- builds host wheels and Linux-compatible wheels (via Docker),
+- builds host wheels and Linux-compatible wheels (via a local <code>nw-wheel-builder:local</code> Docker image — not published to a registry; layer-cached after the first build),
 - writes artifacts under each package's <code>dist/</code> folder,
 - fails if any <code>.py</code> source files leak into a wheel.</p>
-<p>For optional local <code>cibuildwheel</code> builds (broader wheel matrix on your host), see <strong>Optional: broader wheels</strong> in <a href="../packaging/">docs/packaging.md</a>.</p>
+<p>Use <code>--linux-only</code> when you only need container wheels, or <code>--host-only</code> to skip Docker. For optional local <code>cibuildwheel</code> builds (broader wheel matrix on your host), see <strong>Optional: broader wheels</strong> in <a href="../packaging/">docs/packaging.md</a>.</p>
 <hr />
 <h2 id="2-confirm-wheel-artifacts-exist">2) Confirm wheel artifacts exist<a class="headerlink" href="#2-confirm-wheel-artifacts-exist" title="Anchor link to this section">&para;</a></h2>
 <p>Quick check (example for SMTP):</p>

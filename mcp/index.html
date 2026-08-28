@@ -691,6 +691,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1928,10 +2012,10 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div></p>
 <p><strong>PowerShell (Windows):</strong>
 <div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c"># Using uv</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">&quot;stdio&quot;</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">"stdio"</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c"># Using python</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">&quot;stdio&quot;</span><span class="p">;</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">"stdio"</span><span class="p">;</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
 </span></code></pre></div></p>
 <h3 id="2-streamable-http">2. <code>streamable-http</code><a class="headerlink" href="#2-streamable-http" title="Anchor link to this section">&para;</a></h3>
 <p>Native HTTP MCP server using SSE (Server-Sent Events).
@@ -1944,10 +2028,10 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div></p>
 <p><strong>PowerShell (Windows):</strong>
 <div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c"># Using uv</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">&quot;streamable-http&quot;</span><span class="p">;</span> <span class="nv">$env:NW_MCP_HOST</span><span class="p">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PORT</span><span class="p">=</span><span class="s2">&quot;8081&quot;</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PATH</span><span class="p">=</span><span class="s2">&quot;/mcp&quot;</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">"streamable-http"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_HOST</span><span class="p">=</span><span class="s2">"127.0.0.1"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PORT</span><span class="p">=</span><span class="s2">"8081"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PATH</span><span class="p">=</span><span class="s2">"/mcp"</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c"># Using python</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">&quot;streamable-http&quot;</span><span class="p">;</span> <span class="nv">$env:NW_MCP_HOST</span><span class="p">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PORT</span><span class="p">=</span><span class="s2">&quot;8081&quot;</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PATH</span><span class="p">=</span><span class="s2">&quot;/mcp&quot;</span><span class="p">;</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nv">$env:NW_MCP_TRANSPORT</span><span class="p">=</span><span class="s2">"streamable-http"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_HOST</span><span class="p">=</span><span class="s2">"127.0.0.1"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PORT</span><span class="p">=</span><span class="s2">"8081"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_PATH</span><span class="p">=</span><span class="s2">"/mcp"</span><span class="p">;</span> <span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">mcp_entrypoint</span>
 </span></code></pre></div></p>
 <h3 id="streaming-features">Streaming Features<a class="headerlink" href="#streaming-features" title="Anchor link to this section">&para;</a></h3>
 <ul>

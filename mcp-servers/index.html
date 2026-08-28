@@ -691,6 +691,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -2046,6 +2130,13 @@ SPDX-License-Identifier: Apache-2.0
 <h1 id="nw-mcp-builder">nw-mcp-builder<a class="headerlink" href="#nw-mcp-builder" title="Anchor link to this section">&para;</a></h1>
 <p>Self-contained tool inside the <strong>node-wire</strong> repo that turns a node-wire connector into a standalone MCP server project.</p>
 <p>It does <strong>not</strong> depend on the separate <a href="https://github.com/your-org/mcp-builder">mcp-builder</a> repo. Everything needed to generate connector-mode MCP hosts lives in this folder.</p>
+<p>To <strong>create</strong> a connector from OpenAPI/Swagger first, use <a href="../nw-connector-builder/">nw-connector-builder</a> (it can hand off to this tool automatically unless you pass <code>--no-mcp</code>), or the full pipeline via <a href="../nw-cli/"><code>nw gen-all</code></a>.</p>
+<p>You can also run MCP generation as a subcommand of the connector builder (same flags), or via the orchestrator CLI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--directory<span class="w"> </span>nw-connector-builder<span class="w"> </span>nw-connector-builder<span class="w"> </span>mcp<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># equivalent happy-path stages:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>&lt;connector_id&gt;
+</span></code></pre></div>
+<p>The standalone <code>nw-mcp-builder</code> entry point remains supported.</p>
 </div>
 <hr />
 <h2 id="platform-and-toolhive-read-this-first">Platform and ToolHive (read this first)<a class="headerlink" href="#platform-and-toolhive-read-this-first" title="Anchor link to this section">&para;</a></h2>
@@ -2073,11 +2164,11 @@ SPDX-License-Identifier: Apache-2.0
 </table>
 <h3 id="linux-wheels-for-toolhive-docker-local-mcp-server">Linux wheels for ToolHive Docker (local MCP server)<a class="headerlink" href="#linux-wheels-for-toolhive-docker-local-mcp-server" title="Anchor link to this section">&para;</a></h3>
 <p>From the <strong>node-wire</strong> repository root (requires Docker; uses <code>python:3.12-slim</code> for the Linux build):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Generic — runtime + one connector</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/runtime<span class="w"> </span>packages/connectors/&lt;connector_id&gt;
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Example — google_drive</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/runtime<span class="w"> </span>packages/connectors/google_drive
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Generic — runtime + one connector</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/runtime<span class="w"> </span>packages/connectors/&lt;connector_id&gt;
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Example — google_drive</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/runtime<span class="w"> </span>packages/connectors/google_drive
 </span></code></pre></div>
 <p>Wheels land in:</p>
 <ul>
@@ -2085,15 +2176,15 @@ SPDX-License-Identifier: Apache-2.0
 <li><code>packages/connectors/&lt;connector_id&gt;/dist/</code></li>
 </ul>
 <p>Then generate (or regenerate) the host <strong>without rebuilding host-OS wheels</strong>, so the Linux artifacts stay selected:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>sync
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--skip-build-wheels<span class="w"> </span>--force-output
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Example</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>--skip-build-wheels<span class="w"> </span>--force-output
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>sync
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--skip-build-wheels<span class="w"> </span>--force-output
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Example</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>--skip-build-wheels<span class="w"> </span>--force-output
 </span></code></pre></div>
 <h3 id="host-os-wheels-nw-mcp-builder-without-a-prior-linux-build">Host-OS wheels (<code>nw-mcp-builder</code> without a prior Linux build)<a class="headerlink" href="#host-os-wheels-nw-mcp-builder-without-a-prior-linux-build" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
 </span></code></pre></div>
 <p>builds wheels for <strong>whatever OS/Python you are on</strong> (Windows → <code>win_amd64</code>, Linux → linux, etc.) and copies the newest <code>.whl</code> into <code>out/&lt;name&gt;-mcp/wheels/</code>. Those host wheels are fine for:</p>
 <ul>
@@ -2181,7 +2272,7 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong>Python 3.11+</strong> for <code>nw-mcp-builder</code> itself</li>
 <li><strong>Python version matching wheels</strong> for generated hosts — on Windows, wheels are often built as <strong>cp314</strong>, so use:</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.14
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.14
 </span></code></pre></div>
 <ul>
 <li><strong>Docker</strong> — required for Linux wheels via <code>scripts/build-packages.sh</code> and for ToolHive local MCP images</li>
@@ -2190,57 +2281,57 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Anchor link to this section">&para;</a></h2>
 <h3 id="1-install-the-tool">1. Install the tool<a class="headerlink" href="#1-install-the-tool" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder
 </span></code></pre></div>
 <p>From the node-wire repo root:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--directory<span class="w"> </span>nw-mcp-builder<span class="w"> </span>nw-mcp-builder<span class="w"> </span>--help
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--directory<span class="w"> </span>nw-mcp-builder<span class="w"> </span>nw-mcp-builder<span class="w"> </span>--help
 </span></code></pre></div>
 <h3 id="2-generate-an-mcp-host">2. Generate an MCP host<a class="headerlink" href="#2-generate-an-mcp-host" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Full run: build host-OS wheels + use/create fixture + generate project</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># For Toolhive testing proceed with the second command if you alread have linux based wheel files.</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># This command will be generating platform depended wheels files</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># Example</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Reuse existing wheels (required after Linux build-packages.sh for ToolHive Docker)</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--skip-build-wheels
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Example</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>salesforce<span class="w"> </span>--skip-build-wheels
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># Replace an existing generated project</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--force-output
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="c1"># Example</span>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>fhir_epic<span class="w"> </span>--force-output
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>
-</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="c1"># Regenerate fixture from connector source</span>
-</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--force-fixture
-</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="c1"># Example</span>
-</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>slack<span class="w"> </span>--force-fixture
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Full run: build host-OS wheels + use/create fixture + generate project</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># For Toolhive testing proceed with the second command if you alread have linux based wheel files.</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># This command will be generating platform depended wheels files</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># Example</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># Reuse existing wheels (required after Linux build-packages.sh for ToolHive Docker)</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--skip-build-wheels
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Example</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>salesforce<span class="w"> </span>--skip-build-wheels
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1"># Replace an existing generated project</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--force-output
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="c1"># Example</span>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>fhir_epic<span class="w"> </span>--force-output
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="c1"># Regenerate fixture from connector source</span>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>--force-fixture
+</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="c1"># Example</span>
+</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>slack<span class="w"> </span>--force-fixture
 </span></code></pre></div>
 <h3 id="3-run-the-generated-host">3. Run the generated host<a class="headerlink" href="#3-run-the-generated-host" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">cd</span><span class="w"> </span>out/&lt;name&gt;-mcp
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># Example</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">cd</span><span class="w"> </span>out/google-drive-nw-mcp
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">    </span><span class="c1"># optional locally; or inject secrets via env (ToolHive)</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.14<span class="w">   </span><span class="c1"># match wheel ABI (cp314 on many Windows builds)</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>&lt;module_name&gt;
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Example</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>google_drive_nw_mcp
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">cd</span><span class="w"> </span>out/&lt;name&gt;-mcp
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Example</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">cd</span><span class="w"> </span>out/google-drive-nw-mcp
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">    </span><span class="c1"># optional locally; or inject secrets via env (ToolHive)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.14<span class="w">   </span><span class="c1"># match wheel ABI (cp314 on many Windows builds)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>&lt;module_name&gt;
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Example</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>google_drive_nw_mcp
 </span></code></pre></div>
 <p>HTTP MCP (default) listens on port <strong>8081</strong>. For stdio (e.g. Cursor / MCP Inspector):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">NW_MCP_TRANSPORT</span><span class="o">=</span>stdio<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>&lt;module_name&gt;
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Example</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nv">NW_MCP_TRANSPORT</span><span class="o">=</span>stdio<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>google_drive_nw_mcp
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">NW_MCP_TRANSPORT</span><span class="o">=</span>stdio<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>&lt;module_name&gt;
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># Example</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">NW_MCP_TRANSPORT</span><span class="o">=</span>stdio<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>google_drive_nw_mcp
 </span></code></pre></div>
 <h4 id="toolhive-local-mcp-docker-image-from-the-generated-host">ToolHive local MCP (Docker image from the generated host)<a class="headerlink" href="#toolhive-local-mcp-docker-image-from-the-generated-host" title="Anchor link to this section">&para;</a></h4>
 <p>If you will run this as a <strong>local MCP server in ToolHive</strong>, build the Docker image from the generated project (after placing <strong>Linux</strong> wheels — see <a href="#platform-and-toolhive-read-this-first">Platform and ToolHive</a>):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder/out/&lt;name&gt;-mcp
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># Example</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder/out/google-drive-nw-mcp
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>&lt;image-name&gt;:latest<span class="w"> </span>.
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Example</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>google-drive-nw-mcp:latest<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder/out/&lt;name&gt;-mcp
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Example</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder/out/google-drive-nw-mcp
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>&lt;image-name&gt;:latest<span class="w"> </span>.
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># Example</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>google-drive-nw-mcp:latest<span class="w"> </span>.
 </span></code></pre></div>
 <p>Point ToolHive at that image (e.g. <code>google-drive-nw-mcp:latest</code>).</p>
 <p><strong>Secrets / env</strong> — pick one (or combine: process env wins; project <code>.env</code> only fills unset keys):</p>
@@ -2306,7 +2397,7 @@ SPDX-License-Identifier: Apache-2.0
 <p>Example host path: <code>G:\SPACE\node-wire\nw-mcp-builder\out\google-drive-nw-mcp\.env</code></p>
 <hr />
 <h2 id="cli-reference">CLI reference<a class="headerlink" href="#cli-reference" title="Anchor link to this section">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>uv run nw-mcp-builder -c &lt;connector_id&gt; [options]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uv run nw-mcp-builder -c &lt;connector_id&gt; [options]
 </span></code></pre></div>
 <table>
 <thead>
@@ -2365,13 +2456,13 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <p>Help:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>--help
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>--help
 </span></code></pre></div>
 <hr />
 <h2 id="supported-connectors">Supported connectors<a class="headerlink" href="#supported-connectors" title="Anchor link to this section">&para;</a></h2>
 <p>Any connector with this layout in the node-wire repo:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>packages/connectors/&lt;connector_id&gt;/pyproject.toml
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>src/node_wire_&lt;connector_id&gt;/logic.py
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>packages/connectors/&lt;connector_id&gt;/pyproject.toml
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>src/node_wire_&lt;connector_id&gt;/logic.py
 </span></code></pre></div>
 <p>Currently in this monorepo:</p>
 <ul>
@@ -2392,36 +2483,36 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong>Hand-maintained</strong> — files like <code>fhir_epic_nw.yaml</code> can include richer tool descriptions; existing fixtures are kept unless you pass <code>--force-fixture</code></li>
 </ul>
 <p>Minimal shape:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1&quot;</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nt">server</span><span class="p">:</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">salesforce-nw</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nt">runtime</span><span class="p">:</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_wire</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="nt">connector_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">salesforce</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="nt">spec</span><span class="p">:</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node-wire/src/node_wire_salesforce</span>
-</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openapi3</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">  </span><span class="nt">base_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://unused.invalid</span>
-</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="nt">groups</span><span class="p">:</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">connector</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">    </span><span class="nt">tools</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span>
-</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="nt">auth</span><span class="p">:</span>
-</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">"1"</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nt">server</span><span class="p">:</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">salesforce-nw</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="nt">runtime</span><span class="p">:</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_wire</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">  </span><span class="nt">connector_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">salesforce</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="nt">spec</span><span class="p">:</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node-wire/src/node_wire_salesforce</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openapi3</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">  </span><span class="nt">base_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://unused.invalid</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="nt">groups</span><span class="p">:</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">connector</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="w">    </span><span class="nt">tools</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">none</span>
 </span></code></pre></div>
 <hr />
 <h2 id="generated-project-layout">Generated project layout<a class="headerlink" href="#generated-project-layout" title="Anchor link to this section">&para;</a></h2>
 <p>Each <code>out/&lt;name&gt;-mcp/</code> folder is a deployable MCP host:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>out/google-drive-nw-mcp/
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>  pyproject.toml          # deps from local wheels
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  Dockerfile
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>  README.md
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>  .env.example            # NW + connector secret env names
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>  wheels/                 # runtime + connector .whl
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>  config/connectors.yaml
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>  vendor/node_wire_src/   # bindings + node_wire_runtime + node_wire_&lt;id&gt; only
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>  src/google_drive_nw_mcp/
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>    __main__.py           # McpServer entrypoint
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>out/google-drive-nw-mcp/
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>  pyproject.toml          # deps from local wheels
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  Dockerfile
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  README.md
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  .env.example            # NW + connector secret env names
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  wheels/                 # runtime + connector .whl
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>  config/connectors.yaml
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>  vendor/node_wire_src/   # bindings + node_wire_runtime + node_wire_&lt;id&gt; only
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>  src/google_drive_nw_mcp/
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    __main__.py           # McpServer entrypoint
 </span></code></pre></div>
 <h3 id="environment-variables-generated-host">Environment variables (generated host)<a class="headerlink" href="#environment-variables-generated-host" title="Anchor link to this section">&para;</a></h3>
 <p>Every generated thin host prefers <strong>process environment</strong> (ToolHive secrets, Docker <code>-e</code>, K8s). If <code>out/&lt;name&gt;-mcp/.env</code> exists, it fills <strong>unset</strong> keys only (<code>override=False</code>). It does <strong>not</strong> load the node-wire monorepo or cwd <code>.env</code>. Vendored MCP/REST dotenv merge is disabled via <code>NW_REST_LOAD_DOTENV=false</code>. A missing project <code>.env</code> is OK when secrets/env are already injected.</p>
@@ -2472,14 +2563,14 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="docker">Docker<a class="headerlink" href="#docker" title="Anchor link to this section">&para;</a></h2>
 <p>From a generated project (use <strong>Linux</strong> wheels for this path — see <a href="#platform-and-toolhive-read-this-first">Platform and ToolHive</a>):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nb">cd</span><span class="w"> </span>out/&lt;name&gt;-mcp
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>&lt;image-name&gt;<span class="w"> </span>.
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>&lt;image-name&gt;
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="c1"># Example</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="nb">cd</span><span class="w"> </span>out/salesforce-nw-mcp
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>salesforce-nw-mcp
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">cd</span><span class="w"> </span>out/&lt;name&gt;-mcp
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>&lt;image-name&gt;<span class="w"> </span>.
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>&lt;image-name&gt;
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># Example</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nb">cd</span><span class="w"> </span>out/salesforce-nw-mcp
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>salesforce-nw-mcp
 </span></code></pre></div>
 <p>The Dockerfile installs wheels from <code>./wheels</code>, sets <code>PYTHONPATH=/nw_src</code>, and runs <code>python -m &lt;module&gt;</code>.</p>
 <hr />
@@ -2535,29 +2626,29 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <p>Verbose logging during generation:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>-v
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># Example</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>-v
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>-v
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="c1"># Example</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>-v
 </span></code></pre></div>
 <hr />
 <h2 id="package-layout-source">Package layout (source)<a class="headerlink" href="#package-layout-source" title="Anchor link to this section">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>nw-mcp-builder/
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  pyproject.toml
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  README.md
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  fixtures/                 # *_nw.yaml scope files
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  src/nw_mcp_builder/
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    pipeline.py             # run_connector_pipeline
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    generate/
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    schema/
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>      models.py             # MCPScope validation for fixtures
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>nw-mcp-builder/
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>  pyproject.toml
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>  README.md
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>  fixtures/                 # *_nw.yaml scope files
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>  src/nw_mcp_builder/
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    pipeline.py             # run_connector_pipeline
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    generate/
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>    schema/
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>      models.py             # MCPScope validation for fixtures
 </span></code></pre></div>
 <p>Dependencies: <code>pydantic</code>, <code>pyyaml</code> only (no mcp-builder dependency).</p>
 <p>Unit tests live under <code>tests/nw_mcp_builder/</code> (run from the node-wire repo root):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </span></code></pre></div>
 <hr />
 <h2 id="relationship-to-mcp-builder">Relationship to mcp-builder<a class="headerlink" href="#relationship-to-mcp-builder" title="Anchor link to this section">&para;</a></h2>

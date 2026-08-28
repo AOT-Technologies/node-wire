@@ -16,7 +16,7 @@
         <link rel="prev" href="../architecture/">
       
       
-        <link rel="next" href="../google_drive_connector/">
+        <link rel="next" href="../nw-connector-builder/">
       
       
         
@@ -1111,6 +1111,90 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2434,11 +2518,11 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">BaseDriveOperation</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">&quot;forbid&quot;</span><span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">model_config</span> <span class="o">=</span> <span class="n">ConfigDict</span><span class="p">(</span><span class="n">extra</span><span class="o">=</span><span class="s2">"forbid"</span><span class="p">)</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="k">class</span><span class="w"> </span><span class="nc">FilesListOperation</span><span class="p">(</span><span class="n">BaseDriveOperation</span><span class="p">):</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;files.list&quot;</span><span class="p">]</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"files.list"</span><span class="p">]</span>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">page_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">query</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2446,7 +2530,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
 </span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="k">class</span><span class="w"> </span><span class="nc">FilesUploadOperation</span><span class="p">(</span><span class="n">BaseDriveOperation</span><span class="p">):</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;files.upload&quot;</span><span class="p">]</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"files.upload"</span><span class="p">]</span>
 </span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
 </span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">mime_type</span><span class="p">:</span> <span class="nb">str</span>
 </span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">parents</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -2462,7 +2546,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>        <span class="n">FilesUploadOperation</span><span class="p">,</span>
 </span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>        <span class="c1"># … FilesCreateOperation, FilesGetOperation, …</span>
 </span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>    <span class="p">],</span>
-</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="n">Field</span><span class="p">(</span><span class="n">discriminator</span><span class="o">=</span><span class="s2">&quot;action&quot;</span><span class="p">),</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="n">Field</span><span class="p">(</span><span class="n">discriminator</span><span class="o">=</span><span class="s2">"action"</span><span class="p">),</span>
 </span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="p">]</span>
 </span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>
 </span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a><span class="n">GoogleDriveOperationInput</span> <span class="o">=</span> <span class="n">RootModel</span><span class="p">[</span><span class="n">_GoogleDriveOperationUnion</span><span class="p">]</span>
@@ -2486,22 +2570,30 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Real module builds this dict via register helpers — see repo for uploads, permissions, etc.</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">GOOGLE_DRIVE_ACTION_SPECS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SdkActionSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">&quot;files.list&quot;</span><span class="p">:</span> <span class="n">SdkActionSpec</span><span class="p">(</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">resource_segments</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;files&quot;</span><span class="p">,),</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">method_name</span><span class="o">=</span><span class="s2">&quot;list&quot;</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="s2">"files.list"</span><span class="p">:</span> <span class="n">SdkActionSpec</span><span class="p">(</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">resource_segments</span><span class="o">=</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,),</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">method_name</span><span class="o">=</span><span class="s2">"list"</span><span class="p">,</span>
 </span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">build_kwargs</span><span class="o">=</span><span class="n">_build_files_list_kwargs</span><span class="p">,</span>  <span class="c1"># optional: defaults, shared drives flags</span>
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">input_model</span><span class="o">=</span><span class="n">FilesListOperation</span><span class="p">,</span>
 </span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="p">),</span>
-</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="s2">&quot;files.create&quot;</span><span class="p">:</span> <span class="n">SdkActionSpec</span><span class="p">(</span>
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">resource_segments</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;files&quot;</span><span class="p">,),</span>
-</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="n">method_name</span><span class="o">=</span><span class="s2">&quot;create&quot;</span><span class="p">,</span>
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="n">body_from_model</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;mime_type&quot;</span><span class="p">:</span> <span class="s2">&quot;mimeType&quot;</span><span class="p">,</span> <span class="s2">&quot;parents&quot;</span><span class="p">:</span> <span class="s2">&quot;parents&quot;</span><span class="p">},</span>
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="n">constant_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;fields&quot;</span><span class="p">:</span> <span class="s2">&quot;id, name, webViewLink&quot;</span><span class="p">,</span> <span class="s2">&quot;supportsAllDrives&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="s2">"files.create"</span><span class="p">:</span> <span class="n">SdkActionSpec</span><span class="p">(</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">resource_segments</span><span class="o">=</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,),</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="n">method_name</span><span class="o">=</span><span class="s2">"create"</span><span class="p">,</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>        <span class="n">body_from_model</span><span class="o">=</span><span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"name"</span><span class="p">,</span> <span class="s2">"mime_type"</span><span class="p">:</span> <span class="s2">"mimeType"</span><span class="p">,</span> <span class="s2">"parents"</span><span class="p">:</span> <span class="s2">"parents"</span><span class="p">},</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="n">constant_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"fields"</span><span class="p">:</span> <span class="s2">"id, name, webViewLink"</span><span class="p">,</span> <span class="s2">"supportsAllDrives"</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
 </span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="n">input_model</span><span class="o">=</span><span class="n">FilesCreateOperation</span><span class="p">,</span>
 </span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="p">),</span>
 </span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>googleapiclient</code> is <strong>synchronous</strong>. The shared helper <strong><code>execute_spec_in_thread</code></strong> runs the generated <code>.execute()</code> call in a thread pool so the connector’s public API stays async.</p>
+<h4 id="using-action_specs-for-non-discovery-sdks">Using <code>action_specs</code> for non-discovery SDKs<a class="headerlink" href="#using-action_specs-for-non-discovery-sdks" title="Anchor link to this section">&para;</a></h4>
+<p>The discovery-style shape above (<code>resource_segments</code> walked as zero-arg calls, then <code>.execute()</code>) is only the <strong>default</strong>. <code>SdkActionSpec</code> is not Google-specific — three fields let other vendor SDK shapes reuse the same declarative table instead of falling back to hand-written <code>@nw_action</code> methods:</p>
+<ul>
+<li><strong><code>call_segments=False</code></strong> — for flat-class SDKs where <code>resource_segments</code> are plain attributes, not zero-arg calls (e.g. <code>stripe.Charge.create(...)</code>: <code>resource_segments=("Charge",), call_segments=False</code>).</li>
+<li><strong><code>resolve_method</code></strong> — full override <code>(spec, client) -&gt; Callable</code> for navigation that needs an argument mid-path (e.g. PyGithub's <code>client.get_repo(name).get_issues</code>), where segment-walking alone can't express it.</li>
+<li><strong><code>invoke</code></strong> — full override <code>(method, kwargs) -&gt; Any</code> for SDKs whose methods return the result directly, with no <code>.execute()</code> step (most non-Google SDKs). Use <strong><code>execute_spec_async</code></strong> instead of <code>execute_spec_in_thread</code> when the vendor method is itself a coroutine function — <code>invoke</code> can return the coroutine, and <code>execute_spec_async</code> awaits it directly on the running loop without a thread hop.</li>
+</ul>
+<p>Leave all three unset and you get exactly the Drive/discovery behavior described above.</p>
 <h3 id="step-3-implement-the-connector-class-logicpy">Step 3 — Implement the connector class (<code>logic.py</code>)<a class="headerlink" href="#step-3-implement-the-connector-class-logicpy" title="Anchor link to this section">&para;</a></h3>
 <p>Subclass <code>BaseConnector</code>, set <strong><code>connector_id</code></strong>, <strong><code>output_model</code></strong>, and <strong><code>action_specs</code></strong>. The base class <strong>generates</strong> one async <code>@nw_action</code> handler per spec. Override <strong><code>_execute_action_spec</code></strong> to add logging, thread offload, and translation of vendor exceptions (e.g. <code>HttpError</code> → your <code>error_map</code> types).</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># src/node_wire_google_drive/logic.py (conceptual excerpt)</span>
@@ -2524,24 +2616,24 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
 </span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">GoogleDriveConnector</span><span class="p">(</span><span class="n">BaseConnector</span><span class="p">):</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">&quot;google_drive&quot;</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">"google_drive"</span>
 </span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="n">output_model</span> <span class="o">=</span> <span class="n">GoogleDriveOperationOutput</span>
 </span><span id="__span-3-23"><a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="n">action_specs</span> <span class="o">=</span> <span class="n">GOOGLE_DRIVE_ACTION_SPECS</span>
 </span><span id="__span-3-24"><a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
 </span><span id="__span-3-25"><a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">error_map</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>        <span class="n">GoogleDriveAuthError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="s2">&quot;GDRIVE_AUTH&quot;</span><span class="p">),</span>
-</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>        <span class="n">GoogleDriveRateLimitError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="s2">&quot;GDRIVE_RATE_LIMIT&quot;</span><span class="p">),</span>
+</span><span id="__span-3-26"><a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a>        <span class="n">GoogleDriveAuthError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="s2">"GDRIVE_AUTH"</span><span class="p">),</span>
+</span><span id="__span-3-27"><a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>        <span class="n">GoogleDriveRateLimitError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="s2">"GDRIVE_RATE_LIMIT"</span><span class="p">),</span>
 </span><span id="__span-3-28"><a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>        <span class="c1"># …</span>
 </span><span id="__span-3-29"><a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a>    <span class="p">}</span>
 </span><span id="__span-3-30"><a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a>
 </span><span id="__span-3-31"><a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">build_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>        <span class="n">raw_sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">&quot;GOOGLE_DRIVE_SA_JSON&quot;</span><span class="p">)</span>
+</span><span id="__span-3-32"><a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a>        <span class="n">raw_sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">"GOOGLE_DRIVE_SA_JSON"</span><span class="p">)</span>
 </span><span id="__span-3-33"><a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a>        <span class="n">info</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">raw_sa</span><span class="p">)</span>  <span class="c1"># or path to a JSON file — see production code</span>
 </span><span id="__span-3-34"><a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>        <span class="n">creds</span> <span class="o">=</span> <span class="n">service_account</span><span class="o">.</span><span class="n">Credentials</span><span class="o">.</span><span class="n">from_service_account_info</span><span class="p">(</span>
 </span><span id="__span-3-35"><a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>            <span class="n">info</span><span class="p">,</span>
-</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>            <span class="n">scopes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;https://www.googleapis.com/auth/drive&quot;</span><span class="p">],</span>
+</span><span id="__span-3-36"><a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>            <span class="n">scopes</span><span class="o">=</span><span class="p">[</span><span class="s2">"https://www.googleapis.com/auth/drive"</span><span class="p">],</span>
 </span><span id="__span-3-37"><a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>        <span class="p">)</span>
-</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>        <span class="k">return</span> <span class="n">build</span><span class="p">(</span><span class="s2">&quot;drive&quot;</span><span class="p">,</span> <span class="s2">&quot;v3&quot;</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">creds</span><span class="p">)</span>
+</span><span id="__span-3-38"><a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>        <span class="k">return</span> <span class="n">build</span><span class="p">(</span><span class="s2">"drive"</span><span class="p">,</span> <span class="s2">"v3"</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">creds</span><span class="p">)</span>
 </span><span id="__span-3-39"><a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a>
 </span><span id="__span-3-40"><a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_execute_action_spec</span><span class="p">(</span>
 </span><span id="__span-3-41"><a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a>        <span class="bp">self</span><span class="p">,</span>
@@ -2559,7 +2651,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-3-53"><a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_translate_and_raise_http_error</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
 </span><span id="__span-3-54"><a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a>        <span class="k">return</span> <span class="n">GoogleDriveOperationOutput</span><span class="p">(</span>
 </span><span id="__span-3-55"><a id="__codelineno-3-55" name="__codelineno-3-55" href="#__codelineno-3-55"></a>            <span class="n">raw</span><span class="o">=</span><span class="n">raw</span><span class="p">,</span>
-</span><span id="__span-3-56"><a id="__codelineno-3-56" name="__codelineno-3-56" href="#__codelineno-3-56"></a>            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Successfully executed </span><span class="si">{</span><span class="n">action_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span id="__span-3-56"><a id="__codelineno-3-56" name="__codelineno-3-56" href="#__codelineno-3-56"></a>            <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Successfully executed </span><span class="si">{</span><span class="n">action_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
 </span><span id="__span-3-57"><a id="__codelineno-3-57" name="__codelineno-3-57" href="#__codelineno-3-57"></a>        <span class="p">)</span>
 </span></code></pre></div>
 <h2 id="connector-authentication">Connector Authentication<a class="headerlink" href="#connector-authentication" title="Anchor link to this section">&para;</a></h2>
@@ -2569,15 +2661,15 @@ SPDX-License-Identifier: Apache-2.0
 <p>There are two patterns depending on how your connector talks to the vendor:</p>
 <p><strong>HTTP connectors</strong> (direct REST calls via <code>httpx</code>) — create a short-lived client inside each <code>@nw_action</code> method. Do <strong>not</strong> override <code>build_client()</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># logic.py — HTTP connector pattern (e.g. Slack, FHIR, GitHub)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Base URL: read from the connector&#39;s own config, an env var, or a module constant.</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Base URL: read from the connector's own config, an env var, or a module constant.</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># There is no inherited _get_base_url() helper — connectors own their URL resolution.</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://api.example.com&quot;</span>   <span class="c1"># or: os.environ[&quot;MY_SERVICE_URL&quot;]</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">BASE_URL</span> <span class="o">=</span> <span class="s2">"https://api.example.com"</span>   <span class="c1"># or: os.environ["MY_SERVICE_URL"]</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">&quot;read_resource&quot;</span><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">"read_resource"</span><span class="p">)</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">In</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Out</span><span class="p">:</span>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">headers</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_auth_headers</span><span class="p">()</span>  <span class="c1"># Fetched/cached by provider</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="k">async</span> <span class="k">with</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">()</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="n">resp</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/resource&quot;</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="n">resp</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/resource"</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="o">...</span>
 </span></code></pre></div>
@@ -2585,9 +2677,9 @@ SPDX-License-Identifier: Apache-2.0
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># logic.py — SDK connector pattern (e.g. Google Drive)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="c1"># Read credential from secret provider and build the vendor client once.</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">raw_sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">&quot;MY_SA_JSON&quot;</span><span class="p">)</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="n">raw_sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">"MY_SA_JSON"</span><span class="p">)</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">creds</span> <span class="o">=</span> <span class="o">...</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="k">return</span> <span class="n">vendor_sdk</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="s2">&quot;v1&quot;</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">creds</span><span class="p">)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="k">return</span> <span class="n">vendor_sdk</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="s2">"v1"</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">creds</span><span class="p">)</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_execute_action_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">action_name</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">,</span> <span class="n">log_extra</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_client</span><span class="p">()</span>  <span class="c1"># cached; calls build_client() on first use</span>
@@ -2682,7 +2774,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">static_token</span>
 </span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">      </span><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stripe_api_key</span>
 </span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">      </span><span class="nt">header_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Authorization</span>
-</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">      </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">  </span><span class="c1"># Stripe expects raw key; env var is STRIPE_API_KEY</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">      </span><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="s">""</span><span class="w">  </span><span class="c1"># Stripe expects raw key; env var is STRIPE_API_KEY</span>
 </span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>
 </span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">  </span><span class="nt">smtp</span><span class="p">:</span>
 </span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2727,7 +2819,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">auto_register</span><span class="p">()</span>  <span class="c1"># requires NW_ALLOWED_CONNECTORS</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">registry</span> <span class="o">=</span> <span class="n">get_connector_registry</span><span class="p">()</span>  <span class="c1"># Dict[str, Type[BaseConnector]]</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">connector_cls</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="s2">&quot;google_drive&quot;</span><span class="p">]</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">connector_cls</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="s2">"google_drive"</span><span class="p">]</span>
 </span></code></pre></div>
 <p>For the full run pipeline (YAML config, instantiation, protocol routing), use <strong><code>ConnectorFactory</code></strong> (see <a href="#calling-a-connector-directly-in-process">Calling a connector directly</a>).</p>
 <h3 id="optional-registrationpy-for-errormapper">Optional: <code>registration.py</code> for ErrorMapper<a class="headerlink" href="#optional-registrationpy-for-errormapper" title="Anchor link to this section">&para;</a></h3>
@@ -2737,8 +2829,8 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyAuthError</span><span class="p">,</span> <span class="n">MyRateLimitError</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyAuthError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">&quot;MY_AUTH_ERROR&quot;</span><span class="p">)</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyRateLimitError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">&quot;MY_RATE_LIMIT&quot;</span><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyAuthError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">"MY_AUTH_ERROR"</span><span class="p">)</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyRateLimitError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">"MY_RATE_LIMIT"</span><span class="p">)</span>
 </span></code></pre></div>
 <p><code>auto_register()</code> imports <code>registration.py</code> after <code>logic.py</code>, so these registrations run at startup. Alternatively, use inline <strong><code>error_map</code></strong> on the connector class (Google Drive example above).</p>
 <hr />
@@ -2750,7 +2842,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="k">class</span><span class="w"> </span><span class="nc">SmsSendInput</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;send&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;send&quot;</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"send"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"send"</span>
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">to</span><span class="p">:</span> <span class="nb">str</span>
 </span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span>
 </span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
@@ -2766,14 +2858,14 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
 </span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">SmsConnector</span><span class="p">(</span><span class="n">BaseConnector</span><span class="p">):</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">&quot;sms&quot;</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">"sms"</span>
 </span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">output_model</span> <span class="o">=</span> <span class="n">SmsSendOutput</span>
 </span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="nd">@nw_action</span><span class="p">(</span><span class="s2">&quot;send&quot;</span><span class="p">)</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="nd">@nw_action</span><span class="p">(</span><span class="s2">"send"</span><span class="p">)</span>
 </span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">SmsSendInput</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SmsSendOutput</span><span class="p">:</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>        <span class="n">api_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">&quot;sms_api_key&quot;</span><span class="p">)</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>        <span class="n">api_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">secret_provider</span><span class="o">.</span><span class="n">get_secret</span><span class="p">(</span><span class="s2">"sms_api_key"</span><span class="p">)</span>
 </span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>        <span class="c1"># ... call SMS vendor API ...</span>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>        <span class="k">return</span> <span class="n">SmsSendOutput</span><span class="p">(</span><span class="n">message_sid</span><span class="o">=</span><span class="s2">&quot;SM123&quot;</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">&quot;queued&quot;</span><span class="p">)</span>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>        <span class="k">return</span> <span class="n">SmsSendOutput</span><span class="p">(</span><span class="n">message_sid</span><span class="o">=</span><span class="s2">"SM123"</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="s2">"queued"</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="calling-a-connector-directly-in-process">Calling a connector directly (in-process)<a class="headerlink" href="#calling-a-connector-directly-in-process" title="Anchor link to this section">&para;</a></h2>
@@ -2784,18 +2876,18 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.connector_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">auto_register</span>
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bindings.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectorFactory</span>
 </span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;NW_ALLOWED_CONNECTORS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;google_drive&quot;</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"NW_ALLOWED_CONNECTORS"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"google_drive"</span>
 </span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">auto_register</span><span class="p">()</span>
 </span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">factory</span> <span class="o">=</span> <span class="n">ConnectorFactory</span><span class="p">()</span>
 </span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">factory</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
 </span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">connector</span> <span class="o">=</span> <span class="n">factory</span><span class="o">.</span><span class="n">get_for_protocol</span><span class="p">(</span><span class="s2">&quot;google_drive&quot;</span><span class="p">,</span> <span class="s2">&quot;rest&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;files.list&quot;</span><span class="p">)</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="n">connector</span> <span class="o">=</span> <span class="n">factory</span><span class="o">.</span><span class="n">get_for_protocol</span><span class="p">(</span><span class="s2">"google_drive"</span><span class="p">,</span> <span class="s2">"rest"</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">"files.list"</span><span class="p">)</span>
 </span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">connector</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="p">{</span><span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.list&quot;</span><span class="p">,</span> <span class="s2">&quot;page_size&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;mimeType = &#39;application/vnd.google-apps.folder&#39;&quot;</span><span class="p">}</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.list"</span><span class="p">,</span> <span class="s2">"page_size"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">"query"</span><span class="p">:</span> <span class="s2">"mimeType = 'application/vnd.google-apps.folder'"</span><span class="p">}</span>
 </span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="p">)</span>
 </span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
 </span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">success</span><span class="p">:</span>
-</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>   <span class="c1"># {&quot;raw&quot;: {&quot;files&quot;: [...], ...}, &quot;description&quot;: &quot;Successfully executed files.list&quot;}</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>   <span class="c1"># {"raw": {"files": [...], ...}, "description": "Successfully executed files.list"}</span>
 </span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="k">else</span><span class="p">:</span>
 </span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 </span></code></pre></div>
@@ -2803,18 +2895,18 @@ SPDX-License-Identifier: Apache-2.0
 <p>Optional keyword args <code>principal</code>, <code>tenant_id</code>, and <code>scopes</code> override the caller identity for the nested call. When omitted, <strong><code>call_action</code> inherits</strong> identity from the outer <code>run()</code> (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseConnector</span><span class="p">,</span> <span class="n">nw_action</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">&quot;upload_then_describe&quot;</span><span class="p">)</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">"upload_then_describe"</span><span class="p">)</span>
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_then_describe</span><span class="p">(</span>
 </span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">MyInput</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span>
 </span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GoogleDriveOperationOutput</span><span class="p">:</span>
 </span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">created</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_action</span><span class="p">(</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="s2">&quot;files.create&quot;</span><span class="p">,</span>
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="p">{</span><span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.create&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;mime_type&quot;</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">mime_type</span><span class="p">},</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="s2">"files.create"</span><span class="p">,</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.create"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">"mime_type"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">mime_type</span><span class="p">},</span>
 </span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="p">)</span>
-</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">file_id</span> <span class="o">=</span> <span class="n">created</span><span class="o">.</span><span class="n">raw</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="n">file_id</span> <span class="o">=</span> <span class="n">created</span><span class="o">.</span><span class="n">raw</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span>
 </span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_action</span><span class="p">(</span>
-</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="s2">&quot;files.get&quot;</span><span class="p">,</span>
-</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="p">{</span><span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.get&quot;</span><span class="p">,</span> <span class="s2">&quot;file_id&quot;</span><span class="p">:</span> <span class="n">file_id</span><span class="p">},</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>        <span class="s2">"files.get"</span><span class="p">,</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>        <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.get"</span><span class="p">,</span> <span class="s2">"file_id"</span><span class="p">:</span> <span class="n">file_id</span><span class="p">},</span>
 </span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <hr />
@@ -2827,21 +2919,21 @@ SPDX-License-Identifier: Apache-2.0
 <div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>POST /connectors/google_drive/files.list
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Content-Type: application/json
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>{ &quot;page_size&quot;: 10, &quot;query&quot;: &quot;name contains &#39;report&#39;&quot; }
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>{ "page_size": 10, "query": "name contains 'report'" }
 </span></code></pre></div>
 <p>The <code>action</code> field in the body is optional for REST — the binding injects it from the URL path (see <code>src/node_wire_runtime/ingress.py</code>). Per-action <strong>argument normalizers</strong> (<code>mcp_normalize</code> on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an <code>action</code> field, it <strong>must</strong> match the path segment; otherwise the API returns <strong>400</strong>.</p>
 <p>The runtime then performs full Pydantic validation and returns a <code>ConnectorResponse</code>.</p>
 <p><strong>Response envelope:</strong></p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">&quot;raw&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;files&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;mimeType&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span><span class="p">}],</span><span class="w"> </span><span class="nt">&quot;nextPageToken&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Successfully executed files.list&quot;</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">"success"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">"raw"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"files"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"mimeType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">}],</span><span class="w"> </span><span class="nt">"nextPageToken"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Successfully executed files.list"</span>
 </span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="p">},</span>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span><span class="nt">&quot;trace_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;4f3a...&quot;</span><span class="p">,</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">  </span><span class="nt">&quot;error_code&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">  </span><span class="nt">&quot;error_category&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">  </span><span class="nt">"trace_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"4f3a..."</span><span class="p">,</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">  </span><span class="nt">"error_code"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">  </span><span class="nt">"error_category"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 </span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>HTTP status codes are mapped from <code>ErrorCategory</code>:</p>
@@ -2882,14 +2974,14 @@ SPDX-License-Identifier: Apache-2.0
 <p><code>build_manifest(connectors)</code> (from <code>node_wire_runtime.manifest</code>) is the single source of truth for both bindings (by default it strips <code>action</code> from each entry’s <code>input_schema</code>). It returns one entry per <code>@sdk_action</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">[</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  <span class="p">{</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="s2">&quot;connector_id&quot;</span><span class="p">:</span> <span class="s2">&quot;weather&quot;</span><span class="p">,</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;current_weather&quot;</span><span class="p">,</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="s2">&quot;input_schema&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>   <span class="c1"># JSON Schema from CurrentWeatherInput (action not required)</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="s2">&quot;output_schema&quot;</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>  <span class="c1"># ConnectorResponse envelope; data typed to the action output model (nullable on errors)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="s2">"connector_id"</span><span class="p">:</span> <span class="s2">"weather"</span><span class="p">,</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="s2">"action"</span><span class="p">:</span> <span class="s2">"current_weather"</span><span class="p">,</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="s2">"input_schema"</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>   <span class="c1"># JSON Schema from CurrentWeatherInput (action not required)</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="s2">"output_schema"</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>  <span class="c1"># ConnectorResponse envelope; data typed to the action output model (nullable on errors)</span>
 </span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>  <span class="p">},</span>
 </span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>  <span class="p">{</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="s2">&quot;connector_id&quot;</span><span class="p">:</span> <span class="s2">&quot;google_drive&quot;</span><span class="p">,</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;files.upload&quot;</span><span class="p">,</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="s2">"connector_id"</span><span class="p">:</span> <span class="s2">"google_drive"</span><span class="p">,</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    <span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.upload"</span><span class="p">,</span>
 </span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    <span class="o">...</span>
 </span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>  <span class="p">}</span>
 </span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="p">]</span>
@@ -2941,6 +3033,9 @@ SPDX-License-Identifier: Apache-2.0
 <p>MCP tool names: <strong><code>&lt;connector_id&gt;.&lt;action&gt;</code></strong> (e.g. <code>fhir_epic.read_patient</code>). See <a href="../mcp-servers/"><code>docs/mcp-servers.md</code></a>.</p>
 <hr />
 <h2 id="adding-a-new-connector-checklist">Adding a new connector (checklist)<a class="headerlink" href="#adding-a-new-connector-checklist" title="Anchor link to this section">&para;</a></h2>
+<blockquote>
+<p><strong>OpenAPI / Swagger APIs:</strong> Prefer <a href="../nw-connector-builder/">nw-connector-builder</a> (or the full <a href="../nw-cli/"><code>nw gen-all</code></a> pipeline) to generate <code>schema.py</code>, <code>logic.py</code>, package metadata, and optional MCP + <code>--wire</code> config from a spec. Use the hand-written steps below for SDK-style or non-REST connectors.</p>
+</blockquote>
 <h3 id="runtime-dev">Runtime (dev)<a class="headerlink" href="#runtime-dev" title="Anchor link to this section">&para;</a></h3>
 <ol>
 <li>Create the package directory <code>src/node_wire_&lt;name&gt;/</code>. The directory <strong>must contain <code>__init__.py</code></strong> (empty is fine) to be importable as a Python package. Add <code>schema.py</code> with Pydantic input/output models and register the entry point under <code>[project.entry-points."node_wire.connectors"]</code> in the root <code>pyproject.toml</code>.</li>
@@ -3075,13 +3170,13 @@ SPDX-License-Identifier: Apache-2.0
         
         
           
-          <a href="../google_drive_connector/" class="md-footer__link md-footer__link--next" aria-label="Next: Google Drive">
+          <a href="../nw-connector-builder/" class="md-footer__link md-footer__link--next" aria-label="Next: OpenAPI Builder">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Google Drive
+                OpenAPI Builder
               </div>
             </div>
             <div class="md-footer__button md-icon">

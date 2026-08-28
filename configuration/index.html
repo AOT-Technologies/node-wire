@@ -841,6 +841,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1981,6 +2065,21 @@ SPDX-License-Identifier: Apache-2.0
 <td>Optional comma-separated SMTP relay hostnames permitted for <code>smtp.send_email</code> (recommended for production)</td>
 <td><em>(unset = env relay only)</em></td>
 </tr>
+<tr>
+<td><code>NW_HTTP_GENERIC_ALLOWED_HOSTS</code></td>
+<td>Optional egress allowlist for the <code>http_generic</code> connector only</td>
+<td><em>(unset)</em></td>
+</tr>
+<tr>
+<td><code>NW_REST_ALLOWED_HOSTS</code></td>
+<td>Optional egress allowlist for <code>RestConnector</code> / OpenAPI-generated connectors (comma-separated hostnames). Distinct from <code>NW_HTTP_GENERIC_ALLOWED_HOSTS</code>.</td>
+<td><em>(unset)</em></td>
+</tr>
+<tr>
+<td><code>NW_REST_TRUST_ENV</code></td>
+<td>When <code>true</code>, generated REST connectors construct httpx with <code>trust_env=True</code> so <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> apply. Default remains SSRF-safe (<code>false</code>); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled.</td>
+<td><code>false</code></td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2004,7 +2103,7 @@ SPDX-License-Identifier: Apache-2.0
 <h3 id="google-drive-service-account-local-example">Google Drive Service Account (Local Example)<a class="headerlink" href="#google-drive-service-account-local-example" title="Anchor link to this section">&para;</a></h3>
 <p>For local development, you can set <code>GOOGLE_DRIVE_SA_JSON</code> to the absolute path of your service account JSON file.</p>
 <p><strong>PowerShell (Windows):</strong>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">$saPath</span> <span class="p">=</span> <span class="s2">&quot;C:\path\to\service_account.json&quot;</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">$saPath</span> <span class="p">=</span> <span class="s2">"C:\path\to\service_account.json"</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">$env:GOOGLE_DRIVE_SA_JSON</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="n">-Path</span> <span class="nv">$saPath</span> <span class="n">-Raw</span>
 </span></code></pre></div></p>
 <p><strong>Bash (Linux/macOS):</strong>

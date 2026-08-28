@@ -691,6 +691,90 @@
   
   
     <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Builder Scope
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -2708,7 +2792,7 @@ SPDX-License-Identifier: Apache-2.0
 <li>Open PowerShell and clone or navigate to the project folder.</li>
 <li>Create a simple <code>.env</code> file in the project root (replace placeholder values):</li>
 </ol>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="sh">@&#39;</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">Set-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="sh">@'</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="sh">TOOLHIVE_MCP_URL=http://localhost:7977/mcp</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="sh">LLM_PROVIDER=groq</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="sh">GROQ_API_KEY=YOUR_GROQ_KEY</span>
@@ -2720,17 +2804,17 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="sh">SMTP_PASSWORD=your_smtp_pass</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="sh">SMTP_USE_TLS=true</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="sh">GOOGLE_DRIVE_FOLDER_ID=YOUR_FOLDER_ID</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="sh">&#39;@</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="sh">'@</span>
 </span></code></pre></div>
 <ol>
 <li>Install the Python extras (one-time):</li>
 </ol>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="s2">&quot;.[agents]&quot;</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pip</span> <span class="n">install</span> <span class="n">-e</span> <span class="s2">".[agents]"</span>
 </span></code></pre></div>
 <ol>
 <li>Run the agent (example):</li>
 </ol>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c">#$env:TOOLHIVE_MCP_URL=&quot;http://localhost:7977/mcp&quot;</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c">#$env:TOOLHIVE_MCP_URL="http://localhost:7977/mcp"</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">python</span> <span class="n">-m</span> <span class="n">agents</span><span class="p">.</span><span class="n">toolhive</span> <span class="p">-</span><span class="n">-patient-id</span> <span class="n">12724066</span> <span class="p">-</span><span class="n">-recipient-email</span> <span class="n">you</span><span class="nv">@example</span><span class="p">.</span><span class="n">com</span>
 </span></code></pre></div>
 <p>Notes for non-developers:
@@ -2828,7 +2912,7 @@ SPDX-License-Identifier: Apache-2.0
 <h3 id="option-b-toolhive-cli-thv">Option B: ToolHive CLI (<code>thv</code>)<a class="headerlink" href="#option-b-toolhive-cli-thv" title="Anchor link to this section">&para;</a></h3>
 <p>If you have the <code>thv</code> CLI installed:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_FHIR_BASE_URL
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># You&#39;ll be prompted to enter the value securely</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># You'll be prompted to enter the value securely</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_CLIENT_ID
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>thv<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>CERNER_KID
@@ -2904,20 +2988,20 @@ SPDX-License-Identifier: Apache-2.0
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a># Replace PORT with the actual port number shown in ToolHive
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>TOOLHIVE_MCP_URL=http://localhost:34567/mcp
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a># LLM provider (groq is recommended — it&#39;s fast and has a free tier)
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a># LLM provider (groq is recommended — it's fast and has a free tier)
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>LLM_PROVIDER=groq
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>GROQ_API_KEY=gsk_your_key_here
 </span></code></pre></div>
 <hr />
 <h2 id="step-6-run-the-agent">Step 6: Run the agent<a class="headerlink" href="#step-6-run-the-agent" title="Anchor link to this section">&para;</a></h2>
 <h3 id="install-agent-dependencies-one-time">Install agent dependencies (one-time)<a class="headerlink" href="#install-agent-dependencies-one-time" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[agents]&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[agents]"</span>
 </span></code></pre></div>
 <h3 id="execute-the-scenario">Execute the scenario<a class="headerlink" href="#execute-the-scenario" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>--patient-id<span class="w"> </span><span class="m">12724066</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>--recipient-email<span class="w"> </span>your-email@example.com<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>--drive-folder-id<span class="w"> </span><span class="s2">&quot;1ABCdef_your_folder_id&quot;</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>--drive-folder-id<span class="w"> </span><span class="s2">"1ABCdef_your_folder_id"</span>
 </span></code></pre></div>
 <p><strong>Arguments:</strong></p>
 <table>
@@ -2979,8 +3063,8 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>============================================================
 </span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>Task: Patient ID: 12724066
 </span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>Please:
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>1. Fetch the patient&#39;s details from Cerner FHIR (or Epic if the ID starts with &#39;e&#39;).
-</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>2. Create a text file named &#39;patient_summary_12724066.txt&#39; in Google Drive.
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>1. Fetch the patient's details from Cerner FHIR (or Epic if the ID starts with 'e').
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>2. Create a text file named 'patient_summary_12724066.txt' in Google Drive.
 </span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>3. Send an email to your-email@example.com with a link to the Drive file.
 </span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
 </span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>============================================================
@@ -2991,16 +3075,16 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>Final Answer:
 </span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>I have completed all three steps:
 </span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>1. Fetched patient Nancy Smart (DOB: ****-03-15) from Cerner FHIR.
-</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>2. Created &#39;patient_summary_12724066.txt&#39; in Google Drive (file_id: 1XYZ...).
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>2. Created 'patient_summary_12724066.txt' in Google Drive (file_id: 1XYZ...).
 </span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>3. Sent a summary email to your-email@example.com with a link to the file.
 </span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>
 </span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>Steps executed (3):
 </span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>  ✓ Step 1: fhir_cerner.read_patient
-</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>       result : {&quot;patient_id&quot;: &quot;123*****&quot;, &quot;full_name&quot;: &quot;Nancy Smart&quot;, ...}
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>       result : {"patient_id": "123*****", "full_name": "Nancy Smart", ...}
 </span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>  ✓ Step 2: google_drive.files.upload
-</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>       result : {&quot;file_id&quot;: &quot;1XYZ...&quot;, &quot;web_view_link&quot;: &quot;https://docs.google.com/...&quot;}
+</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>       result : {"file_id": "1XYZ...", "web_view_link": "https://docs.google.com/..."}
 </span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>  ✓ Step 3: smtp.send_email
-</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>       result : {&quot;sent&quot;: true}
+</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>       result : {"sent": true}
 </span></code></pre></div>
 <hr />
 <h2 id="local-testing-no-toolhive-required">Local testing (no ToolHive required)<a class="headerlink" href="#local-testing-no-toolhive-required" title="Anchor link to this section">&para;</a></h2>
@@ -3008,7 +3092,7 @@ SPDX-License-Identifier: Apache-2.0
 <h3 id="option-a-stdio-mode-local-flag">Option A: stdio mode (<code>--local</code> flag)<a class="headerlink" href="#option-a-stdio-mode-local-flag" title="Anchor link to this section">&para;</a></h3>
 <p>This launches the MCP server as a subprocess and connects to it directly:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Set your credentials in .env first, then:</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GROQ_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-key&quot;</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GROQ_API_KEY</span><span class="o">=</span><span class="s2">"your-key"</span>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
 </span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span>--local<span class="w"> </span><span class="se">\</span>
@@ -3042,9 +3126,9 @@ SPDX-License-Identifier: Apache-2.0
 <h3 id="claude-desktop">Claude Desktop<a class="headerlink" href="#claude-desktop" title="Anchor link to this section">&para;</a></h3>
 <p>Edit <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code>%APPDATA%\Claude\claude_desktop_config.json</code> (Windows):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">&quot;node-wire-connectors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">      </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://localhost:&lt;PORT&gt;/sse&quot;</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="nt">"node-wire-connectors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">      </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://localhost:&lt;PORT&gt;/sse"</span>
 </span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="p">}</span>
 </span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">}</span>
@@ -3113,7 +3197,7 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="running-tests">Running tests<a class="headerlink" href="#running-tests" title="Anchor link to this section">&para;</a></h2>
 <p>The test suite covers the agent and MCP server without making any real API calls:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev,agents]&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,agents]"</span>
 </span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>pytest<span class="w"> </span>tests/test_toolhive_agent.py<span class="w"> </span>-v
 </span></code></pre></div>
 <p>Expect every test collected from <code>tests/test_toolhive_agent.py</code> to pass (names and count change as the suite evolves). If a test fails, re-run with <code>-v</code> and compare against the current definitions in that file.</p>
