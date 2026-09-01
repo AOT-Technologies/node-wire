@@ -26,7 +26,6 @@ from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
     is_multitenancy_enabled,
-    resolve_config_name,
     resolve_tenant_id,
 )
 from node_wire_runtime.policies.mcp_scope_policy import (
@@ -41,6 +40,7 @@ from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_mani
 from node_wire_runtime.ingress import normalize_mcp_tool_arguments  # re-export for tests
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from node_wire_runtime.streaming import stream_completion_log
+from node_wire_runtime.tenant_session import TenantSessionOverlay
 
 logger = logging.getLogger("bindings.mcp_server")
 
@@ -58,30 +58,8 @@ SELECT_TENANT_TOOL_ALIASES = frozenset({SELECT_TENANT_TOOL, "nw.select_tenant"})
 SELECT_CONFIG_TOOL = "nw_select_config"
 SELECT_CONFIG_TOOL_ALIASES = frozenset({SELECT_CONFIG_TOOL, "nw.select_config"})
 
-_MISSING_TENANT_SELECT_MESSAGE = (
-    "No tenant is pinned. Call nw_list_tenants, then nw_select_tenant "
-    "with a tenant_id from that list."
-)
-_PIN_LOCKED_MESSAGE = (
-    "Tenant switch is disabled (NW_MCP_TENANT_PIN_LOCKED). "
-    "Use NW_TENANT_ID (stdio) or X-Tenant-ID (HTTP) to pin the tenant."
-)
-
-
-def mcp_tenant_pin_locked() -> bool:
-    return os.getenv("NW_MCP_TENANT_PIN_LOCKED", "false").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-
-
-def mcp_allowed_tenants() -> Optional[frozenset[str]]:
-    raw = os.getenv("NW_MCP_ALLOWED_TENANTS", "").strip()
-    if not raw:
-        return None
-    return frozenset(part.strip() for part in raw.split(",") if part.strip())
+# Pin-lock/allowlist env readers and the tenant/config selection state they
+# guard now live in node_wire_runtime.tenant_session.TenantSessionOverlay.
 
 
 def _optional_str(value: Any) -> Optional[str]:
@@ -369,12 +347,13 @@ class McpServer:
             if self._upstream_passthrough
             else ()
         )
-        # §6.4: set in run_stdio from NW_TENANT_ID; unused on HTTP (session pin).
-        self._stdio_env_tenant_pin: str | None = None
-        # Simplified: one in-memory overlay for this process (stdio and HTTP).
-        # Split ToolHive images do not share it — run one MCP with all connectors.
-        self._selected_tenant_id: str | None = None
-        self._selected_config_name: str | None = None
+        # §6.4: which tenant/config this session has selected — one in-memory
+        # overlay for this process (stdio and HTTP). Split ToolHive images do
+        # not share it — run one MCP with all connectors.
+        self._tenant_session = TenantSessionOverlay(
+            store_has_tenant=self._store_has_tenant,
+            config_coverage=self._config_coverage,
+        )
         try:
             from importlib.metadata import version as pkg_version
 
@@ -387,6 +366,16 @@ class McpServer:
             MCP_MANIFEST_CONTRACT_VERSION,
             _pkg_ver,
         )
+
+    @property
+    def tenant_session(self) -> TenantSessionOverlay:
+        """The session's tenant/config selection overlay.
+
+        Public so trusted in-process embedders (e.g.
+        ``agents.toolhive.InProcessMcpClient``) can pin a session without
+        reaching into ``McpServer``'s private state.
+        """
+        return self._tenant_session
 
     def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
         identity = self._ensure_identity(identity=identity)
@@ -566,7 +555,7 @@ class McpServer:
             return resolve_tenant_id(
                 headers=_http_request_headers.get(),
                 jwt_identity=identity,
-                env_pin=self._stdio_env_tenant_pin,
+                env_pin=self._tenant_session.env_pin,
             )
         except MissingTenantError as exc:
             raise ValueError(str(exc)) from exc
@@ -574,51 +563,16 @@ class McpServer:
     def _store_has_tenant(self, tenant_id: str) -> bool:
         return tenant_id in self._factory.store.list_tenants()
 
-    def _assert_tenant_switch_allowed(self) -> None:
-        if mcp_tenant_pin_locked():
-            raise ValueError(_PIN_LOCKED_MESSAGE)
-
-    def _assert_tenant_allowed(self, tenant_id: str) -> None:
-        if not self._store_has_tenant(tenant_id):
-            raise ValueError(
-                f"Unknown tenant {tenant_id!r}. Call nw_list_tenants, then nw_select_tenant."
-            )
-        allowed = mcp_allowed_tenants()
-        if allowed is not None and tenant_id not in allowed:
-            raise ValueError(f"Tenant {tenant_id!r} is not allowed on this MCP server.")
-
-    def _filter_allowed_tenants(self, tenants: List[str]) -> List[str]:
-        allowed = mcp_allowed_tenants()
-        if allowed is None:
-            return tenants
-        return [tid for tid in tenants if tid in allowed]
-
     def _effective_tenant_id(
         self,
         identity: CallerIdentity | None,
         *,
         tenant_arg: Optional[str] = None,
     ) -> str:
-        if tenant_arg:
-            self._assert_tenant_switch_allowed()
-            self._assert_tenant_allowed(tenant_arg)
-            return tenant_arg
-        if self._selected_tenant_id:
-            return self._selected_tenant_id
-        try:
-            return self._resolve_tool_tenant_id(identity)
-        except ValueError:
-            if self._store_has_tenant(DEFAULT_TENANT):
-                try:
-                    self._assert_tenant_allowed(DEFAULT_TENANT)
-                except ValueError:
-                    pass
-                else:
-                    return DEFAULT_TENANT
-            raise ValueError(_MISSING_TENANT_SELECT_MESSAGE)
-
-    def _effective_config_name(self) -> Optional[str]:
-        return resolve_config_name(self._selected_config_name)
+        return self._tenant_session.effective_tenant_id(
+            tenant_arg=tenant_arg,
+            resolve_from_request=lambda: self._resolve_tool_tenant_id(identity),
+        )
 
     def _server_connector_ids(self) -> List[str]:
         if self._connector_ids is not None:
@@ -638,14 +592,6 @@ class McpServer:
             else:
                 missing.append(cid)
         return have, missing
-
-    def _clear_selected_config_if_missing(self, tenant_id: str) -> None:
-        name = self._selected_config_name
-        if not name:
-            return
-        have, _missing = self._config_coverage(tenant_id, name)
-        if not have:
-            self._selected_config_name = None
 
     def _list_configs_for_tenant(
         self, tenant_id: str, connector_id: Optional[str]
@@ -720,7 +666,9 @@ class McpServer:
 
     def _list_tenant_ids(self, connector_id: Optional[str]) -> List[str]:
         """Tenant ids in the store that have at least one config (allowlist-aware)."""
-        return self._filter_allowed_tenants(self._list_tenant_ids_unfiltered(connector_id))
+        return self._tenant_session.filter_allowed_tenants(
+            self._list_tenant_ids_unfiltered(connector_id)
+        )
 
     def _list_tenant_ids_unfiltered(self, connector_id: Optional[str]) -> List[str]:
         allow = self._connector_ids
@@ -743,10 +691,9 @@ class McpServer:
         return self._factory.store.list_tenants()
 
     def _pinned_tenant_id_or_none(self, identity: CallerIdentity | None) -> Optional[str]:
-        try:
-            return self._effective_tenant_id(identity)
-        except ValueError:
-            return None
+        return self._tenant_session.pinned_tenant_id_or_none(
+            resolve_from_request=lambda: self._resolve_tool_tenant_id(identity)
+        )
 
     async def _invoke_list_tenants(
         self,
@@ -800,21 +747,19 @@ class McpServer:
             raise ValueError(
                 f"Tool {SELECT_TENANT_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
             )
-        self._assert_tenant_switch_allowed()
+        self._tenant_session.assert_switch_allowed()
         tenant_id = _optional_str(arguments.get("tenant_id"))
         if not tenant_id:
             raise ValueError(f"{SELECT_TENANT_TOOL} requires tenant_id")
-        self._assert_tenant_allowed(tenant_id)
+        self._tenant_session.select_tenant(tenant_id)
         raw_cid = arguments.get("connector_id")
         connector_id: Optional[str] = None
         if isinstance(raw_cid, str) and raw_cid.strip():
             connector_id = raw_cid.strip()
-        self._selected_tenant_id = tenant_id
-        self._clear_selected_config_if_missing(tenant_id)
         configs = self._list_configs_for_tenant(tenant_id, connector_id)
         have: List[str] = []
         missing: List[str] = []
-        selected_name = self._selected_config_name
+        selected_name = self._tenant_session.selected_config_name
         if selected_name:
             have, missing = self._config_coverage(tenant_id, selected_name)
         logger.info(
@@ -852,12 +797,7 @@ class McpServer:
         if not config_name:
             raise ValueError(f"{SELECT_CONFIG_TOOL} requires config_name")
         tenant_id = self._effective_tenant_id(identity)
-        have, missing = self._config_coverage(tenant_id, config_name)
-        if not have:
-            raise ValueError(
-                f"Unknown config {config_name!r} for tenant {tenant_id!r}."
-            )
-        self._selected_config_name = config_name
+        have, missing = self._tenant_session.select_config(tenant_id, config_name)
         logger.info(
             "MCP tool resolved | tool=%s | tenant_id=%s | config_name=%s",
             SELECT_CONFIG_TOOL,
@@ -979,7 +919,7 @@ class McpServer:
         # never reach connector.run(); they do not override the overlay.
         arguments.pop("tenant_id", None)
         arguments.pop("config_name", None)
-        config_name = self._effective_config_name()
+        config_name = self._tenant_session.effective_config_name()
         tenant_id = self._effective_tenant_id(identity)
 
         max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
@@ -1221,7 +1161,7 @@ class McpServer:
 
         # §6.4: one process, one tenant — pin from env at stdio start (not on HTTP).
         raw = os.getenv("NW_TENANT_ID")
-        self._stdio_env_tenant_pin = raw.strip() if raw and raw.strip() else None
+        self._tenant_session.set_env_pin(raw.strip() if raw and raw.strip() else None)
 
         log_effective_mcp_auth_state()
 

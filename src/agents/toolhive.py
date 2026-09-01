@@ -533,11 +533,12 @@ class InProcessMcpClient:
         self._config_name = config_name
 
     async def __aenter__(self) -> InProcessMcpClient:
-        self._server._stdio_env_tenant_pin = self._tenant_id
+        tenant_session = self._server.tenant_session
+        tenant_session.set_env_pin(self._tenant_id)
         if self._tenant_id:
-            self._server._selected_tenant_id = self._tenant_id
+            tenant_session.set_selected_tenant(self._tenant_id)
         if self._config_name:
-            self._server._selected_config_name = self._config_name
+            tenant_session.set_selected_config(self._config_name)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

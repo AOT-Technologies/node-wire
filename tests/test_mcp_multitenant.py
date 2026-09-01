@@ -115,7 +115,7 @@ async def test_mt_off_uses_default_tenant(monkeypatch: pytest.MonkeyPatch) -> No
 async def test_mt_on_stdio_env_pin_selects_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
 
     captured = await _capture_invoke(server, tenant_for_instance="acme")
     assert captured["tenant_id"] == "acme"
@@ -129,7 +129,7 @@ async def test_mt_on_session_pin_ignores_process_nw_tenant_id(
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.setenv("NW_TENANT_ID", "from-env-must-not-win")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "from-env-must-not-win"
+    server.tenant_session.set_env_pin("from-env-must-not-win")
 
     sess = _session_tenant_ctx.set("acme")
     try:
@@ -144,7 +144,7 @@ async def test_mt_on_session_pin_ignores_process_nw_tenant_id(
 async def test_mt_on_no_pin_uses_default_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = None
+    server.tenant_session.set_env_pin(None)
     connector = await server._factory.get(
         "http_generic", tenant_id="__default__", config_name="default"
     )
@@ -169,7 +169,7 @@ async def test_mt_on_select_tenant_overrides_stdio_pin(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "http_generic",
@@ -206,7 +206,7 @@ async def test_mt_on_tool_tenant_id_arg_ignored(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     captured = await _capture_invoke(
         server,
         tenant_for_instance="acme",
@@ -227,7 +227,7 @@ async def test_mt_on_pin_locked_rejects_select_not_tool_arg(
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.setenv("NW_MCP_TENANT_PIN_LOCKED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "http_generic",
@@ -267,7 +267,7 @@ async def test_mt_on_missing_tenant_raises(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.setenv("NW_MCP_ALLOWED_TENANTS", "acme")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = None
+    server.tenant_session.set_env_pin(None)
 
     with pytest.raises(ValueError, match="nw_select_tenant"):
         await server.invoke_tool(
@@ -282,7 +282,7 @@ async def test_mt_on_unknown_config_via_select_fail_closed(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "http_generic",
@@ -332,7 +332,7 @@ async def test_mt_on_null_config_name_uses_tenant_default(
     """LLMs emit config_name: null; treat as omit (tenant default)."""
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     captured = await _capture_invoke(
         server,
         tenant_for_instance="acme",
@@ -353,8 +353,8 @@ def test_stdio_pin_assignment_from_nw_tenant_id(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("NW_TENANT_ID", "  acme  ")
     server = McpServer(connector_ids=["http_generic"])
     raw = os.getenv("NW_TENANT_ID")
-    server._stdio_env_tenant_pin = raw.strip() if raw and raw.strip() else None
-    assert server._stdio_env_tenant_pin == "acme"
+    server.tenant_session.set_env_pin(raw.strip() if raw and raw.strip() else None)
+    assert server.tenant_session.env_pin == "acme"
 
 
 def test_streamable_http_mt_missing_header_uses_default(
