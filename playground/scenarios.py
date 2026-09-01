@@ -70,14 +70,14 @@ from .ext_patient_viewer.schema import ExternalPatientViewerInput
 load_dotenv()
 
 
-ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
-ErrorMapper.register(ValueError, ErrorCategory.BUSINESS, code="VALIDATION_ERROR")
+ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
+ErrorMapper.register_global(ValueError, ErrorCategory.BUSINESS, code="VALIDATION_ERROR")
 
 
 load_dotenv()
 
 
-ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
+ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
 
 
 logger = logging.getLogger("playground.scenarios")
@@ -267,7 +267,9 @@ def _safe_error_return(
 
     log = logging.getLogger("playground.scenarios")
 
-    mapped_err = ErrorMapper.resolve(e)
+    # Scenario steps span multiple connectors, so there's no single connector_id to
+    # scope this to — only the runtime-wide mappings registered above apply here.
+    mapped_err = ErrorMapper.resolve(e, connector_id="playground")
     safe_msg = (
         str(e)
         if mapped_err.category != ErrorCategory.FATAL

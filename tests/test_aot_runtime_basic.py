@@ -102,7 +102,7 @@ def test_error_mapping_defaults_to_fatal():
 
 
 def test_error_mapping_custom_category():
-    ErrorMapper.register(CustomError, ErrorCategory.RETRYABLE, code="CUSTOM_RETRYABLE")
+    ErrorMapper.register("test_fail", CustomError, ErrorCategory.RETRYABLE, code="CUSTOM_RETRYABLE")
     connector = FailingConnector()
 
     response: ConnectorResponse = asyncio.run(connector.run({"action": "fail", "value": 1}))

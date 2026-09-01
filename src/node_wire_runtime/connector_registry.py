@@ -14,9 +14,12 @@ entry point group in their ``pyproject.toml``:
     [project.entry-points."node_wire.connectors"]
     fhir_epic = "node_wire_fhir_epic.logic"
 
-Calling :func:`auto_register` loads each allowed connector package's ``logic`` module
-(triggering ``BaseConnector.__init_subclass__`` registration) and its optional
-``registration`` module (for ``ErrorMapper`` side effects).
+Calling :func:`auto_register` loads each allowed connector package's ``logic`` module,
+which triggers ``BaseConnector.__init_subclass__`` — this both registers the connector
+class and, via its declarative ``error_map`` class attribute, registers the connector's
+exception mappings with ``ErrorMapper`` under that connector's own ``connector_id``.
+There is no separate registration step: a connector's ``logic`` module is the sole
+source of its runtime registration.
 
 Allowlist (recommended for production):
 
@@ -64,11 +67,6 @@ def _logic_module_dotted_path(ep: EntryPoint) -> str:
     return val
 
 
-def _parent_package_for_logic_module(logic_module: str) -> str:
-    """``node_wire_fhir_epic.logic`` -> ``node_wire_fhir_epic``."""
-    return logic_module.rsplit(".", 1)[0]
-
-
 def _should_skip_ep(ep: EntryPoint, allowed: set[str], prefix: str | None) -> bool:
     if ep.name not in allowed:
         logger.warning(
@@ -91,11 +89,10 @@ def _should_skip_ep(ep: EntryPoint, allowed: set[str], prefix: str | None) -> bo
 def auto_register() -> List[str]:
     """Load connector packages declared under ``node_wire.connectors``.
 
-    For each entry point:
-    1. Load the ``logic`` module — triggers ``BaseConnector.__init_subclass__``,
-       which populates the registry exposed via ``get_connector_registry()``.
-    2. Attempt to load a sibling ``registration`` module (optional) for
-       ``ErrorMapper`` registrations and other import-time side effects.
+    For each entry point, loads the ``logic`` module — this triggers
+    ``BaseConnector.__init_subclass__``, which populates the connector registry
+    exposed via ``get_connector_registry()`` and registers the connector's
+    ``error_map`` with ``ErrorMapper`` under its own ``connector_id``.
 
     If an allowed connector is not discovered via entry points, attempts to fallback
     to importing the logic module directly.
@@ -117,43 +114,20 @@ def auto_register() -> List[str]:
         loaded.append(logic_mod)
         logger.debug("Registered connector: %s (%s)", ep.name, ep.value)
 
-        pkg = _parent_package_for_logic_module(logic_mod)
-        reg_name = f"{pkg}.registration"
-        try:
-            importlib.import_module(reg_name)
-            loaded.append(reg_name)
-            logger.debug("Loaded registration module: %s", reg_name)
-        except ModuleNotFoundError as exc:
-            if exc.name == reg_name:
-                pass
-            else:
-                logger.error(
-                    "Import error inside %s (missing dep: %s): %s",
-                    reg_name,
-                    exc.name,
-                    exc,
-                )
-                raise
-        except Exception as exc:
-            logger.error("Unexpected error loading %s: %s", reg_name, exc)
-            raise
-
         discovered_names.add(ep.name)
 
     # Fallback for allowlisted names not discovered via entry points
     for name in allowed:
         if name not in discovered_names:
             pkg_prefix = prefix if prefix is not None else "node_wire_"
-            pkg = f"{pkg_prefix}{name}"
-            logic_mod = f"{pkg}.logic"
-            reg_name = f"{pkg}.registration"
+            logic_mod = f"{pkg_prefix}{name}.logic"
 
             try:
                 importlib.import_module(logic_mod)
                 loaded.append(logic_mod)
                 logger.debug("Registered connector via fallback: %s (%s)", name, logic_mod)
             except ModuleNotFoundError as exc:
-                if exc.name == logic_mod or exc.name == pkg:
+                if exc.name == logic_mod or exc.name == f"{pkg_prefix}{name}":
                     logger.debug("Fallback connector module not found: %s", logic_mod)
                     continue
                 else:
@@ -166,25 +140,6 @@ def auto_register() -> List[str]:
                     raise
             except Exception as exc:
                 logger.error("Unexpected error loading fallback %s: %s", logic_mod, exc)
-                raise
-
-            try:
-                importlib.import_module(reg_name)
-                loaded.append(reg_name)
-                logger.debug("Loaded registration module via fallback: %s", reg_name)
-            except ModuleNotFoundError as exc:
-                if exc.name == reg_name:
-                    pass
-                else:
-                    logger.error(
-                        "Import error inside fallback registration %s (missing dep: %s): %s",
-                        reg_name,
-                        exc.name,
-                        exc,
-                    )
-                    raise
-            except Exception as exc:
-                logger.error("Unexpected error loading fallback registration %s: %s", reg_name, exc)
                 raise
 
     return loaded

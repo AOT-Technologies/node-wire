@@ -139,7 +139,7 @@ def with_resilience(
                         try:
                             return await _run_through_breaker(breaker, fn, args, kwargs, trace_id)
                         except Exception as exc:  # noqa: BLE001
-                            mapped = ErrorMapper.resolve(exc)
+                            mapped = ErrorMapper.resolve(exc, connector_id=connector_id)
                             if isinstance(exc, CircuitBreakerError):
                                 _circuit_breaker_rejections.add(1, attributes=_metric_attrs)
                             if mapped.category is not ErrorCategory.RETRYABLE:

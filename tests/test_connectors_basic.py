@@ -32,7 +32,7 @@ def test_auto_register_runs_without_error(monkeypatch):
             "importlib.metadata entry points for node_wire.connectors are empty; "
             "use `pip install -e .` to run this assertion."
         )
-    assert any("http_generic.registration" in name for name in imported)
+    assert any("http_generic.logic" in name for name in imported)
     assert any("google_drive.logic" in name for name in imported)
 
 

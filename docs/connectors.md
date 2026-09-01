@@ -10,10 +10,10 @@ This guide explains how **connectors** fit into Node Wire, how to build your own
 
 ## How connectors fit into the platform
 
-- **Layer B — Connectors** (`src/node_wire_<connector_id>/`): adapter packages (schemas, logic, optional `registration.py`).
+- **Layer B — Connectors** (`src/node_wire_<connector_id>/`): adapter packages (schemas, logic, optional `error_map`).
 - **Layer C — Bindings** (`src/bindings/`): REST, gRPC, and MCP servers plus `ConnectorFactory` loading from `config/connectors.yaml`.
 
-At startup, bindings call **`node_wire_runtime.connector_registry.auto_register()`**, which loads connector entry points, imports each connector’s `logic` module (registering the class), then imports optional `registration.py` for `ErrorMapper` side effects. **`ConnectorFactory`** resolves connectors from the registry — **do not add per-connector branches in `src/bindings/factory.py`.**
+At startup, bindings call **`node_wire_runtime.connector_registry.auto_register()`**, which loads connector entry points and imports each connector's `logic` module — this triggers `BaseConnector.__init_subclass__`, which both registers the class and, via the connector's declarative `error_map`, registers its exception mappings with `ErrorMapper` under that connector's own `connector_id`. **`ConnectorFactory`** resolves connectors from the registry — **do not add per-connector branches in `src/bindings/factory.py`.**
 
 ---
 
@@ -27,10 +27,9 @@ Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epi
 | `schema.py` | Pydantic input/output models. Each input model has an `action: Literal[...]` discriminator field (often combined into a discriminated union). |
 | `logic.py` | Connector class: `BaseConnector` subclass — either explicit `@nw_action` methods, or **`action_specs`** plus an optional `_execute_action_spec` override for SDK dispatch. |
 | `action_spec.py` (optional) | Declarative `SdkActionSpec` entries mapping validated models to vendor SDK calls (see Google Drive). |
-| `registration.py` | Optional: registers connector-specific exceptions with `ErrorMapper`. |
 | `exceptions.py` | Optional: custom exception types. |
 
-At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors`, imports each connector's `logic` module (triggering `BaseConnector.__init_subclass__`, which populates the registry returned by `get_connector_registry()`), then imports optional `registration.py` for `ErrorMapper` side effects.
+At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors` and imports each connector's `logic` module, triggering `BaseConnector.__init_subclass__`. That both populates the registry returned by `get_connector_registry()` and registers the connector's `error_map` with `ErrorMapper` — scoped to that connector's own `connector_id`, so one connector's exception mappings can never be resolved for another connector's errors even when both are loaded in the same process. There is no separate registration step or module.
 
 ---
 
@@ -376,21 +375,22 @@ connector_cls = registry["google_drive"]
 
 For the full run pipeline (YAML config, instantiation, protocol routing), use **`ConnectorFactory`** (see [Calling a connector directly](#calling-a-connector-directly-in-process)).
 
-### Optional: `registration.py` for ErrorMapper
+### Optional: `error_map` for ErrorMapper
 
-When exceptions are raised outside the connector class (or shared across modules), register them in `registration.py` instead of inline `error_map`:
+Declare an `error_map` class attribute on your connector to translate raised exceptions into the standard error taxonomy — including exceptions raised outside the connector class or shared across modules (e.g. `.exceptions`):
 
 ```python
-# src/node_wire_<name>/registration.py
-from node_wire_runtime import ErrorCategory, ErrorMapper
+class MyConnector(BaseConnector):
+    connector_id = "my_connector"
+    ...
 
-from .exceptions import MyAuthError, MyRateLimitError
-
-ErrorMapper.register(MyAuthError, ErrorCategory.AUTH, code="MY_AUTH_ERROR")
-ErrorMapper.register(MyRateLimitError, ErrorCategory.RETRYABLE, code="MY_RATE_LIMIT")
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        MyAuthError: (ErrorCategory.AUTH, "MY_AUTH_ERROR"),
+        MyRateLimitError: (ErrorCategory.RETRYABLE, "MY_RATE_LIMIT"),
+    }
 ```
 
-`auto_register()` imports `registration.py` after `logic.py`, so these registrations run at startup. Alternatively, use inline **`error_map`** on the connector class (Google Drive example above).
+`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. This is the only way to register a connector's exception mappings: there is no module-level `ErrorMapper.register()` call available to connector code, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (e.g. two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors).
 
 ---
 
@@ -604,7 +604,7 @@ MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). S
 2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`. For HTTP-based connectors use an inline `async with httpx.AsyncClient() as client:` inside each `@nw_action` method (see [Using Auth in a Connector](#using-auth-in-a-connector)); only override `build_client()` / `get_client()` when wrapping a vendor SDK that requires a long-lived client object (e.g. `google_drive`).
 3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
 4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
-5. Optionally add `error_map` and/or `registration.py` for custom exception handling (see [registration.py example](#optional-registrationpy-for-errormapper) below).
+5. Optionally add `error_map` for custom exception handling (see [error_map example](#optional-error_map-for-errormapper) below).
 6. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
 7. **Environment template:** Add required secrets and connector-specific vars to [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) (referenced by [configuration.md](configuration.md) and [installation.md](installation.md)). Use commented placeholders with the env var names your connector reads via `SecretProvider`. Also add the new connector's entry-point name to the `NW_ALLOWED_CONNECTORS` line so the template stays current.
 8. `auto_register()` handles runtime registration — **no factory branch required**.

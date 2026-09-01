@@ -21,11 +21,11 @@ import json
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, ClassVar, Dict, Tuple, Type
 
 import httpx
 
-from node_wire_runtime import BaseConnector, sdk_action
+from node_wire_runtime import BaseConnector, ErrorCategory, sdk_action
 
 from .exceptions import (
     SlackAuthError,
@@ -313,6 +313,15 @@ class SlackConnector(BaseConnector):
 
     connector_id = "slack"
     output_model = SlackOutput
+
+    # Scoped to slack only.
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        SlackAuthError: (ErrorCategory.AUTH, "SLACK_AUTH_ERROR"),
+        SlackPermissionError: (ErrorCategory.AUTH, "SLACK_PERMISSION_ERROR"),
+        SlackRateLimitError: (ErrorCategory.RETRYABLE, "SLACK_RATE_LIMIT"),
+        SlackUploadError: (ErrorCategory.BUSINESS, "SLACK_UPLOAD_ERROR"),
+        SlackMessageError: (ErrorCategory.BUSINESS, "SLACK_MESSAGE_ERROR"),
+    }
 
     # ------------------------------------------------------------------
     # post_message
