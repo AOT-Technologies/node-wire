@@ -201,22 +201,36 @@ class TenantSessionOverlay:
         self,
         *,
         tenant_arg: Optional[str] = None,
+        request_tenant_id: Optional[str] = None,
         resolve_from_request: Callable[[], str],
     ) -> str:
         """Resolve the tenant id for a tool call, in priority order:
-        explicit ``tenant_arg`` > session-selected tenant >
-        ``resolve_from_request()`` (headers/JWT/env-pin, via
+        explicit ``tenant_arg`` > ``request_tenant_id`` (an already-resolved
+        per-request signal, e.g. HTTP ``X-Tenant-ID``/JWT via
+        ``server.py``'s ``_session_tenant_ctx``) > session-selected tenant >
+        ``resolve_from_request()`` (stdio env-pin fallback, via
         :mod:`node_wire_runtime.identity`) > ``DEFAULT_TENANT`` (if it
         exists in the store and is allowed) > raise.
 
-        ``resolve_from_request`` is injected so this module never touches
-        transport-specific request state (HTTP headers/JWT/session context)
-        directly — see ``server.py``'s ``_resolve_tool_tenant_id``.
+        A live per-request signal outranks session-selection so one HTTP
+        session's ``nw_select_tenant`` can't shadow another concurrent HTTP
+        session's ``X-Tenant-ID`` on the same (process-wide) overlay — see
+        the map at ``.scratch/mcp-tenant-config-per-request/``. stdio has no
+        such signal (no per-request headers exist), so
+        ``nw_select_tenant`` there still overrides the process env pin via
+        ``resolve_from_request()``, unchanged.
+
+        ``request_tenant_id``/``resolve_from_request`` are injected so this
+        module never touches transport-specific request state (HTTP
+        headers/JWT/session context) directly — see ``server.py``'s
+        ``_resolve_tool_tenant_id``.
         """
         if tenant_arg:
             self.assert_switch_allowed()
             self.assert_tenant_allowed(tenant_arg)
             return tenant_arg
+        if request_tenant_id:
+            return request_tenant_id
         if self._selected_tenant_id:
             return self._selected_tenant_id
         try:
@@ -232,16 +246,35 @@ class TenantSessionOverlay:
             raise ValueError(MISSING_TENANT_SELECT_MESSAGE)
 
     def pinned_tenant_id_or_none(
-        self, *, resolve_from_request: Callable[[], str]
+        self,
+        *,
+        request_tenant_id: Optional[str] = None,
+        resolve_from_request: Callable[[], str],
     ) -> Optional[str]:
         """Tolerant variant of :meth:`effective_tenant_id`: ``None`` instead
         of raising when no tenant can be resolved."""
         try:
-            return self.effective_tenant_id(resolve_from_request=resolve_from_request)
+            return self.effective_tenant_id(
+                request_tenant_id=request_tenant_id,
+                resolve_from_request=resolve_from_request,
+            )
         except ValueError:
             return None
 
-    def effective_config_name(self) -> Optional[str]:
-        """The session-selected config name, or ``None`` in single-tenant
-        mode (delegates to :func:`node_wire_runtime.identity.resolve_config_name`)."""
+    def effective_config_name(self, *, config_arg: Optional[str] = None) -> Optional[str]:
+        """Resolve the config name for a tool call, in priority order:
+        explicit ``config_arg`` (a per-request tool-call argument, mirroring
+        REST's payload ``config_name`` field / gRPC's ``request.config_name``
+        field) > session-selected config (``nw_select_config``) > ``None``
+        (tenant default).
+
+        Unlike :meth:`effective_tenant_id`, there's no header/env-pin
+        equivalent for config — MCP tool-call arguments are the only
+        per-request channel, so ``config_arg`` outranks the shared
+        session-selection outright, with no separate "live request" tier to
+        thread through. In single-tenant mode both are ignored (delegates to
+        :func:`node_wire_runtime.identity.resolve_config_name`).
+        """
+        if config_arg:
+            return resolve_config_name(config_arg)
         return resolve_config_name(self._selected_config_name)
