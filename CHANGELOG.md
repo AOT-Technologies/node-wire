@@ -11,6 +11,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`nw-cli`**: a new unified CLI (`nw`) for the OpenAPI → connector → wheel →
+  MCP → Docker pipeline, with `gen-all` (one-shot), and standalone `gen-whl`,
+  `gen-mcp`, and `docker-build` stages, prerequisite checks, and a Rich
+  progress UI (`nw-cli/`, `docs/nw-cli.md`).
+- **`nw-connector-builder`**: a new package that derives a connector
+  (auth, naming, operations, normalizers) from an OpenAPI/Swagger spec and
+  generates its codegen output, with a promotion gate for reviewing generated
+  connectors before they're wired in (`nw-connector-builder/`,
+  `docs/nw-connector-builder.md`, `docs/nw-connector-builder-scope.md`).
+- **`nw-mcp-builder`**: a new package that generates a standalone MCP server
+  project from an existing connector (`nw-mcp-builder/`), including
+  mcp-builder YAML configs for the Slack and Salesforce connectors.
+- Multi-tenancy support across all bindings (REST, gRPC, MCP) and the
+  playground: per-tenant configuration and secrets, tenant selection, and
+  per-tenant credential isolation for every connector (Google Drive, HTTP
+  generic, SMTP, Stripe, Epic FHIR, Cerner FHIR, Salesforce, Slack).
+- `node_wire_runtime.config_store` and `node_wire_runtime.tenant_persistence`
+  for durable per-tenant configuration storage, an expanded `secrets`
+  subsystem for per-tenant secret resolution, and `node_wire_runtime.identity`
+  for tenant identity resolution shared across bindings.
+- `TenantSessionOverlay` (`node_wire_runtime.tenant_session`), extracted from
+  the MCP server's private state, to isolate per-request tenant/config context.
+- OIDC support for the Google Drive MCP server.
+- LLM provider/model switching in the playground (`agents/llm_factory.py`,
+  new `agents/llm_base.py`), with new Anthropic and Gemini providers alongside
+  updated OpenAI and Groq providers, and playground UI controls for selecting
+  a model per session.
+- Per-connector response normalizers (`normalizers.py`) for Google Drive,
+  Salesforce, SMTP, Epic FHIR, and Cerner FHIR.
+- Error taxonomy support in the connector codegen and mcp-builder pipelines.
+- A new query-parameter API key auth mechanism (`node_wire_runtime.auth.apikey_query`).
+- OpenTelemetry metrics and an audit trail; a test-coverage gate for PRs
+  (raised to 85%, with an 80% floor enforced on changed files).
+- A new documentation site (`mkdocs.yml`, `docs/index.md`, branded stylesheets
+  and logo assets) and `docs/mcp-servers.md` documenting multi-tenant MCP
+  server setup.
+- `scripts/build-mcp-server.sh` and `scripts/mcp-servers.registry` for
+  building per-connector MCP server images, and a `docs.yml` CI workflow to
+  publish the documentation site.
+- `create-tag.yml` CI workflow for release tagging.
+
+### Changed
+
+- Collapsed the REST/gRPC binding invoke path into a shared `bindings/invoke.py`
+  helper, removing duplicated dispatch logic between transports.
+- Strengthened auth/scope-policy enforcement and connector isolation as part
+  of a connector framework optimization pass; removed the per-connector
+  `registration.py` modules and the shared `mcp_contract.py` /
+  `mcp_normalizers.py` in favor of the new normalizer-based registration path.
+- Rebuilt the wheel-build script for roughly an 80% reduction in build time.
+- Pinned the MCP SDK version until the codebase is compatible with the newer
+  release.
+- Node Wire branding refresh (README badges/logos, docs site theme).
+- Updated `docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
+  `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`, and
+  `docs/toolhive_agent_scenario.md` for multi-tenancy, the connector builder
+  pipeline, and the connector framework changes.
+
+### Fixed
+
+- `ErrorMapper` now scopes error-code matching per connector ID with an
+  MRO-specific match, fixing a cross-connector leak where one connector's
+  error code could surface through another connector's error handling.
+- Fixed a cross-tenant/cross-config race condition on the MCP HTTP transport
+  where concurrent requests could read another tenant's session or
+  configuration.
+- Fixed health check reporting.
+
 ## [1.0.0] - 2026-06-27
 
 First stable release. The public API is now **frozen under Semantic Versioning** —
