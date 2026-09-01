@@ -94,21 +94,50 @@ The Agentic Workflow panel displays the active transport as a pill:
 Set the mode before starting the REST API:
 
 ```powershell
-# Buffered stdio mode
+# Playground agent: in-process MCP (recommended for local MT testing)
+$env:MODE="API"
 $env:NW_MCP_TRANSPORT="stdio"
+# Leave TOOLHIVE_MCP_URL empty unless ToolHive / a separate MCP server is running
 uv run node-wire
 ```
 
 ```powershell
-# Streamable HTTP mode
+# Streamable HTTP UI + remote MCP proxy (requires something listening on the URL)
+$env:MODE="API"
 $env:NW_MCP_TRANSPORT="streamable-http"
-$env:NW_MCP_HOST="127.0.0.1"
-$env:NW_MCP_PORT="8081"
-$env:NW_MCP_PATH="/mcp"
+$env:TOOLHIVE_MCP_URL="http://127.0.0.1:8081/mcp"
+# In another terminal: start MCP — see docs/mcp.md
 uv run node-wire
 ```
 
-After changing `NW_MCP_TRANSPORT`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
+After changing `NW_MCP_TRANSPORT` / `TOOLHIVE_MCP_URL`, restart the backend and hard refresh the browser so the latest `app.js` and transport status are loaded.
+
+**Modes (do not confuse):**
+
+| Goal | What to run |
+|------|-------------|
+| Playground + connector scenarios + Agent (tenant-aware) | `MODE=API` → `http://127.0.0.1:8000/playground/` |
+| Standalone MCP tools (Inspector / Claude) | `python -m agents.mcp_entrypoint` (`NW_MCP_TRANSPORT=stdio` or `streamable-http` on `:8081`) — see [docs/mcp.md](../docs/mcp.md) |
+| Full binding as MCP process | `MODE=MCP` with same transport vars |
+
+If `TOOLHIVE_MCP_URL` points at `:8081` but nothing is listening, Agent chat fails with `All connection attempts failed`. Clear the URL or start an MCP server; by default the playground falls back to **in-process** MCP when the proxy cannot list tools.
+
+#### Multitenancy (`NW_MULTITENANCY_ENABLED`)
+
+Defaults to off (legacy single-tenant). When enabled:
+
+```powershell
+$env:NW_MULTITENANCY_ENABLED="true"
+uv run node-wire
+```
+
+- **Tenant ID required**: connector/scenario calls without `X-Tenant-ID` return **400**. Explicit `__default__` is allowed.
+- **Header**: Tenant dropdown (existing tenants) and Config dropdown appear when multitenancy is on. Header **Add config** is hidden; use **Add config** on each System Connector page.
+- **Config dropdown**: lists configs for the **active connector** only under the selected tenant. Switching connectors clears a name that does not exist for the new connector.
+- **Agentic Workflow**: sends the same `X-Tenant-ID` (and optional `config_name` query) as the **starting** pin. The agent can then `nw_select_tenant` / `nw_select_config`; the chat response includes the effective tenant/config and the header dropdowns update to match. Local agent MCP runs **in-process** against the playground factory.
+- **MCP config discovery**: When MT is on, standalone MCP also loads `tenants.yaml` and exposes `nw_list_tenants`, `nw_select_tenant` (returns that tenant’s configs), `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that MCP process. Env/`X-Tenant-ID` is the default; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Configs are still created only via Add config / REST / YAML — not via MCP. Rebuild generated MCP images so vendored `server.py` includes these tools.
+- **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (e.g. `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
+- **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.
 
 #### Testing the MCP server with Inspector
 
@@ -180,8 +209,8 @@ To test the Google Drive integration manually, follow these specialized setup st
 
 ### 🤖 Configuring the AI Agent (Optional)
 To enable the AI Agent chat, you need to configure an LLM provider:
-1.  **Select Provider**: Set `LLM_PROVIDER` to `groq` (default) or `openai` in your `.env`.
-2.  **Add API Key**: Provide the corresponding key, e.g., `GROQ_API_KEY=your_key_here`.
+1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, and `NVIDIA_MODEL` to enable NVIDIA Nemotron in the same dropdown.
+2.  **Switch models in the UI**: Use the single `provider/model` selector next to the chat input (defaults to Groq when configured).
 3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
 4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
 5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).

@@ -276,12 +276,14 @@ class RestConnector(BaseConnector):
         secret_provider: Any = None,
         policy_hook: Any = None,
         auth_provider: Any = None,
+        config: Optional[Dict[str, Any]] = None,
         base_url: Optional[str] = None,
     ) -> None:
         super().__init__(
             secret_provider=secret_provider,
             policy_hook=policy_hook,
             auth_provider=auth_provider,
+            config=config,
         )
         self._base_url_override = base_url
 

@@ -43,6 +43,7 @@ class McpOAuthClient:
         token_manager: Optional[TokenManager] = None,
         http_client: Optional[httpx.AsyncClient] = None,
         reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._config = config or config_from_env(server_url=base_url)
@@ -51,6 +52,7 @@ class McpOAuthClient:
         self._initialized = False
         self._http = http_client
         self._owns_http = http_client is None
+        self._extra_headers = dict(extra_headers or {})
         self._token_manager = token_manager or TokenManager(
             self._config,
             user_id=self._user_id,
@@ -85,6 +87,7 @@ class McpOAuthClient:
 
     def _merge_headers(self, extra: Dict[str, str]) -> Dict[str, str]:
         out = dict(extra)
+        out.update(self._extra_headers)
         if self._session_id:
             out["Mcp-Session-Id"] = self._session_id
         return out
@@ -204,6 +207,7 @@ def create_http_mcp_client(
     user_id: Optional[str] = None,
     force_oauth: bool = False,
     reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
+    extra_headers: Optional[Dict[str, str]] = None,
 ):
     """
     Factory: OAuth client when enabled, else legacy static-token HTTP client.
@@ -216,12 +220,17 @@ def create_http_mcp_client(
     from agents.toolhive import ToolHiveMcpClient
 
     if legacy_static_mcp_token() and not force_oauth:
-        return ToolHiveMcpClient(base_url)
+        return ToolHiveMcpClient(base_url, extra_headers=extra_headers)
 
     if mcp_oauth_enabled() or force_oauth:
-        return McpOAuthClient(base_url, user_id=user_id, reauthorize=reauthorize)
+        return McpOAuthClient(
+            base_url,
+            user_id=user_id,
+            reauthorize=reauthorize,
+            extra_headers=extra_headers,
+        )
 
-    return ToolHiveMcpClient(base_url)
+    return ToolHiveMcpClient(base_url, extra_headers=extra_headers)
 
 
 def create_http_mcp_clients_for_urls(
@@ -229,5 +238,14 @@ def create_http_mcp_clients_for_urls(
     *,
     user_id: Optional[str] = None,
     reauthorize: Optional[Callable[[], Awaitable[OAuthTokenSet]]] = None,
+    extra_headers: Optional[Dict[str, str]] = None,
 ) -> list:
-    return [create_http_mcp_client(u, user_id=user_id, reauthorize=reauthorize) for u in urls]
+    return [
+        create_http_mcp_client(
+            u,
+            user_id=user_id,
+            reauthorize=reauthorize,
+            extra_headers=extra_headers,
+        )
+        for u in urls
+    ]

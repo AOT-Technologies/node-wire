@@ -108,7 +108,7 @@ def test_mcp_auth_valid_token_allows_tools_list(monkeypatch: pytest.MonkeyPatch)
 
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
-    assert any(t["name"] == "smtp.send_email" for t in tools)
+    assert any(t["name"] == "smtp_send_email" for t in tools)
 
 
 @pytest.mark.asyncio
@@ -129,6 +129,11 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
     assert identity is not None
 
     server = McpServer(connector_ids=["smtp"])
+    # Rev4: configured = entitled. The JWT tenant must have a config to reach the
+    # scope policy (otherwise it fails closed at config resolution first).
+    server._factory.store.create(
+        "tenant-a", "smtp", {"name": "default", "default": True, "config": {}}
+    )
     resp = await server.invoke_tool(
         "smtp.send_email",
         {
@@ -149,10 +154,12 @@ async def test_mcp_authz_denies_tool_without_scope(monkeypatch: pytest.MonkeyPat
 async def test_mcp_execution_passes_principal_and_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
     monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
+    monkeypatch.delenv("NW_TENANT_ID", raising=False)
 
     token = mint_test_jwt(
         {"sub": "service-account", "tenant_id": "tenant-42", "scopes": ["*"]},
@@ -162,7 +169,12 @@ async def test_mcp_execution_passes_principal_and_tenant(
     assert identity is not None
 
     server = McpServer(connector_ids=["smtp"])
-    smtp = server._factory.get_for_protocol("smtp", "mcp")
+    # Rev4: configured = entitled. Provision the JWT tenant's config and patch the
+    # tenant-scoped instance that invoke_tool will resolve.
+    server._factory.store.create(
+        "tenant-42", "smtp", {"name": "default", "default": True, "config": {}}
+    )
+    smtp = await server._factory.get("smtp", tenant_id="tenant-42")
     assert smtp is not None
 
     captured: dict[str, object] = {}
@@ -212,7 +224,7 @@ def test_mcp_api_key_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -
 
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
-    assert not any(t["name"] == "smtp.send_email" for t in tools)
+    assert not any(t["name"] == "smtp_send_email" for t in tools)
 
 
 def test_mcp_jwt_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -231,7 +243,7 @@ def test_mcp_jwt_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> No
     identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
-    assert not any(t["name"] == "smtp.send_email" for t in tools)
+    assert not any(t["name"] == "smtp_send_email" for t in tools)
 
 
 @pytest.mark.asyncio
@@ -252,7 +264,7 @@ async def test_mcp_default_deny_fallback_scope_invokes_tool(
 
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
-    assert any(t["name"] == "smtp.send_email" for t in tools)
+    assert any(t["name"] == "smtp_send_email" for t in tools)
 
     smtp = server._factory.get_for_protocol("smtp", "mcp")
     assert smtp is not None
@@ -300,7 +312,7 @@ async def test_mcp_default_deny_denies_without_fallback_scope(
 
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
-    assert not any(t["name"] == "smtp.send_email" for t in tools)
+    assert not any(t["name"] == "smtp_send_email" for t in tools)
 
     resp = await server.invoke_tool(
         "smtp.send_email",
@@ -328,7 +340,7 @@ def test_mcp_api_key_explicit_star_scope_lists_tool(monkeypatch: pytest.MonkeyPa
     identity = authenticate_mcp_request(meta={"token": "unit-test-secret"})
     server = McpServer(connector_ids=["smtp"])
     tools = server.list_tools(identity=identity)
-    assert any(t["name"] == "smtp.send_email" for t in tools)
+    assert any(t["name"] == "smtp_send_email" for t in tools)
 
 
 class _FakeStreamableSessionManager:
@@ -445,8 +457,8 @@ def test_upstream_passthrough_denied_mode_lists_google_drive_tools(
     assert identity is not None
 
     names = {t["name"] for t in server.list_tools(identity=identity)}
-    assert "google_drive.files.list" in names
-    assert "google_drive.files.upload" in names
+    assert "google_drive_files_list" in names
+    assert "google_drive_files_upload" in names
     reset_upstream_passthrough_context()
 
 

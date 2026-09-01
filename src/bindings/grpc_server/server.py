@@ -17,6 +17,12 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
@@ -39,6 +45,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
     async def _invoke_async(
         self,
         request: connector_pb2.InvokeRequest,  # type: ignore[name-defined, attr-defined]
+        metadata: dict[str, str] | None = None,
     ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined, attr-defined]
         try:
             await global_rate_limiter.acquire()
@@ -51,13 +58,40 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                 trace_id="",
             )
 
-        connector = self._factory.get_for_protocol(request.connector_id, "grpc")
-        if connector is None:
+        identity = get_grpc_caller_identity()
+        try:
+            tenant_id = resolve_tenant_id(headers=metadata or {}, jwt_identity=identity)
+        except MissingTenantError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="MISSING_TENANT",
+                error_category=ErrorCategory.AUTH.value,
+                message=str(exc),
+                trace_id="",
+            )
+
+        if not self._factory.is_exposed(request.connector_id, "grpc"):
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,
                 error_code="CONNECTOR_NOT_AVAILABLE",
                 error_category=ErrorCategory.BUSINESS.value,
                 message=f"Connector {request.connector_id!r} is not available via gRPC.",
+                trace_id="",
+            )
+
+        try:
+            connector = await self._factory.get(
+                request.connector_id,
+                tenant_id=tenant_id,
+                config_name=resolve_config_name(request.config_name or None),
+                action=request.action,
+            )
+        except ConfigNotFoundError:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="CONFIG_NOT_FOUND",
+                error_category=ErrorCategory.AUTH.value,
+                message="No connector configuration for this tenant",
                 trace_id="",
             )
 
@@ -82,11 +116,10 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             if payload.get("action"):
                 normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
 
-        identity = get_grpc_caller_identity()
         response: ConnectorResponse = await connector.run(
             payload,
             principal=identity.principal if identity else None,
-            tenant_id=identity.tenant_id if identity else None,
+            tenant_id=tenant_id,
             scopes=identity.scopes if identity else None,
         )
 
@@ -105,7 +138,10 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         )
 
     def Invoke(self, request, context):  # type: ignore[override]
-        return _async_runner.run(self._invoke_async(request))
+        # gRPC metadata keys are lowercase by spec; tenant header lookup is
+        # case-insensitive. Pinned once per unary call.
+        metadata = {k.lower(): v for k, v in (context.invocation_metadata() or ())}
+        return _async_runner.run(self._invoke_async(request, metadata))
 
 
 def serve(port: int = 50051) -> None:
