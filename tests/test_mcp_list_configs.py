@@ -74,7 +74,7 @@ async def test_list_configs_hidden_when_mt_off(monkeypatch: pytest.MonkeyPatch) 
 async def test_list_configs_returns_named_configs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic", "google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -116,7 +116,7 @@ async def test_list_configs_respects_connector_allowlist(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -141,7 +141,7 @@ async def test_list_configs_without_pin_uses_default_tenant(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic"])
-    server._stdio_env_tenant_pin = None
+    server.tenant_session.set_env_pin(None)
     result = await server.invoke_tool(LIST_CONFIGS_TOOL, {})
     assert result["ok"] is True
     assert result["tenant_id"] == "__default__"
@@ -185,7 +185,7 @@ async def test_list_tenants_returns_ids_filtered_by_connector(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic", "google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -232,7 +232,7 @@ async def test_list_tenants_returns_ids_filtered_by_connector(
 async def test_list_tenants_works_without_pin(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = None
+    server.tenant_session.set_env_pin(None)
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -252,7 +252,7 @@ async def test_list_tenants_respects_connector_allowlist(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -297,7 +297,7 @@ async def test_select_tenant_overrides_pin_and_returns_configs(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -326,7 +326,7 @@ async def test_select_tenant_overrides_pin_and_returns_configs(
 async def test_list_configs_honors_tenant_id_arg(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -348,7 +348,7 @@ async def test_list_configs_honors_tenant_id_arg(monkeypatch: pytest.MonkeyPatch
 async def test_select_unknown_tenant_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     with pytest.raises(ValueError, match="Unknown tenant"):
         await server.invoke_tool(SELECT_TENANT_TOOL, {"tenant_id": "nope"})
 
@@ -358,7 +358,7 @@ async def test_select_tenant_respects_allowlist(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.setenv("NW_MCP_ALLOWED_TENANTS", "acme")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -380,7 +380,7 @@ async def test_select_tenant_pin_locked(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     monkeypatch.setenv("NW_MCP_TENANT_PIN_LOCKED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -401,7 +401,7 @@ async def test_select_tenant_pin_locked(monkeypatch: pytest.MonkeyPatch) -> None
 async def test_select_tenant_clears_invalid_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -422,7 +422,7 @@ async def test_select_tenant_clears_invalid_config(monkeypatch: pytest.MonkeyPat
 async def test_select_config_sets_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "google_drive",
@@ -440,7 +440,7 @@ async def test_select_config_sets_overlay(monkeypatch: pytest.MonkeyPatch) -> No
     assert result["config_name"] == "alt"
     assert result["connectors_with_config"] == ["google_drive"]
     assert result["connectors_missing_config"] == []
-    assert server._selected_config_name == "alt"
+    assert server.tenant_session.selected_config_name == "alt"
 
 
 @pytest.mark.asyncio
@@ -449,7 +449,7 @@ async def test_select_config_applies_to_every_connector(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic", "google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     server._factory.store.create(
         "acme",
         "http_generic",
@@ -489,7 +489,7 @@ async def test_select_tenant_keeps_config_if_any_connector_has_it(
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     server = McpServer(connector_ids=["http_generic", "google_drive"])
-    server._stdio_env_tenant_pin = "acme"
+    server.tenant_session.set_env_pin("acme")
     for tenant in ("acme", "acme-demo"):
         server._factory.store.create(
             tenant,

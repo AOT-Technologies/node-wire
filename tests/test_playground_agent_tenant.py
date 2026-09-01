@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -14,6 +15,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from agents.toolhive import InProcessMcpClient, ToolHiveMcpClient
+from node_wire_runtime.tenant_session import TenantSessionOverlay
+
+
+def _fake_tenant_session() -> TenantSessionOverlay:
+    """A TenantSessionOverlay with a permissive store, for MagicMock servers
+    that need real (not auto-mocked) session-pin state."""
+    return TenantSessionOverlay(
+        store_has_tenant=lambda tenant_id: True,
+        config_coverage=lambda tenant_id, config_name: (["c1"], []),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -73,6 +84,7 @@ async def test_toolhive_client_sends_tenant_header() -> None:
 @pytest.mark.asyncio
 async def test_inprocess_mcp_client_pins_tenant_and_config_name() -> None:
     server = MagicMock()
+    server.tenant_session = _fake_tenant_session()
     server.list_tools.return_value = [{"name": "http_generic.request", "input_schema": {}}]
 
     async def fake_invoke(name, arguments, identity=None):
@@ -82,11 +94,11 @@ async def test_inprocess_mcp_client_pins_tenant_and_config_name() -> None:
 
     client = InProcessMcpClient(server, tenant_id="acme", config_name="primary")
     async with client:
-        assert server._stdio_env_tenant_pin == "acme"
+        assert server.tenant_session.env_pin == "acme"
         tools = await client.list_tools()
         assert tools[0]["name"] == "http_generic.request"
-        assert server._selected_tenant_id == "acme"
-        assert server._selected_config_name == "primary"
+        assert server.tenant_session.selected_tenant_id == "acme"
+        assert server.tenant_session.selected_config_name == "primary"
         out = await client.call_tool("http_generic.request", {"url": "https://example.com"})
         data = json.loads(out)
         assert data["args"]["url"] == "https://example.com"
@@ -104,7 +116,8 @@ async def test_inprocess_mcp_client_pins_tenant_and_config_name() -> None:
 @pytest.mark.asyncio
 async def test_inprocess_enter_applies_host_config_overlay() -> None:
     server = MagicMock()
-    server._selected_config_name = "overlay-cfg"
+    server.tenant_session = _fake_tenant_session()
+    server.tenant_session.set_selected_config("overlay-cfg")
 
     async def fake_invoke(name, arguments, identity=None):
         return {"ok": True, "args": arguments}
@@ -112,7 +125,7 @@ async def test_inprocess_enter_applies_host_config_overlay() -> None:
     server.invoke_tool = fake_invoke
     client = InProcessMcpClient(server, tenant_id="acme", config_name="primary")
     async with client:
-        assert server._selected_config_name == "primary"
+        assert server.tenant_session.selected_config_name == "primary"
         out = await client.call_tool("http_generic.request", {"url": "https://example.com"})
         data = json.loads(out)
         assert "config_name" not in data["args"]
@@ -224,3 +237,46 @@ def test_tenancy_from_agent_steps_selects_tenant_and_config() -> None:
     )
     assert tenant == "acme-demo"
     assert config == "test-work"
+
+
+def test_tenancy_from_mcp_client_prefers_overlay_selection() -> None:
+    from node_wire_runtime.tenant_session import TenantSessionOverlay
+    from playground.scenarios import _tenancy_from_mcp_client
+
+    tenant_session = TenantSessionOverlay(
+        store_has_tenant=lambda tid: True,
+        config_coverage=lambda tid, name: (["c1"], []),
+    )
+    tenant_session.set_selected_tenant("acme-demo")
+    tenant_session.set_selected_config("alt")
+
+    server = SimpleNamespace(tenant_session=tenant_session)
+    client = SimpleNamespace(_server=server)
+
+    tenant, config = _tenancy_from_mcp_client(client, "acme", "primary")
+    assert tenant == "acme-demo"
+    assert config == "alt"
+
+
+def test_tenancy_from_mcp_client_falls_back_when_nothing_selected() -> None:
+    from node_wire_runtime.tenant_session import TenantSessionOverlay
+    from playground.scenarios import _tenancy_from_mcp_client
+
+    tenant_session = TenantSessionOverlay(
+        store_has_tenant=lambda tid: True,
+        config_coverage=lambda tid, name: ([], []),
+    )
+    server = SimpleNamespace(tenant_session=tenant_session)
+    client = SimpleNamespace(_server=server)
+
+    tenant, config = _tenancy_from_mcp_client(client, "acme", "primary")
+    assert tenant == "acme"
+    assert config == "primary"
+
+
+def test_tenancy_from_mcp_client_without_server_attr_passes_through() -> None:
+    from playground.scenarios import _tenancy_from_mcp_client
+
+    tenant, config = _tenancy_from_mcp_client(SimpleNamespace(), "acme", "primary")
+    assert tenant == "acme"
+    assert config == "primary"

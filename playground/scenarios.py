@@ -2024,8 +2024,9 @@ def _tenancy_from_mcp_client(
     server = getattr(mcp_client, "_server", None)
     if server is None:
         return tenant_id, config_name
-    selected_t = getattr(server, "_selected_tenant_id", None)
-    selected_c = getattr(server, "_selected_config_name", None)
+    tenant_session = getattr(server, "tenant_session", None)
+    selected_t = getattr(tenant_session, "selected_tenant_id", None)
+    selected_c = getattr(tenant_session, "selected_config_name", None)
     if selected_t:
         return selected_t, selected_c
     return tenant_id, selected_c if selected_c is not None else config_name
