@@ -30,7 +30,8 @@ def _make_client(monkeypatch) -> tuple[TestClient, MagicMock]:
     monkeypatch.setattr(rest_app_module, "_rate_limiter_cfg", None)
 
     mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector()
+    mock_factory.is_exposed.return_value = True
+    mock_factory.get = AsyncMock(return_value=_stub_connector())
     app.dependency_overrides[get_factory] = lambda: mock_factory
     return TestClient(app), mock_factory
 
@@ -90,7 +91,8 @@ def test_rest_rate_limit_isolated_by_identity(monkeypatch) -> None:
     monkeypatch.setattr(rest_app_module, "_rate_limiter_cfg", None)
 
     mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector()
+    mock_factory.is_exposed.return_value = True
+    mock_factory.get = AsyncMock(return_value=_stub_connector())
     app.dependency_overrides[get_factory] = lambda: mock_factory
 
     try:
@@ -157,7 +159,8 @@ def test_rest_rate_limit_ignores_spoofed_xff_when_proxy_hops_zero(monkeypatch) -
     monkeypatch.setattr(rest_app_module, "_rate_limiter_cfg", None)
 
     mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector()
+    mock_factory.is_exposed.return_value = True
+    mock_factory.get = AsyncMock(return_value=_stub_connector())
     app.dependency_overrides[get_factory] = lambda: mock_factory
 
     try:

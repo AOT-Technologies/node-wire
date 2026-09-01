@@ -206,7 +206,7 @@ async def test_mcp_http_tools_list_accepts_authorization_header(monkeypatch):
             assert list_resp.status_code == 200
             data = list_resp.json()
             assert "tools" in data["result"]
-            assert any(t["name"] == "smtp.send_email" for t in data["result"]["tools"])
+            assert any(t["name"] == "smtp_send_email" for t in data["result"]["tools"])
 
 
 @pytest.mark.anyio
@@ -265,4 +265,4 @@ async def test_mcp_http_tools_list_accepts_x_api_key_header(monkeypatch):
             assert list_resp.status_code == 200
             data = list_resp.json()
             assert "tools" in data["result"]
-            assert any(t["name"] == "smtp.send_email" for t in data["result"]["tools"])
+            assert any(t["name"] == "smtp_send_email" for t in data["result"]["tools"])

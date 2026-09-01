@@ -99,6 +99,200 @@ body {
     align-items: center;
 }
 
+.header-tenancy {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.header-tenancy-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.header-tenancy-field label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.header-tenancy-field input,
+.header-tenancy-field select {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-main);
+    font-size: 0.8rem;
+    padding: 0.35rem 0.55rem;
+    min-width: 7.5rem;
+    max-width: 10rem;
+}
+
+.header-tenancy-field input:focus,
+.header-tenancy-field select:focus {
+    outline: none;
+    border-color: var(--brand-accent);
+}
+
+.connectors-toolbar {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.connectors-toolbar .main-back-btn {
+    margin-bottom: 0;
+}
+
+.add-config-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    align-self: flex-end;
+    min-height: 2.05rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--brand-accent) 55%, var(--border));
+    background: color-mix(in srgb, var(--brand-accent) 18%, transparent);
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.add-config-btn:hover {
+    background: color-mix(in srgb, var(--brand-accent) 28%, transparent);
+    border-color: var(--brand-accent);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.add-config-btn:focus-visible {
+    outline: 2px solid var(--brand-accent);
+    outline-offset: 2px;
+}
+
+.config-admin-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+}
+
+.config-admin-modal.hidden {
+    display: none;
+}
+
+.config-admin-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+}
+
+.config-admin-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(40rem, 100%);
+    max-height: min(90vh, 52rem);
+    overflow: auto;
+    margin: 0;
+    padding: 1.35rem 1.6rem 1.5rem;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.config-admin-modal-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
+}
+
+.config-admin-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.config-admin-close:hover {
+    color: var(--text-main);
+    border-color: var(--brand-accent);
+    background: color-mix(in srgb, var(--brand-accent) 12%, transparent);
+}
+
+.config-admin-panel {
+    padding: 1.35rem 1.6rem 1.5rem;
+}
+
+.config-admin-panel .card-title {
+    margin-bottom: 0.65rem;
+}
+
+.config-admin-help {
+    margin: 0 0 1rem;
+    max-width: 52rem;
+    line-height: 1.45;
+}
+
+.config-admin-fields {
+    gap: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.config-admin-secret-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.config-admin-secret-fields .field-group textarea {
+    min-height: 6rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.config-admin-error {
+    margin: 0.5rem 0 0;
+    color: #f87171;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.config-admin-error.hidden {
+    display: none;
+}
+
+.config-admin-fields .field-group {
+    flex: 1 1 12rem;
+    min-width: 10rem;
+}
+
 .business-value-stat {
     text-align: right;
     border-right: 1px solid #cbd5e1;
@@ -267,9 +461,35 @@ body {
     background: rgba(37, 99, 235, 0.1);
     color: var(--brand-accent);
     padding: 0.25rem 0.75rem;
-    border-radius: 6px;
+    border-radius: 999px;
     font-size: 0.75rem;
-    font-weight: 700;
+    font-weight: 600;
+}
+
+.tenancy-config-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 1rem;
+}
+
+.tenancy-cfg-btn {
+    width: auto;
+    min-height: 2.4rem;
+    padding: 0.6rem 1.05rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 10px;
+}
+
+.tenancy-cfg-btn-danger {
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #f87171;
+}
+
+.tenancy-cfg-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.12);
 }
 
 /* Form Styles */
@@ -1098,6 +1318,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
     line-height: 1.6;
 }
 
+/* Connector page top bar: back + Add config */
+.connector-page-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+    margin: 0 0 1.25rem;
+    min-height: 2.25rem;
+}
+
+.connector-page-toolbar .back-link {
+    margin-bottom: 0;
+}
+
+.connector-page-toolbar .add-config-btn {
+    align-self: center;
+    margin: 0;
+    flex-shrink: 0;
+}
+
 /* Back Link Navigation */
 .back-link {
     display: flex;
@@ -1317,6 +1558,134 @@ input[type="range"]::-webkit-slider-thumb:hover {
     align-items: center;
     padding-top: 0.75rem;
     border-top: 1px solid #e2e8f0;
+}
+
+.agent-llm-picker {
+    position: relative;
+    flex-shrink: 0;
+    max-width: 168px;
+}
+
+.agent-llm-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    min-height: 48px;
+    padding: 0.65rem 0.7rem 0.65rem 0.85rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main, #0f172a);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.agent-llm-trigger:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.agent-llm-trigger:focus {
+    outline: none;
+    border-color: var(--brand-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.agent-llm-trigger:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.agent-llm-trigger[aria-expanded="true"] {
+    border-color: var(--brand-accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.agent-llm-trigger-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+}
+
+.agent-llm-chevron {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #64748b;
+    transition: transform 0.15s ease;
+}
+
+.agent-llm-trigger[aria-expanded="true"] .agent-llm-chevron {
+    transform: rotate(180deg);
+}
+
+.agent-llm-menu {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    z-index: 40;
+    min-width: min(320px, 70vw);
+    max-width: min(420px, 85vw);
+    margin: 0;
+    padding: 0.35rem;
+    list-style: none;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.agent-llm-menu-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    color: #0f172a;
+}
+
+.agent-llm-menu-item:hover,
+.agent-llm-menu-item:focus {
+    outline: none;
+    background: #f1f5f9;
+}
+
+.agent-llm-menu-item[aria-selected="true"] {
+    background: color-mix(in srgb, var(--brand-accent) 12%, white);
+}
+
+.agent-llm-menu-item-short {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.agent-llm-menu-item-full {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #64748b;
+    word-break: break-all;
+}
+
+.agent-llm-note {
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    line-height: 1.35;
 }
 
 .chat-input-row input {

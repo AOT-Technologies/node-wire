@@ -19,6 +19,8 @@ import logging
 from typing import Any, Dict, List, cast
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.schema_utils import openai_compatible_tool_parameters
+
 
 logger = logging.getLogger("agents.providers.groq")
 
@@ -30,7 +32,7 @@ def _mcp_tool_to_groq(tool: Dict[str, Any]) -> Dict[str, Any]:
         "function": {
             "name": tool["name"],
             "description": tool.get("description", ""),
-            "parameters": tool.get("input_schema", {"type": "object", "properties": {}}),
+            "parameters": openai_compatible_tool_parameters(tool.get("input_schema")),
         },
     }
 

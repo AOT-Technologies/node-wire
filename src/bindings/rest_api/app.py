@@ -25,6 +25,18 @@ from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime.config_store import (
+    ConfigNameConflictError,
+    ConfigNotFoundError,
+    ConfigStoreError,
+    DefaultDeletionError,
+)
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    is_multitenancy_enabled,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -83,6 +95,14 @@ def _mount_playground(app: FastAPI) -> None:
         return
 
     app.include_router(scenarios_router)
+
+    # Playground feature-flags endpoint: lets the UI query server-side config.
+    from node_wire_runtime.identity import is_multitenancy_enabled
+
+    @app.get("/playground/feature-flags", tags=["playground"], include_in_schema=False)
+    async def playground_feature_flags() -> Dict[str, Any]:
+        return {"multitenancy_enabled": is_multitenancy_enabled()}
+
     app.mount(
         "/playground",
         StaticFiles(directory=str(playground_dir), html=True),
@@ -111,7 +131,33 @@ def get_factory() -> ConnectorFactory:
         _factory = ConnectorFactory()
         auto_register()
         _factory.load()
+        from bindings.rest_api.tenant_store import load_tenants
+
+        load_tenants(_factory.store)
     return _factory
+
+
+def _persist_tenants(factory_dep: ConnectorFactory) -> None:
+    from bindings.rest_api.tenant_store import save_tenants
+
+    save_tenants(factory_dep.store)
+
+
+def _pop_secrets(doc: Dict[str, Any]) -> Dict[str, str] | None:
+    """Extract secrets from a config body.
+
+    Returns ``None`` when the client omitted ``secrets`` (config-only update).
+    Returns a (possibly empty) dict when ``secrets`` was present — empty means
+    validate required secrets against existing values for that config only.
+    """
+    if "secrets" not in doc:
+        return None
+    raw = doc.pop("secrets")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise HTTPException(status_code=400, detail="secrets must be a JSON object")
+    return {str(k): str(v) for k, v in raw.items() if v is not None and str(v).strip()}
 
 
 async def check_rate_limit() -> None:
@@ -141,6 +187,294 @@ async def ready() -> Dict[str, str]:
         raise HTTPException(status_code=503, detail="factory not ready")
     return {"status": "ready"}
 
+
+# --- Runtime connector config API (thin wrappers over ConnectorConfigStore) ---
+# Tenant scope comes from the tenant header (never the path). The embedding
+# application authenticates callers before these endpoints are reachable
+# (RestAuthMiddleware); node-wire does not.
+
+
+def _config_tenant(request: Request) -> str:
+    try:
+        return resolve_tenant_id(
+            headers=request.headers, jwt_identity=get_rest_caller_identity(request)
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _log_tenant_action(
+    *,
+    action: str,
+    tenant_id: str,
+    connector_id: str | None = None,
+    config_name: str | None = None,
+) -> None:
+    """Emit tenant context when multitenancy is on (visible in default formatters)."""
+    if not is_multitenancy_enabled():
+        return
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
+    logger.info(
+        "Tenant config | op=%s | tenant_id=%s | connector=%s | config_name=%s",
+        str(action).replace("\r", " ").replace("\n", " "),
+        str(tenant_id).replace("\r", " ").replace("\n", " "),
+        str(connector_id or "-").replace("\r", " ").replace("\n", " "),
+        str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
+    )
+
+
+def _map_config_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, MissingTenantError):
+        return HTTPException(status_code=400, detail=str(exc))
+    if isinstance(exc, ConfigNameConflictError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, DefaultDeletionError):
+        return HTTPException(status_code=400, detail=str(exc))
+    if isinstance(exc, ConfigNotFoundError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, ConfigStoreError):
+        return HTTPException(status_code=400, detail=str(exc))
+    raise exc
+
+
+@app.post("/v1/config/init", tags=["config"])
+async def config_init(
+    request: Request,
+    payload: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    """Bulk init. With the tenant header: payload is that tenant's
+    ``{connector_id: [docs]}`` map. Without it: full multi-tenant payload."""
+    from node_wire_runtime.identity import tenant_from_headers
+
+    header_tenant = tenant_from_headers(request.headers)
+    full_payload = {header_tenant: payload} if header_tenant else payload
+    try:
+        factory_dep.store.init(full_payload)
+        _persist_tenants(factory_dep)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"status": "ok"})
+
+
+@app.get("/v1/tenants", tags=["config"])
+async def list_tenants(
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    return JSONResponse(status_code=200, content={"tenants": factory_dep.store.list_tenants()})
+
+
+@app.put("/v1/connectors/{cid}/secrets", tags=["config"])
+async def secrets_upsert(
+    cid: str,
+    request: Request,
+    payload: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    from bindings.rest_api.tenant_store import upsert_tenant_secrets
+
+    tenant_id = _config_tenant(request)
+    secrets = payload.get("secrets")
+    if not isinstance(secrets, dict):
+        raise HTTPException(status_code=400, detail="body.secrets must be a JSON object")
+    config_name = str(payload.get("config_name") or request.query_params.get("config_name") or "").strip()
+    if not config_name:
+        raise HTTPException(
+            status_code=400,
+            detail="config_name is required (body.config_name or ?config_name=)",
+        )
+    _log_tenant_action(
+        action="secrets.upsert",
+        tenant_id=tenant_id,
+        connector_id=cid,
+        config_name=config_name,
+    )
+    try:
+        keys = upsert_tenant_secrets(
+            tenant_id,
+            cid,
+            {str(k): str(v) for k, v in secrets.items()},
+            config_name=config_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    factory_dep.invalidate_configs(tenant_id, cid, [config_name])
+    _persist_tenants(factory_dep)
+    return JSONResponse(status_code=200, content={"keys": keys, "config_name": config_name})
+
+
+@app.get("/v1/connectors/{cid}/secrets", tags=["config"])
+async def secrets_list_keys(
+    cid: str,
+    request: Request,
+    config_name: str = "",
+) -> JSONResponse:
+    from bindings.rest_api.tenant_store import list_secret_logical_keys
+
+    tenant_id = _config_tenant(request)
+    name = (config_name or request.query_params.get("config_name") or "").strip()
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="config_name query parameter is required",
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"keys": list_secret_logical_keys(tenant_id, cid, name), "config_name": name},
+    )
+
+
+@app.post("/v1/connectors/{cid}/configs", tags=["config"])
+async def config_create(
+    cid: str,
+    request: Request,
+    doc: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    from bindings.rest_api.tenant_store import upsert_tenant_secrets
+
+    try:
+        tenant_id = _config_tenant(request)
+        body = dict(doc)
+        secrets = _pop_secrets(body)
+        config_name = str(body.get("name") or "").strip()
+        _log_tenant_action(
+            action="config.create",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=config_name or None,
+        )
+        if secrets is not None:
+            try:
+                upsert_tenant_secrets(
+                    tenant_id, cid, secrets, config_name=config_name
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        try:
+            record = factory_dep.store.create(tenant_id, cid, body)
+        except ConfigNameConflictError:
+            name = str(body.get("name") or "")
+            record = factory_dep.store.update(tenant_id, cid, name, body)
+        _persist_tenants(factory_dep)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=201, content={"name": record.name, "default": record.default})
+
+
+@app.get("/v1/connectors/{cid}/configs", tags=["config"])
+async def config_list(
+    cid: str,
+    request: Request,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    # No per-list INFO: playground dropdown refresh would flood the terminal.
+    tenant_id = _config_tenant(request)
+    return JSONResponse(status_code=200, content=factory_dep.store.list(tenant_id, cid))
+
+
+@app.get("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+async def config_get(
+    cid: str,
+    name: str,
+    request: Request,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    tenant_id = _config_tenant(request)
+    doc = factory_dep.store.get(tenant_id, cid, name)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return JSONResponse(status_code=200, content=doc)
+
+
+@app.put("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+async def config_update(
+    cid: str,
+    name: str,
+    request: Request,
+    doc: Dict[str, Any],
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    from bindings.rest_api.tenant_store import upsert_tenant_secrets
+
+    try:
+        tenant_id = _config_tenant(request)
+        body = dict(doc)
+        secrets = _pop_secrets(body)
+        _log_tenant_action(
+            action="config.update",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+        )
+        if secrets:
+            try:
+                upsert_tenant_secrets(tenant_id, cid, secrets, config_name=name)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        record = factory_dep.store.update(tenant_id, cid, name, body)
+        _persist_tenants(factory_dep)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"name": record.name, "default": record.default})
+
+
+@app.delete("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+async def config_delete(
+    cid: str,
+    name: str,
+    request: Request,
+    new_default: str | None = None,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    try:
+        tenant_id = _config_tenant(request)
+        _log_tenant_action(
+            action="config.delete",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+        )
+        factory_dep.store.delete(tenant_id, cid, name, new_default=new_default)
+        # Secrets are per named config; clear this config's vault.
+        from bindings.rest_api.tenant_store import (
+            clear_config_secrets,
+            clear_tenant_connector_secrets,
+        )
+
+        clear_config_secrets(tenant_id, cid, name)
+        if not factory_dep.store.has_config(tenant_id, cid):
+            clear_tenant_connector_secrets(tenant_id, cid)
+        _persist_tenants(factory_dep)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"status": "ok"})
+
+
+@app.put("/v1/connectors/{cid}/configs/{name}/default", tags=["config"])
+async def config_set_default(
+    cid: str,
+    name: str,
+    request: Request,
+    factory_dep: ConnectorFactory = Depends(get_factory),
+) -> JSONResponse:
+    try:
+        tenant_id = _config_tenant(request)
+        _log_tenant_action(
+            action="config.set_default",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+        )
+        factory_dep.store.set_default(tenant_id, cid, name)
+        _persist_tenants(factory_dep)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_config_error(exc)
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 def _http_status_for_category(category: ErrorCategory | None) -> int:
     if category is None:
@@ -196,10 +530,28 @@ def _make_endpoint(cid: str, act: str) -> Any:
         span = trace.get_current_span()
         span.set_attribute("connector.id", cid)
         span.set_attribute("connector.action", act)
+
+        rest_id = get_rest_caller_identity(request)
+        try:
+            tenant_id = resolve_tenant_id(headers=request.headers, jwt_identity=rest_id)
+        except MissingTenantError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        run_payload = dict(payload)
+        # config_name is a resolution-time argument, never a connector input.
+        # Suppressed when multitenancy is disabled so legacy path is always used.
+        config_name = resolve_config_name(run_payload.pop("config_name", None))
+        _log_tenant_action(
+            action=f"rest.{act}",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=config_name,
+        )
+
         if _rate_limit_enabled():
             limiter = _get_rate_limiter()
             identity_key = get_request_identity_key(request)
-            rate_key = f"{cid}:{act}:{identity_key}"
+            rate_key = f"{tenant_id}:{cid}:{act}:{identity_key}"
             result = limiter.consume(rate_key)
             if not result.allowed:
                 return JSONResponse(
@@ -208,10 +560,26 @@ def _make_endpoint(cid: str, act: str) -> Any:
                     headers={"Retry-After": str(result.retry_after_seconds)},
                 )
 
-        connector = factory_dep.get_for_protocol(cid, "rest", action=act)
-        if connector is None:
+        if not factory_dep.is_exposed(cid, "rest"):
             raise HTTPException(status_code=404, detail="Connector not available for REST")
-        run_payload = dict(payload)
+
+        try:
+            connector = await factory_dep.get(
+                cid, tenant_id=tenant_id, config_name=config_name, action=act
+            )
+        except ConfigNotFoundError:
+            # Unknown scope and unknown config name return the same body so config
+            # names cannot be enumerated (fail-closed).
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "No connector configuration for this tenant. "
+                    "Use Add config on this connector page."
+                ),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         run_payload = normalize_mcp_tool_arguments(connector, act, run_payload)
         try:
             enforce_authoritative_action(run_payload, act)
@@ -220,11 +588,10 @@ def _make_endpoint(cid: str, act: str) -> Any:
         run_payload["action"] = act
         # Let the runtime (Layer A) perform full schema validation.
         # Any validation errors will be mapped into ConnectorResponse.
-        rest_id = get_rest_caller_identity(request)
         response: ConnectorResponse = await connector.run(
             run_payload,
             principal=rest_id.principal if rest_id else None,
-            tenant_id=rest_id.tenant_id if rest_id else None,
+            tenant_id=tenant_id,
             scopes=rest_id.scopes if rest_id else None,
         )
         status = _http_status_for_category(response.error_category)

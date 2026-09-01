@@ -53,7 +53,8 @@ def test_rejects_oversized_content_length_on_connector_route() -> None:
 
 def test_allows_request_under_limit() -> None:
     mock_factory = MagicMock()
-    mock_factory.get_for_protocol.return_value = _stub_connector()
+    mock_factory.is_exposed.return_value = True
+    mock_factory.get = AsyncMock(return_value=_stub_connector())
     app.dependency_overrides[get_factory] = lambda: mock_factory
     try:
         client = TestClient(app)

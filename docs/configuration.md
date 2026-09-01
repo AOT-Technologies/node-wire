@@ -37,7 +37,7 @@ copy sample.env .env
 | **Slack** | `SLACK_BOT_TOKEN` | Sending Slack messages |
 | **Stripe** | `STRIPE_API_KEY` | Stripe payments |
 | **Salesforce** | `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN` | Salesforce CRM integration |
-| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key) | AI agent / ToolHive |
+| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL` (or other provider keys) | AI agent / ToolHive / playground LLM switcher |
 
 ### Transport & Binding Config
 
@@ -67,6 +67,21 @@ copy sample.env .env
 | `NW_HTTP_GENERIC_ALLOWED_HOSTS` | Optional egress allowlist for the `http_generic` connector only | _(unset)_ |
 | `NW_REST_ALLOWED_HOSTS` | Optional egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. | _(unset)_ |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
+
+### Multi-tenancy
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_MULTITENANCY_ENABLED` | When `true`, resolve tenant from header / `NW_TENANT_ID` / JWT and require a tenant (missing → error). When `false`, always `__default__`. | `false` |
+| `NW_TENANT_ID` | **MCP stdio only** — default process pin. Chat can override via `nw_select_tenant` unless `NW_MCP_TENANT_PIN_LOCKED=true`. Do not set on multi-tenant streamable-http (use `X-Tenant-ID` instead). | _(unset)_ |
+| `NW_TENANT_ID_HEADER` | HTTP/gRPC header name for tenant id (case-insensitive) | `X-Tenant-ID` |
+| `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored). Loaded by REST and by standalone MCP (`McpServer` / `agents.mcp_entrypoint`) at startup. | `config/tenants.yaml` |
+| `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
+| `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
+
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` (one credential vault per named config). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
+
+When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns configs), `nw_list_configs`, and `nw_select_config`. One select applies to **every connector** on that MCP process (stdio and streamable-http). Env/header is the default pin; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Provision configs via playground REST / YAML — not via MCP.
 
 ---
 

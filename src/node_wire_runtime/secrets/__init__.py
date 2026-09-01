@@ -24,16 +24,24 @@ Cloud backends (installed as extras):
 
 from node_wire_runtime.secrets.base import (
     EnvSecretProvider,
+    OverlaySecretProvider,
     SecretNotFoundError,
     SecretProvider,
     SecretProviderError,
+    TenantSecretNotFoundError,
+    TenantSecretProvider,
+    tenant_scoped_secret_key,
 )
 from node_wire_runtime.secrets.chained import ChainedSecretProvider
 
 __all__ = [
     "SecretProvider",
     "EnvSecretProvider",
+    "OverlaySecretProvider",
     "SecretNotFoundError",
     "SecretProviderError",
+    "TenantSecretNotFoundError",
+    "TenantSecretProvider",
+    "tenant_scoped_secret_key",
     "ChainedSecretProvider",
 ]
