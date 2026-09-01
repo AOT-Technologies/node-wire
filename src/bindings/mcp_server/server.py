@@ -360,7 +360,7 @@ class McpServer:
             self._factory = ConnectorFactory()
             self._factory.load()
             # Same YAML hydrate as REST; skip when factory is injected (playground).
-            from bindings.rest_api.tenant_store import load_tenants
+            from node_wire_runtime.tenant_persistence import load_tenants
 
             load_tenants(self._factory.store)
         self._upstream_passthrough = _resolve_upstream_passthrough(
@@ -1015,7 +1015,7 @@ class McpServer:
                     tenant_id=tenant_id,
                     config_name=config_name,
                 )
-                resolved_config_name = getattr(connector, "_config_name", config_name)
+                resolved_config_name = connector.config_name
             except ConfigNotFoundError:
                 pass
             logger.info(

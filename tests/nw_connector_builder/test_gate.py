@@ -14,6 +14,48 @@ from nw_connector_builder.gate import GateResult, import_smoke, run_gate, run_py
 _LOGIC_OK = """\
 from __future__ import annotations
 
+from typing import ClassVar, Dict, Tuple, Type
+
+import httpx
+from pydantic import BaseModel
+
+from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime.models import ErrorCategory
+
+
+class PingInput(BaseModel):
+    pass
+
+
+class Demo(RestConnector):
+    connector_id = "gate_demo"
+    output_model: ClassVar[Type[BaseModel]] = RestResponseOutput
+    _nw_abstract_base = False
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),
+        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),
+    }
+
+    @nw_action("ping")
+    async def ping(self, params: PingInput, *, trace_id: str) -> RestResponseOutput:
+        return RestResponseOutput()
+"""
+
+_LOGIC_ZERO = """\
+from __future__ import annotations
+
+from node_wire_runtime import RestConnector
+
+
+class Demo(RestConnector):
+    connector_id = "gate_demo"
+    _nw_abstract_base = True
+    _action_registry = {}
+"""
+
+_LOGIC_NO_ERROR_MAP = """\
+from __future__ import annotations
+
 from typing import ClassVar, Type
 
 from pydantic import BaseModel
@@ -33,18 +75,6 @@ class Demo(RestConnector):
     @nw_action("ping")
     async def ping(self, params: PingInput, *, trace_id: str) -> RestResponseOutput:
         return RestResponseOutput()
-"""
-
-_LOGIC_ZERO = """\
-from __future__ import annotations
-
-from node_wire_runtime import RestConnector
-
-
-class Demo(RestConnector):
-    connector_id = "gate_demo"
-    _nw_abstract_base = True
-    _action_registry = {}
 """
 
 
@@ -71,6 +101,57 @@ def test_import_smoke_zero_actions(tmp_path: Path) -> None:
     ok, msg = import_smoke(tmp_path, "gate_demo")
     assert ok is False
     assert "zero" in msg.lower()
+
+
+def test_import_smoke_missing_error_map(tmp_path: Path) -> None:
+    _write_minimal_connector(tmp_path, logic=_LOGIC_NO_ERROR_MAP)
+    ok, msg = import_smoke(tmp_path, "gate_demo")
+    assert ok is False
+    assert "error_map" in msg
+
+
+def test_import_smoke_inherited_error_map_not_registered(tmp_path: Path) -> None:
+    """ErrorMapper only registers cls.__dict__["error_map"] (base_connector.py's
+    __init_subclass__), not an inherited one — the gate must check the same way,
+    or a class that inherits (but doesn't redeclare) error_map would falsely pass."""
+    _write_minimal_connector(
+        tmp_path,
+        logic="""\
+from __future__ import annotations
+
+from typing import ClassVar, Dict, Tuple, Type
+
+import httpx
+from pydantic import BaseModel
+
+from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime.models import ErrorCategory
+
+
+class PingInput(BaseModel):
+    pass
+
+
+class _SharedErrorsBase(RestConnector):
+    _nw_abstract_base = True
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),
+    }
+
+
+class Demo(_SharedErrorsBase):
+    connector_id = "gate_demo"
+    output_model: ClassVar[Type[BaseModel]] = RestResponseOutput
+    _nw_abstract_base = False
+
+    @nw_action("ping")
+    async def ping(self, params: PingInput, *, trace_id: str) -> RestResponseOutput:
+        return RestResponseOutput()
+""",
+    )
+    ok, msg = import_smoke(tmp_path, "gate_demo")
+    assert ok is False
+    assert "error_map" in msg
 
 
 def test_import_smoke_missing_module(tmp_path: Path) -> None:

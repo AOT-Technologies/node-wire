@@ -441,13 +441,12 @@ class ConnectorFactory:
             "auth_provider": auth_provider,
             "config": record.raw.get("config", {}),
             "policy_hook": self._policy_hook,
+            "tenant_id": record.tenant_id,
+            "config_name": record.name,
         }
         if issubclass(connector_cls, RestConnector) and record.raw.get("base_url"):
             kwargs["base_url"] = record.raw["base_url"]
-        inst = connector_cls(**kwargs)
-        inst._config_name = record.name
-        inst._tenant_id = record.tenant_id
-        return inst
+        return connector_cls(**kwargs)
 
     async def get(
         self,

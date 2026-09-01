@@ -56,9 +56,15 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 Connector authors depend on these stable modules:
 
 - `node_wire_runtime.base_connector` — `BaseConnector`, action decorators.
-- `node_wire_runtime.mcp_contract` — MCP tool contract flags.
 - `node_wire_runtime.auth.base` — `AuthProvider` interface.
 - `node_wire_runtime.secrets.base` — `SecretProvider` interface.
+
+`node_wire_runtime.mcp_contract` was removed (was never actually generic: it held
+exactly one Google Drive-specific legacy-alias flag, mis-listed here as a stable
+extensibility point). Its contents moved to `node_wire_google_drive.normalizers` — see
+[ADR 0002](adr/0002-connector-specific-logic-stays-in-the-connector.md). Connector-specific
+argument normalizers were never part of the stable surface for any other connector either;
+this corrects the one place that had accidentally been documented as if it were.
 
 Connectors register via the `node_wire.connectors` entry-point group.
 

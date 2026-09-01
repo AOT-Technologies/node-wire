@@ -11,13 +11,13 @@ from typing import Any, Dict, Optional, Tuple, Type, ClassVar
 import httpx
 
 from node_wire_runtime import BaseConnector, nw_action, sdk_action
-from node_wire_runtime.mcp_normalizers import (
+from node_wire_runtime.models import ErrorCategory
+from .normalizers import (
     normalize_salesforce_read_delete_contact,
     normalize_salesforce_read_delete_lead,
     normalize_salesforce_update_contact,
     normalize_salesforce_update_lead,
 )
-from node_wire_runtime.models import ErrorCategory
 from .schema import (
     CreateLeadInput,
     CreateContactInput,

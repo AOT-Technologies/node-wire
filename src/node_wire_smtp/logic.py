@@ -12,8 +12,8 @@ from typing import ClassVar, Dict, Tuple, Type
 import aiosmtplib
 
 from node_wire_runtime import BaseConnector, ErrorCategory, sdk_action
-from node_wire_runtime.mcp_normalizers import normalize_smtp_send_email
 
+from .normalizers import normalize_smtp_send_email
 from .relay import SmtpRelayNotAllowedError, resolve_smtp_relay
 from .schema import SmtpSendInput, SmtpSendOutput
 

@@ -55,7 +55,9 @@ _invocation_duration = _meter.create_histogram(
     unit="ms",
     description="Connector invocation wall-clock time in milliseconds",
 )
-ErrorMapper.register_global(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
+POLICY_DENIED_CODE = "POLICY_DENIED"
+
+ErrorMapper.register_global(PolicyDenied, ErrorCategory.AUTH, code=POLICY_DENIED_CODE)
 ErrorMapper.register_global(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
 
 
@@ -393,6 +395,8 @@ class BaseConnector(ABC):
         policy_hook: Optional[PolicyHook] = None,
         auth_provider: Optional[AuthProvider] = None,
         config: Optional[Dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
+        config_name: Optional[str] = None,
     ) -> None:
         cls = type(self)
         self._input_model_cls = cls._union_input_model
@@ -401,18 +405,29 @@ class BaseConnector(ABC):
         self._policy_hook = policy_hook
         # Per-config settings (e.g. channel, base_url) from the resolved config
         # record. Available for connectors that opt in; existing connectors keep
-        # reading settings from secrets. The concrete config name is set by the
-        # factory as ``_config_name`` for observability.
+        # reading settings from secrets.
         self.config: Dict[str, Any] = config or {}
-        self._config_name: Optional[str] = None
-        # Set by ConnectorFactory._instantiate; unset on direct construction (tests).
-        self._tenant_id: Optional[str] = None
+        # Set by ConnectorFactory for factory-built instances; left None on direct
+        # construction (tests, embedders). Read via the public config_name/tenant_id
+        # properties below -- never poke these attributes directly from outside.
+        self._config_name: Optional[str] = config_name
+        self._tenant_id: Optional[str] = tenant_id
         # Default to NoAuthProvider (null-object) so connectors never receive None.
         self._auth_provider: AuthProvider = (
             auth_provider if auth_provider is not None else NoAuthProvider()
         )
         self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
         self._client: Any = None
+
+    @property
+    def tenant_id(self) -> Optional[str]:
+        """The tenant this instance is pinned to (set by ``ConnectorFactory``), or ``None``."""
+        return self._tenant_id
+
+    @property
+    def config_name(self) -> Optional[str]:
+        """The named config this instance was resolved from, or ``None``."""
+        return self._config_name
 
     def _create_breaker(self) -> CircuitBreaker:
         cls = type(self)
@@ -772,7 +787,7 @@ class BaseConnector(ABC):
         payload["action"] = name
         resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
         if not resp.success:
-            if resp.error_code == "POLICY_DENIED":
+            if resp.error_code == POLICY_DENIED_CODE:
                 raise PolicyDenied(resp.message or "Policy denied")
             raise NestedConnectorActionError(resp)
         if resp.data is None:

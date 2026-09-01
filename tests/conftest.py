@@ -116,7 +116,7 @@ def _tenants_isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "tenants.yaml"
     monkeypatch.setenv("NW_TENANTS_PATH", str(path))
     from node_wire_runtime.secrets import OverlaySecretProvider
-    import bindings.rest_api.tenant_store as pt
+    import node_wire_runtime.tenant_persistence as pt
 
     OverlaySecretProvider.instance().clear()
     pt._nested_secrets_mirror.clear()
