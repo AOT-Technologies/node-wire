@@ -149,6 +149,9 @@ def test_discover_secrets_and_env_example(fake_node_wire: Path, tmp_path: Path) 
     assert "NW_ALLOWED_CONNECTORS=demo_conn" in text
     assert "DEMO_CONN_SA_JSON=" in text
     assert "NW_MCP_AUTH_DISABLED=true" in text
+    for line in text.splitlines():
+        if line.startswith("DEMO_CONN_SA_JSON=") or line.startswith("DEMO_CONN_TOKEN="):
+            assert line.endswith("=") and line.count("=") == 1
 
 
 def test_run_from_connector_skip_wheels_generates_project(
@@ -167,9 +170,19 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert list((project_dir / "wheels").glob("*.whl"))
     assert (project_dir / "vendor" / "node_wire_src" / "bindings").is_dir()
     assert (project_dir / "Dockerfile").is_file()
+    assert (project_dir / ".dockerignore").is_file()
+    dockerfile = (project_dir / "Dockerfile").read_text(encoding="utf-8")
     # fake_node_wire has no uv.lock → fallback pin that excludes mcp 2.x
     assert "mcp>=1.6.0,<2" in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
-    assert '"mcp>=1.6.0,<2"' in (project_dir / "Dockerfile").read_text(encoding="utf-8")
+    assert '"mcp>=1.6.0,<2"' in dockerfile
+    assert "@sha256:" in dockerfile
+    assert "USER app" in dockerfile
+    assert "COPY config/connectors.yaml" in dockerfile
+    assert "COPY .env" not in dockerfile
+    assert "NW_MCP_AUTH_DISABLED" not in dockerfile
+    dockerignore = (project_dir / ".dockerignore").read_text(encoding="utf-8")
+    assert "**/.env" in dockerignore
+    assert "!config/connectors.yaml" in dockerignore
 
     with pytest.raises(FileExistsError, match="already exists"):
         run_from_connector(
