@@ -83,6 +83,8 @@ Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` (one credentia
 
 When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns configs), `nw_list_configs`, and `nw_select_config`. One select applies to **every connector** on that MCP process (stdio and streamable-http). Env/header is the default pin; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Provision configs via playground REST / YAML — not via MCP.
 
+**Host / factory contract:** Resolve the request tenant once (`resolve_tenant_id` in bindings, or your own auth in an embedded app), then pass that id to `ConnectorFactory.get(tenant_id=...)`. Omitting `tenant_id` on `get` always resolves `__default__` — never the current HTTP/MCP tenant. After `get`, the connector instance is pinned: `run()` may omit `tenant_id` (uses the pin); a conflicting `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without executing the action.
+
 ---
 
 ## Configuration File (`config/connectors.yaml`)

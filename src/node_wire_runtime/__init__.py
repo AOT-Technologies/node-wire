@@ -22,7 +22,15 @@ from .config_store import (
     DefaultDeletionError,
     DEFAULT_TENANT,
 )
-from .identity import resolve_tenant_id, tenant_from_headers
+from .identity import (
+    MissingTenantError,
+    TenantMismatchError,
+    effective_run_tenant_id,
+    normalize_tenant_id,
+    resolve_tenant_id,
+    tenant_from_headers,
+    tenants_equivalent,
+)
 from .auth import (
     AuthProvider,
     ApiKeyQueryAuthProvider,
@@ -77,8 +85,13 @@ __all__ = [
     "ConfigNameConflictError",
     "DefaultDeletionError",
     "DEFAULT_TENANT",
+    "MissingTenantError",
+    "TenantMismatchError",
+    "effective_run_tenant_id",
+    "normalize_tenant_id",
     "resolve_tenant_id",
     "tenant_from_headers",
+    "tenants_equivalent",
     "AuthProvider",
     "ApiKeyQueryAuthProvider",
     "NoAuthProvider",

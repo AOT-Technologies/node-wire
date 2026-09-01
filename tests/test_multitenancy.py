@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import threading
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -25,12 +26,16 @@ from node_wire_runtime.config_store import (
 )
 from node_wire_runtime.identity import (
     MissingTenantError,
+    TenantMismatchError,
+    effective_run_tenant_id,
     is_multitenancy_enabled,
+    normalize_tenant_id,
     resolve_config_name,
     resolve_tenant_id,
     tenant_from_headers,
+    tenants_equivalent,
 )
-from node_wire_runtime.models import ConnectorResponse
+from node_wire_runtime.models import ConnectorResponse, ErrorCategory
 from node_wire_runtime.secrets import (
     EnvSecretProvider,
     TenantSecretNotFoundError,
@@ -152,6 +157,34 @@ def test_redact_passes_references_through():
 def test_tenant_from_headers_case_insensitive():
     assert tenant_from_headers({"X-Tenant-ID": "acme"}) == "acme"
     assert tenant_from_headers({"x-tenant-id": "acme"}) == "acme"
+
+
+def test_normalize_tenant_id_blank_is_none():
+    assert normalize_tenant_id(None) is None
+    assert normalize_tenant_id("") is None
+    assert normalize_tenant_id("   ") is None
+    assert normalize_tenant_id(" acme ") == "acme"
+
+
+def test_tenants_equivalent_default_and_none():
+    assert tenants_equivalent(None, "__default__") is True
+    assert tenants_equivalent("__default__", None) is True
+    assert tenants_equivalent("acme", "acme") is True
+    assert tenants_equivalent("acme", "globex") is False
+
+
+def test_effective_run_tenant_id_pinned_omit_uses_pin():
+    effective, err = effective_run_tenant_id(pinned="acme", caller=None)
+    assert err is None
+    assert effective == "acme"
+
+
+def test_effective_run_tenant_id_pinned_mismatch():
+    effective, err = effective_run_tenant_id(pinned="acme", caller="globex")
+    assert effective is None
+    assert isinstance(err, TenantMismatchError)
+    assert err.pinned == "acme"
+    assert err.requested == "globex"
 
 
 def test_missing_header_resolves_default(monkeypatch: pytest.MonkeyPatch):
@@ -349,7 +382,7 @@ def test_rest_missing_tenant_returns_400_when_multitenancy_enabled(
 
 
 class _EchoIn(BaseModel):
-    action: str = "echo"
+    action: Literal["echo"] = "echo"
     text: str = ""
 
 
@@ -378,14 +411,71 @@ async def test_direct_integration_store_factory_run(monkeypatch: pytest.MonkeyPa
     )
     connector = await factory.get("test_echo", tenant_id="acme")
     assert connector._config_name == "primary"
+    assert connector._tenant_id == "acme"
     assert connector.config == {"channel": "#eng"}
 
-    resp: ConnectorResponse = await connector.run(
-        {"action": "echo", "text": "hi"}, tenant_id="acme"
-    )
+    resp: ConnectorResponse = await connector.run({"action": "echo", "text": "hi"})
     assert resp.success is True
     assert resp.data["text"] == "hi"
     assert resp.data["channel"] == "#eng"  # per-config injection reached the connector
+
+    mismatch: ConnectorResponse = await connector.run(
+        {"action": "echo", "text": "nope"}, tenant_id="globex"
+    )
+    assert mismatch.success is False
+    assert mismatch.error_code == "TENANT_MISMATCH"
+    assert mismatch.error_category == ErrorCategory.AUTH
+
+
+async def test_factory_get_none_resolves_default_tenant(monkeypatch: pytest.MonkeyPatch):
+    factory = ConnectorFactory()
+    factory.store.init(
+        {
+            "__default__": {
+                "test_echo": [{"name": "default", "default": True, "config": {"channel": "d"}}]
+            }
+        }
+    )
+    via_omit = await factory.get("test_echo")
+    via_none = await factory.get("test_echo", tenant_id=None)
+    assert via_omit is via_none
+    assert via_omit._tenant_id == "__default__"
+
+
+class _OuterIn(BaseModel):
+    action: Literal["outer"] = "outer"
+    text: str = ""
+
+
+class _PinDelegateConnector(BaseConnector):
+    connector_id = "test_pin_delegate"
+    output_model = _EchoOut
+
+    @sdk_action("outer", requires_auth=False)
+    async def outer(self, params: _OuterIn, *, trace_id: str) -> _EchoOut:
+        return await self.call_action("echo", {"action": "echo", "text": params.text})
+
+    @sdk_action("echo", requires_auth=False)
+    async def echo(self, params: _EchoIn, *, trace_id: str) -> _EchoOut:
+        return _EchoOut(text=params.text, channel=self.config.get("channel", ""))
+
+
+async def test_call_action_inherits_pinned_tenant(monkeypatch: pytest.MonkeyPatch):
+    factory = ConnectorFactory()
+    factory.store.init(
+        {
+            "acme": {
+                "test_pin_delegate": [
+                    {"name": "primary", "default": True, "config": {"channel": "#deleg"}}
+                ]
+            }
+        }
+    )
+    connector = await factory.get("test_pin_delegate", tenant_id="acme")
+    resp = await connector.run({"action": "outer", "text": "nested"})
+    assert resp.success is True
+    assert resp.data["text"] == "nested"
+    assert resp.data["channel"] == "#deleg"
 
 
 # --------------------------------------------------------------------------- #
