@@ -9,6 +9,7 @@ Node Wire - Layer C: Platform bindings.
 
 This package contains:
 - ConnectorFactory for instantiating connectors from configuration
+- Binding invoke (`invoke.py`) — shared REST/MCP/gRPC action path
 - REST API binding (FastAPI)
 - gRPC server binding
 - MCP server binding for AI agents

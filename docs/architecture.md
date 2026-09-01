@@ -155,7 +155,7 @@ flowchart LR
 ### Data Flow (Simplified)
 
 1. A request arrives via REST, gRPC, or MCP.
-2. The `ConnectorFactory` resolves the right connector for the tenant (config + secrets are bound at `get` time).
+2. The Binding resolves the tenant (header, MCP overlay, or gRPC metadata), then calls the shared **Binding invoke** path (`src/bindings/invoke.py`): exposure check → `ConnectorFactory.get` (config + secrets bound at `get` time) → ingress normalize/enforce → `connector.run`.
 3. The runtime runs the connector:
    - Validate input via Pydantic.
    - Optional policy check.
@@ -204,6 +204,10 @@ flowchart LR
 **Purpose:** Expose connectors over different protocols and load them from configuration.
 
 **Location:** `src/bindings/`
+
+### Binding invoke
+
+REST, MCP, and gRPC share one invoke seam in `src/bindings/invoke.py`. Each binding adapter resolves transport-specific tenant and caller identity, then delegates exposure, factory resolution, ingress normalization, and `run()` to that module. Transport-only concerns (HTTP status mapping, MCP pagination guardrails, protobuf encoding) stay in the respective binding.
 
 ### Bindings Offered
 

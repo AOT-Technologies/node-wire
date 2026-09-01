@@ -22,6 +22,7 @@ if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "
     load_dotenv(override=False)
 
 from bindings.factory import ConnectorFactory
+from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime import ConnectorResponse, ErrorCategory
@@ -37,7 +38,6 @@ from node_wire_runtime.identity import (
     resolve_config_name,
     resolve_tenant_id,
 )
-from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -560,13 +560,20 @@ def _make_endpoint(cid: str, act: str) -> Any:
                     headers={"Retry-After": str(result.retry_after_seconds)},
                 )
 
-        if not factory_dep.is_exposed(cid, "rest"):
-            raise HTTPException(status_code=404, detail="Connector not available for REST")
-
         try:
-            connector = await factory_dep.get(
-                cid, tenant_id=tenant_id, config_name=config_name, action=act
+            response: ConnectorResponse = await invoke(
+                factory_dep,
+                connector_id=cid,
+                action=act,
+                payload=run_payload,
+                protocol="rest",
+                tenant_id=tenant_id,
+                config_name=config_name,
+                principal=rest_id.principal if rest_id else None,
+                scopes=rest_id.scopes if rest_id else None,
             )
+        except ConnectorNotExposed:
+            raise HTTPException(status_code=404, detail="Connector not available for REST")
         except ConfigNotFoundError:
             # Unknown scope and unknown config name return the same body so config
             # names cannot be enumerated (fail-closed).
@@ -579,21 +586,6 @@ def _make_endpoint(cid: str, act: str) -> Any:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        run_payload = normalize_mcp_tool_arguments(connector, act, run_payload)
-        try:
-            enforce_authoritative_action(run_payload, act)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        run_payload["action"] = act
-        # Let the runtime (Layer A) perform full schema validation.
-        # Any validation errors will be mapped into ConnectorResponse.
-        response: ConnectorResponse = await connector.run(
-            run_payload,
-            principal=rest_id.principal if rest_id else None,
-            tenant_id=tenant_id,
-            scopes=rest_id.scopes if rest_id else None,
-        )
         status = _http_status_for_category(response.error_category)
 
         if not response.success:

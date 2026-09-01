@@ -273,6 +273,26 @@ async def test_invoke_action_injected_into_payload(servicer: ConnectorServiceSer
     assert captured_payload[0]["action"] == "do_thing"
 
 
+async def test_invoke_conflicting_action_rejected(servicer: ConnectorServiceServicer) -> None:
+    fake_connector = MagicMock()
+    fake_connector.run = AsyncMock()
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+    ):
+        req = connector_pb2.InvokeRequest(
+            connector_id="x",
+            action="do_thing",
+            payload_json='{"action": "other_action", "some": "data"}',
+        )
+        resp = await servicer._invoke_async(req)
+
+    assert resp.success is False
+    assert resp.error_code == "INVALID_PAYLOAD"
+    assert resp.error_category == ErrorCategory.BUSINESS.value
+    fake_connector.run.assert_not_called()
+
+
 async def test_invoke_identity_propagated(servicer: ConnectorServiceServicer) -> None:
     from node_wire_runtime.caller_identity import build_caller_identity
     from node_wire_runtime.config_store import DEFAULT_TENANT

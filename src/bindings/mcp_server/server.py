@@ -14,6 +14,7 @@ from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bindings.factory import ConnectorFactory
+from bindings.invoke import ConnectorNotExposed, invoke
 from bindings.mcp_server.auth import (
     McpAuthError,
     authenticate_mcp_request,
@@ -35,9 +36,9 @@ from node_wire_runtime.policies.mcp_scope_policy import (
     resolve_required_scope_for_action,
 )
 from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime import ConnectorResponse, ErrorCategory, get_connector_registry
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from node_wire_runtime import ConnectorResponse, ErrorCategory
-from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+from node_wire_runtime.ingress import normalize_mcp_tool_arguments  # re-export for tests
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 from node_wire_runtime.streaming import stream_completion_log
 
@@ -974,34 +975,76 @@ class McpServer:
         if self._connector_ids is not None and connector_id not in self._connector_ids:
             raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
 
-        if not self._factory.is_exposed(connector_id, "mcp"):
-            raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
-
         # Overlay is process-wide (stdio and HTTP). Strip LLM extras so they
         # never reach connector.run(); they do not override the overlay.
         arguments.pop("tenant_id", None)
         arguments.pop("config_name", None)
         config_name = self._effective_config_name()
         tenant_id = self._effective_tenant_id(identity)
-        if config_name is not None:
-            if self._factory.store.get(tenant_id, connector_id, config_name) is None:
+
+        max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
+        clamped_params: Dict[str, Any] = {}
+        connector_cls = get_connector_registry().get(connector_id)
+        if connector_cls is not None:
+            meta = connector_cls.sdk_action_metas().get(action)
+            if meta and hasattr(meta.input_model, "model_fields"):
+                for page_param in ["page_size", "limit", "_count"]:
+                    if page_param in meta.input_model.model_fields:
+                        current_val = arguments.get(page_param)
+                        if current_val is None:
+                            arguments[page_param] = max_items
+                            clamped_params[page_param] = max_items
+                        else:
+                            try:
+                                val = int(current_val)
+                                arguments[page_param] = min(val, max_items)
+                                clamped_params[page_param] = arguments[page_param]
+                            except (ValueError, TypeError):
+                                logger.debug(
+                                    "Ignoring non-numeric pagination parameter %s=%r",
+                                    page_param,
+                                    current_val,
+                                )
+
+        trace_id = arguments.get("trace_id") or str(uuid.uuid4())
+
+        try:
+            response = await invoke(
+                self._factory,
+                connector_id=connector_id,
+                action=action,
+                payload=arguments,
+                protocol="mcp",
+                tenant_id=tenant_id,
+                config_name=config_name,
+                principal=identity.principal if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+            stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
+        except ConnectorNotExposed:
+            raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+        except ConfigNotFoundError:
+            if config_name is not None:
                 raise ValueError(
                     f"Config {config_name!r} is not defined for connector "
                     f"{connector_id!r} on tenant {tenant_id!r}."
                 )
-
-        try:
-            connector = await self._factory.get(
-                connector_id,
-                tenant_id=tenant_id,
-                config_name=config_name,
-                action=action,
-            )
-        except ConfigNotFoundError:
             raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+        except Exception:
+            stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
+            raise
 
-        resolved_config_name = getattr(connector, "_config_name", config_name)
+        resolved_config_name = config_name
         if is_multitenancy_enabled():
+            try:
+                connector = await self._factory.get(
+                    connector_id,
+                    tenant_id=tenant_id,
+                    config_name=config_name,
+                )
+                resolved_config_name = getattr(connector, "_config_name", config_name)
+            except ConfigNotFoundError:
+                pass
             logger.info(
                 "MCP tool resolved | tool=%s | tenant_id=%s | config_name=%s",
                 name,
@@ -1015,48 +1058,6 @@ class McpServer:
                     "config_name": resolved_config_name or "",
                 },
             )
-
-        run_args = normalize_mcp_tool_arguments(connector, action, arguments)
-        enforce_authoritative_action(run_args, action)
-        run_args["action"] = action
-
-        trace_id = run_args.get("trace_id") or str(uuid.uuid4())
-
-        # Proactively inject/clamp pagination parameters to prevent native token desync
-        # caused by the post-execution truncation guardrail
-        max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))
-        meta = connector.sdk_action_metas().get(action)
-        clamped_params = {}
-        if meta and hasattr(meta.input_model, "model_fields"):
-            for page_param in ["page_size", "limit", "_count"]:
-                if page_param in meta.input_model.model_fields:
-                    current_val = run_args.get(page_param)
-                    if current_val is None:
-                        run_args[page_param] = max_items
-                        clamped_params[page_param] = max_items
-                    else:
-                        try:
-                            val = int(current_val)
-                            run_args[page_param] = min(val, max_items)
-                            clamped_params[page_param] = run_args[page_param]
-                        except (ValueError, TypeError):
-                            logger.debug(
-                                "Ignoring non-numeric pagination parameter %s=%r",
-                                page_param,
-                                current_val,
-                            )
-
-        try:
-            response = await connector.run(
-                run_args,
-                principal=identity.principal if identity else None,
-                tenant_id=tenant_id,
-                scopes=identity.scopes if identity else None,
-            )
-            stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
-        except Exception:
-            stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
-            raise
 
         raw_response = response.model_dump()
 
