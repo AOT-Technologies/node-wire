@@ -112,6 +112,30 @@ def mcp_advertised_tool_name(connector_id: str, action: str) -> str:
     return f"{connector_id}_{action_part}"
 
 
+def _with_config_name_property(input_schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Advertise ``config_name`` as an accepted per-request argument on a
+    connector-run tool's input schema (Ticket 3 of
+    ``.scratch/mcp-tenant-config-per-request/``), mirroring REST's payload
+    field / gRPC's request field — the channel Ticket 2 wired server-side.
+
+    Returns a new schema; never mutates ``input_schema`` in place. Skips
+    connectors whose own input model already defines a ``config_name``
+    field for business-logic reasons, rather than silently shadowing it.
+    """
+    properties = input_schema.get("properties")
+    if not isinstance(properties, dict) or "config_name" in properties:
+        return input_schema
+    new_properties = dict(properties)
+    new_properties["config_name"] = {
+        "type": ["string", "null"],
+        "description": (
+            "Optional config name for this call. Omit or null to use the "
+            "selected or default config."
+        ),
+    }
+    return {**input_schema, "properties": new_properties}
+
+
 def mcp_llm_safe_input_schema(schema: Any) -> Any:
     """JSON Schema NVIDIA/OpenAI function calling will accept.
 
@@ -429,6 +453,8 @@ class McpServer:
                 )
             )
             input_schema = entry["input_schema"]
+            if is_multitenancy_enabled():
+                input_schema = _with_config_name_property(input_schema)
 
             tools.append(
                 {
@@ -571,6 +597,7 @@ class McpServer:
     ) -> str:
         return self._tenant_session.effective_tenant_id(
             tenant_arg=tenant_arg,
+            request_tenant_id=_session_tenant_ctx.get(),
             resolve_from_request=lambda: self._resolve_tool_tenant_id(identity),
         )
 
@@ -692,7 +719,8 @@ class McpServer:
 
     def _pinned_tenant_id_or_none(self, identity: CallerIdentity | None) -> Optional[str]:
         return self._tenant_session.pinned_tenant_id_or_none(
-            resolve_from_request=lambda: self._resolve_tool_tenant_id(identity)
+            request_tenant_id=_session_tenant_ctx.get(),
+            resolve_from_request=lambda: self._resolve_tool_tenant_id(identity),
         )
 
     async def _invoke_list_tenants(
@@ -915,11 +943,16 @@ class McpServer:
         if self._connector_ids is not None and connector_id not in self._connector_ids:
             raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
 
-        # Overlay is process-wide (stdio and HTTP). Strip LLM extras so they
-        # never reach connector.run(); they do not override the overlay.
+        # tenant_id stays header/JWT-only here (matches REST's header, gRPC's
+        # metadata) — strip any LLM-supplied value so it never reaches
+        # connector.run() or overrides tenant resolution.
         arguments.pop("tenant_id", None)
-        arguments.pop("config_name", None)
-        config_name = self._tenant_session.effective_config_name()
+        # config_name is a per-request tool-call argument (matches REST's
+        # payload field, gRPC's request field) — pop it off the connector
+        # payload but thread the value through to resolution; it outranks
+        # the shared nw_select_config selection. Not just an LLM extra.
+        config_arg = _optional_str(arguments.pop("config_name", None))
+        config_name = self._tenant_session.effective_config_name(config_arg=config_arg)
         tenant_id = self._effective_tenant_id(identity)
 
         max_items = int(os.environ.get("NW_MCP_MAX_LIST_ITEMS", "50"))

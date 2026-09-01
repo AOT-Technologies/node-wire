@@ -372,3 +372,17 @@ def test_effective_config_name_none_when_nothing_selected(monkeypatch):
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     overlay = _overlay(tenants={"acme": {}})
     assert overlay.effective_config_name() is None
+
+
+def test_effective_config_name_arg_outranks_selected(monkeypatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    overlay = _overlay(tenants={"acme": {"prod": ["c1"], "staging": ["c1"]}})
+    overlay.select_tenant("acme")
+    overlay.select_config("acme", "prod")
+    assert overlay.effective_config_name(config_arg="staging") == "staging"
+
+
+def test_effective_config_name_ignores_arg_when_multitenancy_disabled(monkeypatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    overlay = _overlay(tenants={"acme": {"prod": ["c1"]}})
+    assert overlay.effective_config_name(config_arg="prod") is None
