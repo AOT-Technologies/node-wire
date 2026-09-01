@@ -194,8 +194,7 @@ flowchart LR
 ### Common Structure
 
 - `schema.py`: Pydantic models for request and response.
-- `logic.py`: Connector class and external service logic.
-- `registration.py`: Registers connector-specific exceptions.
+- `logic.py`: Connector class and external service logic, including an optional `error_map` class attribute that registers the connector's exception mappings — scoped to that connector's own `connector_id` so they can never be resolved for another connector's errors.
 
 ---
 

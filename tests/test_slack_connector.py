@@ -54,9 +54,10 @@ from node_wire_slack.logic import (
     _upload_bytes,
 )
 
-# Load the ErrorMapper registrations the same way the production
-# connector_registry does — the error_code assertions below depend on them.
-importlib.import_module("node_wire_slack.registration")
+# Importing node_wire_slack.logic (above) already triggers
+# BaseConnector.__init_subclass__, which registers SlackConnector's error_map
+# with ErrorMapper under connector_id="slack" — the error_code assertions
+# below depend on that, no separate registration step needed.
 
 # ---------------------------------------------------------------------------
 # Helpers

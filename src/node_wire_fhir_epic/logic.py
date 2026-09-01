@@ -8,12 +8,12 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
 
 import httpx
 import json
 
-from node_wire_runtime import BaseConnector, nw_action, sdk_action
+from node_wire_runtime import BaseConnector, ErrorCategory, nw_action, sdk_action
 from node_wire_runtime.fhir_encounter import assert_encounter_query_has_patient
 from node_wire_runtime.log_sanitization import fhir_log_extra, log_http_status_error
 from node_wire_runtime.mcp_normalizers import (
@@ -64,6 +64,19 @@ class FhirEpicConnector(BaseConnector):
     connector_id = "fhir_epic"
     action = "execute"
     output_model = FhirEpicOperationOutput
+
+    # Scoped to fhir_epic only. Note: Epic's own ValueError raises (missing
+    # search params, unparseable responses, etc.) are intentionally left
+    # unmapped here — they fall through to the runtime default (FATAL) rather
+    # than being classified BUSINESS, unlike fhir_cerner's ValueError mapping.
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "FHIR_TIMEOUT"),
+        httpx.ConnectError: (ErrorCategory.RETRYABLE, "FHIR_CONNECT_ERROR"),
+        httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "FHIR_READ_TIMEOUT"),
+        httpx.WriteTimeout: (ErrorCategory.RETRYABLE, "FHIR_WRITE_TIMEOUT"),
+        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "FHIR_HTTP_ERROR"),
+        httpx.RequestError: (ErrorCategory.FATAL, "FHIR_REQUEST_ERROR"),
+    }
 
     @sdk_action(
         "read_patient",

@@ -38,7 +38,7 @@ After implementing the connector runtime (see [connectors.md](connectors.md), or
 
 | File / area | Purpose |
 |---|---|
-| `src/node_wire_<name>/` | `schema.py`, `logic.py`, optional `registration.py`, `action_spec.py`, `README.md` |
+| `src/node_wire_<name>/` | `schema.py`, `logic.py` (with optional `error_map`), `action_spec.py`, `README.md` |
 | Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
 | [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets |

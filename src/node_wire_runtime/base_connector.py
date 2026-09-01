@@ -55,8 +55,8 @@ _invocation_duration = _meter.create_histogram(
     unit="ms",
     description="Connector invocation wall-clock time in milliseconds",
 )
-ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
-ErrorMapper.register(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
+ErrorMapper.register_global(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
+ErrorMapper.register_global(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
 
 
 class NestedConnectorActionError(Exception):
@@ -370,8 +370,14 @@ class BaseConnector(ABC):
         cls._union_input_model.model_rebuild()
 
         own_error_map = cls.__dict__.get("error_map", {})
-        for exc_type, (category, code) in own_error_map.items():
-            ErrorMapper.register(exc_type, category, code=code)
+        if own_error_map:
+            if "connector_id" not in cls.__dict__:
+                raise TypeError(
+                    f"{cls.__name__}: error_map requires a connector_id (exceptions must be "
+                    "scoped to the connector that owns them)"
+                )
+            for exc_type, (category, code) in own_error_map.items():
+                ErrorMapper.register(cls.connector_id, exc_type, category, code=code)
 
         if "connector_id" in cls.__dict__:
             _CONNECTOR_REGISTRY[cls.connector_id] = cls
@@ -487,7 +493,7 @@ class BaseConnector(ABC):
                     "audit_event": "tenant_mismatch",
                 },
             )
-            mapped = ErrorMapper.resolve(mismatch)
+            mapped = ErrorMapper.resolve(mismatch, connector_id=self.connector_id)
             return ConnectorResponse(
                 success=False,
                 error_code=mapped.code,
@@ -588,7 +594,7 @@ class BaseConnector(ABC):
                                 "principal": principal,
                             },
                         )
-                        mapped = ErrorMapper.resolve(exc)
+                        mapped = ErrorMapper.resolve(exc, connector_id=self.connector_id)
                         _response = ConnectorResponse(
                             success=False,
                             error_code=mapped.code,
@@ -649,7 +655,7 @@ class BaseConnector(ABC):
                 )
                 return _response
             except Exception as exc:  # noqa: BLE001
-                mapped = ErrorMapper.resolve(exc)
+                mapped = ErrorMapper.resolve(exc, connector_id=self.connector_id)
                 logger.error(
                     "Connector execution failed",
                     extra={

@@ -65,14 +65,20 @@ class FlakyConnector(BaseConnector):
 
 @pytest.fixture(autouse=True)
 def reset_error_mapper_registry() -> None:
-    original = dict(ErrorMapper._registry)
+    original_global = dict(ErrorMapper._global_registry)
+    original_connectors = {k: dict(v) for k, v in ErrorMapper._connector_registries.items()}
     try:
-        ErrorMapper._registry.clear()
-        ErrorMapper.register(RetryableTestError, ErrorCategory.RETRYABLE, code="RETRYABLE_TEST")
+        ErrorMapper._global_registry.clear()
+        ErrorMapper._connector_registries.clear()
+        ErrorMapper.register(
+            "test_flaky_resilience", RetryableTestError, ErrorCategory.RETRYABLE, code="RETRYABLE_TEST"
+        )
         yield
     finally:
-        ErrorMapper._registry.clear()
-        ErrorMapper._registry.update(original)
+        ErrorMapper._global_registry.clear()
+        ErrorMapper._global_registry.update(original_global)
+        ErrorMapper._connector_registries.clear()
+        ErrorMapper._connector_registries.update(original_connectors)
 
 
 def test_with_resilience_retries_retryable_errors_until_success() -> None:
@@ -125,7 +131,7 @@ def test_open_breaker_rejects_calls_immediately() -> None:
 
 
 def test_circuit_breaker_error_defaults_to_fatal_mapping() -> None:
-    mapped = ErrorMapper.resolve(CircuitBreakerError("open"))
+    mapped = ErrorMapper.resolve(CircuitBreakerError("open"), connector_id="test_flaky_resilience")
 
     assert mapped.code == "CircuitBreakerError"
     assert mapped.category == ErrorCategory.FATAL
