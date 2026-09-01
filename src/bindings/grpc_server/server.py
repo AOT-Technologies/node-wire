@@ -15,6 +15,7 @@ from grpc_health.v1 import health as grpc_health
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from bindings.factory import ConnectorFactory
+from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory
 from node_wire_runtime.config_store import ConfigNotFoundError
@@ -23,7 +24,6 @@ from node_wire_runtime.identity import (
     resolve_config_name,
     resolve_tenant_id,
 )
-from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
 
 from .async_runner import BackgroundAsyncRunner
@@ -79,22 +79,6 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                 trace_id="",
             )
 
-        try:
-            connector = await self._factory.get(
-                request.connector_id,
-                tenant_id=tenant_id,
-                config_name=resolve_config_name(request.config_name or None),
-                action=request.action,
-            )
-        except ConfigNotFoundError:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="CONFIG_NOT_FOUND",
-                error_category=ErrorCategory.AUTH.value,
-                message="No connector configuration for this tenant",
-                trace_id="",
-            )
-
         payload: Any = {}
         if request.payload_json:
             try:
@@ -108,20 +92,45 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                     trace_id="",
                 )
 
-        if isinstance(payload, dict):
-            # The payload MUST include the action for Pydantic discriminated union validation to succeed
-            if request.action:
-                payload["action"] = request.action
+        if not isinstance(payload, dict):
+            payload = {}
 
-            if payload.get("action"):
-                normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
-
-        response: ConnectorResponse = await connector.run(
-            payload,
-            principal=identity.principal if identity else None,
-            tenant_id=tenant_id,
-            scopes=identity.scopes if identity else None,
-        )
+        try:
+            response: ConnectorResponse = await invoke(
+                self._factory,
+                connector_id=request.connector_id,
+                action=request.action,
+                payload=payload,
+                protocol="grpc",
+                tenant_id=tenant_id,
+                config_name=resolve_config_name(request.config_name or None),
+                principal=identity.principal if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+        except ConnectorNotExposed:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="CONNECTOR_NOT_AVAILABLE",
+                error_category=ErrorCategory.BUSINESS.value,
+                message=f"Connector {request.connector_id!r} is not available via gRPC.",
+                trace_id="",
+            )
+        except ConfigNotFoundError:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="CONFIG_NOT_FOUND",
+                error_category=ErrorCategory.AUTH.value,
+                message="No connector configuration for this tenant",
+                trace_id="",
+            )
+        except ValueError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="INVALID_PAYLOAD",
+                error_category=ErrorCategory.BUSINESS.value,
+                message=str(exc),
+                trace_id="",
+            )
 
         data_json = json.dumps(response.data) if response.data is not None else ""
         error_category = (
