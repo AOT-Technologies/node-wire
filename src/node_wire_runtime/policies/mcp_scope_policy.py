@@ -124,6 +124,9 @@ class ScopePolicyHook(PolicyHook):
         )
 
     def check(self, context: PolicyContext) -> None:
+        # Delegate the allow/deny decision to action_allowed_for_identity_scopes so
+        # tools/list filtering and run()-time enforcement can never diverge — see
+        # docs/adr/ (scope-policy dedup). This method only adds logging + raises.
         action_key = f"{context.connector_id}.{context.action}"
         required = resolve_required_scope_for_action(
             connector_id=context.connector_id,
@@ -132,14 +135,17 @@ class ScopePolicyHook(PolicyHook):
             default_mode=self._default_mode,
         )
         scopes = tuple(context.scopes or ())
+        allowed = action_allowed_for_identity_scopes(
+            connector_id=context.connector_id,
+            action=context.action,
+            principal=context.principal,
+            tenant_id=context.tenant_id,
+            scopes=scopes,
+            action_scope_map=self._map,
+            default_mode=self._default_mode,
+        )
         if required and not context.principal and not scopes:
-            logger.info(
-                "Scope policy denied due to missing caller identity",
-                extra={
-                    "action_key": action_key,
-                    "required_scope": required,
-                },
-            )
+            # action_allowed_for_identity_scopes already logged the missing-identity denial.
             raise PolicyDenied(f"Missing required scope: {required}")
         logger.info(
             "Scope policy evaluating action",
@@ -151,12 +157,8 @@ class ScopePolicyHook(PolicyHook):
                 "scopes": list(scopes),
             },
         )
-        if not required:
-            return
-        scope_set = set(scopes)
-        if required in scope_set or "*" in scope_set:
-            return
-        raise PolicyDenied(f"Missing required scope: {required}")
+        if not allowed:
+            raise PolicyDenied(f"Missing required scope: {required}")
 
 
 def load_scope_map_from_env() -> dict[str, str]:

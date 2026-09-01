@@ -356,6 +356,22 @@ class ConnectorConfigStore:
         with self._lock:
             return sorted(self._data.keys())
 
+    def export_all(self) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
+        """Full unredacted snapshot: ``{tenant_id: {connector_id: [config_doc, ...]}}``.
+
+        For persistence adapters (e.g. YAML round-tripping) that need every record,
+        not one scope at a time. Public so callers never need the store's internal
+        lock/dict directly.
+        """
+        with self._lock:
+            out: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+            for tenant_id, connectors in self._data.items():
+                cid_map: Dict[str, List[Dict[str, Any]]] = {}
+                for connector_id, records in connectors.items():
+                    cid_map[connector_id] = [dict(rec.raw) for rec in records.values()]
+                out[tenant_id] = cid_map
+            return out
+
     # ---- internal (unredacted) -----------------------------------------
 
     def resolve(self, tenant_id: str, connector_id: str, name: Optional[str]) -> ConfigRecord:

@@ -184,7 +184,13 @@ def servicer() -> ConnectorServiceServicer:
     return ConnectorServiceServicer()
 
 
-async def test_invoke_rate_limit_exceeded(servicer: ConnectorServiceServicer) -> None:
+async def test_invoke_rate_limit_exceeded(
+    servicer: ConnectorServiceServicer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The global autouse fixture disables rate limiting for every other test;
+    # this one specifically exercises the rate-limited path, so re-enable it.
+    monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "false")
+
     async def _raise(*_a: Any, **_kw: Any) -> None:
         raise RateLimitExceeded("too fast")
 

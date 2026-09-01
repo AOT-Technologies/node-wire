@@ -410,8 +410,8 @@ async def test_direct_integration_store_factory_run(monkeypatch: pytest.MonkeyPa
         }
     )
     connector = await factory.get("test_echo", tenant_id="acme")
-    assert connector._config_name == "primary"
-    assert connector._tenant_id == "acme"
+    assert connector.config_name == "primary"
+    assert connector.tenant_id == "acme"
     assert connector.config == {"channel": "#eng"}
 
     resp: ConnectorResponse = await connector.run({"action": "echo", "text": "hi"})
@@ -439,7 +439,7 @@ async def test_factory_get_none_resolves_default_tenant(monkeypatch: pytest.Monk
     via_omit = await factory.get("test_echo")
     via_none = await factory.get("test_echo", tenant_id=None)
     assert via_omit is via_none
-    assert via_omit._tenant_id == "__default__"
+    assert via_omit.tenant_id == "__default__"
 
 
 class _OuterIn(BaseModel):

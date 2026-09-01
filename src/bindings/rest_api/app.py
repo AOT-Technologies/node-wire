@@ -131,14 +131,14 @@ def get_factory() -> ConnectorFactory:
         _factory = ConnectorFactory()
         auto_register()
         _factory.load()
-        from bindings.rest_api.tenant_store import load_tenants
+        from node_wire_runtime.tenant_persistence import load_tenants
 
         load_tenants(_factory.store)
     return _factory
 
 
 def _persist_tenants(factory_dep: ConnectorFactory) -> None:
-    from bindings.rest_api.tenant_store import save_tenants
+    from node_wire_runtime.tenant_persistence import save_tenants
 
     save_tenants(factory_dep.store)
 
@@ -271,7 +271,7 @@ async def secrets_upsert(
     payload: Dict[str, Any],
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
-    from bindings.rest_api.tenant_store import upsert_tenant_secrets
+    from node_wire_runtime.tenant_persistence import upsert_tenant_secrets
 
     tenant_id = _config_tenant(request)
     secrets = payload.get("secrets")
@@ -309,7 +309,7 @@ async def secrets_list_keys(
     request: Request,
     config_name: str = "",
 ) -> JSONResponse:
-    from bindings.rest_api.tenant_store import list_secret_logical_keys
+    from node_wire_runtime.tenant_persistence import list_secret_logical_keys
 
     tenant_id = _config_tenant(request)
     name = (config_name or request.query_params.get("config_name") or "").strip()
@@ -331,7 +331,7 @@ async def config_create(
     doc: Dict[str, Any],
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
-    from bindings.rest_api.tenant_store import upsert_tenant_secrets
+    from node_wire_runtime.tenant_persistence import upsert_tenant_secrets
 
     try:
         tenant_id = _config_tenant(request)
@@ -397,7 +397,7 @@ async def config_update(
     doc: Dict[str, Any],
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
-    from bindings.rest_api.tenant_store import upsert_tenant_secrets
+    from node_wire_runtime.tenant_persistence import upsert_tenant_secrets
 
     try:
         tenant_id = _config_tenant(request)
@@ -441,7 +441,7 @@ async def config_delete(
         )
         factory_dep.store.delete(tenant_id, cid, name, new_default=new_default)
         # Secrets are per named config; clear this config's vault.
-        from bindings.rest_api.tenant_store import (
+        from node_wire_runtime.tenant_persistence import (
             clear_config_secrets,
             clear_tenant_connector_secrets,
         )

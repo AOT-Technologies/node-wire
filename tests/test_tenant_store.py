@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from bindings.factory import ConnectorFactory
 from bindings.rest_api.app import app, get_factory
-from bindings.rest_api.tenant_store import (
+from node_wire_runtime.tenant_persistence import (
     load_tenants,
     save_tenants,
     upsert_tenant_secrets,

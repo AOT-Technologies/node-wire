@@ -154,7 +154,8 @@ class SdkActionSpec:
     input_model: Optional[Any] = None
     output_model: Optional[Any] = None
     alias_tolerant: bool = False
-    # Optional: mutates MCP tool args dict in place before connector.run (see mcp_normalizers).
+    # Optional: mutates MCP tool args dict in place before connector.run. Implementations
+    # live in each connector's own package (e.g. node_wire_<connector>/normalizers.py).
     mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None
     # Security metadata
     requires_auth: bool = True

@@ -14,14 +14,14 @@ import httpx
 import json
 
 from node_wire_runtime import BaseConnector, ErrorCategory, nw_action, sdk_action
-from node_wire_runtime.fhir_encounter import assert_encounter_query_has_patient
 from node_wire_runtime.log_sanitization import fhir_log_extra, log_http_status_error
-from node_wire_runtime.mcp_normalizers import (
+
+from .normalizers import (
+    assert_encounter_query_has_patient,
     normalize_fhir_read_patient,
     normalize_fhir_search_encounter,
     normalize_fhir_search_patients,
 )
-
 from .schema import (
     FhirDocumentReferenceCreateInput,
     FhirDocumentReferenceCreateOutput,

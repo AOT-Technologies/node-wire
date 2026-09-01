@@ -2,9 +2,15 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
-"""Multi-tenant config + secret overlay persistence for Node Wire REST.
+"""Multi-tenant config + secret overlay persistence.
 
 Simplified: one YAML file rewritten on each mutation; gitignored by the repo.
+
+Lives in the runtime (not a binding) because REST, gRPC, and MCP must all
+observe the same persisted tenant/config dataset from the same file — this is
+shared runtime *state* across transports, not connector business logic (see
+docs/adr/0002-connector-specific-logic-stays-in-the-connector.md, which covers
+the latter and explicitly carves this module out as the exception).
 """
 
 from __future__ import annotations
@@ -22,9 +28,9 @@ import yaml
 from node_wire_runtime.config_store import ConfigNotFoundError, ConnectorConfigStore
 from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
 
-logger = logging.getLogger("bindings.rest_api.tenant_store")
+logger = logging.getLogger("runtime.tenant_persistence")
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_TENANTS_PATH = _REPO_ROOT / "config" / "tenants.yaml"
 _LEGACY_TENANTS_PATH = _REPO_ROOT / "config" / "playground_tenants.yaml"
 
@@ -224,17 +230,6 @@ def tenants_path(*, for_write: bool = False) -> Path:
     return _LEGACY_TENANTS_PATH
 
 
-def _export_store(store: ConnectorConfigStore) -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-    with store._lock:  # noqa: SLF001 — same-process persist
-        for tenant_id, connectors in store._data.items():  # noqa: SLF001
-            cid_map: Dict[str, List[Dict[str, Any]]] = {}
-            for connector_id, records in connectors.items():
-                cid_map[connector_id] = [dict(rec.raw) for rec in records.values()]
-            out[tenant_id] = cid_map
-    return out
-
-
 def _export_secrets_mirror() -> Dict[str, Any]:
     return {
         t: {c: {cfg: dict(kv) for cfg, kv in configs.items()} for c, configs in cons.items()}
@@ -246,7 +241,7 @@ def save_tenants(store: ConnectorConfigStore) -> None:
     path = tenants_path(for_write=True)
     with _lock:
         payload = {
-            "tenants": _export_store(store),
+            "tenants": store.export_all(),
             "secrets": _export_secrets_mirror(),
         }
         path.parent.mkdir(parents=True, exist_ok=True)

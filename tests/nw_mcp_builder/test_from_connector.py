@@ -52,16 +52,51 @@ def test_validate_layout_missing_logic(tmp_path: Path, package_root: Path) -> No
 def test_discover_actions_and_tool_names(fake_node_wire: Path) -> None:
     logic = fake_node_wire / "src" / "node_wire_demo_conn" / "logic.py"
     actions = discover_actions(logic)
-    assert actions == ["ping", "files.list"]
+    # Order comes from BaseConnector._action_registry, built via dir(cls) — alphabetical
+    # by method name ("files_list" < "ping"), not source declaration order.
+    assert sorted(actions) == ["files.list", "ping"]
     assert action_to_tool_name("files.list") == "files_list"
     assert action_to_tool_name("ping") == "ping"
 
 
-def test_discover_actions_sdk_spec_assign(tmp_path: Path) -> None:
+def test_discover_actions_action_specs_style(tmp_path: Path) -> None:
+    """Google Drive-style connectors declare actions via action_specs, not @nw_action
+    methods directly — discover_actions must see those too (via the real registry,
+    since BaseConnector.__init_subclass__ generates @nw_action handlers for them)."""
     pkg = tmp_path / "node_wire_x"
     pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
     (pkg / "logic.py").write_text(
-        'SPECS["files.create"] = SdkActionSpec(\n    "x"\n)\n',
+        """\
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel
+
+from node_wire_runtime import BaseConnector
+from node_wire_runtime.sdk_action_spec import SdkActionSpec
+
+
+class FilesCreateInput(BaseModel):
+    action: Literal["files.create"] = "files.create"
+
+
+class FilesCreateOutput(BaseModel):
+    id: str = "stub"
+
+
+class XConnector(BaseConnector):
+    connector_id = "x"
+    output_model = FilesCreateOutput
+    action_specs = {
+        "files.create": SdkActionSpec(
+            resource_segments=("files",),
+            method_name="create",
+            input_model=FilesCreateInput,
+        ),
+    }
+""",
         encoding="utf-8",
     )
     assert discover_actions(pkg / "logic.py") == ["files.create"]

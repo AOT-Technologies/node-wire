@@ -37,10 +37,17 @@ _async_runner = BackgroundAsyncRunner()
 
 
 class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
-    def __init__(self) -> None:
+    def __init__(self, factory: ConnectorFactory | None = None) -> None:
         auto_register()
-        self._factory = ConnectorFactory()
-        self._factory.load()
+        if factory is not None:
+            self._factory = factory
+        else:
+            self._factory = ConnectorFactory()
+            self._factory.load()
+            # Same YAML hydrate as REST/MCP; skip when factory is injected (tests).
+            from node_wire_runtime.tenant_persistence import load_tenants
+
+            load_tenants(self._factory.store)
 
     async def _invoke_async(
         self,
@@ -48,7 +55,13 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         metadata: dict[str, str] | None = None,
     ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined, attr-defined]
         try:
-            await global_rate_limiter.acquire()
+            # Skip rate limiting if disabled (same env var as REST/MCP).
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in (
+                "true",
+                "1",
+                "yes",
+            ):
+                await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,

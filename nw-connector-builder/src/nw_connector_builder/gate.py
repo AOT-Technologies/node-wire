@@ -61,6 +61,16 @@ def import_smoke(staging: Path, connector_id: str) -> tuple[bool, str]:
             actions = getattr(cls, "_action_registry", {}) or {}
         if not actions:
             return False, "Connector exposes zero @nw_action methods"
+        # ErrorMapper only ever registers cls.__dict__["error_map"] (base_connector.py's
+        # __init_subclass__ reads cls.__dict__.get("error_map"), not getattr) — an
+        # inherited-but-not-redeclared error_map would pass a getattr-based check here
+        # while never actually being registered. Check the same way registration does.
+        if not cls.__dict__.get("error_map"):
+            return False, (
+                "Connector has no error_map of its own — execute_rest's timeout/connect "
+                "errors would default to FATAL and never retry (inherited error_map, if "
+                "any, is never registered by ErrorMapper)"
+            )
         return True, f"Import OK ({len(actions)} actions)"
     except Exception as exc:  # noqa: BLE001
         return False, f"Import smoke failed: {exc}"
