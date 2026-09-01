@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field, RootModel, ValidationError
 from .auth import AuthProvider, NoAuthProvider
 from .errors import ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
+from .identity import TenantMismatchError, effective_run_tenant_id
 from .policy import PolicyContext, PolicyHook, PolicyDenied
 from .resilience import with_resilience
 from .secrets import SecretProvider
@@ -55,6 +56,7 @@ _invocation_duration = _meter.create_histogram(
     description="Connector invocation wall-clock time in milliseconds",
 )
 ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
+ErrorMapper.register(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
 
 
 class NestedConnectorActionError(Exception):
@@ -397,6 +399,8 @@ class BaseConnector(ABC):
         # factory as ``_config_name`` for observability.
         self.config: Dict[str, Any] = config or {}
         self._config_name: Optional[str] = None
+        # Set by ConnectorFactory._instantiate; unset on direct construction (tests).
+        self._tenant_id: Optional[str] = None
         # Default to NoAuthProvider (null-object) so connectors never receive None.
         self._auth_provider: AuthProvider = (
             auth_provider if auth_provider is not None else NoAuthProvider()
@@ -468,6 +472,30 @@ class BaseConnector(ABC):
         """
         trace_id = str(uuid.uuid4())
         config_name = getattr(self, "_config_name", None)
+        pinned = getattr(self, "_tenant_id", None)
+        effective, mismatch = effective_run_tenant_id(pinned=pinned, caller=tenant_id)
+        if mismatch is not None:
+            logger.warning(
+                "AUDIT: Tenant mismatch on factory instance",
+                extra={
+                    "trace_id": trace_id,
+                    "connector_id": self.connector_id,
+                    "config_name": config_name or "",
+                    "pinned_tenant_id": mismatch.pinned,
+                    "requested_tenant_id": mismatch.requested,
+                    "audit": True,
+                    "audit_event": "tenant_mismatch",
+                },
+            )
+            mapped = ErrorMapper.resolve(mismatch)
+            return ConnectorResponse(
+                success=False,
+                error_code=mapped.code,
+                error_category=mapped.category,
+                message=str(mismatch),
+                trace_id=trace_id,
+            )
+        tenant_id = effective
 
         with tracer.start_as_current_span(
             "connector.run",

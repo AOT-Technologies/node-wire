@@ -36,6 +36,12 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 ### Policy
 - `PolicyHook`, `PolicyDenied`.
 
+### Tenancy (host apps)
+- `resolve_tenant_id`, `tenant_from_headers`, `MissingTenantError`
+- `TenantMismatchError` — factory instance tenant disagrees with `run(tenant_id=...)`
+- `DEFAULT_TENANT` (`__default__`)
+- `effective_run_tenant_id`, `normalize_tenant_id`, `tenants_equivalent` — helpers for the pin contract
+
 ### Secrets
 - `SecretProvider` (base), `EnvSecretProvider`, `SecretNotFoundError`, `SecretProviderError`.
 

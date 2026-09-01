@@ -44,6 +44,57 @@ class MissingTenantError(ValueError):
         super().__init__(message)
 
 
+class TenantMismatchError(Exception):
+    """Factory instance tenant disagrees with ``run(tenant_id=...)``."""
+
+    def __init__(self, *, pinned: str, requested: str) -> None:
+        self.pinned = pinned
+        self.requested = requested
+        super().__init__(
+            f"tenant mismatch: instance pinned to {pinned!r}, run requested {requested!r}"
+        )
+
+
+def normalize_tenant_id(value: Optional[str]) -> Optional[str]:
+    """Return a stripped tenant id, or ``None`` when absent / blank."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        stripped = str(value).strip()
+        return stripped or None
+    stripped = value.strip()
+    return stripped or None
+
+
+def tenants_equivalent(a: Optional[str], b: Optional[str]) -> bool:
+    """Treat ``None`` and ``__default__`` as the same tenant id."""
+    left = normalize_tenant_id(a) or DEFAULT_TENANT
+    right = normalize_tenant_id(b) or DEFAULT_TENANT
+    return left == right
+
+
+def effective_run_tenant_id(
+    *,
+    pinned: Optional[str],
+    caller: Optional[str],
+) -> tuple[Optional[str], Optional[TenantMismatchError]]:
+    """Resolve the tenant id for :meth:`~node_wire_runtime.base_connector.BaseConnector.run`.
+
+    When the instance was built by the factory (``pinned`` set), ``caller`` must
+    agree or be omitted; omission uses the pin. Unpinned instances keep legacy
+    ``run(tenant_id=...)`` behavior.
+    """
+    normalized_caller = normalize_tenant_id(caller)
+    if pinned is not None:
+        if normalized_caller is None:
+            return pinned, None
+        if not tenants_equivalent(normalized_caller, pinned):
+            requested = normalized_caller or DEFAULT_TENANT
+            return None, TenantMismatchError(pinned=pinned, requested=requested)
+        return pinned, None
+    return normalized_caller, None
+
+
 def is_multitenancy_enabled() -> bool:
     """Return True when NW_MULTITENANCY_ENABLED is set to a truthy value.
 

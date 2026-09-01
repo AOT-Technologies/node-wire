@@ -446,13 +446,14 @@ class ConnectorFactory:
             kwargs["base_url"] = record.raw["base_url"]
         inst = connector_cls(**kwargs)
         inst._config_name = record.name
+        inst._tenant_id = record.tenant_id
         return inst
 
     async def get(
         self,
         connector_id: str,
         *,
-        tenant_id: str = DEFAULT_TENANT,
+        tenant_id: Optional[str] = None,
         config_name: Optional[str] = None,
         action: Optional[str] = None,
     ) -> BaseConnector:
@@ -461,8 +462,16 @@ class ConnectorFactory:
         Fail-closed: raises :class:`ConfigNotFoundError` when the scope has no
         config or ``config_name`` is unknown (bindings map both to 403). Also
         callable directly by the embedding application (no binding required).
+
+        Omit ``tenant_id`` (or pass blank) to resolve ``__default__`` — never
+        the current HTTP/MCP request tenant; hosts must pass the resolved id.
         """
         self._loop = asyncio.get_running_loop()
+
+        if tenant_id is None or (isinstance(tenant_id, str) and not tenant_id.strip()):
+            tenant_id = DEFAULT_TENANT
+        else:
+            tenant_id = tenant_id.strip()
 
         # Existence IS entitlement; resolve to the concrete default name first so
         # default and explicit callers share one instance.

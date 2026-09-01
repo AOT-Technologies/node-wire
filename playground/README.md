@@ -138,6 +138,7 @@ uv run node-wire
 - **MCP config discovery**: When MT is on, standalone MCP also loads `tenants.yaml` and exposes `nw_list_tenants`, `nw_select_tenant` (returns that tenant’s configs), `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that MCP process. Env/`X-Tenant-ID` is the default; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Configs are still created only via Add config / REST / YAML — not via MCP. Rebuild generated MCP images so vendored `server.py` includes these tools.
 - **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (e.g. `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
 - **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.
+- **Instance pin**: `factory.get(tenant_id=...)` pins the connector; `run()` may omit `tenant_id`. Mismatch returns `TENANT_MISMATCH`.
 
 #### Testing the MCP server with Inspector
 

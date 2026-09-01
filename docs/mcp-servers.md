@@ -423,6 +423,8 @@ Node-wire MCP reuses the same runtime config store as REST (`NW_TENANTS_PATH` / 
 
 **Select a config:** call `nw_select_config` `{ "config_name": "<name>" }`. That name applies to every connector. Response includes `connectors_with_config` and `connectors_missing_config`. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI `--config-name` runs `nw_select_config` at start. Connector tools do not take `tenant_id` / `config_name`.
 
+**Instance pin (runtime):** After `factory.get`, the connector instance is bound to that tenant's config and secrets (`_tenant_id`). Bindings still pass the resolved tenant into `run()`; omitting it on `run` also works. A conflicting `run(tenant_id=...)` fails closed with `TENANT_MISMATCH` — distinct from the MCP session `pinned_tenant_id` in `nw_list_tenants` responses.
+
 Two ToolHive images (Drive + Epic) are two processes: select on one does not update the other. Use one MCP with both connectors (`python -m agents.mcp_entrypoint`) so one overlay covers every connector.
 
 **Recommended ToolHive env (unified `node-wire:latest`, stdio + MT):**

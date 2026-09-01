@@ -108,6 +108,8 @@ Each connector runs as its own independent MCP server (often in a dedicated Dock
 
 When `NW_MULTITENANCY_ENABLED=true`, MCP loads `config/tenants.yaml` (or `NW_TENANTS_PATH`) and exposes `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. One tenant/config selection applies to **every connector** on that MCP process; connector tools do not take `tenant_id` or `config_name`. Env (`NW_TENANT_ID`) or HTTP header (`X-Tenant-ID`) is the default pin until select.
 
+**Session vs instance pin:** `nw_select_tenant` sets the MCP **session** overlay (which tenant/config names bindings pass into `factory.get`). The factory then sets **`_tenant_id` on the connector instance**; `run()` uses that pin when `tenant_id` is omitted and returns `TENANT_MISMATCH` if a caller passes a different id.
+
 **Full guide:** [Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp)
 
 ---

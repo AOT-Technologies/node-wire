@@ -155,7 +155,7 @@ flowchart LR
 ### Data Flow (Simplified)
 
 1. A request arrives via REST, gRPC, or MCP.
-2. The `ConnectorFactory` resolves the right connector.
+2. The `ConnectorFactory` resolves the right connector for the tenant (config + secrets are bound at `get` time).
 3. The runtime runs the connector:
    - Validate input via Pydantic.
    - Optional policy check.
@@ -180,6 +180,7 @@ flowchart LR
 - **Resilience**: Decorators for retries (Tenacity) and circuit breaking (PyBreaker).
 - **SecretProvider**: Abstraction for fetching secrets (API keys, credentials).
 - **PolicyHook**: Optional hook to allow or deny execution based on principal or tenant.
+- **Tenant pinning**: Factory-built instances carry `_tenant_id`; `run()` uses that pin when `tenant_id` is omitted and rejects mismatched caller ids with `TENANT_MISMATCH`.
 - **Telemetry**: OpenTelemetry integration for tracing.
 
 ---
