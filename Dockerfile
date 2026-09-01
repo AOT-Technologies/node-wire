@@ -19,6 +19,10 @@
 # Digest-pinned base (update when bumping tag). See .github/workflows/docker-policy.yml.
 FROM python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4
 
+LABEL org.opencontainers.image.title="node-wire" \
+      org.opencontainers.image.description="Node Wire — unified MCP stdio server" \
+      org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
+
 # Install system deps needed by some connector libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \

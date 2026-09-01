@@ -369,15 +369,18 @@ From a generated project (use **Linux** wheels for this path — see [Platform a
 ```bash
 cd out/<name>-mcp
 docker build -t <image-name> .
-docker run -p 8081:8081 --env-file .env <image-name>
+# Secrets at runtime only — never COPY .env into the image
+docker run --rm --env-file .env -p 8081:8081 <image-name>
 
 # Example
 cd out/salesforce-nw-mcp
 docker build -t salesforce-nw-mcp .
-docker run -p 8081:8081 --env-file .env salesforce-nw-mcp
+docker run --rm --env-file .env -p 8081:8081 salesforce-nw-mcp
 ```
 
-The Dockerfile installs wheels from `./wheels`, sets `PYTHONPATH=/nw_src`, and runs `python -m <module>`.
+The generated Dockerfile is digest-pinned (`python:3.12-slim@sha256:…`), runs as non-root `USER app` with a read-only application tree, and copies only wheels, vendored src, `config/connectors.yaml`, and the thin host. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/nw_src:/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image; set `NW_MCP_AUTH_DISABLED=true` at run time for local Inspector use.
+
+`--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
 
 **MCP SDK:** Pin `mcp>=1.6.0,<2`. MCP SDK 2.x breaks `@server.list_tools()` on the current server binding.
 
@@ -394,7 +397,7 @@ The Dockerfile installs wheels from `./wheels`, sets `PYTHONPATH=/nw_src`, and r
 | `uv sync` / import errors on generated host | Use `--python 3.14` (or whatever ABI your `.whl` files were built with) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
-| Connector secrets missing in Docker/ToolHive | Set secrets/env in the orchestrator, or mount project `.env` at `/app/.env` |
+| Connector secrets missing in Docker/ToolHive | Set secrets via `docker run -e` / `--env-file` or the orchestrator. Do not COPY or bind-mount `.env` into the image. |
 | Connector action fails at runtime | Fill connector secrets via env or project `.env`; check `config/connectors.yaml` |
 | Wrong listen port in ToolHive | Set `NW_MCP_PORT` to the same value as ToolHive `FASTMCP_PORT` / `MCP_PORT` |
 | `AttributeError: 'Server' object has no attribute 'list_tools'` | Pin `mcp>=1.6.0,<2` in the image Dockerfile and rebuild |

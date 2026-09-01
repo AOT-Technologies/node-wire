@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rebuilt the wheel-build script for roughly an 80% reduction in build time.
 - Pinned the MCP SDK version until the codebase is compatible with the newer
   release.
+- `nw-mcp-builder` generated Dockerfiles now use the same digest-pinned
+  `python:3.12-slim` base and non-root `USER` as checked-in images, with a
+  whitelist `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
+  application tree, and no default `NW_MCP_AUTH_DISABLED` in containers.
 - Node Wire branding refresh (README badges/logos, docs site theme).
 - Updated `docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
   `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`, and
