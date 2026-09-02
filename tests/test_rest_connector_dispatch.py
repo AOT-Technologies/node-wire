@@ -127,9 +127,7 @@ def test_rest_dispatch_smoke_per_connector(
 
     assert response.status_code == 200
     assert response.json()["success"] is True
-    mock_factory.get.assert_awaited_with(
-        connector_id, tenant_id="__default__", config_name=None, action=action
-    )
+    mock_factory.get.assert_awaited_with(connector_id, tenant_id="__default__", config_name=None)
 
 
 @pytest.mark.parametrize(

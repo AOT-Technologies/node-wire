@@ -59,9 +59,7 @@ def test_malicious_base_url_cannot_break_out_of_string_literal() -> None:
     # `import os` / `os.system(...)` calls landing outside the string).
     tree = ast.parse(src)
     compile(src, "<generated>", "exec")  # syntax-valid; doesn't require the sibling .schema module
-    import_modules = {
-        node.names[0].name for node in ast.walk(tree) if isinstance(node, ast.Import)
-    }
+    import_modules = {node.names[0].name for node in ast.walk(tree) if isinstance(node, ast.Import)}
     # `httpx` is the one legitimate `import` statement this module always
     # emits; anything else (e.g. the payload's `import os`) means the string
     # literal was broken out of.

@@ -244,9 +244,7 @@ def test_rest_post_connector_success() -> None:
     body = r.json()
     assert body["success"] is True
     assert body["trace_id"] == "t-rest"
-    mock_factory.get.assert_awaited_with(
-        "http_generic", tenant_id="__default__", config_name=None
-    )
+    mock_factory.get.assert_awaited_with("http_generic", tenant_id="__default__", config_name=None)
     stub.run.assert_awaited_once()
     call_payload = stub.run.await_args[0][0]
     assert call_payload["action"] == "request"

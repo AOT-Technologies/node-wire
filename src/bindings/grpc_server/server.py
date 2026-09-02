@@ -88,17 +88,13 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             identity_key = identity_rate_limit_key(
                 identity.principal if identity else None, fallback="grpc"
             )
-            result = limiter.consume(
-                f"grpc:{request.connector_id}:{request.action}:{identity_key}"
-            )
+            result = limiter.consume(f"grpc:{request.connector_id}:{request.action}:{identity_key}")
             if not result.allowed:
                 return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                     success=False,
                     error_code="RATE_LIMIT_EXCEEDED",
                     error_category=ErrorCategory.RETRYABLE.value,
-                    message=(
-                        f"Rate limit exceeded, retry after {result.retry_after_seconds}s"
-                    ),
+                    message=(f"Rate limit exceeded, retry after {result.retry_after_seconds}s"),
                     trace_id="",
                 )
 

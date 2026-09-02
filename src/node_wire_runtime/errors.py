@@ -80,7 +80,9 @@ class ErrorMapper:
         code: Optional[str] = None,
     ) -> None:
         """Register a runtime-wide exception type, not owned by any connector."""
-        cls._global_registry[exc_type] = MappedError(code=code or exc_type.__name__, category=category)
+        cls._global_registry[exc_type] = MappedError(
+            code=code or exc_type.__name__, category=category
+        )
 
     @classmethod
     def resolve(cls, exc: BaseException, *, connector_id: str) -> MappedError:

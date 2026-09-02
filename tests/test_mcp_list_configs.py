@@ -102,9 +102,7 @@ async def test_list_configs_returns_named_configs(monkeypatch: pytest.MonkeyPatc
     assert ("google_drive", "test-new") in names
     assert ("http_generic", "default") in names
 
-    drive_only = await server.invoke_tool(
-        LIST_CONFIGS_TOOL, {"connector_id": "google_drive"}
-    )
+    drive_only = await server.invoke_tool(LIST_CONFIGS_TOOL, {"connector_id": "google_drive"})
     drive_names = {c["name"] for c in drive_only["configs"]}
     assert drive_names == {"test", "test-new"}
     assert all(c["connector_id"] == "google_drive" for c in drive_only["configs"])
@@ -147,9 +145,7 @@ async def test_list_configs_without_pin_uses_default_tenant(
     assert result["tenant_id"] == "__default__"
 
 
-def test_mcp_server_hydrates_tenants_yaml(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_mcp_server_hydrates_tenants_yaml(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     yaml_path = tmp_path / "tenants.yaml"
     yaml_path.write_text(
@@ -215,9 +211,7 @@ async def test_list_tenants_returns_ids_filtered_by_connector(
     assert {"acme", "acme-test", "http-only"} <= names
     assert _tenant_ids_from_markdown(all_tenants["summary"]) == all_tenants["tenants"]
 
-    drive = await server.invoke_tool(
-        LIST_TENANTS_TOOL, {"connector_id": "google_drive"}
-    )
+    drive = await server.invoke_tool(LIST_TENANTS_TOOL, {"connector_id": "google_drive"})
     assert drive["connector_id"] == "google_drive"
     assert "Tenants with `google_drive` configs" in drive["summary"]
     drive_names = set(drive["tenants"])
@@ -284,9 +278,7 @@ def test_format_list_tenants_text() -> None:
     assert "{" not in text
     assert "nw_select_tenant" in text
 
-    empty = format_list_tenants_text(
-        tenants=[], connector_id=None, pinned_tenant_id=None
-    )
+    empty = format_list_tenants_text(tenants=[], connector_id=None, pinned_tenant_id=None)
     assert "No tenants found." in empty
     assert "no tenant selected" in empty
 
@@ -433,9 +425,7 @@ async def test_select_config_sets_overlay(monkeypatch: pytest.MonkeyPatch) -> No
         "google_drive",
         {"name": "alt", "default": False, "config": {}, "auth": {}},
     )
-    result = await server.invoke_tool(
-        SELECT_CONFIG_TOOL, {"config_name": "alt"}
-    )
+    result = await server.invoke_tool(SELECT_CONFIG_TOOL, {"config_name": "alt"})
     assert result["ok"] is True
     assert result["config_name"] == "alt"
     assert result["connectors_with_config"] == ["google_drive"]
@@ -470,9 +460,7 @@ async def test_select_config_applies_to_every_connector(
     assert shared["connectors_with_config"] == ["google_drive", "http_generic"]
     assert shared["connectors_missing_config"] == []
 
-    drive_only = await server.invoke_tool(
-        SELECT_CONFIG_TOOL, {"config_name": "drive-only"}
-    )
+    drive_only = await server.invoke_tool(SELECT_CONFIG_TOOL, {"config_name": "drive-only"})
     assert drive_only["connectors_with_config"] == ["google_drive"]
     assert drive_only["connectors_missing_config"] == ["http_generic"]
 

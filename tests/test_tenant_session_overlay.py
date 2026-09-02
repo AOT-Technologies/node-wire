@@ -275,9 +275,7 @@ def test_clear_config_if_missing_is_noop_when_nothing_selected():
 def test_effective_tenant_id_prefers_explicit_arg():
     overlay = _overlay(tenants={"acme": {}, "globex": {}})
     overlay.select_tenant("globex")
-    resolved = overlay.effective_tenant_id(
-        tenant_arg="acme", resolve_from_request=lambda: "globex"
-    )
+    resolved = overlay.effective_tenant_id(tenant_arg="acme", resolve_from_request=lambda: "globex")
     assert resolved == "acme"
 
 
