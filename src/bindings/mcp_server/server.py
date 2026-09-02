@@ -68,10 +68,24 @@ SELECT_CONFIG_TOOL_ALIASES = frozenset({SELECT_CONFIG_TOOL, "nw.select_config"})
 # guard now live in node_wire_runtime.tenant_session.TenantSessionOverlay.
 
 
+_NONE_SENTINELS = frozenset({"none", "null"})
+
+
 def _optional_str(value: Any) -> Optional[str]:
+    """Normalize an optional string argument.
+
+    Real MCP transports strip ``null`` unions from advertised tool schemas
+    (see ``mcp_llm_safe_input_schema``), so a client that wants to omit an
+    optional string field has no way to send JSON ``null``. Some clients
+    (observed: NVIDIA's MCP agent) instead send the literal string
+    ``"none"``/``"null"`` — echoing back what a prior tool result showed
+    for an actual ``None``. Treat those the same as an omitted value.
+    """
     if not isinstance(value, str):
         return None
     stripped = value.strip()
+    if stripped.lower() in _NONE_SENTINELS:
+        return None
     return stripped or None
 
 
@@ -135,8 +149,8 @@ def _with_config_name_property(input_schema: Dict[str, Any]) -> Dict[str, Any]:
     new_properties["config_name"] = {
         "type": ["string", "null"],
         "description": (
-            "Optional config name for this call. Omit or null to use the "
-            "selected or default config."
+            'Optional config name for this call. Omit, or pass null/"none", '
+            "to use the selected or default config."
         ),
     }
     return {**input_schema, "properties": new_properties}
@@ -506,14 +520,15 @@ class McpServer:
                                 "type": ["string", "null"],
                                 "description": (
                                     "Optional connector id to filter (e.g. google_drive). "
-                                    "Omit or null to list all connectors for this tenant."
+                                    'Omit, or pass null/"none", to list all connectors '
+                                    "for this tenant."
                                 ),
                             },
                             "tenant_id": {
                                 "type": ["string", "null"],
                                 "description": (
-                                    "Optional tenant id. Omit or null for the selected or "
-                                    "pinned tenant."
+                                    'Optional tenant id. Omit, or pass null/"none", for '
+                                    "the selected or pinned tenant."
                                 ),
                             },
                         },
@@ -540,7 +555,8 @@ class McpServer:
                             "connector_id": {
                                 "type": ["string", "null"],
                                 "description": (
-                                    "Optional connector id to filter returned configs."
+                                    "Optional connector id to filter returned configs. "
+                                    'Omit, or pass null/"none", for all connectors.'
                                 ),
                             },
                         },
@@ -564,8 +580,9 @@ class McpServer:
                             "connector_id": {
                                 "type": ["string", "null"],
                                 "description": (
-                                    "Optional connector id (e.g. google_drive). Omit or null "
-                                    "to list tenants that have any connector on this server."
+                                    "Optional connector id (e.g. google_drive). Omit, or "
+                                    'pass null/"none", to list tenants that have any '
+                                    "connector on this server."
                                 ),
                             },
                         },
@@ -661,11 +678,8 @@ class McpServer:
             raise ValueError(f"Tool {LIST_CONFIGS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
         tenant_arg = _optional_str(arguments.get("tenant_id"))
         tenant_id = self._effective_tenant_id(identity, tenant_arg=tenant_arg)
-        raw_cid = arguments.get("connector_id")
-        connector_id: Optional[str] = None
-        if isinstance(raw_cid, str) and raw_cid.strip():
-            connector_id = raw_cid.strip()
-        # null / blank / non-string → all connectors
+        connector_id = _optional_str(arguments.get("connector_id"))
+        # null / blank / "none" / non-string → all connectors
 
         logger.info(
             "MCP tool resolved | tool=%s | tenant_id=%s | connector_id=%s",
@@ -723,10 +737,7 @@ class McpServer:
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
             raise ValueError(f"Tool {LIST_TENANTS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
-        raw_cid = arguments.get("connector_id")
-        connector_id: Optional[str] = None
-        if isinstance(raw_cid, str) and raw_cid.strip():
-            connector_id = raw_cid.strip()
+        connector_id = _optional_str(arguments.get("connector_id"))
 
         tenants = self._list_tenant_ids(connector_id)
         current = self._pinned_tenant_id_or_none(identity)
@@ -768,10 +779,7 @@ class McpServer:
         if not tenant_id:
             raise ValueError(f"{SELECT_TENANT_TOOL} requires tenant_id")
         self._tenant_session.select_tenant(tenant_id)
-        raw_cid = arguments.get("connector_id")
-        connector_id: Optional[str] = None
-        if isinstance(raw_cid, str) and raw_cid.strip():
-            connector_id = raw_cid.strip()
+        connector_id = _optional_str(arguments.get("connector_id"))
         configs = self._list_configs_for_tenant(tenant_id, connector_id)
         have: List[str] = []
         missing: List[str] = []
