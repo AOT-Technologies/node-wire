@@ -2491,9 +2491,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 startRunningTimer();
 
-                if (_multitenancyEnabled && !getPlaygroundTenantId()) {
-                    throw new Error('Tenant ID is required when multitenancy is enabled');
-                }
+                // No hard requirement on a dropdown pick here: with no tenant
+                // selected yet, the backend starts the agent unpinned and the
+                // chat's own `nw_select_tenant` tool call can establish it —
+                // otherwise the dropdown would be the only way to ever pick
+                // a tenant for the first message.
                 logTenancyContext('Agent chat (stream)');
                 const response = await fetch(withTenancyQuery('/scenarios/agent-chat-stream'), {
                     method: 'POST',
@@ -2577,9 +2579,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (_multitenancyEnabled && !getPlaygroundTenantId()) {
-                throw new Error('Tenant ID is required when multitenancy is enabled');
-            }
+            // See the streamable-http branch above: no dropdown pick required
+            // to send the first message when multitenancy is on.
             logTenancyContext('Agent chat');
             const response = await fetch(withTenancyQuery('/scenarios/agent-chat'), {
                 method: 'POST',
