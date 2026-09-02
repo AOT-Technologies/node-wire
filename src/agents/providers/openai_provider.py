@@ -95,10 +95,11 @@ class OpenAIProvider(BaseLLMProvider):
             client_kwargs["base_url"] = base_url
         self._client = OpenAI(**client_kwargs)
         self._model = model
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.info(
             "OpenAIProvider initialised | model=%s | base_url=%s",
-            model,
-            base_url or "(default)",
+            str(model).replace("\r", " ").replace("\n", " "),
+            str(base_url or "(default)").replace("\r", " ").replace("\n", " "),
         )
 
     def chat_with_tools(

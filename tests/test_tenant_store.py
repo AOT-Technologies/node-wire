@@ -459,7 +459,7 @@ def test_concurrent_upsert_and_save_do_not_race(
         for _ in range(n_iters):
             try:
                 save_tenants(store)
-            except BaseException as exc:  # noqa: BLE001
+            except BaseException as exc:  # noqa: BLE001 - captured for the assertion below
                 errors.append(exc)
 
     threads = [

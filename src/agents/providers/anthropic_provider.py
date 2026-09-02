@@ -93,7 +93,11 @@ class AnthropicProvider(BaseLLMProvider):
         self._anthropic = anthropic
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
-        logger.info("AnthropicProvider initialised | model=%s", model)
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "AnthropicProvider initialised | model=%s",
+            str(model).replace("\r", " ").replace("\n", " "),
+        )
 
     def chat_with_tools(
         self,
@@ -113,8 +117,11 @@ class AnthropicProvider(BaseLLMProvider):
         if claude_tools:
             kwargs["tools"] = claude_tools
 
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.debug(
-            "Anthropic request | model=%s | messages=%d", self._model, len(claude_messages)
+            "Anthropic request | model=%s | messages=%d",
+            str(self._model).replace("\r", " ").replace("\n", " "),
+            len(claude_messages),
         )
         response = self._client.messages.create(**kwargs)
 

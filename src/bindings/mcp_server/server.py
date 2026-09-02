@@ -38,7 +38,9 @@ from node_wire_runtime.policies.mcp_scope_policy import (
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory, get_connector_registry
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from node_wire_runtime.ingress import normalize_mcp_tool_arguments  # re-export for tests
+from node_wire_runtime.ingress import (  # noqa: F401 -- explicit re-export for tests
+    normalize_mcp_tool_arguments as normalize_mcp_tool_arguments,
+)
 from node_wire_runtime.rate_limit import (
     RateLimitExceeded,
     get_per_identity_rate_limiter,
@@ -1038,6 +1040,9 @@ class McpServer:
                 )
                 resolved_config_name = connector.config_name
             except ConfigNotFoundError:
+                # Best-effort resolution for the log line below only — invoke()
+                # above already ran successfully, so fall back to the
+                # caller-supplied config_name rather than fail the tool call.
                 pass
             logger.info(
                 "MCP tool resolved | tool=%s | tenant_id=%s | config_name=%s",
@@ -1247,6 +1252,8 @@ class McpServer:
                                 continue
                             await filt_send.send(item)
                 except anyio.ClosedResourceError:
+                    # Peer/transport torn down mid-send (e.g. client disconnected or the
+                    # task group is winding down) — nothing left to forward to, ignore.
                     pass
 
             async with anyio.create_task_group() as tg:

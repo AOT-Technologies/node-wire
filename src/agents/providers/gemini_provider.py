@@ -57,7 +57,11 @@ class GeminiProvider(BaseLLMProvider):
         self._genai = genai
         self._model_name = model
         self._history: List[Any] = []
-        logger.info("GeminiProvider initialised | model=%s", model)
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "GeminiProvider initialised | model=%s",
+            str(model).replace("\r", " ").replace("\n", " "),
+        )
 
     def chat_with_tools(
         self,

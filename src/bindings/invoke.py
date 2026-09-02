@@ -15,7 +15,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from node_wire_runtime import ConnectorResponse
-from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 
 
