@@ -25,7 +25,13 @@ from node_wire_runtime.identity import (
     resolve_config_name,
     resolve_tenant_id,
 )
-from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+from node_wire_runtime.rate_limit import (
+    RateLimitExceeded,
+    get_per_identity_rate_limiter,
+    global_rate_limiter,
+    identity_rate_limit_key,
+    per_identity_rate_limit_enabled,
+)
 
 from .async_runner import BackgroundAsyncRunner
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
@@ -73,6 +79,29 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             )
 
         identity = get_grpc_caller_identity()
+
+        # Opt-in per-identity limiter (off by default; M-2, 2026-09-01 review).
+        # Shared with REST/MCP via node_wire_runtime.rate_limit so one noisy
+        # caller can't exhaust the global bucket for every other gRPC client.
+        if per_identity_rate_limit_enabled():
+            limiter = get_per_identity_rate_limiter()
+            identity_key = identity_rate_limit_key(
+                identity.principal if identity else None, fallback="grpc"
+            )
+            result = limiter.consume(
+                f"grpc:{request.connector_id}:{request.action}:{identity_key}"
+            )
+            if not result.allowed:
+                return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                    success=False,
+                    error_code="RATE_LIMIT_EXCEEDED",
+                    error_category=ErrorCategory.RETRYABLE.value,
+                    message=(
+                        f"Rate limit exceeded, retry after {result.retry_after_seconds}s"
+                    ),
+                    trace_id="",
+                )
+
         try:
             tenant_id = resolve_tenant_id(headers=metadata or {}, jwt_identity=identity)
         except MissingTenantError as exc:
