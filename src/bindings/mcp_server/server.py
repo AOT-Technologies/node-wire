@@ -38,9 +38,6 @@ from node_wire_runtime.policies.mcp_scope_policy import (
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory, get_connector_registry
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
-from node_wire_runtime.ingress import (  # noqa: F401 -- explicit re-export for tests
-    normalize_mcp_tool_arguments as normalize_mcp_tool_arguments,
-)
 from node_wire_runtime.rate_limit import (
     RateLimitExceeded,
     get_per_identity_rate_limiter,

@@ -27,7 +27,7 @@ def _reset_shared_limiter(monkeypatch) -> None:
     # (moved 2026-09-01, M-2 fix) so REST/MCP/gRPC can share it — reset it here
     # the way the REST-local globals used to be reset before the move.
     monkeypatch.setattr(rate_limit_module, "_per_identity_limiter", None)
-    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter_cfg", None)
+    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter_state", {"cfg": None})
 
 
 def _make_client(monkeypatch) -> tuple[TestClient, MagicMock]:

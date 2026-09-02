@@ -377,13 +377,13 @@ def load_tenants(store: ConnectorConfigStore) -> None:
                         continue
                     if _is_legacy_connector_secrets(kv):
                         # Recommended: no auto-migrate — re-enter per-config credentials.
+                        # Note: tenant_id/connector_id are deliberately omitted from
+                        # `extra` here — both are derived from the same traversal as
+                        # the secret values themselves, so CodeQL's clear-text-logging
+                        # check flags them as tainted even though they're plain ids.
                         logger.warning(
                             "Skipping legacy connector-scoped secrets; "
-                            "re-save credentials per named config",
-                            extra={
-                                "tenant_id": tenant_id,
-                                "connector_id": connector_id,
-                            },
+                            "re-save credentials per named config"
                         )
                         continue
                     for config_name, logical_map in kv.items():

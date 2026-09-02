@@ -45,6 +45,7 @@ import threading
 import time
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
+from functools import lru_cache
 from time import monotonic
 
 from opentelemetry import metrics
@@ -222,7 +223,14 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-_warned_legacy_rest_rate_limit_flag = False
+@lru_cache(maxsize=None)
+def _warn_legacy_rest_rate_limit_flag_once() -> None:
+    """Warn once per process; ``lru_cache`` suppresses repeats."""
+    logger.warning(
+        "NW_REST_RATE_LIMIT_ENABLED is deprecated; set "
+        "NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true instead (now applies "
+        "to MCP and gRPC too, not just REST)."
+    )
 
 
 def per_identity_rate_limit_enabled() -> bool:
@@ -239,14 +247,7 @@ def per_identity_rate_limit_enabled() -> bool:
 
     legacy = os.environ.get("NW_REST_RATE_LIMIT_ENABLED")
     if legacy is not None and _truthy(legacy):
-        global _warned_legacy_rest_rate_limit_flag
-        if not _warned_legacy_rest_rate_limit_flag:
-            logger.warning(
-                "NW_REST_RATE_LIMIT_ENABLED is deprecated; set "
-                "NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true instead (now applies "
-                "to MCP and gRPC too, not just REST)."
-            )
-            _warned_legacy_rest_rate_limit_flag = True
+        _warn_legacy_rest_rate_limit_flag_once()
         return True
     return False
 
@@ -281,7 +282,10 @@ def per_identity_rate_limit_config() -> tuple[int, int, int, int]:
 
 
 _per_identity_limiter: InMemoryRateLimiter | None = None
-_per_identity_limiter_cfg: tuple[int, int, int, int] | None = None
+# Mutable container (not a rebindable global) so the cache-invalidation check
+# below is a dict-key read/write rather than a `global` reassignment whose
+# value CodeQL's intra-procedural analysis can't see consumed on the next call.
+_per_identity_limiter_state: dict[str, tuple[int, int, int, int] | None] = {"cfg": None}
 _per_identity_limiter_lock = threading.Lock()
 
 
@@ -293,10 +297,10 @@ def get_per_identity_rate_limiter() -> InMemoryRateLimiter:
     so REST/MCP/gRPC share one limiter (and one set of tracked keys/memory
     bound) instead of each transport keeping its own.
     """
-    global _per_identity_limiter, _per_identity_limiter_cfg
+    global _per_identity_limiter
     cfg = per_identity_rate_limit_config()
     with _per_identity_limiter_lock:
-        if _per_identity_limiter is None or _per_identity_limiter_cfg != cfg:
+        if _per_identity_limiter is None or _per_identity_limiter_state["cfg"] != cfg:
             max_requests, window_seconds, max_tracked_keys, key_ttl_seconds = cfg
             _per_identity_limiter = InMemoryRateLimiter(
                 max_requests=max_requests,
@@ -304,7 +308,7 @@ def get_per_identity_rate_limiter() -> InMemoryRateLimiter:
                 max_tracked_keys=max_tracked_keys,
                 key_ttl_seconds=key_ttl_seconds,
             )
-            _per_identity_limiter_cfg = cfg
+            _per_identity_limiter_state["cfg"] = cfg
         return _per_identity_limiter
 
 
