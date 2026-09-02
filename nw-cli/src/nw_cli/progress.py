@@ -294,8 +294,8 @@ class GenerateProgress:
             if failed is not None:
                 hints = {
                     "connector": "Check the OpenAPI spec path and connector id.",
-                    "wheel": "Fix with: nw wheel --id <id>  (or nw wheel --runtime)",
-                    "mcp": "Ensure wheels exist, then: nw mcp --id <id>",
+                    "wheel": "Fix with: nw gen-whl --connector-id <id>  (or nw gen-whl --runtime)",
+                    "mcp": "Ensure wheels exist, then: nw gen-mcp --connector-id <id>",
                     "wire": "Check scripts/build-packages.sh ALL_PACKAGES block.",
                 }
                 hint = f"\n{hints.get(failed.key, '')}"

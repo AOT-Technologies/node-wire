@@ -552,6 +552,7 @@ class BaseConnector(ABC):
             )
 
             _response: Optional[ConnectorResponse] = None
+            _metric_attrs: Dict[str, AttributeValue] = {}
             _start = time.monotonic()
             token = _caller_execution_ctx.set((principal, tenant_id, scopes))
             try:
@@ -701,7 +702,7 @@ class BaseConnector(ABC):
                 _caller_execution_ctx.reset(token)
                 if _response is not None:
                     _duration_ms = (time.monotonic() - _start) * 1000
-                    _metric_attrs: Dict[str, AttributeValue] = {
+                    _metric_attrs = {
                         "connector.id": self.connector_id,
                         "connector.action": self.action,
                         "success": _response.success,
