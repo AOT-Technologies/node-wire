@@ -25,6 +25,7 @@ from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
+    TenantIdentityMismatchError,
     is_multitenancy_enabled,
     resolve_tenant_id,
 )
@@ -583,7 +584,7 @@ class McpServer:
                 jwt_identity=identity,
                 env_pin=self._tenant_session.env_pin,
             )
-        except MissingTenantError as exc:
+        except (MissingTenantError, TenantIdentityMismatchError) as exc:
             raise ValueError(str(exc)) from exc
 
     def _store_has_tenant(self, tenant_id: str) -> bool:
@@ -1299,6 +1300,11 @@ class McpServer:
                             status_code=400,
                             content={"detail": str(exc), "error_code": "MISSING_TENANT"},
                         )
+                except TenantIdentityMismatchError as exc:
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": str(exc), "error_code": "TENANT_IDENTITY_MISMATCH"},
+                    )
                 token = _streamable_http_identity_ctx.set(identity)
                 tenant_token = _session_tenant_ctx.set(session_tenant)
                 try:

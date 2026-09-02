@@ -24,6 +24,7 @@ from .config_store import (
 )
 from .identity import (
     MissingTenantError,
+    TenantIdentityMismatchError,
     TenantMismatchError,
     effective_run_tenant_id,
     normalize_tenant_id,
@@ -86,6 +87,7 @@ __all__ = [
     "DefaultDeletionError",
     "DEFAULT_TENANT",
     "MissingTenantError",
+    "TenantIdentityMismatchError",
     "TenantMismatchError",
     "effective_run_tenant_id",
     "normalize_tenant_id",

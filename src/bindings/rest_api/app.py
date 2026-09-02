@@ -34,6 +34,7 @@ from node_wire_runtime.config_store import (
 )
 from node_wire_runtime.identity import (
     MissingTenantError,
+    TenantIdentityMismatchError,
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
@@ -201,6 +202,8 @@ def _config_tenant(request: Request) -> str:
         )
     except MissingTenantError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except TenantIdentityMismatchError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 def _log_tenant_action(
@@ -536,6 +539,8 @@ def _make_endpoint(cid: str, act: str) -> Any:
             tenant_id = resolve_tenant_id(headers=request.headers, jwt_identity=rest_id)
         except MissingTenantError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except TenantIdentityMismatchError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
 
         run_payload = dict(payload)
         # config_name is a resolution-time argument, never a connector input.

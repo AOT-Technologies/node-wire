@@ -26,6 +26,7 @@ from node_wire_runtime.config_store import (
 )
 from node_wire_runtime.identity import (
     MissingTenantError,
+    TenantIdentityMismatchError,
     TenantMismatchError,
     effective_run_tenant_id,
     is_multitenancy_enabled,
@@ -205,11 +206,31 @@ def test_jwt_fallback_when_no_header(monkeypatch: pytest.MonkeyPatch):
     assert resolve_tenant_id(headers={}, jwt_identity=ident) == "t-1"
 
 
-def test_header_wins_over_jwt(monkeypatch: pytest.MonkeyPatch):
+def test_jwt_wins_over_header(monkeypatch: pytest.MonkeyPatch):
+    """JWT tenant claim is authoritative — a caller can't select a different
+    tenant just by sending a header (H-1, 2026-09-01 security review)."""
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     ident = MagicMock()
     ident.tenant_id = "t-1"
-    assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident) == "acme"
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "t-1"}, jwt_identity=ident) == "t-1"
+
+
+def test_conflicting_header_and_jwt_tenant_raises(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    ident = MagicMock()
+    ident.tenant_id = "t-1"
+    with pytest.raises(TenantIdentityMismatchError, match="acme.*t-1|t-1.*acme"):
+        resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident)
+
+
+def test_header_matching_default_alias_of_jwt_tenant_is_allowed(monkeypatch: pytest.MonkeyPatch):
+    """``__default__`` and the unset header are treated as the same tenant."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    ident = MagicMock()
+    ident.tenant_id = "__default__"
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "__default__"}, jwt_identity=ident) == (
+        "__default__"
+    )
 
 
 def test_env_pin_wins_over_everything(monkeypatch: pytest.MonkeyPatch):

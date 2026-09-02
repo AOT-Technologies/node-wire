@@ -36,7 +36,7 @@ from pydantic import BaseModel, Field, RootModel, ValidationError
 from .auth import AuthProvider, NoAuthProvider
 from .errors import ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
-from .identity import TenantMismatchError, effective_run_tenant_id
+from .identity import TenantIdentityMismatchError, TenantMismatchError, effective_run_tenant_id
 from .policy import PolicyContext, PolicyHook, PolicyDenied
 from .resilience import with_resilience
 from .secrets import SecretProvider
@@ -59,6 +59,9 @@ POLICY_DENIED_CODE = "POLICY_DENIED"
 
 ErrorMapper.register_global(PolicyDenied, ErrorCategory.AUTH, code=POLICY_DENIED_CODE)
 ErrorMapper.register_global(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
+ErrorMapper.register_global(
+    TenantIdentityMismatchError, ErrorCategory.AUTH, code="TENANT_IDENTITY_MISMATCH"
+)
 
 
 class NestedConnectorActionError(Exception):

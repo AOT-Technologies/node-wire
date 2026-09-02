@@ -205,12 +205,13 @@ _nested_secrets_mirror: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = {}
 def existing_logical_secrets(
     tenant_id: str, connector_id: str, config_name: str
 ) -> Dict[str, str]:
-    return dict(
-        ((_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id) or {}).get(
-            config_name
+    with _lock:
+        return dict(
+            ((_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id) or {}).get(
+                config_name
+            )
+            or {}
         )
-        or {}
-    )
 
 
 def tenants_path(*, for_write: bool = False) -> Path:
@@ -278,44 +279,51 @@ def upsert_tenant_secrets(
         for k, v in logical_secrets.items()
         if k is not None and str(k).strip() and v is not None and str(v).strip()
     }
-    existing = existing_logical_secrets(tenant_id, connector_id, name)
-    if auto_shared_env:
-        for env_key, logical_key in SHARED_ENV_BY_CONNECTOR.get(connector_id, []):
-            if logical_key in merged and merged[logical_key].strip():
-                continue
-            if logical_key in existing:
-                continue
-            host_val = os.environ.get(env_key)
-            if host_val is None:
-                host_val = os.environ.get(env_key.lower())
-            if host_val is not None and str(host_val).strip():
-                merged[logical_key] = str(host_val).strip()
 
-    if require_varying:
-        effective = {**existing, **merged}
-        validate_required_secrets(connector_id, effective)
+    # Everything below reads and mutates the shared `_nested_secrets_mirror` and
+    # writes to the shared overlay; hold the module lock for the whole
+    # read-merge-validate-write sequence like the sibling mutators
+    # (save_tenants/load_tenants/clear_*_secrets) do, so a concurrent upsert,
+    # save, or reload can't interleave with this one (M-1, 2026-09-01 review).
+    with _lock:
+        existing = existing_logical_secrets(tenant_id, connector_id, name)
+        if auto_shared_env:
+            for env_key, logical_key in SHARED_ENV_BY_CONNECTOR.get(connector_id, []):
+                if logical_key in merged and merged[logical_key].strip():
+                    continue
+                if logical_key in existing:
+                    continue
+                host_val = os.environ.get(env_key)
+                if host_val is None:
+                    host_val = os.environ.get(env_key.lower())
+                if host_val is not None and str(host_val).strip():
+                    merged[logical_key] = str(host_val).strip()
 
-    if merged:
-        validate_secret_formats(connector_id, merged)
+        if require_varying:
+            effective = {**existing, **merged}
+            validate_required_secrets(connector_id, effective)
 
-    flat: Dict[str, str] = {}
-    for logical_key, value in merged.items():
-        scoped = tenant_scoped_secret_key(
-            tenant_id, connector_id, logical_key, config_name=name
+        if merged:
+            validate_secret_formats(connector_id, merged)
+
+        flat: Dict[str, str] = {}
+        for logical_key, value in merged.items():
+            scoped = tenant_scoped_secret_key(
+                tenant_id, connector_id, logical_key, config_name=name
+            )
+            flat[scoped] = value
+            _nested_secrets_mirror.setdefault(tenant_id, {}).setdefault(
+                connector_id, {}
+            ).setdefault(name, {})[logical_key] = value
+
+        if flat:
+            overlay.set_many(flat)
+        return sorted(
+            (_nested_secrets_mirror.get(tenant_id) or {})
+            .get(connector_id, {})
+            .get(name, {})
+            .keys()
         )
-        flat[scoped] = value
-        _nested_secrets_mirror.setdefault(tenant_id, {}).setdefault(connector_id, {}).setdefault(
-            name, {}
-        )[logical_key] = value
-
-    if flat:
-        overlay.set_many(flat)
-    return sorted(
-        (_nested_secrets_mirror.get(tenant_id) or {})
-        .get(connector_id, {})
-        .get(name, {})
-        .keys()
-    )
 
 
 def _is_legacy_connector_secrets(kv: Mapping[str, Any]) -> bool:
@@ -416,12 +424,13 @@ def list_secret_logical_keys(
     name = (config_name or "").strip()
     if not name:
         return []
-    return sorted(
-        (_nested_secrets_mirror.get(tenant_id) or {})
-        .get(connector_id, {})
-        .get(name, {})
-        .keys()
-    )
+    with _lock:
+        return sorted(
+            (_nested_secrets_mirror.get(tenant_id) or {})
+            .get(connector_id, {})
+            .get(name, {})
+            .keys()
+        )
 
 
 def clear_config_secrets(tenant_id: str, connector_id: str, config_name: str) -> None:
