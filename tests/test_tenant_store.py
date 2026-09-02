@@ -432,7 +432,7 @@ def test_concurrent_upsert_and_save_do_not_race(
 
     n_threads = 8
     n_iters = 30
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
     barrier = threading.Barrier(n_threads + 1)
 
     def upsert_worker(worker_id: int) -> None:
@@ -447,7 +447,7 @@ def test_concurrent_upsert_and_save_do_not_race(
                     auto_shared_env=False,
                     require_varying=False,
                 )
-            except BaseException as exc:  # noqa: BLE001 - captured for the assertion below
+            except Exception as exc:  # noqa: BLE001 - captured for the assertion below
                 errors.append(exc)
 
     def saver_worker() -> None:
@@ -455,7 +455,7 @@ def test_concurrent_upsert_and_save_do_not_race(
         for _ in range(n_iters):
             try:
                 save_tenants(store)
-            except BaseException as exc:  # noqa: BLE001 - captured for the assertion below
+            except Exception as exc:  # noqa: BLE001 - captured for the assertion below
                 errors.append(exc)
 
     threads = [threading.Thread(target=upsert_worker, args=(i,)) for i in range(n_threads)] + [

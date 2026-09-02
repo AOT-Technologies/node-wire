@@ -21,7 +21,7 @@ from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
 
 def _normalize_for_mcp(connector_id: str, action: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Test harness: resolve MCP connector and run metadata-driven normalizers."""
-    norm = import_module("bindings.mcp_server.server").normalize_mcp_tool_arguments
+    norm = import_module("node_wire_runtime.ingress").normalize_mcp_tool_arguments
     auto_register()
     factory = ConnectorFactory()
     factory.load()
@@ -975,7 +975,7 @@ async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shap
 
 def test_normalize_mcp_tool_arguments_noop_when_action_has_no_normalizer():
     """Strict actions without mcp_normalize should pass args through unchanged."""
-    from bindings.mcp_server.server import normalize_mcp_tool_arguments
+    from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 
     auto_register()
     factory = ConnectorFactory()

@@ -217,7 +217,7 @@ async def test_invoke_per_identity_rate_limit_shared_with_rest(
     monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS", "1")
     monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS", "60")
     monkeypatch.setattr(rate_limit_module, "_per_identity_limiter", None)
-    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter_cfg", None)
+    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter_state", {"cfg": None})
 
     identity = build_caller_identity({"sub": "grpc-svc"}, auth_type="grpc_api_key")
     fake_connector = MagicMock()
