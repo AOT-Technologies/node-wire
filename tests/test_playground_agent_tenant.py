@@ -163,7 +163,7 @@ def test_agent_chat_uses_llm_option(monkeypatch: pytest.MonkeyPatch) -> None:
         def chat_with_tools(self, messages, tools):  # noqa: ANN001
             return None
 
-    def fake_create_from_option(llm_option=None):
+    def fake_create_from_option(llm_option=None, base_url=None):
         created.append(llm_option)
         return FakeProvider()
 

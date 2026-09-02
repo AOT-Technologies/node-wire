@@ -211,9 +211,10 @@ To test the Google Drive integration manually, follow these specialized setup st
 To enable the AI Agent chat, you need to configure an LLM provider:
 1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, and `NVIDIA_MODEL` to enable NVIDIA Nemotron in the same dropdown.
 2.  **Switch models in the UI**: Use the single `provider/model` selector next to the chat input (defaults to Groq when configured).
-3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
-4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
-5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).
+3.  **Local Ollama models**: Set `OLLAMA_BASE_URL` / `OLLAMA_MODEL` in `.env` for a built-in Ollama entry, or use **+ Add local model** in the picker to discover running tags and save custom entries in the browser.
+4.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
+5.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
+6.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).
 
 ---
 

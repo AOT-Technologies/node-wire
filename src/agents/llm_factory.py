@@ -20,6 +20,7 @@ Supported providers (set via LLM_PROVIDER env var):
   gemini                — gemini-2.0-flash
   anthropic             — claude-3-5-haiku-20241022
   nvidia                — nvidia/nemotron-3.5-lightning-30b-a3b (OpenAI-compatible)
+  ollama                — local OpenAI-compatible (e.g. qwen2.5:7b)
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
+from urllib.parse import urlparse, urlunparse
 
 
 # ---------------------------------------------------------------------------
@@ -107,9 +109,15 @@ class BaseLLMProvider(ABC):
 DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1"
+DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
+DEFAULT_OLLAMA_API_KEY = "ollama"
 
 NVIDIA_TOOLS_NOTE = (
     "Tool calling may be limited on this model. If tool calls fail, switch back to Groq."
+)
+OLLAMA_TOOLS_NOTE = (
+    "Tool calling may be limited on local Ollama models. If tool calls fail, switch back to Groq."
 )
 
 # Optional provider classes when [agents] extras are not installed.
@@ -167,17 +175,60 @@ def looks_like_tool_calling_unsupported(error: str) -> bool:
     return any(n in text for n in needles)
 
 
+def normalize_openai_compatible_base_url(base_url: str) -> str:
+    """Normalize a playground OpenAI-compatible base URL (ensure ``/v1`` suffix)."""
+    raw = (base_url or "").strip()
+    if not raw:
+        return DEFAULT_OLLAMA_BASE_URL
+    parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Unsupported URL scheme {parsed.scheme!r}; use http or https.")
+    path = (parsed.path or "").rstrip("/")
+    if path.endswith("/v1"):
+        normalized_path = path
+    elif path:
+        normalized_path = f"{path}/v1"
+    else:
+        normalized_path = "/v1"
+    return urlunparse((parsed.scheme, parsed.netloc, normalized_path, "", "", ""))
+
+
+def ollama_origin_from_base_url(base_url: str) -> str:
+    """Return Ollama server origin (no ``/v1``) for native ``/api/tags`` calls."""
+    normalized = normalize_openai_compatible_base_url(base_url)
+    parsed = urlparse(normalized)
+    path = (parsed.path or "").rstrip("/")
+    if path.endswith("/v1"):
+        path = path[:-3] or ""
+    return urlunparse((parsed.scheme, parsed.netloc, path or "", "", "", ""))
+
+
+def resolve_ollama_base_url(override: Optional[str] = None) -> str:
+    """Resolve Ollama OpenAI-compatible base URL from override or env."""
+    if (override or "").strip():
+        return normalize_openai_compatible_base_url(override or "")
+    env_url = os.environ.get("OLLAMA_BASE_URL", "").strip()
+    if env_url:
+        return normalize_openai_compatible_base_url(env_url)
+    return DEFAULT_OLLAMA_BASE_URL
+
+
+def resolve_ollama_api_key() -> str:
+    return os.environ.get("OLLAMA_API_KEY", DEFAULT_OLLAMA_API_KEY).strip() or DEFAULT_OLLAMA_API_KEY
+
+
 class LLMProviderFactory:
     """
     Creates the right ``BaseLLMProvider`` from environment variables.
 
     Environment variables:
-        LLM_PROVIDER    : groq | openai | gemini | anthropic | nvidia  (default: groq)
+        LLM_PROVIDER    : groq | openai | gemini | anthropic | nvidia | ollama  (default: groq)
         GROQ_API_KEY / GROQ_MODEL
         OPENAI_API_KEY / OPENAI_MODEL
         GEMINI_API_KEY / GEMINI_MODEL
         ANTHROPIC_API_KEY / ANTHROPIC_MODEL
         NVIDIA_API_KEY / NVIDIA_BASE_URL / NVIDIA_MODEL
+        OLLAMA_API_KEY / OLLAMA_BASE_URL / OLLAMA_MODEL
     """
 
     @classmethod
@@ -194,7 +245,7 @@ class LLMProviderFactory:
             if GroqProvider is None:
                 raise ImportError("GroqProvider could not be loaded. Check dependencies.")
             return GroqProvider(**kwargs)
-        elif provider in ("openai", "nvidia"):
+        elif provider in ("openai", "nvidia", "ollama"):
             if OpenAIProvider is None:
                 raise ImportError("OpenAIProvider could not be loaded. Check dependencies.")
             return OpenAIProvider(**kwargs)
@@ -207,7 +258,7 @@ class LLMProviderFactory:
                 raise ImportError("AnthropicProvider could not be loaded. Check dependencies.")
             return AnthropicProvider(**kwargs)
         else:
-            supported = ["groq", "openai", "gemini", "anthropic", "nvidia"]
+            supported = ["groq", "openai", "gemini", "anthropic", "nvidia", "ollama"]
             raise ValueError(
                 f"Unknown LLM provider {provider!r}. Supported: {', '.join(supported)}"
             )
@@ -239,11 +290,19 @@ class LLMProviderFactory:
             kwargs["base_url"] = os.environ.get(
                 "NVIDIA_BASE_URL", DEFAULT_NVIDIA_BASE_URL
             ).strip() or DEFAULT_NVIDIA_BASE_URL
+        elif provider == "ollama":
+            kwargs["api_key"] = resolve_ollama_api_key()
+            kwargs["model"] = os.environ.get("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL).strip() or DEFAULT_OLLAMA_MODEL
+            kwargs["base_url"] = resolve_ollama_base_url(None)
 
         return cls.create(provider, **kwargs)
 
     @classmethod
-    def create_from_option(cls, llm_option: Optional[str] = None) -> BaseLLMProvider:
+    def create_from_option(
+        cls,
+        llm_option: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> BaseLLMProvider:
         """
         Create a provider from a playground ``provider/model`` option id.
 
@@ -274,9 +333,16 @@ class LLMProviderFactory:
                 ).strip()
                 or DEFAULT_NVIDIA_BASE_URL,
             )
+        if provider == "ollama":
+            return cls.create(
+                "ollama",
+                api_key=resolve_ollama_api_key(),
+                model=model,
+                base_url=resolve_ollama_base_url(base_url),
+            )
         raise ValueError(
             f"Unsupported llm_option provider {provider!r}. "
-            "Playground switcher supports: groq, nvidia."
+            "Playground switcher supports: groq, nvidia, ollama."
         )
 
     @classmethod
@@ -295,6 +361,7 @@ class LLMProviderFactory:
                     "provider": "groq",
                     "model": groq_model,
                     "tools_note": None,
+                    "source": "env",
                 }
             )
 
@@ -312,6 +379,25 @@ class LLMProviderFactory:
                     "provider": "nvidia",
                     "model": nvidia_model,
                     "tools_note": NVIDIA_TOOLS_NOTE,
+                    "source": "env",
+                }
+            )
+
+        ollama_base = os.environ.get("OLLAMA_BASE_URL", "").strip()
+        ollama_model = os.environ.get("OLLAMA_MODEL", "").strip()
+        if ollama_base or ollama_model:
+            resolved_model = ollama_model or DEFAULT_OLLAMA_MODEL
+            resolved_base = resolve_ollama_base_url(ollama_base or None)
+            ollama_id = f"ollama/{resolved_model}"
+            options.append(
+                {
+                    "id": ollama_id,
+                    "label": ollama_id,
+                    "provider": "ollama",
+                    "model": resolved_model,
+                    "base_url": resolved_base,
+                    "tools_note": OLLAMA_TOOLS_NOTE,
+                    "source": "env",
                 }
             )
 

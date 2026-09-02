@@ -1637,8 +1637,142 @@ input[type="range"]::-webkit-slider-thumb:hover {
     border: 1px solid #e2e8f0;
     border-radius: 0.75rem;
     box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
-    max-height: 240px;
+    max-height: 360px;
     overflow-y: auto;
+}
+
+.agent-llm-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.agent-llm-menu-item-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.25rem;
+}
+
+.agent-llm-menu-item-row .agent-llm-menu-item {
+    flex: 1;
+}
+
+.agent-llm-menu-remove {
+    flex-shrink: 0;
+    width: 2rem;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.agent-llm-menu-remove:hover {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.agent-llm-menu-footer {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.agent-llm-add-toggle {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--brand-accent, #2563eb);
+    cursor: pointer;
+}
+
+.agent-llm-add-toggle:hover {
+    background: #f1f5f9;
+}
+
+.agent-llm-add-panel {
+    padding: 0.5rem 0.7rem 0.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.agent-llm-add-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.agent-llm-add-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.8rem;
+    background: white;
+}
+
+.agent-llm-add-input:focus {
+    outline: none;
+    border-color: var(--brand-accent);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.agent-llm-add-row {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.agent-llm-add-row .agent-llm-add-input {
+    flex: 1;
+}
+
+.agent-llm-add-actions {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.15rem;
+}
+
+.agent-llm-add-btn {
+    flex: 1;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: white;
+}
+
+.agent-llm-add-btn.primary {
+    background: var(--brand-accent, #2563eb);
+    border-color: var(--brand-accent, #2563eb);
+    color: white;
+}
+
+.agent-llm-add-btn.secondary:hover {
+    background: #f8fafc;
+}
+
+.agent-llm-add-status {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #64748b;
+}
+
+.agent-llm-add-status.error {
+    color: #b45309;
 }
 
 .agent-llm-menu-item {

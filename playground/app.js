@@ -127,6 +127,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const agentLlmTrigger = document.getElementById('agent-llm-trigger');
     const agentLlmTriggerLabel = document.getElementById('agent-llm-trigger-label');
     const agentLlmMenu = document.getElementById('agent-llm-menu');
+    const agentLlmMenuList = document.getElementById('agent-llm-menu-list');
+    const agentLlmAddToggle = document.getElementById('agent-llm-add-toggle');
+    const agentLlmAddPanel = document.getElementById('agent-llm-add-panel');
+    const agentLlmAddBase = document.getElementById('agent-llm-add-base');
+    const agentLlmAddModel = document.getElementById('agent-llm-add-model');
+    const agentLlmAddModelSelect = document.getElementById('agent-llm-add-model-select');
+    const agentLlmDiscoverBtn = document.getElementById('agent-llm-discover-btn');
+    const agentLlmAddSave = document.getElementById('agent-llm-add-save');
+    const agentLlmAddCancel = document.getElementById('agent-llm-add-cancel');
+    const agentLlmAddStatus = document.getElementById('agent-llm-add-status');
     const agentLlmNote = document.getElementById('agent-llm-note');
     let agentConversationHistory = [];
     let agentBusy = false;
@@ -134,6 +144,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let agentLlmOptions = [];
     let agentLlmSelectedId = '';
     const AGENT_LLM_STORAGE_KEY = 'nw_playground_llm_option';
+    const AGENT_LLM_CUSTOM_KEY = 'nw_playground_llm_custom';
+    const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434/v1';
+    const OLLAMA_TOOLS_NOTE =
+        'Tool calling may be limited on local Ollama models. If tool calls fail, switch back to Groq.';
 
     const pipelineLabels = {
         ehr: [
@@ -2193,29 +2207,89 @@ document.addEventListener('DOMContentLoaded', () => {
         return agentLlmSelectedId || null;
     }
 
+    function selectedAgentLlmChatPayload() {
+        const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
+        const payload = { llm_option: selectedAgentLlmOption() };
+        if (selected && selected.provider === 'ollama' && selected.base_url) {
+            payload.llm_base_url = selected.base_url;
+        }
+        return payload;
+    }
+
+    function loadCustomLlmOptions() {
+        try {
+            const raw = localStorage.getItem(AGENT_LLM_CUSTOM_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+            return [];
+        }
+    }
+
+    function saveCustomLlmOptions(entries) {
+        try {
+            localStorage.setItem(AGENT_LLM_CUSTOM_KEY, JSON.stringify(entries));
+        } catch (_e) {
+            /* ignore */
+        }
+    }
+
+    function mergeServerAndCustomLlmOptions(serverOptions) {
+        const merged = new Map();
+        for (const item of serverOptions || []) {
+            merged.set(item.id, { ...item });
+        }
+        for (const item of loadCustomLlmOptions()) {
+            const id = item.id || `${item.provider}/${item.model}`;
+            merged.set(id, {
+                id,
+                label: item.label || id,
+                provider: item.provider || 'ollama',
+                model: item.model,
+                base_url: item.base_url || DEFAULT_OLLAMA_BASE_URL,
+                tools_note: OLLAMA_TOOLS_NOTE,
+                source: 'custom',
+            });
+        }
+        return Array.from(merged.values());
+    }
+
     function shortLlmLabel(optionId) {
         if (!optionId) return 'Model';
         const slash = optionId.indexOf('/');
         const provider = (slash >= 0 ? optionId.slice(0, slash) : optionId).toLowerCase();
         const model = slash >= 0 ? optionId.slice(slash + 1) : '';
         const lastSeg = (model.split('/').pop() || model || provider).trim();
-        const providerLabel = provider === 'nvidia' ? 'NVIDIA' : provider.charAt(0).toUpperCase() + provider.slice(1);
-        // Prefer a compact model token for the closed button.
+        const providerLabel =
+            provider === 'nvidia' ? 'NVIDIA' : provider === 'ollama' ? 'Ollama' : provider.charAt(0).toUpperCase() + provider.slice(1);
         let shortModel = lastSeg;
         if (provider === 'nvidia' && /nemotron/i.test(lastSeg)) {
             shortModel = 'Nemotron';
         } else if (provider === 'groq') {
             if (/gpt-oss/i.test(lastSeg)) shortModel = 'GPT-OSS';
             else if (/llama/i.test(lastSeg)) shortModel = 'Llama';
+        } else if (provider === 'ollama' && shortModel.length > 14) {
+            shortModel = shortModel.slice(0, 12) + '…';
         }
         if (shortModel.length > 18) shortModel = shortModel.slice(0, 16) + '…';
         return `${providerLabel} · ${shortModel}`;
+    }
+
+    function setAgentLlmAddPanelOpen(open) {
+        if (!agentLlmAddPanel) return;
+        agentLlmAddPanel.classList.toggle('hidden', !open);
+        if (!open && agentLlmAddStatus) {
+            agentLlmAddStatus.textContent = '';
+            agentLlmAddStatus.classList.add('hidden');
+            agentLlmAddStatus.classList.remove('error');
+        }
     }
 
     function setAgentLlmOpen(open) {
         if (!agentLlmTrigger || !agentLlmMenu) return;
         agentLlmTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
         agentLlmMenu.classList.toggle('hidden', !open);
+        if (!open) setAgentLlmAddPanelOpen(false);
     }
 
     function syncAgentLlmTrigger() {
@@ -2264,12 +2338,24 @@ document.addEventListener('DOMContentLoaded', () => {
         setAgentLlmOpen(false);
     }
 
+    function removeCustomLlmOption(optionId) {
+        const next = loadCustomLlmOptions().filter((item) => (item.id || `${item.provider}/${item.model}`) !== optionId);
+        saveCustomLlmOptions(next);
+        if (agentLlmSelectedId === optionId) {
+            agentLlmSelectedId = '';
+        }
+        loadAgentLlmOptions();
+    }
+
     function renderAgentLlmMenu() {
-        if (!agentLlmMenu) return;
-        agentLlmMenu.innerHTML = '';
+        if (!agentLlmMenuList) return;
+        agentLlmMenuList.innerHTML = '';
         for (const item of agentLlmOptions) {
             const li = document.createElement('li');
             li.setAttribute('role', 'presentation');
+            const row = document.createElement('div');
+            row.className = 'agent-llm-menu-item-row';
+
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'agent-llm-menu-item';
@@ -2288,9 +2374,112 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.appendChild(shortEl);
             btn.appendChild(fullEl);
             btn.addEventListener('click', () => chooseAgentLlm(item.id));
-            li.appendChild(btn);
-            agentLlmMenu.appendChild(li);
+            row.appendChild(btn);
+
+            if (item.source === 'custom') {
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'agent-llm-menu-remove';
+                removeBtn.title = 'Remove custom model';
+                removeBtn.setAttribute('aria-label', `Remove ${item.label || item.id}`);
+                removeBtn.textContent = '×';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeCustomLlmOption(item.id);
+                });
+                row.appendChild(removeBtn);
+            }
+
+            li.appendChild(row);
+            agentLlmMenuList.appendChild(li);
         }
+    }
+
+    function showAddLlmStatus(message, isError) {
+        if (!agentLlmAddStatus) return;
+        agentLlmAddStatus.textContent = message;
+        agentLlmAddStatus.classList.remove('hidden');
+        agentLlmAddStatus.classList.toggle('error', !!isError);
+    }
+
+    async function discoverOllamaModels() {
+        if (!agentLlmAddBase) return;
+        const baseUrl = agentLlmAddBase.value.trim() || DEFAULT_OLLAMA_BASE_URL;
+        if (agentLlmDiscoverBtn) agentLlmDiscoverBtn.disabled = true;
+        showAddLlmStatus('Discovering models…', false);
+        try {
+            const response = await fetch(
+                `/scenarios/llm-discover-ollama?base_url=${encodeURIComponent(baseUrl)}`
+            );
+            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json();
+            if (data.base_url && agentLlmAddBase) {
+                agentLlmAddBase.value = data.base_url;
+            }
+            const models = Array.isArray(data.models) ? data.models : [];
+            if (agentLlmAddModelSelect) {
+                agentLlmAddModelSelect.innerHTML = '';
+                if (models.length) {
+                    for (const name of models) {
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        agentLlmAddModelSelect.appendChild(opt);
+                    }
+                    agentLlmAddModelSelect.classList.remove('hidden');
+                    if (agentLlmAddModel) {
+                        agentLlmAddModel.classList.add('hidden');
+                        agentLlmAddModel.value = models[0];
+                    }
+                    showAddLlmStatus(`Found ${models.length} model(s).`, false);
+                } else {
+                    agentLlmAddModelSelect.classList.add('hidden');
+                    if (agentLlmAddModel) agentLlmAddModel.classList.remove('hidden');
+                    showAddLlmStatus(data.error || 'No models found. Enter a model name manually.', true);
+                }
+            }
+        } catch (error) {
+            if (agentLlmAddModelSelect) agentLlmAddModelSelect.classList.add('hidden');
+            if (agentLlmAddModel) agentLlmAddModel.classList.remove('hidden');
+            showAddLlmStatus(`Discover failed: ${error.message}`, true);
+        } finally {
+            if (agentLlmDiscoverBtn) agentLlmDiscoverBtn.disabled = false;
+        }
+    }
+
+    function saveCustomLlmFromPanel() {
+        const provider = 'ollama';
+        const baseUrl = (agentLlmAddBase && agentLlmAddBase.value.trim()) || DEFAULT_OLLAMA_BASE_URL;
+        let model = '';
+        if (agentLlmAddModelSelect && !agentLlmAddModelSelect.classList.contains('hidden')) {
+            model = agentLlmAddModelSelect.value.trim();
+        } else if (agentLlmAddModel) {
+            model = agentLlmAddModel.value.trim();
+        }
+        if (!model) {
+            showAddLlmStatus('Enter or select a model name.', true);
+            return;
+        }
+        const id = `${provider}/${model}`;
+        const entry = {
+            id,
+            provider,
+            model,
+            base_url: baseUrl,
+            label: id,
+            source: 'custom',
+        };
+        const existing = loadCustomLlmOptions().filter((item) => (item.id || `${item.provider}/${item.model}`) !== id);
+        existing.push(entry);
+        saveCustomLlmOptions(existing);
+        agentLlmSelectedId = id;
+        try {
+            localStorage.setItem(AGENT_LLM_STORAGE_KEY, id);
+        } catch (_e) {
+            /* ignore */
+        }
+        setAgentLlmAddPanelOpen(false);
+        loadAgentLlmOptions();
     }
 
     async function loadAgentLlmOptions() {
@@ -2299,11 +2488,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/scenarios/llm-options');
             if (!response.ok) throw new Error(`Server returned ${response.status}`);
             const data = await response.json();
-            agentLlmOptions = Array.isArray(data.options) ? data.options : [];
+            agentLlmOptions = mergeServerAndCustomLlmOptions(
+                Array.isArray(data.options) ? data.options : []
+            );
 
             if (!agentLlmOptions.length) {
                 agentLlmSelectedId = '';
-                if (agentLlmMenu) agentLlmMenu.innerHTML = '';
+                renderAgentLlmMenu();
                 syncAgentLlmTrigger();
                 updateAgentLlmNote();
                 setAgentLlmOpen(false);
@@ -2331,9 +2522,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            agentLlmSelectedId = chosen;
+            if (!agentLlmSelectedId || !agentLlmOptions.some((o) => o.id === agentLlmSelectedId)) {
+                agentLlmSelectedId = chosen;
+            }
             try {
-                localStorage.setItem(AGENT_LLM_STORAGE_KEY, chosen);
+                localStorage.setItem(AGENT_LLM_STORAGE_KEY, agentLlmSelectedId);
             } catch (_e) {
                 /* ignore */
             }
@@ -2341,14 +2534,18 @@ document.addEventListener('DOMContentLoaded', () => {
             syncAgentLlmTrigger();
             updateAgentLlmNote();
         } catch (error) {
-            agentLlmOptions = [];
-            agentLlmSelectedId = '';
-            if (agentLlmMenu) agentLlmMenu.innerHTML = '';
-            if (agentLlmTriggerLabel) agentLlmTriggerLabel.textContent = 'Unavailable';
-            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            agentLlmOptions = mergeServerAndCustomLlmOptions([]);
+            agentLlmSelectedId = agentLlmOptions.length ? agentLlmOptions[0].id : '';
+            renderAgentLlmMenu();
+            if (agentLlmTriggerLabel) {
+                agentLlmTriggerLabel.textContent = agentLlmOptions.length ? shortLlmLabel(agentLlmSelectedId) : 'Unavailable';
+            }
+            if (agentLlmTrigger) agentLlmTrigger.disabled = !agentLlmOptions.length;
             updateAgentLlmNote();
             setAgentLlmOpen(false);
-            log(`LLM options unavailable (${error.message})`, 'system');
+            if (!agentLlmOptions.length) {
+                log(`LLM options unavailable (${error.message})`, 'system');
+            }
         }
     }
 
@@ -2501,7 +2698,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         message: message,
                         history: agentConversationHistory.slice(0, -1),
-                        llm_option: selectedAgentLlmOption()
+                        ...selectedAgentLlmChatPayload()
                     })
                 });
 
@@ -2587,7 +2784,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     message: message,
                     history: agentConversationHistory.slice(0, -1), // Exclude current message (already in payload)
-                    llm_option: selectedAgentLlmOption()
+                    ...selectedAgentLlmChatPayload()
                 })
             });
 
@@ -2647,6 +2844,36 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') setAgentLlmOpen(false);
     });
+    if (agentLlmAddToggle) {
+        agentLlmAddToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = agentLlmAddPanel && agentLlmAddPanel.classList.contains('hidden');
+            setAgentLlmAddPanelOpen(open);
+        });
+    }
+    if (agentLlmDiscoverBtn) {
+        agentLlmDiscoverBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            discoverOllamaModels();
+        });
+    }
+    if (agentLlmAddSave) {
+        agentLlmAddSave.addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveCustomLlmFromPanel();
+        });
+    }
+    if (agentLlmAddCancel) {
+        agentLlmAddCancel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setAgentLlmAddPanelOpen(false);
+        });
+    }
+    if (agentLlmAddModelSelect) {
+        agentLlmAddModelSelect.addEventListener('change', () => {
+            if (agentLlmAddModel) agentLlmAddModel.value = agentLlmAddModelSelect.value;
+        });
+    }
     agentSendBtn.addEventListener('click', sendAgentMessage);
     agentInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
