@@ -17,6 +17,7 @@ from bindings.mcp_server.server import (
     SELECT_CONFIG_TOOL,
     SELECT_TENANT_TOOL,
     McpServer,
+    _optional_str,
     format_list_tenants_text,
 )
 
@@ -504,3 +505,132 @@ async def test_select_tenant_keeps_config_if_any_connector_has_it(
             "http_generic.request",
             {"method": "GET", "url": "https://example.com"},
         )
+
+
+@pytest.mark.parametrize("sentinel", ["none", "None", "NONE", "null", "Null", "  none  "])
+def test_optional_str_normalizes_none_sentinels(sentinel: str) -> None:
+    # Real MCP clients (e.g. NVIDIA's agent) can't send JSON null for a
+    # string-typed field once mcp_llm_safe_input_schema strips the null
+    # union, so they may echo the literal word instead. That must be
+    # treated the same as an omitted/None value.
+    assert _optional_str(sentinel) is None
+
+
+def test_optional_str_passes_through_real_ids() -> None:
+    assert _optional_str("google_drive") == "google_drive"
+    assert _optional_str("nonexistent") == "nonexistent"  # exact match only, not substring
+    assert _optional_str("") is None
+    assert _optional_str("   ") is None
+    assert _optional_str(None) is None
+    assert _optional_str(123) is None
+
+
+@pytest.mark.asyncio
+async def test_list_tenants_string_none_sentinel_treated_as_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    server = McpServer(connector_ids=["http_generic", "google_drive"])
+    server.tenant_session.set_env_pin("acme")
+    server._factory.store.create(
+        "acme",
+        "google_drive",
+        {"name": "test", "default": True, "config": {}, "auth": {}},
+    )
+    server._factory.store.create(
+        "http-only",
+        "http_generic",
+        {"name": "default", "default": True, "config": {}, "auth": {}},
+    )
+
+    omitted = await server.invoke_tool(LIST_TENANTS_TOOL, {})
+    none_string = await server.invoke_tool(LIST_TENANTS_TOOL, {"connector_id": "none"})
+    null_string = await server.invoke_tool(LIST_TENANTS_TOOL, {"connector_id": "NULL"})
+
+    # Previously this silently returned an empty tenant list, since no
+    # connector is ever actually named "none".
+    assert none_string["connector_id"] is None
+    assert set(none_string["tenants"]) == set(omitted["tenants"])
+    assert null_string["connector_id"] is None
+    assert set(null_string["tenants"]) == set(omitted["tenants"])
+
+
+@pytest.mark.asyncio
+async def test_list_tenants_string_none_sentinel_not_rejected_on_restricted_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    server = McpServer(connector_ids=["google_drive"])
+    server.tenant_session.set_env_pin("acme")
+    server._factory.store.create(
+        "acme",
+        "google_drive",
+        {"name": "drive-a", "default": True, "config": {}, "auth": {}},
+    )
+
+    # Before the fix, this raised: ValueError: Connector 'none' is not
+    # allowed on this MCP server.
+    result = await server.invoke_tool(LIST_TENANTS_TOOL, {"connector_id": "none"})
+    assert result["ok"] is True
+    assert "acme" in result["tenants"]
+
+
+@pytest.mark.asyncio
+async def test_list_configs_string_none_sentinel_treated_as_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    server = McpServer(connector_ids=["http_generic", "google_drive"])
+    server.tenant_session.set_env_pin("acme")
+    server._factory.store.create(
+        "acme",
+        "google_drive",
+        {"name": "test", "default": True, "config": {}, "auth": {}},
+    )
+    server._factory.store.create(
+        "acme",
+        "http_generic",
+        {"name": "default", "default": True, "config": {}, "auth": {}},
+    )
+    server._factory.store.create(
+        "acme-demo",
+        "google_drive",
+        {"name": "other", "default": True, "config": {}, "auth": {}},
+    )
+
+    all_cfgs = await server.invoke_tool(LIST_CONFIGS_TOOL, {})
+    connector_none = await server.invoke_tool(LIST_CONFIGS_TOOL, {"connector_id": "none"})
+    tenant_none = await server.invoke_tool(
+        LIST_CONFIGS_TOOL, {"tenant_id": "none", "connector_id": "none"}
+    )
+
+    assert {(c["connector_id"], c["name"]) for c in connector_none["configs"]} == {
+        (c["connector_id"], c["name"]) for c in all_cfgs["configs"]
+    }
+    # tenant_id="none" falls back to the pinned tenant, same as omitting it.
+    assert tenant_none["tenant_id"] == "acme"
+
+
+@pytest.mark.asyncio
+async def test_select_tenant_string_none_sentinel_omits_connector_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    server = McpServer(connector_ids=["http_generic", "google_drive"])
+    server.tenant_session.set_env_pin("acme")
+    server._factory.store.create(
+        "acme-demo",
+        "google_drive",
+        {"name": "drive-cfg", "default": True, "config": {}, "auth": {}},
+    )
+    server._factory.store.create(
+        "acme-demo",
+        "http_generic",
+        {"name": "http-cfg", "default": True, "config": {}, "auth": {}},
+    )
+
+    selected = await server.invoke_tool(
+        SELECT_TENANT_TOOL, {"tenant_id": "acme-demo", "connector_id": "none"}
+    )
+    assert selected["ok"] is True
+    assert {c["name"] for c in selected["configs"]} == {"drive-cfg", "http-cfg"}
