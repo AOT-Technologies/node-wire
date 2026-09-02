@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-import node_wire_runtime.rate_limit as rate_limit_module
 from bindings.rest_api.app import app, get_factory
+from node_wire_runtime import rate_limit as rate_limit_module
 from node_wire_runtime.models import ConnectorResponse
 from node_wire_runtime.rate_limit import InMemoryRateLimiter
 

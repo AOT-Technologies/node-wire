@@ -2055,10 +2055,11 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
     """
     trace_id = str(uuid.uuid4())
     llm_option = (payload.llm_option or "").strip() or None
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
     logger.info(
         "Agent Chat request | trace_id=%s | llm_option=%s",
         trace_id,
-        llm_option or "groq(default)",
+        str(llm_option or "groq(default)").replace("\r", " ").replace("\n", " "),
     )
 
     if not payload.message.strip():
@@ -2091,7 +2092,11 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
         )
         from node_wire_runtime.mcp_client.client import create_http_mcp_client
 
-        logger.info("Agent Chat | creating LLM provider from option: %s", llm_option or "(default groq)")
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "Agent Chat | creating LLM provider from option: %s",
+            str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
+        )
         llm_provider = LLMProviderFactory.create_from_option(llm_option)
 
         task = _build_agent_chat_task(payload)
@@ -2286,9 +2291,10 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                 return
 
             llm_option = (payload.llm_option or "").strip() or None
+            # Inline replace so CodeQL treats newline stripping as a sanitizer.
             logger.info(
                 "Agent Chat stream | creating LLM provider from option: %s",
-                llm_option or "(default groq)",
+                str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
             )
             llm_provider = LLMProviderFactory.create_from_option(llm_option)
             task = _build_agent_chat_task(payload)

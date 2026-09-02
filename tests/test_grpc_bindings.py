@@ -210,7 +210,7 @@ async def test_invoke_per_identity_rate_limit_shared_with_rest(
     """Per-identity limiting (M-2, 2026-09-01) is a node_wire_runtime facility
     now, not REST-only — gRPC's _invoke_async opts into the same shared
     limiter/config as REST and MCP."""
-    import node_wire_runtime.rate_limit as rate_limit_module
+    from node_wire_runtime import rate_limit as rate_limit_module
     from node_wire_runtime.caller_identity import build_caller_identity
 
     monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_ENABLED", "true")
