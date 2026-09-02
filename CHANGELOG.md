@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error taxonomy support in the connector codegen and mcp-builder pipelines.
 - A new query-parameter API key auth mechanism (`node_wire_runtime.auth.apikey_query`).
 - OpenTelemetry metrics and an audit trail; a test-coverage gate for PRs
-  (raised to 85%, with an 80% floor enforced on changed files).
+  (80% overall, with an 80% floor enforced on changed files).
 - A new documentation site (`mkdocs.yml`, `docs/index.md`, branded stylesheets
   and logo assets) and `docs/mcp-servers.md` documenting multi-tenant MCP
   server setup.

@@ -170,7 +170,7 @@ matrix:
 
 > **Prerequisite:** Tier 2 (the PyPI wheel) must be completed first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
 
-Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined `agents.mcp_entrypoint` server). For the entrypoint code template and Dockerfile template see [mcp-servers.md — Adding a row for a new connector](mcp-servers.md#adding-a-row-for-a-new-connector).
+Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined `agents.mcp_entrypoint` server). For the wheel → image mapping see [local-packages-to-images.md](local-packages-to-images.md); for an existing connector's entrypoint/Dockerfile, use `src/agents/<name>_mcp.py` and `docker/<name>/Dockerfile` as templates.
 
 | File | Purpose |
 |---|---|
@@ -179,7 +179,6 @@ Use when you need a dedicated Docker/ToolHive image for a single connector (not 
 | `docker/<name>/Dockerfile` | Demo MCP image |
 | [`scripts/build-mcp-images.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-mcp-images.sh) | `docker build` block |
 | [`docker-compose.mcp.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
-| [mcp-servers.md](mcp-servers.md) | Naming conventions table row |
 | [local-packages-to-images.md](local-packages-to-images.md) | Wheel → image mapping |
 
 ---
@@ -358,14 +357,20 @@ manual step per package, bound to that tag.
 2. Add a dated `CHANGELOG.md` section and release link for the target version.
 3. Merge to `main` and confirm required CI checks are green.
 
-### Step 2 — Create the GitHub Release
+### Step 2 — Create the tag
+
+Dispatch **Create Release Tag** in Actions (`.github/workflows/create-tag.yml`) with `version` set to `1.0.0` (no leading `v`). It validates the version is MAJOR.MINOR.PATCH, that the tag doesn't already exist, that every package's version matches, and that `CHANGELOG.md` has an entry for it — then creates and pushes the `v1.0.0` tag itself. Run this before dispatching "GitHub Release" below.
+
+Manual fallback, if you must create the tag by hand (bypasses the validation above):
 
 ```bash
 git tag -a v1.0.0 -m "Release 1.0.0"
 git push origin v1.0.0
 ```
 
-Then dispatch **GitHub Release** in Actions with `version` set to `1.0.0` (no leading `v`).
+### Step 3 — Create the GitHub Release
+
+Dispatch **GitHub Release** in Actions with `version` set to `1.0.0` (no leading `v`).
 
 **Workflow:** `.github/workflows/github-release.yml` — manual `workflow_dispatch`
 after the tag has been pushed.
@@ -378,7 +383,7 @@ The workflow:
 4. Creates `release-manifest.txt` listing all publishable package paths (one per entry in `github-release.yml`'s `package_paths` list).
 5. Creates the GitHub Release with changelog notes, SBOM, and manifest attached.
 
-### Step 3 — Publish packages to PyPI
+### Step 4 — Publish packages to PyPI
 
 After the GitHub Release exists, dispatch `.github/workflows/publish.yml` **once per
 package** (once per entry in the `allowed` set in that workflow).
@@ -442,7 +447,7 @@ docker build -f docker/salesforce/Dockerfile -t nw-salesforce .
 docker build -f docker/slack/Dockerfile -t nw-slack .
 ```
 
-For compose and ToolHive registration see `docs/mcp-servers.md`.
+For compose config see `docker-compose.mcp.yml`; for ToolHive registration of these pre-built images see [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 

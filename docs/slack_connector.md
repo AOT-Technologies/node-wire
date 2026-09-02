@@ -11,7 +11,7 @@ This document covers the Slack connector under `src/node_wire_slack` in two part
 1. **[Slack Bot Setup](#slack-bot-setup)** — Create a Slack app, configure OAuth scopes, and obtain your bot token.
 2. **[REST API Reference](#rest-api-reference)** — Connector actions, request/response shapes, and flexible channel resolution.
 
-For **MCP** (e.g. ToolHive), tools are named `slack.<action>` from the connector manifest (e.g. `slack.post_message`).
+For **MCP** (e.g. ToolHive), tools are named `slack_<action>` from the connector manifest (e.g. `slack_post_message`). Legacy dotted names (`slack.post_message`) still work on `tools/call` but are not what `tools/list` advertises.
 
 ---
 
@@ -98,7 +98,7 @@ Send a message to a channel, group, or user.
 
 **Channel Resolution:**
 - **Channel Name**: Starts with `#` (e.g., `#general`).
-- **Channel ID**: Starts with `C` or `G` (e.g., `C12345`).
+- **Channel ID**: Starts with `C`, `G`, `D`, or `Z` (e.g., `C12345`).
 - **User ID**: Starts with `U` or `W` (e.g., `U12345`). Automatically resolved to a DM channel.
 
 #### `send_direct_message`
@@ -155,5 +155,5 @@ Uploads a file to a Slack channel or DM.
 
 ### Related
 
-- Individual MCP Servers: [docs/mcp-servers.md](mcp-servers.md)
+- Pre-built per-connector Docker images: [docs/packaging.md](packaging.md)
 - Connector Architecture: [docs/connectors.md](connectors.md)
