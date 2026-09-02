@@ -131,17 +131,73 @@ async def test_inprocess_enter_applies_host_config_overlay() -> None:
         assert "config_name" not in data["args"]
 
 
-def test_agent_chat_requires_tenant_when_mt_on(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_agent_chat_starts_unpinned_when_no_tenant_selected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No ``X-Tenant-ID`` (i.e. nothing picked in the header dropdown yet)
+    must not hard-fail the request — the chat's own ``nw_select_tenant`` tool
+    is how a tenant gets picked for the very first message. Regression test
+    for the "must select tenant from the dropdown before you can chat" bug:
+    this used to 400 before the agent ever ran.
+    """
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
-    from bindings.rest_api.app import app
+    monkeypatch.setenv("GROQ_API_KEY", "gk")
 
-    client = TestClient(app)
-    resp = client.post(
-        "/scenarios/agent-chat",
-        json={"message": "hello", "history": []},
-    )
-    assert resp.status_code == 400
-    assert "X-Tenant-ID" in resp.json().get("detail", "")
+    from agents.toolhive import AgentRunResult
+
+    seen_tenant_ids: list[str] = []
+
+    class FakeProvider:
+        def chat_with_tools(self, messages, tools):  # noqa: ANN001
+            return None
+
+    def fake_create_from_option(llm_option=None):
+        return FakeProvider()
+
+    async def fake_run(self, task):
+        return AgentRunResult(
+            success=True, final_answer="hello from agent", steps=[], trace_id="t1"
+        )
+
+    class _CM:
+        async def __aenter__(self):
+            client = MagicMock()
+            client._server = None
+            return client
+
+        async def __aexit__(self, *args):
+            return None
+
+    def fake_inprocess_client(tenant_id, request):
+        seen_tenant_ids.append(tenant_id)
+        return _CM()
+
+    with (
+        patch(
+            "agents.llm_factory.LLMProviderFactory.create_from_option",
+            side_effect=fake_create_from_option,
+        ),
+        patch("agents.toolhive.ToolHiveAgent.run", fake_run),
+        patch(
+            "playground.scenarios._playground_inprocess_mcp_client",
+            side_effect=fake_inprocess_client,
+        ),
+    ):
+        from bindings.rest_api.app import app
+
+        client = TestClient(app)
+        resp = client.post(
+            "/scenarios/agent-chat",
+            json={"message": "hello", "history": []},
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    # No `X-Tenant-ID` header: falls back to the `__default__` tenant (always
+    # present in the store) rather than the request failing outright — the
+    # chat's own `nw_select_tenant` tool is still free to switch it from there.
+    assert seen_tenant_ids == ["__default__"]
 
 
 def test_llm_options_endpoint_filters_and_defaults_to_groq(

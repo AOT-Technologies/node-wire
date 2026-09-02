@@ -19,7 +19,7 @@ import os
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
-from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
     is_multitenancy_enabled,
@@ -1955,7 +1955,19 @@ def _current_agent_transport() -> str:
 
 
 def _resolve_agent_mcp_tenant(request: Request) -> str:
-    """Resolve tenant for playground agent → MCP (stdio pin / HTTP header)."""
+    """Resolve the *starting* tenant pin for the playground agent → MCP.
+
+    Unlike a direct connector call, the agent chat flow can pick a tenant
+    itself mid-conversation via the `nw_select_tenant` chat tool (see
+    AGENT_GUARDRAIL_PROMPT and `TenantSessionOverlay`), so a missing
+    `X-Tenant-ID` here must not hard-fail the request the way
+    `resolve_connector` does — that would make the dropdown the only way to
+    ever start a chat. Mirrors the standalone MCP HTTP middleware's own
+    fallback (`server.py`'s streamable-http tenant resolution): fall back to
+    `__default__` when it's a configured tenant, else return "" so the agent
+    starts unpinned and the LLM can call `nw_list_tenants` / `nw_select_tenant`
+    itself for the first turn.
+    """
     from bindings.rest_api.auth import get_rest_caller_identity
 
     try:
@@ -1963,13 +1975,22 @@ def _resolve_agent_mcp_tenant(request: Request) -> str:
             headers=request.headers,
             jwt_identity=get_rest_caller_identity(request),
         )
-    except MissingTenantError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MissingTenantError:
+        store = get_playground_factory().store
+        if DEFAULT_TENANT in store.list_tenants():
+            return DEFAULT_TENANT
+        return ""
 
 
 def _agent_mcp_extra_headers(tenant_id: str) -> Dict[str, str]:
     from node_wire_runtime.identity import TENANT_HEADER
 
+    # Empty tenant_id (no dropdown selection yet, no __default__ configured)
+    # omits the header entirely rather than sending a blank X-Tenant-ID, so
+    # the remote/proxy MCP server applies its own "no tenant pinned" chat
+    # flow instead of failing tenant resolution outright.
+    if not tenant_id:
+        return {}
     # TENANT_HEADER is lowercased; HTTP clients accept any casing.
     return {TENANT_HEADER: tenant_id}
 
@@ -2077,7 +2098,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
     if is_multitenancy_enabled():
         logger.info(
             "Agent Chat | mcp_tenant_id=%s | config_name=%s",
-            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(tenant_id or "(none)").replace("\r", " ").replace("\n", " "),
             str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
         )
 
@@ -2207,7 +2228,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
         if is_multitenancy_enabled():
             logger.info(
                 "Agent Chat | effective tenant_id=%s | config_name=%s",
-                str(eff_tenant).replace("\r", " ").replace("\n", " "),
+                str(eff_tenant or "(none)").replace("\r", " ").replace("\n", " "),
                 str(eff_config or "(default)").replace("\r", " ").replace("\n", " "),
             )
 
@@ -2250,7 +2271,7 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
     if is_multitenancy_enabled():
         logger.info(
             "Agent Chat stream | mcp_tenant_id=%s | config_name=%s",
-            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(tenant_id or "(none)").replace("\r", " ").replace("\n", " "),
             str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
         )
 
