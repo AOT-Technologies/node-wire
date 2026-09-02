@@ -15,9 +15,18 @@ front; node-wire itself performs no authentication here.
 
 Resolution order when NW_MULTITENANCY_ENABLED=true (see plan decision C / C2):
     1. ``env_pin``            transport with no headers (MCP stdio ``NW_TENANT_ID``)
-    2. header                 ``X-Tenant-ID`` / ``NW_TENANT_ID_HEADER`` (case-insensitive)
-    3. ``jwt_identity``       existing JWT-claim tenancy (unchanged)
+    2. ``jwt_identity``       authenticated JWT-claim tenancy, when present — authoritative
+    3. header                 ``X-Tenant-ID`` / ``NW_TENANT_ID_HEADER`` (case-insensitive),
+                               used only when the JWT carries no tenant claim of its own
     4. raise MissingTenantError when none of the above are present
+
+Security note (H-1, 2026-09-01 review): the header/metadata value is supplied
+by the caller and is not authenticated by node-wire (see the module docstring
+above). When a JWT identity *does* carry a ``tenant_id`` claim, that claim is
+authoritative and the header is only accepted if it agrees with it — a caller
+authenticated for tenant A can no longer point ``X-Tenant-ID``/gRPC metadata
+at tenant B to redirect config/secret lookups and connector calls to a tenant
+it wasn't issued a token for. See :class:`TenantIdentityMismatchError`.
 
 When NW_MULTITENANCY_ENABLED=false (default), all calls return DEFAULT_TENANT
 regardless of headers, JWT, or env_pin so connectors behave exactly as before
@@ -52,6 +61,27 @@ class TenantMismatchError(Exception):
         self.requested = requested
         super().__init__(
             f"tenant mismatch: instance pinned to {pinned!r}, run requested {requested!r}"
+        )
+
+
+class TenantIdentityMismatchError(ValueError):
+    """Caller-supplied tenant header/metadata disagrees with the JWT's own tenant claim.
+
+    Raised by :func:`resolve_tenant_id` when ``jwt_identity`` carries a
+    ``tenant_id`` claim and the request also supplies a tenant header/metadata
+    value for a *different* tenant. The header is untrusted caller input (see
+    module docstring); the JWT claim is what the embedding application's auth
+    layer actually authenticated, so it wins and the mismatch is rejected
+    outright rather than silently preferring the header (see H-1, 2026-09-01
+    security review).
+    """
+
+    def __init__(self, *, jwt_tenant: str, header_tenant: str) -> None:
+        self.jwt_tenant = jwt_tenant
+        self.header_tenant = header_tenant
+        super().__init__(
+            "tenant header/metadata "
+            f"{header_tenant!r} does not match authenticated tenant {jwt_tenant!r}"
         )
 
 
@@ -135,11 +165,15 @@ def resolve_tenant_id(
     When NW_MULTITENANCY_ENABLED is false (default), always returns DEFAULT_TENANT
     regardless of inputs so connectors behave as legacy single-tenant.
 
-    When enabled, requires env_pin, header, or jwt tenant claim; otherwise raises
+    When enabled, requires env_pin, jwt tenant claim, or header; otherwise raises
     :class:`MissingTenantError`. Explicit ``__default__`` in the header is allowed.
 
     ``jwt_identity`` is any object exposing a ``tenant_id`` attribute (e.g.
-    :class:`~node_wire_runtime.caller_identity.CallerIdentity`).
+    :class:`~node_wire_runtime.caller_identity.CallerIdentity`). When it carries a
+    tenant claim, that claim is authoritative: a header/metadata value for a
+    *different* tenant is rejected with :class:`TenantIdentityMismatchError`
+    rather than silently overriding it (see H-1, 2026-09-01 security review).
+    A header that agrees with the claim (or is simply absent) is fine.
     """
     # Simplified: early exit keeps all callers unchanged; no second code path.
     if not is_multitenancy_enabled():
@@ -151,13 +185,20 @@ def resolve_tenant_id(
             return pinned
 
     header_tenant = tenant_from_headers(headers)
-    if header_tenant:
-        return header_tenant
 
+    jwt_tenant: Optional[str] = None
     if jwt_identity is not None:
         claim = getattr(jwt_identity, "tenant_id", None)
         if claim is not None and str(claim).strip():
-            return str(claim).strip()
+            jwt_tenant = str(claim).strip()
+
+    if jwt_tenant is not None:
+        if header_tenant is not None and not tenants_equivalent(header_tenant, jwt_tenant):
+            raise TenantIdentityMismatchError(jwt_tenant=jwt_tenant, header_tenant=header_tenant)
+        return jwt_tenant
+
+    if header_tenant:
+        return header_tenant
 
     raise MissingTenantError()
 

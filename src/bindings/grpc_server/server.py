@@ -21,6 +21,7 @@ from node_wire_runtime import ConnectorResponse, ErrorCategory
 from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
+    TenantIdentityMismatchError,
     resolve_config_name,
     resolve_tenant_id,
 )
@@ -78,6 +79,14 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,
                 error_code="MISSING_TENANT",
+                error_category=ErrorCategory.AUTH.value,
+                message=str(exc),
+                trace_id="",
+            )
+        except TenantIdentityMismatchError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="TENANT_IDENTITY_MISMATCH",
                 error_category=ErrorCategory.AUTH.value,
                 message=str(exc),
                 trace_id="",

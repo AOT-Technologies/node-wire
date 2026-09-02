@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -403,3 +405,81 @@ def test_delete_config_clears_only_that_config_secrets(monkeypatch: pytest.Monke
             OverlaySecretProvider.instance().get_secret(drop_scoped)
     finally:
         app.dependency_overrides.clear()
+
+
+def test_concurrent_upsert_and_save_do_not_race(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Regression test for M-1 (2026-09-01 review): upsert_tenant_secrets used to
+    mutate the shared `_nested_secrets_mirror` without the module lock, while
+    save_tenants (iterating that same structure to export it) held the lock.
+    Racing new-tenant upserts against concurrent saves could previously raise
+    `RuntimeError: dictionary changed size during iteration` or drop a write.
+    """
+    path = tmp_path / "concurrent.yaml"
+    monkeypatch.setenv("NW_TENANTS_PATH", str(path))
+    store = _factory().store
+
+    # Make thread interleaving as aggressive as possible, and give the saver's
+    # dict-comprehension export something big enough to iterate that a
+    # concurrent insert has a real chance of landing mid-iteration — this
+    # combination reliably reproduces `RuntimeError: dictionary changed size
+    # during iteration` on the old, unlocked code within a handful of runs
+    # (verified directly against the pre-fix module before writing this test).
+    from node_wire_runtime import tenant_persistence as tp
+
+    for i in range(1200):
+        tp._nested_secrets_mirror[f"seed-{i}"] = {"seed_connector": {"cfg": {"K": "v"}}}
+
+    old_interval = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+
+    n_threads = 8
+    n_iters = 30
+    errors: list[BaseException] = []
+    barrier = threading.Barrier(n_threads + 1)
+
+    def upsert_worker(worker_id: int) -> None:
+        barrier.wait()
+        for i in range(n_iters):
+            try:
+                upsert_tenant_secrets(
+                    f"tenant-{worker_id}",
+                    "demo_connector",
+                    {"TOKEN": f"val-{worker_id}-{i}"},
+                    config_name="cfg",
+                    auto_shared_env=False,
+                    require_varying=False,
+                )
+            except BaseException as exc:  # noqa: BLE001 - captured for the assertion below
+                errors.append(exc)
+
+    def saver_worker() -> None:
+        barrier.wait()
+        for _ in range(n_iters):
+            try:
+                save_tenants(store)
+            except BaseException as exc:  # noqa: BLE001
+                errors.append(exc)
+
+    threads = [
+        threading.Thread(target=upsert_worker, args=(i,)) for i in range(n_threads)
+    ] + [threading.Thread(target=saver_worker)]
+    try:
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+    finally:
+        sys.setswitchinterval(old_interval)
+
+    assert not errors, f"concurrent upsert/save raised: {errors!r}"
+
+    # Every worker's last write must have landed — no lost update.
+    for worker_id in range(n_threads):
+        scoped = tenant_scoped_secret_key(
+            f"tenant-{worker_id}", "demo_connector", "TOKEN", config_name="cfg"
+        )
+        assert OverlaySecretProvider.instance().get_secret(scoped) == (
+            f"val-{worker_id}-{n_iters - 1}"
+        )
