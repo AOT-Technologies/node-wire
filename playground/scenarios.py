@@ -16,7 +16,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
-import sys
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory

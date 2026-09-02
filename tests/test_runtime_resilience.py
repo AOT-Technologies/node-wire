@@ -71,7 +71,10 @@ def reset_error_mapper_registry() -> None:
         ErrorMapper._global_registry.clear()
         ErrorMapper._connector_registries.clear()
         ErrorMapper.register(
-            "test_flaky_resilience", RetryableTestError, ErrorCategory.RETRYABLE, code="RETRYABLE_TEST"
+            "test_flaky_resilience",
+            RetryableTestError,
+            ErrorCategory.RETRYABLE,
+            code="RETRYABLE_TEST",
         )
         yield
     finally:

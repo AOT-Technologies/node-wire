@@ -202,14 +202,10 @@ _lock = threading.RLock()
 _nested_secrets_mirror: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = {}
 
 
-def existing_logical_secrets(
-    tenant_id: str, connector_id: str, config_name: str
-) -> Dict[str, str]:
+def existing_logical_secrets(tenant_id: str, connector_id: str, config_name: str) -> Dict[str, str]:
     with _lock:
         return dict(
-            ((_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id) or {}).get(
-                config_name
-            )
+            ((_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id) or {}).get(config_name)
             or {}
         )
 
@@ -319,10 +315,7 @@ def upsert_tenant_secrets(
         if flat:
             overlay.set_many(flat)
         return sorted(
-            (_nested_secrets_mirror.get(tenant_id) or {})
-            .get(connector_id, {})
-            .get(name, {})
-            .keys()
+            (_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id, {}).get(name, {}).keys()
         )
 
 
@@ -418,18 +411,13 @@ def load_tenants(store: ConnectorConfigStore) -> None:
         )
 
 
-def list_secret_logical_keys(
-    tenant_id: str, connector_id: str, config_name: str
-) -> List[str]:
+def list_secret_logical_keys(tenant_id: str, connector_id: str, config_name: str) -> List[str]:
     name = (config_name or "").strip()
     if not name:
         return []
     with _lock:
         return sorted(
-            (_nested_secrets_mirror.get(tenant_id) or {})
-            .get(connector_id, {})
-            .get(name, {})
-            .keys()
+            (_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id, {}).get(name, {}).keys()
         )
 
 
@@ -454,9 +442,7 @@ def clear_config_secrets(tenant_id: str, connector_id: str, config_name: str) ->
         )
         for logical_key in keys_to_drop:
             data.pop(
-                tenant_scoped_secret_key(
-                    tenant_id, connector_id, logical_key, config_name=name
-                ),
+                tenant_scoped_secret_key(tenant_id, connector_id, logical_key, config_name=name),
                 None,
             )
         overlay.replace_all(data)
@@ -473,9 +459,7 @@ def clear_tenant_connector_secrets(tenant_id: str, connector_id: str) -> None:
         data = overlay.export()
         for config_name, logical_map in configs.items():
             for logical_key in set(logical_map.keys()) | set(
-                overlay.logical_keys_for(
-                    tenant_id, connector_id, config_name=config_name
-                )
+                overlay.logical_keys_for(tenant_id, connector_id, config_name=config_name)
             ):
                 data.pop(
                     tenant_scoped_secret_key(

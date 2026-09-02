@@ -976,9 +976,7 @@ async def _run_agent(args: argparse.Namespace) -> None:
     async def _run_with_client(mcp_client: McpClient, mcp_info: str) -> None:
         if config_name:
             try:
-                await mcp_client.call_tool(
-                    "nw_select_config", {"config_name": config_name}
-                )
+                await mcp_client.call_tool("nw_select_config", {"config_name": config_name})
             except Exception as exc:
                 logger.warning("nw_select_config skipped: %s", exc)
         agent = ToolHiveAgent(

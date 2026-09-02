@@ -282,7 +282,9 @@ async def secrets_upsert(
     secrets = payload.get("secrets")
     if not isinstance(secrets, dict):
         raise HTTPException(status_code=400, detail="body.secrets must be a JSON object")
-    config_name = str(payload.get("config_name") or request.query_params.get("config_name") or "").strip()
+    config_name = str(
+        payload.get("config_name") or request.query_params.get("config_name") or ""
+    ).strip()
     if not config_name:
         raise HTTPException(
             status_code=400,
@@ -351,9 +353,7 @@ async def config_create(
         )
         if secrets is not None:
             try:
-                upsert_tenant_secrets(
-                    tenant_id, cid, secrets, config_name=config_name
-                )
+                upsert_tenant_secrets(tenant_id, cid, secrets, config_name=config_name)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         try:
@@ -480,6 +480,7 @@ async def config_set_default(
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=200, content={"status": "ok"})
+
 
 def _http_status_for_category(category: ErrorCategory | None) -> int:
     if category is None:

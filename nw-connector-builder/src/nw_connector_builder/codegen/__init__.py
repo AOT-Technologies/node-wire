@@ -31,8 +31,7 @@ _CONNECTOR_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 def _validate_connector_id(connector_id: str) -> None:
     if not _CONNECTOR_ID_RE.fullmatch(connector_id):
         raise ValueError(
-            f"invalid connector_id {connector_id!r}: must match "
-            f"{_CONNECTOR_ID_RE.pattern!r}"
+            f"invalid connector_id {connector_id!r}: must match {_CONNECTOR_ID_RE.pattern!r}"
         )
 
 
@@ -200,11 +199,11 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         "    # node_wire_runtime/rest.py). SsrfBlockedError is intentionally left",
         "    # unmapped for now.",
         "    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {",
-        "        httpx.TimeoutException: (ErrorCategory.RETRYABLE, \"HTTP_TIMEOUT\"),",
-        "        httpx.ConnectError: (ErrorCategory.RETRYABLE, \"HTTP_CONNECT_ERROR\"),",
-        "        httpx.ReadTimeout: (ErrorCategory.RETRYABLE, \"HTTP_READ_TIMEOUT\"),",
-        "        httpx.RequestError: (ErrorCategory.FATAL, \"HTTP_REQUEST_ERROR\"),",
-        "        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, \"HTTP_STATUS_ERROR\"),",
+        '        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),',
+        '        httpx.ConnectError: (ErrorCategory.RETRYABLE, "HTTP_CONNECT_ERROR"),',
+        '        httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "HTTP_READ_TIMEOUT"),',
+        '        httpx.RequestError: (ErrorCategory.FATAL, "HTTP_REQUEST_ERROR"),',
+        '        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),',
         "    }",
         "",
     ]

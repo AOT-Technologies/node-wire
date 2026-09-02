@@ -258,9 +258,7 @@ def test_tenant_secret_provider_env_translation(monkeypatch: pytest.MonkeyPatch)
 
 def test_tenant_secret_provider_with_config_name(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NW_ACME_SLACK_DEMO_ANNOUNCEMENT_TOKEN", "xoxb-cfg")
-    provider = TenantSecretProvider(
-        EnvSecretProvider(), "acme", "slack", config_name="demo"
-    )
+    provider = TenantSecretProvider(EnvSecretProvider(), "acme", "slack", config_name="demo")
     assert provider.get_secret("announcement_token") == "xoxb-cfg"
 
 

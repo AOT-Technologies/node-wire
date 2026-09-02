@@ -188,15 +188,11 @@ def _strip_json_schema_nulls(node: Any) -> Any:
         node[union_key] = [_strip_json_schema_nulls(v) for v in kept]
 
     if isinstance(node.get("properties"), dict):
-        node["properties"] = {
-            k: _strip_json_schema_nulls(v) for k, v in node["properties"].items()
-        }
+        node["properties"] = {k: _strip_json_schema_nulls(v) for k, v in node["properties"].items()}
     if "items" in node:
         node["items"] = _strip_json_schema_nulls(node["items"])
     if isinstance(node.get("additionalProperties"), dict):
-        node["additionalProperties"] = _strip_json_schema_nulls(
-            node["additionalProperties"]
-        )
+        node["additionalProperties"] = _strip_json_schema_nulls(node["additionalProperties"])
     if "default" in node and node["default"] is None:
         node.pop("default", None)
     return node
@@ -613,13 +609,9 @@ class McpServer:
     def _server_connector_ids(self) -> List[str]:
         if self._connector_ids is not None:
             return sorted(self._connector_ids)
-        return sorted(
-            c.connector_id for c in self._factory.list_for_protocol("mcp")
-        )
+        return sorted(c.connector_id for c in self._factory.list_for_protocol("mcp"))
 
-    def _config_coverage(
-        self, tenant_id: str, config_name: str
-    ) -> Tuple[List[str], List[str]]:
+    def _config_coverage(self, tenant_id: str, config_name: str) -> Tuple[List[str], List[str]]:
         have: List[str] = []
         missing: List[str] = []
         for cid in self._server_connector_ids():
@@ -636,9 +628,7 @@ class McpServer:
         allow = self._connector_ids
         if connector_id is not None:
             if allow is not None and connector_id not in allow:
-                raise ValueError(
-                    f"Connector {connector_id!r} is not allowed on this MCP server."
-                )
+                raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
             docs = self._factory.store.list(tenant_id, connector_id)
         elif allow is not None:
             docs = []
@@ -650,14 +640,14 @@ class McpServer:
         out: List[Dict[str, Any]] = []
         for d in docs:
             name = d.get("name")
-            cid = d.get("connector_id")
-            if not isinstance(name, str) or not isinstance(cid, str):
+            row_cid = d.get("connector_id")
+            if not isinstance(name, str) or not isinstance(row_cid, str):
                 continue
-            if allow is not None and cid not in allow:
+            if allow is not None and row_cid not in allow:
                 continue
             out.append(
                 {
-                    "connector_id": cid,
+                    "connector_id": row_cid,
                     "name": name,
                     "default": bool(d.get("default")),
                 }
@@ -671,9 +661,7 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(
-                f"Tool {LIST_CONFIGS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
-            )
+            raise ValueError(f"Tool {LIST_CONFIGS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
         tenant_arg = _optional_str(arguments.get("tenant_id"))
         tenant_id = self._effective_tenant_id(identity, tenant_arg=tenant_arg)
         raw_cid = arguments.get("connector_id")
@@ -710,9 +698,7 @@ class McpServer:
         allow = self._connector_ids
         if connector_id is not None:
             if allow is not None and connector_id not in allow:
-                raise ValueError(
-                    f"Connector {connector_id!r} is not allowed on this MCP server."
-                )
+                raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
             return [
                 tid
                 for tid in self._factory.store.list_tenants()
@@ -739,9 +725,7 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(
-                f"Tool {LIST_TENANTS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
-            )
+            raise ValueError(f"Tool {LIST_TENANTS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
         raw_cid = arguments.get("connector_id")
         connector_id: Optional[str] = None
         if isinstance(raw_cid, str) and raw_cid.strip():
@@ -781,9 +765,7 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(
-                f"Tool {SELECT_TENANT_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
-            )
+            raise ValueError(f"Tool {SELECT_TENANT_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
         self._tenant_session.assert_switch_allowed()
         tenant_id = _optional_str(arguments.get("tenant_id"))
         if not tenant_id:
@@ -827,9 +809,7 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(
-                f"Tool {SELECT_CONFIG_TOOL!r} requires NW_MULTITENANCY_ENABLED=true"
-            )
+            raise ValueError(f"Tool {SELECT_CONFIG_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
         config_name = _optional_str(arguments.get("config_name"))
         if not config_name:
             raise ValueError(f"{SELECT_CONFIG_TOOL} requires config_name")
@@ -944,9 +924,7 @@ class McpServer:
             )
             result = limiter.consume(f"mcp:{name}:{identity_key}")
             if not result.allowed:
-                raise ValueError(
-                    f"Rate limit exceeded, retry after {result.retry_after_seconds}s"
-                )
+                raise ValueError(f"Rate limit exceeded, retry after {result.retry_after_seconds}s")
 
         arguments = dict(arguments or {})
         # LLMs often fill optional schema keys with null; treat as omitted.
@@ -1261,9 +1239,7 @@ class McpServer:
                 await low.run(
                     filt_recv,
                     write_stream,
-                    low.create_initialization_options(
-                        notification_options=NotificationOptions()
-                    ),
+                    low.create_initialization_options(notification_options=NotificationOptions()),
                 )
                 tg.cancel_scope.cancel()
 

@@ -182,9 +182,7 @@ async def test_mt_on_select_tenant_overrides_stdio_pin(
         {"name": "default", "default": True, "config": {}, "auth": {}},
     )
     await server.invoke_tool("nw_select_tenant", {"tenant_id": "other"})
-    connector = await server._factory.get(
-        "http_generic", tenant_id="other", config_name="default"
-    )
+    connector = await server._factory.get("http_generic", tenant_id="other", config_name="default")
     captured: dict[str, object] = {}
 
     async def fake_run(raw_input, *, principal=None, tenant_id=None, scopes=None):
@@ -272,9 +270,7 @@ async def test_mt_on_pin_locked_rejects_select_not_tool_arg(
         {"name": "default", "default": True, "config": {}, "auth": {}},
     )
     captured: dict[str, object] = {}
-    connector = await server._factory.get(
-        "http_generic", tenant_id="acme", config_name="default"
-    )
+    connector = await server._factory.get("http_generic", tenant_id="acme", config_name="default")
 
     async def fake_run(raw_input, *, principal=None, tenant_id=None, scopes=None):
         captured["tenant_id"] = tenant_id

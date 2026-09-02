@@ -347,13 +347,9 @@ def test_secrets_partial_update_keeps_existing(monkeypatch: pytest.MonkeyPatch):
         )
         assert "EPIC_CLIENT_ID" in keys.json()["keys"]
         assert "EPIC_KID" in keys.json()["keys"]
-        scoped = tenant_scoped_secret_key(
-            "acme", "fhir_epic", "EPIC_CLIENT_ID", config_name="demo"
-        )
+        scoped = tenant_scoped_secret_key("acme", "fhir_epic", "EPIC_CLIENT_ID", config_name="demo")
         assert OverlaySecretProvider.instance().get_secret(scoped) == "cid-1"
-        scoped_kid = tenant_scoped_secret_key(
-            "acme", "fhir_epic", "EPIC_KID", config_name="demo"
-        )
+        scoped_kid = tenant_scoped_secret_key("acme", "fhir_epic", "EPIC_KID", config_name="demo")
         assert OverlaySecretProvider.instance().get_secret(scoped_kid) == "kid-2"
     finally:
         app.dependency_overrides.clear()
@@ -462,9 +458,9 @@ def test_concurrent_upsert_and_save_do_not_race(
             except BaseException as exc:  # noqa: BLE001 - captured for the assertion below
                 errors.append(exc)
 
-    threads = [
-        threading.Thread(target=upsert_worker, args=(i,)) for i in range(n_threads)
-    ] + [threading.Thread(target=saver_worker)]
+    threads = [threading.Thread(target=upsert_worker, args=(i,)) for i in range(n_threads)] + [
+        threading.Thread(target=saver_worker)
+    ]
     try:
         for t in threads:
             t.start()

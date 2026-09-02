@@ -25,7 +25,7 @@ Supported providers (set via LLM_PROVIDER env var):
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 # Re-exported for backward compatibility; the canonical home is agents.llm_base.
 from agents.llm_base import (  # noqa: F401
@@ -88,9 +88,7 @@ def parse_llm_option(llm_option: str) -> tuple[str, str]:
     provider = provider.lower().strip()
     model = model.strip()
     if not provider or not model:
-        raise ValueError(
-            f"Invalid llm_option {llm_option!r}. Expected 'provider/model'."
-        )
+        raise ValueError(f"Invalid llm_option {llm_option!r}. Expected 'provider/model'.")
     return provider, model
 
 
@@ -179,9 +177,10 @@ class LLMProviderFactory:
         elif provider == "nvidia":
             kwargs["api_key"] = os.environ.get("NVIDIA_API_KEY", "")
             kwargs["model"] = os.environ.get("NVIDIA_MODEL", DEFAULT_NVIDIA_MODEL)
-            kwargs["base_url"] = os.environ.get(
-                "NVIDIA_BASE_URL", DEFAULT_NVIDIA_BASE_URL
-            ).strip() or DEFAULT_NVIDIA_BASE_URL
+            kwargs["base_url"] = (
+                os.environ.get("NVIDIA_BASE_URL", DEFAULT_NVIDIA_BASE_URL).strip()
+                or DEFAULT_NVIDIA_BASE_URL
+            )
 
         return cls.create(provider, **kwargs)
 
@@ -212,9 +211,7 @@ class LLMProviderFactory:
                 "nvidia",
                 api_key=os.environ.get("NVIDIA_API_KEY", ""),
                 model=model,
-                base_url=os.environ.get(
-                    "NVIDIA_BASE_URL", DEFAULT_NVIDIA_BASE_URL
-                ).strip()
+                base_url=os.environ.get("NVIDIA_BASE_URL", DEFAULT_NVIDIA_BASE_URL).strip()
                 or DEFAULT_NVIDIA_BASE_URL,
             )
         raise ValueError(
@@ -229,7 +226,9 @@ class LLMProviderFactory:
 
         groq_key = os.environ.get("GROQ_API_KEY", "").strip()
         if groq_key:
-            groq_model = os.environ.get("GROQ_MODEL", DEFAULT_GROQ_MODEL).strip() or DEFAULT_GROQ_MODEL
+            groq_model = (
+                os.environ.get("GROQ_MODEL", DEFAULT_GROQ_MODEL).strip() or DEFAULT_GROQ_MODEL
+            )
             groq_id = f"groq/{groq_model}"
             options.append(
                 {
@@ -244,8 +243,7 @@ class LLMProviderFactory:
         nvidia_key = os.environ.get("NVIDIA_API_KEY", "").strip()
         if nvidia_key:
             nvidia_model = (
-                os.environ.get("NVIDIA_MODEL", DEFAULT_NVIDIA_MODEL).strip()
-                or DEFAULT_NVIDIA_MODEL
+                os.environ.get("NVIDIA_MODEL", DEFAULT_NVIDIA_MODEL).strip() or DEFAULT_NVIDIA_MODEL
             )
             nvidia_id = f"nvidia/{nvidia_model}"
             options.append(
