@@ -204,6 +204,40 @@ async def test_invoke_rate_limit_exceeded(
     assert resp.error_category == ErrorCategory.RETRYABLE.value
 
 
+async def test_invoke_per_identity_rate_limit_shared_with_rest(
+    servicer: ConnectorServiceServicer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Per-identity limiting (M-2, 2026-09-01) is a node_wire_runtime facility
+    now, not REST-only — gRPC's _invoke_async opts into the same shared
+    limiter/config as REST and MCP."""
+    import node_wire_runtime.rate_limit as rate_limit_module
+    from node_wire_runtime.caller_identity import build_caller_identity
+
+    monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_ENABLED", "true")
+    monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS", "1")
+    monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS", "60")
+    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter", None)
+    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter_cfg", None)
+
+    identity = build_caller_identity({"sub": "grpc-svc"}, auth_type="grpc_api_key")
+    fake_connector = MagicMock()
+    fake_connector.run = AsyncMock(return_value=ConnectorResponse(success=True, trace_id="t"))
+
+    with (
+        patch.object(servicer._factory, "is_exposed", return_value=True),
+        patch.object(servicer._factory, "get", new=AsyncMock(return_value=fake_connector)),
+        patch("bindings.grpc_server.server.get_grpc_caller_identity", return_value=identity),
+    ):
+        req = connector_pb2.InvokeRequest(connector_id="x", action="act", payload_json="{}")
+        first = await servicer._invoke_async(req)
+        second = await servicer._invoke_async(req)
+
+    assert first.success is True
+    assert second.success is False
+    assert second.error_code == "RATE_LIMIT_EXCEEDED"
+    assert second.error_category == ErrorCategory.RETRYABLE.value
+
+
 async def test_invoke_unknown_connector_returns_not_available(
     servicer: ConnectorServiceServicer,
 ) -> None:

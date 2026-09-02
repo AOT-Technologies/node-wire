@@ -209,6 +209,60 @@ async def test_mcp_execution_passes_principal_and_tenant(
     assert captured["scopes"] == ("*",)
 
 
+@pytest.mark.asyncio
+async def test_mcp_per_identity_rate_limit_shared_with_rest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Per-identity limiting (M-2, 2026-09-01) is a node_wire_runtime facility
+    now, not REST-only — MCP's invoke_tool opts into the same shared limiter."""
+    import node_wire_runtime.rate_limit as rate_limit_module
+
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
+    monkeypatch.setenv("NW_MCP_JWT_SECRET", "jwt-secret")
+    monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
+    monkeypatch.delenv("NW_TENANT_ID", raising=False)
+    monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_ENABLED", "true")
+    monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS", "1")
+    monkeypatch.setenv("NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS", "60")
+    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter", None)
+    monkeypatch.setattr(rate_limit_module, "_per_identity_limiter_cfg", None)
+
+    token = mint_test_jwt(
+        {"sub": "service-account", "tenant_id": "tenant-42", "scopes": ["*"]},
+        "jwt-secret",
+    )
+    identity = authenticate_mcp_request(meta={"authorization": f"Bearer {token}"})
+    assert identity is not None
+
+    server = McpServer(connector_ids=["smtp"])
+    server._factory.store.create(
+        "tenant-42", "smtp", {"name": "default", "default": True, "config": {}}
+    )
+    smtp = await server._factory.get("smtp", tenant_id="tenant-42")
+
+    async def fake_run(raw_input, *, principal=None, tenant_id=None, scopes=None):
+        from node_wire_runtime.models import ConnectorResponse
+
+        return ConnectorResponse(success=True, data={"ok": True}, trace_id="trace-test")
+
+    orig_run = smtp.run
+    smtp.run = fake_run
+    try:
+        args = {
+            "from_email": "sender@example.com",
+            "to": ["recipient@example.com"],
+            "subject": "x",
+            "body": "y",
+        }
+        await server.invoke_tool("smtp.send_email", dict(args), identity=identity)
+        with pytest.raises(ValueError, match="Rate limit exceeded"):
+            await server.invoke_tool("smtp.send_email", dict(args), identity=identity)
+    finally:
+        smtp.run = orig_run
+
+
 def test_mcp_api_key_scopes_filter_tools_list(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")

@@ -43,9 +43,13 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+from node_wire_runtime.rate_limit import (
+    RateLimitExceeded,
+    get_per_identity_rate_limiter,
+    global_rate_limiter,
+    per_identity_rate_limit_enabled,
+)
 
-from bindings.rest_api.rate_limit import InMemoryRateLimiter
 from bindings.rest_api.auth import (
     RestAuthMiddleware,
     get_request_identity_key,
@@ -122,8 +126,6 @@ app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 _mount_playground(app)
 
 _factory: ConnectorFactory | None = None
-_rate_limiter: InMemoryRateLimiter | None = None
-_rate_limiter_cfg: tuple[int, int, int, int] | None = None
 
 
 def get_factory() -> ConnectorFactory:
@@ -497,28 +499,6 @@ def _truthy(value: str | None) -> bool:
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-def _rate_limit_enabled() -> bool:
-    return _truthy(os.environ.get("NW_REST_RATE_LIMIT_ENABLED"))
-
-
-def _get_rate_limiter() -> InMemoryRateLimiter:
-    global _rate_limiter, _rate_limiter_cfg
-    max_requests = int(os.environ.get("NW_REST_RATE_LIMIT_MAX_REQUESTS", "120"))
-    window_seconds = int(os.environ.get("NW_REST_RATE_LIMIT_WINDOW_SECONDS", "60"))
-    max_tracked_keys = int(os.environ.get("NW_REST_RATE_LIMIT_MAX_TRACKED_KEYS", "10000"))
-    key_ttl_seconds = int(os.environ.get("NW_REST_RATE_LIMIT_KEY_TTL_SECONDS", "3600"))
-    cfg = (max_requests, window_seconds, max_tracked_keys, key_ttl_seconds)
-    if _rate_limiter is None or _rate_limiter_cfg != cfg:
-        _rate_limiter = InMemoryRateLimiter(
-            max_requests=max_requests,
-            window_seconds=window_seconds,
-            max_tracked_keys=max_tracked_keys,
-            key_ttl_seconds=key_ttl_seconds,
-        )
-        _rate_limiter_cfg = cfg
-    return _rate_limiter
-
-
 def _make_endpoint(cid: str, act: str) -> Any:
     async def endpoint(
         request: Request,
@@ -553,8 +533,8 @@ def _make_endpoint(cid: str, act: str) -> Any:
             config_name=config_name,
         )
 
-        if _rate_limit_enabled():
-            limiter = _get_rate_limiter()
+        if per_identity_rate_limit_enabled():
+            limiter = get_per_identity_rate_limiter()
             identity_key = get_request_identity_key(request)
             rate_key = f"{tenant_id}:{cid}:{act}:{identity_key}"
             result = limiter.consume(rate_key)

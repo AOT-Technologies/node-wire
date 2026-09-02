@@ -39,7 +39,13 @@ from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory, get_connector_registry
 from node_wire_runtime.manifest import MCP_MANIFEST_CONTRACT_VERSION, build_manifest
 from node_wire_runtime.ingress import normalize_mcp_tool_arguments  # re-export for tests
-from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+from node_wire_runtime.rate_limit import (
+    RateLimitExceeded,
+    get_per_identity_rate_limiter,
+    global_rate_limiter,
+    identity_rate_limit_key,
+    per_identity_rate_limit_enabled,
+)
 from node_wire_runtime.streaming import stream_completion_log
 from node_wire_runtime.tenant_session import TenantSessionOverlay
 
@@ -925,6 +931,20 @@ class McpServer:
                 await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
             raise ValueError(str(e))
+
+        # Opt-in per-identity limiter (off by default; M-2, 2026-09-01 review).
+        # Shared with REST/gRPC via node_wire_runtime.rate_limit so one noisy
+        # caller can't exhaust the global bucket for every other MCP client.
+        if per_identity_rate_limit_enabled():
+            limiter = get_per_identity_rate_limiter()
+            identity_key = identity_rate_limit_key(
+                identity.principal if identity else None, fallback="mcp"
+            )
+            result = limiter.consume(f"mcp:{name}:{identity_key}")
+            if not result.allowed:
+                raise ValueError(
+                    f"Rate limit exceeded, retry after {result.retry_after_seconds}s"
+                )
 
         arguments = dict(arguments or {})
         # LLMs often fill optional schema keys with null; treat as omitted.
