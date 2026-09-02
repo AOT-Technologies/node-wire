@@ -29,6 +29,7 @@ git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --all-extras --dev
 cp sample.env .env
+export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/* and /ready return 503 until auth is configured
 MODE=API uv run node-wire
 ```
 
@@ -82,7 +83,7 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 |---|---|---|
 | Google Drive | REST + OAuth | [Guide](google_drive_connector.md) |
 | Salesforce | REST | [Guide](salesforce_connector.md) |
-| Slack | Events API | [Guide](slack_connector.md) |
+| Slack | Web API | [Guide](slack_connector.md) |
 | SMTP | Email | [Connectors](connectors.md) |
 | Stripe | REST | [Connectors](connectors.md) |
 | FHIR Epic | SMART on FHIR | [Connectors](connectors.md) |

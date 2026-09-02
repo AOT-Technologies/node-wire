@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Self-contained tool inside the **node-wire** repo that turns a node-wire connector into a standalone MCP server project.
 
-It does **not** depend on the separate [mcp-builder](https://github.com/your-org/mcp-builder) repo. Everything needed to generate connector-mode MCP hosts lives in this folder.
+It does **not** depend on any separate external `mcp-builder` project. Everything needed to generate connector-mode MCP hosts lives in this folder.
 
 To **create** a connector from OpenAPI/Swagger first, use [nw-connector-builder](nw-connector-builder.md) (it can hand off to this tool automatically unless you pass `--no-mcp`), or the full pipeline via [`nw gen-all`](nw-cli.md).
 
@@ -21,8 +21,6 @@ uv run nw gen-mcp --connector-id <connector_id>
 ```
 
 The standalone `nw-mcp-builder` entry point remains supported.
-
-</div>
 
 ---
 
@@ -420,11 +418,13 @@ Node-wire MCP reuses the same runtime config store as REST (`NW_TENANTS_PATH` / 
 
 **Discover tenants:** call MCP tool `nw_list_tenants` (optional `connector_id`; legacy alias `nw.list_tenants`). Response includes `tenants`, `current_tenant_id` / `pinned_tenant_id`, and `summary`.
 
-**Switch tenant:** call `nw_select_tenant` `{ "tenant_id": "<id>" }` (alias `nw.select_tenant`). Sets the session overlay for **every connector** on this process (stdio and streamable-http). Returns named configs. Soft pin: this overrides `NW_TENANT_ID` / `X-Tenant-ID` for later calls. Set `NW_MCP_TENANT_PIN_LOCKED=true` to reject switch. Optional `NW_MCP_ALLOWED_TENANTS` allowlist. Unknown tenants fail closed.
+**Switch tenant:** call `nw_select_tenant` `{ "tenant_id": "<id>" }` (alias `nw.select_tenant`). Sets the session overlay for **every connector** on this process (stdio and streamable-http). Returns named configs. Set `NW_MCP_TENANT_PIN_LOCKED=true` to reject switch. Optional `NW_MCP_ALLOWED_TENANTS` allowlist. Unknown tenants fail closed.
+
+Soft-pin precedence differs by transport: on **stdio**, this selection overrides the `NW_TENANT_ID` env pin for later calls in the same process. On **streamable-http**, it does *not* override `X-Tenant-ID` — the live per-request header (or JWT tenant claim) always wins on every request, so one session's `nw_select_tenant` can never shadow another concurrent HTTP session's request-level tenant. A JWT tenant claim that disagrees with the caller-supplied header/session tenant fails closed with a `TenantIdentityMismatchError` (403 `TENANT_IDENTITY_MISMATCH`) rather than being silently overridden either way.
 
 **Discover configs:** `nw_list_configs` (optional `connector_id` and `tenant_id`; alias `nw.list_configs`). Omit `tenant_id` to use the selected or pinned tenant. MCP does **not** create, update, or delete configs — provision those via playground Add config, REST `/v1/connectors/{cid}/configs`, or by editing `tenants.yaml`.
 
-**Select a config:** call `nw_select_config` `{ "config_name": "<name>" }`. That name applies to every connector. Response includes `connectors_with_config` and `connectors_missing_config`. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI `--config-name` runs `nw_select_config` at start. Connector tools do not take `tenant_id` / `config_name`.
+**Select a config:** call `nw_select_config` `{ "config_name": "<name>" }`. That name becomes the *default* for every connector on this process. Response includes `connectors_with_config` and `connectors_missing_config`. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI `--config-name` runs `nw_select_config` at start. `tenant_id` is never accepted as a connector-tool argument, but every connector tool *does* accept an optional per-call `config_name` argument, which outranks the shared `nw_select_config` selection for that one call only.
 
 **Instance pin (runtime):** After `factory.get`, the connector instance is bound to that tenant's config and secrets (`_tenant_id`). Bindings still pass the resolved tenant into `run()`; omitting it on `run` also works. A conflicting `run(tenant_id=...)` fails closed with `TENANT_MISMATCH` — distinct from the MCP session `pinned_tenant_id` in `nw_list_tenants` responses.
 

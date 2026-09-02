@@ -43,7 +43,7 @@ copy sample.env .env
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MODE` | Execution mode (`API`, `GRPC`, `MCP`) | `API` |
+| `MODE` | Execution mode (`API` or `GRPC`). There is no working `MODE=MCP` — that value starts a stub process (`McpServer()` then an infinite sleep loop, no JSON-RPC handling) left over from an early proof of concept. Run MCP via `python -m agents.mcp_entrypoint` instead (see [mcp.md](mcp.md)). | `API` |
 | `PORT` | Port for the REST API | `8000` |
 | `NW_REST_HOST` | REST API bind address | `127.0.0.1` |
 | `NW_REST_PLAYGROUND_ENABLED` | Mount the interactive playground at `/playground/` when `true`; when unset, enabled only if a `playground/` directory exists at the repo root | _(auto)_ |
@@ -75,13 +75,13 @@ copy sample.env .env
 | `NW_MULTITENANCY_ENABLED` | When `true`, resolve tenant from header / `NW_TENANT_ID` / JWT and require a tenant (missing → error). When `false`, always `__default__`. | `false` |
 | `NW_TENANT_ID` | **MCP stdio only** — default process pin. Chat can override via `nw_select_tenant` unless `NW_MCP_TENANT_PIN_LOCKED=true`. Do not set on multi-tenant streamable-http (use `X-Tenant-ID` instead). | _(unset)_ |
 | `NW_TENANT_ID_HEADER` | HTTP/gRPC header name for tenant id (case-insensitive) | `X-Tenant-ID` |
-| `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored). Loaded by REST and by standalone MCP (`McpServer` / `agents.mcp_entrypoint`) at startup. | `config/tenants.yaml` |
+| `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored). Loaded by REST, gRPC, and standalone MCP (`McpServer` / `agents.mcp_entrypoint`) at startup. | `config/tenants.yaml` |
 | `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
 | `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
 
-Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` (one credential vault per named config). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
 
-When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns configs), `nw_list_configs`, and `nw_select_config`. One select applies to **every connector** on that MCP process (stdio and streamable-http). Env/header is the default pin; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Provision configs via playground REST / YAML — not via MCP.
+When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns configs), `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to **every connector** on that MCP process (stdio and streamable-http) by default, though a per-call `config_name` tool argument can override it for a single call. Tenant pin precedence differs by transport: on **stdio**, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin for later calls, unless `NW_MCP_TENANT_PIN_LOCKED=true`. On **streamable-http**, the live per-request `X-Tenant-ID` header (or JWT tenant claim) always wins on every request — a prior `nw_select_tenant` call can never shadow another concurrent session's request-level tenant. Provision configs via playground REST / YAML — not via MCP.
 
 **Host / factory contract:** Resolve the request tenant once (`resolve_tenant_id` in bindings, or your own auth in an embedded app), then pass that id to `ConnectorFactory.get(tenant_id=...)`. Omitting `tenant_id` on `get` always resolves `__default__` — never the current HTTP/MCP tenant. After `get`, the connector instance is pinned: `run()` may omit `tenant_id` (uses the pin); a conflicting `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without executing the action.
 

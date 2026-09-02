@@ -94,7 +94,7 @@ Access the playground at `http://localhost:8000/playground` (when running locall
 
 ## Security Note
 
-- **OAuth2**: Tokens are never stored in plain text in logs. Node Wire's `AuthProvider` handles encryption and secure memory storage.
+- **OAuth2**: Tokens are never logged or persisted to disk. `OAuth2AuthProvider` holds the resolved access token as a plain in-process value, scoped to the provider instance's lifetime — there is no additional encryption-at-rest or secure-memory mechanism.
 - **Refresh Token Support**: The connector is configured to use `grant_method: refresh_token`, ensuring it can stay authenticated for long-running agentic tasks.
 - **Traceability**: All actions are logged with a `trace_id` for auditing and idempotency tracking.
 - **PII Protection**: Ensure your logging levels are set correctly; by default, the connector logs the metadata of the transaction but not the full PII payload.

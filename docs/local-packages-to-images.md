@@ -112,7 +112,7 @@ Each Dockerfile expects specific wheel files to exist in `dist/`. Keep this tabl
 | `docker/stripe/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/stripe/dist/*.whl` |
 | `docker/salesforce/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/salesforce/dist/*.whl` |
 | `docker/slack/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/slack/dist/*.whl` |
-| `Dockerfile` (unified MCP server) | runtime + connector wheels (`http_generic`, `stripe`, `smtp`, `slack`, `google_drive`, `fhir_epic`, `fhir_cerner`) |
+| `Dockerfile` (unified MCP server) | runtime + connector wheels (`http_generic`, `stripe`, `smtp`, `slack`, `google_drive`, `fhir_epic`, `fhir_cerner`, `salesforce`) |
 
 ---
 

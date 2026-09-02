@@ -70,10 +70,13 @@ For modular deployments, each connector can be run as an independent MCP server 
 - `nw-smartonfhir-epic` (Epic SMART on FHIR)
 - `nw-smartonfhir-cerner` (Cerner SMART on FHIR)
 - `nw-smtp` (SMTP email)
+- `nw-stripe` (Stripe)
+- `nw-salesforce` (Salesforce)
+- `nw-slack` (Slack)
 
 When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS`** (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.
 
-**Full guide:** [docs/mcp-servers.md](mcp-servers.md)
+**Full guide (pre-built per-connector Docker images):** [packaging.md](packaging.md)
 
 ---
 
@@ -90,7 +93,7 @@ You can think of it as a local "MCP server manager" — you register your server
 
 ## What does the Node Wire MCP server expose?
 
-When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see **four** tools (Cerner read patient, Epic read patient, Drive upload, SMTP send). The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every connector enabled for MCP in `config/connectors.yaml` (often 18+ tools). This section describes the **four-tool** happy path; see [mcp-servers.md](mcp-servers.md) for the full surface.
+When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see **five** tools (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send). The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every connector enabled for MCP in `config/connectors.yaml` (often 18+ tools). This section describes the **five-tool** happy path; see [mcp-servers.md](mcp-servers.md) for the full surface.
 
 | Tool | Description |
 |---|---|
@@ -399,7 +402,7 @@ python -m agents.toolhive \
 | `--tenant-id` | No | Pin MCP tenant (`X-Tenant-ID` on HTTP; `NW_TENANT_ID` for `--local`). Defaults from `NW_TENANT_ID` env. |
 | `--config-name` | No | Calls `nw_select_config` at start so every connector uses that name |
 
-With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that server. Env/header remains the default until select. See [mcp-servers.md — Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp).
+With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to every connector on that server by default. Tenant pin precedence differs by transport: on stdio, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin; on streamable-http, the live per-request `X-Tenant-ID` header always wins and is never shadowed by a prior select. See [mcp-servers.md — Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp).
 
 ### Switching LLM providers
 
@@ -522,7 +525,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 }
 ```
 
-Replace `<PORT>` with the port shown in ToolHive UI. The four Node Wire connector tools will appear in Claude's tool sidebar automatically.
+Replace `<PORT>` with the port shown in ToolHive UI. The five Node Wire connector tools will appear in Claude's tool sidebar automatically.
 
 ### Cursor
 
@@ -551,7 +554,8 @@ In Cursor's MCP settings, add the same endpoint URL. The tools will appear in th
 The test suite covers the agent and MCP server without making any real API calls:
 
 ```bash
-pip install -e ".[dev,agents]"
+# dev is not a pip extra (it's a uv dependency group) — for the dev toolchain use:
+uv sync --frozen --all-extras --dev
 pytest tests/test_toolhive_agent.py -v
 ```
 

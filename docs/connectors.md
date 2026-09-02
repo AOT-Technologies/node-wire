@@ -276,7 +276,9 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 | Type | Description | Example connector |
 |------|-------------|-------------------|
 | **`none`** | (Default) No auth headers added. | `http_generic` |
-| **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). Supports refresh. | `stripe`, `slack` |
+| **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). | `stripe`, `slack` |
+| **`apikey_query`** | Appends an API key as a query-string parameter instead of a header. | — |
+| **`upstream_bearer`** | Passes through the caller's own bearer token to the vendor API (per-request, not cached). | `google_drive` (opt-in override) |
 | **`static_credentials`** | Username + password pair (e.g. SMTP relay). | `smtp` |
 | **`service_account`** | Google-style service account JSON + scopes. | `google_drive` |
 | **`oauth2`** | Token exchange (`private_key_jwt`, `refresh_token`, `client_secret_post`, etc.). Handles caching and expiry. | `fhir_epic`, `salesforce` |
@@ -287,9 +289,11 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 |-------|----------|---------|-------|
 | `secret_key` | Yes | — | Env var name holding the raw token value (`EnvSecretProvider` tries the key as-is, then uppercased). |
 | `header_name` | No | `Authorization` | HTTP header the token is injected into. |
-| `prefix` | No | `Bearer ` (with trailing space) | String prepended to the token value. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token "` for APIs that require the `token` scheme (check your vendor's auth docs). |
+| `prefix` | No | `Bearer` (no trailing space) | String prepended to the token value. The provider inserts a single space between `prefix` and the token itself — do **not** add a trailing space to `prefix` yourself, or you'll get a double space. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token"` for APIs that require the `token` scheme (check your vendor's auth docs). |
 
 So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
+
+The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (e.g. redeploy) if the underlying secret is rotated.
 
 ### Configuration (`connectors.yaml`)
 
@@ -390,7 +394,7 @@ class MyConnector(BaseConnector):
     }
 ```
 
-`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. This is the only way to register a connector's exception mappings: there is no module-level `ErrorMapper.register()` call available to connector code, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (e.g. two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors).
+`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. Under the hood it calls the scoped `ErrorMapper.register(connector_id, exc_type, category, code)` (`src/node_wire_runtime/errors.py`) on your behalf; connector code never calls `register()` directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (e.g. two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors). The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (e.g. `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
 
 ---
 
@@ -495,7 +499,7 @@ The factory and manifest drive all bindings. Once a connector is registered and 
 
 ### Optional: MCP under `src/agents/` (ToolHive / stdio)
 
-The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`; see **[mcp-servers.md](mcp-servers.md)** for images, env, and registration. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image — follow **mcp-servers.md** when you need a dedicated MCP deployment.
+The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`; see **[packaging.md](packaging.md)** for the pre-built per-connector Docker images, env, and ToolHive registration. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image — follow **packaging.md** when you need a dedicated MCP deployment.
 
 ### REST binding
 
@@ -583,7 +587,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 |-----------|-----------------|
 | `http_generic` | `request` |
 | `smtp` | `send_email` |
-| `stripe` | `charge` |
+| `stripe` | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` |
 | `salesforce` | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` |
 | `google_drive` | `files.list`, `files.upload`, … (see `action_specs`) |
 | `fhir_epic` | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
@@ -620,7 +624,7 @@ MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). S
 > **Prerequisite:** Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
 
 12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
-13. Add a row to the naming table in **[mcp-servers.md](mcp-servers.md)** and update the architecture diagram in that file to include the new connector.
+13. Add the new connector to the "Supported connectors" list in **[mcp-servers.md](mcp-servers.md)** if it's also getting a generated `nw-mcp-builder` host.
 
 For full file lists see [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
 
@@ -645,8 +649,10 @@ connectors:
 
 | Method | Description |
 |--------|-------------|
-| `load()` | Reads YAML, instantiates all enabled connectors from the connector registry (`get_connector_registry()`). |
-| `get_for_protocol(id, protocol, action=None)` | Returns connector if enabled and exposed for that protocol; `None` otherwise. |
+| `load()` | Reads `connectors.yaml` and bootstraps the runtime config store. Does **not** instantiate connectors — instantiation is lazy. |
+| `get(connector_id, tenant_id=None, config_name=None)` | Lazily instantiates (or returns a cached instance of) the connector for that tenant/config via `_instantiate()`, resolved from the connector registry (`get_connector_registry()`). |
+| `get_for_protocol(id, protocol, action=None)` | Like `get()`, but returns `None` if the connector isn't enabled and exposed for that protocol. |
+| `is_exposed(connector_id, protocol)` | `True` if the connector is enabled and lists `protocol` in `exposed_via`. |
 | `list_for_protocol(protocol)` | All connectors exposed for a given protocol. |
 
 ---
@@ -657,7 +663,7 @@ connectors:
 
 **gRPC (`bindings.grpc_server`)** — Configure **`NW_GRPC_API_KEY_SCOPES`** (and optionally **`NW_MCP_ACTION_SCOPE_MAP_JSON`**) so authenticated gRPC calls use the same scope rules as MCP/REST. Caller identity is propagated from the auth interceptor into `connector.run`.
 
-**REST API (`bindings.rest_api`)** — `GET /health` is unauthenticated. All other routes (`/connectors/...`, `/playground/...`, `/scenarios/...`, OpenAPI) require **`NW_REST_API_KEY`** via `Authorization: Bearer <key>` or `X-API-Key: <key>`, optional **`NW_REST_JWT_SECRET`** for HS256 JWTs (with **`NW_JWT_AUDIENCE`** / **`NW_JWT_ISSUER`** and required `exp`/`iat`/`aud`/`iss` claims). API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
+**REST API (`bindings.rest_api`)** — `GET /health`, `/docs`, `/redoc`, `/openapi.json`, `/playground/*`, and `/scenarios/*` are unauthenticated. Auth is required only for `/connectors/*` and `/ready`, via **`NW_REST_API_KEY`** (`Authorization: Bearer <key>` or `X-API-Key: <key>`) or optional **`NW_REST_JWT_SECRET`** for HS256 JWTs (with **`NW_JWT_AUDIENCE`** / **`NW_JWT_ISSUER`** and required `exp`/`iat`/`aud`/`iss` claims). API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
 
 **HTTP Generic outbound policy** — `http_generic.request` allows only `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and input methods are normalized to uppercase before validation. URLs targeting internal destinations are rejected (`localhost`, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments so only scheme/host/path are retained.
 
@@ -671,8 +677,8 @@ connectors:
 
 ## Related documentation
 
-- [packaging.md](packaging.md) — Wheel build lifecycle, PyPI publish flow, client install model, secrets config, and pre-publish checklist.
-- [mcp-servers.md](mcp-servers.md) — MCP images, ToolHive, env vars.
+- [packaging.md](packaging.md) — Wheel build lifecycle, PyPI publish flow, per-connector Docker images, ToolHive, client install model, secrets config, and pre-publish checklist.
+- [mcp-servers.md](mcp-servers.md) — Generate a custom standalone MCP host with `nw-mcp-builder`.
 - [google_drive_connector.md](google_drive_connector.md) — Drive REST API and setup.
 - [salesforce_connector.md](salesforce_connector.md) — Salesforce CRM operations and playground.
 - [slack_connector.md](slack_connector.md) — Slack bot token and setup.
