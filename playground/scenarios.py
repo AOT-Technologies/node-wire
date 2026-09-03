@@ -11,15 +11,21 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
-import sys
 import asyncio
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    is_multitenancy_enabled,
+    resolve_config_name,
+    resolve_tenant_id,
+)
 from node_wire_fhir_epic.logic import FhirEpicConnector
 from node_wire_fhir_epic.schema import (
     FhirDocumentReferenceCreateInput,
@@ -63,17 +69,19 @@ from .ext_patient_viewer.schema import ExternalPatientViewerInput
 load_dotenv()
 
 
-ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
-ErrorMapper.register(ValueError, ErrorCategory.BUSINESS, code="VALIDATION_ERROR")
+ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
+ErrorMapper.register_global(ValueError, ErrorCategory.BUSINESS, code="VALIDATION_ERROR")
 
 
 load_dotenv()
 
 
-ErrorMapper.register(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
+ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
 
 
 logger = logging.getLogger("playground.scenarios")
+
+
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
@@ -154,6 +162,8 @@ class GoogleDriveArchivalInput(BaseModel):
     update_mime_type: Optional[str] = None
     update_add_parents: Optional[str] = None
     update_remove_parents: Optional[str] = None
+    # Resolution-time only (not a Drive API field); optional named config for the tenant.
+    config_name: Optional[str] = None
 
     @model_validator(mode="after")
     def require_upload_fields_when_not_list(self) -> "GoogleDriveArchivalInput":
@@ -256,7 +266,9 @@ def _safe_error_return(
 
     log = logging.getLogger("playground.scenarios")
 
-    mapped_err = ErrorMapper.resolve(e)
+    # Scenario steps span multiple connectors, so there's no single connector_id to
+    # scope this to — only the runtime-wide mappings registered above apply here.
+    mapped_err = ErrorMapper.resolve(e, connector_id="playground")
     safe_msg = (
         str(e)
         if mapped_err.category != ErrorCategory.FATAL
@@ -320,76 +332,111 @@ async def execute_with_retry(
     )
 
 
-# Single shared factory for playground scenarios (matches REST: enabled + exposed_via includes "rest").
+# Share the REST binding factory so playground config CRUD (/v1/...) and scenarios
+# see the same in-memory ConnectorConfigStore.
 _playground_factory: Optional[Any] = None
 
 
 def get_playground_factory() -> Any:
-    """Lazily load connector config once; same pattern as bindings REST `get_factory`."""
+    """Reuse the REST API factory (same process, same config store)."""
     global _playground_factory
     if _playground_factory is None:
-        from bindings.factory import ConnectorFactory
-        from node_wire_runtime.connector_registry import auto_register
+        from bindings.rest_api.app import get_factory
 
-        _playground_factory = ConnectorFactory()
-        auto_register()
-        _playground_factory.load()
+        _playground_factory = get_factory()
     return _playground_factory
 
 
-def resolve_connector(connector_id: str, action: Optional[str] = None) -> Any:
-    """Resolve a connector via public factory API (protocol-aware)."""
+async def resolve_connector(
+    request: Request,
+    connector_id: str,
+    *,
+    action: Optional[str] = None,
+    config_name: Optional[str] = None,
+) -> Any:
+    """Resolve a tenant-scoped connector instance for the playground.
+
+    Tenant comes from ``X-Tenant-ID`` (then JWT). When multitenancy is enabled,
+    a tenant id is required. ``config_name`` may be supplied as a query param
+    or (for GDrive) payload field.
+    """
+    from bindings.rest_api.auth import get_rest_caller_identity
+
     factory = get_playground_factory()
-    return factory.get_for_protocol(connector_id, "rest", action=action)
+    if not factory.is_exposed(connector_id, "rest"):
+        raise HTTPException(
+            status_code=500, detail=f"Connector {connector_id!r} is not configured for REST"
+        )
+
+    try:
+        tenant_id = resolve_tenant_id(
+            headers=request.headers,
+            jwt_identity=get_rest_caller_identity(request),
+        )
+    except MissingTenantError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    name = resolve_config_name((config_name or "").strip() or None)
+    if is_multitenancy_enabled():
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "Playground action | connector=%s | tenant_id=%s | config_name=%s",
+            str(connector_id).replace("\r", " ").replace("\n", " "),
+            str(tenant_id).replace("\r", " ").replace("\n", " "),
+            str(name or "(default)").replace("\r", " ").replace("\n", " "),
+        )
+    try:
+        return await factory.get(
+            connector_id,
+            tenant_id=tenant_id,
+            config_name=name,
+            action=action,
+        )
+    except ConfigNotFoundError:
+        raise HTTPException(
+            status_code=403,
+            detail="No connector configuration for this tenant",
+        )
+    except ValueError as exc:
+        # Incomplete auth blocks (e.g. service_account without sa_json_secret).
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def get_fhir_connector() -> FhirEpicConnector:
-    connector = resolve_connector("fhir_epic")
-    if not connector:
-        raise HTTPException(status_code=500, detail="FHIR Epic connector not configured")
+async def get_fhir_connector(
+    request: Request, config_name: Optional[str] = None
+) -> FhirEpicConnector:
+    connector = await resolve_connector(request, "fhir_epic", config_name=config_name)
     return connector  # type: ignore[return-value]
 
 
-def get_http_connector():
-    # Manifest action for http_generic is "request"; pass it for parity with REST routing.
-    connector = resolve_connector("http_generic", action="request")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Generic HTTP connector not configured")
+async def get_http_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(
+        request, "http_generic", action="request", config_name=config_name
+    )
     return connector
 
 
-def get_cerner_connector():
-    connector = resolve_connector("fhir_cerner")
-    if not connector:
-        raise HTTPException(status_code=500, detail="FHIR Cerner connector not configured")
+async def get_cerner_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "fhir_cerner", config_name=config_name)
     return connector
 
 
-def get_google_drive_connector():
-    connector = resolve_connector("google_drive")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Google Drive connector not configured")
+async def get_google_drive_connector(request: Request, config_name: Optional[str] = None) -> Any:
+    """``config_name`` query param is optional; GDrive body may also carry it."""
+    return await resolve_connector(request, "google_drive", config_name=config_name)
+
+
+async def get_slack_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "slack", config_name=config_name)
     return connector
 
 
-def get_slack_connector():
-    connector = resolve_connector("slack")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Slack connector not configured")
+async def get_stripe_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "stripe", config_name=config_name)
     return connector
 
 
-def get_stripe_connector():
-    connector = resolve_connector("stripe")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Stripe connector not configured")
-    return connector
-
-
-def get_salesforce_connector():
-    connector = resolve_connector("salesforce")
-    if not connector:
-        raise HTTPException(status_code=500, detail="Salesforce connector not configured")
+async def get_salesforce_connector(request: Request, config_name: Optional[str] = None):
+    connector = await resolve_connector(request, "salesforce", config_name=config_name)
     return connector
 
 
@@ -1369,9 +1416,15 @@ async def stripe_refund_scenario(
 
 @router.post("/gdrive-archival", response_model=ScenarioResponse)
 async def gdrive_archival_scenario(
-    payload: GoogleDriveArchivalInput, connector: Any = Depends(get_google_drive_connector)
+    request: Request,
+    payload: GoogleDriveArchivalInput,
 ) -> ScenarioResponse:
-    """4-step Google Drive archival and sharing demo."""
+    """4-step Google Drive archival and sharing demo (tenant-aware)."""
+    connector = await resolve_connector(
+        request,
+        "google_drive",
+        config_name=payload.config_name,
+    )
     trace_id = str(uuid.uuid4())
     steps: List[ScenarioStep] = []
 
@@ -1759,6 +1812,7 @@ class AgentChatMessage(BaseModel):
 class AgentChatInput(BaseModel):
     message: str
     history: List[Dict[str, str]] = []  # [{"role": "user/assistant", "content": "..."}]
+    llm_option: Optional[str] = None  # e.g. "groq/openai/gpt-oss-120b"
 
 
 class AgentChatStepResponse(BaseModel):
@@ -1772,6 +1826,14 @@ class AgentChatResponse(BaseModel):
     steps: List[AgentChatStepResponse] = []
     trace_id: str
     success: bool
+    tenant_id: Optional[str] = None
+    config_name: Optional[str] = None
+
+
+_TOOL_CALLING_FALLBACK_NOTE = (
+    " This model may not support OpenAI-style tool calling. Switch back to Groq in the "
+    "model selector and try again."
+)
 
 
 def _current_agent_transport() -> str:
@@ -1795,6 +1857,14 @@ def _build_agent_chat_task(payload: AgentChatInput) -> str:
     return payload.message
 
 
+def _augment_reply_for_tool_calling_errors(reply: str) -> str:
+    from agents.llm_factory import looks_like_tool_calling_unsupported
+
+    if looks_like_tool_calling_unsupported(reply) and "Switch back to Groq" not in reply:
+        return reply.rstrip() + _TOOL_CALLING_FALLBACK_NOTE
+    return reply
+
+
 @router.get("/agent-transport")
 async def agent_transport() -> Dict[str, str]:
     transport = _current_agent_transport()
@@ -1804,22 +1874,31 @@ async def agent_transport() -> Dict[str, str]:
     }
 
 
+@router.get("/llm-options")
+async def llm_options() -> Dict[str, Any]:
+    """Configured playground LLM options (provider/model ids) for the chat selector."""
+    from agents.llm_factory import LLMProviderFactory
+
+    return LLMProviderFactory.list_playground_options()
+
+
 AGENT_GUARDRAIL_PROMPT = (
     "You are a healthcare data assistant. You have access to tools for fetching "
     "patient data from Cerner FHIR and Epic FHIR, uploading files to Google Drive, and sending "
     "emails via SMTP.\n"
-    "Tool names are `<connector_id>.<action>` (e.g. `fhir_cerner.read_patient`, "
-    "`fhir_epic.read_patient`, `google_drive.files.upload`, `smtp.send_email`). "
+    "Tool names are `<connector_id>_<action>` with dots in the action replaced by "
+    "underscores (e.g. `fhir_cerner_read_patient`, `fhir_epic_read_patient`, "
+    "`google_drive_files_upload`, `smtp_send_email`). "
     "Use exactly the names and JSON-schema arguments from tools/list.\n\n"
     "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
     "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
     "  1. First turn: Obtain patient demographics from the EHR.\n"
-    '     - If the user gave a Patient ID: call `fhir_cerner.read_patient` or `fhir_epic.read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
+    '     - If the user gave a Patient ID: call `fhir_cerner_read_patient` or `fhir_epic_read_patient` with JSON `{"resource_id": "<id>"}` (use Epic when the ID starts with \'e\'). Do NOT use search_patients for a known ID.\n'
     "     - If there is NO Patient ID but there IS a name: use name fields or `search_patients` per tools/list schema (e.g. `given_name`, `family_name`, `birthdate`, or valid `search_params`).\n"
     "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
     "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
     "  2. Second turn: Once you have the patient data from step 1, create a file on Google Drive containing the masked patient summary. Do NOT use placeholder content.\n"
-    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive.files.upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
+    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive_files_upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
     "     CRITICAL: You MUST ask the user for the recipient email address if they haven't provided it. DO NOT guess email addresses like 'recipient_email@example.com'.\n"
     "     CRITICAL: In the email body, you MUST insert the actual URL string returned from step 2 (e.g. 'https://drive.google.com/...'). Do NOT literally write the text '<web_view_link>'.\n\n"
     "DATA PRIVACY & MASKING — follow these strictly:\n"
@@ -1829,7 +1908,7 @@ AGENT_GUARDRAIL_PROMPT = (
     "  - NEVER use the placeholder values ('1990-05-12', '12724066', or 'Name') in your reports - always use the real patient data masked accordingly.\n"
     "- EMAIL WORKFLOW: When sending patient details to an email recipient:\n"
     "  1. ALWAYS upload the masked patient summary to Google Drive first.\n"
-    "  2. Use `data.raw.webViewLink` from the `google_drive.files.upload` tool result.\n"
+    "  2. Use `data.raw.webViewLink` from the `google_drive_files_upload` tool result.\n"
     "  3. In the email body, provide that link instead of the actual data.\n"
     "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
     "GUARDRAILS:\n"
@@ -1842,6 +1921,15 @@ AGENT_GUARDRAIL_PROMPT = (
     "- If a tool call fails, explain the error clearly and ask the user how to proceed.\n"
     "- Always confirm what you've done after completing the requested actions.\n"
     "- Keep responses concise and professional.\n"
+    "\n"
+    "MULTI-TENANCY:\n"
+    "- If the user names a tenant, call `nw_list_tenants` then `nw_select_tenant` "
+    "with that `tenant_id`. That tenant applies to every connector on this server.\n"
+    "- Then call `nw_select_config` with `config_name`. That name applies to every "
+    "connector. If a connector has no config with that name, its tools return an error.\n"
+    "- If the user does not name a tenant or config, use the default pin. "
+    "Do not invent tenant ids or config names. Do not pass tenant_id or "
+    "config_name on connector tools.\n"
 )
 
 
@@ -1866,18 +1954,132 @@ def _current_agent_transport() -> str:
     return transport if transport in {"stdio", "streamable-http"} else "stdio"
 
 
+def _resolve_agent_mcp_tenant(request: Request) -> str:
+    """Resolve the *starting* tenant pin for the playground agent → MCP.
+
+    Unlike a direct connector call, the agent chat flow can pick a tenant
+    itself mid-conversation via the `nw_select_tenant` chat tool (see
+    AGENT_GUARDRAIL_PROMPT and `TenantSessionOverlay`), so a missing
+    `X-Tenant-ID` here must not hard-fail the request the way
+    `resolve_connector` does — that would make the dropdown the only way to
+    ever start a chat. Mirrors the standalone MCP HTTP middleware's own
+    fallback (`server.py`'s streamable-http tenant resolution): fall back to
+    `__default__` when it's a configured tenant, else return "" so the agent
+    starts unpinned and the LLM can call `nw_list_tenants` / `nw_select_tenant`
+    itself for the first turn.
+    """
+    from bindings.rest_api.auth import get_rest_caller_identity
+
+    try:
+        return resolve_tenant_id(
+            headers=request.headers,
+            jwt_identity=get_rest_caller_identity(request),
+        )
+    except MissingTenantError:
+        store = get_playground_factory().store
+        if DEFAULT_TENANT in store.list_tenants():
+            return DEFAULT_TENANT
+        return ""
+
+
+def _agent_mcp_extra_headers(tenant_id: str) -> Dict[str, str]:
+    from node_wire_runtime.identity import TENANT_HEADER
+
+    # Empty tenant_id (no dropdown selection yet, no __default__ configured)
+    # omits the header entirely rather than sending a blank X-Tenant-ID, so
+    # the remote/proxy MCP server applies its own "no tenant pinned" chat
+    # flow instead of failing tenant resolution outright.
+    if not tenant_id:
+        return {}
+    # TENANT_HEADER is lowercased; HTTP clients accept any casing.
+    return {TENANT_HEADER: tenant_id}
+
+
+def _playground_inprocess_mcp_client(tenant_id: str, request: Request):
+    """Share playground factory/store with agent tool calls (named tenants)."""
+    from agents.toolhive import InProcessMcpClient
+    from bindings.mcp_server.server import McpServer
+
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    factory = get_playground_factory()
+    server = McpServer(server_name="node-wire-playground-agent", factory=factory)
+    return InProcessMcpClient(server, tenant_id=tenant_id, config_name=config_name)
+
+
+def _tenancy_from_agent_steps(
+    steps: Any, tenant_id: str, config_name: Optional[str]
+) -> tuple[str, Optional[str]]:
+    from bindings.mcp_server.server import SELECT_CONFIG_TOOL_ALIASES, SELECT_TENANT_TOOL_ALIASES
+
+    def _field(step: Any, *names: str) -> Any:
+        for name in names:
+            if isinstance(step, dict) and name in step:
+                return step[name]
+            val = getattr(step, name, None)
+            if val is not None:
+                return val
+        return None
+
+    tenant, config = tenant_id, config_name
+    for step in steps or []:
+        tool = _field(step, "tool_called", "tool") or ""
+        args = _field(step, "tool_args", "args") or {}
+        if not isinstance(args, dict):
+            args = {}
+        if tool in SELECT_TENANT_TOOL_ALIASES:
+            tid = args.get("tenant_id")
+            if isinstance(tid, str) and tid.strip():
+                tenant = tid.strip()
+                config = None
+        elif tool in SELECT_CONFIG_TOOL_ALIASES:
+            name = args.get("config_name")
+            if isinstance(name, str) and name.strip():
+                config = name.strip()
+    return tenant, config
+
+
+def _tenancy_from_mcp_client(
+    mcp_client: Any, tenant_id: str, config_name: Optional[str]
+) -> tuple[str, Optional[str]]:
+    server = getattr(mcp_client, "_server", None)
+    if server is None:
+        return tenant_id, config_name
+    tenant_session = getattr(server, "tenant_session", None)
+    selected_t = getattr(tenant_session, "selected_tenant_id", None)
+    selected_c = getattr(tenant_session, "selected_config_name", None)
+    if selected_t:
+        return selected_t, selected_c
+    return tenant_id, selected_c if selected_c is not None else config_name
+
+
+def _agent_effective_tenancy(
+    mcp_client: Any,
+    steps: Any,
+    tenant_id: str,
+    config_name: Optional[str],
+) -> tuple[str, Optional[str]]:
+    from_steps = _tenancy_from_agent_steps(steps, tenant_id, config_name)
+    if mcp_client is not None and getattr(mcp_client, "_server", None) is not None:
+        return _tenancy_from_mcp_client(mcp_client, from_steps[0], from_steps[1])
+    return from_steps
+
+
 @router.post("/agent-chat", response_model=AgentChatResponse)
-async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
+async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResponse:
     """
     AI Agent chatbot endpoint.
     Accepts a user message + conversation history, runs through the ToolHiveAgent,
     and returns the agent's reply with any tool steps executed.
     """
     trace_id = str(uuid.uuid4())
+    llm_option = (payload.llm_option or "").strip() or None
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
     logger.info(
-        "Agent Chat request | trace_id=%s | provider=%s",
+        "Agent Chat request | trace_id=%s | llm_option=%s",
         trace_id,
-        os.environ.get("LLM_PROVIDER", "groq"),
+        str(llm_option or "groq(default)").replace("\r", " ").replace("\n", " "),
     )
 
     if not payload.message.strip():
@@ -1888,38 +2090,55 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             success=False,
         )
 
+    tenant_id = _resolve_agent_mcp_tenant(request)
+    mcp_headers = _agent_mcp_extra_headers(tenant_id)
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    if is_multitenancy_enabled():
+        logger.info(
+            "Agent Chat | mcp_tenant_id=%s | config_name=%s",
+            str(tenant_id or "(none)").replace("\r", " ").replace("\n", " "),
+            str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
+        )
+
     try:
         from agents.llm_factory import LLMProviderFactory
         from agents.toolhive import (
             MultiMcpClient,
             ToolHiveAgent,
-            StdioMcpClient,
             resolve_mcp_urls,
             resolve_max_tool_failures,
         )
         from node_wire_runtime.mcp_client.client import create_http_mcp_client
 
-        provider_name = os.environ.get("LLM_PROVIDER", "groq")
-        logger.info("Agent Chat | creating LLM provider: %s", provider_name)
-        llm_provider = LLMProviderFactory.create_from_env()
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "Agent Chat | creating LLM provider from option: %s",
+            str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
+        )
+        llm_provider = LLMProviderFactory.create_from_option(llm_option)
 
         task = _build_agent_chat_task(payload)
 
-        # Determine MCP transport — try proxy first, fallback to local stdio
+        # Determine MCP transport — try proxy first, fallback to local in-process
         transport = _current_agent_transport()
         urls = resolve_mcp_urls() if transport == "streamable-http" else []
         run_result = None
+        mcp_used = None
         fallback_to_stdio = (
-            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "false").lower() == "true"
+            os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
         )
 
         if urls:
             logger.info("Agent Chat | trying ToolHive proxy URL(s): %s", ",".join(urls))
             try:
                 if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(urls[0])
+                    mcp_client = create_http_mcp_client(urls[0], extra_headers=mcp_headers)
                 else:
-                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
+                    mcp_client = MultiMcpClient(
+                        [create_http_mcp_client(u, extra_headers=mcp_headers) for u in urls]
+                    )
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -1928,6 +2147,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                 )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
+                mcp_used = mcp_client
                 # Fallback to local stdio if:
                 # (a) agent hard-failed due to missing tools, OR
                 # (b) agent "succeeded" but called zero tools (LLM gave up because
@@ -1944,6 +2164,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     if fallback_to_stdio:
                         logger.warning("Agent Chat | proxy incomplete, falling back to local stdio")
                         run_result = None
+                        mcp_used = None
                     else:
                         logger.warning(
                             "Agent Chat | proxy incomplete, returning proxy error to UI "
@@ -1955,6 +2176,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                         "Agent Chat | proxy error: %s — falling back to local stdio", proxy_err
                     )
                     run_result = None
+                    mcp_used = None
                 else:
                     logger.warning(
                         "Agent Chat | proxy error: %s — returning error to UI "
@@ -1969,10 +2191,9 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                     )
 
         if run_result is None:
-            # Use local stdio transport
-            logger.info("Agent Chat | using local stdio MCP transport")
-            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-            async with StdioMcpClient(cmd) as mcp_client:
+            # In-process MCP shares the playground config store (named tenants).
+            logger.info("Agent Chat | using in-process MCP (shared factory)")
+            async with _playground_inprocess_mcp_client(tenant_id, request) as mcp_client:
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -1981,6 +2202,7 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
                 )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 run_result = await agent.run(task)
+                mcp_used = mcp_client
 
         # Map agent steps to response format
         chat_steps = []
@@ -1998,18 +2220,35 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
             or run_result.error
             or "I encountered an issue. Please try again."
         )
+        reply = _augment_reply_for_tool_calling_errors(reply)
+
+        eff_tenant, eff_config = _agent_effective_tenancy(
+            mcp_used, run_result.steps, tenant_id, config_name
+        )
+        if is_multitenancy_enabled():
+            logger.info(
+                "Agent Chat | effective tenant_id=%s | config_name=%s",
+                str(eff_tenant or "(none)").replace("\r", " ").replace("\n", " "),
+                str(eff_config or "(default)").replace("\r", " ").replace("\n", " "),
+            )
 
         return AgentChatResponse(
             reply=reply,
             steps=chat_steps,
             trace_id=trace_id,
             success=run_result.success,
+            tenant_id=eff_tenant,
+            config_name=eff_config,
         )
 
     except Exception as e:
         logger.error("Agent Chat failed: %s", e, exc_info=True)
+        reply = (
+            f"Sorry, I encountered an error: {str(e)}. "
+            "Please check the server configuration and try again."
+        )
         return AgentChatResponse(
-            reply=f"Sorry, I encountered an error: {str(e)}. Please check the server configuration and try again.",
+            reply=_augment_reply_for_tool_calling_errors(reply),
             steps=[],
             trace_id=trace_id,
             success=False,
@@ -2017,20 +2256,30 @@ async def agent_chat(payload: AgentChatInput) -> AgentChatResponse:
 
 
 @router.post("/agent-chat-stream")
-async def agent_chat_stream(payload: AgentChatInput) -> Any:
+async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
     """
     Stream agent progress and final-answer chunks to web clients.
 
     The terminal ``done`` event includes ``trace_id`` and ``message``. Clients
     should stop their streaming loader only when that event arrives.
     """
+    tenant_id = _resolve_agent_mcp_tenant(request)
+    mcp_headers = _agent_mcp_extra_headers(tenant_id)
+    config_name = resolve_config_name(
+        (request.query_params.get("config_name") or "").strip() or None
+    )
+    if is_multitenancy_enabled():
+        logger.info(
+            "Agent Chat stream | mcp_tenant_id=%s | config_name=%s",
+            str(tenant_id or "(none)").replace("\r", " ").replace("\n", " "),
+            str(config_name or "(default)").replace("\r", " ").replace("\n", " "),
+        )
 
     async def stream_events():
         try:
             from agents.llm_factory import LLMProviderFactory
             from agents.toolhive import (
                 MultiMcpClient,
-                StdioMcpClient,
                 ToolHiveAgent,
                 resolve_mcp_urls,
                 resolve_max_tool_failures,
@@ -2061,29 +2310,74 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                 )
                 return
 
-            llm_provider = LLMProviderFactory.create_from_env()
+            llm_option = (payload.llm_option or "").strip() or None
+            # Inline replace so CodeQL treats newline stripping as a sanitizer.
+            logger.info(
+                "Agent Chat stream | creating LLM provider from option: %s",
+                str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
+            )
+            llm_provider = LLMProviderFactory.create_from_option(llm_option)
             task = _build_agent_chat_task(payload)
             transport = _current_agent_transport()
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
+            # Default true: playground should work without a separate MCP on :8081.
+            fallback_to_local = (
+                os.environ.get("PLAYGROUND_AGENT_PROXY_FALLBACK_TO_STDIO", "true").lower() == "true"
+            )
+            step_tenant, step_config = tenant_id, config_name
 
             if urls:
-                if len(urls) == 1:
-                    mcp_client = create_http_mcp_client(urls[0])
-                else:
-                    mcp_client = MultiMcpClient([create_http_mcp_client(u) for u in urls])
-                agent = ToolHiveAgent(
-                    mcp_client,
-                    llm_provider,
-                    max_steps=10,
-                    max_tool_failures=resolve_max_tool_failures(None),
-                )
-                agent._system_prompt = AGENT_GUARDRAIL_PROMPT
-                async for event in agent.run_events(task):
-                    yield json.dumps(event) + "\n"
-                return
+                proxy_ok = False
+                try:
+                    if len(urls) == 1:
+                        mcp_client = create_http_mcp_client(urls[0], extra_headers=mcp_headers)
+                    else:
+                        mcp_client = MultiMcpClient(
+                            [create_http_mcp_client(u, extra_headers=mcp_headers) for u in urls]
+                        )
+                    agent = ToolHiveAgent(
+                        mcp_client,
+                        llm_provider,
+                        max_steps=10,
+                        max_tool_failures=resolve_max_tool_failures(None),
+                    )
+                    agent._system_prompt = AGENT_GUARDRAIL_PROMPT
+                    async for event in agent.run_events(task):
+                        if event.get("type") == "step":
+                            step_tenant, step_config = _tenancy_from_agent_steps(
+                                [event], step_tenant, step_config
+                            )
+                        if event.get("type") == "done":
+                            event = dict(event)
+                            event["tenant_id"] = step_tenant
+                            event["config_name"] = step_config
+                        if (
+                            fallback_to_local
+                            and event.get("type") == "error"
+                            and "Failed to list MCP tools" in str(event.get("message") or "")
+                        ):
+                            logger.warning(
+                                "Agent Chat stream | proxy incomplete (%s) — "
+                                "falling back to in-process MCP",
+                                event.get("message"),
+                            )
+                            break
+                        proxy_ok = True
+                        yield json.dumps(event) + "\n"
+                    else:
+                        # Exhausted generator without break → proxy finished normally.
+                        return
+                    if proxy_ok:
+                        return
+                except Exception as proxy_err:
+                    if not fallback_to_local:
+                        raise
+                    logger.warning(
+                        "Agent Chat stream | proxy error: %s — falling back to in-process MCP",
+                        proxy_err,
+                    )
 
-            cmd = [sys.executable, "-m", "agents.mcp_entrypoint"]
-            async with StdioMcpClient(cmd) as mcp_client:
+            async with _playground_inprocess_mcp_client(tenant_id, request) as mcp_client:
                 agent = ToolHiveAgent(
                     mcp_client,
                     llm_provider,
@@ -2092,6 +2386,17 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                 )
                 agent._system_prompt = AGENT_GUARDRAIL_PROMPT
                 async for event in agent.run_events(task):
+                    if event.get("type") == "step":
+                        step_tenant, step_config = _tenancy_from_agent_steps(
+                            [event], step_tenant, step_config
+                        )
+                    if event.get("type") == "done":
+                        event = dict(event)
+                        eff_tenant, eff_config = _tenancy_from_mcp_client(
+                            mcp_client, step_tenant, step_config
+                        )
+                        event["tenant_id"] = eff_tenant
+                        event["config_name"] = eff_config
                     yield json.dumps(event) + "\n"
 
         except Exception as exc:
@@ -2101,7 +2406,7 @@ async def agent_chat_stream(payload: AgentChatInput) -> Any:
                 json.dumps(
                     {
                         "type": "final_chunk",
-                        "content": (
+                        "content": _augment_reply_for_tool_calling_errors(
                             "Sorry, I encountered an internal error. "
                             f"Please check the server configuration and try again. trace_id={trace_id}"
                         ),

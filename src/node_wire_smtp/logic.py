@@ -7,12 +7,13 @@ from __future__ import annotations
 import logging
 import os
 from email.message import EmailMessage
+from typing import ClassVar, Dict, Tuple, Type
 
 import aiosmtplib
 
-from node_wire_runtime import BaseConnector, sdk_action
-from node_wire_runtime.mcp_normalizers import normalize_smtp_send_email
+from node_wire_runtime import BaseConnector, ErrorCategory, sdk_action
 
+from .normalizers import normalize_smtp_send_email
 from .relay import SmtpRelayNotAllowedError, resolve_smtp_relay
 from .schema import SmtpSendInput, SmtpSendOutput
 
@@ -26,6 +27,15 @@ class SmtpConnector(BaseConnector):
 
     connector_id = "smtp"
     output_model = SmtpSendOutput
+
+    # Scoped to smtp only.
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        SmtpRelayNotAllowedError: (ErrorCategory.FATAL, "SMTP_RELAY_NOT_ALLOWED"),
+        aiosmtplib.errors.SMTPConnectError: (ErrorCategory.RETRYABLE, "SMTP_CONNECT_ERROR"),
+        aiosmtplib.errors.SMTPTimeoutError: (ErrorCategory.RETRYABLE, "SMTP_TIMEOUT"),
+        aiosmtplib.errors.SMTPAuthenticationError: (ErrorCategory.AUTH, "SMTP_AUTH_ERROR"),
+        aiosmtplib.errors.SMTPException: (ErrorCategory.BUSINESS, "SMTP_ERROR"),
+    }
 
     @sdk_action(
         "send_email",

@@ -10,20 +10,20 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
 from urllib.parse import urlparse
 
 import httpx
 
-from node_wire_runtime import BaseConnector, nw_action, sdk_action
-from node_wire_runtime.fhir_encounter import assert_encounter_query_has_patient
+from node_wire_runtime import BaseConnector, ErrorCategory, nw_action, sdk_action
 from node_wire_runtime.log_sanitization import fhir_log_extra, log_http_status_error
-from node_wire_runtime.mcp_normalizers import (
+
+from .normalizers import (
+    assert_encounter_query_has_patient,
     normalize_fhir_read_patient,
     normalize_fhir_search_encounter,
     normalize_fhir_search_patients,
 )
-
 from .schema import (
     FhirCernerDocumentReferenceCreateInput,
     FhirCernerDocumentReferenceCreateOutput,
@@ -71,6 +71,21 @@ class FhirCernerConnector(BaseConnector):
     connector_id = "fhir_cerner"
     action = "execute"
     output_model = FhirCernerOperationOutput
+
+    # Network timeout/connection errors are retryable; HTTP status errors and
+    # validation guards (ValueError) are BUSINESS; unresolvable request errors
+    # (DNS, invalid URLs) are FATAL. Scoped to fhir_cerner only — see
+    # ErrorMapper's docstring for why these mappings can't leak to other
+    # connectors that also raise httpx.* or ValueError.
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "CERNER_TIMEOUT"),
+        httpx.ConnectError: (ErrorCategory.RETRYABLE, "CERNER_CONNECT_ERROR"),
+        httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "CERNER_READ_TIMEOUT"),
+        httpx.WriteTimeout: (ErrorCategory.RETRYABLE, "CERNER_WRITE_TIMEOUT"),
+        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "CERNER_HTTP_ERROR"),
+        ValueError: (ErrorCategory.BUSINESS, "CERNER_VALIDATION_ERROR"),
+        httpx.RequestError: (ErrorCategory.FATAL, "CERNER_REQUEST_ERROR"),
+    }
 
     @sdk_action(
         "read_patient",

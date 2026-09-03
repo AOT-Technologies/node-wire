@@ -9,12 +9,12 @@ import ipaddress
 import logging
 import os
 import socket
-from typing import Any
+from typing import Any, ClassVar, Dict, Tuple, Type
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from node_wire_runtime import BaseConnector, nw_action
+from node_wire_runtime import BaseConnector, ErrorCategory, nw_action
 
 from .schema import (
     HttpRequestInput,
@@ -97,6 +97,15 @@ class HttpGenericConnector(BaseConnector):
 
     connector_id = "http_generic"
     output_model = HttpResponseOutput
+
+    # Scoped to http_generic only.
+    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),
+        httpx.ConnectError: (ErrorCategory.RETRYABLE, "HTTP_CONNECT_ERROR"),
+        httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "HTTP_READ_TIMEOUT"),
+        httpx.RequestError: (ErrorCategory.FATAL, "HTTP_REQUEST_ERROR"),
+        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),
+    }
 
     @nw_action("request")
     async def request(self, params: HttpRequestInput, *, trace_id: str) -> HttpResponseOutput:

@@ -19,6 +19,8 @@ import logging
 from typing import Any, Dict, List, cast
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.schema_utils import openai_compatible_tool_parameters
+
 
 logger = logging.getLogger("agents.providers.groq")
 
@@ -30,7 +32,7 @@ def _mcp_tool_to_groq(tool: Dict[str, Any]) -> Dict[str, Any]:
         "function": {
             "name": tool["name"],
             "description": tool.get("description", ""),
-            "parameters": tool.get("input_schema", {"type": "object", "properties": {}}),
+            "parameters": openai_compatible_tool_parameters(tool.get("input_schema")),
         },
     }
 
@@ -85,7 +87,10 @@ class GroqProvider(BaseLLMProvider):
             raise ImportError("groq SDK not installed. Run: pip install 'node-wire[agents]'")
         self._client = Groq(api_key=api_key)
         self._model = model
-        logger.info("GroqProvider initialised | model=%s", model)
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "GroqProvider initialised | model=%s", str(model).replace("\r", " ").replace("\n", " ")
+        )
 
     def chat_with_tools(
         self,
@@ -100,9 +105,10 @@ class GroqProvider(BaseLLMProvider):
             kwargs["tools"] = groq_tools
             kwargs["tool_choice"] = "auto"
 
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.debug(
             "Groq request | model=%s | messages=%d | tools=%d",
-            self._model,
+            str(self._model).replace("\r", " ").replace("\n", " "),
             len(groq_messages),
             len(groq_tools),
         )

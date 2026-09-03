@@ -12,6 +12,7 @@ message InvokeRequest {
   string connector_id = 1;
   string action = 2;
   string payload_json = 3;
+  optional string config_name = 4;  // absent = default config
 }
 
 message InvokeResponse {

@@ -17,9 +17,9 @@ from typing import Any, Callable, Dict, cast
 from googleapiclient.http import MediaInMemoryUpload
 from pydantic import BaseModel
 
-from node_wire_runtime.mcp_normalizers import normalize_google_drive_files_upload
 from node_wire_runtime.sdk_action_spec import SdkActionSpec
 
+from .normalizers import normalize_google_drive_files_upload
 from .schema import (
     FilesCreateOperation,
     FilesDeleteOperation,

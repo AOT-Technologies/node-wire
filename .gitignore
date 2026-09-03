@@ -11,6 +11,10 @@ __pycache__/
 *.egg-info/
 dist/
 .env
+config/tenants.yaml
+config/tenants.yaml.tmp
+config/playground_tenants.yaml
+config/playground_tenants.yaml.tmp
 .DS_Store
 **/.DS_Store
 .coverage
@@ -53,3 +57,7 @@ mcp_debug.log
 
 # nw-connector-builder abort report (written to cwd on hard failure)
 /report.json
+
+# nw-mcp-builder
+nw-mcp-builder/fixtures/
+nw-mcp-builder/out/

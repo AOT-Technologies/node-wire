@@ -57,7 +57,7 @@ For a connector id like `pet_store`:
 1. **Load** the spec from a local file or `http(s)` URL (`--path`)
 2. **Normalize** Swagger 2.0 → OpenAPI 3.x when needed; reject remote `$ref`s
 3. **Derive** `@nw_action` plans, soft-drop unsupported operations, collapse auth to one connector-level provider
-4. **Codegen** into a temp staging tree (`schema.py`, `logic.py`, `registration.py`, package `pyproject.toml`, model tests)
+4. **Codegen** into a temp staging tree (`schema.py`, `logic.py`, package `pyproject.toml`, model tests)
 5. **Gate** — import smoke + `pytest` on staged model tests (must pass before promote)
 6. **Promote** atomically into `src/node_wire_<id>/` and `packages/connectors/<id>/`
 7. **MCP hand-off** (default) — call `nw-mcp-builder` for `out/<name>-mcp/`
@@ -259,8 +259,7 @@ After promote:
 src/node_wire_<id>/
   __init__.py
   schema.py          # Pydantic input models + outputs (or RestResponseOutput)
-  logic.py           # RestConnector subclass with @nw_action methods
-  registration.py    # Placeholder (no ErrorMapper side effects by default)
+  logic.py           # RestConnector subclass with @nw_action methods (no error_map by default)
 
 packages/connectors/<id>/
   pyproject.toml     # entry point + deps

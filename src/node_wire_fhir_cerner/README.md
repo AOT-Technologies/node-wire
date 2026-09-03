@@ -126,7 +126,7 @@ Cerner's FHIR implementation (especially in the sandbox) has several unique requ
 |---|---|
 | `src/node_wire_fhir_cerner/logic.py` | Core logic, authentication, and action dispatch |
 | `src/node_wire_fhir_cerner/schema.py` | Pydantic input/output models and field-level documentation |
-| `src/node_wire_fhir_cerner/registration.py` | Error mapping and exception handling specifically for Cerner API errors |
+| `src/node_wire_fhir_cerner/logic.py` (`error_map`) | Error mapping and exception handling specifically for Cerner API errors, scoped to `connector_id="fhir_cerner"` |
 | `tests/playground/cerner/` | Runnable end-to-end verification scripts |
 
 ---

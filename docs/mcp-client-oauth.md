@@ -11,7 +11,7 @@ Node Wire can act as an **OAuth 2.1 client** when connecting to **remote HTTP MC
 This is **separate** from:
 
 - **Inbound MCP server auth** (`NW_MCP_API_KEY`, `NW_MCP_JWT_SECRET`) — clients calling *node-wire’s* MCP server.
-- **Connector OAuth** (`OAuth2AuthProvider`) — Epic/Cerner/Stripe credentials for connector actions.
+- **Connector OAuth** (`OAuth2AuthProvider`) — Epic/Cerner/Salesforce credentials for connector actions. (Stripe uses `static_token`, not OAuth2.)
 
 ## Package
 
@@ -20,11 +20,17 @@ Implementation lives in `src/node_wire_runtime/mcp_client/`:
 | Module | Purpose |
 |--------|---------|
 | `config.py` | Operator settings (Section 10) |
+| `env_config.py` | Builds `McpClientConfig` from `NW_MCP_OAUTH_*` env vars |
 | `discovery.py` | RFC 9728 + RFC 8414 metadata discovery |
 | `dcr.py` | RFC 7591 dynamic client registration |
 | `oauth_flow.py` | Authorization code + PKCE + resource parameter |
 | `redirect_listener.py` | Loopback redirect callback (desktop) |
 | `storage.py` | Persisted DCR registrations per issuer |
+| `token_storage.py` | Persisted access/refresh tokens per issuer |
+| `token_manager.py` | `TokenManager` — caches and refreshes tokens ahead of expiry |
+| `client.py` | `McpOAuthClient` / `create_http_mcp_client()` — the client factory used by ToolHive/playground integration |
+| `challenges.py` | PKCE challenge/verifier generation |
+| `exceptions.py` | `McpOAuthConfigurationError` and related error types |
 
 ## Configuration
 

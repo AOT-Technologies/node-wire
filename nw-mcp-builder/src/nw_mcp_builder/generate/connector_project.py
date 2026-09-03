@@ -23,7 +23,8 @@ from nw_mcp_builder.schema.models import MCPScope
 
 logger = logging.getLogger(__name__)
 
-# Cache / bytecode dirs omitted from the vendored tree.
+# Cache / bytecode dirs omitted from the vendored tree. Also drop credential
+# filenames so a checkout accident cannot be copied into the image context.
 _VENDOR_IGNORE = shutil.ignore_patterns(
     "__pycache__",
     "*.pyc",
@@ -31,11 +32,27 @@ _VENDOR_IGNORE = shutil.ignore_patterns(
     ".mypy_cache",
     ".ruff_cache",
     "*.egg-info",
+    ".env",
+    ".env.*",
+    "tenants.yaml",
+    "tenants.yaml.tmp",
+    "playground_tenants.yaml",
+    "*.pem",
+    "*.key",
+    "credentials.json",
+    "service-account*.json",
 )
 
 # node-wire McpServer uses the mcp 1.x decorator API (@server.list_tools()),
 # which was removed in mcp 2.0. Prefer the version locked in the monorepo.
 _MCP_DEP_FALLBACK = "mcp>=1.6.0,<2"
+
+# Digest-pinned base. Keep in sync with Dockerfile and docker/*/Dockerfile
+# (enforced by tests/nw_mcp_builder/test_generated_dockerfile.py and
+# .github/workflows/docker-policy.yml).
+PYTHON_312_SLIM_IMAGE = (
+    "python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4"
+)
 
 
 def server_name_to_module(name: str) -> str:
@@ -144,6 +161,7 @@ def write_connector_project(
         ),
         encoding="utf-8",
     )
+    (project_dir / ".dockerignore").write_text(_dockerignore(), encoding="utf-8")
 
     logger.info(
         "Wrote connector host project dir=%s connector_id=%s",
@@ -299,8 +317,6 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 
 def _project_root() -> Path | None:
     here = Path(__file__).resolve().parent
@@ -312,10 +328,15 @@ def _project_root() -> Path | None:
     return None
 
 
+def _running_in_container() -> bool:
+    flag = os.environ.get("NW_MCP_CONTAINER", "").strip().lower()
+    if flag in {{"1", "true", "yes"}}:
+        return True
+    return Path("/.dockerenv").is_file()
+
+
 def _load_env() -> None:
-    # Prefer process env (ToolHive secrets, Docker -e, K8s). Optional project
-    # .env fills unset keys only — never cwd / monorepo .env, never override.
-    # Vendored MCP auth also merges cwd .env unless NW_REST_LOAD_DOTENV is false.
+    # Never let vendored MCP/REST merge cwd .env over process env.
     os.environ["NW_REST_LOAD_DOTENV"] = "false"
     root = _project_root()
     if root is None:
@@ -323,8 +344,15 @@ def _load_env() -> None:
             "auth error: cannot locate generated MCP project root "
             "(expected vendor/node_wire_src/bindings or config/ + pyproject.toml)."
         )
+    # Images: secrets come from the orchestrator (docker -e / --env-file /
+    # ToolHive). Do not read a filesystem .env — that file must not be in the
+    # image, and a bind-mount would expose it in the container filesystem.
+    if _running_in_container():
+        return
     env_path = root / ".env"
     if env_path.is_file():
+        from dotenv import load_dotenv
+
         load_dotenv(env_path, override=False)
 
 
@@ -341,8 +369,11 @@ def _ensure_bindings_on_path() -> None:
 def main() -> None:
     _load_env()
     os.environ["NW_ALLOWED_CONNECTORS"] = "{connector_id}"
-    os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")
-    os.environ.setdefault("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+    # Local Inspector convenience only. Container images do not disable auth
+    # or open the scope policy — set those at runtime if you really need them.
+    if not _running_in_container():
+        os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")
+        os.environ.setdefault("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     root = _project_root()
     if root is not None:
         cfg = root / "config" / "connectors.yaml"
@@ -405,22 +436,65 @@ uv run python -m {module_name}
 NW_MCP_TRANSPORT=stdio uv run python -m {module_name}
 ```
 
-Process env (ToolHive secrets, Docker `-e`) is preferred. Project `.env` is optional and only fills unset keys (`override=False`). Monorepo/cwd `.env` is never loaded.
+Process env (ToolHive secrets, Docker `-e` / `--env-file`) is preferred. A project `.env` is **local-only**: it fills unset keys (`override=False`) and is never copied into the Docker image. Monorepo/cwd `.env` is never loaded.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `NW_MCP_TRANSPORT` | `streamable-http` | `stdio` or `streamable-http` |
 | `NW_MCP_PORT` | `8081` | HTTP port |
 | `NW_ALLOWED_CONNECTORS` | `{connector_id}` | Connector allowlist |
-| `NW_MCP_AUTH_DISABLED` | `true` | Local/Inspector |
+| `NW_MCP_AUTH_DISABLED` | `true` locally; **unset in images** | Local/Inspector only — do not bake into Docker |
 
 ## Docker
 
+Secrets stay **out of the image**. `.dockerignore` is a whitelist (wheels, vendor src, `config/connectors.yaml`, host `src/` only). `.env`, `.env.example`, and tenant YAML never enter the build context. Inject credentials at **run** time:
+
 ```bash
 docker build -t {module_name} .
+docker run --rm --env-file .env -p 8081:8081 {module_name}
+# ToolHive / K8s: pass secrets as process env, not a file baked into layers
 ```
 
+`--env-file` sets process environment; it does not COPY the file into the image. Do not `COPY` or bind-mount `.env` into the container filesystem.
+
+The image is digest-pinned, runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth unless you set `NW_MCP_AUTH_DISABLED` at runtime.
+
 Installs `{connector_pkg}` + `node-wire-runtime` from `./wheels`.
+"""
+
+
+def _dockerignore() -> str:
+    return """\
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Whitelist: only paths the Dockerfile COPY's may enter the build context.
+# Secrets, env files, git, and tenant YAML stay on the host.
+
+*
+!wheels/
+!wheels/**
+!vendor/node_wire_src/
+!vendor/node_wire_src/**
+!config/
+!config/connectors.yaml
+!src/
+!src/**
+
+**/.env
+**/.env.*
+**/tenants.yaml
+**/tenants.yaml.tmp
+**/playground_tenants.yaml
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pem
+**/*.key
+**/credentials.json
+**/.git
+**/.DS_Store
 """
 
 
@@ -432,37 +506,48 @@ def _dockerfile(
     mcp_dep: str,
 ) -> str:
     return f'''\
-FROM python:3.12-slim
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+FROM {PYTHON_312_SLIM_IMAGE}
+
+LABEL org.opencontainers.image.title="{module_name}" \\
+      org.opencontainers.image.description="Node Wire — {connector_id} MCP server (nw-mcp-builder)" \\
+      org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
+
+# No secrets in ENV. NW_MCP_CONTAINER disables filesystem .env loading.
+ENV PYTHONPATH=/nw_src:/app/src \\
+    PYTHONDONTWRITEBYTECODE=1 \\
+    PYTHONUNBUFFERED=1 \\
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \\
+    NW_ALLOWED_CONNECTORS={connector_id} \\
+    NW_MCP_TRANSPORT=streamable-http \\
+    NW_CONFIG_PATH=/app/config/connectors.yaml \\
+    NW_REST_LOAD_DOTENV=false \\
+    NW_MCP_CONTAINER=true
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \\
-    curl ca-certificates \\
-    && rm -rf /var/lib/apt/lists/*
-
 COPY wheels/ /wheels/
 COPY vendor/node_wire_src/ /nw_src/
-COPY config/ ./config/
-COPY pyproject.toml README.md ./
-COPY src/ ./src/
-
-ENV PYTHONPATH=/nw_src \\
-    NW_ALLOWED_CONNECTORS={connector_id} \\
-    NW_MCP_TRANSPORT=streamable-http \\
-    NW_CONFIG_PATH=/app/config/connectors.yaml
+COPY config/connectors.yaml /app/config/connectors.yaml
+COPY src/ /app/src/
 
 RUN pip install --no-cache-dir --find-links=/wheels \\
     node-wire-runtime {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
-    && pip install --no-cache-dir -e /app \\
-    && rm -rf /wheels
-
-RUN groupadd --system --gid 1000 app \\
-    && useradd --system --uid 1000 --gid app --home /app app \\
-    && chown -R app:app /app
+    && rm -rf /wheels /root/.cache/pip \\
+    && groupadd --system --gid 1000 app \\
+    && useradd --system --uid 1000 --gid app --home /nonexistent --no-create-home --shell /usr/sbin/nologin app \\
+    && chown -R root:root /app /nw_src \\
+    && chmod -R a-w /app /nw_src
 
 USER app
 
 EXPOSE 8081
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD \\
+    python -c "import {module_name}" || exit 1
 
 CMD ["python", "-m", "{module_name}"]
 '''

@@ -8,7 +8,7 @@
 import grpc
 import warnings
 
-from . import connector_pb2 as connector__pb2
+import connector_pb2 as connector__pb2
 
 GRPC_GENERATED_VERSION = '1.71.2'
 GRPC_VERSION = grpc.__version__

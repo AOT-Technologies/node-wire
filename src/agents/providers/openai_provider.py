@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, cast
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.schema_utils import openai_compatible_tool_parameters
 
 logger = logging.getLogger("agents.providers.openai")
 
@@ -28,7 +29,7 @@ def _mcp_tool_to_openai(tool: Dict[str, Any]) -> Dict[str, Any]:
         "function": {
             "name": tool["name"],
             "description": tool.get("description", ""),
-            "parameters": tool.get("input_schema", {"type": "object", "properties": {}}),
+            "parameters": openai_compatible_tool_parameters(tool.get("input_schema")),
         },
     }
 
@@ -76,14 +77,30 @@ except ImportError:
 
 
 class OpenAIProvider(BaseLLMProvider):
-    """OpenAI LLM provider with native tool calling."""
+    """OpenAI LLM provider with native tool calling.
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+    Also used for OpenAI-compatible endpoints (e.g. NVIDIA Integrate) via ``base_url``.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gpt-4o-mini",
+        base_url: Optional[str] = None,
+    ) -> None:
         if OpenAI is None:
             raise ImportError("openai SDK not installed. Run: pip install 'node-wire[agents]'")
-        self._client = OpenAI(api_key=api_key)
+        client_kwargs: Dict[str, Any] = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self._client = OpenAI(**client_kwargs)
         self._model = model
-        logger.info("OpenAIProvider initialised | model=%s", model)
+        # Inline replace so CodeQL treats newline stripping as a sanitizer.
+        logger.info(
+            "OpenAIProvider initialised | model=%s | base_url=%s",
+            str(model).replace("\r", " ").replace("\n", " "),
+            str(base_url or "(default)").replace("\r", " ").replace("\n", " "),
+        )
 
     def chat_with_tools(
         self,

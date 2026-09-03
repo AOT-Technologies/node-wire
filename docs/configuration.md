@@ -37,13 +37,13 @@ copy sample.env .env
 | **Slack** | `SLACK_BOT_TOKEN` | Sending Slack messages |
 | **Stripe** | `STRIPE_API_KEY` | Stripe payments |
 | **Salesforce** | `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN` | Salesforce CRM integration |
-| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` (or other provider key) | AI agent / ToolHive |
+| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL` (or other provider keys) | AI agent / ToolHive / playground LLM switcher |
 
 ### Transport & Binding Config
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MODE` | Execution mode (`API`, `GRPC`, `MCP`) | `API` |
+| `MODE` | Execution mode (`API` or `GRPC`). There is no working `MODE=MCP` — that value starts a stub process (`McpServer()` then an infinite sleep loop, no JSON-RPC handling) left over from an early proof of concept. Run MCP via `python -m agents.mcp_entrypoint` instead (see [mcp.md](mcp.md)). | `API` |
 | `PORT` | Port for the REST API | `8000` |
 | `NW_REST_HOST` | REST API bind address | `127.0.0.1` |
 | `NW_REST_PLAYGROUND_ENABLED` | Mount the interactive playground at `/playground/` when `true`; when unset, enabled only if a `playground/` directory exists at the repo root | _(auto)_ |
@@ -67,6 +67,23 @@ copy sample.env .env
 | `NW_HTTP_GENERIC_ALLOWED_HOSTS` | Optional egress allowlist for the `http_generic` connector only | _(unset)_ |
 | `NW_REST_ALLOWED_HOSTS` | Optional egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. | _(unset)_ |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
+
+### Multi-tenancy
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_MULTITENANCY_ENABLED` | When `true`, resolve tenant from header / `NW_TENANT_ID` / JWT and require a tenant (missing → error). When `false`, always `__default__`. | `false` |
+| `NW_TENANT_ID` | **MCP stdio only** — default process pin. Chat can override via `nw_select_tenant` unless `NW_MCP_TENANT_PIN_LOCKED=true`. Do not set on multi-tenant streamable-http (use `X-Tenant-ID` instead). | _(unset)_ |
+| `NW_TENANT_ID_HEADER` | HTTP/gRPC header name for tenant id (case-insensitive) | `X-Tenant-ID` |
+| `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored). Loaded by REST, gRPC, and standalone MCP (`McpServer` / `agents.mcp_entrypoint`) at startup. | `config/tenants.yaml` |
+| `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
+| `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
+
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
+
+When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns configs), `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to **every connector** on that MCP process (stdio and streamable-http) by default, though a per-call `config_name` tool argument can override it for a single call. Tenant pin precedence differs by transport: on **stdio**, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin for later calls, unless `NW_MCP_TENANT_PIN_LOCKED=true`. On **streamable-http**, the live per-request `X-Tenant-ID` header (or JWT tenant claim) always wins on every request — a prior `nw_select_tenant` call can never shadow another concurrent session's request-level tenant. Provision configs via playground REST / YAML — not via MCP.
+
+**Host / factory contract:** Resolve the request tenant once (`resolve_tenant_id` in bindings, or your own auth in an embedded app), then pass that id to `ConnectorFactory.get(tenant_id=...)`. Omitting `tenant_id` on `get` always resolves `__default__` — never the current HTTP/MCP tenant. After `get`, the connector instance is pinned: `run()` may omit `tenant_id` (uses the pin); a conflicting `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without executing the action.
 
 ---
 
@@ -118,6 +135,6 @@ export GOOGLE_DRIVE_SA_JSON=$(cat /path/to/service_account.json)
 - **Scope policy:** Unset `NW_MCP_SCOPE_POLICY_DEFAULT` defaults to **deny** in code. Configure `NW_MCP_API_KEY_SCOPES`, `NW_REST_API_KEY_SCOPES`, and `NW_GRPC_API_KEY_SCOPES` (or JWT claims) for each transport. Use `NW_MCP_SCOPE_POLICY_DEFAULT=allow` only for intentional local fail-open.
 - **JWT ingress auth:** When using `NW_MCP_JWT_SECRET`, `NW_REST_JWT_SECRET`, or `NW_GRPC_JWT_SECRET`, set `NW_JWT_AUDIENCE` and `NW_JWT_ISSUER`. Minted tokens must include `exp`, `iat`, `aud`, and `iss` (HS256; asymmetric RS256 is not yet supported for bindings).
 - **Log redaction:** A platform-wide logging filter redacts PHI-like field names and values (for example `search_params`, `body`, patient identifiers). FHIR connectors log operation mode, HTTP status, and counts only—not request parameters or raw FHIR response bodies.
-- **REST rate limiting:** Enable with `NW_REST_RATE_LIMIT_ENABLED=true`. Per-identity buckets are keyed by API key/JWT fingerprint when auth is enabled; unauthenticated traffic falls back to client IP. Bound memory with `NW_REST_RATE_LIMIT_MAX_TRACKED_KEYS` and `NW_REST_RATE_LIMIT_KEY_TTL_SECONDS`. Set `NW_REST_TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the app (e.g. `1` behind nginx/ALB); leave at `0` to ignore client-supplied `X-Forwarded-For`.
+- **Per-identity rate limiting (REST, MCP, gRPC):** Off by default; a single global token bucket (`NW_RATE_LIMIT_BURST` / `NW_RATE_LIMIT_REFILL_RATE`, disable via `NW_RATE_LIMIT_DISABLED=true`) always applies on top of it for coarse DoS protection, but that bucket is shared by every caller — one noisy/malicious identity can still exhaust it for everyone else. Enable the opt-in per-identity sliding-window limiter with `NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true` to isolate callers from each other; it's a `node_wire_runtime` facility shared by all three transports; tune it with `NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS`, `NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS`, `NW_RATE_LIMIT_PER_IDENTITY_MAX_TRACKED_KEYS`, and `NW_RATE_LIMIT_PER_IDENTITY_KEY_TTL_SECONDS` (the last two bound memory). REST keys buckets by API key/JWT fingerprint when auth is enabled, falling back to client IP for unauthenticated traffic; MCP and gRPC key by the authenticated principal, falling back to a shared per-transport bucket when no identity is available. Set `NW_REST_TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the app (e.g. `1` behind nginx/ALB) so REST's IP fallback isn't spoofable via `X-Forwarded-For`; leave at `0` to ignore it. The legacy `NW_REST_RATE_LIMIT_ENABLED` (and its `_MAX_REQUESTS`/`_WINDOW_SECONDS`/`_MAX_TRACKED_KEYS`/`_KEY_TTL_SECONDS` siblings) still work as a deprecated, REST-only alias for backward compatibility; the canonical `NW_RATE_LIMIT_PER_IDENTITY_*` names take precedence when set.
 - **REST body size:** Set `NW_REST_MAX_BODY_BYTES` (default 10 MiB) to cap JSON bodies on `/connectors/*` and `/scenarios/*` before handlers parse them. Also set `client_max_body_size` (or equivalent) on your reverse proxy for defense in depth.
 - **Network bindings:** MCP streamable-http defaults to `NW_MCP_HOST=127.0.0.1`; set `0.0.0.0` only when intentionally exposing beyond localhost. For gRPC, set `NW_GRPC_TLS_CERT_PATH` and `NW_GRPC_TLS_KEY_PATH`, or enable `NW_GRPC_REQUIRE_TLS=true` in production to refuse plaintext startup. Terminate TLS at a reverse proxy if not terminating in-process.

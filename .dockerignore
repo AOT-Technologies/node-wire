@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Keep the MCP image build context free of secrets, VCS, and test trees.
+# Dockerfiles COPY explicit paths; this still stops those files reaching the daemon.
+
+.git
+.github
+.venv
+**/.venv
+.env
+.env.*
+!.env.example
+config/tenants.yaml
+config/tenants.yaml.tmp
+config/playground_tenants.yaml
+config/playground_tenants.yaml.tmp
+tests
+docs
+playground
+grafana
+htmlcov
+.coverage
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/__pycache__
+**/*.pyc
+nw-mcp-builder/out
+nw-mcp-builder/fixtures
+.scratch
+**/.DS_Store

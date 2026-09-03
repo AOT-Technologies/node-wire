@@ -39,6 +39,8 @@ copy sample.env .env
 
 Node Wire uses a fail-closed connector allowlist. If `NW_ALLOWED_CONNECTORS` is missing or empty, no connectors are loaded even when they are enabled in `config/connectors.yaml`.
 
+By default the platform is single-tenant (every call resolves to `__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file (defaults to `config/tenants.yaml`). See [Configuration — Multi-tenancy](configuration.md#multi-tenancy).
+
 ### 3. Install dependencies
 
 **Using `uv` (recommended):**
@@ -47,8 +49,10 @@ The repository commits `uv.lock` for reproducible installs. Use `--frozen` in CI
 
 ```bash
 uv sync --frozen --all-extras --dev   # full dev + agents (matches CI)
-uv sync --frozen                      # runtime only
+uv sync --frozen --no-dev             # runtime only
 ```
+
+Plain `uv sync --frozen` (no `--no-dev`) still installs the `dev` dependency group — `pyproject.toml` sets `default-groups = ["dev"]` — so it is **not** a runtime-only install on its own.
 
 When you change dependencies in `pyproject.toml`, regenerate and commit the lockfile:
 
@@ -59,7 +63,7 @@ uv lock
 **Using `pip` (unpinned; not recommended for reproducible builds):**
 - Full install (including AI agents): `pip install -e ".[agents]"`
 - Minimal install (REST/gRPC only): `pip install -e .`
-- Dev install (linting/tests): `pip install -e ".[dev,agents]"`
+- Dev tooling (ruff/mypy/pytest/bandit): there is no `dev` extra — `dev` is a `uv` `[dependency-groups]` entry, not a `pip` install extra, so `pip install -e ".[dev,agents]"` fails. Use `uv sync --frozen --all-extras --dev` for the dev toolchain, or install ruff/mypy/pytest/bandit manually if you must stay on plain `pip`.
 
 ### 4. Verify the installation
 ```bash
@@ -101,7 +105,8 @@ Once it is running:
 For MCP transport modes, Inspector usage, and multi-server deployment:
 
 - See [mcp.md](mcp.md) for transport setup and local MCP usage.
-- See [mcp-servers.md](mcp-servers.md) for per-connector images, ToolHive, and Docker-based MCP deployment.
+- See [packaging.md](packaging.md) for pre-built per-connector Docker images and ToolHive deployment.
+- See [mcp-servers.md](mcp-servers.md) to generate a custom standalone MCP host with `nw-mcp-builder`.
 
 ---
 

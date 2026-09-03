@@ -101,6 +101,7 @@ nav:
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
+    - Multi-tenancy: configuration.md#multi-tenancy
   - Architecture: architecture.md
   - Connectors:
     - Overview: connectors.md
@@ -112,7 +113,7 @@ nav:
     - Slack: slack_connector.md
   - MCP:
     - Overview: mcp.md
-    - MCP Servers: mcp-servers.md
+    - MCP Host Builder (nw-mcp-builder): mcp-servers.md
     - Client OAuth: mcp-client-oauth.md
     - Agent Scenario: toolhive_agent_scenario.md
   - Development:

@@ -5,8 +5,8 @@
 """
 Domain exception hierarchy for the Slack connector.
 
-These exceptions are raised by logic.py and mapped to ErrorCategory codes
-by registration.py via ErrorMapper.
+These exceptions are raised by logic.py and mapped to ErrorCategory codes via
+logic.py's error_map, scoped to connector_id="slack" by ErrorMapper.
 """
 
 from __future__ import annotations

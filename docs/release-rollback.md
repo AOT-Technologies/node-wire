@@ -97,6 +97,13 @@ git tag -a v1.0.1 <fixed-sha> -m "Release 1.0.1"
 git push origin v1.0.1
 ```
 
+Note: this is a manual, out-of-band path (a fix-and-re-tag, not a normal release). The
+normal forward path for creating a release tag uses the **Create Release Tag**
+workflow (`.github/workflows/create-tag.yml`, see [packaging.md](packaging.md)), which
+validates version format, package-version consistency, and the CHANGELOG entry before
+tagging. Rollback intentionally bypasses that validation, so double-check the fixed SHA
+and version bump by hand before pushing.
+
 ## Step 5 — Communicate
 
 Minimum user-facing notice (GitHub Release, Discussion, or advisory):

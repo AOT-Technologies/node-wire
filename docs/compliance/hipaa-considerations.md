@@ -38,4 +38,4 @@ Node Wire itself does not include a database and does not persistently store PHI
 
 ## 5. Safe Secret Management
 
-Do not store credentials (e.g., `client_secret`, API keys) in plain text environment files in production. Node Wire supports Pluggable Secret Providers (e.g., HashiCorp Vault, Azure Key Vault, AWS Secrets Manager). You should use a secure secret management solution to inject credentials at runtime.
+Do not store credentials (e.g., `client_secret`, API keys) in plain text environment files in production. Out of the box, `NW_SECRET_BACKEND` selects between `env` (default) and `aws_env` (AWS Secrets Manager + env fallback via `ChainedSecretProvider`) — see [packaging.md](../packaging.md#secret-backend-nw_secret_backend). HashiCorp Vault and Azure Key Vault provider classes exist in `node_wire_runtime.secrets` and ship as optional extras, but are not currently wired into `NW_SECRET_BACKEND`; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.
