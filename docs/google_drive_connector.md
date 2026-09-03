@@ -45,6 +45,14 @@ For **shared-folder automation** (single service identity), keep the [service ac
 
 ---
 
+## Multi-tenancy
+
+With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Google Drive credentials and folder via a named config in `tenants.yaml`, instead of sharing the single `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID` env vars above. Tenant-scoped secrets use `NW_{TENANT}_GOOGLE_DRIVE_{KEY}` for the default config, or `NW_{TENANT}_GOOGLE_DRIVE_{CONFIG}_{KEY}` for a named config (e.g. `NW_ACME_GOOGLE_DRIVE_SA_JSON`, or `NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON` for config `test-drive` — non-alphanumeric characters are uppercased/underscored) — or the equivalent `secrets:` block in `tenants.yaml`.
+
+On MCP, select the tenant/config once per session with `nw_select_tenant` / `nw_select_config` (or pass a per-call `config_name` to a `google_drive_*` tool); `tenant_id` is never a tool argument. See [Configuration — Multi-tenancy](configuration.md#multi-tenancy) and [MCP — Multi-tenancy](mcp-servers.md#multi-tenancy-mcp) for the full reference.
+
+---
+
 ## Google Drive service account setup
 
 This guide walks you through creating a Google Cloud service account and connecting it to Node Wire. A service account is a special type of Google account used by applications (rather than humans) to authenticate with Google APIs.

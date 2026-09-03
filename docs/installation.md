@@ -39,6 +39,8 @@ copy sample.env .env
 
 Node Wire uses a fail-closed connector allowlist. If `NW_ALLOWED_CONNECTORS` is missing or empty, no connectors are loaded even when they are enabled in `config/connectors.yaml`.
 
+By default the platform is single-tenant (every call resolves to `__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file (defaults to `config/tenants.yaml`). See [Configuration — Multi-tenancy](configuration.md#multi-tenancy).
+
 ### 3. Install dependencies
 
 **Using `uv` (recommended):**

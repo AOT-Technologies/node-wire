@@ -68,3 +68,7 @@ docker run --rm --env-file .env -p 8081:8081 <module_name>
 ```
 
 `<name>-mcp` / `<module_name>` come from the connector id (underscores → hyphens in the folder name, e.g. `google_drive` → `out/google-drive-nw-mcp`, module `google_drive_nw_mcp`).
+
+### Multi-tenancy
+
+The generated host is a thin wrapper around the same `McpServer`, so it inherits multi-tenancy for free: set `NW_MULTITENANCY_ENABLED=true` and `NW_TENANTS_PATH` (mount `tenants.yaml` into the container) in its `.env` / Docker run env. See [docs/mcp-servers.md — Multi-tenancy (MCP)](../docs/mcp-servers.md#multi-tenancy-mcp) for the full variable reference and tenant/config tool walkthrough.
