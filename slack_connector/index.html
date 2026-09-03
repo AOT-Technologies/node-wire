@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1149,7 +1177,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1967,7 +1995,7 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong><a href="#slack-bot-setup">Slack Bot Setup</a></strong> — Create a Slack app, configure OAuth scopes, and obtain your bot token.</li>
 <li><strong><a href="#rest-api-reference">REST API Reference</a></strong> — Connector actions, request/response shapes, and flexible channel resolution.</li>
 </ol>
-<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>slack.&lt;action&gt;</code> from the connector manifest (e.g. <code>slack.post_message</code>).</p>
+<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>slack_&lt;action&gt;</code> from the connector manifest (e.g. <code>slack_post_message</code>). Legacy dotted names (<code>slack.post_message</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises.</p>
 <hr />
 <h2 id="slack-bot-setup">Slack Bot Setup<a class="headerlink" href="#slack-bot-setup" title="Anchor link to this section">&para;</a></h2>
 <p>The Slack connector uses a <strong>Bot User OAuth Token</strong> to interact with your workspace.</p>
@@ -2036,7 +2064,7 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p><strong>Channel Resolution:</strong>
 - <strong>Channel Name</strong>: Starts with <code>#</code> (e.g., <code>#general</code>).
-- <strong>Channel ID</strong>: Starts with <code>C</code> or <code>G</code> (e.g., <code>C12345</code>).
+- <strong>Channel ID</strong>: Starts with <code>C</code>, <code>G</code>, <code>D</code>, or <code>Z</code> (e.g., <code>C12345</code>).
 - <strong>User ID</strong>: Starts with <code>U</code> or <code>W</code> (e.g., <code>U12345</code>). Automatically resolved to a DM channel.</p>
 <h4 id="send_direct_message"><code>send_direct_message</code><a class="headerlink" href="#send_direct_message" title="Anchor link to this section">&para;</a></h4>
 <p>A specialized action for DMs. If targeted at a User ID, the connector ensures the DM channel is open before posting.</p>
@@ -2106,7 +2134,7 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h3 id="related">Related<a class="headerlink" href="#related" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li>Individual MCP Servers: <a href="../mcp-servers/">docs/mcp-servers.md</a></li>
+<li>Pre-built per-connector Docker images: <a href="../packaging/">docs/packaging.md</a></li>
 <li>Connector Architecture: <a href="../connectors/">docs/connectors.md</a></li>
 </ul>
 

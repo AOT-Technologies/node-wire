@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -842,6 +870,17 @@
     <span class="md-ellipsis">
       
         User OAuth (OIDC / upstream bearer)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
       
     </span>
   </a>
@@ -1204,7 +1243,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1810,6 +1849,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#google-drive-service-account-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2077,7 +2127,7 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong><a href="#google-drive-service-account-setup">Google Drive service account setup</a></strong> — Create a GCP service account, enable the Drive API, configure <code>.env</code>, share a folder, and verify connectivity.</li>
 <li><strong><a href="#rest-api-reference">REST API reference</a></strong> — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.</li>
 </ol>
-<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>google_drive.&lt;action&gt;</code> from the connector manifest (e.g. <code>google_drive.files.upload</code>). End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">docs/toolhive_agent_scenario.md</a>.</p>
+<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (e.g. <code>google_drive_files_upload</code>). Legacy dotted names (<code>google_drive.files.upload</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">docs/toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="user-oauth-oidc-upstream-bearer">User OAuth (OIDC / upstream bearer)<a class="headerlink" href="#user-oauth-oidc-upstream-bearer" title="Anchor link to this section">&para;</a></h2>
 <p>For <strong>per-user Google Drive access</strong> (each caller uses their own Drive), set:</p>
@@ -2091,9 +2141,13 @@ SPDX-License-Identifier: Apache-2.0
 <p>Allowed values: <code>service_account</code> (default), <code>upstream_bearer</code>.</p>
 <p>Run the <strong>google-drive-only</strong> MCP server (<code>python -m agents.google_drive_mcp</code>) with <code>NW_MCP_TRANSPORT=streamable-http</code>. The <code>Authorization: Bearer</code> token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do <strong>not</strong> set <code>NW_MCP_API_KEY</code>, <code>NW_MCP_JWT_SECRET</code>, or <code>GOOGLE_DRIVE_SA_JSON</code> for this profile.</p>
 <p><strong>ToolHive OIDC manifests:</strong> copy and adapt from <a href="https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy">mcp-builder <code>out/google-drive-mcp/deploy/</code></a> (<code>mcpexternalauthconfig.yaml</code>, <code>mcpoidcconfig.yaml</code>, <code>mcpserver.yaml</code>) — use image/entrypoint <code>nw-google-drive</code> / <code>python -m agents.google_drive_mcp</code>.</p>
-<p><strong>Ponytail:</strong> Passthrough MCP auth applies only when this server exposes <code>google_drive</code> alone with <code>upstream_bearer</code>. The unified <code>mcp_entrypoint</code> with multiple connectors keeps API-key/JWT MCP auth.</p>
+<p><strong>Note:</strong> Passthrough MCP auth applies only when this server exposes <code>google_drive</code> alone with <code>upstream_bearer</code>. The unified <code>mcp_entrypoint</code> with multiple connectors keeps API-key/JWT MCP auth.</p>
 <p>With <code>NW_MCP_SCOPE_POLICY_DEFAULT=deny</code> (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (<code>mcp:google_drive.&lt;action&gt;</code>) from its manifest to upstream bearer callers so <code>tools/list</code> is not empty. Google OAuth on the <code>Authorization: Bearer</code> token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.</p>
 <p>For <strong>shared-folder automation</strong> (single service identity), keep the <a href="#google-drive-service-account-setup">service account setup</a> below.</p>
+<hr />
+<h2 id="multi-tenancy">Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Anchor link to this section">&para;</a></h2>
+<p>With <code>NW_MULTITENANCY_ENABLED=true</code>, each tenant can have its own Google Drive credentials and folder via a named config in <code>tenants.yaml</code>, instead of sharing the single <code>GOOGLE_DRIVE_SA_JSON</code> / <code>GOOGLE_DRIVE_FOLDER_ID</code> env vars above. Tenant-scoped secrets use <code>NW_{TENANT}_GOOGLE_DRIVE_{KEY}</code> for the default config, or <code>NW_{TENANT}_GOOGLE_DRIVE_{CONFIG}_{KEY}</code> for a named config (e.g. <code>NW_ACME_GOOGLE_DRIVE_SA_JSON</code>, or <code>NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON</code> for config <code>test-drive</code> — non-alphanumeric characters are uppercased/underscored) — or the equivalent <code>secrets:</code> block in <code>tenants.yaml</code>.</p>
+<p>On MCP, select the tenant/config once per session with <code>nw_select_tenant</code> / <code>nw_select_config</code> (or pass a per-call <code>config_name</code> to a <code>google_drive_*</code> tool); <code>tenant_id</code> is never a tool argument. See <a href="../configuration/#multi-tenancy">Configuration — Multi-tenancy</a> and <a href="../mcp-servers/#multi-tenancy-mcp">MCP — Multi-tenancy</a> for the full reference.</p>
 <hr />
 <h2 id="google-drive-service-account-setup">Google Drive service account setup<a class="headerlink" href="#google-drive-service-account-setup" title="Anchor link to this section">&para;</a></h2>
 <p>This guide walks you through creating a Google Cloud service account and connecting it to Node Wire. A service account is a special type of Google account used by applications (rather than humans) to authenticate with Google APIs.</p>
@@ -2291,6 +2345,8 @@ SPDX-License-Identifier: Apache-2.0
 <ul>
 <li><code>page_size</code> (int, optional, default 10, 1–100): maximum files to return.</li>
 <li><code>query</code> (string, optional): Drive search query (<code>q</code> parameter).</li>
+<li><code>fields</code> (string, optional): Drive partial-response fields mask; defaults to <code>nextPageToken, files(id, name, mimeType, webViewLink)</code>.</li>
+<li><code>page_token</code> (string, optional): pass the previous response's <code>nextPageToken</code> to fetch the next page.</li>
 </ul>
 <p>Typical success response (wrapped by the runtime):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
@@ -2298,16 +2354,17 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">"raw"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="nt">"files"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"example.txt"</span><span class="p">,</span><span class="w"> </span><span class="nt">"mimeType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="p">]</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="p">},</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Successfully executed files.list"</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="p">},</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="nt">"error_code"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">"error_category"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="nt">"trace_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="p">}</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"example.txt"</span><span class="p">,</span><span class="w"> </span><span class="nt">"mimeType"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text/plain"</span><span class="p">,</span><span class="w"> </span><span class="nt">"webViewLink"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://drive.google.com/..."</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="p">],</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">      </span><span class="nt">"nextPageToken"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">    </span><span class="p">},</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Successfully executed files.list"</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span><span class="p">},</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span><span class="nt">"error_code"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">"error_category"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">  </span><span class="nt">"trace_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="p">}</span>
 </span></code></pre></div>
 <h4 id="filescreate">files.create<a class="headerlink" href="#filescreate" title="Anchor link to this section">&para;</a></h4>
 <p>Create a new file metadata entry (no content) or create inside a folder.</p>
@@ -2333,14 +2390,17 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">"action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"permissions.create"</span><span class="p">,</span>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">"file_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;FILE_ID&gt;"</span><span class="p">,</span>
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"reader"</span><span class="p">,</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">"email_address"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user@example.com"</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">}</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user"</span><span class="p">,</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">"email_address"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user@example.com"</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Fields:</p>
 <ul>
 <li><code>file_id</code> (string, required): ID of the target file.</li>
 <li><code>role</code> (string, required): <code>"reader"</code>, <code>"commenter"</code>, <code>"writer"</code>, or <code>"owner"</code>.</li>
-<li><code>email_address</code> (string, required): email to grant access to.</li>
+<li><code>type</code> (string, required): <code>"user"</code>, <code>"group"</code>, <code>"domain"</code>, or <code>"anyone"</code> — the kind of grantee.</li>
+<li><code>email_address</code> (string, required when <code>type</code> is <code>"user"</code> or <code>"group"</code>): email to grant access to.</li>
+<li><code>domain</code> (string, required when <code>type</code> is <code>"domain"</code>): the domain to grant access to.</li>
 </ul>
 <p>The service account must have permission to change sharing on the file.</p>
 <h4 id="filesget">files.get<a class="headerlink" href="#filesget" title="Anchor link to this section">&para;</a></h4>
@@ -2389,7 +2449,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Hello from Node Wire connector!"</span>
 </span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>For <strong>MCP</strong> (<code>google_drive.files.upload</code>), omit <code>action</code> in the tool arguments object; the server injects <code>files.upload</code> from the tool name. The published <code>inputSchema</code> does not include an <code>action</code> property.</p>
+<p>For <strong>MCP</strong> (<code>google_drive_files_upload</code>), omit <code>action</code> in the tool arguments object; the server injects <code>files.upload</code> from the tool name. The published <code>inputSchema</code> does not include an <code>action</code> property.</p>
 <p>Fields:</p>
 <ul>
 <li><code>name</code> (string, required).</li>

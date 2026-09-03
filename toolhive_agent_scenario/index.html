@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -958,7 +986,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1256,10 +1284,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#option-b-toolhive-cli" class="md-nav__link">
+  <a href="#option-b-toolhive-cli-single-tenant-secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Option B: ToolHive CLI
+        Option B: ToolHive CLI (single-tenant secrets)
       
     </span>
   </a>
@@ -2210,10 +2238,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#option-b-toolhive-cli" class="md-nav__link">
+  <a href="#option-b-toolhive-cli-single-tenant-secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Option B: ToolHive CLI
+        Option B: ToolHive CLI (single-tenant secrets)
       
     </span>
   </a>
@@ -2546,11 +2574,11 @@ SPDX-License-Identifier: Apache-2.0
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Anchor link to this section">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ToolHive UI  ──────────────────────────────────────────────────────
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  MCP Server (Docker): node-wire                     │
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│  ├── Tool: fhir_cerner.read_patient   ← fetch patient from Cerner │
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  ├── Tool: fhir_epic.read_patient     ← fetch patient from Epic   │
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│  ├── Tool: google_drive.files.upload  ← write file to Drive       │
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  ├── Tool: stripe.charge              ← process payment           │
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│  └── Tool: smtp.send_email            ← email the summary         │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│  ├── Tool: fhir_cerner_read_patient   ← fetch patient from Cerner │
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  ├── Tool: fhir_epic_read_patient     ← fetch patient from Epic   │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│  ├── Tool: google_drive_files_upload  ← write file to Drive       │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│  ├── Tool: stripe_charge              ← process payment           │
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│  └── Tool: smtp_send_email            ← email the summary         │
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                         ↕ stdio → HTTP proxy                      │
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>──────────────────────────────────────────────────────────────────
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>         ↕ MCP JSON-RPC over HTTP
@@ -2570,9 +2598,12 @@ SPDX-License-Identifier: Apache-2.0
 <li><code>nw-smartonfhir-epic</code> (Epic SMART on FHIR)</li>
 <li><code>nw-smartonfhir-cerner</code> (Cerner SMART on FHIR)</li>
 <li><code>nw-smtp</code> (SMTP email)</li>
+<li><code>nw-stripe</code> (Stripe)</li>
+<li><code>nw-salesforce</code> (Salesforce)</li>
+<li><code>nw-slack</code> (Slack)</li>
 </ul>
 <p>When running multiple MCP servers, configure the agent with <strong><code>TOOLHIVE_MCP_URLS</code></strong> (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.</p>
-<p><strong>Full guide:</strong> <a href="../mcp-servers/">docs/mcp-servers.md</a></p>
+<p><strong>Full guide (pre-built per-connector Docker images):</strong> <a href="../packaging/">packaging.md</a></p>
 <hr />
 <h2 id="what-is-toolhive">What is ToolHive?<a class="headerlink" href="#what-is-toolhive" title="Anchor link to this section">&para;</a></h2>
 <p><a href="https://stacklok.com/toolhive">ToolHive</a> is a desktop application that:
@@ -2582,7 +2613,7 @@ SPDX-License-Identifier: Apache-2.0
 <p>You can think of it as a local "MCP server manager" — you register your server once, and ToolHive handles starting it, securing its secrets, and making it available to AI tools.</p>
 <hr />
 <h2 id="what-does-the-node-wire-mcp-server-expose">What does the Node Wire MCP server expose?<a class="headerlink" href="#what-does-the-node-wire-mcp-server-expose" title="Anchor link to this section">&para;</a></h2>
-<p>When running <strong>this scenario’s</strong> minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see <strong>four</strong> tools (Cerner read patient, Epic read patient, Drive upload, SMTP send). The <strong>unified</strong> MCP server (<code>python -m agents.mcp_entrypoint</code>) exposes <strong>all</strong> manifest actions for every connector enabled for MCP in <code>config/connectors.yaml</code> (often 18+ tools). This section describes the <strong>four-tool</strong> happy path; see <a href="../mcp-servers/">mcp-servers.md</a> for the full surface.</p>
+<p>When running <strong>this scenario’s</strong> minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see <strong>five</strong> tools (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send). The <strong>unified</strong> MCP server (<code>python -m agents.mcp_entrypoint</code>) exposes <strong>all</strong> manifest actions for every connector enabled for MCP in <code>config/connectors.yaml</code> (often 18+ tools). This section describes the <strong>five-tool</strong> happy path; see <a href="../mcp-servers/">mcp-servers.md</a> for the full surface.</p>
 <table>
 <thead>
 <tr>
@@ -2592,27 +2623,28 @@ SPDX-License-Identifier: Apache-2.0
 </thead>
 <tbody>
 <tr>
-<td><code>fhir_cerner.read_patient</code></td>
+<td><code>fhir_cerner_read_patient</code></td>
 <td>Fetch a patient's record from a Cerner FHIR R4 endpoint</td>
 </tr>
 <tr>
-<td><code>fhir_epic.read_patient</code></td>
+<td><code>fhir_epic_read_patient</code></td>
 <td>Fetch a patient's record from an Epic FHIR R4 endpoint</td>
 </tr>
 <tr>
-<td><code>google_drive.files.upload</code></td>
+<td><code>google_drive_files_upload</code></td>
 <td>Create and upload a text file to Google Drive</td>
 </tr>
 <tr>
-<td><code>stripe.charge</code></td>
+<td><code>stripe_charge</code></td>
 <td>Process a payment</td>
 </tr>
 <tr>
-<td><code>smtp.send_email</code></td>
+<td><code>smtp_send_email</code></td>
 <td>Send an email via SMTP</td>
 </tr>
 </tbody>
 </table>
+<p>Advertised names use underscores (<code>connector_id_action</code>). Legacy dotted names (e.g. <code>fhir_epic.read_patient</code>) still work on <code>tools/call</code>.</p>
 <p>The agent uses an LLM's tool-calling capability to decide which tools to call, in what order, and with what parameters.</p>
 <h3 id="phi-protection-built-in">PHI protection built-in<a class="headerlink" href="#phi-protection-built-in" title="Anchor link to this section">&para;</a></h3>
 <p>The MCP server automatically masks sensitive health information before any data leaves the FHIR system:
@@ -2934,11 +2966,52 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong>Name:</strong> <code>node-wire-connectors</code></li>
 <li><strong>Image:</strong> <code>node-wire:latest</code></li>
 <li><strong>Transport:</strong> <code>stdio</code></li>
-<li>Under the <strong>Secrets</strong> or <strong>Environment</strong> tab, link all the secrets you stored in Step 3.</li>
+<li>Under <strong>Environment</strong>, set variables from the table below (multi-tenancy) or link flat secrets from Step 3 (single-tenant).</li>
+<li>If using multi-tenancy, add a <strong>volume</strong>: host <code>config/tenants.yaml</code> → container <code>/app/config/tenants.yaml</code> (read-only).</li>
 <li>Click <strong>Start</strong> or <strong>Deploy</strong>.</li>
 </ol>
 <p>ToolHive will start the container and set up a stdio-to-HTTP proxy on a local port.</p>
-<h3 id="option-b-toolhive-cli">Option B: ToolHive CLI<a class="headerlink" href="#option-b-toolhive-cli" title="Anchor link to this section">&para;</a></h3>
+<p><strong>Multi-tenancy (recommended for unified MCP):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NW_MCP_TRANSPORT</code></td>
+<td><code>stdio</code></td>
+</tr>
+<tr>
+<td><code>NW_ALLOWED_CONNECTORS</code></td>
+<td>e.g. <code>google_drive,fhir_epic</code></td>
+</tr>
+<tr>
+<td><code>NW_MULTITENANCY_ENABLED</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NW_TENANTS_PATH</code></td>
+<td><code>/app/config/tenants.yaml</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_AUTH_DISABLED</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_SCOPE_POLICY_DEFAULT</code></td>
+<td><code>allow</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_TENANT_PIN_LOCKED</code></td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>nw_select_tenant</code> / <code>nw_select_config</code> (or agent <code>--tenant-id</code> / <code>--config-name</code>) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See <a href="../mcp-servers/#multi-tenancy-mcp">mcp-servers.md — Multi-tenancy</a>.</p>
+<h3 id="option-b-toolhive-cli-single-tenant-secrets">Option B: ToolHive CLI (single-tenant secrets)<a class="headerlink" href="#option-b-toolhive-cli-single-tenant-secrets" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>thv<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--name<span class="w"> </span>node-wire-connectors<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--transport<span class="w"> </span>stdio<span class="w"> </span><span class="se">\</span>
@@ -2954,6 +3027,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span>--secret<span class="w"> </span>SMTP_PORT,target<span class="o">=</span>SMTP_PORT<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span>node-wire:latest
 </span></code></pre></div>
+<p>For multi-tenancy, add <code>-e</code> flags for the table above and mount <code>tenants.yaml</code> (ToolHive volume UI or Docker bind).</p>
 <h3 id="what-you-should-see">What you should see<a class="headerlink" href="#what-you-should-see" title="Anchor link to this section">&para;</a></h3>
 <p>In the ToolHive UI under <strong>Installed</strong>, you should see:</p>
 <table>
@@ -2974,7 +3048,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td>Tools</td>
-<td>Manifest-driven <code>&lt;connector_id&gt;.&lt;action&gt;</code> (e.g. <code>fhir_cerner.read_patient</code>, <code>fhir_epic.read_patient</code>, <code>google_drive.files.upload</code>, <code>smtp.send_email</code>; unified server also lists Stripe, HTTP generic, and other MCP-enabled connectors)</td>
+<td>Manifest-driven <code>&lt;connector_id&gt;_&lt;action&gt;</code> (e.g. <code>fhir_cerner_read_patient</code>, <code>fhir_epic_read_patient</code>, <code>google_drive_files_upload</code>, <code>smtp_send_email</code>; with MT also <code>nw_list_tenants</code>, <code>nw_select_tenant</code>, <code>nw_list_configs</code>, <code>nw_select_config</code>)</td>
 </tr>
 <tr>
 <td>Endpoint</td>
@@ -3043,8 +3117,19 @@ SPDX-License-Identifier: Apache-2.0
 <td>No</td>
 <td>Maximum LLM reasoning steps (default: 10)</td>
 </tr>
+<tr>
+<td><code>--tenant-id</code></td>
+<td>No</td>
+<td>Pin MCP tenant (<code>X-Tenant-ID</code> on HTTP; <code>NW_TENANT_ID</code> for <code>--local</code>). Defaults from <code>NW_TENANT_ID</code> env.</td>
+</tr>
+<tr>
+<td><code>--config-name</code></td>
+<td>No</td>
+<td>Calls <code>nw_select_config</code> at start so every connector uses that name</td>
+</tr>
 </tbody>
 </table>
+<p>With multitenancy enabled, MCP loads <code>config/tenants.yaml</code> and advertises <code>nw_list_tenants</code>, <code>nw_select_tenant</code>, <code>nw_list_configs</code>, and <code>nw_select_config</code>. <code>nw_select_config</code>'s selection applies to every connector on that server by default. Tenant pin precedence differs by transport: on stdio, <code>nw_select_tenant</code> overrides the <code>NW_TENANT_ID</code> env pin; on streamable-http, the live per-request <code>X-Tenant-ID</code> header always wins and is never shadowed by a prior select. See <a href="../mcp-servers/#multi-tenancy-mcp">mcp-servers.md — Multi-tenancy (MCP)</a>.</p>
 <h3 id="switching-llm-providers">Switching LLM providers<a class="headerlink" href="#switching-llm-providers" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Use OpenAI</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nv">LLM_PROVIDER</span><span class="o">=</span>openai<span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span>sk-...<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span>...
@@ -3079,11 +3164,11 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>3. Sent a summary email to your-email@example.com with a link to the file.
 </span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>
 </span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>Steps executed (3):
-</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>  ✓ Step 1: fhir_cerner.read_patient
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>  ✓ Step 1: fhir_cerner_read_patient
 </span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>       result : {"patient_id": "123*****", "full_name": "Nancy Smart", ...}
-</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>  ✓ Step 2: google_drive.files.upload
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a>  ✓ Step 2: google_drive_files_upload
 </span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a>       result : {"file_id": "1XYZ...", "web_view_link": "https://docs.google.com/..."}
-</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>  ✓ Step 3: smtp.send_email
+</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a>  ✓ Step 3: smtp_send_email
 </span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a>       result : {"sent": true}
 </span></code></pre></div>
 <hr />
@@ -3133,7 +3218,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="p">}</span>
 </span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Replace <code>&lt;PORT&gt;</code> with the port shown in ToolHive UI. The four Node Wire connector tools will appear in Claude's tool sidebar automatically.</p>
+<p>Replace <code>&lt;PORT&gt;</code> with the port shown in ToolHive UI. The five Node Wire connector tools will appear in Claude's tool sidebar automatically.</p>
 <h3 id="cursor">Cursor<a class="headerlink" href="#cursor" title="Anchor link to this section">&para;</a></h3>
 <p>In Cursor's MCP settings, add the same endpoint URL. The tools will appear in the agent's tool list.</p>
 <hr />
@@ -3197,8 +3282,9 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="running-tests">Running tests<a class="headerlink" href="#running-tests" title="Anchor link to this section">&para;</a></h2>
 <p>The test suite covers the agent and MCP server without making any real API calls:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,agents]"</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>pytest<span class="w"> </span>tests/test_toolhive_agent.py<span class="w"> </span>-v
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># dev is not a pip extra (it's a uv dependency group) — for the dev toolchain use:</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>pytest<span class="w"> </span>tests/test_toolhive_agent.py<span class="w"> </span>-v
 </span></code></pre></div>
 <p>Expect every test collected from <code>tests/test_toolhive_agent.py</code> to pass (names and count change as the suite evolves). If a test fails, re-run with <code>-v</code> and compare against the current definitions in that file.</p>
 <hr />

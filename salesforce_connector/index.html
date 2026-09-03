@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1099,7 +1127,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1984,7 +2012,7 @@ SPDX-License-Identifier: Apache-2.0
 <p>Access the playground at <code>http://localhost:8000/playground</code> (when running locally).</p>
 <h2 id="security-note">Security Note<a class="headerlink" href="#security-note" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>OAuth2</strong>: Tokens are never stored in plain text in logs. Node Wire's <code>AuthProvider</code> handles encryption and secure memory storage.</li>
+<li><strong>OAuth2</strong>: Tokens are never logged or persisted to disk. <code>OAuth2AuthProvider</code> holds the resolved access token as a plain in-process value, scoped to the provider instance's lifetime — there is no additional encryption-at-rest or secure-memory mechanism.</li>
 <li><strong>Refresh Token Support</strong>: The connector is configured to use <code>grant_method: refresh_token</code>, ensuring it can stay authenticated for long-running agentic tasks.</li>
 <li><strong>Traceability</strong>: All actions are logged with a <code>trace_id</code> for auditing and idempotency tracking.</li>
 <li><strong>PII Protection</strong>: Ensure your logging levels are set correctly; by default, the connector logs the metadata of the transaction but not the full PII payload.</li>

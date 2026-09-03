@@ -654,6 +654,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -713,6 +724,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1105,7 +1144,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1744,6 +1783,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1945,8 +1995,8 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><strong>LLM / Agent</strong></td>
-<td><code>LLM_PROVIDER</code>, <code>GROQ_API_KEY</code> (or other provider key)</td>
-<td>AI agent / ToolHive</td>
+<td><code>LLM_PROVIDER</code>, <code>GROQ_API_KEY</code> / <code>GROQ_MODEL</code>, <code>NVIDIA_API_KEY</code> / <code>NVIDIA_BASE_URL</code> / <code>NVIDIA_MODEL</code> (or other provider keys)</td>
+<td>AI agent / ToolHive / playground LLM switcher</td>
 </tr>
 </tbody>
 </table>
@@ -1962,7 +2012,7 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td><code>MODE</code></td>
-<td>Execution mode (<code>API</code>, <code>GRPC</code>, <code>MCP</code>)</td>
+<td>Execution mode (<code>API</code> or <code>GRPC</code>). There is no working <code>MODE=MCP</code> — that value starts a stub process (<code>McpServer()</code> then an infinite sleep loop, no JSON-RPC handling) left over from an early proof of concept. Run MCP via <code>python -m agents.mcp_entrypoint</code> instead (see <a href="../mcp/">mcp.md</a>).</td>
 <td><code>API</code></td>
 </tr>
 <tr>
@@ -2082,6 +2132,51 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
+<h3 id="multi-tenancy">Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NW_MULTITENANCY_ENABLED</code></td>
+<td>When <code>true</code>, resolve tenant from header / <code>NW_TENANT_ID</code> / JWT and require a tenant (missing → error). When <code>false</code>, always <code>__default__</code>.</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>NW_TENANT_ID</code></td>
+<td><strong>MCP stdio only</strong> — default process pin. Chat can override via <code>nw_select_tenant</code> unless <code>NW_MCP_TENANT_PIN_LOCKED=true</code>. Do not set on multi-tenant streamable-http (use <code>X-Tenant-ID</code> instead).</td>
+<td><em>(unset)</em></td>
+</tr>
+<tr>
+<td><code>NW_TENANT_ID_HEADER</code></td>
+<td>HTTP/gRPC header name for tenant id (case-insensitive)</td>
+<td><code>X-Tenant-ID</code></td>
+</tr>
+<tr>
+<td><code>NW_TENANTS_PATH</code></td>
+<td>Path to the YAML file that persists runtime named configs + tenant secret overlays (<code>config/tenants.yaml</code> by default; gitignored). Loaded by REST, gRPC, and standalone MCP (<code>McpServer</code> / <code>agents.mcp_entrypoint</code>) at startup.</td>
+<td><code>config/tenants.yaml</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_ALLOWED_TENANTS</code></td>
+<td>Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs.</td>
+<td><em>(unset)</em></td>
+</tr>
+<tr>
+<td><code>NW_MCP_TENANT_PIN_LOCKED</code></td>
+<td>When <code>true</code>, reject <code>nw_select_tenant</code> (pin always wins).</td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table>
+<p>Named-tenant secrets use <code>NW_{TENANT}_{CONNECTOR}_{KEY}</code> for the default config, or <code>NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}</code> for a named config (one credential vault per named config). MCP transport details: <a href="../mcp-servers/#multi-tenancy-mcp">mcp-servers.md</a>.</p>
+<p>When multitenancy is enabled, MCP exposes <code>nw_list_tenants</code>, <code>nw_select_tenant</code> (returns configs), <code>nw_list_configs</code>, and <code>nw_select_config</code>. <code>nw_select_config</code>'s selection applies to <strong>every connector</strong> on that MCP process (stdio and streamable-http) by default, though a per-call <code>config_name</code> tool argument can override it for a single call. Tenant pin precedence differs by transport: on <strong>stdio</strong>, <code>nw_select_tenant</code> overrides the <code>NW_TENANT_ID</code> env pin for later calls, unless <code>NW_MCP_TENANT_PIN_LOCKED=true</code>. On <strong>streamable-http</strong>, the live per-request <code>X-Tenant-ID</code> header (or JWT tenant claim) always wins on every request — a prior <code>nw_select_tenant</code> call can never shadow another concurrent session's request-level tenant. Provision configs via playground REST / YAML — not via MCP.</p>
+<p><strong>Host / factory contract:</strong> Resolve the request tenant once (<code>resolve_tenant_id</code> in bindings, or your own auth in an embedded app), then pass that id to <code>ConnectorFactory.get(tenant_id=...)</code>. Omitting <code>tenant_id</code> on <code>get</code> always resolves <code>__default__</code> — never the current HTTP/MCP tenant. After <code>get</code>, the connector instance is pinned: <code>run()</code> may omit <code>tenant_id</code> (uses the pin); a conflicting <code>run(tenant_id=...)</code> returns <code>TENANT_MISMATCH</code> (<code>ErrorCategory.AUTH</code>) without executing the action.</p>
 <hr />
 <h2 id="configuration-file-configconnectorsyaml">Configuration File (<code>config/connectors.yaml</code>)<a class="headerlink" href="#configuration-file-configconnectorsyaml" title="Anchor link to this section">&para;</a></h2>
 <p>This file determines which connectors are enabled and which protocols they are exposed through.</p>
@@ -2118,7 +2213,7 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong>Scope policy:</strong> Unset <code>NW_MCP_SCOPE_POLICY_DEFAULT</code> defaults to <strong>deny</strong> in code. Configure <code>NW_MCP_API_KEY_SCOPES</code>, <code>NW_REST_API_KEY_SCOPES</code>, and <code>NW_GRPC_API_KEY_SCOPES</code> (or JWT claims) for each transport. Use <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> only for intentional local fail-open.</li>
 <li><strong>JWT ingress auth:</strong> When using <code>NW_MCP_JWT_SECRET</code>, <code>NW_REST_JWT_SECRET</code>, or <code>NW_GRPC_JWT_SECRET</code>, set <code>NW_JWT_AUDIENCE</code> and <code>NW_JWT_ISSUER</code>. Minted tokens must include <code>exp</code>, <code>iat</code>, <code>aud</code>, and <code>iss</code> (HS256; asymmetric RS256 is not yet supported for bindings).</li>
 <li><strong>Log redaction:</strong> A platform-wide logging filter redacts PHI-like field names and values (for example <code>search_params</code>, <code>body</code>, patient identifiers). FHIR connectors log operation mode, HTTP status, and counts only—not request parameters or raw FHIR response bodies.</li>
-<li><strong>REST rate limiting:</strong> Enable with <code>NW_REST_RATE_LIMIT_ENABLED=true</code>. Per-identity buckets are keyed by API key/JWT fingerprint when auth is enabled; unauthenticated traffic falls back to client IP. Bound memory with <code>NW_REST_RATE_LIMIT_MAX_TRACKED_KEYS</code> and <code>NW_REST_RATE_LIMIT_KEY_TTL_SECONDS</code>. Set <code>NW_REST_TRUSTED_PROXY_HOPS</code> to the number of reverse proxies in front of the app (e.g. <code>1</code> behind nginx/ALB); leave at <code>0</code> to ignore client-supplied <code>X-Forwarded-For</code>.</li>
+<li><strong>Per-identity rate limiting (REST, MCP, gRPC):</strong> Off by default; a single global token bucket (<code>NW_RATE_LIMIT_BURST</code> / <code>NW_RATE_LIMIT_REFILL_RATE</code>, disable via <code>NW_RATE_LIMIT_DISABLED=true</code>) always applies on top of it for coarse DoS protection, but that bucket is shared by every caller — one noisy/malicious identity can still exhaust it for everyone else. Enable the opt-in per-identity sliding-window limiter with <code>NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true</code> to isolate callers from each other; it's a <code>node_wire_runtime</code> facility shared by all three transports; tune it with <code>NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS</code>, <code>NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS</code>, <code>NW_RATE_LIMIT_PER_IDENTITY_MAX_TRACKED_KEYS</code>, and <code>NW_RATE_LIMIT_PER_IDENTITY_KEY_TTL_SECONDS</code> (the last two bound memory). REST keys buckets by API key/JWT fingerprint when auth is enabled, falling back to client IP for unauthenticated traffic; MCP and gRPC key by the authenticated principal, falling back to a shared per-transport bucket when no identity is available. Set <code>NW_REST_TRUSTED_PROXY_HOPS</code> to the number of reverse proxies in front of the app (e.g. <code>1</code> behind nginx/ALB) so REST's IP fallback isn't spoofable via <code>X-Forwarded-For</code>; leave at <code>0</code> to ignore it. The legacy <code>NW_REST_RATE_LIMIT_ENABLED</code> (and its <code>_MAX_REQUESTS</code>/<code>_WINDOW_SECONDS</code>/<code>_MAX_TRACKED_KEYS</code>/<code>_KEY_TTL_SECONDS</code> siblings) still work as a deprecated, REST-only alias for backward compatibility; the canonical <code>NW_RATE_LIMIT_PER_IDENTITY_*</code> names take precedence when set.</li>
 <li><strong>REST body size:</strong> Set <code>NW_REST_MAX_BODY_BYTES</code> (default 10 MiB) to cap JSON bodies on <code>/connectors/*</code> and <code>/scenarios/*</code> before handlers parse them. Also set <code>client_max_body_size</code> (or equivalent) on your reverse proxy for defense in depth.</li>
 <li><strong>Network bindings:</strong> MCP streamable-http defaults to <code>NW_MCP_HOST=127.0.0.1</code>; set <code>0.0.0.0</code> only when intentionally exposing beyond localhost. For gRPC, set <code>NW_GRPC_TLS_CERT_PATH</code> and <code>NW_GRPC_TLS_KEY_PATH</code>, or enable <code>NW_GRPC_REQUIRE_TLS=true</code> in production to refuse plaintext startup. Terminate TLS at a reverse proxy if not terminating in-process.</li>
 </ul>

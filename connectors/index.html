@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -887,10 +915,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#optional-registrationpy-for-errormapper" class="md-nav__link">
+  <a href="#optional-error_map-for-errormapper" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Optional: registration.py for ErrorMapper
+        Optional: error_map for ErrorMapper
       
     </span>
   </a>
@@ -963,6 +991,17 @@
     <span class="md-ellipsis">
       
         MCP binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grpc-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gRPC binding
       
     </span>
   </a>
@@ -1387,7 +1426,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -2143,10 +2182,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#optional-registrationpy-for-errormapper" class="md-nav__link">
+  <a href="#optional-error_map-for-errormapper" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Optional: registration.py for ErrorMapper
+        Optional: error_map for ErrorMapper
       
     </span>
   </a>
@@ -2219,6 +2258,17 @@
     <span class="md-ellipsis">
       
         MCP binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grpc-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        gRPC binding
       
     </span>
   </a>
@@ -2441,10 +2491,10 @@ SPDX-License-Identifier: Apache-2.0
 <p>This guide explains how <strong>connectors</strong> fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under <code>src/node_wire_&lt;connector_id&gt;/</code> (e.g. <code>src/node_wire_google_drive/</code>); the shared base class lives at <strong><code>src/node_wire_runtime/base_connector.py</code></strong>.</p>
 <h2 id="how-connectors-fit-into-the-platform">How connectors fit into the platform<a class="headerlink" href="#how-connectors-fit-into-the-platform" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>Layer B — Connectors</strong> (<code>src/node_wire_&lt;connector_id&gt;/</code>): adapter packages (schemas, logic, optional <code>registration.py</code>).</li>
+<li><strong>Layer B — Connectors</strong> (<code>src/node_wire_&lt;connector_id&gt;/</code>): adapter packages (schemas, logic, optional <code>error_map</code>).</li>
 <li><strong>Layer C — Bindings</strong> (<code>src/bindings/</code>): REST, gRPC, and MCP servers plus <code>ConnectorFactory</code> loading from <code>config/connectors.yaml</code>.</li>
 </ul>
-<p>At startup, bindings call <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong>, which loads connector entry points, imports each connector’s <code>logic</code> module (registering the class), then imports optional <code>registration.py</code> for <code>ErrorMapper</code> side effects. <strong><code>ConnectorFactory</code></strong> resolves connectors from the registry — <strong>do not add per-connector branches in <code>src/bindings/factory.py</code>.</strong></p>
+<p>At startup, bindings call <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong>, which loads connector entry points and imports each connector's <code>logic</code> module — this triggers <code>BaseConnector.__init_subclass__</code>, which both registers the class and, via the connector's declarative <code>error_map</code>, registers its exception mappings with <code>ErrorMapper</code> under that connector's own <code>connector_id</code>. <strong><code>ConnectorFactory</code></strong> resolves connectors from the registry — <strong>do not add per-connector branches in <code>src/bindings/factory.py</code>.</strong></p>
 <hr />
 <h2 id="package-layout-and-registration">Package layout and registration<a class="headerlink" href="#package-layout-and-registration" title="Anchor link to this section">&para;</a></h2>
 <p>Each connector is a <strong>top-level package</strong> under <code>src/</code> (e.g. <code>node_wire_fhir_epic</code>):</p>
@@ -2473,16 +2523,12 @@ SPDX-License-Identifier: Apache-2.0
 <td>Declarative <code>SdkActionSpec</code> entries mapping validated models to vendor SDK calls (see Google Drive).</td>
 </tr>
 <tr>
-<td><code>registration.py</code></td>
-<td>Optional: registers connector-specific exceptions with <code>ErrorMapper</code>.</td>
-</tr>
-<tr>
 <td><code>exceptions.py</code></td>
 <td>Optional: custom exception types.</td>
 </tr>
 </tbody>
 </table>
-<p>At startup, call <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong>: it loads entry points in group <code>node_wire.connectors</code>, imports each connector's <code>logic</code> module (triggering <code>BaseConnector.__init_subclass__</code>, which populates the registry returned by <code>get_connector_registry()</code>), then imports optional <code>registration.py</code> for <code>ErrorMapper</code> side effects.</p>
+<p>At startup, call <strong><code>node_wire_runtime.connector_registry.auto_register()</code></strong>: it loads entry points in group <code>node_wire.connectors</code> and imports each connector's <code>logic</code> module, triggering <code>BaseConnector.__init_subclass__</code>. That both populates the registry returned by <code>get_connector_registry()</code> and registers the connector's <code>error_map</code> with <code>ErrorMapper</code> — scoped to that connector's own <code>connector_id</code>, so one connector's exception mappings can never be resolved for another connector's errors even when both are loaded in the same process. There is no separate registration step or module.</p>
 <hr />
 <h2 id="the-unified-baseconnector">The unified <code>BaseConnector</code><a class="headerlink" href="#the-unified-baseconnector" title="Anchor link to this section">&para;</a></h2>
 <p>There is one base class for all connectors: <strong><code>BaseConnector</code></strong> (<code>src/node_wire_runtime/base_connector.py</code>). It handles:</p>
@@ -2703,8 +2749,18 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><strong><code>static_token</code></strong></td>
-<td>Uses a fixed token from a secret (Bearer, Basic, or custom). Supports refresh.</td>
+<td>Uses a fixed token from a secret (Bearer, Basic, or custom).</td>
 <td><code>stripe</code>, <code>slack</code></td>
+</tr>
+<tr>
+<td><strong><code>apikey_query</code></strong></td>
+<td>Appends an API key as a query-string parameter instead of a header.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong><code>upstream_bearer</code></strong></td>
+<td>Passes through the caller's own bearer token to the vendor API (per-request, not cached).</td>
+<td><code>google_drive</code> (opt-in override)</td>
 </tr>
 <tr>
 <td><strong><code>static_credentials</code></strong></td>
@@ -2749,12 +2805,13 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td><code>prefix</code></td>
 <td>No</td>
-<td><code>Bearer</code> (with trailing space)</td>
-<td>String prepended to the token value. Set <code>prefix: ""</code> for APIs that expect the raw token (e.g. Stripe). Set <code>prefix: "token "</code> for APIs that require the <code>token</code> scheme (check your vendor's auth docs).</td>
+<td><code>Bearer</code> (no trailing space)</td>
+<td>String prepended to the token value. The provider inserts a single space between <code>prefix</code> and the token itself — do <strong>not</strong> add a trailing space to <code>prefix</code> yourself, or you'll get a double space. Set <code>prefix: ""</code> for APIs that expect the raw token (e.g. Stripe). Set <code>prefix: "token"</code> for APIs that require the <code>token</code> scheme (check your vendor's auth docs).</td>
 </tr>
 </tbody>
 </table>
 <p>So <code>slack</code> (no <code>header_name</code>/<code>prefix</code>) produces <code>Authorization: Bearer &lt;SLACK_BOT_TOKEN&gt;</code>, and <code>stripe</code> (with <code>prefix: ""</code>) produces <code>Authorization: &lt;STRIPE_API_KEY&gt;</code>.</p>
+<p>The secret is fetched <strong>once</strong> and cached for the lifetime of the provider instance — <code>refresh()</code> only invalidates that cache so the <em>next</em> call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (e.g. redeploy) if the underlying secret is rotated.</p>
 <h3 id="configuration-connectorsyaml">Configuration (<code>connectors.yaml</code>)<a class="headerlink" href="#configuration-connectorsyaml" title="Anchor link to this section">&para;</a></h3>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">connectors</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">fhir_epic</span><span class="p">:</span>
@@ -2822,17 +2879,18 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">connector_cls</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="s2">"google_drive"</span><span class="p">]</span>
 </span></code></pre></div>
 <p>For the full run pipeline (YAML config, instantiation, protocol routing), use <strong><code>ConnectorFactory</code></strong> (see <a href="#calling-a-connector-directly-in-process">Calling a connector directly</a>).</p>
-<h3 id="optional-registrationpy-for-errormapper">Optional: <code>registration.py</code> for ErrorMapper<a class="headerlink" href="#optional-registrationpy-for-errormapper" title="Anchor link to this section">&para;</a></h3>
-<p>When exceptions are raised outside the connector class (or shared across modules), register them in <code>registration.py</code> instead of inline <code>error_map</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># src/node_wire_&lt;name&gt;/registration.py</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">ErrorCategory</span><span class="p">,</span> <span class="n">ErrorMapper</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyAuthError</span><span class="p">,</span> <span class="n">MyRateLimitError</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyAuthError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">"MY_AUTH_ERROR"</span><span class="p">)</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">ErrorMapper</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">MyRateLimitError</span><span class="p">,</span> <span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="n">code</span><span class="o">=</span><span class="s2">"MY_RATE_LIMIT"</span><span class="p">)</span>
+<h3 id="optional-error_map-for-errormapper">Optional: <code>error_map</code> for ErrorMapper<a class="headerlink" href="#optional-error_map-for-errormapper" title="Anchor link to this section">&para;</a></h3>
+<p>Declare an <code>error_map</code> class attribute on your connector to translate raised exceptions into the standard error taxonomy — including exceptions raised outside the connector class or shared across modules (e.g. <code>.exceptions</code>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MyConnector</span><span class="p">(</span><span class="n">BaseConnector</span><span class="p">):</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">connector_id</span> <span class="o">=</span> <span class="s2">"my_connector"</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="o">...</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">error_map</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">ErrorCategory</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="n">MyAuthError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">AUTH</span><span class="p">,</span> <span class="s2">"MY_AUTH_ERROR"</span><span class="p">),</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="n">MyRateLimitError</span><span class="p">:</span> <span class="p">(</span><span class="n">ErrorCategory</span><span class="o">.</span><span class="n">RETRYABLE</span><span class="p">,</span> <span class="s2">"MY_RATE_LIMIT"</span><span class="p">),</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="p">}</span>
 </span></code></pre></div>
-<p><code>auto_register()</code> imports <code>registration.py</code> after <code>logic.py</code>, so these registrations run at startup. Alternatively, use inline <strong><code>error_map</code></strong> on the connector class (Google Drive example above).</p>
+<p><code>BaseConnector.__init_subclass__</code> registers these with <code>ErrorMapper</code> as soon as <code>logic.py</code> is imported — <strong>always scoped to your connector's own <code>connector_id</code></strong>. Under the hood it calls the scoped <code>ErrorMapper.register(connector_id, exc_type, category, code)</code> (<code>src/node_wire_runtime/errors.py</code>) on your behalf; connector code never calls <code>register()</code> directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (e.g. two connectors both raising <code>httpx.HTTPStatusError</code> with different intended codes — each connector's mapping only ever applies to that connector's own errors). The separate <code>ErrorMapper.register_global()</code> exists only for runtime-owned exceptions not tied to any connector (e.g. <code>PolicyDenied</code>, <code>TenantMismatchError</code>) and is not meant for connector code either.</p>
 <hr />
 <h2 id="single-action-connector-example">Single-action connector example<a class="headerlink" href="#single-action-connector-example" title="Anchor link to this section">&para;</a></h2>
 <p>A connector with one action is identical in structure — just add one <code>@nw_action</code> method:</p>
@@ -2891,8 +2949,9 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="k">else</span><span class="p">:</span>
 </span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">error_code</span><span class="p">,</span> <span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 </span></code></pre></div>
+<p><strong>Multi-tenant / named configs:</strong> Resolve the tenant in your host (header, JWT, etc.), then <code>await factory.get("google_drive", tenant_id=tenant_id, config_name=name)</code>. The returned instance is <strong>pinned</strong> to that tenant: omit <code>tenant_id</code> on <code>run()</code> (recommended) or pass the same id. A different <code>run(tenant_id=...)</code> returns <code>TENANT_MISMATCH</code> (<code>ErrorCategory.AUTH</code>) without running the action. Omitting <code>tenant_id</code> on <code>get</code> always resolves <code>__default__</code>, not the current request tenant.</p>
 <p>For composing actions within a connector, use <strong><code>self.call_action</code></strong>. It routes through <strong><code>connector.run</code></strong> so <strong>policy hooks</strong>, <strong>resilience</strong>, and the <strong><code>ConnectorResponse</code></strong> error path apply (including MCP scope policy). It returns the nested action’s <strong>output model</strong> on success (validated from <code>run()</code>’s <code>data</code>). On policy denial it raises <strong><code>PolicyDenied</code></strong>, which the outer <code>run()</code> maps like any other action failure.</p>
-<p>Optional keyword args <code>principal</code>, <code>tenant_id</code>, and <code>scopes</code> override the caller identity for the nested call. When omitted, <strong><code>call_action</code> inherits</strong> identity from the outer <code>run()</code> (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call.</p>
+<p>Optional keyword args <code>principal</code>, <code>tenant_id</code>, and <code>scopes</code> override the caller identity for the nested call. When omitted, <strong><code>call_action</code> inherits</strong> identity from the outer <code>run()</code> (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call. On a factory-pinned instance, an explicit nested <code>tenant_id</code> must agree with the instance pin.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseConnector</span><span class="p">,</span> <span class="n">nw_action</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">"upload_then_describe"</span><span class="p">)</span>
@@ -2913,7 +2972,7 @@ SPDX-License-Identifier: Apache-2.0
 <h2 id="integrating-with-binding-layers">Integrating with binding layers<a class="headerlink" href="#integrating-with-binding-layers" title="Anchor link to this section">&para;</a></h2>
 <p>The factory and manifest drive all bindings. Once a connector is registered and <code>load()</code> is called, REST, gRPC, and MCP discover enabled connectors according to <code>exposed_via</code>.</p>
 <h3 id="optional-mcp-under-srcagents-toolhive-stdio">Optional: MCP under <code>src/agents/</code> (ToolHive / stdio)<a class="headerlink" href="#optional-mcp-under-srcagents-toolhive-stdio" title="Anchor link to this section">&para;</a></h3>
-<p>The repo also ships <strong>stdio MCP servers</strong> for agents and ToolHive under <code>src/agents/</code> (e.g. <code>python -m agents.mcp_entrypoint</code>, per-connector modules). Those are separate from <code>MODE=MCP</code> on <code>node-wire</code>; see <strong><a href="../mcp-servers/">mcp-servers.md</a></strong> for images, env, and registration. Wiring a connector in <code>config/connectors.yaml</code> does not by itself add a ToolHive image — follow <strong>mcp-servers.md</strong> when you need a dedicated MCP deployment.</p>
+<p>The repo also ships <strong>stdio MCP servers</strong> for agents and ToolHive under <code>src/agents/</code> (e.g. <code>python -m agents.mcp_entrypoint</code>, per-connector modules). Those are separate from <code>MODE=MCP</code> on <code>node-wire</code>; see <strong><a href="../packaging/">packaging.md</a></strong> for the pre-built per-connector Docker images, env, and ToolHive registration. Wiring a connector in <code>config/connectors.yaml</code> does not by itself add a ToolHive image — follow <strong>packaging.md</strong> when you need a dedicated MCP deployment.</p>
 <h3 id="rest-binding">REST binding<a class="headerlink" href="#rest-binding" title="Anchor link to this section">&para;</a></h3>
 <p><code>src/bindings/rest_api/app.py</code> calls <code>build_manifest(connectors)</code> and registers a <code>POST /connectors/{connector_id}/{action}</code> route for every manifest entry:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>POST /connectors/google_drive/files.list
@@ -2964,12 +3023,14 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <h3 id="mcp-binding">MCP binding<a class="headerlink" href="#mcp-binding" title="Anchor link to this section">&para;</a></h3>
-<p><code>src/bindings/mcp_server/server.py</code> registers one <strong>MCP tool</strong> per manifest entry. Tool names follow the pattern <code>{connector_id}.{action}</code> (e.g. <code>google_drive.files.list</code>, <code>google_drive.files.upload</code>).</p>
+<p><code>src/bindings/mcp_server/server.py</code> registers one <strong>MCP tool</strong> per manifest entry. Advertised tool names are <code>{connector_id}_{action}</code> with dots in the action replaced by underscores (e.g. <code>google_drive_files_list</code>, <code>google_drive_files_upload</code>) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.</p>
 <p>The MCP server calls <code>connector.run(args_dict)</code> and serialises the <code>ConnectorResponse</code> as the tool result.</p>
-<p>The <strong>tool name</strong> (<code>&lt;connector_id&gt;.&lt;action&gt;</code>) is authoritative: after normalizers run, the binding sets <code>action</code> from the tool name. A conflicting <code>action</code> in the payload is rejected (see <code>enforce_authoritative_action</code> in <code>src/node_wire_runtime/ingress.py</code>).</p>
+<p>The <strong>resolved action</strong> (from the advertised or legacy tool name) is authoritative: after normalizers run, the binding sets <code>action</code> from that name. A conflicting <code>action</code> in the payload is rejected (see <code>enforce_authoritative_action</code> in <code>src/node_wire_runtime/ingress.py</code>).</p>
 <p>Optional per-action <strong>argument normalizers</strong> (<code>mcp_normalize</code> on <code>@sdk_action</code> / <code>SdkActionSpec</code>) run before <code>connector.run</code> to map LLM aliases to canonical fields. Actions default to <strong>strict</strong> JSON Schema (<code>additionalProperties: false</code>); set <code>alias_tolerant=True</code> only where extra keys must pass MCP SDK validation before normalization.</p>
-<p>Published <strong><code>input_schema</code> omits the <code>action</code> property</strong> (manifest contract v2+): clients must not rely on sending <code>action</code> inside tool arguments; the MCP tool name (or REST path) is authoritative.</p>
+<p>Published <strong><code>input_schema</code> omits the <code>action</code> property</strong> (manifest contract v2+): clients must not rely on sending <code>action</code> inside tool arguments; the MCP tool name (or REST path / gRPC <code>InvokeRequest.action</code>) is authoritative.</p>
 <p><strong>FHIR <code>search_encounter</code> (Epic/Cerner):</strong> normalizers map root-level <code>patient</code> / <code>patientId</code> to <code>patient_id</code>, and <code>sort</code> → <code>_sort</code> (via <code>search_params</code>). Encounter search <strong>requires</strong> a patient filter (<code>patient_id</code> or <code>patient</code> in <code>search_params</code>) before any outbound FHIR call.</p>
+<h3 id="grpc-binding">gRPC binding<a class="headerlink" href="#grpc-binding" title="Anchor link to this section">&para;</a></h3>
+<p><code>src/bindings/grpc_server/server.py</code> exposes the <code>Connector</code> service. The <strong><code>action</code> field on <code>InvokeRequest</code></strong> is authoritative: after argument normalizers run, ingress rejects a conflicting <code>action</code> inside <code>payload_json</code> (same rule as REST and MCP). The shared Binding invoke path in <code>src/bindings/invoke.py</code> performs factory resolution and <code>connector.run</code>.</p>
 <h3 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Anchor link to this section">&para;</a></h3>
 <p><code>build_manifest(connectors)</code> (from <code>node_wire_runtime.manifest</code>) is the single source of truth for both bindings (by default it strips <code>action</code> from each entry’s <code>input_schema</code>). It returns one entry per <code>@sdk_action</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">[</span>
@@ -3006,7 +3067,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>stripe</code></td>
-<td><code>charge</code></td>
+<td><code>charge</code>, <code>create_payment_intent</code>, <code>create_subscription</code>, <code>cancel_subscription</code>, <code>issue_refund</code></td>
 </tr>
 <tr>
 <td><code>salesforce</code></td>
@@ -3030,7 +3091,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
-<p>MCP tool names: <strong><code>&lt;connector_id&gt;.&lt;action&gt;</code></strong> (e.g. <code>fhir_epic.read_patient</code>). See <a href="../mcp-servers/"><code>docs/mcp-servers.md</code></a>.</p>
+<p>MCP tool names: <strong><code>&lt;connector_id&gt;_&lt;action&gt;</code></strong> (e.g. <code>fhir_epic_read_patient</code>). See <a href="../mcp-servers/"><code>docs/mcp-servers.md</code></a>.</p>
 <hr />
 <h2 id="adding-a-new-connector-checklist">Adding a new connector (checklist)<a class="headerlink" href="#adding-a-new-connector-checklist" title="Anchor link to this section">&para;</a></h2>
 <blockquote>
@@ -3042,7 +3103,7 @@ SPDX-License-Identifier: Apache-2.0
 <li>In <code>logic.py</code>: subclass <code>BaseConnector</code>, set <code>connector_id</code> and <code>output_model</code>, then add <code>@nw_action</code> methods or wire <code>action_specs</code>. If your connector makes outbound HTTP calls (e.g. using <code>httpx</code>), declare that library as a dependency in the connector's <code>packages/connectors/&lt;name&gt;/pyproject.toml</code>. For HTTP-based connectors use an inline <code>async with httpx.AsyncClient() as client:</code> inside each <code>@nw_action</code> method (see <a href="#using-auth-in-a-connector">Using Auth in a Connector</a>); only override <code>build_client()</code> / <code>get_client()</code> when wrapping a vendor SDK that requires a long-lived client object (e.g. <code>google_drive</code>).</li>
 <li><strong>Authentication</strong>: Delegate all header construction to <strong><code>self.get_auth_headers()</code></strong>. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your <code>input_schema</code>.</li>
 <li>For SDK-style connectors, add an <code>action_spec.py</code> (or similar) with <code>SdkActionSpec</code> entries and use <strong><code>execute_spec_in_thread</code></strong> when the vendor client is blocking.</li>
-<li>Optionally add <code>error_map</code> and/or <code>registration.py</code> for custom exception handling (see <a href="#optional-registrationpy-for-errormapper">registration.py example</a> below).</li>
+<li>Optionally add <code>error_map</code> for custom exception handling (see <a href="#optional-error_map-for-errormapper">error_map example</a> below).</li>
 <li>Add the connector to <strong><code>config/connectors.yaml</code></strong> with <code>enabled: true</code>, the desired <code>exposed_via</code> protocols, and an <strong><code>auth:</code></strong> block.</li>
 <li><strong>Environment template:</strong> Add required secrets and connector-specific vars to <a href="https://github.com/AOT-Technologies/node-wire/blob/main/sample.env"><code>sample.env</code></a> (referenced by <a href="../configuration/">configuration.md</a> and <a href="../installation/">installation.md</a>). Use commented placeholders with the env var names your connector reads via <code>SecretProvider</code>. Also add the new connector's entry-point name to the <code>NW_ALLOWED_CONNECTORS</code> line so the template stays current.</li>
 <li><code>auto_register()</code> handles runtime registration — <strong>no factory branch required</strong>.</li>
@@ -3059,7 +3120,7 @@ SPDX-License-Identifier: Apache-2.0
 </blockquote>
 <ol>
 <li>Add <code>src/agents/&lt;name&gt;_mcp.py</code>, a <code>[project.scripts]</code> entry in root <code>pyproject.toml</code>, <code>docker/&lt;name&gt;/Dockerfile</code>, and entries in <strong><code>scripts/build-mcp-images.sh</code></strong>, <strong><code>docker-compose.mcp.yml</code></strong>, and <strong><a href="../local-packages-to-images/">local-packages-to-images.md</a></strong> (wheel → image mapping table).</li>
-<li>Add a row to the naming table in <strong><a href="../mcp-servers/">mcp-servers.md</a></strong> and update the architecture diagram in that file to include the new connector.</li>
+<li>Add the new connector to the "Supported connectors" list in <strong><a href="../mcp-servers/">mcp-servers.md</a></strong> if it's also getting a generated <code>nw-mcp-builder</code> host.</li>
 </ol>
 <p>For full file lists see <a href="../packaging/#adding-a-new-publishable-connector">packaging.md — Adding a new publishable connector</a>.</p>
 <hr />
@@ -3085,11 +3146,19 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td><code>load()</code></td>
-<td>Reads YAML, instantiates all enabled connectors from the connector registry (<code>get_connector_registry()</code>).</td>
+<td>Reads <code>connectors.yaml</code> and bootstraps the runtime config store. Does <strong>not</strong> instantiate connectors — instantiation is lazy.</td>
+</tr>
+<tr>
+<td><code>get(connector_id, tenant_id=None, config_name=None)</code></td>
+<td>Lazily instantiates (or returns a cached instance of) the connector for that tenant/config via <code>_instantiate()</code>, resolved from the connector registry (<code>get_connector_registry()</code>).</td>
 </tr>
 <tr>
 <td><code>get_for_protocol(id, protocol, action=None)</code></td>
-<td>Returns connector if enabled and exposed for that protocol; <code>None</code> otherwise.</td>
+<td>Like <code>get()</code>, but returns <code>None</code> if the connector isn't enabled and exposed for that protocol.</td>
+</tr>
+<tr>
+<td><code>is_exposed(connector_id, protocol)</code></td>
+<td><code>True</code> if the connector is enabled and lists <code>protocol</code> in <code>exposed_via</code>.</td>
 </tr>
 <tr>
 <td><code>list_for_protocol(protocol)</code></td>
@@ -3101,7 +3170,7 @@ SPDX-License-Identifier: Apache-2.0
 <h2 id="security-rest-plugins-secrets">Security (REST, plugins, secrets)<a class="headerlink" href="#security-rest-plugins-secrets" title="Anchor link to this section">&para;</a></h2>
 <p><strong>MCP (<code>bindings.mcp_server</code>)</strong> — Configure <strong><code>NW_MCP_API_KEY_SCOPES</code></strong> (and optionally <strong><code>NW_MCP_ACTION_SCOPE_MAP_JSON</code></strong>) so <code>tools/list</code> and <code>tools/call</code> align with the same scope rules. Code default is <strong><code>NW_MCP_SCOPE_POLICY_DEFAULT=deny</code></strong> when unset. Optional guardrail <strong><code>NW_MCP_SCOPE_POLICY_STRICT=true</code></strong> fails startup when scope policy would otherwise be effectively disabled (explicit <code>allow</code> + empty map). API key wildcard (<code>"*"</code>) is explicit and intentionally bypasses per-action scope restrictions; use only for deliberate super-user keys. JWTs use claim <code>scopes</code> / <code>scope</code> and must include <strong><code>exp</code></strong>, <strong><code>iat</code></strong>, <strong><code>aud</code></strong> (match <strong><code>NW_JWT_AUDIENCE</code></strong>), and <strong><code>iss</code></strong> (match <strong><code>NW_JWT_ISSUER</code></strong>) when <strong><code>NW_MCP_JWT_SECRET</code></strong> is set.</p>
 <p><strong>gRPC (<code>bindings.grpc_server</code>)</strong> — Configure <strong><code>NW_GRPC_API_KEY_SCOPES</code></strong> (and optionally <strong><code>NW_MCP_ACTION_SCOPE_MAP_JSON</code></strong>) so authenticated gRPC calls use the same scope rules as MCP/REST. Caller identity is propagated from the auth interceptor into <code>connector.run</code>.</p>
-<p><strong>REST API (<code>bindings.rest_api</code>)</strong> — <code>GET /health</code> is unauthenticated. All other routes (<code>/connectors/...</code>, <code>/playground/...</code>, <code>/scenarios/...</code>, OpenAPI) require <strong><code>NW_REST_API_KEY</code></strong> via <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>, optional <strong><code>NW_REST_JWT_SECRET</code></strong> for HS256 JWTs (with <strong><code>NW_JWT_AUDIENCE</code></strong> / <strong><code>NW_JWT_ISSUER</code></strong> and required <code>exp</code>/<code>iat</code>/<code>aud</code>/<code>iss</code> claims). API key scopes use <strong><code>NW_REST_API_KEY_SCOPES</code></strong> (same format as MCP). Set <strong><code>NW_REST_AUTH_DISABLED=true</code></strong> only for local development. Production: set <strong><code>NW_REST_LOAD_DOTENV=false</code></strong> so secrets are not read from a <code>.env</code> file on disk.</p>
+<p><strong>REST API (<code>bindings.rest_api</code>)</strong> — <code>GET /health</code>, <code>/docs</code>, <code>/redoc</code>, <code>/openapi.json</code>, <code>/playground/*</code>, and <code>/scenarios/*</code> are unauthenticated. Auth is required only for <code>/connectors/*</code> and <code>/ready</code>, via <strong><code>NW_REST_API_KEY</code></strong> (<code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>) or optional <strong><code>NW_REST_JWT_SECRET</code></strong> for HS256 JWTs (with <strong><code>NW_JWT_AUDIENCE</code></strong> / <strong><code>NW_JWT_ISSUER</code></strong> and required <code>exp</code>/<code>iat</code>/<code>aud</code>/<code>iss</code> claims). API key scopes use <strong><code>NW_REST_API_KEY_SCOPES</code></strong> (same format as MCP). Set <strong><code>NW_REST_AUTH_DISABLED=true</code></strong> only for local development. Production: set <strong><code>NW_REST_LOAD_DOTENV=false</code></strong> so secrets are not read from a <code>.env</code> file on disk.</p>
 <p><strong>HTTP Generic outbound policy</strong> — <code>http_generic.request</code> allows only <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>, and input methods are normalized to uppercase before validation. URLs targeting internal destinations are rejected (<code>localhost</code>, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments so only scheme/host/path are retained.</p>
 <p><strong>SMTP outbound policy</strong> — <code>smtp.send_email</code> accepts only message fields (<code>to</code>, <code>subject</code>, <code>body</code>, optional <code>from_email</code>). SMTP relay settings (<code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USE_TLS</code>) are server-side only and cannot be set in the request payload. Credentials are never sent to a caller-chosen host. For production, optionally set <strong><code>NW_SMTP_ALLOWED_HOSTS</code></strong> to a comma-separated list of permitted relay hostnames. The <code>subject</code> field must not contain newline or ASCII control characters (header-injection defense); <code>body</code> may be multiline.</p>
 <p><strong>Connector entry points</strong> — Any installed distribution may register <code>node_wire.connectors</code>. For production, set <strong><code>NW_ALLOWED_CONNECTORS</code></strong> to a comma-separated list of entry point names (e.g. <code>fhir_epic,http_generic</code>). <strong><code>NW_CONNECTOR_MODULE_PREFIX</code></strong> defaults to <code>node_wire_</code>; modules not under that prefix are skipped.</p>
@@ -3109,8 +3178,8 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><a href="../packaging/">packaging.md</a> — Wheel build lifecycle, PyPI publish flow, client install model, secrets config, and pre-publish checklist.</li>
-<li><a href="../mcp-servers/">mcp-servers.md</a> — MCP images, ToolHive, env vars.</li>
+<li><a href="../packaging/">packaging.md</a> — Wheel build lifecycle, PyPI publish flow, per-connector Docker images, ToolHive, client install model, secrets config, and pre-publish checklist.</li>
+<li><a href="../mcp-servers/">mcp-servers.md</a> — Generate a custom standalone MCP host with <code>nw-mcp-builder</code>.</li>
 <li><a href="../google_drive_connector/">google_drive_connector.md</a> — Drive REST API and setup.</li>
 <li><a href="../salesforce_connector/">salesforce_connector.md</a> — Salesforce CRM operations and playground.</li>
 <li><a href="../slack_connector/">slack_connector.md</a> — Slack bot token and setup.</li>

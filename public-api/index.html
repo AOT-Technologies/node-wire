@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -955,7 +983,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1345,6 +1373,28 @@
     <span class="md-ellipsis">
       
         Policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tenancy-host-apps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy (host apps)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtime-config-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime config store
       
     </span>
   </a>
@@ -1794,6 +1844,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tenancy-host-apps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy (host apps)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runtime-config-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime config store
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1958,7 +2030,8 @@ major version bump.</p>
 <p>Stable top-level exports (<code>node_wire_runtime.__all__</code>):</p>
 <h3 id="connector-authoring">Connector authoring<a class="headerlink" href="#connector-authoring" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><code>BaseConnector</code> — base class for connectors.</li>
+<li><code>BaseConnector</code>, <code>RestConnector</code> — base classes for connectors (<code>RestConnector</code> adds the shared HTTP-request scaffolding used by OpenAPI-generated connectors).</li>
+<li><code>RestResponseOutput</code> — shared output model for <code>RestConnector</code>-based connectors.</li>
 <li><code>get_connector_registry()</code> — returns a copy of the connector-id → class registry.</li>
 <li><code>nw_action</code>, <code>sdk_action</code> — action decorators.</li>
 <li><code>SdkActionSpec</code>, <code>default_build_kwargs</code>, <code>default_resolve_method</code>, <code>default_invoke</code>, <code>execute_spec_in_thread</code>, <code>execute_spec_async</code>.</li>
@@ -1974,16 +2047,30 @@ major version bump.</p>
 <h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><code>AuthProvider</code> (base), <code>NoAuthProvider</code>, <code>StaticTokenAuthProvider</code>,
-  <code>OAuth2AuthProvider</code>, <code>ServiceAccountAuthProvider</code>.</li>
+  <code>ApiKeyQueryAuthProvider</code>, <code>OAuth2AuthProvider</code>, <code>ServiceAccountAuthProvider</code>.</li>
 <li><code>CallerIdentity</code>, <code>build_caller_identity</code>.</li>
 </ul>
 <h3 id="policy">Policy<a class="headerlink" href="#policy" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><code>PolicyHook</code>, <code>PolicyDenied</code>.</li>
 </ul>
+<h3 id="tenancy-host-apps">Tenancy (host apps)<a class="headerlink" href="#tenancy-host-apps" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><code>resolve_tenant_id</code>, <code>tenant_from_headers</code>, <code>MissingTenantError</code></li>
+<li><code>TenantMismatchError</code> — factory instance tenant disagrees with <code>run(tenant_id=...)</code></li>
+<li><code>TenantIdentityMismatchError</code> — a caller-supplied tenant (header/session) disagrees with the authenticated JWT's tenant claim</li>
+<li><code>DEFAULT_TENANT</code> (<code>__default__</code>)</li>
+<li><code>effective_run_tenant_id</code>, <code>normalize_tenant_id</code>, <code>tenants_equivalent</code> — helpers for the pin contract</li>
+</ul>
+<h3 id="runtime-config-store">Runtime config store<a class="headerlink" href="#runtime-config-store" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><code>ConnectorConfigStore</code>, <code>ConfigRecord</code> — the per-(tenant, connector, config_name) runtime config store backing multi-tenant named configs.</li>
+<li><code>ConfigNotFoundError</code>, <code>ConfigNameConflictError</code>, <code>DefaultDeletionError</code> — config-store error types.</li>
+</ul>
 <h3 id="secrets">Secrets<a class="headerlink" href="#secrets" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><code>SecretProvider</code> (base), <code>EnvSecretProvider</code>, <code>SecretNotFoundError</code>, <code>SecretProviderError</code>.</li>
+<li><code>TenantSecretProvider</code>, <code>TenantSecretNotFoundError</code> — tenant-scoped secret resolution.</li>
 </ul>
 <h3 id="streaming">Streaming<a class="headerlink" href="#streaming" title="Anchor link to this section">&para;</a></h3>
 <ul>
@@ -1997,10 +2084,15 @@ major version bump.</p>
 <p>Connector authors depend on these stable modules:</p>
 <ul>
 <li><code>node_wire_runtime.base_connector</code> — <code>BaseConnector</code>, action decorators.</li>
-<li><code>node_wire_runtime.mcp_contract</code> — MCP tool contract flags.</li>
 <li><code>node_wire_runtime.auth.base</code> — <code>AuthProvider</code> interface.</li>
 <li><code>node_wire_runtime.secrets.base</code> — <code>SecretProvider</code> interface.</li>
 </ul>
+<p><code>node_wire_runtime.mcp_contract</code> was removed (was never actually generic: it held
+exactly one Google Drive-specific legacy-alias flag, mis-listed here as a stable
+extensibility point). Its contents moved to <code>node_wire_google_drive.normalizers</code> —
+connector-specific logic stays in the connector. Connector-specific argument
+normalizers were never part of the stable surface for any other connector either;
+this corrects the one place that had accidentally been documented as if it were.</p>
 <p>Connectors register via the <code>node_wire.connectors</code> entry-point group.</p>
 <p><strong>Bootstrap (not in <code>__all__</code>):</strong> <code>node_wire_runtime.connector_registry.auto_register()</code> loads entry points at process startup (requires <code>NW_ALLOWED_CONNECTORS</code>). In-process usage typically goes through <code>bindings.factory.ConnectorFactory</code> after <code>auto_register()</code>, not direct registry access.</p>
 <h2 id="wire-contracts">Wire contracts<a class="headerlink" href="#wire-contracts" title="Anchor link to this section">&para;</a></h2>

@@ -779,6 +779,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1166,7 +1194,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -2049,19 +2077,21 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <em>(Edit <code>.env</code> and set <code>NW_ALLOWED_CONNECTORS=http_generic</code> or others)</em></p>
 <p>Node Wire uses a fail-closed connector allowlist. If <code>NW_ALLOWED_CONNECTORS</code> is missing or empty, no connectors are loaded even when they are enabled in <code>config/connectors.yaml</code>.</p>
+<p>By default the platform is single-tenant (every call resolves to <code>__default__</code>). To isolate callers by tenant, set <code>NW_MULTITENANCY_ENABLED=true</code> and point <code>NW_TENANTS_PATH</code> at a <code>tenants.yaml</code> file (defaults to <code>config/tenants.yaml</code>). See <a href="../configuration/#multi-tenancy">Configuration — Multi-tenancy</a>.</p>
 <h3 id="3-install-dependencies">3. Install dependencies<a class="headerlink" href="#3-install-dependencies" title="Anchor link to this section">&para;</a></h3>
 <p><strong>Using <code>uv</code> (recommended):</strong></p>
 <p>The repository commits <code>uv.lock</code> for reproducible installs. Use <code>--frozen</code> in CI and local dev:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev<span class="w">   </span><span class="c1"># full dev + agents (matches CI)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w">                      </span><span class="c1"># runtime only</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--no-dev<span class="w">             </span><span class="c1"># runtime only</span>
 </span></code></pre></div>
+<p>Plain <code>uv sync --frozen</code> (no <code>--no-dev</code>) still installs the <code>dev</code> dependency group — <code>pyproject.toml</code> sets <code>default-groups = ["dev"]</code> — so it is <strong>not</strong> a runtime-only install on its own.</p>
 <p>When you change dependencies in <code>pyproject.toml</code>, regenerate and commit the lockfile:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>lock
 </span></code></pre></div>
 <p><strong>Using <code>pip</code> (unpinned; not recommended for reproducible builds):</strong>
 - Full install (including AI agents): <code>pip install -e ".[agents]"</code>
 - Minimal install (REST/gRPC only): <code>pip install -e .</code>
-- Dev install (linting/tests): <code>pip install -e ".[dev,agents]"</code></p>
+- Dev tooling (ruff/mypy/pytest/bandit): there is no <code>dev</code> extra — <code>dev</code> is a <code>uv</code> <code>[dependency-groups]</code> entry, not a <code>pip</code> install extra, so <code>pip install -e ".[dev,agents]"</code> fails. Use <code>uv sync --frozen --all-extras --dev</code> for the dev toolchain, or install ruff/mypy/pytest/bandit manually if you must stay on plain <code>pip</code>.</p>
 <h3 id="4-verify-the-installation">4. Verify the installation<a class="headerlink" href="#4-verify-the-installation" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"from importlib.metadata import version; print('node-wire', version('node-wire'))"</span>
 </span></code></pre></div>
@@ -2116,7 +2146,8 @@ SPDX-License-Identifier: Apache-2.0
 <p>For MCP transport modes, Inspector usage, and multi-server deployment:</p>
 <ul>
 <li>See <a href="../mcp/">mcp.md</a> for transport setup and local MCP usage.</li>
-<li>See <a href="../mcp-servers/">mcp-servers.md</a> for per-connector images, ToolHive, and Docker-based MCP deployment.</li>
+<li>See <a href="../packaging/">packaging.md</a> for pre-built per-connector Docker images and ToolHive deployment.</li>
+<li>See <a href="../mcp-servers/">mcp-servers.md</a> to generate a custom standalone MCP host with <code>nw-mcp-builder</code>.</li>
 </ul>
 <hr />
 <h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Anchor link to this section">&para;</a></h2>

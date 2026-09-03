@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1132,7 +1160,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -2040,7 +2068,7 @@ SPDX-License-Identifier: Apache-2.0
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--tag<span class="w"> </span>v1
 </span></code></pre></div>
-<p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (e.g. <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>.</p>
+<p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (e.g. <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>. Pass secrets at <strong>run</strong> time (<code>docker run --env-file</code> / <code>-e</code>); they are not baked into the image.</p>
 <p>If the MCP project directory is missing, the same TTY / non-TTY prompt offers to run <code>nw gen-mcp</code> first.</p>
 <hr />
 <h2 id="output">Output<a class="headerlink" href="#output" title="Anchor link to this section">&para;</a></h2>

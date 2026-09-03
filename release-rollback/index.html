@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -955,7 +983,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -2057,6 +2085,12 @@ at the bad version).</p>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.1<span class="w"> </span>&lt;fixed-sha&gt;<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.1"</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.1
 </span></code></pre></div>
+<p>Note: this is a manual, out-of-band path (a fix-and-re-tag, not a normal release). The
+normal forward path for creating a release tag uses the <strong>Create Release Tag</strong>
+workflow (<code>.github/workflows/create-tag.yml</code>, see <a href="../packaging/">packaging.md</a>), which
+validates version format, package-version consistency, and the CHANGELOG entry before
+tagging. Rollback intentionally bypasses that validation, so double-check the fixed SHA
+and version bump by hand before pushing.</p>
 <h2 id="step-5-communicate">Step 5 — Communicate<a class="headerlink" href="#step-5-communicate" title="Anchor link to this section">&para;</a></h2>
 <p>Minimum user-facing notice (GitHub Release, Discussion, or advisory):</p>
 <ul>

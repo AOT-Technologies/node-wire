@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1111,6 +1139,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fhir-tool-arguments-cerner-epic" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1166,7 +1205,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1889,6 +1928,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fhir-tool-arguments-cerner-epic" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1997,7 +2047,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <h1 id="model-context-protocol-mcp-in-node-wire">Model Context Protocol (MCP) in Node Wire<a class="headerlink" href="#model-context-protocol-mcp-in-node-wire" title="Anchor link to this section">&para;</a></h1>
 <p>Node Wire integrates with the Model Context Protocol to allow AI agents (like Claude or custom LLM orchestrators) to discover and use connectors as tools.</p>
-<p>For <strong>per-connector Docker images and ToolHive registration</strong>, see <a href="../mcp-servers/">mcp-servers.md</a>.</p>
+<p>For <strong>pre-built per-connector Docker images and ToolHive registration</strong>, see <a href="../packaging/">packaging.md</a>. For <strong>generating a custom standalone MCP host</strong> for a connector with <code>nw-mcp-builder</code>, see <a href="../mcp-servers/">mcp-servers.md</a>.</p>
 <p>For <strong>outbound OAuth</strong> when connecting to remote authorized MCP servers over HTTP, see <a href="../mcp-client-oauth/">mcp-client-oauth.md</a>.</p>
 <h2 id="transport-modes">Transport Modes<a class="headerlink" href="#transport-modes" title="Anchor link to this section">&para;</a></h2>
 <p>Switch between transports using the <code>NW_MCP_TRANSPORT</code> environment variable.</p>
@@ -2068,10 +2118,19 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div></p>
 <h3 id="2-individual-mcp-servers">2. Individual MCP Servers<a class="headerlink" href="#2-individual-mcp-servers" title="Anchor link to this section">&para;</a></h3>
 <p>Each connector runs as its own independent MCP server (often in a dedicated Docker container). This is preferred for modular, scalable deployments.
-- <strong>Full Guide:</strong> <a href="../mcp-servers/">Individual MCP Servers (Docker)</a></p>
+- <strong>Pre-built per-connector Docker images:</strong> <a href="../packaging/">packaging.md</a>
+- <strong>Generate a custom standalone MCP host with <code>nw-mcp-builder</code>:</strong> <a href="../mcp-servers/">mcp-servers.md</a></p>
+<hr />
+<h2 id="multi-tenancy">Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Anchor link to this section">&para;</a></h2>
+<p>When <code>NW_MULTITENANCY_ENABLED=true</code>, MCP loads <code>config/tenants.yaml</code> (or <code>NW_TENANTS_PATH</code>) and exposes <code>nw_list_tenants</code>, <code>nw_select_tenant</code>, <code>nw_list_configs</code>, and <code>nw_select_config</code>. <code>nw_select_config</code>'s selection applies to <strong>every connector</strong> on that MCP process by default, but each connector tool also accepts an optional per-call <code>config_name</code> argument that outranks the shared selection for that one call. <code>tenant_id</code> is never accepted as a tool argument — tenant is always resolved from the session/request, never from tool call arguments.</p>
+<p>Tenant pin precedence differs by transport:
+- <strong>stdio:</strong> the <code>NW_TENANT_ID</code> env pin is the default until <code>nw_select_tenant</code> is called, after which the selection overrides it for the rest of the session.
+- <strong>streamable-http:</strong> the live per-request <code>X-Tenant-ID</code> header (or JWT tenant claim) always wins, on every request — a prior <code>nw_select_tenant</code> call in one session can never shadow another concurrent session's request-level tenant. A tenant claim in the JWT that disagrees with the caller-supplied header/session tenant is rejected with a <code>TenantIdentityMismatchError</code> (403 <code>TENANT_IDENTITY_MISMATCH</code>), not silently overridden.</p>
+<p><strong>Session vs instance pin:</strong> <code>nw_select_tenant</code> sets the MCP <strong>session</strong> overlay (which tenant/config names bindings pass into <code>factory.get</code>). The factory then sets <strong><code>_tenant_id</code> on the connector instance</strong>; <code>run()</code> uses that pin when <code>tenant_id</code> is omitted and returns <code>TENANT_MISMATCH</code> if a caller passes a different id.</p>
+<p><strong>Full guide:</strong> <a href="../mcp-servers/#multi-tenancy-mcp">Multi-tenancy (MCP)</a></p>
 <hr />
 <h2 id="fhir-tool-arguments-cerner-epic">FHIR Tool Arguments (Cerner / Epic)<a class="headerlink" href="#fhir-tool-arguments-cerner-epic" title="Anchor link to this section">&para;</a></h2>
-<p>Tool names follow the pattern <code>fhir_cerner.&lt;action&gt;</code> and <code>fhir_epic.&lt;action&gt;</code>. The MCP server normalizes common LLM aliases (e.g., <code>patientId</code> → <code>resource_id</code>).</p>
+<p>Tool names follow the pattern <code>fhir_cerner_&lt;action&gt;</code> and <code>fhir_epic_&lt;action&gt;</code> (e.g. <code>fhir_cerner_read_patient</code>). The MCP server normalizes common LLM aliases (e.g., <code>patientId</code> → <code>resource_id</code>).</p>
 <table>
 <thead>
 <tr>
@@ -2101,11 +2160,12 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="connector-manifests">Connector Manifests<a class="headerlink" href="#connector-manifests" title="Anchor link to this section">&para;</a></h2>
 <p>Each connector defines a manifest that MCP uses to understand available tools.
-- Tool names follow the pattern: <code>&lt;connector_id&gt;.&lt;action&gt;</code> (e.g., <code>google_drive.files.list</code>).
+- Tool names follow the pattern: <code>&lt;connector_id&gt;_&lt;action&gt;</code> with dots in the action replaced by underscores (e.g., <code>google_drive_files_list</code>). Legacy dotted names (<code>google_drive.files.list</code>) still work on <code>tools/call</code>.
 - The runtime handles argument normalization, so LLM-friendly aliases often work automatically.</p>
 <h2 id="related-docs">Related Docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><a href="../mcp-servers/">Individual MCP Servers (Docker)</a></li>
+<li><a href="../packaging/">Pre-built per-connector Docker images</a></li>
+<li><a href="../mcp-servers/">Generate a custom MCP host (<code>nw-mcp-builder</code>)</a></li>
 <li><a href="../toolhive_agent_scenario/">ToolHive Agent Scenario</a></li>
 </ul>
 
@@ -2162,13 +2222,13 @@ SPDX-License-Identifier: Apache-2.0
         
         
           
-          <a href="../mcp-servers/" class="md-footer__link md-footer__link--next" aria-label="Next: MCP Servers">
+          <a href="../mcp-servers/" class="md-footer__link md-footer__link--next" aria-label="Next: MCP Host Builder (nw-mcp-builder)">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                MCP Servers
+                MCP Host Builder (nw-mcp-builder)
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -27,7 +27,7 @@
     
     
       
-        <title>MCP Servers - Node Wire</title>
+        <title>MCP Host Builder (nw-mcp-builder) - Node Wire</title>
       
     
     
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MCP Servers
+              MCP Host Builder (nw-mcp-builder)
             
           </span>
         </div>
@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -967,7 +995,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -985,7 +1013,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1209,6 +1237,17 @@
     <span class="md-ellipsis">
       
         Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-tenancy-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy (MCP)
       
     </span>
   </a>
@@ -2032,6 +2071,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#multi-tenancy-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy (MCP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#package-layout-source" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2129,7 +2179,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <h1 id="nw-mcp-builder">nw-mcp-builder<a class="headerlink" href="#nw-mcp-builder" title="Anchor link to this section">&para;</a></h1>
 <p>Self-contained tool inside the <strong>node-wire</strong> repo that turns a node-wire connector into a standalone MCP server project.</p>
-<p>It does <strong>not</strong> depend on the separate <a href="https://github.com/your-org/mcp-builder">mcp-builder</a> repo. Everything needed to generate connector-mode MCP hosts lives in this folder.</p>
+<p>It does <strong>not</strong> depend on any separate external <code>mcp-builder</code> project. Everything needed to generate connector-mode MCP hosts lives in this folder.</p>
 <p>To <strong>create</strong> a connector from OpenAPI/Swagger first, use <a href="../nw-connector-builder/">nw-connector-builder</a> (it can hand off to this tool automatically unless you pass <code>--no-mcp</code>), or the full pipeline via <a href="../nw-cli/"><code>nw gen-all</code></a>.</p>
 <p>You can also run MCP generation as a subcommand of the connector builder (same flags), or via the orchestrator CLI:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--directory<span class="w"> </span>nw-connector-builder<span class="w"> </span>nw-connector-builder<span class="w"> </span>mcp<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
@@ -2137,7 +2187,6 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>&lt;connector_id&gt;
 </span></code></pre></div>
 <p>The standalone <code>nw-mcp-builder</code> entry point remains supported.</p>
-</div>
 <hr />
 <h2 id="platform-and-toolhive-read-this-first">Platform and ToolHive (read this first)<a class="headerlink" href="#platform-and-toolhive-read-this-first" title="Anchor link to this section">&para;</a></h2>
 <p>Wheels for runtime and connectors are <strong>Cython / platform-specific</strong>. What you build must match how you run the host.</p>
@@ -2556,6 +2605,26 @@ SPDX-License-Identifier: Apache-2.0
 <td><code>config/connectors.yaml</code></td>
 <td>Connector registry config</td>
 </tr>
+<tr>
+<td><code>NW_MULTITENANCY_ENABLED</code></td>
+<td><code>false</code></td>
+<td>When <code>true</code>, load <code>NW_TENANTS_PATH</code> and expose <code>nw_*</code> tenant/config tools</td>
+</tr>
+<tr>
+<td><code>NW_TENANTS_PATH</code></td>
+<td><code>config/tenants.yaml</code></td>
+<td>Runtime tenant/config + secret store</td>
+</tr>
+<tr>
+<td><code>NW_MCP_TENANT_PIN_LOCKED</code></td>
+<td><code>false</code></td>
+<td>When <code>true</code>, reject <code>nw_select_tenant</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_ALLOWED_TENANTS</code></td>
+<td><em>(unset)</em></td>
+<td>Comma-separated allowlist for list/select</td>
+</tr>
 </tbody>
 </table>
 <p>Connector-specific secrets (any connector) are listed in <code>.env.example</code> when auto-detected from <code>config/connectors.yaml</code> and <code>sample.env</code>. Provide them via process env (ToolHive/Docker) or copy into the <strong>generated project</strong> <code>.env</code> for unset keys — do not rely on the monorepo <code>.env</code>.</p>
@@ -2565,14 +2634,17 @@ SPDX-License-Identifier: Apache-2.0
 <p>From a generated project (use <strong>Linux</strong> wheels for this path — see <a href="#platform-and-toolhive-read-this-first">Platform and ToolHive</a>):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">cd</span><span class="w"> </span>out/&lt;name&gt;-mcp
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>&lt;image-name&gt;<span class="w"> </span>.
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>&lt;image-name&gt;
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># Example</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="nb">cd</span><span class="w"> </span>out/salesforce-nw-mcp
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>docker<span class="w"> </span>run<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>salesforce-nw-mcp
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># Secrets at runtime only — never COPY .env into the image</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>&lt;image-name&gt;
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="c1"># Example</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="nb">cd</span><span class="w"> </span>out/salesforce-nw-mcp
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>salesforce-nw-mcp
 </span></code></pre></div>
-<p>The Dockerfile installs wheels from <code>./wheels</code>, sets <code>PYTHONPATH=/nw_src</code>, and runs <code>python -m &lt;module&gt;</code>.</p>
+<p>The generated Dockerfile is digest-pinned (<code>python:3.12-slim@sha256:…</code>), runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels, vendored src, <code>config/connectors.yaml</code>, and the thin host. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. <code>PYTHONPATH=/nw_src:/app/src</code> and <code>python -m &lt;module&gt;</code> are the entrypoint. MCP auth is <strong>not</strong> disabled in the image; set <code>NW_MCP_AUTH_DISABLED=true</code> at run time for local Inspector use.</p>
+<p><code>--env-file</code> injects process environment. Do not bind-mount <code>.env</code> into the container filesystem.</p>
+<p><strong>MCP SDK:</strong> Pin <code>mcp&gt;=1.6.0,&lt;2</code>. MCP SDK 2.x breaks <code>@server.list_tools()</code> on the current server binding.</p>
 <hr />
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Anchor link to this section">&para;</a></h2>
 <table>
@@ -2613,7 +2685,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td>Connector secrets missing in Docker/ToolHive</td>
-<td>Set secrets/env in the orchestrator, or mount project <code>.env</code> at <code>/app/.env</code></td>
+<td>Set secrets via <code>docker run -e</code> / <code>--env-file</code> or the orchestrator. Do not COPY or bind-mount <code>.env</code> into the image.</td>
 </tr>
 <tr>
 <td>Connector action fails at runtime</td>
@@ -2623,32 +2695,118 @@ SPDX-License-Identifier: Apache-2.0
 <td>Wrong listen port in ToolHive</td>
 <td>Set <code>NW_MCP_PORT</code> to the same value as ToolHive <code>FASTMCP_PORT</code> / <code>MCP_PORT</code></td>
 </tr>
+<tr>
+<td><code>AttributeError: 'Server' object has no attribute 'list_tools'</code></td>
+<td>Pin <code>mcp&gt;=1.6.0,&lt;2</code> in the image Dockerfile and rebuild</td>
+</tr>
+<tr>
+<td><code>Config 'X' is not defined for connector 'Y'</code> (MT)</td>
+<td>Use a config name that exists on every connector you call, or add it in <code>tenants.yaml</code> / REST</td>
+</tr>
 </tbody>
 </table>
+<hr />
+<h2 id="multi-tenancy-mcp">Multi-tenancy (MCP)<a class="headerlink" href="#multi-tenancy-mcp" title="Anchor link to this section">&para;</a></h2>
+<p>Node-wire MCP reuses the same runtime config store as REST (<code>NW_TENANTS_PATH</code> / <code>config/tenants.yaml</code>). Standalone MCP (<code>python -m agents.mcp_entrypoint</code>, ToolHive images) calls <code>load_tenants</code> on startup so named tenants/configs are available without going through the playground process.</p>
+<p><strong>Enable:</strong> <code>NW_MULTITENANCY_ENABLED=true</code>.</p>
+<p><strong>Pin tenant (default):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Transport</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>streamable-http</td>
+<td>Client sends <code>X-Tenant-ID</code> on each request. If missing and <code>__default__</code> exists in the store, initialize uses <code>__default__</code> instead of <code>400 MISSING_TENANT</code>.</td>
+</tr>
+<tr>
+<td>stdio / ToolHive container</td>
+<td>Set <code>NW_TENANT_ID</code> for that process</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Discover tenants:</strong> call MCP tool <code>nw_list_tenants</code> (optional <code>connector_id</code>; legacy alias <code>nw.list_tenants</code>). Response includes <code>tenants</code>, <code>current_tenant_id</code> / <code>pinned_tenant_id</code>, and <code>summary</code>.</p>
+<p><strong>Switch tenant:</strong> call <code>nw_select_tenant</code> <code>{ "tenant_id": "&lt;id&gt;" }</code> (alias <code>nw.select_tenant</code>). Sets the session overlay for <strong>every connector</strong> on this process (stdio and streamable-http). Returns named configs. Set <code>NW_MCP_TENANT_PIN_LOCKED=true</code> to reject switch. Optional <code>NW_MCP_ALLOWED_TENANTS</code> allowlist. Unknown tenants fail closed.</p>
+<p>Soft-pin precedence differs by transport: on <strong>stdio</strong>, this selection overrides the <code>NW_TENANT_ID</code> env pin for later calls in the same process. On <strong>streamable-http</strong>, it does <em>not</em> override <code>X-Tenant-ID</code> — the live per-request header (or JWT tenant claim) always wins on every request, so one session's <code>nw_select_tenant</code> can never shadow another concurrent HTTP session's request-level tenant. A JWT tenant claim that disagrees with the caller-supplied header/session tenant fails closed with a <code>TenantIdentityMismatchError</code> (403 <code>TENANT_IDENTITY_MISMATCH</code>) rather than being silently overridden either way.</p>
+<p><strong>Discover configs:</strong> <code>nw_list_configs</code> (optional <code>connector_id</code> and <code>tenant_id</code>; alias <code>nw.list_configs</code>). Omit <code>tenant_id</code> to use the selected or pinned tenant. MCP does <strong>not</strong> create, update, or delete configs — provision those via playground Add config, REST <code>/v1/connectors/{cid}/configs</code>, or by editing <code>tenants.yaml</code>.</p>
+<p><strong>Select a config:</strong> call <code>nw_select_config</code> <code>{ "config_name": "&lt;name&gt;" }</code>. That name becomes the <em>default</em> for every connector on this process. Response includes <code>connectors_with_config</code> and <code>connectors_missing_config</code>. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI <code>--config-name</code> runs <code>nw_select_config</code> at start. <code>tenant_id</code> is never accepted as a connector-tool argument, but every connector tool <em>does</em> accept an optional per-call <code>config_name</code> argument, which outranks the shared <code>nw_select_config</code> selection for that one call only.</p>
+<p><strong>Instance pin (runtime):</strong> After <code>factory.get</code>, the connector instance is bound to that tenant's config and secrets (<code>_tenant_id</code>). Bindings still pass the resolved tenant into <code>run()</code>; omitting it on <code>run</code> also works. A conflicting <code>run(tenant_id=...)</code> fails closed with <code>TENANT_MISMATCH</code> — distinct from the MCP session <code>pinned_tenant_id</code> in <code>nw_list_tenants</code> responses.</p>
+<p>Two ToolHive images (Drive + Epic) are two processes: select on one does not update the other. Use one MCP with both connectors (<code>python -m agents.mcp_entrypoint</code>) so one overlay covers every connector.</p>
+<p><strong>Recommended ToolHive env (unified <code>node-wire:latest</code>, stdio + MT):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NW_MCP_TRANSPORT</code></td>
+<td><code>stdio</code></td>
+</tr>
+<tr>
+<td><code>NW_ALLOWED_CONNECTORS</code></td>
+<td>e.g. <code>google_drive,fhir_epic</code></td>
+</tr>
+<tr>
+<td><code>NW_MULTITENANCY_ENABLED</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NW_TENANTS_PATH</code></td>
+<td><code>/app/config/tenants.yaml</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_AUTH_DISABLED</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_SCOPE_POLICY_DEFAULT</code></td>
+<td><code>allow</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_TENANT_PIN_LOCKED</code></td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table>
+<p>Mount host <code>config/tenants.yaml</code> → <code>/app/config/tenants.yaml</code> (read-only). Connector credentials live in that file’s <code>secrets:</code> blocks (or per-tenant env vars); flat ToolHive secrets are optional when YAML holds them.</p>
+<p><strong>Cross-connector config names:</strong> <code>nw_select_config</code> sets one name globally. If tenant <code>acme</code> has Drive config <code>test-drive</code> but Epic only <code>test</code>, Epic calls fail until you select a name that exists on <strong>every</strong> connector you use, or add the missing config in YAML/REST.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>1. Enable NW_MULTITENANCY_ENABLED=true; ensure tenants.yaml is mounted/present
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>2. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>3. tools/call nw_select_tenant { "tenant_id": "&lt;id from step 2&gt;" }  # returns configs
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>4. tools/call nw_select_config { "config_name": "&lt;name from step 3&gt;" }
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>5. tools/call google_drive_files_list  { ... }
+</span></code></pre></div>
+<p>Rebuild generated ToolHive MCP images after this change so vendored <code>server.py</code> picks up the new tools.</p>
 <p>Verbose logging during generation:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>-v
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="c1"># Example</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>-v
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>-v
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="c1"># Example</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>-v
 </span></code></pre></div>
 <hr />
 <h2 id="package-layout-source">Package layout (source)<a class="headerlink" href="#package-layout-source" title="Anchor link to this section">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>nw-mcp-builder/
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>  pyproject.toml
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>  README.md
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>  fixtures/                 # *_nw.yaml scope files
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
-</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>  src/nw_mcp_builder/
-</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
-</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
-</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    pipeline.py             # run_connector_pipeline
-</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    generate/
-</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
-</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>    schema/
-</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>      models.py             # MCPScope validation for fixtures
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>nw-mcp-builder/
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>  pyproject.toml
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>  README.md
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  fixtures/                 # *_nw.yaml scope files
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>  src/nw_mcp_builder/
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    pipeline.py             # run_connector_pipeline
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    generate/
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    schema/
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>      models.py             # MCPScope validation for fixtures
 </span></code></pre></div>
 <p>Dependencies: <code>pydantic</code>, <code>pyyaml</code> only (no mcp-builder dependency).</p>
 <p>Unit tests live under <code>tests/nw_mcp_builder/</code> (run from the node-wire repo root):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </span></code></pre></div>
 <hr />
 <h2 id="relationship-to-mcp-builder">Relationship to mcp-builder<a class="headerlink" href="#relationship-to-mcp-builder" title="Anchor link to this section">&para;</a></h2>

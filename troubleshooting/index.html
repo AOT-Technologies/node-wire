@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -955,7 +983,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1831,8 +1859,29 @@ SPDX-License-Identifier: Apache-2.0
 <td><code>NW_ALLOWED_CONNECTORS</code> is missing.</td>
 <td><strong>Required.</strong> Set <code>NW_ALLOWED_CONNECTORS</code> to a comma-separated list of connectors to enable.</td>
 </tr>
+<tr>
+<td><strong><code>400 MISSING_TENANT</code></strong></td>
+<td><code>NW_MULTITENANCY_ENABLED=true</code> but the request carried no tenant (no <code>X-Tenant-ID</code> header / JWT claim / <code>NW_TENANT_ID</code> pin).</td>
+<td>Send <code>X-Tenant-ID</code> (REST/gRPC), set <code>NW_TENANT_ID</code> (MCP stdio), or add a <code>__default__</code> tenant to <code>tenants.yaml</code>.</td>
+</tr>
+<tr>
+<td><strong><code>403 TENANT_IDENTITY_MISMATCH</code></strong></td>
+<td>A JWT <code>tenant</code> claim disagrees with the caller-supplied header/session tenant.</td>
+<td>Use a token whose tenant claim matches the <code>X-Tenant-ID</code> header (or the session's selected/pinned tenant) — never silently overridden.</td>
+</tr>
+<tr>
+<td><strong><code>tenant secret not found: &lt;tenant&gt;/&lt;connector&gt;/...</code></strong></td>
+<td>No secret set for that tenant/connector (and config, if named) combination.</td>
+<td>Add <code>NW_{TENANT}_{CONNECTOR}_{KEY}</code> (or <code>NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}</code> for a named config) as an env var, or add it under <code>secrets:</code> in <code>tenants.yaml</code>.</td>
+</tr>
+<tr>
+<td><strong><code>Config 'X' is not defined for connector 'Y'</code></strong></td>
+<td><code>nw_select_config</code> (or a per-call <code>config_name</code>) named a config that doesn't exist for that connector on the selected tenant.</td>
+<td>Use a config name that exists on every connector you call, or add it via <code>tenants.yaml</code> / REST.</td>
+</tr>
 </tbody>
 </table>
+<p>Multi-tenancy reference: <a href="../configuration/#multi-tenancy">Configuration — Multi-tenancy</a>, <a href="../mcp-servers/#multi-tenancy-mcp">MCP — Multi-tenancy</a>.</p>
 <hr />
 <h2 id="logging-debugging">Logging &amp; Debugging<a class="headerlink" href="#logging-debugging" title="Anchor link to this section">&para;</a></h2>
 <h3 id="rest-api">REST API<a class="headerlink" href="#rest-api" title="Anchor link to this section">&para;</a></h3>

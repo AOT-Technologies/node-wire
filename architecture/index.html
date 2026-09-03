@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -736,6 +764,17 @@
   
     <nav class="md-nav" aria-label="Layer C – bindings">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#binding-invoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding invoke
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#bindings-offered" class="md-nav__link">
@@ -1114,7 +1153,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1805,6 +1844,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#binding-invoke" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding invoke
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#bindings-offered" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1970,7 +2020,7 @@ flowchart LR
 <h3 id="data-flow-simplified">Data Flow (Simplified)<a class="headerlink" href="#data-flow-simplified" title="Anchor link to this section">&para;</a></h3>
 <ol>
 <li>A request arrives via REST, gRPC, or MCP.</li>
-<li>The <code>ConnectorFactory</code> resolves the right connector.</li>
+<li>The Binding resolves the tenant (header, MCP overlay, or gRPC metadata), then calls the shared <strong>Binding invoke</strong> path (<code>src/bindings/invoke.py</code>): exposure check → <code>ConnectorFactory.get</code> (config + secrets bound at <code>get</code> time) → ingress normalize/enforce → <code>connector.run</code>.</li>
 <li>The runtime runs the connector:</li>
 <li>Validate input via Pydantic.</li>
 <li>Optional policy check.</li>
@@ -1991,6 +2041,7 @@ flowchart LR
 <li><strong>Resilience</strong>: Decorators for retries (Tenacity) and circuit breaking (PyBreaker).</li>
 <li><strong>SecretProvider</strong>: Abstraction for fetching secrets (API keys, credentials).</li>
 <li><strong>PolicyHook</strong>: Optional hook to allow or deny execution based on principal or tenant.</li>
+<li><strong>Tenant pinning</strong>: Factory-built instances carry <code>_tenant_id</code>; <code>run()</code> uses that pin when <code>tenant_id</code> is omitted and rejects mismatched caller ids with <code>TENANT_MISMATCH</code>.</li>
 <li><strong>Telemetry</strong>: OpenTelemetry integration for tracing.</li>
 </ul>
 <hr />
@@ -2000,13 +2051,14 @@ flowchart LR
 <h3 id="common-structure">Common Structure<a class="headerlink" href="#common-structure" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><code>schema.py</code>: Pydantic models for request and response.</li>
-<li><code>logic.py</code>: Connector class and external service logic.</li>
-<li><code>registration.py</code>: Registers connector-specific exceptions.</li>
+<li><code>logic.py</code>: Connector class and external service logic, including an optional <code>error_map</code> class attribute that registers the connector's exception mappings — scoped to that connector's own <code>connector_id</code> so they can never be resolved for another connector's errors.</li>
 </ul>
 <hr />
 <h2 id="layer-c-bindings">Layer C – <code>bindings</code><a class="headerlink" href="#layer-c-bindings" title="Anchor link to this section">&para;</a></h2>
 <p><strong>Purpose:</strong> Expose connectors over different protocols and load them from configuration.</p>
 <p><strong>Location:</strong> <code>src/bindings/</code></p>
+<h3 id="binding-invoke">Binding invoke<a class="headerlink" href="#binding-invoke" title="Anchor link to this section">&para;</a></h3>
+<p>REST, MCP, and gRPC share one invoke seam in <code>src/bindings/invoke.py</code>. Each binding adapter resolves transport-specific tenant and caller identity, then delegates exposure, factory resolution, ingress normalization, and <code>run()</code> to that module. Transport-only concerns (HTTP status mapping, MCP pagination guardrails, protobuf encoding) stay in the respective binding.</p>
 <h3 id="bindings-offered">Bindings Offered<a class="headerlink" href="#bindings-offered" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><strong>REST API (FastAPI)</strong>: Dynamic routes at <code>POST /connectors/{connector_id}/{action}</code>.</li>

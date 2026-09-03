@@ -668,6 +668,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1055,7 +1083,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1756,7 +1784,8 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>node-wire
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>cp<span class="w"> </span>sample.env<span class="w"> </span>.env
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w">   </span><span class="c1"># local dev only — otherwise /connectors/* and /ready return 503 until auth is configured</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire
 </span></code></pre></div>
 <p>Open <a href="http://localhost:8000/docs">http://localhost:8000/docs</a> for the Swagger UI, or the <a href="http://localhost:8000/playground/">playground</a> for interactive connector demos.</p>
 <h2 id="key-sections">Key Sections<a class="headerlink" href="#key-sections" title="Anchor link to this section">&para;</a></h2>
@@ -1792,6 +1821,11 @@ SPDX-License-Identifier: Apache-2.0
 <p>Deploy connectors as Model Context Protocol servers for AI agents.</p>
 <p><a href="mcp/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> MCP Overview</a></p>
 </li>
+<li>
+<p><strong>Multi-tenancy</strong></p>
+<p>Isolate tenants by header/JWT, with per-tenant named configs and secrets.</p>
+<p><a href="configuration/#multi-tenancy"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Multi-tenancy</a></p>
+</li>
 </ul>
 </div>
 <h2 id="available-connectors">Available Connectors<a class="headerlink" href="#available-connectors" title="Anchor link to this section">&para;</a></h2>
@@ -1816,7 +1850,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td>Slack</td>
-<td>Events API</td>
+<td>Web API</td>
 <td><a href="slack_connector/">Guide</a></td>
 </tr>
 <tr>

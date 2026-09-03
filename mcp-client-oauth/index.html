@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -958,7 +986,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1922,7 +1950,7 @@ SPDX-License-Identifier: Apache-2.0
 <p>This is <strong>separate</strong> from:</p>
 <ul>
 <li><strong>Inbound MCP server auth</strong> (<code>NW_MCP_API_KEY</code>, <code>NW_MCP_JWT_SECRET</code>) — clients calling <em>node-wire’s</em> MCP server.</li>
-<li><strong>Connector OAuth</strong> (<code>OAuth2AuthProvider</code>) — Epic/Cerner/Stripe credentials for connector actions.</li>
+<li><strong>Connector OAuth</strong> (<code>OAuth2AuthProvider</code>) — Epic/Cerner/Salesforce credentials for connector actions. (Stripe uses <code>static_token</code>, not OAuth2.)</li>
 </ul>
 <h2 id="package">Package<a class="headerlink" href="#package" title="Anchor link to this section">&para;</a></h2>
 <p>Implementation lives in <code>src/node_wire_runtime/mcp_client/</code>:</p>
@@ -1937,6 +1965,10 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td><code>config.py</code></td>
 <td>Operator settings (Section 10)</td>
+</tr>
+<tr>
+<td><code>env_config.py</code></td>
+<td>Builds <code>McpClientConfig</code> from <code>NW_MCP_OAUTH_*</code> env vars</td>
 </tr>
 <tr>
 <td><code>discovery.py</code></td>
@@ -1957,6 +1989,26 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td><code>storage.py</code></td>
 <td>Persisted DCR registrations per issuer</td>
+</tr>
+<tr>
+<td><code>token_storage.py</code></td>
+<td>Persisted access/refresh tokens per issuer</td>
+</tr>
+<tr>
+<td><code>token_manager.py</code></td>
+<td><code>TokenManager</code> — caches and refreshes tokens ahead of expiry</td>
+</tr>
+<tr>
+<td><code>client.py</code></td>
+<td><code>McpOAuthClient</code> / <code>create_http_mcp_client()</code> — the client factory used by ToolHive/playground integration</td>
+</tr>
+<tr>
+<td><code>challenges.py</code></td>
+<td>PKCE challenge/verifier generation</td>
+</tr>
+<tr>
+<td><code>exceptions.py</code></td>
+<td><code>McpOAuthConfigurationError</code> and related error types</td>
 </tr>
 </tbody>
 </table>
@@ -2127,7 +2179,7 @@ SPDX-License-Identifier: Apache-2.0
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../mcp-servers/" class="md-footer__link md-footer__link--prev" aria-label="Previous: MCP Servers">
+          <a href="../mcp-servers/" class="md-footer__link md-footer__link--prev" aria-label="Previous: MCP Host Builder (nw-mcp-builder)">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2137,7 +2189,7 @@ SPDX-License-Identifier: Apache-2.0
                 Previous
               </span>
               <div class="md-ellipsis">
-                MCP Servers
+                MCP Host Builder (nw-mcp-builder)
               </div>
             </div>
           </a>

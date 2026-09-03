@@ -568,6 +568,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -955,7 +983,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Servers
+    MCP Host Builder (nw-mcp-builder)
   
 
     
@@ -1546,10 +1574,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-create-the-github-release" class="md-nav__link">
+  <a href="#step-2-create-the-tag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Create the GitHub Release
+        Step 2 — Create the tag
       
     </span>
   </a>
@@ -1557,10 +1585,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-3-publish-packages-to-pypi" class="md-nav__link">
+  <a href="#step-3-create-the-github-release" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 3 — Publish packages to PyPI
+        Step 3 — Create the GitHub Release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-publish-packages-to-pypi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — Publish packages to PyPI
       
     </span>
   </a>
@@ -2216,10 +2255,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-create-the-github-release" class="md-nav__link">
+  <a href="#step-2-create-the-tag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Create the GitHub Release
+        Step 2 — Create the tag
       
     </span>
   </a>
@@ -2227,10 +2266,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-3-publish-packages-to-pypi" class="md-nav__link">
+  <a href="#step-3-create-the-github-release" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 3 — Publish packages to PyPI
+        Step 3 — Create the GitHub Release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-publish-packages-to-pypi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 4 — Publish packages to PyPI
       
     </span>
   </a>
@@ -2425,7 +2475,7 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td><code>src/node_wire_&lt;name&gt;/</code></td>
-<td><code>schema.py</code>, <code>logic.py</code>, optional <code>registration.py</code>, <code>action_spec.py</code>, <code>README.md</code></td>
+<td><code>schema.py</code>, <code>logic.py</code> (with optional <code>error_map</code>), <code>action_spec.py</code>, <code>README.md</code></td>
 </tr>
 <tr>
 <td>Root <code>pyproject.toml</code></td>
@@ -2581,7 +2631,7 @@ SPDX-License-Identifier: Apache-2.0
 <blockquote>
 <p><strong>Prerequisite:</strong> Tier 2 (the PyPI wheel) must be completed first. The Dockerfile copies pre-built <code>.whl</code> files from <code>packages/connectors/&lt;name&gt;/dist/</code>; that directory does not exist until you run <code>bash scripts/build-packages.sh packages/connectors/&lt;name&gt;</code>.</p>
 </blockquote>
-<p>Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined <code>agents.mcp_entrypoint</code> server). For the entrypoint code template and Dockerfile template see <a href="../mcp-servers/#adding-a-row-for-a-new-connector">mcp-servers.md — Adding a row for a new connector</a>.</p>
+<p>Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined <code>agents.mcp_entrypoint</code> server). For the wheel → image mapping see <a href="../local-packages-to-images/">local-packages-to-images.md</a>; for an existing connector's entrypoint/Dockerfile, use <code>src/agents/&lt;name&gt;_mcp.py</code> and <code>docker/&lt;name&gt;/Dockerfile</code> as templates.</p>
 <table>
 <thead>
 <tr>
@@ -2609,10 +2659,6 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td><a href="https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml"><code>docker-compose.mcp.yml</code></a></td>
 <td>Service + <code>NW_ALLOWED_CONNECTORS</code></td>
-</tr>
-<tr>
-<td><a href="../mcp-servers/">mcp-servers.md</a></td>
-<td>Naming conventions table row</td>
 </tr>
 <tr>
 <td><a href="../local-packages-to-images/">local-packages-to-images.md</a></td>
@@ -2766,11 +2812,14 @@ manual step per package, bound to that tag.</p>
 <li>Add a dated <code>CHANGELOG.md</code> section and release link for the target version.</li>
 <li>Merge to <code>main</code> and confirm required CI checks are green.</li>
 </ol>
-<h3 id="step-2-create-the-github-release">Step 2 — Create the GitHub Release<a class="headerlink" href="#step-2-create-the-github-release" title="Anchor link to this section">&para;</a></h3>
+<h3 id="step-2-create-the-tag">Step 2 — Create the tag<a class="headerlink" href="#step-2-create-the-tag" title="Anchor link to this section">&para;</a></h3>
+<p>Dispatch <strong>Create Release Tag</strong> in Actions (<code>.github/workflows/create-tag.yml</code>) with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>). It validates the version is MAJOR.MINOR.PATCH, that the tag doesn't already exist, that every package's version matches, and that <code>CHANGELOG.md</code> has an entry for it — then creates and pushes the <code>v1.0.0</code> tag itself. Run this before dispatching "GitHub Release" below.</p>
+<p>Manual fallback, if you must create the tag by hand (bypasses the validation above):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
 </span></code></pre></div>
-<p>Then dispatch <strong>GitHub Release</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>).</p>
+<h3 id="step-3-create-the-github-release">Step 3 — Create the GitHub Release<a class="headerlink" href="#step-3-create-the-github-release" title="Anchor link to this section">&para;</a></h3>
+<p>Dispatch <strong>GitHub Release</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>).</p>
 <p><strong>Workflow:</strong> <code>.github/workflows/github-release.yml</code> — manual <code>workflow_dispatch</code>
 after the tag has been pushed.</p>
 <p>The workflow:</p>
@@ -2781,7 +2830,7 @@ after the tag has been pushed.</p>
 <li>Creates <code>release-manifest.txt</code> listing all publishable package paths (one per entry in <code>github-release.yml</code>'s <code>package_paths</code> list).</li>
 <li>Creates the GitHub Release with changelog notes, SBOM, and manifest attached.</li>
 </ol>
-<h3 id="step-3-publish-packages-to-pypi">Step 3 — Publish packages to PyPI<a class="headerlink" href="#step-3-publish-packages-to-pypi" title="Anchor link to this section">&para;</a></h3>
+<h3 id="step-4-publish-packages-to-pypi">Step 4 — Publish packages to PyPI<a class="headerlink" href="#step-4-publish-packages-to-pypi" title="Anchor link to this section">&para;</a></h3>
 <p>After the GitHub Release exists, dispatch <code>.github/workflows/publish.yml</code> <strong>once per
 package</strong> (once per entry in the <code>allowed</code> set in that workflow).</p>
 <p><strong>Required inputs:</strong></p>
@@ -2848,7 +2897,7 @@ end-to-end flow. The package publish workflow is <code>.github/workflows/publish
 </span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/salesforce/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-salesforce<span class="w"> </span>.
 </span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/slack/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-slack<span class="w"> </span>.
 </span></code></pre></div>
-<p>For compose and ToolHive registration see <code>docs/mcp-servers.md</code>.</p>
+<p>For compose config see <code>docker-compose.mcp.yml</code>; for ToolHive registration of these pre-built images see <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="pre-pypi-local-validation-checklist">Pre-PyPI local validation checklist<a class="headerlink" href="#pre-pypi-local-validation-checklist" title="Anchor link to this section">&para;</a></h2>
 <p>Run these gates before triggering the CI publish workflow (default <code>build-packages.sh</code> is enough; <code>--all</code> is optional for broader local wheels):</p>
