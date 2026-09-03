@@ -64,7 +64,28 @@ from .streaming import (
     BufferedStreamIterator,
 )
 
-__version__ = "1.0.0"
+
+def _resolve_version() -> str:
+    from importlib.metadata import PackageNotFoundError, version as pkg_version
+
+    for dist_name in ("node-wire-runtime", "node-wire"):
+        try:
+            return pkg_version(dist_name)
+        except PackageNotFoundError:
+            pass
+
+    # PYTHONPATH / src-layout imports without an installed distribution.
+    try:
+        import tomllib
+        from pathlib import Path
+
+        root_pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        return tomllib.loads(root_pyproject.read_text(encoding="utf-8"))["project"]["version"]
+    except Exception:
+        return "0.0.0"
+
+
+__version__ = _resolve_version()
 
 __all__ = [
     "ConnectorResponse",

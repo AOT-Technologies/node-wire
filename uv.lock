@@ -2470,7 +2470,7 @@ wheels = [
 
 [[package]]
 name = "node-wire"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosmtplib" },
@@ -2586,7 +2586,7 @@ docs = [
 
 [[package]]
 name = "node-wire-runtime"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packages/runtime" }
 dependencies = [
     { name = "httpx", extra = ["http2"] },

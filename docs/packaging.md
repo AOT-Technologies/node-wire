@@ -57,8 +57,8 @@ After implementing the connector runtime (see [connectors.md](connectors.md), or
 | [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
 | [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) below |
 | This doc — [Package inventory](#package-inventory) | Add row |
-| Root + all package `pyproject.toml` | Version bump on release |
-| `CHANGELOG.md` | Release section |
+| Root + all package `pyproject.toml` | Version bump on release via `./scripts/bump-version.py` (`nw-mcp-builder` excluded) |
+| `CHANGELOG.md` | Release section (scaffolded by the bump script; fill in notes before tagging) |
 
 ### Tier 2 templates
 
@@ -353,8 +353,14 @@ manual step per package, bound to that tag.
 
 ### Step 1 — Prepare the release
 
-1. Bump version in the root `pyproject.toml` and all connector package `pyproject.toml` files (one per entry in `ALL_PACKAGES` in `scripts/build-packages.sh`).
-2. Add a dated `CHANGELOG.md` section and release link for the target version.
+1. Bump lockstep package versions with `./scripts/bump-version.py X.Y.Z` (root
+   `pyproject.toml`, every `packages/**/pyproject.toml`, and connector
+   `node-wire-runtime>=…` floors). This does **not** touch `nw-mcp-builder/`,
+   which is versioned independently.
+2. Fill in the scaffolded `CHANGELOG.md` notes. Create Release Tag and GitHub
+   Release both require a dated `## [X.Y.Z] - YYYY-MM-DD` section and a footer
+   link `[X.Y.Z]: …/releases/tag/vX.Y.Z` (the bump script scaffolds these when
+   missing).
 3. Merge to `main` and confirm required CI checks are green.
 
 ### Step 2 — Create the tag
