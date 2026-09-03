@@ -75,6 +75,12 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
     [:octicons-arrow-right-24: MCP Overview](mcp.md)
 
+-   **Multi-tenancy**
+
+    Isolate tenants by header/JWT, with per-tenant named configs and secrets.
+
+    [:octicons-arrow-right-24: Multi-tenancy](configuration.md#multi-tenancy)
+
 </div>
 
 ## Available Connectors

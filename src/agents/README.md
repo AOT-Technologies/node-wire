@@ -38,19 +38,20 @@ A modular factory system supporting diverse LLM backends:
 - **OpenAI**: Industry standard with GPT-4o-mini.
 - **Google Gemini**: Large context windows with Gemini-2.0-flash.
 - **Anthropic**: High-reasoning capabilities with Claude-3.5-Haiku.
+- **NVIDIA**: OpenAI-compatible endpoint, defaults to `nvidia/nemotron-3.5-lightning-30b-a3b`.
 
 ---
 
 ## MCP tool naming
 
-Tools are named **`{connector_id}.{action}`** as defined by each connector’s manifest (see `connectors/manifest.py` and `bindings/mcp_server/server.py`). Examples:
+`tools/list` advertises tools named **`{connector_id}_{action}`** — `.`/`-` in the action are replaced with `_` (see `_tool_name` in `bindings/mcp_server/server.py`, built from each connector's manifest in `connectors/manifest.py`). Legacy dotted names (`{connector_id}.{action}`) still work on `tools/call` but are not what `tools/list` returns. Examples:
 
-| Example tool name | Connector |
-| :--- | :--- |
-| `fhir_cerner.read_patient` | Cerner FHIR |
-| `fhir_epic.read_patient` | Epic FHIR |
-| `google_drive.files.upload` | Google Drive |
-| `smtp.send_email` | SMTP |
+| Public tool name (`tools/list`) | Legacy dotted alias | Connector |
+| :--- | :--- | :--- |
+| `fhir_cerner_read_patient` | `fhir_cerner.read_patient` | Cerner FHIR |
+| `fhir_epic_read_patient` | `fhir_epic.read_patient` | Epic FHIR |
+| `google_drive_files_upload` | `google_drive.files.upload` | Google Drive |
+| `smtp_send_email` | `smtp.send_email` | SMTP |
 
 Use **`tools/list`** for the exact names and JSON Schemas your deployment exposes.
 
@@ -62,18 +63,25 @@ Configuration is managed via environment variables in your `.env` file.
 
 ### **LLM Credentials**
 ```bash
-# Provider Selection: groq | openai | gemini | anthropic
+# Provider Selection: groq | openai | gemini | anthropic | nvidia
 LLM_PROVIDER=groq
 GROQ_API_KEY=gsk_...
 
 # Optional: Override default models
 GROQ_MODEL=llama-3.3-70b-versatile
+
+# NVIDIA (OpenAI-compatible) — used when LLM_PROVIDER=nvidia
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b
 ```
 
 ### **MCP & Orchestration**
 ```bash
 # ToolHive Proxy URL (obtain from ToolHive UI)
 TOOLHIVE_MCP_URL=http://localhost:8000/mcp
+
+# Multi-tenancy (optional — server must have NW_MULTITENANCY_ENABLED=true)
+NW_TENANT_ID=acme   # default for --tenant-id (stdio pin / HTTP X-Tenant-ID)
 
 # Connector Secrets (Injected into MCP Server)
 CERNER_CLIENT_ID=...
@@ -110,6 +118,16 @@ python -m agents.toolhive \
     --recipient-email provider@aot.com \
     --drive-folder-id "1ABC..."
 ```
+
+**With multi-tenancy** (`NW_MULTITENANCY_ENABLED=true` on the MCP server): pin a tenant and a shared config name for the run —
+```bash
+python -m agents.toolhive \
+    --patient-id 12724066 \
+    --recipient-email provider@aot.com \
+    --tenant-id acme \
+    --config-name test-drive
+```
+`--tenant-id` sets `X-Tenant-ID` over HTTP (or `NW_TENANT_ID` for `--local` stdio); `--config-name` runs `nw_select_config` at startup so every connector tool defaults to that config. See [docs/mcp-servers.md — Multi-tenancy (MCP)](../../docs/mcp-servers.md#multi-tenancy-mcp).
 
 ---
 

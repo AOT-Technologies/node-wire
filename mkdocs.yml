@@ -101,6 +101,7 @@ nav:
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
+    - Multi-tenancy: configuration.md#multi-tenancy
   - Architecture: architecture.md
   - Connectors:
     - Overview: connectors.md

@@ -84,6 +84,10 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the Swagger
 
 The platform includes an interactive web playground at [http://localhost:8000/playground/](http://localhost:8000/playground/) (available when the REST API is running).
 
+### 6. Multi-tenancy (optional)
+
+By default the platform is single-tenant (`__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file holding named configs and per-tenant secret overlays (defaults to `config/tenants.yaml`). See [docs/configuration.md](docs/configuration.md#multi-tenancy) for the full variable reference and [docs/mcp-servers.md](docs/mcp-servers.md#multi-tenancy-mcp) for the MCP tenant/config tools.
+
 ---
 
 ## Build Packages (Wheels)
