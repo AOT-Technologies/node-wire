@@ -32,7 +32,7 @@ def test_env_secret_provider_legacy_empty(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_build_secret_provider_default_env() -> None:
     p = _build_secret_provider()
-    assert isinstance(p, EnvSecretProvider)
+    assert isinstance(p, ChainedSecretProvider)
 
 
 def test_build_secret_provider_aws_env_chain(monkeypatch: pytest.MonkeyPatch) -> None:

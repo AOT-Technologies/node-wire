@@ -51,6 +51,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --all-extras --dev
 
+      # In-tree Cython .so/.pyd from local editable/wheel builds shadow .py and zero coverage.
+      - name: Remove Cython extension modules from src/
+        shell: bash
+        run: |
+          find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete || true
+
       - name: Run pytest
         run: uv run pytest --cov --cov-report=html --cov-report=term-missing
 
@@ -90,6 +96,11 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen --all-extras --dev
+
+      - name: Remove Cython extension modules from src/
+        shell: bash
+        run: |
+          find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete || true
 
       - name: Run pytest with coverage
         run: uv run pytest --cov --cov-report=xml

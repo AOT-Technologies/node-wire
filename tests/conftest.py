@@ -26,10 +26,38 @@ os.environ["NW_ALLOWED_CONNECTORS"] = (
 )
 # Skip REST bind dotenv so repo `.env` cannot override the allowlist above during collection/import.
 os.environ["NW_REST_LOAD_DOTENV"] = "false"
+# Keep the key present (empty) so later load_dotenv(override=False) cannot inject a local
+# `.env` value like google_user_oauth before collection-time factory.load().
+os.environ["GOOGLE_DRIVE_AUTH_PROVIDER"] = ""
 # Test fixture enables all eight publishable connectors (see tests/fixtures/connectors_for_tests.yaml).
 os.environ["NW_CONFIG_PATH"] = str(_TESTS_ROOT / "fixtures" / "connectors_for_tests.yaml")
 os.environ["NW_JWT_AUDIENCE"] = "node-wire-test"
 os.environ["NW_JWT_ISSUER"] = "node-wire-test-issuer"
+
+
+def _assert_no_cython_so_shadowing_src() -> None:
+    """Fail fast if in-tree Cython ``.so``/``.pyd`` files would steal imports from ``.py``.
+
+    Local ``pip install -e packages/runtime`` / wheel builds drop extension modules next to
+    sources under ``src/``. pytest-cov then attributes 0% to the shadowed ``.py`` files and
+    the 80% gate collapses even when tests pass.
+    """
+    src_root = _TESTS_ROOT.parent / "src"
+    if not src_root.is_dir():
+        return
+    shadowed = sorted(src_root.rglob("*.so")) + sorted(src_root.rglob("*.pyd"))
+    if not shadowed:
+        return
+    sample = ", ".join(str(p.relative_to(src_root.parent)) for p in shadowed[:5])
+    more = f" (+{len(shadowed) - 5} more)" if len(shadowed) > 5 else ""
+    raise RuntimeError(
+        "Cython extension modules under src/ shadow .py sources for coverage. "
+        f"Remove them before pytest (e.g. `find src -name '*.so' -delete`). "
+        f"Found {len(shadowed)}: {sample}{more}"
+    )
+
+
+_assert_no_cython_so_shadowing_src()
 
 
 def _preload_connector_logic_modules() -> None:
@@ -69,10 +97,29 @@ _preload_connector_logic_modules()
 def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
     monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "true")
-    monkeypatch.delenv("GOOGLE_DRIVE_AUTH_PROVIDER", raising=False)
+    # Isolate from developer .env: legacy REST tests expect single-tenant unless
+    # a test explicitly enables multitenancy.
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    # Keep present+empty so load_dotenv(override=False) cannot re-inject local `.env`.
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "")
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     monkeypatch.setenv("NW_JWT_AUDIENCE", "node-wire-test")
     monkeypatch.setenv("NW_JWT_ISSUER", "node-wire-test-issuer")
     monkeypatch.setenv("NW_RATE_LIMIT_BURST", "1000")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_REFILL_RATE", "100.0")  # Increase for tests
     monkeypatch.setenv("NW_RATE_LIMIT_DISABLED", "true")  # Disable rate limiting for tests
+
+
+@pytest.fixture(autouse=True)
+def _tenants_isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep tenants.yaml off the repo and clear overlay between tests."""
+    path = tmp_path / "tenants.yaml"
+    monkeypatch.setenv("NW_TENANTS_PATH", str(path))
+    from node_wire_runtime.secrets import OverlaySecretProvider
+    import node_wire_runtime.tenant_persistence as pt
+
+    OverlaySecretProvider.instance().clear()
+    pt._nested_secrets_mirror.clear()
+    yield
+    OverlaySecretProvider.instance().clear()
+    pt._nested_secrets_mirror.clear()

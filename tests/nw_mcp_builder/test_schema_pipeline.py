@@ -90,3 +90,72 @@ def test_pipeline_writes_project(tmp_path: Path, fake_node_wire: Path) -> None:
     project = run_connector_pipeline(path, fake_node_wire, out)
     assert project.is_dir()
     assert (project / "src" / "demo_conn_nw_mcp" / "__main__.py").is_file()
+
+
+def test_load_scope_rejects_empty_file(tmp_path: Path) -> None:
+    path = tmp_path / "empty.yaml"
+    path.write_text("# only comments\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="empty"):
+        load_scope(path)
+
+
+def test_load_scope_rejects_bad_tool_name(tmp_path: Path) -> None:
+    doc = _minimal_scope()
+    doc["groups"][0]["tools"][0]["tool_name"] = "Bad-Name"
+    path = tmp_path / "bad_tool.yaml"
+    path.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_scope(path)
+
+
+def test_load_scope_rejects_bad_endpoint(tmp_path: Path) -> None:
+    doc = _minimal_scope()
+    doc["groups"][0]["tools"][0]["endpoint"] = "FETCH /x"
+    path = tmp_path / "bad_ep.yaml"
+    path.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_scope(path)
+
+
+def test_load_scope_rejects_missing_path_param(tmp_path: Path) -> None:
+    doc = _minimal_scope()
+    doc["groups"][0]["tools"][0]["endpoint"] = "GET /pets/{id}"
+    path = tmp_path / "bad_path.yaml"
+    path.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_scope(path)
+
+
+@pytest.mark.parametrize(
+    "auth",
+    [
+        {"type": "api_key"},
+        {"type": "none"},
+        {
+            "type": "oauth2",
+            "flow": "authorizationCode",
+            "authorization_url": "https://auth.example/authorize",
+            "token_url": "https://auth.example/token",
+        },
+        {"type": "oidc", "issuer": "https://issuer.example"},
+    ],
+)
+def test_load_scope_auth_variants(tmp_path: Path, auth: dict) -> None:
+    doc = _minimal_scope()
+    doc["auth"] = auth
+    path = tmp_path / "auth.yaml"
+    path.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    scope = load_scope(path)
+    assert scope.auth.type == auth["type"]
+
+
+def test_load_scope_rejects_duplicate_tool_names(tmp_path: Path) -> None:
+    doc = _minimal_scope()
+    tool = dict(doc["groups"][0]["tools"][0])
+    doc["groups"].append(
+        {"name": "other", "description": "x", "tools": [tool]},
+    )
+    path = tmp_path / "dup.yaml"
+    path.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    with pytest.raises(ValidationError, match="Duplicate tool_name"):
+        load_scope(path)

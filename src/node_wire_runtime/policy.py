@@ -6,7 +6,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, Optional
+
+if TYPE_CHECKING:
+    from node_wire_runtime.config_store import ConnectorConfigStore
 
 
 @dataclass
@@ -39,3 +42,21 @@ class PolicyHook(ABC):
         Raise PolicyDenied with a human-readable message when execution is not allowed.
         """
         raise NotImplementedError
+
+
+class TenantConfigHook(PolicyHook):
+    """Defense in depth for ``configured = entitled``.
+
+    The factory already fails closed when a scope has no config; this hook catches
+    any code path that reached :meth:`BaseConnector.run` without factory resolution.
+    """
+
+    def __init__(self, store: "ConnectorConfigStore") -> None:
+        self._store = store
+
+    def check(self, context: PolicyContext) -> None:
+        tenant_id = context.tenant_id or "__default__"
+        if not self._store.has_config(tenant_id, context.connector_id):
+            raise PolicyDenied(
+                f"no config for tenant '{tenant_id}' / connector '{context.connector_id}'"
+            )

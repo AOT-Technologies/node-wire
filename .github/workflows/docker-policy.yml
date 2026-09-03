@@ -12,10 +12,14 @@ on:
     paths:
       - "Dockerfile"
       - "docker/**"
+      - "nw-mcp-builder/src/nw_mcp_builder/generate/connector_project.py"
+      - ".github/workflows/docker-policy.yml"
   pull_request:
     paths:
       - "Dockerfile"
       - "docker/**"
+      - "nw-mcp-builder/src/nw_mcp_builder/generate/connector_project.py"
+      - ".github/workflows/docker-policy.yml"
 
 permissions:
   contents: read
@@ -43,8 +47,19 @@ jobs:
               exit 1
             fi
             if ! grep -qE '^USER[[:space:]]' "$f"; then
-              echo "ERROR: $f must end with a non-root USER directive" >&2
+              echo "ERROR: $f must include a USER directive" >&2
+              exit 1
+            fi
+            last_user="$(grep -E '^USER[[:space:]]' "$f" | tail -n1)"
+            if [[ "${last_user}" =~ ^USER[[:space:]]+(0|root)([[:space:]:]|$) ]]; then
+              echo "ERROR: $f final USER must not be root/0 (got: ${last_user})" >&2
               exit 1
             fi
           done
+          gen="nw-mcp-builder/src/nw_mcp_builder/generate/connector_project.py"
+          echo "Checking generated template $gen"
+          if ! grep -qE 'python:3.12-slim@sha256:[a-f0-9]{64}' "$gen"; then
+            echo "ERROR: $gen must pin python:3.12-slim@sha256:<64-hex-digest>" >&2
+            exit 1
+          fi
           echo "PASS: all Dockerfiles pinned and non-root"

@@ -10,15 +10,19 @@ from node_wire_runtime.secrets.base import (
     SecretProviderError,
 )
 
-try:
-    from azure.identity import DefaultAzureCredential
-    from azure.keyvault.secrets import SecretClient
-    from azure.core.exceptions import ResourceNotFoundError, HttpResponseError
-except ImportError as _e:
-    raise ImportError(
-        "azure-keyvault-secrets and azure-identity are required for AzureKeyVaultProvider. "
-        "Install with: pip install 'node-wire-runtime[azure]'"
-    ) from _e
+
+def _import_azure():
+    """Import Azure SDKs lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    try:
+        from azure.identity import DefaultAzureCredential
+        from azure.keyvault.secrets import SecretClient
+        from azure.core.exceptions import ResourceNotFoundError, HttpResponseError
+    except ImportError as exc:
+        raise ImportError(
+            "azure-keyvault-secrets and azure-identity are required for AzureKeyVaultProvider. "
+            "Install with: pip install 'node-wire-runtime[azure]'"
+        ) from exc
+    return DefaultAzureCredential, SecretClient, ResourceNotFoundError, HttpResponseError
 
 
 class AzureKeyVaultProvider(SecretProvider):
@@ -29,6 +33,7 @@ class AzureKeyVaultProvider(SecretProvider):
     """
 
     def __init__(self, vault_url: str) -> None:
+        DefaultAzureCredential, SecretClient, _, _ = _import_azure()
         try:
             credential = DefaultAzureCredential()
             self._client = SecretClient(vault_url=vault_url, credential=credential)
@@ -39,6 +44,7 @@ class AzureKeyVaultProvider(SecretProvider):
 
     def get_secret(self, key: str) -> str:
         # Azure KV names use hyphens; map underscores for convention compatibility.
+        _, _, ResourceNotFoundError, HttpResponseError = _import_azure()
         azure_name = key.replace("_", "-")
         try:
             secret = self._client.get_secret(azure_name)

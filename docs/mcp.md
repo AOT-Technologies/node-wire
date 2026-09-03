@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Node Wire integrates with the Model Context Protocol to allow AI agents (like Claude or custom LLM orchestrators) to discover and use connectors as tools.
 
-For **per-connector Docker images and ToolHive registration**, see [mcp-servers.md](mcp-servers.md).
+For **pre-built per-connector Docker images and ToolHive registration**, see [packaging.md](packaging.md). For **generating a custom standalone MCP host** for a connector with `nw-mcp-builder`, see [mcp-servers.md](mcp-servers.md).
 
 For **outbound OAuth** when connecting to remote authorized MCP servers over HTTP, see [mcp-client-oauth.md](mcp-client-oauth.md).
 
@@ -100,13 +100,28 @@ python -m agents.mcp_entrypoint
 
 ### 2. Individual MCP Servers
 Each connector runs as its own independent MCP server (often in a dedicated Docker container). This is preferred for modular, scalable deployments.
-- **Full Guide:** [Individual MCP Servers (Docker)](mcp-servers.md)
+- **Pre-built per-connector Docker images:** [packaging.md](packaging.md)
+- **Generate a custom standalone MCP host with `nw-mcp-builder`:** [mcp-servers.md](mcp-servers.md)
+
+---
+
+## Multi-tenancy
+
+When `NW_MULTITENANCY_ENABLED=true`, MCP loads `config/tenants.yaml` (or `NW_TENANTS_PATH`) and exposes `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to **every connector** on that MCP process by default, but each connector tool also accepts an optional per-call `config_name` argument that outranks the shared selection for that one call. `tenant_id` is never accepted as a tool argument — tenant is always resolved from the session/request, never from tool call arguments.
+
+Tenant pin precedence differs by transport:
+- **stdio:** the `NW_TENANT_ID` env pin is the default until `nw_select_tenant` is called, after which the selection overrides it for the rest of the session.
+- **streamable-http:** the live per-request `X-Tenant-ID` header (or JWT tenant claim) always wins, on every request — a prior `nw_select_tenant` call in one session can never shadow another concurrent session's request-level tenant. A tenant claim in the JWT that disagrees with the caller-supplied header/session tenant is rejected with a `TenantIdentityMismatchError` (403 `TENANT_IDENTITY_MISMATCH`), not silently overridden.
+
+**Session vs instance pin:** `nw_select_tenant` sets the MCP **session** overlay (which tenant/config names bindings pass into `factory.get`). The factory then sets **`_tenant_id` on the connector instance**; `run()` uses that pin when `tenant_id` is omitted and returns `TENANT_MISMATCH` if a caller passes a different id.
+
+**Full guide:** [Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp)
 
 ---
 
 ## FHIR Tool Arguments (Cerner / Epic)
 
-Tool names follow the pattern `fhir_cerner.<action>` and `fhir_epic.<action>`. The MCP server normalizes common LLM aliases (e.g., `patientId` → `resource_id`).
+Tool names follow the pattern `fhir_cerner_<action>` and `fhir_epic_<action>` (e.g. `fhir_cerner_read_patient`). The MCP server normalizes common LLM aliases (e.g., `patientId` → `resource_id`).
 
 | Action | When to use | Example arguments |
 |--------|-------------|-------------------|
@@ -119,9 +134,10 @@ Tool names follow the pattern `fhir_cerner.<action>` and `fhir_epic.<action>`. T
 ## Connector Manifests
 
 Each connector defines a manifest that MCP uses to understand available tools.
-- Tool names follow the pattern: `<connector_id>.<action>` (e.g., `google_drive.files.list`).
+- Tool names follow the pattern: `<connector_id>_<action>` with dots in the action replaced by underscores (e.g., `google_drive_files_list`). Legacy dotted names (`google_drive.files.list`) still work on `tools/call`.
 - The runtime handles argument normalization, so LLM-friendly aliases often work automatically.
 
 ## Related Docs
-- [Individual MCP Servers (Docker)](mcp-servers.md)
+- [Pre-built per-connector Docker images](packaging.md)
+- [Generate a custom MCP host (`nw-mcp-builder`)](mcp-servers.md)
 - [ToolHive Agent Scenario](toolhive_agent_scenario.md)

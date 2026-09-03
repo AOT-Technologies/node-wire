@@ -16,10 +16,12 @@ major version bump.
 Stable top-level exports (`node_wire_runtime.__all__`):
 
 ### Connector authoring
-- `BaseConnector` — base class for connectors.
+- `BaseConnector`, `RestConnector` — base classes for connectors (`RestConnector` adds the shared HTTP-request scaffolding used by OpenAPI-generated connectors).
+- `RestResponseOutput` — shared output model for `RestConnector`-based connectors.
 - `get_connector_registry()` — returns a copy of the connector-id → class registry.
 - `nw_action`, `sdk_action` — action decorators.
-- `SdkActionSpec`, `default_build_kwargs`, `execute_spec_in_thread`, `navigate_resource`.
+- `SdkActionSpec`, `default_build_kwargs`, `default_resolve_method`, `default_invoke`, `execute_spec_in_thread`, `execute_spec_async`.
+- `navigate_resource` — deprecated; unused by the execute path, kept for backward compatibility.
 - `NestedConnectorActionError`.
 
 ### Responses & errors
@@ -29,14 +31,26 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 
 ### Authentication
 - `AuthProvider` (base), `NoAuthProvider`, `StaticTokenAuthProvider`,
-  `OAuth2AuthProvider`, `ServiceAccountAuthProvider`.
+  `ApiKeyQueryAuthProvider`, `OAuth2AuthProvider`, `ServiceAccountAuthProvider`.
 - `CallerIdentity`, `build_caller_identity`.
 
 ### Policy
 - `PolicyHook`, `PolicyDenied`.
 
+### Tenancy (host apps)
+- `resolve_tenant_id`, `tenant_from_headers`, `MissingTenantError`
+- `TenantMismatchError` — factory instance tenant disagrees with `run(tenant_id=...)`
+- `TenantIdentityMismatchError` — a caller-supplied tenant (header/session) disagrees with the authenticated JWT's tenant claim
+- `DEFAULT_TENANT` (`__default__`)
+- `effective_run_tenant_id`, `normalize_tenant_id`, `tenants_equivalent` — helpers for the pin contract
+
+### Runtime config store
+- `ConnectorConfigStore`, `ConfigRecord` — the per-(tenant, connector, config_name) runtime config store backing multi-tenant named configs.
+- `ConfigNotFoundError`, `ConfigNameConflictError`, `DefaultDeletionError` — config-store error types.
+
 ### Secrets
 - `SecretProvider` (base), `EnvSecretProvider`, `SecretNotFoundError`, `SecretProviderError`.
+- `TenantSecretProvider`, `TenantSecretNotFoundError` — tenant-scoped secret resolution.
 
 ### Streaming
 - `StreamSignal`, `stream_completion_log`, `resolve_stream_buffer_ms`, `BufferedStreamIterator`.
@@ -49,9 +63,15 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 Connector authors depend on these stable modules:
 
 - `node_wire_runtime.base_connector` — `BaseConnector`, action decorators.
-- `node_wire_runtime.mcp_contract` — MCP tool contract flags.
 - `node_wire_runtime.auth.base` — `AuthProvider` interface.
 - `node_wire_runtime.secrets.base` — `SecretProvider` interface.
+
+`node_wire_runtime.mcp_contract` was removed (was never actually generic: it held
+exactly one Google Drive-specific legacy-alias flag, mis-listed here as a stable
+extensibility point). Its contents moved to `node_wire_google_drive.normalizers` —
+connector-specific logic stays in the connector. Connector-specific argument
+normalizers were never part of the stable surface for any other connector either;
+this corrects the one place that had accidentally been documented as if it were.
 
 Connectors register via the `node_wire.connectors` entry-point group.
 

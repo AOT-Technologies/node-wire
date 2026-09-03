@@ -21,7 +21,7 @@ from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
 
 def _normalize_for_mcp(connector_id: str, action: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Test harness: resolve MCP connector and run metadata-driven normalizers."""
-    norm = import_module("bindings.mcp_server.server").normalize_mcp_tool_arguments
+    norm = import_module("node_wire_runtime.ingress").normalize_mcp_tool_arguments
     auto_register()
     factory = ConnectorFactory()
     factory.load()
@@ -99,8 +99,105 @@ def test_mcp_tool_invoke_sets_action():
     server = McpServer()
     tools = server.list_tools()
     names = {t["name"] for t in tools}
-    assert "google_drive.files.list" in names
-    assert "stripe.charge" in names
+    assert "google_drive_files_list" in names
+    assert "stripe_charge" in names
+
+
+def test_mcp_llm_safe_input_schema_strips_null_unions() -> None:
+    from bindings.mcp_server.server import mcp_llm_safe_input_schema
+
+    raw = {
+        "type": "object",
+        "properties": {
+            "connector_id": {"type": ["string", "null"], "description": "id"},
+            "mime_type": {
+                "anyOf": [{"type": "string"}, {"type": "null"}],
+                "default": None,
+                "description": "mime",
+            },
+            "parents": {
+                "anyOf": [
+                    {"items": {"type": "string"}, "type": "array"},
+                    {"type": "null"},
+                ],
+                "default": None,
+            },
+        },
+    }
+    out = mcp_llm_safe_input_schema(raw)
+    assert out["properties"]["connector_id"]["type"] == "string"
+    assert out["properties"]["mime_type"]["type"] == "string"
+    assert "anyOf" not in out["properties"]["mime_type"]
+    assert "default" not in out["properties"]["mime_type"]
+    assert out["properties"]["parents"]["type"] == "array"
+    assert out["properties"]["parents"]["items"] == {"type": "string"}
+    assert raw["properties"]["connector_id"]["type"] == ["string", "null"]
+
+
+def test_mcp_sdk_tools_omit_output_schema_and_null_unions() -> None:
+    from mcp.types import Tool
+
+    from bindings.mcp_server.server import McpServer, mcp_llm_safe_input_schema
+
+    server = McpServer(connector_ids=["google_drive"])
+    tools = [
+        Tool(
+            name=t["name"],
+            description=t["description"],
+            inputSchema=mcp_llm_safe_input_schema(t["input_schema"]),
+        )
+        for t in server.list_tools()
+    ]
+    listed = {t.name: t for t in tools}
+    cfg = listed["nw_list_configs"] if "nw_list_configs" in listed else None
+    tenants = listed["nw_list_tenants"] if "nw_list_tenants" in listed else None
+    drive = listed["google_drive_files_list"]
+    dumped = drive.model_dump(exclude_none=True)
+    assert "outputSchema" not in dumped
+    assert drive.inputSchema["properties"]["query"]["type"] == "string"
+    if cfg is not None:
+        assert cfg.inputSchema["properties"]["connector_id"]["type"] == "string"
+    if tenants is not None:
+        assert tenants.inputSchema["properties"]["connector_id"]["type"] == "string"
+
+
+def test_server_discover_result_shape() -> None:
+    from bindings.mcp_server.server import _server_discover_result
+
+    out = _server_discover_result("nw-google_drive")
+    assert out["serverInfo"]["name"] == "nw-google_drive"
+    assert "tools" in out["capabilities"]
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_invokes_advertised_and_legacy_tool_names() -> None:
+    from bindings.mcp_server.server import McpServer, mcp_advertised_tool_name
+    from node_wire_runtime.models import ConnectorResponse
+
+    server = McpServer(connector_ids=["smtp"])
+    smtp = server._factory.get_for_protocol("smtp", "mcp")
+    assert smtp is not None
+    advertised = mcp_advertised_tool_name("smtp", "send_email")
+    assert advertised == "smtp_send_email"
+
+    async def fake_run(raw_input, **_kwargs):
+        return ConnectorResponse(success=True, data={"ok": True}, trace_id="t")
+
+    orig = smtp.run
+    smtp.run = fake_run  # type: ignore[method-assign]
+    try:
+        payload = {
+            "from_email": "a@b.com",
+            "to": ["x@y.com"],
+            "subject": "s",
+            "body": "b",
+        }
+        out_new = await server.invoke_tool(advertised, payload)
+        out_old = await server.invoke_tool("smtp.send_email", payload)
+        assert out_new["success"] is True
+        assert out_old["success"] is True
+    finally:
+        smtp.run = orig  # type: ignore[method-assign]
 
 
 def test_mcp_server_list_tools_includes_output_schema():
@@ -118,8 +215,8 @@ def test_mcp_server_connector_ids_filters_list_tools():
     server = McpServer(connector_ids=["fhir_cerner"])
     names = {t["name"] for t in server.list_tools()}
     assert names
-    assert all(n.startswith("fhir_cerner.") for n in names)
-    assert "fhir_epic.read_patient" not in names
+    assert all(n.startswith("fhir_cerner_") for n in names)
+    assert "fhir_epic_read_patient" not in names
 
 
 @pytest.mark.asyncio
@@ -510,7 +607,7 @@ def test_smtp_send_email_input_schema_omits_relay_fields() -> None:
     from bindings.mcp_server.server import McpServer
 
     server = McpServer(connector_ids=["smtp"])
-    entry = next(e for e in server.list_tools() if e["name"] == "smtp.send_email")
+    entry = next(e for e in server.list_tools() if e["name"] == "smtp_send_email")
     props = entry["input_schema"].get("properties", {})
     for key in ("host", "port", "use_tls"):
         assert key not in props
@@ -662,7 +759,7 @@ def test_mcp_server_invoke_tool_malformed_name() -> None:
 
     async def _run() -> None:
         server = McpServer()
-        with pytest.raises(ValueError, match="Tool name must be in the form"):
+        with pytest.raises(ValueError, match="Unknown tool"):
             await server.invoke_tool("no_dot_separator", {})
 
     asyncio.run(_run())
@@ -844,7 +941,7 @@ async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shap
     smtp = server._factory.get_for_protocol("smtp", "mcp")
     assert smtp is not None
 
-    entry = next(e for e in server.list_tools() if e["name"] == "smtp.send_email")
+    entry = next(e for e in server.list_tools() if e["name"] == "smtp_send_email")
     schema = entry["output_schema"]
     data_prop = schema["properties"]["data"]
     assert {"type": "null"} in data_prop["anyOf"]
@@ -878,7 +975,7 @@ async def test_mcp_server_invoke_tool_failure_payload_matches_output_schema_shap
 
 def test_normalize_mcp_tool_arguments_noop_when_action_has_no_normalizer():
     """Strict actions without mcp_normalize should pass args through unchanged."""
-    from bindings.mcp_server.server import normalize_mcp_tool_arguments
+    from node_wire_runtime.ingress import normalize_mcp_tool_arguments
 
     auto_register()
     factory = ConnectorFactory()

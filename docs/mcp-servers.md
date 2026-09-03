@@ -8,9 +8,19 @@ SPDX-License-Identifier: Apache-2.0
 
 Self-contained tool inside the **node-wire** repo that turns a node-wire connector into a standalone MCP server project.
 
-It does **not** depend on the separate [mcp-builder](https://github.com/your-org/mcp-builder) repo. Everything needed to generate connector-mode MCP hosts lives in this folder.
+It does **not** depend on any separate external `mcp-builder` project. Everything needed to generate connector-mode MCP hosts lives in this folder.
 
-</div>
+To **create** a connector from OpenAPI/Swagger first, use [nw-connector-builder](nw-connector-builder.md) (it can hand off to this tool automatically unless you pass `--no-mcp`), or the full pipeline via [`nw gen-all`](nw-cli.md).
+
+You can also run MCP generation as a subcommand of the connector builder (same flags), or via the orchestrator CLI:
+
+```bash
+uv run --directory nw-connector-builder nw-connector-builder mcp -c <connector_id>
+# equivalent happy-path stages:
+uv run nw gen-mcp --connector-id <connector_id>
+```
+
+The standalone `nw-mcp-builder` entry point remains supported.
 
 ---
 
@@ -339,6 +349,10 @@ Set these in `.env` (start from `.env.example`):
 | `NW_MCP_AUTH_DISABLED` | `true` | Local dev / MCP Inspector |
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` | Local dev tool access |
 | `NW_CONFIG_PATH` | `config/connectors.yaml` | Connector registry config |
+| `NW_MULTITENANCY_ENABLED` | `false` | When `true`, load `NW_TENANTS_PATH` and expose `nw_*` tenant/config tools |
+| `NW_TENANTS_PATH` | `config/tenants.yaml` | Runtime tenant/config + secret store |
+| `NW_MCP_TENANT_PIN_LOCKED` | `false` | When `true`, reject `nw_select_tenant` |
+| `NW_MCP_ALLOWED_TENANTS` | _(unset)_ | Comma-separated allowlist for list/select |
 
 Connector-specific secrets (any connector) are listed in `.env.example` when auto-detected from `config/connectors.yaml` and `sample.env`. Provide them via process env (ToolHive/Docker) or copy into the **generated project** `.env` for unset keys — do not rely on the monorepo `.env`.
 
@@ -353,15 +367,20 @@ From a generated project (use **Linux** wheels for this path — see [Platform a
 ```bash
 cd out/<name>-mcp
 docker build -t <image-name> .
-docker run -p 8081:8081 --env-file .env <image-name>
+# Secrets at runtime only — never COPY .env into the image
+docker run --rm --env-file .env -p 8081:8081 <image-name>
 
 # Example
 cd out/salesforce-nw-mcp
 docker build -t salesforce-nw-mcp .
-docker run -p 8081:8081 --env-file .env salesforce-nw-mcp
+docker run --rm --env-file .env -p 8081:8081 salesforce-nw-mcp
 ```
 
-The Dockerfile installs wheels from `./wheels`, sets `PYTHONPATH=/nw_src`, and runs `python -m <module>`.
+The generated Dockerfile is digest-pinned (`python:3.12-slim@sha256:…`), runs as non-root `USER app` with a read-only application tree, and copies only wheels, vendored src, `config/connectors.yaml`, and the thin host. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/nw_src:/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image; set `NW_MCP_AUTH_DISABLED=true` at run time for local Inspector use.
+
+`--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
+
+**MCP SDK:** Pin `mcp>=1.6.0,<2`. MCP SDK 2.x breaks `@server.list_tools()` on the current server binding.
 
 ---
 
@@ -376,9 +395,66 @@ The Dockerfile installs wheels from `./wheels`, sets `PYTHONPATH=/nw_src`, and r
 | `uv sync` / import errors on generated host | Use `--python 3.14` (or whatever ABI your `.whl` files were built with) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
-| Connector secrets missing in Docker/ToolHive | Set secrets/env in the orchestrator, or mount project `.env` at `/app/.env` |
+| Connector secrets missing in Docker/ToolHive | Set secrets via `docker run -e` / `--env-file` or the orchestrator. Do not COPY or bind-mount `.env` into the image. |
 | Connector action fails at runtime | Fill connector secrets via env or project `.env`; check `config/connectors.yaml` |
 | Wrong listen port in ToolHive | Set `NW_MCP_PORT` to the same value as ToolHive `FASTMCP_PORT` / `MCP_PORT` |
+| `AttributeError: 'Server' object has no attribute 'list_tools'` | Pin `mcp>=1.6.0,<2` in the image Dockerfile and rebuild |
+| `Config 'X' is not defined for connector 'Y'` (MT) | Use a config name that exists on every connector you call, or add it in `tenants.yaml` / REST |
+
+---
+
+## Multi-tenancy (MCP)
+
+Node-wire MCP reuses the same runtime config store as REST (`NW_TENANTS_PATH` / `config/tenants.yaml`). Standalone MCP (`python -m agents.mcp_entrypoint`, ToolHive images) calls `load_tenants` on startup so named tenants/configs are available without going through the playground process.
+
+**Enable:** `NW_MULTITENANCY_ENABLED=true`.
+
+**Pin tenant (default):**
+
+| Transport | How |
+|-----------|-----|
+| streamable-http | Client sends `X-Tenant-ID` on each request. If missing and `__default__` exists in the store, initialize uses `__default__` instead of `400 MISSING_TENANT`. |
+| stdio / ToolHive container | Set `NW_TENANT_ID` for that process |
+
+**Discover tenants:** call MCP tool `nw_list_tenants` (optional `connector_id`; legacy alias `nw.list_tenants`). Response includes `tenants`, `current_tenant_id` / `pinned_tenant_id`, and `summary`.
+
+**Switch tenant:** call `nw_select_tenant` `{ "tenant_id": "<id>" }` (alias `nw.select_tenant`). Sets the session overlay for **every connector** on this process (stdio and streamable-http). Returns named configs. Set `NW_MCP_TENANT_PIN_LOCKED=true` to reject switch. Optional `NW_MCP_ALLOWED_TENANTS` allowlist. Unknown tenants fail closed.
+
+Soft-pin precedence differs by transport: on **stdio**, this selection overrides the `NW_TENANT_ID` env pin for later calls in the same process. On **streamable-http**, it does *not* override `X-Tenant-ID` — the live per-request header (or JWT tenant claim) always wins on every request, so one session's `nw_select_tenant` can never shadow another concurrent HTTP session's request-level tenant. A JWT tenant claim that disagrees with the caller-supplied header/session tenant fails closed with a `TenantIdentityMismatchError` (403 `TENANT_IDENTITY_MISMATCH`) rather than being silently overridden either way.
+
+**Discover configs:** `nw_list_configs` (optional `connector_id` and `tenant_id`; alias `nw.list_configs`). Omit `tenant_id` to use the selected or pinned tenant. MCP does **not** create, update, or delete configs — provision those via playground Add config, REST `/v1/connectors/{cid}/configs`, or by editing `tenants.yaml`.
+
+**Select a config:** call `nw_select_config` `{ "config_name": "<name>" }`. That name becomes the *default* for every connector on this process. Response includes `connectors_with_config` and `connectors_missing_config`. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI `--config-name` runs `nw_select_config` at start. `tenant_id` is never accepted as a connector-tool argument, but every connector tool *does* accept an optional per-call `config_name` argument, which outranks the shared `nw_select_config` selection for that one call only.
+
+**Instance pin (runtime):** After `factory.get`, the connector instance is bound to that tenant's config and secrets (`_tenant_id`). Bindings still pass the resolved tenant into `run()`; omitting it on `run` also works. A conflicting `run(tenant_id=...)` fails closed with `TENANT_MISMATCH` — distinct from the MCP session `pinned_tenant_id` in `nw_list_tenants` responses.
+
+Two ToolHive images (Drive + Epic) are two processes: select on one does not update the other. Use one MCP with both connectors (`python -m agents.mcp_entrypoint`) so one overlay covers every connector.
+
+**Recommended ToolHive env (unified `node-wire:latest`, stdio + MT):**
+
+| Name | Value |
+|------|--------|
+| `NW_MCP_TRANSPORT` | `stdio` |
+| `NW_ALLOWED_CONNECTORS` | e.g. `google_drive,fhir_epic` |
+| `NW_MULTITENANCY_ENABLED` | `true` |
+| `NW_TENANTS_PATH` | `/app/config/tenants.yaml` |
+| `NW_MCP_AUTH_DISABLED` | `true` |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` |
+| `NW_MCP_TENANT_PIN_LOCKED` | `false` |
+
+Mount host `config/tenants.yaml` → `/app/config/tenants.yaml` (read-only). Connector credentials live in that file’s `secrets:` blocks (or per-tenant env vars); flat ToolHive secrets are optional when YAML holds them.
+
+**Cross-connector config names:** `nw_select_config` sets one name globally. If tenant `acme` has Drive config `test-drive` but Epic only `test`, Epic calls fail until you select a name that exists on **every** connector you use, or add the missing config in YAML/REST.
+
+```text
+1. Enable NW_MULTITENANCY_ENABLED=true; ensure tenants.yaml is mounted/present
+2. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
+3. tools/call nw_select_tenant { "tenant_id": "<id from step 2>" }  # returns configs
+4. tools/call nw_select_config { "config_name": "<name from step 3>" }
+5. tools/call google_drive_files_list  { ... }
+```
+
+Rebuild generated ToolHive MCP images after this change so vendored `server.py` picks up the new tools.
 
 Verbose logging during generation:
 

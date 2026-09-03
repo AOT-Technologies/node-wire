@@ -3,16 +3,22 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 """
-Generic action-spec primitives for SDK-backed connectors (e.g. googleapiclient).
+Generic action-spec primitives for SDK-backed connectors.
 
-Subclasses describe how validated Pydantic models map to vendor SDK calls:
+A spec describes how validated Pydantic models map to a single vendor SDK call:
 resource navigation, method name, keyword/body mapping, constants, and optional
-custom builders or post-processors.
+custom builders or post-processors. The default resolution/invocation shape
+matches discovery-style clients (e.g. googleapiclient: client.files().create()
+.execute()) but every step is overridable so flat-class SDKs without an
+`.execute()` step (e.g. stripe.Charge.create(...)) or natively-async SDK
+methods can describe their calls the same way — see `resolve_method` and
+`invoke` on `SdkActionSpec`.
 """
 
 from __future__ import annotations
 
 import asyncio
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -20,11 +26,51 @@ from pydantic import BaseModel
 
 
 def navigate_resource(client: Any, segments: Tuple[str, ...]) -> Any:
-    """Traverse discovery-style APIs: client.files().permissions()..."""
+    """Traverse discovery-style APIs: client.files().permissions()...
+
+    .. deprecated::
+        Unused by the execute path — ``default_resolve_method`` performs its own
+        segment walk (honouring ``call_segments``). Retained only for backward
+        compatibility and slated for removal in a future release. Prefer
+        ``default_resolve_method`` / a ``resolve_method`` override.
+    """
+    warnings.warn(
+        "navigate_resource is deprecated and unused by the execute path; "
+        "use default_resolve_method (or a SdkActionSpec.resolve_method override) "
+        "instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     api = client
     for seg in segments:
         api = getattr(api, seg)()
     return api
+
+
+def default_resolve_method(spec: "SdkActionSpec", client: Any) -> Callable[..., Any]:
+    """
+    Default method resolution: walk ``resource_segments`` off ``client``, then
+    look up ``method_name`` on the result.
+
+    Each segment is called (``client.files()``) when ``spec.call_segments`` is
+    True (the discovery-client default); set it False for flat-class SDKs
+    where segments are plain attributes, e.g. ``resource_segments=("Charge",)``
+    for ``stripe.Charge.create(...)``.
+    """
+    api = client
+    for seg in spec.resource_segments:
+        attr = getattr(api, seg)
+        api = attr() if spec.call_segments else attr
+    return getattr(api, spec.method_name)
+
+
+def default_invoke(method: Callable[..., Any], kwargs: Dict[str, Any]) -> Any:
+    """Default invocation: discovery-style ``method(**kwargs).execute()``.
+
+    Override via ``SdkActionSpec.invoke`` for SDK methods that return their
+    result directly (no ``.execute()`` step) or that are coroutine functions.
+    """
+    return method(**kwargs).execute()
 
 
 def default_build_kwargs(
@@ -74,6 +120,19 @@ class SdkActionSpec:
     When ``build_kwargs`` is None, kwargs are built from the mapping fields.
     When ``build_kwargs`` is set, it receives (client, model) and must return
     the full kwargs dict for the SDK method.
+
+    Resolution and invocation are overridable so non-discovery-style SDKs can
+    reuse the same declarative shape:
+
+    - ``call_segments`` (default True): set False when ``resource_segments``
+      are plain attributes rather than zero-arg method calls.
+    - ``resolve_method``: full override for how the bound method is found,
+      when segment-walking doesn't fit (e.g. a segment needs an argument).
+      Receives (spec, client); returns the callable to invoke.
+    - ``invoke``: full override for how the resolved method is called and its
+      result extracted, when there's no ``.execute()`` step. Receives
+      (method, kwargs); returns the raw result (or a coroutine — see
+      ``execute_spec_async``).
     """
 
     resource_segments: Tuple[str, ...]
@@ -87,18 +146,40 @@ class SdkActionSpec:
     include_empty_body: bool = False
     build_kwargs: Optional[Callable[[Any, BaseModel], Dict[str, Any]]] = None
     post_process: Optional[Callable[[Any, BaseModel], Any]] = None
+    call_segments: bool = True
+    resolve_method: Optional[Callable[["SdkActionSpec", Any], Callable[..., Any]]] = None
+    invoke: Optional[Callable[[Callable[..., Any], Dict[str, Any]], Any]] = None
     # Set these when the spec is declared in a connector's action_specs class var.
     # input_model is required; output_model falls back to cls.output_model if None.
     input_model: Optional[Any] = None
     output_model: Optional[Any] = None
     alias_tolerant: bool = False
-    # Optional: mutates MCP tool args dict in place before connector.run (see mcp_normalizers).
+    # Optional: mutates MCP tool args dict in place before connector.run. Implementations
+    # live in each connector's own package (e.g. node_wire_<connector>/normalizers.py).
     mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None
     # Security metadata
     requires_auth: bool = True
     scopes: Optional[List[str]] = None
     rate_limit: Optional[Dict[str, Any]] = None
     deprecated: bool = False
+
+    def __post_init__(self) -> None:
+        # call_segments and invoke are independent axes: flipping call_segments
+        # to False (flat-class SDK) does not change how the method is invoked,
+        # so the default_invoke `.execute()` step still runs and will usually
+        # AttributeError on a flat SDK's return value. Flag the likely-wrong
+        # combination at construction instead of at first call.
+        if not self.call_segments and self.invoke is None:
+            warnings.warn(
+                "SdkActionSpec(call_segments=False) with no `invoke` override "
+                "still uses default_invoke, which calls `.execute()` on the SDK "
+                "method's return value. Flat-class SDKs (e.g. "
+                "stripe.Charge.create(...)) usually have no `.execute()` step — "
+                "pass an `invoke=` override that returns the result directly.",
+                # __post_init__ (1) -> generated __init__ (2) -> caller (3), so
+                # the warning lands on the SdkActionSpec(...) authoring site.
+                stacklevel=3,
+            )
 
 
 def build_method_kwargs(spec: SdkActionSpec, client: Any, model: BaseModel) -> Dict[str, Any]:
@@ -115,12 +196,36 @@ def build_method_kwargs(spec: SdkActionSpec, client: Any, model: BaseModel) -> D
     )
 
 
-def execute_spec_sync(client: Any, spec: SdkActionSpec, model: BaseModel) -> Any:
-    """Run spec.method_name on navigated resource; return execute() result (sync)."""
+def _resolve_and_invoke(client: Any, spec: SdkActionSpec, model: BaseModel) -> Any:
+    """Shared pipeline: build kwargs, resolve the bound method, invoke it.
+
+    Returns the raw invocation result *before* post-processing (and without
+    awaiting a coroutine) so both the sync and async execute paths can layer
+    their own coroutine handling on top without duplicating this logic.
+    """
     kwargs = build_method_kwargs(spec, client, model)
-    resource_api = navigate_resource(client, spec.resource_segments)
-    method = getattr(resource_api, spec.method_name)
-    result = method(**kwargs).execute()
+    resolver = spec.resolve_method or default_resolve_method
+    method = resolver(spec, client)
+    invoker = spec.invoke or default_invoke
+    return invoker(method, kwargs)
+
+
+def execute_spec_sync(client: Any, spec: SdkActionSpec, model: BaseModel) -> Any:
+    """Resolve spec's method, invoke it, and return the raw (synchronous) result.
+
+    This does not await: an ``invoke`` that returns a coroutine is a caller
+    error on the sync path (including when wrapped by ``execute_spec_in_thread``)
+    and raises ``RuntimeError`` rather than silently returning an un-awaited
+    coroutine. Use ``execute_spec_async`` for natively-async SDK methods.
+    """
+    result = _resolve_and_invoke(client, spec, model)
+    if asyncio.iscoroutine(result):
+        result.close()  # suppress the "coroutine was never awaited" warning
+        raise RuntimeError(
+            "spec.invoke returned a coroutine on a synchronous execution path; "
+            "use execute_spec_async (not execute_spec_sync / "
+            "execute_spec_in_thread) for natively-async SDK methods."
+        )
     if spec.post_process is not None:
         return spec.post_process(result, model)
     return result
@@ -131,5 +236,20 @@ async def execute_spec_in_thread(
     spec: SdkActionSpec,
     model: BaseModel,
 ) -> Any:
-    """Run execute_spec_sync in a worker thread (for sync googleapiclient)."""
+    """Run execute_spec_sync in a worker thread (for blocking SDKs, e.g. googleapiclient)."""
     return await asyncio.to_thread(execute_spec_sync, client, spec, model)
+
+
+async def execute_spec_async(client: Any, spec: SdkActionSpec, model: BaseModel) -> Any:
+    """
+    Resolve and invoke spec's method directly on the running event loop, for
+    natively-async SDK methods. Use this instead of ``execute_spec_in_thread``
+    when the vendor SDK's methods are themselves coroutine functions — no
+    thread offload is needed (or wanted) in that case.
+    """
+    result = _resolve_and_invoke(client, spec, model)
+    if asyncio.iscoroutine(result):
+        result = await result
+    if spec.post_process is not None:
+        return spec.post_process(result, model)
+    return result

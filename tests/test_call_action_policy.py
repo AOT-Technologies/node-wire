@@ -25,7 +25,9 @@ class _NestedBizError(Exception):
     """Test-only mapped exception for nested action failure semantics."""
 
 
-ErrorMapper.register(_NestedBizError, ErrorCategory.BUSINESS, code="NESTED_BIZ_TEST")
+ErrorMapper.register(
+    "policy_test_fail_nested", _NestedBizError, ErrorCategory.BUSINESS, code="NESTED_BIZ_TEST"
+)
 
 
 class _DelInput(BaseModel):

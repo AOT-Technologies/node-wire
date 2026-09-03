@@ -8,7 +8,6 @@ wrappers, and connector_registry error paths."""
 from __future__ import annotations
 
 import logging
-from importlib.metadata import EntryPoint
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -442,67 +441,6 @@ def test_parse_allowed_names_empty_string(monkeypatch: pytest.MonkeyPatch) -> No
     assert result == set()
 
 
-def test_registration_module_missing_is_silently_skipped(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """ModuleNotFoundError with name == reg_name is silently ignored."""
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "myconn")
-    ep = EntryPoint(name="myconn", value="node_wire_myconn.logic", group="node_wire.connectors")
-
-    def fake_import(name: str) -> MagicMock:
-        if name == "node_wire_myconn.logic":
-            return MagicMock()
-        err = ModuleNotFoundError(f"No module named '{name}'")
-        err.name = name  # type: ignore[attr-defined]
-        raise err
-
-    with (
-        patch.object(connector_registry, "entry_points", return_value=[ep]),
-        patch.object(connector_registry.importlib, "import_module", side_effect=fake_import),
-    ):
-        loaded = connector_registry.auto_register()
-
-    assert "node_wire_myconn.logic" in loaded
-    assert "node_wire_myconn.registration" not in loaded
-
-
-def test_registration_dep_error_is_reraised(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ModuleNotFoundError for a dep inside registration module is re-raised."""
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "myconn2")
-    ep = EntryPoint(name="myconn2", value="node_wire_myconn2.logic", group="node_wire.connectors")
-
-    def fake_import(name: str) -> MagicMock:
-        if name == "node_wire_myconn2.logic":
-            return MagicMock()
-        err = ModuleNotFoundError("No module named 'missing_dep'")
-        err.name = "missing_dep"  # type: ignore[attr-defined]
-        raise err
-
-    with (
-        patch.object(connector_registry, "entry_points", return_value=[ep]),
-        patch.object(connector_registry.importlib, "import_module", side_effect=fake_import),
-        pytest.raises(ModuleNotFoundError),
-    ):
-        connector_registry.auto_register()
-
-
-def test_registration_unexpected_exception_is_reraised(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "myconn3")
-    ep = EntryPoint(name="myconn3", value="node_wire_myconn3.logic", group="node_wire.connectors")
-
-    def fake_import(name: str) -> MagicMock:
-        if name == "node_wire_myconn3.logic":
-            return MagicMock()
-        raise RuntimeError("unexpected error in registration module")
-
-    with (
-        patch.object(connector_registry, "entry_points", return_value=[ep]),
-        patch.object(connector_registry.importlib, "import_module", side_effect=fake_import),
-        pytest.raises(RuntimeError, match="unexpected error"),
-    ):
-        connector_registry.auto_register()
-
-
 def test_fallback_logic_missing_dep_reraised(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fallback logic module raises ModuleNotFoundError for an internal dep → re-raise."""
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "badconn")
@@ -536,61 +474,3 @@ def test_fallback_logic_not_found_is_skipped(monkeypatch: pytest.MonkeyPatch) ->
         loaded = connector_registry.auto_register()
 
     assert loaded == []
-
-
-def test_fallback_registration_missing_silently_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "noregconn")
-
-    def fake_import(name: str) -> MagicMock:
-        if name == "node_wire_noregconn.logic":
-            return MagicMock()
-        err = ModuleNotFoundError(f"No module named '{name}'")
-        err.name = name  # type: ignore[attr-defined]
-        raise err
-
-    with (
-        patch.object(connector_registry, "entry_points", return_value=[]),
-        patch.object(connector_registry.importlib, "import_module", side_effect=fake_import),
-    ):
-        loaded = connector_registry.auto_register()
-
-    assert "node_wire_noregconn.logic" in loaded
-    assert "node_wire_noregconn.registration" not in loaded
-
-
-def test_fallback_registration_dep_error_reraised(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "regerrconn")
-
-    def fake_import(name: str) -> MagicMock:
-        if name == "node_wire_regerrconn.logic":
-            return MagicMock()
-        if name == "node_wire_regerrconn.registration":
-            err = ModuleNotFoundError("No module named 'dep_x'")
-            err.name = "dep_x"  # type: ignore[attr-defined]
-            raise err
-        raise ImportError(f"unexpected: {name}")
-
-    with (
-        patch.object(connector_registry, "entry_points", return_value=[]),
-        patch.object(connector_registry.importlib, "import_module", side_effect=fake_import),
-        pytest.raises(ModuleNotFoundError),
-    ):
-        connector_registry.auto_register()
-
-
-def test_fallback_registration_unexpected_exception_reraised(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "excconn")
-
-    def fake_import(name: str) -> MagicMock:
-        if name == "node_wire_excconn.logic":
-            return MagicMock()
-        raise ValueError("unexpected registration failure")
-
-    with (
-        patch.object(connector_registry, "entry_points", return_value=[]),
-        patch.object(connector_registry.importlib, "import_module", side_effect=fake_import),
-        pytest.raises(ValueError, match="unexpected registration failure"),
-    ):
-        connector_registry.auto_register()

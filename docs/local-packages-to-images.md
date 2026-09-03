@@ -46,11 +46,11 @@ bash scripts/build-packages.sh \
 ```
 
 The script (`scripts/build-packages.sh` in default mode, not `--all`):
-- builds host wheels and Linux-compatible wheels (via Docker),
+- builds host wheels and Linux-compatible wheels (via a local `nw-wheel-builder:local` Docker image — not published to a registry; layer-cached after the first build),
 - writes artifacts under each package's `dist/` folder,
 - fails if any `.py` source files leak into a wheel.
 
-For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [docs/packaging.md](packaging.md).
+Use `--linux-only` when you only need container wheels, or `--host-only` to skip Docker. For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [docs/packaging.md](packaging.md).
 
 ---
 
@@ -112,7 +112,7 @@ Each Dockerfile expects specific wheel files to exist in `dist/`. Keep this tabl
 | `docker/stripe/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/stripe/dist/*.whl` |
 | `docker/salesforce/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/salesforce/dist/*.whl` |
 | `docker/slack/Dockerfile` | `packages/runtime/dist/*.whl`, `packages/connectors/slack/dist/*.whl` |
-| `Dockerfile` (unified MCP server) | runtime + connector wheels (`http_generic`, `stripe`, `smtp`, `slack`, `google_drive`, `fhir_epic`, `fhir_cerner`) |
+| `Dockerfile` (unified MCP server) | runtime + connector wheels (`http_generic`, `stripe`, `smtp`, `slack`, `google_drive`, `fhir_epic`, `fhir_cerner`, `salesforce`) |
 
 ---
 

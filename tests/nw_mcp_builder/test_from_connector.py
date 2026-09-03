@@ -52,16 +52,51 @@ def test_validate_layout_missing_logic(tmp_path: Path, package_root: Path) -> No
 def test_discover_actions_and_tool_names(fake_node_wire: Path) -> None:
     logic = fake_node_wire / "src" / "node_wire_demo_conn" / "logic.py"
     actions = discover_actions(logic)
-    assert actions == ["ping", "files.list"]
+    # Order comes from BaseConnector._action_registry, built via dir(cls) — alphabetical
+    # by method name ("files_list" < "ping"), not source declaration order.
+    assert sorted(actions) == ["files.list", "ping"]
     assert action_to_tool_name("files.list") == "files_list"
     assert action_to_tool_name("ping") == "ping"
 
 
-def test_discover_actions_sdk_spec_assign(tmp_path: Path) -> None:
+def test_discover_actions_action_specs_style(tmp_path: Path) -> None:
+    """Google Drive-style connectors declare actions via action_specs, not @nw_action
+    methods directly — discover_actions must see those too (via the real registry,
+    since BaseConnector.__init_subclass__ generates @nw_action handlers for them)."""
     pkg = tmp_path / "node_wire_x"
     pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
     (pkg / "logic.py").write_text(
-        'SPECS["files.create"] = SdkActionSpec(\n    "x"\n)\n',
+        """\
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel
+
+from node_wire_runtime import BaseConnector
+from node_wire_runtime.sdk_action_spec import SdkActionSpec
+
+
+class FilesCreateInput(BaseModel):
+    action: Literal["files.create"] = "files.create"
+
+
+class FilesCreateOutput(BaseModel):
+    id: str = "stub"
+
+
+class XConnector(BaseConnector):
+    connector_id = "x"
+    output_model = FilesCreateOutput
+    action_specs = {
+        "files.create": SdkActionSpec(
+            resource_segments=("files",),
+            method_name="create",
+            input_model=FilesCreateInput,
+        ),
+    }
+""",
         encoding="utf-8",
     )
     assert discover_actions(pkg / "logic.py") == ["files.create"]
@@ -114,6 +149,9 @@ def test_discover_secrets_and_env_example(fake_node_wire: Path, tmp_path: Path) 
     assert "NW_ALLOWED_CONNECTORS=demo_conn" in text
     assert "DEMO_CONN_SA_JSON=" in text
     assert "NW_MCP_AUTH_DISABLED=true" in text
+    for line in text.splitlines():
+        if line.startswith("DEMO_CONN_SA_JSON=") or line.startswith("DEMO_CONN_TOKEN="):
+            assert line.endswith("=") and line.count("=") == 1
 
 
 def test_run_from_connector_skip_wheels_generates_project(
@@ -132,6 +170,19 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert list((project_dir / "wheels").glob("*.whl"))
     assert (project_dir / "vendor" / "node_wire_src" / "bindings").is_dir()
     assert (project_dir / "Dockerfile").is_file()
+    assert (project_dir / ".dockerignore").is_file()
+    dockerfile = (project_dir / "Dockerfile").read_text(encoding="utf-8")
+    # fake_node_wire has no uv.lock → fallback pin that excludes mcp 2.x
+    assert "mcp>=1.6.0,<2" in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert '"mcp>=1.6.0,<2"' in dockerfile
+    assert "@sha256:" in dockerfile
+    assert "USER app" in dockerfile
+    assert "COPY config/connectors.yaml" in dockerfile
+    assert "COPY .env" not in dockerfile
+    assert "NW_MCP_AUTH_DISABLED" not in dockerfile
+    dockerignore = (project_dir / ".dockerignore").read_text(encoding="utf-8")
+    assert "**/.env" in dockerignore
+    assert "!config/connectors.yaml" in dockerignore
 
     with pytest.raises(FileExistsError, match="already exists"):
         run_from_connector(
@@ -163,6 +214,23 @@ def test_run_from_connector_requires_wheels_when_skip(
             package_root=package_root,
             skip_build_wheels=True,
         )
+
+
+def test_resolve_mcp_dependency_from_uv_lock(tmp_path: Path) -> None:
+    from nw_mcp_builder.generate.connector_project import (
+        _MCP_DEP_FALLBACK,
+        resolve_mcp_dependency,
+    )
+
+    root = tmp_path / "nw"
+    root.mkdir()
+    assert resolve_mcp_dependency(root) == _MCP_DEP_FALLBACK
+
+    (root / "uv.lock").write_text(
+        'version = 1\n[[package]]\nname = "mcp"\nversion = "1.27.2"\n',
+        encoding="utf-8",
+    )
+    assert resolve_mcp_dependency(root) == "mcp==1.27.2"
 
 
 def test_format_success_message(tmp_path: Path) -> None:

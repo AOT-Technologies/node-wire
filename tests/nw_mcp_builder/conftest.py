@@ -41,17 +41,50 @@ def fake_node_wire(tmp_path: Path) -> Path:
 
     logic_dir = root / "src" / f"node_wire_{connector_id}"
     logic_dir.mkdir(parents=True)
+    (logic_dir / "__init__.py").write_text("", encoding="utf-8")
+    # A real BaseConnector subclass, not a text fixture for a regex scanner: discover_actions
+    # imports this module for real and reads its registered action metadata (see
+    # docs/adr/, candidate 7 of the architecture review — live import replaced regex parsing).
+    # Uses the real, already-installed node_wire_runtime (this src/ tree is appended to
+    # sys.path, not inserted at the front, so nothing here can shadow it).
     (logic_dir / "logic.py").write_text(
         """\
-from node_wire_runtime import nw_action
+from __future__ import annotations
 
-@nw_action("ping")
-def ping():
-    return {"ok": True}
+from typing import Literal
 
-@nw_action("files.list")
-def files_list():
-    return []
+from pydantic import BaseModel
+
+from node_wire_runtime import BaseConnector, nw_action
+
+
+class PingInput(BaseModel):
+    action: Literal["ping"] = "ping"
+
+
+class PingOutput(BaseModel):
+    ok: bool = True
+
+
+class FilesListInput(BaseModel):
+    action: Literal["files.list"] = "files.list"
+
+
+class FilesListOutput(BaseModel):
+    files: list = []
+
+
+class DemoConnConnector(BaseConnector):
+    connector_id = "demo_conn"
+    output_model = PingOutput
+
+    @nw_action("ping")
+    async def ping(self, params: PingInput, *, trace_id: str) -> PingOutput:
+        return PingOutput()
+
+    @nw_action("files.list")
+    async def files_list(self, params: FilesListInput, *, trace_id: str) -> FilesListOutput:
+        return FilesListOutput()
 """,
         encoding="utf-8",
     )
@@ -59,6 +92,11 @@ def files_list():
     bindings = root / "src" / "bindings"
     bindings.mkdir(parents=True)
     (bindings / "__init__.py").write_text("", encoding="utf-8")
+    # Needed for _vendor_minimal_node_wire_src (generate/connector_project.py), which
+    # copies this directory into the generated MCP host's vendor/ tree — unrelated to
+    # discover_actions, which inserts this src/ tree at the front of sys.path (same as
+    # gate.py); node_wire_runtime itself is unaffected since it's already in sys.modules
+    # by the time any test runs, and the module cache wins before sys.path is consulted.
     runtime = root / "src" / "node_wire_runtime"
     runtime.mkdir(parents=True)
     (runtime / "__init__.py").write_text("", encoding="utf-8")

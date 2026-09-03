@@ -26,13 +26,44 @@ from agents.llm_factory import (
     LLMResponse,
     ToolCall,
 )
+from agents.schema_utils import openai_compatible_tool_parameters
 from agents.toolhive import (
     ToolHiveAgent,
     ToolHiveMcpClient,
     _is_tool_failure,
+    omit_null_tool_args,
     resolve_max_tool_failures,
     truncate_tool_result_for_llm,
 )
+
+
+def test_omit_null_tool_args() -> None:
+    assert omit_null_tool_args({"a": 1, "b": None, "c": ""}) == {"a": 1, "c": ""}
+
+
+def test_openai_compatible_tool_parameters_allows_null_on_optional() -> None:
+    schema = {
+        "type": "object",
+        "properties": {
+            "required_str": {"type": "string"},
+            "optional_str": {"type": "string"},
+            "already": {"type": ["string", "null"]},
+            "list_no_null": {"type": ["string", "number"]},
+            "null_only": {"type": "null"},
+            "no_type": {"description": "untyped"},
+        },
+        "required": ["required_str"],
+    }
+    out = openai_compatible_tool_parameters(schema)
+    assert out["properties"]["required_str"]["type"] == "string"
+    assert out["properties"]["optional_str"]["type"] == ["string", "null"]
+    assert out["properties"]["already"]["type"] == ["string", "null"]
+    assert out["properties"]["list_no_null"]["type"] == ["string", "number", "null"]
+    assert out["properties"]["null_only"]["type"] == "null"
+    assert "type" not in out["properties"]["no_type"]
+    # Input schema must not be mutated.
+    assert schema["properties"]["optional_str"]["type"] == "string"
+    assert schema["properties"]["list_no_null"]["type"] == ["string", "number"]
 
 
 def test_truncate_tool_result_for_llm_respects_limit(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -74,6 +105,7 @@ def test_resolve_max_tool_failures_env_and_override(monkeypatch: pytest.MonkeyPa
 def _mcp_tools_subset_from_manifest() -> List[Dict[str, Any]]:
     """Same input_schema as McpServer.list_tools for a stable agent-test subset."""
     from bindings.factory import ConnectorFactory
+    from bindings.mcp_server.server import mcp_advertised_tool_name
     from node_wire_runtime.connector_registry import auto_register
     from node_wire_runtime.manifest import build_manifest
 
@@ -81,10 +113,14 @@ def _mcp_tools_subset_from_manifest() -> List[Dict[str, Any]]:
     factory = ConnectorFactory()
     factory.load()
     manifest = build_manifest(factory.list_for_protocol("mcp"))
-    want = {"fhir_cerner.read_patient", "google_drive.files.upload", "smtp.send_email"}
+    want = {
+        "fhir_cerner_read_patient",
+        "google_drive_files_upload",
+        "smtp_send_email",
+    }
     out: List[Dict[str, Any]] = []
     for entry in manifest:
-        name = f"{entry['connector_id']}.{entry['action']}"
+        name = mcp_advertised_tool_name(entry["connector_id"], entry["action"])
         if name in want:
             out.append(
                 {
@@ -174,7 +210,7 @@ async def test_agent_runs_three_tool_sequence() -> None:
         # Step 1: Call FHIR
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "12724066"})],
             stop_reason="tool_calls",
         ),
         # Step 2: Call Drive
@@ -182,7 +218,7 @@ async def test_agent_runs_three_tool_sequence() -> None:
             content=None,
             tool_calls=[
                 _tool_call(
-                    "google_drive.files.upload",
+                    "google_drive_files_upload",
                     {
                         "name": "summary.txt",
                         "mime_type": "text/plain",
@@ -197,7 +233,7 @@ async def test_agent_runs_three_tool_sequence() -> None:
             content=None,
             tool_calls=[
                 _tool_call(
-                    "smtp.send_email",
+                    "smtp_send_email",
                     {
                         "to": ["doc@example.com"],
                         "subject": "Summary",
@@ -225,9 +261,9 @@ async def test_agent_runs_three_tool_sequence() -> None:
     assert result.success is True
     assert result.final_answer == "All 3 steps completed successfully."
     assert len(result.steps) == 3
-    assert result.steps[0].tool_called == "fhir_cerner.read_patient"
-    assert result.steps[1].tool_called == "google_drive.files.upload"
-    assert result.steps[2].tool_called == "smtp.send_email"
+    assert result.steps[0].tool_called == "fhir_cerner_read_patient"
+    assert result.steps[1].tool_called == "google_drive_files_upload"
+    assert result.steps[2].tool_called == "smtp_send_email"
 
     # Verify MCP was called exactly 3 times
     assert mock_mcp.call_tool.await_count == 3
@@ -238,7 +274,7 @@ async def test_agent_run_events_emits_done_message_with_trace_id() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "12724066"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(content="All done.", tool_calls=[], stop_reason="stop"),
@@ -267,7 +303,7 @@ async def test_agent_id_first_turn_calls_read_patient_with_resource_id() -> None
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "12724066"})],
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "12724066"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(content="Patient retrieved.", tool_calls=[], stop_reason="stop"),
@@ -283,7 +319,7 @@ async def test_agent_id_first_turn_calls_read_patient_with_resource_id() -> None
     assert result.success is True
     mock_mcp.call_tool.assert_awaited_once()
     call = mock_mcp.call_tool.await_args
-    assert call[0][0] == "fhir_cerner.read_patient"
+    assert call[0][0] == "fhir_cerner_read_patient"
     assert call[0][1]["resource_id"] == "12724066"
 
 
@@ -293,7 +329,7 @@ async def test_agent_respects_max_steps() -> None:
     # LLM always returns a tool call — never finishes
     infinite_response = LLMResponse(
         content=None,
-        tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "x"})],
+        tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "x"})],
         stop_reason="tool_calls",
     )
     provider = _MockLLMProvider([infinite_response])
@@ -317,7 +353,7 @@ async def test_agent_handles_tool_error_gracefully() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("fhir_cerner.read_patient", {"resource_id": "bad"})],
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "bad"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
@@ -359,12 +395,12 @@ async def test_agent_stops_after_repeated_tool_failures() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive.files.upload", {"name": "a.txt"})],
+            tool_calls=[_tool_call("google_drive_files_upload", {"name": "a.txt"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive.files.upload", {"name": "a.txt"})],
+            tool_calls=[_tool_call("google_drive_files_upload", {"name": "a.txt"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(content="should not run", tool_calls=[], stop_reason="stop"),
@@ -384,7 +420,7 @@ async def test_agent_stops_after_repeated_tool_failures() -> None:
 
     assert result.success is False
     assert len(result.steps) == 2
-    assert "google_drive.files.upload" in (result.error or "")
+    assert "google_drive_files_upload" in (result.error or "")
     assert "failed 2 times" in (result.final_answer or result.error or "").lower()
     assert mock_mcp.call_tool.await_count == 2
     assert provider._call_count == 2
@@ -398,17 +434,17 @@ async def test_agent_success_then_two_failures_same_tool_aborts() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive.files.upload", {})],
+            tool_calls=[_tool_call("google_drive_files_upload", {})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive.files.upload", {})],
+            tool_calls=[_tool_call("google_drive_files_upload", {})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive.files.upload", {})],
+            tool_calls=[_tool_call("google_drive_files_upload", {})],
             stop_reason="tool_calls",
         ),
     ]
@@ -441,12 +477,12 @@ def test_mcp_entrypoint_exposes_manifest_tools() -> None:
 
     server = McpServer(server_name="node-wire")
     names = {t["name"] for t in server.list_tools()}
-    assert "fhir_cerner.read_patient" in names
-    assert "fhir_epic.read_patient" in names
-    assert "google_drive.files.upload" in names
-    assert "smtp.send_email" in names
-    assert "stripe.charge" in names
-    assert "http_generic.request" in names
+    assert "fhir_cerner_read_patient" in names
+    assert "fhir_epic_read_patient" in names
+    assert "google_drive_files_upload" in names
+    assert "smtp_send_email" in names
+    assert "stripe_charge" in names
+    assert "http_generic_request" in names
     # Broader surface than the old 8 FastMCP tools
     assert len(names) >= 18
 
@@ -487,14 +523,14 @@ def test_mcp_server_matches_per_connector_entrypoints() -> None:
     full = {t["name"] for t in McpServer().list_tools()}
 
     cerner = {t["name"] for t in McpServer(connector_ids=["fhir_cerner"]).list_tools()}
-    assert cerner == {n for n in full if n.startswith("fhir_cerner.")}
+    assert cerner == {n for n in full if n.startswith("fhir_cerner_")}
 
     epic = {t["name"] for t in McpServer(connector_ids=["fhir_epic"]).list_tools()}
-    assert epic == {n for n in full if n.startswith("fhir_epic.")}
+    assert epic == {n for n in full if n.startswith("fhir_epic_")}
 
     drive = {t["name"] for t in McpServer(connector_ids=["google_drive"]).list_tools()}
-    assert drive == {n for n in full if n.startswith("google_drive.")}
-    assert "google_drive.files.upload" in drive
+    assert drive == {n for n in full if n.startswith("google_drive_")}
+    assert "google_drive_files_upload" in drive
 
     smtp = {t["name"] for t in McpServer(connector_ids=["smtp"]).list_tools()}
-    assert smtp == {"smtp.send_email"}
+    assert smtp == {"smtp_send_email"}

@@ -4,20 +4,26 @@
 #
 from __future__ import annotations
 
+import json
+
 from node_wire_runtime.secrets.base import (
     SecretNotFoundError,
     SecretProvider,
     SecretProviderError,
 )
 
-try:
-    from google.cloud import secretmanager
-    from google.api_core.exceptions import NotFound, GoogleAPICallError
-except ImportError as _e:
-    raise ImportError(
-        "google-cloud-secret-manager is required for GcpSecretManagerProvider. "
-        "Install with: pip install 'node-wire-runtime[gcp]'"
-    ) from _e
+
+def _import_gcp():
+    """Import GCP SDKs lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    try:
+        from google.cloud import secretmanager
+        from google.api_core.exceptions import NotFound, GoogleAPICallError
+    except ImportError as exc:
+        raise ImportError(
+            "google-cloud-secret-manager is required for GcpSecretManagerProvider. "
+            "Install with: pip install 'node-wire-runtime[gcp]'"
+        ) from exc
+    return secretmanager, NotFound, GoogleAPICallError
 
 
 class GcpSecretManagerProvider(SecretProvider):
@@ -29,8 +35,7 @@ class GcpSecretManagerProvider(SecretProvider):
     """
 
     def __init__(self, project_id: str, secret_id: str, version: str = "latest") -> None:
-        import json
-
+        secretmanager, NotFound, GoogleAPICallError = _import_gcp()
         client = secretmanager.SecretManagerServiceClient()
         name = f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
         try:

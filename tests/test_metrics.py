@@ -128,11 +128,13 @@ class _RetryableMetricError(Exception):
 
 @pytest.fixture
 def _register_retryable() -> None:
-    ErrorMapper.register(_RetryableMetricError, ErrorCategory.RETRYABLE, code="RETRYABLE_METRIC")
+    ErrorMapper.register(
+        "retry_cx", _RetryableMetricError, ErrorCategory.RETRYABLE, code="RETRYABLE_METRIC"
+    )
     try:
         yield
     finally:
-        ErrorMapper._registry.pop(_RetryableMetricError, None)
+        ErrorMapper._connector_registries.get("retry_cx", {}).pop(_RetryableMetricError, None)
 
 
 @pytest.mark.asyncio

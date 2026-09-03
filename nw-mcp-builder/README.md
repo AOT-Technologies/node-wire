@@ -26,6 +26,9 @@ cd nw-mcp-builder
 # Generate (build wheels + fixture + out/<name>-mcp/)
 uv run nw-mcp-builder -c <connector_id>
 
+# Same flow via nw-connector-builder
+uv run --directory ../nw-connector-builder nw-connector-builder mcp -c <connector_id>
+
 # Common options
 uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
 uv run nw-mcp-builder -c <connector_id> --force-output
@@ -55,6 +58,13 @@ Default transport is HTTP on port **8081**. For stdio:
 
 ```bash
 NW_MCP_TRANSPORT=stdio uv run python -m <module_name>
+```
+
+A project `.env` is local-only (never copied into Docker). For the image, pass secrets at run time:
+
+```bash
+docker build -t <module_name> .
+docker run --rm --env-file .env -p 8081:8081 <module_name>
 ```
 
 `<name>-mcp` / `<module_name>` come from the connector id (underscores → hyphens in the folder name, e.g. `google_drive` → `out/google-drive-nw-mcp`, module `google_drive_nw_mcp`).

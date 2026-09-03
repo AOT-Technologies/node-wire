@@ -14,10 +14,12 @@ Steps:
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 import re
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -39,15 +41,6 @@ _ENV_PREFIXES: dict[str, tuple[str, ...]] = {
     "smtp": ("SMTP_",),
     "http_generic": ("HTTP_GENERIC_",),
 }
-
-_ACTION_RE = re.compile(
-    r"""@(?:nw_action|sdk_action)\(\s*["']([^"']+)["']""",
-    re.MULTILINE,
-)
-_SPEC_ASSIGN_RE = re.compile(
-    r"""\[[\"']([^\"']+)[\"']\]\s*=\s*SdkActionSpec\s*\(""",
-    re.MULTILINE,
-)
 
 
 def run_from_connector(
@@ -208,36 +201,62 @@ def _require_wheels(node_wire_root: Path, connector_id: str) -> None:
 
 
 def discover_actions(logic_py: Path) -> list[str]:
-    """Parse action names from logic.py and sibling modules.
+    """Read action names from the connector's own action registry.
 
-    Covers ``@nw_action`` / ``@sdk_action`` and
-    ``SPECS["files.create"] = SdkActionSpec(...)`` (Google Drive-style).
+    Imports ``node_wire_<connector_id>.logic`` for real (the ``src`` directory
+    containing it is inserted at the *front* of ``sys.path`` for the duration
+    of the call — same as ``nw-connector-builder``'s ``gate.py`` — so the
+    package under the ``node_wire_root`` passed in wins over any other
+    same-named package already installed elsewhere (e.g. this repo's own
+    editable-installed connectors, if ``node_wire_root`` points at a different
+    checkout). ``node_wire_runtime`` itself is never at risk of being shadowed
+    by this: it's virtually always already in ``sys.modules`` by the time this
+    runs, and Python's import system checks that cache before consulting
+    ``sys.path`` at all.
+
+    Reads ``BaseConnector``'s own ``nw_action_metas()`` / ``_action_registry``
+    — the same source of truth ``gate.py`` already trusts, instead of
+    regex-parsing source text (which can drift from what actually got
+    registered, and can't see actions declared via ``action_specs`` correctly
+    without also duplicating class-body parsing).
     """
     package_dir = logic_py.parent
-    actions: list[str] = []
-    seen: set[str] = set()
+    connector_id = package_dir.name.removeprefix("node_wire_")
+    src_root = str(package_dir.parent)
+    mod_name = f"node_wire_{connector_id}"
 
-    def _add(name: str) -> None:
-        name = name.strip()
-        # Skip docstring/comment placeholders like @nw_action("...")
-        if not name or name == "..." or not re.fullmatch(r"[a-z][a-z0-9_.]*", name):
-            return
-        if name not in seen:
-            seen.add(name)
-            actions.append(name)
+    for key in list(sys.modules):
+        if key == mod_name or key.startswith(mod_name + "."):
+            del sys.modules[key]
 
-    for py_path in sorted(package_dir.glob("*.py")):
-        text = py_path.read_text(encoding="utf-8")
-        for match in _ACTION_RE.finditer(text):
-            _add(match.group(1))
-        for match in _SPEC_ASSIGN_RE.finditer(text):
-            _add(match.group(1))
+    old_path = list(sys.path)
+    try:
+        sys.path.insert(0, src_root)
+        logic = importlib.import_module(f"{mod_name}.logic")
+    finally:
+        sys.path[:] = old_path
 
-    if not actions:
+    from node_wire_runtime import BaseConnector
+
+    cls = None
+    for attr in dir(logic):
+        obj = getattr(logic, attr)
+        if isinstance(obj, type) and issubclass(obj, BaseConnector) and obj is not BaseConnector:
+            if getattr(obj, "connector_id", None) == connector_id:
+                cls = obj
+                break
+    if cls is None:
         raise ValueError(
-            f"No actions found under {package_dir} "
-            "(@nw_action/@sdk_action or SdkActionSpec assignments)"
+            f"No BaseConnector subclass with connector_id={connector_id!r} found under "
+            f"{package_dir}"
         )
+
+    metas = getattr(cls, "nw_action_metas", None)
+    actions = (
+        list(metas().keys()) if callable(metas) else list(getattr(cls, "_action_registry", {}))
+    )
+    if not actions:
+        raise ValueError(f"Connector {connector_id!r} exposes zero actions (under {package_dir})")
     return actions
 
 
@@ -249,6 +268,23 @@ def action_to_tool_name(action: str) -> str:
     if len(name) > 40:
         name = name[:40]
     return name
+
+
+def actions_to_tool_names(actions: list[str]) -> dict[str, str]:
+    """Map each action to its tool_name, raising if the 40-char truncation collides two
+    different actions into the same tool_name (action_to_tool_name alone can't see this —
+    it only ever sees one action at a time)."""
+    by_tool_name: dict[str, str] = {}
+    for action in actions:
+        tool_name = action_to_tool_name(action)
+        existing = by_tool_name.get(tool_name)
+        if existing is not None and existing != action:
+            raise ValueError(
+                f"Actions {existing!r} and {action!r} both truncate to the same "
+                f"tool_name {tool_name!r} (40-char MCP tool-name limit) — rename one."
+            )
+        by_tool_name[tool_name] = action
+    return {action: tool_name for tool_name, action in by_tool_name.items()}
 
 
 def ensure_connector_fixture(
@@ -267,6 +303,7 @@ def ensure_connector_fixture(
 
     logic = node_wire_root / "src" / f"node_wire_{connector_id}" / "logic.py"
     actions = discover_actions(logic)
+    tool_names = actions_to_tool_names(actions)
     server_name = connector_id.replace("_", "-") + "-nw"
     if len(server_name) > 63:
         server_name = server_name[:63].rstrip("-")
@@ -274,7 +311,7 @@ def ensure_connector_fixture(
     pkg_name = connector_dist_package_name(connector_id)
     tools = []
     for action in actions:
-        tool_name = action_to_tool_name(action)
+        tool_name = tool_names[action]
         tools.append(
             {
                 "tool_name": tool_name,
@@ -400,6 +437,9 @@ def write_env_example(project_dir: Path, connector_id: str, node_wire_root: Path
     lines = [
         f"# Example env for {connector_id} MCP host (copy to .env and fill in).",
         "# Generated by: nw-mcp-builder",
+        "# Values are empty on purpose. Never commit a filled .env.",
+        "# Docker: pass secrets at runtime (`docker run --env-file` / -e / orchestrator).",
+        "# Do not COPY .env or this file into an image.",
         "NW_MCP_AUTH_DISABLED=true",
         "NW_MCP_SCOPE_POLICY_DEFAULT=allow",
         f"NW_ALLOWED_CONNECTORS={connector_id}",

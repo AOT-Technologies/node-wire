@@ -59,6 +59,33 @@ def test_load_env_file_fills_unset_only(tmp_path: Path, monkeypatch: pytest.Monk
     assert os.environ["GOOGLE_DRIVE_FOLDER_ID"] == "folder-from-file"
 
 
+def test_load_env_skips_dotenv_file_in_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "host"
+    mod = _load_generated_module(project, "google_drive")
+    (project / ".env").write_text(
+        "GOOGLE_DRIVE_SA_JSON=from-file\nLEAKED_SECRET=should-not-load\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NW_MCP_CONTAINER", "true")
+    monkeypatch.delenv("GOOGLE_DRIVE_SA_JSON", raising=False)
+    monkeypatch.delenv("LEAKED_SECRET", raising=False)
+
+    mod._load_env()
+    assert os.environ["NW_REST_LOAD_DOTENV"] == "false"
+    assert "GOOGLE_DRIVE_SA_JSON" not in os.environ
+    assert "LEAKED_SECRET" not in os.environ
+
+
+def test_generated_main_disables_auth_only_outside_container() -> None:
+    src = _main_py(connector_id="smtp")
+    assert "if not _running_in_container():" in src
+    assert 'os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")' in src
+    assert "from dotenv import load_dotenv" in src
+    assert src.index("if _running_in_container():") < src.index("from dotenv import load_dotenv")
+
+
 def test_load_env_missing_project_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     orphan = tmp_path / "orphan" / "pkg"
     orphan.mkdir(parents=True)

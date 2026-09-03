@@ -123,9 +123,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const agentSendBtn = document.getElementById('agent-send-btn');
     const agentTyping = document.getElementById('agent-typing');
     const agentTransportStatus = document.getElementById('agent-transport-status');
+    const agentLlmPicker = document.getElementById('agent-llm-picker');
+    const agentLlmTrigger = document.getElementById('agent-llm-trigger');
+    const agentLlmTriggerLabel = document.getElementById('agent-llm-trigger-label');
+    const agentLlmMenu = document.getElementById('agent-llm-menu');
+    const agentLlmNote = document.getElementById('agent-llm-note');
     let agentConversationHistory = [];
     let agentBusy = false;
     let agentTransportMode = 'stdio';
+    let agentLlmOptions = [];
+    let agentLlmSelectedId = '';
+    const AGENT_LLM_STORAGE_KEY = 'nw_playground_llm_option';
 
     const pipelineLabels = {
         ehr: [
@@ -329,6 +337,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         Back to Workspace
                     `;
                 }
+                syncMultitenancyUi();
+                loadAgentLlmOptions();
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
             } else if (view === 'connector-apps-menu') {
                 rootSelectionView.classList.add('hidden');
@@ -345,6 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Back to Workspace
                     `;
                 }
+                syncMultitenancyUi();
                 log('Opened Connector Apps menu', 'system');
             } else if (view === 'ext-patient-viewer') {
                 document.getElementById('connector-apps-selection-view').classList.add('hidden');
@@ -365,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
                 setMode('ext-patient-viewer');
+                syncMultitenancyUi();
             } else {
                 rootSelectionView.classList.add('hidden');
                 layoutMain.classList.remove('hidden');
@@ -384,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Back to Workspace
                     `;
                 }
+                syncMultitenancyUi();
                 log('Switched to Connectors view', 'system');
             }
         });
@@ -618,6 +631,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (slackPanel) slackPanel.classList.add('hidden');
         if (extViewerPanel) extViewerPanel.classList.add('hidden');
 
+        if (typeof syncMultitenancyUi === 'function') {
+            syncMultitenancyUi();
+        }
+
         if (mode === 'ehr') {
 
             ehrPanel.classList.remove('hidden');
@@ -698,6 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
+                loadAgentLlmOptions();
                 log('Switched to AI Agent mode (MCP + LLM)', 'system');
             } else {
                 agentPanel.classList.add('hidden');
@@ -724,6 +742,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (backSelectionBtn) backSelectionBtn.classList.add('hidden');
             if (backToConnectorsBtn) backToConnectorsBtn.classList.remove('hidden');
             setMode(mode);
+            refreshConfigDropdown(mode);
+            syncMultitenancyUi();
         });
     });
 
@@ -738,6 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             connectorStatus.textContent = 'Connectors Ready';
             tagline.textContent = 'Enterprise Integration Suite';
             document.documentElement.style.setProperty('--brand-accent', '#2563eb');
+            syncMultitenancyUi();
             log('Returned to Connectors list', 'system');
         }
     });
@@ -779,6 +800,613 @@ document.addEventListener('DOMContentLoaded', () => {
         gdriveActionSelect.addEventListener('change', scheduleGdriveDriveActionSyncFromUser);
     }
 
+    // --- Multitenancy feature flag (fetched once on page load) ---
+    let _multitenancyEnabled = false;
+
+    function syncMultitenancyUi() {
+        const headerTenancy = document.getElementById('header-tenancy');
+        if (headerTenancy) {
+            headerTenancy.classList.toggle('hidden', !_multitenancyEnabled);
+        }
+        const addConfigBtn = document.getElementById('add-config-btn');
+        if (addConfigBtn) {
+            // Simplified: always hide header Add config (Agent work later).
+            addConfigBtn.classList.add('hidden');
+            addConfigBtn.hidden = true;
+        }
+        const connectorAddBtn = document.getElementById('connector-add-config-btn');
+        if (connectorAddBtn) {
+            const onConnector =
+                !!_modeToConnectorId[currentMode] &&
+                playgroundView &&
+                !playgroundView.classList.contains('hidden');
+            connectorAddBtn.classList.toggle('hidden', !_multitenancyEnabled || !onConnector);
+        }
+        if (!_multitenancyEnabled) {
+            closeConfigAdminModal();
+        }
+    }
+
+    async function openConfigAdminModal() {
+        const modal = document.getElementById('config-admin-modal');
+        if (!modal) return;
+        const connectorId = currentConnectorId();
+        if (!connectorId) {
+            log('Open a connector page before adding config.', 'error');
+            return;
+        }
+        const tip = document.getElementById('config-admin-connector-tip');
+        if (tip) tip.textContent = connectorId;
+
+        const tenantId = getPlaygroundTenantId();
+        const configName = getPlaygroundConfigName();
+        if (_cfgTenantInput) {
+            _cfgTenantInput.value = tenantId || '';
+        }
+
+        modal.classList.remove('hidden');
+        setConfigAdminError('');
+        await refreshModalConfigSelect(tenantId, connectorId, configName);
+        await applyModalConfigSelection(connectorId);
+        refreshConfigDropdown(currentMode);
+    }
+
+    function closeConfigAdminModal() {
+        const modal = document.getElementById('config-admin-modal');
+        if (modal) modal.classList.add('hidden');
+        setConfigAdminError('');
+    }
+
+    function syncCfgNameGroupVisibility() {
+        const select = document.getElementById('cfg-select');
+        const nameGroup = document.getElementById('cfg-name-group');
+        const nameEl = document.getElementById('cfg-name');
+        if (!select || !nameGroup || !nameEl) return;
+        const isNew = !select.value;
+        nameGroup.classList.toggle('hidden', !isNew);
+        if (!isNew) {
+            nameEl.value = select.value;
+            nameEl.readOnly = true;
+        } else {
+            nameEl.readOnly = false;
+            if (!nameEl.value.trim()) nameEl.value = 'test';
+        }
+    }
+
+    async function listConfigsForTenantConnector(tenantId, connectorId) {
+        if (!tenantId || !connectorId) return [];
+        const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
+        const res = await fetch(
+            `/v1/connectors/${encodeURIComponent(connectorId)}/configs`,
+            { headers }
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data.configs)
+            ? data.configs
+            : Array.isArray(data)
+              ? data
+              : [];
+    }
+
+    async function refreshModalConfigSelect(tenantId, connectorId, preferredName) {
+        const select = document.getElementById('cfg-select');
+        if (!select) return;
+        const prev = preferredName != null ? preferredName : select.value;
+        select.innerHTML = '<option value="">— new config —</option>';
+        if (!tenantId || !connectorId) {
+            syncCfgNameGroupVisibility();
+            return;
+        }
+        try {
+            const configs = await listConfigsForTenantConnector(tenantId, connectorId);
+            configs.forEach((cfg) => {
+                const opt = document.createElement('option');
+                opt.value = cfg.name || '';
+                opt.textContent = (cfg.name || '') + (cfg.default ? ' (default)' : '');
+                select.appendChild(opt);
+            });
+            if (prev && [...select.options].some((o) => o.value === prev)) {
+                select.value = prev;
+            } else if (prev && configs.length === 0) {
+                // Deleted / unknown name: stay on new, keep typed name.
+                select.value = '';
+                const nameEl = document.getElementById('cfg-name');
+                if (nameEl && prev) nameEl.value = prev;
+            } else {
+                select.value = '';
+            }
+        } catch (_) {
+            // ignore
+        }
+        syncCfgNameGroupVisibility();
+    }
+
+    async function applyModalConfigSelection(connectorId) {
+        const select = document.getElementById('cfg-select');
+        const nameEl = document.getElementById('cfg-name');
+        const defaultEl = document.getElementById('cfg-default');
+        const tenantId = modalTenantId();
+        const selected = select && select.value ? select.value : '';
+        syncCfgNameGroupVisibility();
+
+        let existingKeys = [];
+        if (defaultEl) defaultEl.value = 'true';
+
+        if (tenantId && selected && connectorId) {
+            if (nameEl) nameEl.value = selected;
+            try {
+                const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
+                const cfgRes = await fetch(
+                    `/v1/connectors/${encodeURIComponent(connectorId)}/configs/${encodeURIComponent(selected)}`,
+                    { headers }
+                );
+                if (cfgRes.ok) {
+                    const doc = await cfgRes.json();
+                    if (defaultEl && typeof doc.default === 'boolean') {
+                        defaultEl.value = doc.default ? 'true' : 'false';
+                    }
+                    const secRes = await fetch(
+                        `/v1/connectors/${encodeURIComponent(connectorId)}/secrets?config_name=${encodeURIComponent(selected)}`,
+                        { headers }
+                    );
+                    if (secRes.ok) {
+                        const sec = await secRes.json();
+                        existingKeys = Array.isArray(sec.keys) ? sec.keys : [];
+                    }
+                }
+            } catch (_) {
+                // Prefill is best-effort.
+            }
+        }
+        renderSecretFields(connectorId || currentConnectorId(), existingKeys);
+    }
+
+    function modalSelectedConfigName() {
+        const select = document.getElementById('cfg-select');
+        if (select && select.value) return select.value.trim();
+        return (document.getElementById('cfg-name')?.value || 'test').trim();
+    }
+
+    async function loadFeatureFlags() {
+        try {
+            const res = await fetch('/playground/feature-flags');
+            if (res.ok) {
+                const flags = await res.json();
+                _multitenancyEnabled = !!flags.multitenancy_enabled;
+            }
+        } catch (_) {
+            // If endpoint is unreachable, keep default (disabled).
+        }
+        syncMultitenancyUi();
+        if (_multitenancyEnabled) {
+            await refreshTenantDropdown();
+            await refreshConfigDropdown(currentMode);
+        }
+    }
+
+    // Header Tenant is a select of existing tenants; modal Tenant ID is free-text for new ones.
+    const _tenantInput = document.getElementById('playground-tenant-id');
+    const _cfgTenantInput = document.getElementById('cfg-tenant-id');
+    let _tenantSyncLock = false;
+
+    function syncTenantInputs(source) {
+        if (_tenantSyncLock) return;
+        _tenantSyncLock = true;
+        try {
+            const value = source && source.value != null ? String(source.value).trim() : '';
+            if (_cfgTenantInput && source !== _cfgTenantInput) {
+                // Do not overwrite free-text while user types a new tenant in the modal.
+                if (source === _tenantInput) _cfgTenantInput.value = value;
+            }
+            if (_tenantInput && source === _cfgTenantInput && value) {
+                ensureTenantOption(value, true);
+            }
+        } finally {
+            _tenantSyncLock = false;
+        }
+    }
+
+    function ensureTenantOption(tenantId, selectIt) {
+        if (!_tenantInput || !tenantId) return;
+        let found = false;
+        for (const opt of _tenantInput.options) {
+            if (opt.value === tenantId) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            const opt = document.createElement('option');
+            opt.value = tenantId;
+            opt.textContent = tenantId;
+            _tenantInput.appendChild(opt);
+        }
+        if (selectIt) _tenantInput.value = tenantId;
+    }
+
+    async function refreshTenantDropdown() {
+        if (!_multitenancyEnabled || !_tenantInput) return;
+        const prev = _tenantInput.value;
+        try {
+            const res = await fetch('/v1/tenants');
+            if (!res.ok) return;
+            const data = await res.json();
+            const tenants = Array.isArray(data.tenants) ? data.tenants : [];
+            _tenantInput.innerHTML = '<option value="">— select tenant —</option>';
+            tenants.forEach((tid) => {
+                const opt = document.createElement('option');
+                opt.value = tid;
+                opt.textContent = tid;
+                _tenantInput.appendChild(opt);
+            });
+            if (prev && tenants.includes(prev)) {
+                _tenantInput.value = prev;
+            } else if (prev) {
+                ensureTenantOption(prev, true);
+            }
+        } catch (_) {
+            // ignore
+        }
+    }
+
+    let _tenantDebounce = null;
+    function onTenantChanged() {
+        clearTimeout(_tenantDebounce);
+        _tenantDebounce = setTimeout(() => refreshConfigDropdown(currentMode), 200);
+        if (_cfgTenantInput && _tenantInput) {
+            syncTenantInputs(_tenantInput);
+        }
+    }
+    if (_tenantInput) {
+        _tenantInput.addEventListener('change', onTenantChanged);
+    }
+    if (_cfgTenantInput) {
+        _cfgTenantInput.addEventListener('input', () => syncTenantInputs(_cfgTenantInput));
+        let _cfgTenantDebounce = null;
+        _cfgTenantInput.addEventListener('change', () => {
+            clearTimeout(_cfgTenantDebounce);
+            _cfgTenantDebounce = setTimeout(async () => {
+                const connectorId = currentConnectorId();
+                const tenantId = modalTenantId();
+                await refreshModalConfigSelect(tenantId, connectorId, '');
+                await applyModalConfigSelection(connectorId);
+            }, 150);
+        });
+        _cfgTenantInput.addEventListener('blur', async () => {
+            const connectorId = currentConnectorId();
+            const tenantId = modalTenantId();
+            await refreshModalConfigSelect(tenantId, connectorId, document.getElementById('cfg-select')?.value || '');
+            await applyModalConfigSelection(connectorId);
+        });
+    }
+
+    document.getElementById('cfg-select')?.addEventListener('change', async () => {
+        await applyModalConfigSelection(currentConnectorId());
+    });
+
+    // Map playground mode names to connector_id strings used by the config API.
+    const _modeToConnectorId = {
+        ehr: 'fhir_epic',
+        cerner: 'fhir_cerner',
+        gdrive: 'google_drive',
+        itops: 'http_generic',
+        slack: 'slack',
+        stripe: 'stripe',
+        salesforce: 'salesforce',
+    };
+
+    function currentConnectorId() {
+        return _modeToConnectorId[currentMode] || '';
+    }
+
+    // Self-contained auth/config templates matching config/connectors.yaml (secret refs only).
+    const _connectorCreateDocs = {
+        http_generic: {
+            config: {},
+            auth: {},
+        },
+        google_drive: {
+            config: {},
+            auth: {
+                provider: 'service_account',
+                sa_json_secret: 'GOOGLE_DRIVE_SA_JSON',
+                scopes: ['https://www.googleapis.com/auth/drive'],
+            },
+        },
+        fhir_epic: {
+            config: {
+                base_url: 'https://fhir.epic.sandbox/api/FHIR/R4',
+            },
+            auth: {
+                provider: 'oauth2',
+                grant_method: 'private_key_jwt',
+                token_url_secret: 'EPIC_TOKEN_URL',
+                client_id_secret: 'EPIC_CLIENT_ID',
+                private_key_secret: 'EPIC_PRIVATE_KEY',
+                kid_secret: 'EPIC_KID',
+                algorithm: 'RS384',
+            },
+        },
+        fhir_cerner: {
+            config: {
+                base_url: 'https://fhir-ehr-code.cerner.com/r4/your-tenant-id',
+            },
+            auth: {
+                provider: 'oauth2',
+                grant_method: 'private_key_jwt',
+                token_url_secret: 'CERNER_TOKEN_URL',
+                client_id_secret: 'CERNER_CLIENT_ID',
+                private_key_secret: 'CERNER_PRIVATE_KEY',
+                kid_secret: 'CERNER_KID',
+                algorithm: 'RS384',
+                scopes_secret: 'CERNER_SCOPES',
+                scopes: [
+                    'system/Patient.read',
+                    'system/Encounter.read',
+                    'system/DocumentReference.read',
+                    'system/DocumentReference.write',
+                ],
+            },
+        },
+        slack: {
+            config: {},
+            auth: {
+                provider: 'static_token',
+                secret_key: 'SLACK_BOT_TOKEN',
+            },
+        },
+        stripe: {
+            config: {},
+            auth: {
+                provider: 'static_token',
+                secret_key: 'stripe_api_key',
+                header_name: 'Authorization',
+                prefix: '',
+            },
+        },
+        salesforce: {
+            config: {},
+            auth: {
+                provider: 'oauth2',
+                grant_method: 'refresh_token',
+                token_url_secret: 'SALESFORCE_TOKEN_URL',
+                client_id_secret: 'SALESFORCE_CLIENT_ID',
+                client_secret_secret: 'SALESFORCE_CLIENT_SECRET',
+                refresh_token_secret: 'SALESFORCE_REFRESH_TOKEN',
+            },
+        },
+    };
+
+    // Varying-only secret fields shown in Add config (shared env auto-copied server-side).
+    // Format / required secret validation is server-side only (tenant_store).
+    const _connectorSecretFields = {
+        google_drive: [
+            { key: 'GOOGLE_DRIVE_SA_JSON', label: 'Service account JSON', type: 'textarea', required: true },
+        ],
+        fhir_epic: [
+            { key: 'EPIC_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'EPIC_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
+            { key: 'EPIC_KID', label: 'Key ID (kid)', type: 'text', required: true },
+        ],
+        fhir_cerner: [
+            { key: 'CERNER_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'CERNER_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
+            { key: 'CERNER_KID', label: 'Key ID (kid)', type: 'text', required: true },
+            { key: 'CERNER_SCOPES', label: 'Scopes (space-separated)', type: 'text', required: false },
+        ],
+        slack: [
+            { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
+        ],
+        stripe: [
+            { key: 'stripe_api_key', label: 'API key', type: 'text', required: true },
+        ],
+        salesforce: [
+            { key: 'SALESFORCE_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'SALESFORCE_CLIENT_SECRET', label: 'Client secret', type: 'text', required: true },
+            { key: 'SALESFORCE_REFRESH_TOKEN', label: 'Refresh token', type: 'text', required: true },
+        ],
+        http_generic: [],
+    };
+
+    function setConfigAdminError(message) {
+        const el = document.getElementById('cfg-error');
+        if (!el) return;
+        if (message) {
+            el.textContent = message;
+            el.classList.remove('hidden');
+        } else {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+    }
+
+    function renderSecretFields(connectorId, existingKeys = []) {
+        const host = document.getElementById('cfg-secret-fields');
+        if (!host) return;
+        host.innerHTML = '';
+        const fields = _connectorSecretFields[connectorId] || [];
+        const existing = new Set(existingKeys || []);
+        if (!fields.length) {
+            host.innerHTML = '<p class="field-help">No credential fields for this connector.</p>';
+            return;
+        }
+        fields.forEach((f) => {
+            const wrap = document.createElement('div');
+            wrap.className = 'field-group';
+            const alreadySet = existing.has(f.key);
+            const label = document.createElement('label');
+            label.setAttribute('for', `cfg-secret-${f.key}`);
+            label.textContent =
+                f.label + (f.required && !alreadySet ? ' *' : '') + (alreadySet ? ' (saved)' : '');
+            let input;
+            if (f.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.rows = 5;
+            } else {
+                input = document.createElement('input');
+                input.type = 'text';
+            }
+            input.id = `cfg-secret-${f.key}`;
+            input.dataset.secretKey = f.key;
+            input.dataset.alreadySet = alreadySet ? '1' : '0';
+            input.autocomplete = 'off';
+            input.value = '';
+            if (alreadySet) {
+                input.placeholder = '(already set — leave blank to keep)';
+            } else if (f.required) {
+                input.placeholder = 'Required';
+            }
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            host.appendChild(wrap);
+        });
+        if ([...existing].some((k) => fields.some((f) => f.key === k))) {
+            const hint = document.createElement('p');
+            hint.className = 'field-help';
+            hint.textContent =
+                'Blank credential fields keep the previously saved value. Only type a field to change it.';
+            host.appendChild(hint);
+        }
+    }
+
+    function collectSecretFields() {
+        const host = document.getElementById('cfg-secret-fields');
+        const secrets = {};
+        if (!host) return secrets;
+        host.querySelectorAll('[data-secret-key]').forEach((el) => {
+            const key = el.dataset.secretKey;
+            const val = (el.value || '').trim();
+            if (key && val) secrets[key] = val;
+        });
+        return secrets;
+    }
+
+    async function refreshConfigDropdown(modeOrConnectorId) {
+        if (!_multitenancyEnabled) return;
+        const tenantId = getPlaygroundTenantId();
+        const select = document.getElementById('playground-config-name');
+        if (!select) return;
+        const previous = select.value;
+        select.innerHTML = '<option value="">— default —</option>';
+        if (!tenantId) return;
+
+        const connectorId =
+            _modeToConnectorId[modeOrConnectorId] ||
+            (Object.values(_modeToConnectorId).includes(modeOrConnectorId)
+                ? modeOrConnectorId
+                : currentConnectorId());
+        if (!connectorId) return;
+
+        const headers = { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId };
+        try {
+            const res = await fetch(
+                `/v1/connectors/${encodeURIComponent(connectorId)}/configs`,
+                { headers }
+            );
+            if (!res.ok) return;
+            const data = await res.json();
+            const configs = Array.isArray(data.configs)
+                ? data.configs
+                : Array.isArray(data)
+                  ? data
+                  : [];
+            let matched = false;
+            configs.forEach((cfg) => {
+                const opt = document.createElement('option');
+                opt.value = cfg.name || '';
+                opt.textContent = cfg.name + (cfg.default ? ' (default)' : '');
+                select.appendChild(opt);
+                if (previous && opt.value === previous) matched = true;
+            });
+            if (previous && matched) {
+                select.value = previous;
+            } else if (previous && !matched) {
+                // Clear stale name from another connector (e.g. Drive → Epic).
+                select.value = '';
+            } else {
+                const def = configs.find((c) => c.default);
+                if (def) select.value = def.name || '';
+            }
+        } catch (_) {
+            // ignore
+        }
+    }
+
+    function getPlaygroundTenantId() {
+        if (!_multitenancyEnabled) return '';
+        const el = document.getElementById('playground-tenant-id');
+        return (el && el.value ? el.value : '').trim();
+    }
+
+    function getPlaygroundConfigName() {
+        if (!_multitenancyEnabled) return '';
+        const el = document.getElementById('playground-config-name');
+        return (el && el.value ? el.value : '').trim();
+    }
+
+    async function applyAgentTenancy(tenantId, configName) {
+        if (!_multitenancyEnabled) return;
+        const nextTenant = (tenantId || '').trim();
+        const nextConfig = (configName || '').trim();
+        if (!nextTenant && !nextConfig) return;
+        if (nextTenant && nextTenant !== getPlaygroundTenantId()) {
+            ensureTenantOption(nextTenant, true);
+            await refreshConfigDropdown(currentMode);
+        }
+        if (nextConfig) {
+            const select = document.getElementById('playground-config-name');
+            if (select) {
+                let found = false;
+                for (const opt of select.options) {
+                    if (opt.value === nextConfig) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const opt = document.createElement('option');
+                    opt.value = nextConfig;
+                    opt.textContent = nextConfig;
+                    select.appendChild(opt);
+                }
+                select.value = nextConfig;
+            }
+        }
+        logTenancyContext('Agent chat selected');
+    }
+
+    loadFeatureFlags();
+
+    function logTenancyContext(actionLabel) {
+        if (!_multitenancyEnabled) return;
+        const tenantId = getPlaygroundTenantId();
+        const configName = getPlaygroundConfigName();
+        const label = actionLabel ? `${actionLabel} — ` : '';
+        log(
+            `${label}Tenant: ${tenantId || '(missing)'} | Config: ${configName || '(default)'}`,
+            'system'
+        );
+    }
+
+    function playgroundRequestHeaders(extra = {}) {
+        const headers = { 'Content-Type': 'application/json', ...extra };
+        if (!_multitenancyEnabled) return headers;
+        const tenantId = getPlaygroundTenantId();
+        if (tenantId) {
+            headers['X-Tenant-ID'] = tenantId;
+        }
+        return headers;
+    }
+
+    function withTenancyQuery(endpoint) {
+        if (!_multitenancyEnabled) return endpoint;
+        const configName = getPlaygroundConfigName();
+        if (!configName) return endpoint;
+        const sep = endpoint.includes('?') ? '&' : '?';
+        return `${endpoint}${sep}config_name=${encodeURIComponent(configName)}`;
+    }
+
     async function handleSubmission(payload, endpoint, btn, btnLbl, spinner, resetText, pipelineLabelOverride = null) {
         resetUI(pipelineLabelOverride);
 
@@ -787,22 +1415,36 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLbl.textContent = 'Orchestrating...';
 
         log(`Initiating intelligent ${currentMode.toUpperCase()} orchestration...`, 'system');
+        logTenancyContext(currentMode.toUpperCase());
+        const configName = getPlaygroundConfigName();
+        if (configName) {
+            payload = { ...payload, config_name: configName };
+        }
+
         const firstNode = nodes.find((n) => n && !n.classList.contains('hidden'));
         if (firstNode) firstNode.classList.add('active');
 
         try {
-            const response = await fetch(endpoint, {
+            const response = await fetch(withTenancyQuery(endpoint), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: playgroundRequestHeaders(),
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json().catch(() => ({}));
 
-            const data = await response.json();
-            traceDisplay.textContent = data.trace_id.toUpperCase();
+            if (!response.ok) {
+                const detail = data.detail || data.message || `Server returned ${response.status}`;
+                let msg = typeof detail === 'string' ? detail : JSON.stringify(detail);
+                if (response.status === 403 && /No connector configuration/i.test(msg)) {
+                    msg = `${msg} Open Add config on this connector page.`;
+                }
+                throw new Error(msg);
+            }
 
-            for (let i = 0; i < data.steps.length; i++) {
+            traceDisplay.textContent = (data.trace_id || '').toUpperCase() || '—';
+
+            for (let i = 0; i < (data.steps || []).length; i++) {
                 const step = data.steps[i];
                 const node = nodes[i];
                 if (!node) continue;
@@ -1250,6 +1892,135 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Per-connector runtime config CRUD ---
+    const addConfigBtn = document.getElementById('add-config-btn');
+    const connectorAddConfigBtn = document.getElementById('connector-add-config-btn');
+
+    function modalTenantId() {
+        const fromModal = (_cfgTenantInput && _cfgTenantInput.value ? _cfgTenantInput.value : '').trim();
+        return fromModal || getPlaygroundTenantId();
+    }
+
+    async function cfgFetchFor(connectorId, method, path = '', body = null, tenantOverride = null) {
+        const tenantId = (tenantOverride || getPlaygroundTenantId() || '').trim();
+        if (!tenantId) {
+            throw new Error('Set Tenant ID before managing configs (e.g. acme).');
+        }
+        const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json', 'X-Tenant-ID': tenantId },
+        };
+        if (body != null) {
+            opts.body = JSON.stringify(body);
+        }
+        const response = await fetch(
+            `/v1/connectors/${encodeURIComponent(connectorId)}/configs${path}`,
+            opts
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = data.detail || `HTTP ${response.status}`;
+            throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
+        return data;
+    }
+
+    if (addConfigBtn) {
+        addConfigBtn.addEventListener('click', () => {
+            openConfigAdminModal();
+        });
+    }
+    if (connectorAddConfigBtn) {
+        connectorAddConfigBtn.addEventListener('click', () => {
+            openConfigAdminModal();
+        });
+    }
+
+    document.getElementById('config-admin-close')?.addEventListener('click', () => {
+        closeConfigAdminModal();
+    });
+
+    document.getElementById('config-admin-modal')?.addEventListener('click', (ev) => {
+        if (ev.target && ev.target.hasAttribute('data-config-admin-dismiss')) {
+            closeConfigAdminModal();
+        }
+    });
+
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'Escape') return;
+        const modal = document.getElementById('config-admin-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            closeConfigAdminModal();
+        }
+    });
+
+    document.getElementById('cfg-create')?.addEventListener('click', async () => {
+        setConfigAdminError('');
+        try {
+            const connectorId = currentConnectorId();
+            if (!connectorId) throw new Error('Open a connector page first.');
+            const tenantId = modalTenantId();
+            if (!tenantId) throw new Error('Tenant ID is required');
+            const name = modalSelectedConfigName();
+            if (!name) throw new Error('Config name is required');
+            const isDefault = document.getElementById('cfg-default')?.value === 'true';
+            const secrets = collectSecretFields();
+            const tmpl = _connectorCreateDocs[connectorId] || { config: {}, auth: {} };
+            const body = {
+                name,
+                default: isDefault,
+                config: tmpl.config || {},
+                auth: tmpl.auth || {},
+                secrets,
+            };
+            logTenancyContext(`Config SAVE ${connectorId}`);
+            await cfgFetchFor(connectorId, 'POST', '', body, tenantId);
+            ensureTenantOption(tenantId, true);
+            await refreshTenantDropdown();
+            ensureTenantOption(tenantId, true);
+            await refreshConfigDropdown(currentMode);
+            const headerCfg = document.getElementById('playground-config-name');
+            if (headerCfg) headerCfg.value = name;
+            await refreshModalConfigSelect(tenantId, connectorId, name);
+            await applyModalConfigSelection(connectorId);
+            log(`Saved config '${name}' for ${connectorId} / tenant '${tenantId}'`, 'success');
+        } catch (err) {
+            setConfigAdminError(err.message);
+            log(`Config save failed: ${err.message}`, 'error');
+        }
+    });
+
+    document.getElementById('cfg-delete')?.addEventListener('click', async () => {
+        setConfigAdminError('');
+        try {
+            const connectorId = currentConnectorId();
+            if (!connectorId) throw new Error('Open a connector page first.');
+            const tenantId = modalTenantId();
+            const name = modalSelectedConfigName();
+            if (!name) throw new Error('Config name is required');
+            const newDefault = name === 'default' ? '' : 'default';
+            const q = newDefault ? `?new_default=${encodeURIComponent(newDefault)}` : '';
+            await cfgFetchFor(
+                connectorId,
+                'DELETE',
+                `/${encodeURIComponent(name)}${q}`,
+                null,
+                tenantId
+            );
+            log(`Deleted config '${name}' for ${connectorId} / tenant '${tenantId}'`, 'success');
+            const configSelect = document.getElementById('playground-config-name');
+            if (configSelect && configSelect.value === name) {
+                configSelect.value = '';
+            }
+            await refreshConfigDropdown(currentMode);
+            await refreshModalConfigSelect(tenantId, connectorId, '');
+            await applyModalConfigSelection(connectorId);
+        } catch (err) {
+            setConfigAdminError(err.message);
+            log(`Config delete failed: ${err.message}`, 'error');
+        }
+    });
+
     if (slackActionSelect) {
         slackActionSelect.addEventListener('change', () => {
             const action = slackActionSelect.value;
@@ -1418,6 +2189,169 @@ document.addEventListener('DOMContentLoaded', () => {
         agentTransportStatus.querySelector('.transport-status-label').textContent = `Transport: ${label}`;
     }
 
+    function selectedAgentLlmOption() {
+        return agentLlmSelectedId || null;
+    }
+
+    function shortLlmLabel(optionId) {
+        if (!optionId) return 'Model';
+        const slash = optionId.indexOf('/');
+        const provider = (slash >= 0 ? optionId.slice(0, slash) : optionId).toLowerCase();
+        const model = slash >= 0 ? optionId.slice(slash + 1) : '';
+        const lastSeg = (model.split('/').pop() || model || provider).trim();
+        const providerLabel = provider === 'nvidia' ? 'NVIDIA' : provider.charAt(0).toUpperCase() + provider.slice(1);
+        // Prefer a compact model token for the closed button.
+        let shortModel = lastSeg;
+        if (provider === 'nvidia' && /nemotron/i.test(lastSeg)) {
+            shortModel = 'Nemotron';
+        } else if (provider === 'groq') {
+            if (/gpt-oss/i.test(lastSeg)) shortModel = 'GPT-OSS';
+            else if (/llama/i.test(lastSeg)) shortModel = 'Llama';
+        }
+        if (shortModel.length > 18) shortModel = shortModel.slice(0, 16) + '…';
+        return `${providerLabel} · ${shortModel}`;
+    }
+
+    function setAgentLlmOpen(open) {
+        if (!agentLlmTrigger || !agentLlmMenu) return;
+        agentLlmTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        agentLlmMenu.classList.toggle('hidden', !open);
+    }
+
+    function syncAgentLlmTrigger() {
+        if (!agentLlmTriggerLabel) return;
+        const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
+        if (!agentLlmOptions.length) {
+            agentLlmTriggerLabel.textContent = 'No LLM';
+            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            return;
+        }
+        if (agentLlmTrigger) agentLlmTrigger.disabled = false;
+        agentLlmTriggerLabel.textContent = shortLlmLabel(selected ? selected.id : agentLlmSelectedId);
+        if (agentLlmTrigger) {
+            agentLlmTrigger.title = selected ? (selected.label || selected.id) : 'LLM provider/model';
+        }
+        if (agentLlmMenu) {
+            agentLlmMenu.querySelectorAll('.agent-llm-menu-item').forEach((btn) => {
+                btn.setAttribute('aria-selected', btn.dataset.id === agentLlmSelectedId ? 'true' : 'false');
+            });
+        }
+    }
+
+    function updateAgentLlmNote() {
+        if (!agentLlmNote) return;
+        const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
+        const note = selected && selected.tools_note ? selected.tools_note : '';
+        if (note) {
+            agentLlmNote.textContent = note;
+            agentLlmNote.classList.remove('hidden');
+        } else {
+            agentLlmNote.textContent = '';
+            agentLlmNote.classList.add('hidden');
+        }
+    }
+
+    function chooseAgentLlm(optionId) {
+        if (!optionId || !agentLlmOptions.some((o) => o.id === optionId)) return;
+        agentLlmSelectedId = optionId;
+        try {
+            localStorage.setItem(AGENT_LLM_STORAGE_KEY, optionId);
+        } catch (_e) {
+            /* ignore */
+        }
+        syncAgentLlmTrigger();
+        updateAgentLlmNote();
+        setAgentLlmOpen(false);
+    }
+
+    function renderAgentLlmMenu() {
+        if (!agentLlmMenu) return;
+        agentLlmMenu.innerHTML = '';
+        for (const item of agentLlmOptions) {
+            const li = document.createElement('li');
+            li.setAttribute('role', 'presentation');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'agent-llm-menu-item';
+            btn.dataset.id = item.id;
+            btn.setAttribute('role', 'option');
+            btn.setAttribute('aria-selected', item.id === agentLlmSelectedId ? 'true' : 'false');
+
+            const shortEl = document.createElement('span');
+            shortEl.className = 'agent-llm-menu-item-short';
+            shortEl.textContent = shortLlmLabel(item.id);
+
+            const fullEl = document.createElement('span');
+            fullEl.className = 'agent-llm-menu-item-full';
+            fullEl.textContent = item.label || item.id;
+
+            btn.appendChild(shortEl);
+            btn.appendChild(fullEl);
+            btn.addEventListener('click', () => chooseAgentLlm(item.id));
+            li.appendChild(btn);
+            agentLlmMenu.appendChild(li);
+        }
+    }
+
+    async function loadAgentLlmOptions() {
+        if (!agentLlmTrigger) return;
+        try {
+            const response = await fetch('/scenarios/llm-options');
+            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json();
+            agentLlmOptions = Array.isArray(data.options) ? data.options : [];
+
+            if (!agentLlmOptions.length) {
+                agentLlmSelectedId = '';
+                if (agentLlmMenu) agentLlmMenu.innerHTML = '';
+                syncAgentLlmTrigger();
+                updateAgentLlmNote();
+                setAgentLlmOpen(false);
+                return;
+            }
+
+            let chosen = data.default_id || agentLlmOptions[0].id;
+            try {
+                const remembered = localStorage.getItem(AGENT_LLM_STORAGE_KEY);
+                if (remembered && agentLlmOptions.some((o) => o.id === remembered)) {
+                    chosen = remembered;
+                }
+            } catch (_e) {
+                /* ignore storage errors */
+            }
+            if (data.default_id && data.default_id.startsWith('groq/')) {
+                let remembered = null;
+                try {
+                    remembered = localStorage.getItem(AGENT_LLM_STORAGE_KEY);
+                } catch (_e) {
+                    remembered = null;
+                }
+                if (!remembered || !agentLlmOptions.some((o) => o.id === remembered)) {
+                    chosen = data.default_id;
+                }
+            }
+
+            agentLlmSelectedId = chosen;
+            try {
+                localStorage.setItem(AGENT_LLM_STORAGE_KEY, chosen);
+            } catch (_e) {
+                /* ignore */
+            }
+            renderAgentLlmMenu();
+            syncAgentLlmTrigger();
+            updateAgentLlmNote();
+        } catch (error) {
+            agentLlmOptions = [];
+            agentLlmSelectedId = '';
+            if (agentLlmMenu) agentLlmMenu.innerHTML = '';
+            if (agentLlmTriggerLabel) agentLlmTriggerLabel.textContent = 'Unavailable';
+            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            updateAgentLlmNote();
+            setAgentLlmOpen(false);
+            log(`LLM options unavailable (${error.message})`, 'system');
+        }
+    }
+
     async function loadAgentTransportMode() {
         try {
             const response = await fetch('/scenarios/agent-transport');
@@ -1557,12 +2491,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 startRunningTimer();
 
-                const response = await fetch('/scenarios/agent-chat-stream', {
+                // No hard requirement on a dropdown pick here: with no tenant
+                // selected yet, the backend starts the agent unpinned and the
+                // chat's own `nw_select_tenant` tool call can establish it —
+                // otherwise the dropdown would be the only way to ever pick
+                // a tenant for the first message.
+                logTenancyContext('Agent chat (stream)');
+                const response = await fetch(withTenancyQuery('/scenarios/agent-chat-stream'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: playgroundRequestHeaders(),
                     body: JSON.stringify({
                         message: message,
-                        history: agentConversationHistory.slice(0, -1)
+                        history: agentConversationHistory.slice(0, -1),
+                        llm_option: selectedAgentLlmOption()
                     })
                 });
 
@@ -1604,6 +2545,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         traceId = event.trace_id || traceId;
                         success = Boolean(event.success);
                         doneMessage = event.message || `Streaming ${success ? 'completed' : 'failed'}. trace_id=${traceId}`;
+                        applyAgentTenancy(event.tenant_id, event.config_name);
                         
                         if (timerInterval) {
                             clearInterval(timerInterval);
@@ -1637,12 +2579,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const response = await fetch('/scenarios/agent-chat', {
+            // See the streamable-http branch above: no dropdown pick required
+            // to send the first message when multitenancy is on.
+            logTenancyContext('Agent chat');
+            const response = await fetch(withTenancyQuery('/scenarios/agent-chat'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: playgroundRequestHeaders(),
                 body: JSON.stringify({
                     message: message,
-                    history: agentConversationHistory.slice(0, -1) // Exclude current message (already in payload)
+                    history: agentConversationHistory.slice(0, -1), // Exclude current message (already in payload)
+                    llm_option: selectedAgentLlmOption()
                 })
             });
 
@@ -1668,6 +2614,7 @@ document.addEventListener('DOMContentLoaded', () => {
             appendTraceBadge(data.trace_id);
 
             log(`Agent Chat: ${data.success ? 'Success' : 'Responded'} | steps=${data.steps ? data.steps.length : 0}`, data.success ? 'success' : 'system');
+            await applyAgentTenancy(data.tenant_id, data.config_name);
 
         } catch (error) {
             if (timerInterval) clearInterval(timerInterval);
@@ -1684,6 +2631,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners for chat
     loadAgentTransportMode();
+    loadAgentLlmOptions();
+    if (agentLlmTrigger) {
+        agentLlmTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (agentLlmTrigger.disabled) return;
+            const open = agentLlmTrigger.getAttribute('aria-expanded') !== 'true';
+            setAgentLlmOpen(open);
+        });
+    }
+    document.addEventListener('click', (e) => {
+        if (!agentLlmPicker) return;
+        if (agentLlmPicker.contains(e.target)) return;
+        setAgentLlmOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setAgentLlmOpen(false);
+    });
     agentSendBtn.addEventListener('click', sendAgentMessage);
     agentInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {

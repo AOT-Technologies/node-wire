@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field, RootModel, ValidationError
 from .auth import AuthProvider, NoAuthProvider
 from .errors import ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
+from .identity import TenantIdentityMismatchError, TenantMismatchError, effective_run_tenant_id
 from .policy import PolicyContext, PolicyHook, PolicyDenied
 from .resilience import with_resilience
 from .secrets import SecretProvider
@@ -54,7 +55,13 @@ _invocation_duration = _meter.create_histogram(
     unit="ms",
     description="Connector invocation wall-clock time in milliseconds",
 )
-ErrorMapper.register(PolicyDenied, ErrorCategory.AUTH, code="POLICY_DENIED")
+POLICY_DENIED_CODE = "POLICY_DENIED"
+
+ErrorMapper.register_global(PolicyDenied, ErrorCategory.AUTH, code=POLICY_DENIED_CODE)
+ErrorMapper.register_global(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
+ErrorMapper.register_global(
+    TenantIdentityMismatchError, ErrorCategory.AUTH, code="TENANT_IDENTITY_MISMATCH"
+)
 
 
 class NestedConnectorActionError(Exception):
@@ -270,12 +277,18 @@ class BaseConnector(ABC):
 
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {}
     output_model: ClassVar[Type[BaseModel]]
+    # Intermediate bases (e.g. RestConnector) set this to skip action/registry validation.
+    _nw_abstract_base: ClassVar[bool] = False
 
     _action_registry: ClassVar[Dict[str, NwActionMeta]]
     _union_input_model: ClassVar[Type[RootModel[Any]]]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+
+        # Abstract intermediate bases provide shared helpers but no actions.
+        if cls.__dict__.get("_nw_abstract_base", False):
+            return
 
         # Phase 0: auto-generate @nw_action methods from action_specs (opt-in).
         # Must run before the dir(cls) discovery loop below.
@@ -362,8 +375,14 @@ class BaseConnector(ABC):
         cls._union_input_model.model_rebuild()
 
         own_error_map = cls.__dict__.get("error_map", {})
-        for exc_type, (category, code) in own_error_map.items():
-            ErrorMapper.register(exc_type, category, code=code)
+        if own_error_map:
+            if "connector_id" not in cls.__dict__:
+                raise TypeError(
+                    f"{cls.__name__}: error_map requires a connector_id (exceptions must be "
+                    "scoped to the connector that owns them)"
+                )
+            for exc_type, (category, code) in own_error_map.items():
+                ErrorMapper.register(cls.connector_id, exc_type, category, code=code)
 
         if "connector_id" in cls.__dict__:
             _CONNECTOR_REGISTRY[cls.connector_id] = cls
@@ -378,18 +397,40 @@ class BaseConnector(ABC):
         secret_provider: Optional[SecretProvider] = None,
         policy_hook: Optional[PolicyHook] = None,
         auth_provider: Optional[AuthProvider] = None,
+        config: Optional[Dict[str, Any]] = None,
+        tenant_id: Optional[str] = None,
+        config_name: Optional[str] = None,
     ) -> None:
         cls = type(self)
         self._input_model_cls = cls._union_input_model
         self._output_model_cls = cls.output_model
         self._secret_provider = secret_provider
         self._policy_hook = policy_hook
+        # Per-config settings (e.g. channel, base_url) from the resolved config
+        # record. Available for connectors that opt in; existing connectors keep
+        # reading settings from secrets.
+        self.config: Dict[str, Any] = config or {}
+        # Set by ConnectorFactory for factory-built instances; left None on direct
+        # construction (tests, embedders). Read via the public config_name/tenant_id
+        # properties below -- never poke these attributes directly from outside.
+        self._config_name: Optional[str] = config_name
+        self._tenant_id: Optional[str] = tenant_id
         # Default to NoAuthProvider (null-object) so connectors never receive None.
         self._auth_provider: AuthProvider = (
             auth_provider if auth_provider is not None else NoAuthProvider()
         )
         self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
         self._client: Any = None
+
+    @property
+    def tenant_id(self) -> Optional[str]:
+        """The tenant this instance is pinned to (set by ``ConnectorFactory``), or ``None``."""
+        return self._tenant_id
+
+    @property
+    def config_name(self) -> Optional[str]:
+        """The named config this instance was resolved from, or ``None``."""
+        return self._config_name
 
     def _create_breaker(self) -> CircuitBreaker:
         cls = type(self)
@@ -454,33 +495,65 @@ class BaseConnector(ABC):
         - Maps exceptions into the standard error taxonomy
         """
         trace_id = str(uuid.uuid4())
-        _start = time.monotonic()
+        config_name = getattr(self, "_config_name", None)
+        pinned = getattr(self, "_tenant_id", None)
+        effective, mismatch = effective_run_tenant_id(pinned=pinned, caller=tenant_id)
+        if mismatch is not None:
+            logger.warning(
+                "AUDIT: Tenant mismatch on factory instance",
+                extra={
+                    "trace_id": trace_id,
+                    "connector_id": self.connector_id,
+                    "config_name": config_name or "",
+                    "pinned_tenant_id": mismatch.pinned,
+                    "requested_tenant_id": mismatch.requested,
+                    "audit": True,
+                    "audit_event": "tenant_mismatch",
+                },
+            )
+            mapped = ErrorMapper.resolve(mismatch, connector_id=self.connector_id)
+            return ConnectorResponse(
+                success=False,
+                error_code=mapped.code,
+                error_category=mapped.category,
+                message=str(mismatch),
+                trace_id=trace_id,
+            )
+        tenant_id = effective
 
         with tracer.start_as_current_span(
             "connector.run",
             attributes={
                 "connector.id": self.connector_id,
                 "connector.action": self.action,
+                "config.name": config_name or "",
                 "tenant.id": tenant_id or "",
                 "principal.id": principal or "",
                 "trace.id": trace_id,
             },
         ):
             logger.info(
-                "Starting connector execution",
+                "Starting connector execution | connector=%s | action=%s | tenant_id=%s | config_name=%s",
+                self.connector_id,
+                self.action,
+                tenant_id or "(none)",
+                config_name or "(default)",
                 extra={
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
+                    "config_name": config_name,
                     "action": self.action,
                     "principal": principal,
-                    "tenant_id": tenant_id,
                     "scopes": list(scopes) if scopes else [],
                     "audit": True,
                     "audit_event": "invocation_start",
+                    "tenant_id": tenant_id or "",
                 },
             )
 
             _response: Optional[ConnectorResponse] = None
+            _metric_attrs: Dict[str, AttributeValue] = {}
+            _start = time.monotonic()
             token = _caller_execution_ctx.set((principal, tenant_id, scopes))
             try:
                 try:
@@ -540,7 +613,7 @@ class BaseConnector(ABC):
                                 "principal": principal,
                             },
                         )
-                        mapped = ErrorMapper.resolve(exc)
+                        mapped = ErrorMapper.resolve(exc, connector_id=self.connector_id)
                         _response = ConnectorResponse(
                             success=False,
                             error_code=mapped.code,
@@ -601,7 +674,7 @@ class BaseConnector(ABC):
                 )
                 return _response
             except Exception as exc:  # noqa: BLE001
-                mapped = ErrorMapper.resolve(exc)
+                mapped = ErrorMapper.resolve(exc, connector_id=self.connector_id)
                 logger.error(
                     "Connector execution failed",
                     extra={
@@ -629,7 +702,7 @@ class BaseConnector(ABC):
                 _caller_execution_ctx.reset(token)
                 if _response is not None:
                     _duration_ms = (time.monotonic() - _start) * 1000
-                    _metric_attrs: Dict[str, AttributeValue] = {
+                    _metric_attrs = {
                         "connector.id": self.connector_id,
                         "connector.action": self.action,
                         "success": _response.success,
@@ -718,7 +791,7 @@ class BaseConnector(ABC):
         payload["action"] = name
         resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
         if not resp.success:
-            if resp.error_code == "POLICY_DENIED":
+            if resp.error_code == POLICY_DENIED_CODE:
                 raise PolicyDenied(resp.message or "Policy denied")
             raise NestedConnectorActionError(resp)
         if resp.data is None:

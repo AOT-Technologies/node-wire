@@ -11,7 +11,7 @@ This document covers the Google Drive connector under `src/node_wire_google_driv
 1. **[Google Drive service account setup](#google-drive-service-account-setup)** — Create a GCP service account, enable the Drive API, configure `.env`, share a folder, and verify connectivity.
 2. **[REST API reference](#rest-api-reference)** — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.
 
-For **MCP** (e.g. ToolHive), tools are named `google_drive.<action>` from the connector manifest (e.g. `google_drive.files.upload`). End-to-end agent setup is documented in [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+For **MCP** (e.g. ToolHive), tools are named `google_drive_<action>` from the connector manifest (e.g. `google_drive_files_upload`). Legacy dotted names (`google_drive.files.upload`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 
@@ -37,7 +37,7 @@ Run the **google-drive-only** MCP server (`python -m agents.google_drive_mcp`) w
 
 **ToolHive OIDC manifests:** copy and adapt from [mcp-builder `out/google-drive-mcp/deploy/`](https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy) (`mcpexternalauthconfig.yaml`, `mcpoidcconfig.yaml`, `mcpserver.yaml`) — use image/entrypoint `nw-google-drive` / `python -m agents.google_drive_mcp`.
 
-**Ponytail:** Passthrough MCP auth applies only when this server exposes `google_drive` alone with `upstream_bearer`. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth.
+**Note:** Passthrough MCP auth applies only when this server exposes `google_drive` alone with `upstream_bearer`. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth.
 
 With `NW_MCP_SCOPE_POLICY_DEFAULT=deny` (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (`mcp:google_drive.<action>`) from its manifest to upstream bearer callers so `tools/list` is not empty. Google OAuth on the `Authorization: Bearer` token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.
 
@@ -260,6 +260,8 @@ Fields:
 
 - `page_size` (int, optional, default 10, 1–100): maximum files to return.
 - `query` (string, optional): Drive search query (`q` parameter).
+- `fields` (string, optional): Drive partial-response fields mask; defaults to `nextPageToken, files(id, name, mimeType, webViewLink)`.
+- `page_token` (string, optional): pass the previous response's `nextPageToken` to fetch the next page.
 
 Typical success response (wrapped by the runtime):
 
@@ -269,8 +271,9 @@ Typical success response (wrapped by the runtime):
   "data": {
     "raw": {
       "files": [
-        { "id": "1...", "name": "example.txt", "mimeType": "text/plain" }
-      ]
+        { "id": "1...", "name": "example.txt", "mimeType": "text/plain", "webViewLink": "https://drive.google.com/..." }
+      ],
+      "nextPageToken": null
     },
     "description": "Successfully executed files.list"
   },
@@ -315,6 +318,7 @@ Request body:
   "action": "permissions.create",
   "file_id": "<FILE_ID>",
   "role": "reader",
+  "type": "user",
   "email_address": "user@example.com"
 }
 ```
@@ -323,7 +327,9 @@ Fields:
 
 - `file_id` (string, required): ID of the target file.
 - `role` (string, required): `"reader"`, `"commenter"`, `"writer"`, or `"owner"`.
-- `email_address` (string, required): email to grant access to.
+- `type` (string, required): `"user"`, `"group"`, `"domain"`, or `"anyone"` — the kind of grantee.
+- `email_address` (string, required when `type` is `"user"` or `"group"`): email to grant access to.
+- `domain` (string, required when `type` is `"domain"`): the domain to grant access to.
 
 The service account must have permission to change sharing on the file.
 
@@ -389,7 +395,7 @@ Request body:
 }
 ```
 
-For **MCP** (`google_drive.files.upload`), omit `action` in the tool arguments object; the server injects `files.upload` from the tool name. The published `inputSchema` does not include an `action` property.
+For **MCP** (`google_drive_files_upload`), omit `action` in the tool arguments object; the server injects `files.upload` from the tool name. The published `inputSchema` does not include an `action` property.
 
 Fields:
 

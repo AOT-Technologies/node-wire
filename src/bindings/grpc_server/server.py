@@ -15,10 +15,23 @@ from grpc_health.v1 import health as grpc_health
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from bindings.factory import ConnectorFactory
+from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse, ErrorCategory
-from node_wire_runtime.ingress import normalize_mcp_tool_arguments
-from node_wire_runtime.rate_limit import global_rate_limiter, RateLimitExceeded
+from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.identity import (
+    MissingTenantError,
+    TenantIdentityMismatchError,
+    resolve_config_name,
+    resolve_tenant_id,
+)
+from node_wire_runtime.rate_limit import (
+    RateLimitExceeded,
+    get_per_identity_rate_limiter,
+    global_rate_limiter,
+    identity_rate_limit_key,
+    per_identity_rate_limit_enabled,
+)
 
 from .async_runner import BackgroundAsyncRunner
 from . import connector_pb2, connector_pb2_grpc  # type: ignore[attr-defined]
@@ -31,17 +44,31 @@ _async_runner = BackgroundAsyncRunner()
 
 
 class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
-    def __init__(self) -> None:
+    def __init__(self, factory: ConnectorFactory | None = None) -> None:
         auto_register()
-        self._factory = ConnectorFactory()
-        self._factory.load()
+        if factory is not None:
+            self._factory = factory
+        else:
+            self._factory = ConnectorFactory()
+            self._factory.load()
+            # Same YAML hydrate as REST/MCP; skip when factory is injected (tests).
+            from node_wire_runtime.tenant_persistence import load_tenants
+
+            load_tenants(self._factory.store)
 
     async def _invoke_async(
         self,
         request: connector_pb2.InvokeRequest,  # type: ignore[name-defined, attr-defined]
+        metadata: dict[str, str] | None = None,
     ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined, attr-defined]
         try:
-            await global_rate_limiter.acquire()
+            # Skip rate limiting if disabled (same env var as REST/MCP).
+            if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in (
+                "true",
+                "1",
+                "yes",
+            ):
+                await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,
@@ -51,8 +78,46 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                 trace_id="",
             )
 
-        connector = self._factory.get_for_protocol(request.connector_id, "grpc")
-        if connector is None:
+        identity = get_grpc_caller_identity()
+
+        # Opt-in per-identity limiter (off by default; M-2, 2026-09-01 review).
+        # Shared with REST/MCP via node_wire_runtime.rate_limit so one noisy
+        # caller can't exhaust the global bucket for every other gRPC client.
+        if per_identity_rate_limit_enabled():
+            limiter = get_per_identity_rate_limiter()
+            identity_key = identity_rate_limit_key(
+                identity.principal if identity else None, fallback="grpc"
+            )
+            result = limiter.consume(f"grpc:{request.connector_id}:{request.action}:{identity_key}")
+            if not result.allowed:
+                return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                    success=False,
+                    error_code="RATE_LIMIT_EXCEEDED",
+                    error_category=ErrorCategory.RETRYABLE.value,
+                    message=(f"Rate limit exceeded, retry after {result.retry_after_seconds}s"),
+                    trace_id="",
+                )
+
+        try:
+            tenant_id = resolve_tenant_id(headers=metadata or {}, jwt_identity=identity)
+        except MissingTenantError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="MISSING_TENANT",
+                error_category=ErrorCategory.AUTH.value,
+                message=str(exc),
+                trace_id="",
+            )
+        except TenantIdentityMismatchError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="TENANT_IDENTITY_MISMATCH",
+                error_category=ErrorCategory.AUTH.value,
+                message=str(exc),
+                trace_id="",
+            )
+
+        if not self._factory.is_exposed(request.connector_id, "grpc"):
             return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
                 success=False,
                 error_code="CONNECTOR_NOT_AVAILABLE",
@@ -74,21 +139,45 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                     trace_id="",
                 )
 
-        if isinstance(payload, dict):
-            # The payload MUST include the action for Pydantic discriminated union validation to succeed
-            if request.action:
-                payload["action"] = request.action
+        if not isinstance(payload, dict):
+            payload = {}
 
-            if payload.get("action"):
-                normalize_mcp_tool_arguments(connector, str(payload["action"]), payload)
-
-        identity = get_grpc_caller_identity()
-        response: ConnectorResponse = await connector.run(
-            payload,
-            principal=identity.principal if identity else None,
-            tenant_id=identity.tenant_id if identity else None,
-            scopes=identity.scopes if identity else None,
-        )
+        try:
+            response: ConnectorResponse = await invoke(
+                self._factory,
+                connector_id=request.connector_id,
+                action=request.action,
+                payload=payload,
+                protocol="grpc",
+                tenant_id=tenant_id,
+                config_name=resolve_config_name(request.config_name or None),
+                principal=identity.principal if identity else None,
+                scopes=identity.scopes if identity else None,
+            )
+        except ConnectorNotExposed:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="CONNECTOR_NOT_AVAILABLE",
+                error_category=ErrorCategory.BUSINESS.value,
+                message=f"Connector {request.connector_id!r} is not available via gRPC.",
+                trace_id="",
+            )
+        except ConfigNotFoundError:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="CONFIG_NOT_FOUND",
+                error_category=ErrorCategory.AUTH.value,
+                message="No connector configuration for this tenant",
+                trace_id="",
+            )
+        except ValueError as exc:
+            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+                success=False,
+                error_code="INVALID_PAYLOAD",
+                error_category=ErrorCategory.BUSINESS.value,
+                message=str(exc),
+                trace_id="",
+            )
 
         data_json = json.dumps(response.data) if response.data is not None else ""
         error_category = (
@@ -105,7 +194,10 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
         )
 
     def Invoke(self, request, context):  # type: ignore[override]
-        return _async_runner.run(self._invoke_async(request))
+        # gRPC metadata keys are lowercase by spec; tenant header lookup is
+        # case-insensitive. Pinned once per unary call.
+        metadata = {k.lower(): v for k, v in (context.invocation_metadata() or ())}
+        return _async_runner.run(self._invoke_async(request, metadata))
 
 
 def serve(port: int = 50051) -> None:

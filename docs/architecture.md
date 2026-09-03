@@ -155,7 +155,7 @@ flowchart LR
 ### Data Flow (Simplified)
 
 1. A request arrives via REST, gRPC, or MCP.
-2. The `ConnectorFactory` resolves the right connector.
+2. The Binding resolves the tenant (header, MCP overlay, or gRPC metadata), then calls the shared **Binding invoke** path (`src/bindings/invoke.py`): exposure check → `ConnectorFactory.get` (config + secrets bound at `get` time) → ingress normalize/enforce → `connector.run`.
 3. The runtime runs the connector:
    - Validate input via Pydantic.
    - Optional policy check.
@@ -180,6 +180,7 @@ flowchart LR
 - **Resilience**: Decorators for retries (Tenacity) and circuit breaking (PyBreaker).
 - **SecretProvider**: Abstraction for fetching secrets (API keys, credentials).
 - **PolicyHook**: Optional hook to allow or deny execution based on principal or tenant.
+- **Tenant pinning**: Factory-built instances carry `_tenant_id`; `run()` uses that pin when `tenant_id` is omitted and rejects mismatched caller ids with `TENANT_MISMATCH`.
 - **Telemetry**: OpenTelemetry integration for tracing.
 
 ---
@@ -193,8 +194,7 @@ flowchart LR
 ### Common Structure
 
 - `schema.py`: Pydantic models for request and response.
-- `logic.py`: Connector class and external service logic.
-- `registration.py`: Registers connector-specific exceptions.
+- `logic.py`: Connector class and external service logic, including an optional `error_map` class attribute that registers the connector's exception mappings — scoped to that connector's own `connector_id` so they can never be resolved for another connector's errors.
 
 ---
 
@@ -203,6 +203,10 @@ flowchart LR
 **Purpose:** Expose connectors over different protocols and load them from configuration.
 
 **Location:** `src/bindings/`
+
+### Binding invoke
+
+REST, MCP, and gRPC share one invoke seam in `src/bindings/invoke.py`. Each binding adapter resolves transport-specific tenant and caller identity, then delegates exposure, factory resolution, ingress normalization, and `run()` to that module. Transport-only concerns (HTTP status mapping, MCP pagination guardrails, protobuf encoding) stay in the respective binding.
 
 ### Bindings Offered
 

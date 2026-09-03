@@ -74,13 +74,11 @@ def test_auto_register_fallback_import_when_no_entry_points(
     ):
         loaded = connector_registry.auto_register()
 
-    # Should attempt to import node_wire_fallback_test.logic and .registration
+    # Should attempt to import node_wire_fallback_test.logic
     imported = [c[0][0] for c in mock_imp.call_args_list]
     assert "node_wire_fallback_test.logic" in imported
-    assert "node_wire_fallback_test.registration" in imported
-    # Both are mocked to succeed, so both should be in loaded
+    # Mocked to succeed, so it should be in loaded
     assert "node_wire_fallback_test.logic" in loaded
-    assert "node_wire_fallback_test.registration" in loaded
 
 
 def test_auto_register_fallback_respects_custom_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
