@@ -2535,11 +2535,11 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td>Root + all package <code>pyproject.toml</code></td>
-<td>Version bump on release</td>
+<td>Version bump on release via <code>./scripts/bump-version.py</code> (<code>nw-mcp-builder</code> excluded)</td>
 </tr>
 <tr>
 <td><code>CHANGELOG.md</code></td>
-<td>Release section</td>
+<td>Release section (scaffolded by the bump script; fill in notes before tagging)</td>
 </tr>
 </tbody>
 </table>
@@ -2808,8 +2808,14 @@ workflow validates the tag and creates the release. Package publishing is a sepa
 manual step per package, bound to that tag.</p>
 <h3 id="step-1-prepare-the-release">Step 1 — Prepare the release<a class="headerlink" href="#step-1-prepare-the-release" title="Anchor link to this section">&para;</a></h3>
 <ol>
-<li>Bump version in the root <code>pyproject.toml</code> and all connector package <code>pyproject.toml</code> files (one per entry in <code>ALL_PACKAGES</code> in <code>scripts/build-packages.sh</code>).</li>
-<li>Add a dated <code>CHANGELOG.md</code> section and release link for the target version.</li>
+<li>Bump lockstep package versions with <code>./scripts/bump-version.py X.Y.Z</code> (root
+   <code>pyproject.toml</code>, every <code>packages/**/pyproject.toml</code>, and connector
+   <code>node-wire-runtime&gt;=…</code> floors). This does <strong>not</strong> touch <code>nw-mcp-builder/</code>,
+   which is versioned independently.</li>
+<li>Fill in the scaffolded <code>CHANGELOG.md</code> notes. Create Release Tag and GitHub
+   Release both require a dated <code>## [X.Y.Z] - YYYY-MM-DD</code> section and a footer
+   link <code>[X.Y.Z]: …/releases/tag/vX.Y.Z</code> (the bump script scaffolds these when
+   missing).</li>
 <li>Merge to <code>main</code> and confirm required CI checks are green.</li>
 </ol>
 <h3 id="step-2-create-the-tag">Step 2 — Create the tag<a class="headerlink" href="#step-2-create-the-tag" title="Anchor link to this section">&para;</a></h3>
