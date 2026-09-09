@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-30
+
 ### Added
 
 - **`nw-cli`**: a new unified CLI (`nw`) for the OpenAPI → connector → wheel →
@@ -35,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for tenant identity resolution shared across bindings.
 - `TenantSessionOverlay` (`node_wire_runtime.tenant_session`), extracted from
   the MCP server's private state, to isolate per-request tenant/config context.
-- OIDC support for the Google Drive MCP server.
+- Google Drive MCP upstream OIDC / bearer passthrough so MCP requests can forward
+  the caller’s OAuth token to Drive.
 - LLM provider/model switching in the playground (`agents/llm_factory.py`,
   new `agents/llm_base.py`), with new Anthropic and Gemini providers alongside
   updated OpenAI and Groq providers, and playground UI controls for selecting
@@ -44,15 +47,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Salesforce, SMTP, Epic FHIR, and Cerner FHIR.
 - Error taxonomy support in the connector codegen and mcp-builder pipelines.
 - A new query-parameter API key auth mechanism (`node_wire_runtime.auth.apikey_query`).
-- OpenTelemetry metrics and an audit trail; a test-coverage gate for PRs
-  (80% overall, with an 80% floor enforced on changed files).
-- A new documentation site (`mkdocs.yml`, `docs/index.md`, branded stylesheets
-  and logo assets) and `docs/mcp-servers.md` documenting multi-tenant MCP
-  server setup.
+- OpenTelemetry metrics and structured audit-trail events on connector
+  invocations.
+- REST `/ready` readiness endpoint (requires at least one REST or gRPC connector).
+- Automated release-tag workflow (`create-tag.yml`) and a lockstep package
+  version-bump script with changelog scaffolding.
+- Branded documentation site with architecture overview, published from CI
+  (`mkdocs.yml`, `docs/index.md`, `docs/mcp-servers.md`).
 - `scripts/build-mcp-server.sh` and `scripts/mcp-servers.registry` for
   building per-connector MCP server images, and a `docs.yml` CI workflow to
   publish the documentation site.
-- `create-tag.yml` CI workflow for release tagging.
+- PR patch-coverage gate (80% overall, with an 80% floor on changed files) and
+  static security analysis on pull requests.
+- Broader automated test coverage for bindings, secrets, auth, metrics, and audit
+  trail.
 
 ### Changed
 
@@ -70,10 +78,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whitelist `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
   application tree, and no default `NW_MCP_AUTH_DISABLED` in containers.
 - Node Wire branding refresh (README badges/logos, docs site theme).
-- Updated `docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
-  `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`, and
-  `docs/toolhive_agent_scenario.md` for multi-tenancy, the connector builder
-  pipeline, and the connector framework changes.
+- Documentation updates for connector authoring, MCP servers, packaging/release
+  flow, configuration, architecture, multi-tenancy, and the connector builder
+  pipeline (`docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
+  `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`,
+  `docs/toolhive_agent_scenario.md`).
+- CI workflows hardened for consistency across quality, security, and publish
+  checks.
 
 ### Fixed
 
@@ -83,7 +94,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a cross-tenant/cross-config race condition on the MCP HTTP transport
   where concurrent requests could read another tenant's session or
   configuration.
-- Fixed health check reporting.
+- Security and logging hardening: safer hashing, sanitized sensitive fields in
+  logs, stricter URL handling, reduced exception information exposure, and related
+  cleanups across runtime, agents, playground scenarios, and connectors.
+- gRPC health-check behavior for readiness/liveness reporting.
+- Log-sanitization test isolation so logger filters do not leak across the suite.
 
 ## [1.0.0] - 2026-06-27
 
@@ -155,5 +170,6 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Dependency lockfile upgraded to resolve known CVEs in transitive packages.
 - Packaging, publish workflow, and security scanning aligned on the nine-package surface.
 
+[1.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.0
 [1.0.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.0.0
 [0.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v0.1.0
