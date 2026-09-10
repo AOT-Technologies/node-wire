@@ -287,9 +287,7 @@ def test_llm_factory_create_from_option_ollama(monkeypatch: pytest.MonkeyPatch) 
 def test_llm_factory_create_from_option_openrouter(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
     with patch("agents.providers.openai_provider.OpenAI") as ctor:
-        provider = LLMProviderFactory.create_from_option(
-            "openrouter/poolside/laguna-s-2.1:free"
-        )
+        provider = LLMProviderFactory.create_from_option("openrouter/poolside/laguna-s-2.1:free")
     from agents.providers.openai_provider import OpenAIProvider
 
     assert isinstance(provider, OpenAIProvider)

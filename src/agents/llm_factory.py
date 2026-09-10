@@ -168,7 +168,9 @@ def resolve_ollama_base_url(override: Optional[str] = None) -> str:
 
 
 def resolve_ollama_api_key() -> str:
-    return os.environ.get("OLLAMA_API_KEY", DEFAULT_OLLAMA_API_KEY).strip() or DEFAULT_OLLAMA_API_KEY
+    return (
+        os.environ.get("OLLAMA_API_KEY", DEFAULT_OLLAMA_API_KEY).strip() or DEFAULT_OLLAMA_API_KEY
+    )
 
 
 def resolve_openrouter_base_url() -> str:
