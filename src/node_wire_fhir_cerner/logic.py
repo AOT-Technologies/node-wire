@@ -235,7 +235,7 @@ class FhirCernerConnector(BaseConnector):
             query_params: Optional[Dict[str, str]] = None
             logger.info(
                 "FHIR Patient read by ID",
-                extra=fhir_log_extra(trace_id, mode="read_by_id"),
+                extra=fhir_log_extra(trace_id, connector_id=self.connector_id, mode="read_by_id"),
             )
         elif params.given_name or params.family_name or params.name:
             url = f"{base_url}/Patient"
@@ -248,14 +248,16 @@ class FhirCernerConnector(BaseConnector):
             )
             logger.info(
                 "FHIR Patient read by name fields",
-                extra=fhir_log_extra(trace_id, mode="read_by_name"),
+                extra=fhir_log_extra(trace_id, connector_id=self.connector_id, mode="read_by_name"),
             )
         elif params.search_params:
             url = f"{base_url}/Patient"
             query_params = params.search_params
             logger.info(
                 "FHIR Patient read by search",
-                extra=fhir_log_extra(trace_id, mode="read_by_search"),
+                extra=fhir_log_extra(
+                    trace_id, connector_id=self.connector_id, mode="read_by_search"
+                ),
             )
         else:
             raise ValueError(
@@ -277,7 +279,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR Patient read failed | error=%s: %s",
                 type(exc).__name__,
                 str(exc),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             raise
 
@@ -292,7 +294,11 @@ class FhirCernerConnector(BaseConnector):
 
         logger.info(
             "FHIR Patient read completed",
-            extra={"trace_id": trace_id, "status_code": response.status_code},
+            extra={
+                "trace_id": trace_id,
+                "connector_id": self.connector_id,
+                "status_code": response.status_code,
+            },
         )
         return FhirCernerPatientReadOutput(resource=resource)
 
@@ -315,7 +321,9 @@ class FhirCernerConnector(BaseConnector):
             logger.info(
                 "FHIR Cerner Patient multi-ID lookup | count=%s",
                 len(ids),
-                extra=fhir_log_extra(trace_id, mode="search_by_ids"),
+                extra=fhir_log_extra(
+                    trace_id, connector_id=self.connector_id, mode="search_by_ids"
+                ),
             )
 
             async def _fetch_one(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
@@ -335,7 +343,9 @@ class FhirCernerConnector(BaseConnector):
                     logger.warning(
                         "FHIR Cerner Patient fetch failed | error=%s",
                         type(exc).__name__,
-                        extra=fhir_log_extra(trace_id, mode="search_by_ids"),
+                        extra=fhir_log_extra(
+                            trace_id, connector_id=self.connector_id, mode="search_by_ids"
+                        ),
                     )
                     return rid, None, str(exc)
 
@@ -353,7 +363,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR Cerner Patient multi-ID lookup completed | found=%s | errors=%s",
                 len(resources),
                 len(errors),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             return FhirCernerPatientSearchOutput(
                 resources=resources, total=len(resources), errors=errors
@@ -375,7 +385,7 @@ class FhirCernerConnector(BaseConnector):
 
         logger.info(
             "FHIR Cerner Patient name search",
-            extra=fhir_log_extra(trace_id, mode="search_by_name"),
+            extra=fhir_log_extra(trace_id, connector_id=self.connector_id, mode="search_by_name"),
         )
 
         try:
@@ -393,6 +403,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR Cerner Patient name search failed",
                 exc,
                 trace_id=trace_id,
+                connector_id=self.connector_id,
             )
             raise
         except Exception as exc:
@@ -400,7 +411,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR Cerner Patient name search failed | error=%s: %s",
                 type(exc).__name__,
                 str(exc),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             raise
 
@@ -414,7 +425,7 @@ class FhirCernerConnector(BaseConnector):
             "FHIR Cerner Patient name search completed | found=%s | total=%s",
             len(bundle_resources),
             total,
-            extra={"trace_id": trace_id},
+            extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
         return FhirCernerPatientSearchOutput(resources=bundle_resources, total=total)
 
@@ -433,13 +444,19 @@ class FhirCernerConnector(BaseConnector):
             )
             logger.info(
                 "FHIR Encounter search by explicit fields",
-                extra=fhir_log_extra(trace_id, mode="search_encounter_by_fields"),
+                extra=fhir_log_extra(
+                    trace_id, connector_id=self.connector_id, mode="search_encounter_by_fields"
+                ),
             )
         elif params.search_params:
             query_params = params.search_params
             logger.info(
                 "FHIR Encounter search by raw params",
-                extra=fhir_log_extra(trace_id, mode="search_encounter_by_search_params"),
+                extra=fhir_log_extra(
+                    trace_id,
+                    connector_id=self.connector_id,
+                    mode="search_encounter_by_search_params",
+                ),
             )
         else:
             raise ValueError("Provide at least patient_id, status, date OR search_params")
@@ -463,6 +480,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR Encounter search failed",
                 exc,
                 trace_id=trace_id,
+                connector_id=self.connector_id,
             )
             raise
         except Exception as exc:
@@ -470,7 +488,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR Encounter search failed | error=%s: %s",
                 type(exc).__name__,
                 str(exc),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             raise
 
@@ -483,7 +501,7 @@ class FhirCernerConnector(BaseConnector):
         logger.info(
             "FHIR Encounter search completed | found=%s",
             len(resources),
-            extra={"trace_id": trace_id},
+            extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
         return FhirCernerEncounterSearchOutput(resources=resources, total=total)
 
@@ -572,7 +590,7 @@ class FhirCernerConnector(BaseConnector):
             doc_ref["authenticator"] = params.author[0]
             logger.debug(
                 "Auto-set authenticator to author[0] (Cerner requires authenticator on create)",
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
 
         if params.custodian:
@@ -594,7 +612,7 @@ class FhirCernerConnector(BaseConnector):
                 }
                 logger.debug(
                     "Auto-injected context.period (required by Cerner when encounter is set)",
-                    extra={"trace_id": trace_id},
+                    extra={"trace_id": trace_id, "connector_id": self.connector_id},
                 )
             doc_ref["context"] = context
         if params.additional_fields:
@@ -619,7 +637,10 @@ class FhirCernerConnector(BaseConnector):
                 "Provide at least one author reference, e.g. [{'reference': 'Practitioner/{id}'}]"
             )
 
-        logger.info("FHIR DocumentReference create", extra={"trace_id": trace_id})
+        logger.info(
+            "FHIR DocumentReference create",
+            extra={"trace_id": trace_id, "connector_id": self.connector_id},
+        )
 
         try:
             async with httpx.AsyncClient(timeout=float(os.getenv("NW_TIMEOUT", "30.0"))) as client:
@@ -658,7 +679,7 @@ class FhirCernerConnector(BaseConnector):
                 error_detail,
                 len(raw_body),
                 json.dumps(_safe_doc_ref_log_summary(doc_ref)),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             raise ValueError(f"Cerner Error: {error_detail}") from exc
         except Exception as exc:
@@ -666,7 +687,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR DocumentReference create failed | error=%s: %s",
                 type(exc).__name__,
                 str(exc),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             raise
 
@@ -699,7 +720,9 @@ class FhirCernerConnector(BaseConnector):
 
         logger.info(
             "FHIR DocumentReference create completed",
-            extra=fhir_log_extra(trace_id, mode="create_document_reference"),
+            extra=fhir_log_extra(
+                trace_id, connector_id=self.connector_id, mode="create_document_reference"
+            ),
         )
         return FhirCernerDocumentReferenceCreateOutput(
             resource_id=resource_id, resource=body if body else None
@@ -717,7 +740,9 @@ class FhirCernerConnector(BaseConnector):
 
         logger.info(
             "FHIR DocumentReference search",
-            extra=fhir_log_extra(trace_id, mode="search_document_reference"),
+            extra=fhir_log_extra(
+                trace_id, connector_id=self.connector_id, mode="search_document_reference"
+            ),
         )
 
         try:
@@ -735,6 +760,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR DocumentReference search failed",
                 exc,
                 trace_id=trace_id,
+                connector_id=self.connector_id,
             )
             raise
         except Exception as exc:
@@ -742,7 +768,7 @@ class FhirCernerConnector(BaseConnector):
                 "FHIR DocumentReference search failed | error=%s: %s",
                 type(exc).__name__,
                 str(exc),
-                extra={"trace_id": trace_id},
+                extra={"trace_id": trace_id, "connector_id": self.connector_id},
             )
             raise
 
@@ -755,6 +781,6 @@ class FhirCernerConnector(BaseConnector):
         logger.info(
             "FHIR DocumentReference search completed | found=%s",
             len(resources),
-            extra={"trace_id": trace_id},
+            extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
         return FhirCernerDocumentReferenceSearchOutput(resources=resources, total=total)

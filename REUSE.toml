@@ -20,7 +20,7 @@ SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = "tests/nw_connector_builder/fixtures/**"
+path = "grafana/*.json"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"

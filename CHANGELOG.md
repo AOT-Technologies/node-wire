@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Google Drive, Slack, and SMTP log connector-scoped errors (with ``failed`` /
+  ``error`` in the message and ``connector_id``) so Grafana's connector filter
+  can count playground ``internal_execute`` failures instead of reporting 100%.
+
+### Added
+
+- Connector logs now carry a structured ``connector_id`` on nested FHIR lines and
+  agent tool-call lines (via a run-scoped logging filter and MCP tool-name
+  mapping). Import ``grafana/connector-logs-status.json`` for the existing Loki
+  dashboard (``connector_id`` plus the OTEL ``observed_timestamp`` branch).
+
 ## [1.1.0] - 2026-07-30
 
 ### Added

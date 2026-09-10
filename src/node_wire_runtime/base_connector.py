@@ -38,6 +38,7 @@ from .errors import ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
 from .identity import TenantIdentityMismatchError, TenantMismatchError, effective_run_tenant_id
 from .policy import PolicyContext, PolicyHook, PolicyDenied
+from .log_sanitization import reset_log_connector_id, set_log_connector_id
 from .resilience import with_resilience
 from .secrets import SecretProvider
 from .sdk_action_spec import SdkActionSpec
@@ -494,6 +495,21 @@ class BaseConnector(ABC):
         - Wraps internal execution with retries and circuit breaking
         - Maps exceptions into the standard error taxonomy
         """
+        log_cid_token = set_log_connector_id(self.connector_id)
+        try:
+            return await self._run_with_log_connector_id(
+                raw_input, principal=principal, tenant_id=tenant_id, scopes=scopes
+            )
+        finally:
+            reset_log_connector_id(log_cid_token)
+
+    async def _run_with_log_connector_id(
+        self,
+        raw_input: Dict[str, Any],
+        principal: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        scopes: Optional[tuple[str, ...]] = None,
+    ) -> ConnectorResponse:
         trace_id = str(uuid.uuid4())
         config_name = getattr(self, "_config_name", None)
         pinned = getattr(self, "_tenant_id", None)
