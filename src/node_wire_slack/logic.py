@@ -98,6 +98,12 @@ def _raise_for_slack_error(response_json: dict[str, Any], http_status: int) -> N
     messages = response_json.get("response_metadata", {}).get("messages", [])
     detail = ". ".join(messages) if messages else str(slack_error)
 
+    logger.error(
+        "Slack API error '%s': %s",
+        slack_error,
+        detail,
+        extra={"connector_id": "slack"},
+    )
     if slack_error in _AUTH_ERRORS:
         raise SlackAuthError("Slack authentication failed or token was revoked.")
     if slack_error in _SCOPE_ERRORS:
