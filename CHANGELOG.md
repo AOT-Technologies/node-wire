@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Playground **Add local model** for Ollama: discover tags from a running local
+  server, persist custom `ollama/<model>` entries, and send `llm_base_url` with
+  agent chat. `LLM_PROVIDER=ollama` is supported via the OpenAI-compatible
+  client (`OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`).
+- Playground LLM switcher: OpenRouter via the existing OpenAI-compatible client
+  (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, optional `OPENROUTER_MODELS`).
+  Default catalog: `poolside/laguna-s-2.1:free`, `liquid/lfm-2.5-2.6b:free`,
+  `nex-agi/nex-n2.5-pro:free`, `inclusionai/ling-3.0-flash-fin:free`.
+  Free-tier OpenRouter endpoints log prompts — do not send confidential or
+  personal data. The playground picker groups OpenRouter models behind one
+  row that expands on hover or click.
+
 ## [1.1.0] - 2026-07-30
 
 ### Added

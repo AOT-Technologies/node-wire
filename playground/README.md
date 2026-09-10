@@ -210,8 +210,8 @@ To test the Google Drive integration manually, follow these specialized setup st
 
 ### 🤖 Configuring the AI Agent (Optional)
 To enable the AI Agent chat, you need to configure an LLM provider:
-1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, and `NVIDIA_MODEL` to enable NVIDIA Nemotron in the same dropdown.
-2.  **Switch models in the UI**: Use the single `provider/model` selector next to the chat input (defaults to Groq when configured).
+1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `NVIDIA_API_KEY` for Nemotron, and/or `OPENROUTER_API_KEY` plus `OPENROUTER_MODELS` (defaults: Laguna S 2.1, LFM 2.5, Nex N2.5 Pro, Ling 3.0 Flash) for OpenRouter. OpenRouter free endpoints log prompts — do not send confidential or personal data.
+2.  **Switch models in the UI**: Use the `provider/model` selector next to the chat input (defaults to Groq when configured). Use **+ Add local model** to discover and add an Ollama model (`OLLAMA_BASE_URL` defaults to `http://127.0.0.1:11434/v1`).
 3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
 4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
 5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).
