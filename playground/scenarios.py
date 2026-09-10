@@ -1813,6 +1813,7 @@ class AgentChatInput(BaseModel):
     message: str
     history: List[Dict[str, str]] = []  # [{"role": "user/assistant", "content": "..."}]
     llm_option: Optional[str] = None  # e.g. "groq/openai/gpt-oss-120b"
+    llm_base_url: Optional[str] = None  # override for ollama / custom local entries
 
 
 class AgentChatStepResponse(BaseModel):
@@ -1865,6 +1866,18 @@ def _augment_reply_for_tool_calling_errors(reply: str) -> str:
     return reply
 
 
+def _resolve_playground_llm_base_url(raw: Optional[str]) -> Optional[str]:
+    """Validate and normalize optional playground ``llm_base_url``."""
+    if not (raw or "").strip():
+        return None
+    from agents.llm_factory import normalize_openai_compatible_base_url
+
+    try:
+        return normalize_openai_compatible_base_url(raw or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/agent-transport")
 async def agent_transport() -> Dict[str, str]:
     transport = _current_agent_transport()
@@ -1880,6 +1893,43 @@ async def llm_options() -> Dict[str, Any]:
     from agents.llm_factory import LLMProviderFactory
 
     return LLMProviderFactory.list_playground_options()
+
+
+@router.get("/llm-discover-ollama")
+async def llm_discover_ollama(base_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
+    """Discover model tags from a running Ollama server."""
+    import httpx
+
+    from agents.llm_factory import normalize_openai_compatible_base_url, ollama_origin_from_base_url
+
+    try:
+        normalized_base = normalize_openai_compatible_base_url(base_url)
+        origin = ollama_origin_from_base_url(normalized_base)
+        tags_url = f"{origin.rstrip('/')}/api/tags"
+    except ValueError as exc:
+        return {"models": [], "base_url": None, "error": str(exc)}
+
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(tags_url)
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:
+        logger.warning("Ollama discover failed | url=%s | error=%s", tags_url, exc)
+        return {
+            "models": [],
+            "base_url": normalized_base,
+            "error": f"Could not reach Ollama at {origin}: {exc}",
+        }
+
+    models: List[str] = []
+    for item in payload.get("models") or []:
+        if isinstance(item, dict):
+            name = (item.get("name") or "").strip()
+            if name:
+                models.append(name)
+    models.sort()
+    return {"models": models, "base_url": normalized_base, "error": None}
 
 
 AGENT_GUARDRAIL_PROMPT = (
@@ -2117,7 +2167,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             "Agent Chat | creating LLM provider from option: %s",
             str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
         )
-        llm_provider = LLMProviderFactory.create_from_option(llm_option)
+        llm_base_url = _resolve_playground_llm_base_url(payload.llm_base_url)
+        llm_provider = LLMProviderFactory.create_from_option(llm_option, base_url=llm_base_url)
 
         task = _build_agent_chat_task(payload)
 
@@ -2241,6 +2292,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             config_name=eff_config,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Agent Chat failed: %s", e, exc_info=True)
         reply = (
@@ -2316,7 +2369,8 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                 "Agent Chat stream | creating LLM provider from option: %s",
                 str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
             )
-            llm_provider = LLMProviderFactory.create_from_option(llm_option)
+            llm_base_url = _resolve_playground_llm_base_url(payload.llm_base_url)
+            llm_provider = LLMProviderFactory.create_from_option(llm_option, base_url=llm_base_url)
             task = _build_agent_chat_task(payload)
             transport = _current_agent_transport()
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
@@ -2399,6 +2453,8 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                         event["config_name"] = eff_config
                     yield json.dumps(event) + "\n"
 
+        except HTTPException:
+            raise
         except Exception as exc:
             trace_id = str(uuid.uuid4())
             logger.error("Agent Chat stream failed (trace_id=%s): %s", trace_id, exc, exc_info=True)

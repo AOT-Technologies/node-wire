@@ -184,6 +184,22 @@ def test_llm_factory_create_nvidia_from_env(monkeypatch: pytest.MonkeyPatch) -> 
     )
 
 
+def test_llm_factory_create_openrouter_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    monkeypatch.setenv("OPENROUTER_MODEL", "poolside/laguna-s-2.1:free")
+    with patch("agents.providers.openai_provider.OpenAI") as ctor:
+        provider = LLMProviderFactory.create_from_env()
+    from agents.providers.openai_provider import OpenAIProvider
+
+    assert isinstance(provider, OpenAIProvider)
+    assert provider._model == "poolside/laguna-s-2.1:free"
+    ctor.assert_called_once_with(
+        api_key="sk-or-v1-test",
+        base_url="https://openrouter.ai/api/v1",
+    )
+
+
 def test_llm_factory_create_from_option_groq_and_nvidia(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GROQ_API_KEY", "gk")
     monkeypatch.setenv("NVIDIA_API_KEY", "nk")
@@ -231,6 +247,9 @@ def test_llm_factory_list_playground_options_prefers_groq_default(
     monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-120b")
     monkeypatch.setenv("NVIDIA_API_KEY", "nk")
     monkeypatch.setenv("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
 
     catalog = LLMProviderFactory.list_playground_options()
     assert catalog["default_id"] == "groq/openai/gpt-oss-120b"
@@ -243,10 +262,122 @@ def test_llm_factory_list_playground_options_prefers_groq_default(
     assert "Groq" in nvidia["tools_note"]
 
 
+def test_llm_factory_create_from_option_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_API_KEY", "ollama")
+    with patch("agents.providers.openai_provider.OpenAI") as ctor:
+        provider = LLMProviderFactory.create_from_option("ollama/qwen2.5:7b")
+    from agents.providers.openai_provider import OpenAIProvider
+
+    assert isinstance(provider, OpenAIProvider)
+    ctor.assert_called_once_with(
+        api_key="ollama",
+        base_url="http://127.0.0.1:11434/v1",
+    )
+    with patch("agents.providers.openai_provider.OpenAI") as ctor2:
+        LLMProviderFactory.create_from_option(
+            "ollama/qwen2.5:7b",
+            base_url="http://localhost:11434",
+        )
+    ctor2.assert_called_once_with(
+        api_key="ollama",
+        base_url="http://localhost:11434/v1",
+    )
+
+
+def test_llm_factory_create_from_option_openrouter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    with patch("agents.providers.openai_provider.OpenAI") as ctor:
+        provider = LLMProviderFactory.create_from_option("openrouter/poolside/laguna-s-2.1:free")
+    from agents.providers.openai_provider import OpenAIProvider
+
+    assert isinstance(provider, OpenAIProvider)
+    assert provider._model == "poolside/laguna-s-2.1:free"
+    ctor.assert_called_once_with(
+        api_key="sk-or-v1-test",
+        base_url="https://openrouter.ai/api/v1",
+    )
+
+
+def test_llm_factory_list_playground_options_includes_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    monkeypatch.delenv("OPENROUTER_MODELS", raising=False)
+    monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
+    catalog = LLMProviderFactory.list_playground_options()
+    ids = [o["id"] for o in catalog["options"]]
+    assert ids == [
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+        "openrouter/nex-agi/nex-n2.5-pro:free",
+        "openrouter/inclusionai/ling-3.0-flash-fin:free",
+    ]
+    row = catalog["options"][0]
+    assert row["provider"] == "openrouter"
+    assert row["model"] == "poolside/laguna-s-2.1:free"
+    assert row["tools_note"]
+    assert "confidential" in row["tools_note"].lower()
+
+
+def test_llm_factory_list_playground_options_openrouter_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    monkeypatch.setenv(
+        "OPENROUTER_MODELS",
+        "poolside/laguna-s-2.1:free, liquid/lfm-2.5-2.6b:free",
+    )
+    catalog = LLMProviderFactory.list_playground_options()
+    assert [o["id"] for o in catalog["options"]] == [
+        "openrouter/poolside/laguna-s-2.1:free",
+        "openrouter/liquid/lfm-2.5-2.6b:free",
+    ]
+
+
+def test_llm_factory_list_playground_options_includes_ollama(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5:7b")
+    catalog = LLMProviderFactory.list_playground_options()
+    ids = [o["id"] for o in catalog["options"]]
+    assert "ollama/qwen2.5:7b" in ids
+    ollama = next(o for o in catalog["options"] if o["provider"] == "ollama")
+    assert ollama["base_url"] == "http://127.0.0.1:11434/v1"
+    assert ollama["tools_note"]
+
+
+def test_ollama_url_helpers() -> None:
+    from agents.llm_factory import (
+        normalize_openai_compatible_base_url,
+        ollama_origin_from_base_url,
+    )
+
+    assert normalize_openai_compatible_base_url("http://127.0.0.1:11434") == (
+        "http://127.0.0.1:11434/v1"
+    )
+    assert ollama_origin_from_base_url("http://127.0.0.1:11434/v1") == "http://127.0.0.1:11434"
+
+
 def test_parse_llm_option_and_tool_heuristic() -> None:
     from agents.llm_factory import looks_like_tool_calling_unsupported, parse_llm_option
 
     assert parse_llm_option("groq/openai/gpt-oss-120b") == ("groq", "openai/gpt-oss-120b")
+    assert parse_llm_option("openrouter/poolside/laguna-s-2.1:free") == (
+        "openrouter",
+        "poolside/laguna-s-2.1:free",
+    )
     with pytest.raises(ValueError):
         parse_llm_option("groqonly")
     assert looks_like_tool_calling_unsupported("model does not support tools")

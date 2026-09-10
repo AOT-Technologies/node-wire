@@ -151,7 +151,7 @@ def test_agent_chat_starts_unpinned_when_no_tenant_selected(
         def chat_with_tools(self, messages, tools):  # noqa: ANN001
             return None
 
-    def fake_create_from_option(llm_option=None):
+    def fake_create_from_option(llm_option=None, base_url=None):
         return FakeProvider()
 
     async def fake_run(self, task):
@@ -208,6 +208,9 @@ def test_llm_options_endpoint_filters_and_defaults_to_groq(
     monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-120b")
     monkeypatch.setenv("NVIDIA_API_KEY", "nk")
     monkeypatch.setenv("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
     from bindings.rest_api.app import app
 
     client = TestClient(app)
@@ -232,7 +235,7 @@ def test_agent_chat_uses_llm_option(monkeypatch: pytest.MonkeyPatch) -> None:
         def chat_with_tools(self, messages, tools):  # noqa: ANN001
             return None
 
-    def fake_create_from_option(llm_option=None):
+    def fake_create_from_option(llm_option=None, base_url=None):
         created.append(llm_option)
         return FakeProvider()
 

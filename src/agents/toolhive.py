@@ -33,12 +33,14 @@ Environment variables:
     TOOLHIVE_MCP_BEARER_TOKEN: Optional inbound MCP bearer token (JWT/API key)
     TOOLHIVE_MAX_TOOL_FAILURES: Stop after this many failed invocations per tool name (default: 2)
     NW_TENANT_ID     : Default for --tenant-id (stdio pin / HTTP X-Tenant-ID)
-    LLM_PROVIDER     : groq | openai | gemini | anthropic | ollama  (default: groq)
+    LLM_PROVIDER     : groq | openai | gemini | anthropic | nvidia | ollama | openrouter  (default: groq)
     GROQ_API_KEY     : (when using groq)
     OPENAI_API_KEY   : (when using openai)
     GEMINI_API_KEY   : (when using gemini)
     ANTHROPIC_API_KEY: (when using anthropic)
+    NVIDIA_API_KEY / NVIDIA_BASE_URL / NVIDIA_MODEL : (when using nvidia)
     OLLAMA_BASE_URL / OLLAMA_MODEL : (when using ollama)
+    OPENROUTER_API_KEY / OPENROUTER_BASE_URL / OPENROUTER_MODEL : (when using openrouter)
 """
 
 from __future__ import annotations
