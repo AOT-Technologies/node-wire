@@ -97,3 +97,26 @@ def test_load_env_missing_project_root(tmp_path: Path, monkeypatch: pytest.Monke
     spec.loader.exec_module(mod)
     with pytest.raises(SystemExit, match="cannot locate generated MCP project root"):
         mod._load_env()
+
+
+def test_load_env_container_without_project_root_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the Dockerfile COPYs vendor/node_wire_src/ -> /nw_src (flattened,
+    losing the vendor/node_wire_src nesting under the module) and never COPYs
+    pyproject.toml, so _project_root()'s layout heuristics never match inside a
+    real container. _load_env() must not treat that as fatal — it crash-looped
+    every generated image with "auth error: cannot locate generated MCP project
+    root" until this was fixed to check container mode first.
+    """
+    orphan = tmp_path / "app" / "src" / "pkg"
+    orphan.mkdir(parents=True)
+    main_path = orphan / "__main__.py"
+    main_path.write_text(_main_py(connector_id="x"), encoding="utf-8")
+    monkeypatch.setenv("NW_MCP_CONTAINER", "true")
+    spec = importlib.util.spec_from_file_location("container_orphan_main", main_path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod._load_env()  # must not raise
+    assert os.environ["NW_REST_LOAD_DOTENV"] == "false"

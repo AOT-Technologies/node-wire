@@ -338,17 +338,22 @@ def _running_in_container() -> bool:
 def _load_env() -> None:
     # Never let vendored MCP/REST merge cwd .env over process env.
     os.environ["NW_REST_LOAD_DOTENV"] = "false"
+    # Images: secrets come from the orchestrator (docker -e / --env-file /
+    # ToolHive). Do not read a filesystem .env — that file must not be in the
+    # image, and a bind-mount would expose it in the container filesystem.
+    # The Dockerfile also flattens vendor/node_wire_src/ to /nw_src (PYTHONPATH)
+    # and never COPYs pyproject.toml, so _project_root()'s layout heuristics
+    # never match inside a container — check container mode first so that's
+    # not treated as a fatal error; NW_CONFIG_PATH / PYTHONPATH / etc. are
+    # already wired via Dockerfile ENV at that point.
+    if _running_in_container():
+        return
     root = _project_root()
     if root is None:
         raise SystemExit(
             "auth error: cannot locate generated MCP project root "
             "(expected vendor/node_wire_src/bindings or config/ + pyproject.toml)."
         )
-    # Images: secrets come from the orchestrator (docker -e / --env-file /
-    # ToolHive). Do not read a filesystem .env — that file must not be in the
-    # image, and a bind-mount would expose it in the container filesystem.
-    if _running_in_container():
-        return
     env_path = root / ".env"
     if env_path.is_file():
         from dotenv import load_dotenv
@@ -444,6 +449,7 @@ Process env (ToolHive secrets, Docker `-e` / `--env-file`) is preferred. A proje
 | `NW_MCP_PORT` | `8081` | HTTP port |
 | `NW_ALLOWED_CONNECTORS` | `{connector_id}` | Connector allowlist |
 | `NW_MCP_AUTH_DISABLED` | `true` locally; **unset in images** | Local/Inspector only — do not bake into Docker |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` locally; **unset (= `deny`) in images** | With no `NW_MCP_ACTION_SCOPE_MAP_JSON`, `deny` silently returns zero tools from `tools/list` — this is separate from `NW_MCP_AUTH_DISABLED` and must be set explicitly too, e.g. for local ToolHive testing |
 
 ## Docker
 
@@ -457,7 +463,7 @@ docker run --rm --env-file .env -p 8081:8081 {module_name}
 
 `--env-file` sets process environment; it does not COPY the file into the image. Do not `COPY` or bind-mount `.env` into the container filesystem.
 
-The image is digest-pinned, runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth unless you set `NW_MCP_AUTH_DISABLED` at runtime.
+The image is digest-pinned, runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth or open the scope policy unless you set `NW_MCP_AUTH_DISABLED` / `NW_MCP_SCOPE_POLICY_DEFAULT` at runtime. Both default fail-closed in images (unlike local `uv run`, which sets both for Inspector convenience) — a container started without them accepts connections but `tools/list` comes back empty.
 
 Installs `{connector_pkg}` + `node-wire-runtime` from `./wheels`.
 """
@@ -530,9 +536,13 @@ ENV PYTHONPATH=/nw_src:/app/src \\
 WORKDIR /app
 
 COPY wheels/ /wheels/
-COPY vendor/node_wire_src/ /nw_src/
-COPY config/connectors.yaml /app/config/connectors.yaml
-COPY src/ /app/src/
+# --chmod normalizes to a known-good, world-readable mode regardless of the
+# host file's permissions (e.g. config/connectors.yaml is 600 on disk) —
+# the final `chmod -R a-w` below only ever *removes* the write bit, so a
+# source file with no group/other bits would stay unreadable by `USER app`.
+COPY --chmod=0755 vendor/node_wire_src/ /nw_src/
+COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml
+COPY --chmod=0755 src/ /app/src/
 
 RUN pip install --no-cache-dir --find-links=/wheels \\
     node-wire-runtime {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\

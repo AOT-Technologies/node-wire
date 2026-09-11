@@ -39,7 +39,7 @@ def test_generated_dockerfile_does_not_copy_or_bake_secrets() -> None:
     text = _sample_dockerfile()
     assert "COPY .env" not in text
     assert "COPY config/ ." not in text
-    assert "COPY config/connectors.yaml" in text
+    assert "COPY --chmod=0755 config/connectors.yaml" in text
     assert "README" not in text
     assert "pyproject.toml" not in text
     assert "pip install -e" not in text
@@ -57,6 +57,22 @@ def test_generated_dockerfile_application_tree_is_not_writable() -> None:
     assert "chmod -R a-w /app /nw_src" in text
     assert "--home /nonexistent" in text
     assert "rm -rf /wheels" in text
+
+
+def test_generated_dockerfile_normalizes_copied_permissions() -> None:
+    """Regression: ``config/connectors.yaml`` is mode 600 on disk (repo convention
+    for a file that must never contain secrets). Docker's plain ``COPY`` preserves
+    the source file's mode, and the final ``chmod -R a-w`` only *removes* the
+    write bit — a 600 source file becomes 400 (root-only), so ``USER app``
+    (uid 1000, non-root) got ``PermissionError`` reading it at startup. Every
+    COPY that lands under the later ``chmod -R a-w /app /nw_src`` must set an
+    explicit, world-readable ``--chmod`` so the result is independent of the
+    host file's permissions.
+    """
+    text = _sample_dockerfile()
+    assert "COPY --chmod=0755 vendor/node_wire_src/ /nw_src/" in text
+    assert "COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml" in text
+    assert "COPY --chmod=0755 src/ /app/src/" in text
 
 
 def test_generated_dockerignore_is_whitelist_and_excludes_secrets() -> None:

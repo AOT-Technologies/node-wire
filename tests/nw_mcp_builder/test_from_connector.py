@@ -177,7 +177,7 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert '"mcp>=1.6.0,<2"' in dockerfile
     assert "@sha256:" in dockerfile
     assert "USER app" in dockerfile
-    assert "COPY config/connectors.yaml" in dockerfile
+    assert "COPY --chmod=0755 config/connectors.yaml" in dockerfile
     assert "COPY .env" not in dockerfile
     assert "NW_MCP_AUTH_DISABLED" not in dockerfile
     dockerignore = (project_dir / ".dockerignore").read_text(encoding="utf-8")
