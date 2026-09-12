@@ -42,8 +42,13 @@ jobs:
       # Bandit exits non-zero when *any* finding exists (incl. low/medium). The
       # enforce step below gates on high only; use --exit-zero here so this step
       # always produces the JSON artifact and the job can print a summary.
+      # Scan the connector runtime under src/ plus the nw CLI / builder packages
+      # that produce MCP servers — the priority surface for main-branch health.
       - name: Generate Bandit JSON report
-        run: uv run bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+        run: >
+          uv run bandit -c pyproject.toml
+          -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src
+          -f json -o bandit-report.json --exit-zero
       - name: Bandit findings summary (log)
         run: uv run python scripts/bandit_report_summary.py bandit-report.json
       - name: Upload Bandit report artifact
@@ -53,4 +58,7 @@ jobs:
           path: bandit-report.json
           if-no-files-found: error
       - name: Enforce high-severity Bandit gate
-        run: uv run bandit -c pyproject.toml -r src --severity-level high
+        run: >
+          uv run bandit -c pyproject.toml
+          -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src
+          --severity-level high

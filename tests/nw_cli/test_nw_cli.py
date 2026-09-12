@@ -269,6 +269,7 @@ def test_run_docker_build_subprocess_args(fake_root: Path) -> None:
         cmd = run.call_args.args[0]
         assert cmd == ["docker", "build", "-t", "pet-store-nw-mcp:v1", "."]
         assert run.call_args.kwargs["cwd"] == project
+        assert run.call_args.kwargs["env"]["DOCKER_BUILDKIT"] == "1"
 
 
 def test_run_logged_command_streams_to_log(fake_root: Path) -> None:

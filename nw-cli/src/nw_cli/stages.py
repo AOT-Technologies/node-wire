@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from nw_mcp_builder.from_connector import run_from_connector
@@ -27,6 +28,7 @@ def run_logged_command(
     *,
     cwd: Path,
     log: LogFn | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> int:
     """Run *cmd*, streaming combined stdout/stderr line-by-line through *log*.
 
@@ -41,6 +43,7 @@ def run_logged_command(
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        env=dict(env) if env is not None else None,
     )
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -134,14 +137,34 @@ def run_docker_build(
     tag: str = "latest",
     log: LogFn | None = None,
 ) -> str:
-    """``docker build -t <server>-mcp:<tag> .`` inside the generated project dir."""
+    """Build the generated MCP image with BuildKit enabled.
+
+    Always sets ``DOCKER_BUILDKIT=1`` so Dockerfile ``RUN --mount=type=cache``
+    works. When ``NW_DOCKER_CACHE_FROM`` / ``NW_DOCKER_CACHE_TO`` are set (e.g.
+    ``type=gha,scope=…`` in CI), uses ``docker buildx build --load`` with those
+    cache backends; otherwise plain ``docker build``.
+    """
     project = mcp_project_dir(node_wire_root, connector_id)
     if not project.is_dir():
         raise StageError(f"MCP project directory not found: {project}")
 
     image = docker_image_tag(connector_id, tag)
-    cmd = ["docker", "build", "-t", image, "."]
-    code = run_logged_command(cmd, cwd=project, log=log)
+    env = os.environ.copy()
+    env["DOCKER_BUILDKIT"] = "1"
+
+    cache_from = env.get("NW_DOCKER_CACHE_FROM", "").strip()
+    cache_to = env.get("NW_DOCKER_CACHE_TO", "").strip()
+    if cache_from or cache_to:
+        cmd = ["docker", "buildx", "build", "--load", "-t", image]
+        if cache_from:
+            cmd.extend(["--cache-from", cache_from])
+        if cache_to:
+            cmd.extend(["--cache-to", cache_to])
+        cmd.append(".")
+    else:
+        cmd = ["docker", "build", "-t", image, "."]
+
+    code = run_logged_command(cmd, cwd=project, log=log, env=env)
     if code != 0:
         raise StageError(f"docker build failed (exit {code}): {image}")
     return image

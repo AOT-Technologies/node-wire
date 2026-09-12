@@ -456,16 +456,16 @@ Process env (ToolHive secrets, Docker `-e` / `--env-file`) is preferred. A proje
 Secrets stay **out of the image**. `.dockerignore` is a whitelist (wheels, vendor src, `config/connectors.yaml`, host `src/` only). `.env`, `.env.example`, and tenant YAML never enter the build context. Inject credentials at **run** time:
 
 ```bash
-docker build -t {module_name} .
+DOCKER_BUILDKIT=1 docker build -t {module_name} .
 docker run --rm --env-file .env -p 8081:8081 {module_name}
 # ToolHive / K8s: pass secrets as process env, not a file baked into layers
 ```
 
 `--env-file` sets process environment; it does not COPY the file into the image. Do not `COPY` or bind-mount `.env` into the container filesystem.
 
-The image is digest-pinned, runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth or open the scope policy unless you set `NW_MCP_AUTH_DISABLED` / `NW_MCP_SCOPE_POLICY_DEFAULT` at runtime. Both default fail-closed in images (unlike local `uv run`, which sets both for Inspector convenience) — a container started without them accepts connections but `tools/list` comes back empty.
+The image is multi-stage and digest-pinned: wheels install in a `deps` stage (BuildKit pip cache), then only `/usr/local` is copied into the runtime stage. App sources (`vendor/`, `src/`, config) are copied **after** that so source edits do not bust the install layer. Runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth or open the scope policy unless you set `NW_MCP_AUTH_DISABLED` / `NW_MCP_SCOPE_POLICY_DEFAULT` at runtime. Both default fail-closed in images (unlike local `uv run`, which sets both for Inspector convenience) — a container started without them accepts connections but `tools/list` comes back empty.
 
-Installs `{connector_pkg}` + `node-wire-runtime` from `./wheels`.
+Installs `{connector_pkg}` + `node-wire-runtime` from `./wheels` (entry points / compiled deps). Vendored `vendor/node_wire_src` stays on `PYTHONPATH` so nested packages Cython wheels may omit still import — do not drop either side without verifying imports.
 """
 
 
@@ -512,10 +512,31 @@ def _dockerfile(
     mcp_dep: str,
 ) -> str:
     return f'''\
+# syntax=docker/dockerfile:1
 ##
 ## SPDX-FileCopyrightText: 2026 AOT Technologies
 ## SPDX-License-Identifier: Apache-2.0
 ##
+# Multi-stage MCP host image:
+# - deps: install wheels + PyPI deps (BuildKit pip cache); wheels never enter the
+#   final image layers.
+# - runtime: copy site-packages from deps, then app sources last so edits to
+#   vendor/src/config do not invalidate the expensive install layer.
+# Vendored /nw_src stays on PYTHONPATH ahead of site-packages so nested packages
+# omitted from Cython wheels still import — keep both until wheels are complete.
+
+FROM {PYTHON_312_SLIM_IMAGE} AS deps
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \\
+    PYTHONDONTWRITEBYTECODE=1
+
+COPY wheels/ /wheels/
+RUN --mount=type=cache,target=/root/.cache/pip \\
+    pip install --no-cache-dir --find-links=/wheels \\
+        node-wire-runtime {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
+    && find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true \\
+    && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
+
 FROM {PYTHON_312_SLIM_IMAGE}
 
 LABEL org.opencontainers.image.title="{module_name}" \\
@@ -535,21 +556,24 @@ ENV PYTHONPATH=/nw_src:/app/src \\
 
 WORKDIR /app
 
-COPY wheels/ /wheels/
+# Installed packages only — no /wheels in the final image.
+COPY --from=deps /usr/local /usr/local
+
+RUN groupadd --system --gid 1000 app \\
+    && useradd --system --uid 1000 --gid app --home /nonexistent --no-create-home --shell /usr/sbin/nologin app
+
 # --chmod normalizes to a known-good, world-readable mode regardless of the
 # host file's permissions (e.g. config/connectors.yaml is 600 on disk) —
 # the final `chmod -R a-w` below only ever *removes* the write bit, so a
 # source file with no group/other bits would stay unreadable by `USER app`.
-COPY --chmod=0755 vendor/node_wire_src/ /nw_src/
+# Use 0755 (not 0644) even for the YAML file: Docker applies --chmod to
+# parent dirs it creates for the destination path, and a 0644 directory has
+# no execute bit → ``USER app`` cannot traverse ``/app/config``.
 COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml
+COPY --chmod=0755 vendor/node_wire_src/ /nw_src/
 COPY --chmod=0755 src/ /app/src/
 
-RUN pip install --no-cache-dir --find-links=/wheels \\
-    node-wire-runtime {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
-    && rm -rf /wheels /root/.cache/pip \\
-    && groupadd --system --gid 1000 app \\
-    && useradd --system --uid 1000 --gid app --home /nonexistent --no-create-home --shell /usr/sbin/nologin app \\
-    && chown -R root:root /app /nw_src \\
+RUN chown -R root:root /app /nw_src \\
     && chmod -R a-w /app /nw_src
 
 USER app

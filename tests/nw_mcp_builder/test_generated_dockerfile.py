@@ -28,11 +28,13 @@ def _sample_dockerfile() -> str:
 
 def test_generated_dockerfile_is_digest_pinned_and_non_root() -> None:
     text = _sample_dockerfile()
-    assert f"FROM {PYTHON_312_SLIM_IMAGE}" in text
+    assert text.count(f"FROM {PYTHON_312_SLIM_IMAGE}") == 2  # deps + runtime
+    assert f"FROM {PYTHON_312_SLIM_IMAGE} AS deps" in text
     assert "USER app" in text
     assert "USER root" not in text
     assert "HEALTHCHECK" in text
     assert '"mcp>=1.6.0,<2"' in text
+    assert "# syntax=docker/dockerfile:1" in text
 
 
 def test_generated_dockerfile_does_not_copy_or_bake_secrets() -> None:
@@ -52,11 +54,25 @@ def test_generated_dockerfile_does_not_copy_or_bake_secrets() -> None:
         assert needle not in lowered
 
 
+def test_generated_dockerfile_is_multistage_with_cached_install() -> None:
+    text = _sample_dockerfile()
+    assert "AS deps" in text
+    assert "COPY --from=deps /usr/local /usr/local" in text
+    assert "RUN --mount=type=cache,target=/root/.cache/pip" in text
+    # Wheels only in deps stage — never a final-image layer.
+    assert "COPY wheels/ /wheels/" in text
+    assert text.index("AS deps") < text.index("COPY wheels/")
+    assert text.index("COPY --from=deps") < text.index("COPY --chmod=0755 config/connectors.yaml")
+    assert "rm -rf /wheels" not in text  # multi-stage replaces delete-in-place
+
+
 def test_generated_dockerfile_application_tree_is_not_writable() -> None:
     text = _sample_dockerfile()
     assert "chmod -R a-w /app /nw_src" in text
     assert "--home /nonexistent" in text
-    assert "rm -rf /wheels" in text
+    # Vendored tree + PYTHONPATH preserved for Cython wheel nested-package gaps.
+    assert "PYTHONPATH=/nw_src:/app/src" in text
+    assert "COPY --chmod=0755 vendor/node_wire_src/ /nw_src/" in text
 
 
 def test_generated_dockerfile_normalizes_copied_permissions() -> None:
@@ -73,6 +89,15 @@ def test_generated_dockerfile_normalizes_copied_permissions() -> None:
     assert "COPY --chmod=0755 vendor/node_wire_src/ /nw_src/" in text
     assert "COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml" in text
     assert "COPY --chmod=0755 src/ /app/src/" in text
+
+
+def test_generated_dockerfile_install_before_app_sources() -> None:
+    """App COPY layers must follow the deps install copy so source edits cache."""
+    text = _sample_dockerfile()
+    install_at = text.index("COPY --from=deps /usr/local /usr/local")
+    assert text.index("COPY --chmod=0755 config/connectors.yaml") > install_at
+    assert text.index("COPY --chmod=0755 vendor/node_wire_src/") > install_at
+    assert text.index("COPY --chmod=0755 src/") > install_at
 
 
 def test_generated_dockerignore_is_whitelist_and_excludes_secrets() -> None:

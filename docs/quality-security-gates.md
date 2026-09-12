@@ -18,7 +18,7 @@ Runs on every pull request and on pushes to `main`.
 
 Required jobs:
 
-- `bandit`: writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step.
+- `bandit`: writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step. Scan roots: `src/`, `nw-cli/src/`, `nw-mcp-builder/src/`, `nw-connector-builder/src/`.
 
 Workflow: `.github/workflows/codeql.yml`
 
@@ -28,9 +28,19 @@ Workflow: `.github/workflows/pytest.yml`
 
 Runs the full test suite on **Linux, macOS, and Windows** (Python 3.11 and 3.12
 matrix) with coverage on every pull request and push to `main`.
+Branch protection requires the **Ubuntu** cells only; macOS/Windows remain
+informational (OSS portability signal without blocking merges on runner flakiness).
 Playground integration tests remain manual (`workflow_dispatch`) on Ubuntu only.
 
 Workflow: `.github/workflows/lint.yml` also runs `lockfile-check` (`uv lock --check`) to fail PRs when `pyproject.toml` changes without an updated `uv.lock`.
+
+Workflow: `.github/workflows/mcp-builder-e2e.yml`
+
+End-to-end gate for the priority surface (`nw` CLI → connector codegen → MCP
+Docker image → live `tools/list`). The heavy pet-store job is **path-filtered**
+(plus weekly schedule / `workflow_dispatch`). An always-run job
+`MCP builder e2e gate` succeeds when e2e is skipped and fails when e2e fails —
+require **that** check name in branch protection, not the path-filtered job.
 
 Workflow: `.github/workflows/secret-scan.yml`
 
@@ -42,30 +52,30 @@ scanned, not only the working tree.
 Required checks to add in branch protection:
 
 - `Lint and Type Check / Lockfile freshness`
+- `Lint and Type Check / Ruff Linters`
+- `Lint and Type Check / Mypy Type Check`
 - `Quality gates / Bandit security scan`
 - `CodeQL / Analyze (Python)`
 - `Secret scan / Gitleaks secret scan`
 - `CI – Pytest / Run pytest (ubuntu-latest, Python 3.11)`
 - `CI – Pytest / Run pytest (ubuntu-latest, Python 3.12)`
-- `CI – Pytest / Run pytest (macos-latest, Python 3.11)`
-- `CI – Pytest / Run pytest (macos-latest, Python 3.12)`
-- `CI – Pytest / Run pytest (windows-latest, Python 3.11)`
-- `CI – Pytest / Run pytest (windows-latest, Python 3.12)`
+- `MCP builder e2e (pet-store) / MCP builder e2e gate`
 - `Python package security PR checks / Vulnerability scan (packages/runtime)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/http_generic)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/stripe)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/smtp)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/google_drive)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/fhir_cerner)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/fhir_epic)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/salesforce)`
-- `Python package security PR checks / Vulnerability scan (packages/connectors/slack)`
 
 Configure branch protection so pull requests cannot merge unless all required checks pass.
+
+Informational (run in CI, not required to merge): macOS/Windows pytest cells;
+connector-package `pip-audit` matrix (path-filtered on PRs, always on schedule);
+REUSE lint (still runs in `lint.yml`); DCO (skips bot PRs — do not require it or
+Dependabot merges will stick on a skipped check).
 
 ## CVE scanning policy
 
 - PR and push-to-main scanning runs in `.github/workflows/security-pr.yml`.
+- `packages/runtime` is audited on **every** PR / push to `main` (required check).
+- Connector packages under `packages/connectors/*` are audited when those paths
+  (or lockfile / related workflows) change, and on the daily schedule — not
+  required in branch protection.
 - Release-time scanning remains in `.github/workflows/publish.yml` as defense in depth.
 - The PR/push gate (`security-pr.yml`) runs `pip-audit` with no `--fail-on` threshold, so it **blocks on any vulnerability**. The release workflow (`publish.yml`) uses `pip-audit --fail-on HIGH` as defense in depth.
 - Scheduled scans catch newly disclosed CVEs even when code does not change.
@@ -106,10 +116,14 @@ treat it as defense in depth; the in-repo workflow provides auditable CI evidenc
 uv sync --frozen --all-extras --dev
 
 # Security gate (matches CI failure threshold)
-uv run bandit -c pyproject.toml -r src --severity-level high
+uv run bandit -c pyproject.toml \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  --severity-level high
 
 # Optional: JSON report + same summary as CI logs
-uv run bandit -c pyproject.toml -r src -f json -o bandit-report.json --exit-zero
+uv run bandit -c pyproject.toml \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -f json -o bandit-report.json --exit-zero
 python scripts/bandit_report_summary.py bandit-report.json
 
 # Tests + coverage (run via pytest.yml in CI)
@@ -152,7 +166,8 @@ Locally, mirror CI with the commands in [Run checks locally](#run-checks-locally
 
 Policy:
 
-- Scan target: `src/` (runtime, bindings, in-tree connector implementations installed via the root package).
+- Scan targets: `src/` (runtime, bindings, in-tree connectors), plus `nw-cli/src/`,
+  `nw-mcp-builder/src/`, and `nw-connector-builder/src/` (CLI → MCP pipeline).
 - Exclude: `.venv`, `venv`, `tests`, `playground`, `dist`, `htmlcov`.
 - CI enforcement threshold: `--severity-level high`.
 - **Packages tree:** connector distributions under `packages/connectors/*` are audited for CVEs in `.github/workflows/security-pr.yml` (`pip-audit`). Run Bandit against those paths separately if you need SAST on a standalone checkout.
@@ -160,8 +175,12 @@ Policy:
 If legacy findings block adoption, create a baseline once and track deltas:
 
 ```bash
-bandit -c pyproject.toml -r src -f json -o bandit-baseline.json --exit-zero
-bandit -c pyproject.toml -r src --baseline bandit-baseline.json --severity-level high
+bandit -c pyproject.toml \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -f json -o bandit-baseline.json --exit-zero
+bandit -c pyproject.toml \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  --baseline bandit-baseline.json --severity-level high
 ```
 
 ## SBOM generation
@@ -176,6 +195,7 @@ CycloneDX SBOM (`sbom.json`) is generated by:
 - Security scan runs on every PR: enforced by `quality-gates.yml` (Bandit) and `codeql.yml` (CodeQL).
 - Builds fail on high-severity Bandit findings: Bandit gate in CI.
 - Static analysis visible in GitHub Security tab: CodeQL upload from CI.
-- Tests run on every PR: enforced by `pytest.yml` (Linux/macOS/Windows × Python 3.11/3.12).
+- Tests run on every PR: enforced by `pytest.yml` (required: Ubuntu × Python 3.11/3.12).
+- MCP pipeline integrity: `mcp-builder-e2e.yml` gate required; heavy pet-store job path-filtered.
 - Developers run checks locally: documented commands and pre-commit (Bandit).
 - Config version-controlled: `pyproject.toml`, `.pre-commit-config.yaml`, workflow files.
