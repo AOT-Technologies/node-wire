@@ -11,6 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`nw-connector-builder`**: connector-level `oauth2` auth is now derived for specs whose
+  security scheme declares a `clientCredentials` or `authorizationCode` flow, instead of being
+  soft-dropped outright. `clientCredentials` maps to `OAuth2AuthProvider(grant_method=
+  "client_secret_post")` (fully unattended). `authorizationCode` maps to `grant_method=
+  "refresh_token"`, scaffolding the token URL and declared scopes from the spec and flagging the
+  one-time out-of-band step (interactive consent) needed to obtain the initial refresh token —
+  Node Wire never performs that step itself (`nw-connector-builder-scope.md`,
+  `nw-connector-builder.md`). `implicit` and `password` flows remain unsupported, deliberately.
+- **`node-wire-runtime`**: `OAuth2AuthProvider` accepts an optional `on_refresh_token_rotated`
+  callback (sync or async) for `grant_method="refresh_token"`, invoked when the IdP returns a
+  refresh token that differs from the one just used, so a host app can persist the replacement.
+  A rotated value is cached in memory and used for the rest of the process's lifetime
+  regardless of whether a callback is configured or succeeds, so a single process keeps working
+  through rotation either way; without a callback (or if it fails), only a restart before the
+  new value is durably saved will break the connector. `src/bindings/factory.py` now wires this
+  automatically for every YAML-configured `oauth2`/`refresh_token` connector (Salesforce
+  included), persisting into the existing process-wide secret overlay, scoped per tenant/config
+  the same way the rest of that connector's secrets already are.
+- **`nw-connector-builder`**: the `authorizationCode` oauth2 scaffold now adds `offline_access`
+  to the derived scope list when the spec doesn't declare it — without it, Microsoft identity
+  platform (and most other OIDC providers) will not issue a refresh token during the interactive
+  consent, making the generated `grant_method: refresh_token` config inoperable regardless of
+  how correctly everything else is configured.
+
 ## [1.1.0] - 2026-07-30
 
 ### Added

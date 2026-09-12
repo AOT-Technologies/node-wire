@@ -40,6 +40,186 @@ def test_auth_and_multi_and_oauth_skip() -> None:
     assert d2.mode == "unsupported"
 
 
+def test_oauth2_implicit_and_password_still_unsupported() -> None:
+    """Flows with no client_credentials/authorizationCode never map to a grant."""
+    schemes = {
+        "O": {
+            "type": "oauth2",
+            "flows": {
+                "implicit": {"authorizationUrl": "https://idp.example.com/authorize"},
+                "password": {"tokenUrl": "https://idp.example.com/token"},
+            },
+        },
+    }
+    d = evaluate_operation_security([{"O": []}], None, schemes, None)
+    assert d.mode == "unsupported"
+
+
+def test_oauth2_client_credentials_flow_is_supported() -> None:
+    schemes = {
+        "O": {
+            "type": "oauth2",
+            "flows": {
+                "clientCredentials": {
+                    "tokenUrl": "https://idp.example.com/token",
+                    "scopes": {"read": "Read access"},
+                }
+            },
+        },
+    }
+    fp = "oauth2:client_credentials:O"
+    d = evaluate_operation_security([{"O": []}], None, schemes, fp)
+    assert d.mode == "required"
+
+
+def test_oauth2_authorization_code_flow_is_supported() -> None:
+    schemes = {
+        "O": {
+            "type": "oauth2",
+            "flows": {
+                "authorizationCode": {
+                    "authorizationUrl": "https://idp.example.com/authorize",
+                    "tokenUrl": "https://idp.example.com/token",
+                    "scopes": {"read": "Read access"},
+                }
+            },
+        },
+    }
+    fp = "oauth2:authorization_code:O"
+    d = evaluate_operation_security([{"O": []}], None, schemes, fp)
+    assert d.mode == "required"
+
+
+def test_build_auth_plan_oauth2_client_credentials() -> None:
+    schemes = {
+        "oauth2": {
+            "type": "oauth2",
+            "flows": {
+                "clientCredentials": {
+                    "tokenUrl": "https://idp.example.com/token",
+                    "scopes": {"read": "Read access", "write": "Write access"},
+                }
+            },
+        },
+    }
+    plan = build_auth_plan("microsoft_teams", schemes, "oauth2")
+    assert plan.provider == "oauth2"
+    assert plan.yaml_block["grant_method"] == "client_secret_post"
+    assert plan.yaml_block["token_url_secret"] == "MICROSOFT_TEAMS_TOKEN_URL"
+    assert plan.yaml_block["client_id_secret"] == "MICROSOFT_TEAMS_CLIENT_ID"
+    assert plan.yaml_block["client_secret_secret"] == "MICROSOFT_TEAMS_CLIENT_SECRET"
+    assert plan.yaml_block["scopes"] == ["read", "write"]
+    assert "refresh_token_secret" not in plan.yaml_block
+    assert plan.secret_defaults["MICROSOFT_TEAMS_TOKEN_URL"] == "https://idp.example.com/token"
+    assert set(plan.secret_keys) == {
+        "MICROSOFT_TEAMS_TOKEN_URL",
+        "MICROSOFT_TEAMS_CLIENT_ID",
+        "MICROSOFT_TEAMS_CLIENT_SECRET",
+    }
+    assert any("unattended" in n.lower() for n in plan.notes)
+
+
+def test_build_auth_plan_oauth2_authorization_code() -> None:
+    schemes = {
+        "oauth2": {
+            "type": "oauth2",
+            "flows": {
+                "authorizationCode": {
+                    "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                    "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                    "scopes": {"Team.ReadBasic.All": "Read teams basic info"},
+                }
+            },
+        },
+    }
+    plan = build_auth_plan("microsoft_teams", schemes, "oauth2")
+    assert plan.provider == "oauth2"
+    assert plan.yaml_block["grant_method"] == "refresh_token"
+    assert plan.yaml_block["refresh_token_secret"] == "MICROSOFT_TEAMS_REFRESH_TOKEN"
+    # offline_access is force-added: Entra (and most OIDC providers) won't issue a refresh
+    # token during interactive consent without it, even though the spec doesn't declare it.
+    assert plan.yaml_block["scopes"] == ["Team.ReadBasic.All", "offline_access"]
+    assert plan.secret_key == "MICROSOFT_TEAMS_REFRESH_TOKEN"
+    assert set(plan.secret_keys) == {
+        "MICROSOFT_TEAMS_TOKEN_URL",
+        "MICROSOFT_TEAMS_CLIENT_ID",
+        "MICROSOFT_TEAMS_CLIENT_SECRET",
+        "MICROSOFT_TEAMS_REFRESH_TOKEN",
+    }
+    assert (
+        plan.secret_defaults["MICROSOFT_TEAMS_TOKEN_URL"]
+        == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    )
+    assert any("one-time" in n.lower() or "interactive" in n.lower() for n in plan.notes)
+    assert any("on_refresh_token_rotated" in n for n in plan.notes)
+    assert any("offline_access" in n for n in plan.notes)
+
+
+def test_build_auth_plan_oauth2_authorization_code_offline_access_not_duplicated() -> None:
+    schemes = {
+        "oauth2": {
+            "type": "oauth2",
+            "flows": {
+                "authorizationCode": {
+                    "authorizationUrl": "https://idp.example.com/authorize",
+                    "tokenUrl": "https://idp.example.com/token",
+                    "scopes": {"read": "Read access", "offline_access": "Get a refresh token"},
+                }
+            },
+        },
+    }
+    plan = build_auth_plan("acme", schemes, "oauth2")
+    assert plan.yaml_block["scopes"] == ["read", "offline_access"]
+    assert not any("Added 'offline_access'" in n for n in plan.notes)
+
+
+def test_derive_microsoft_teams_style_spec_no_longer_soft_dropped() -> None:
+    doc = {
+        "openapi": "3.0.3",
+        "info": {"title": "t", "version": "1"},
+        "servers": [{"url": "https://graph.microsoft.com/v1.0"}],
+        "security": [{"oauth2": ["Team.ReadBasic.All"]}],
+        "paths": {
+            "/teams/{team-id}/installedApps": {
+                "get": {
+                    "operationId": "listInstalledApps",
+                    "parameters": [
+                        {
+                            "name": "team-id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "ok"}},
+                }
+            }
+        },
+        "components": {
+            "securitySchemes": {
+                "oauth2": {
+                    "type": "oauth2",
+                    "flows": {
+                        "authorizationCode": {
+                            "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                            "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                            "scopes": {"Team.ReadBasic.All": "Read teams basic info"},
+                        }
+                    },
+                }
+            }
+        },
+    }
+    result = derive_operations(doc, connector_id="microsoft_teams")
+    assert result.drops == []
+    assert {a.name for a in result.actions} == {"list_installed_apps"}
+    assert result.auth_plan.provider == "oauth2"
+    assert result.auth_plan.yaml_block["grant_method"] == "refresh_token"
+    # The spec's declared scopes don't include offline_access; without it Entra never
+    # issues a refresh token, so the generator adds it — see derive/auth.py.
+    assert "offline_access" in result.auth_plan.yaml_block["scopes"]
+
+
 def test_derive_demo_pets() -> None:
     doc, _ = load_openapi_document(str(FIXTURES / "demo_pets.openapi.yaml"))
     result = derive_operations(doc, connector_id="demo_pets")

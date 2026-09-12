@@ -22,16 +22,29 @@ Security design:
   - Private keys, client IDs, and token URLs are resolved at call-time via
     :class:`~node_wire_runtime.secrets.SecretProvider` so they are never held
     in plain text in config files.
+
+Refresh-token rotation (``grant_method="refresh_token"`` only):
+  Some IdPs return a *new* ``refresh_token`` alongside the access token on
+  every refresh (rotating/single-use refresh tokens — Microsoft identity
+  platform does this routinely). A rotated value is cached in memory and used
+  for every subsequent refresh in this process, so a missing or failing
+  ``on_refresh_token_rotated`` callback does not break the *current* process.
+  This provider never persists anything durable itself, though — it's a
+  library embedded in a host app that owns the actual secret store. Without
+  ``on_refresh_token_rotated``, the rotated value is lost on process restart,
+  and the old (now IdP-invalidated) value in the secret store will be used
+  again, failing the next request.
 """
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import os
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
 
 import httpx
 import jwt
@@ -81,6 +94,14 @@ class OAuth2AuthProvider(AuthProvider):
         Default: 60.
     jwt_ttl_secs:
         Lifetime of the JWT assertion in seconds. Default: 300.
+    on_refresh_token_rotated:
+        *(refresh_token only)* Optional callback invoked with the new
+        refresh-token string when the IdP returns one that differs from the
+        one just used. May be sync or async (an awaitable return value is
+        awaited). The new value is cached in memory and used regardless of
+        whether this callback exists or succeeds, so the current process
+        keeps working either way — the callback is only the hook for
+        surviving a *restart* (durable storage is the host app's job).
     """
 
     def __init__(
@@ -100,6 +121,7 @@ class OAuth2AuthProvider(AuthProvider):
         extra_content_type_headers: Optional[Dict[str, str]] = None,
         buffer_secs: int = _DEFAULT_BUFFER_SECS,
         jwt_ttl_secs: int = 300,
+        on_refresh_token_rotated: Optional[Callable[[str], Union[Awaitable[None], None]]] = None,
     ) -> None:
         if grant_method not in ("private_key_jwt", "client_secret_post", "refresh_token"):
             raise ValueError(
@@ -115,6 +137,10 @@ class OAuth2AuthProvider(AuthProvider):
         self._kid_secret = kid_secret
         self._client_secret_secret = client_secret_secret
         self._refresh_token_secret = refresh_token_secret
+        self._on_refresh_token_rotated = on_refresh_token_rotated
+        # Set once the IdP rotates the refresh token; takes precedence over the secret
+        # store for the rest of this process's lifetime (see _fetch_refresh_token).
+        self._refresh_token_override: Optional[str] = None
 
         self._static_scopes = scopes
         self._scopes_secret = scopes_secret
@@ -248,7 +274,13 @@ class OAuth2AuthProvider(AuthProvider):
         client_secret = (
             self._sp.get_secret(self._client_secret_secret) if self._client_secret_secret else None
         )
-        refresh_token = self._sp.get_secret(self._refresh_token_secret)
+        # Prefer a rotated value seen earlier in this process over the secret store: some
+        # IdPs (Entra included) issue single-use refresh tokens, and the store may still hold
+        # the now-invalidated one if the rotation callback hasn't persisted the update yet
+        # (or failed, or wasn't configured at all — see _notify_refresh_token_rotated).
+        refresh_token = self._refresh_token_override or self._sp.get_secret(
+            self._refresh_token_secret
+        )
         token_url = self._sp.get_secret(self._token_url_secret)
 
         post_data: Dict[str, str] = {
@@ -267,7 +299,39 @@ class OAuth2AuthProvider(AuthProvider):
             "OAuth2AuthProvider: refresh_token token request",
             extra={"token_url": token_url},
         )
-        return await self._post_token(token_url, post_data)
+        token_data = await self._post_token(token_url, post_data)
+
+        rotated = token_data.get("refresh_token")
+        if rotated and rotated != refresh_token:
+            # Take effect immediately, regardless of whether persistence succeeds below —
+            # this process must keep working even if nothing is listening.
+            self._refresh_token_override = rotated
+            await self._notify_refresh_token_rotated(rotated)
+
+        return token_data
+
+    async def _notify_refresh_token_rotated(self, new_refresh_token: str) -> None:
+        """Surface a rotated refresh token to the host, or log if nobody's listening.
+
+        This provider never persists secrets itself (see module docstring) — the
+        callback is the only way a rotated token survives a process restart.
+        """
+        if self._on_refresh_token_rotated is None:
+            logger.warning(
+                "OAuth2AuthProvider: IdP returned a rotated refresh_token but no "
+                "on_refresh_token_rotated callback is configured. This process will keep "
+                "working (the new token is cached in memory for this instance's lifetime), "
+                "but the new token is not persisted anywhere durable — a restart before it's "
+                "saved will fail once the old one is invalidated. Configure "
+                "on_refresh_token_rotated so the host app can persist it.",
+            )
+            return
+        try:
+            result = self._on_refresh_token_rotated(new_refresh_token)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:  # noqa: BLE001 - a broken hook must not break auth
+            logger.exception("OAuth2AuthProvider: on_refresh_token_rotated callback failed")
 
     async def _fetch_private_key_jwt(self) -> Dict[str, Any]:
         """

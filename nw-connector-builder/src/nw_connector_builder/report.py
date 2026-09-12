@@ -62,6 +62,7 @@ def build_report(
             "scheme_name": result.auth_plan.scheme_name,
             "provider": result.auth_plan.provider,
             "secret_key": result.auth_plan.secret_key,
+            "secret_keys": result.auth_plan.secret_keys,
             "yaml": result.auth_plan.yaml_block,
             "notes": result.auth_plan.notes,
         }
@@ -98,6 +99,10 @@ def print_report(report: dict[str, Any]) -> None:
     if auth:
         # Do not print secret_key (env name) — keep it in report.json only.
         print(f"  auth: provider={auth.get('provider')}")
+        for note in auth.get("notes") or []:
+            print(f"    NOTE: {note}")
+    for note in report.get("notes") or []:
+        print(f"  NOTE: {note}")
     gate = report.get("gate")
     if gate:
         print(f"  gate: {gate}")

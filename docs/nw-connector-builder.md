@@ -220,11 +220,20 @@ The builder picks **one** connector-level security scheme (document `security`, 
 | `apiKey` in `query` | `apikey_query` | `<ID>_API_KEY` |
 | `http` + `bearer` | `static_token` | `<ID>_TOKEN` |
 | `http` + `basic` | `static_token` (`prefix: Basic`, base64) | `<ID>_BASIC_AUTH` |
+| `oauth2` flow `clientCredentials` | `oauth2` (`grant_method: client_secret_post`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET` |
+| `oauth2` flow `authorizationCode` | `oauth2` (`grant_method: refresh_token`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET`, `<ID>_REFRESH_TOKEN` (manual one-time step) |
 | None / unsupported only | `none` (anonymous) | — |
+
+`<ID>_TOKEN_URL` is also emitted for both `oauth2` rows, pre-filled in `sample.env` with the
+spec's `tokenUrl` (public API metadata, not a secret — kept as a reference like the rest of the
+block so a sandbox/prod override never needs a code change). `authorizationCode` additionally
+requires completing an interactive consent **outside** Node Wire before `<ID>_REFRESH_TOKEN` can
+be set — see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#oauth2-authorizationcode).
 
 **Not supported** as connector-level auth (operations that require only these are soft-dropped):
 
-- `oauth2`
+- `oauth2` with only `implicit` and/or `password` flows declared (deliberately never supported,
+  not just unimplemented — see scope doc)
 - `openIdConnect`
 - `mutualTLS`
 - AND multi-scheme requirements (`security: [{ a: [], b: [] }]`)
