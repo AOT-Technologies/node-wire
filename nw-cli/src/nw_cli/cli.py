@@ -149,9 +149,7 @@ def gen_all(
 
                 def _wheels() -> None:
                     # MCP hosts need runtime + bindings + connector wheels.
-                    run_wheel_build(
-                        node_wire_root, runtime=True, bindings=True, log=progress.log
-                    )
+                    run_wheel_build(node_wire_root, runtime=True, bindings=True, log=progress.log)
                     run_wheel_build(node_wire_root, connector_id=id, log=progress.log)
 
                 progress.run_stage("wheel", _wheels)
@@ -182,8 +180,7 @@ def gen_all(
                                 f"packages/connectors/{id}/dist) — build now?"
                             ),
                             fix_command=(
-                                f"nw gen-whl --runtime --bindings && "
-                                f"nw gen-whl --connector-id {id}"
+                                f"nw gen-whl --runtime --bindings && nw gen-whl --connector-id {id}"
                             ),
                             build_fn=_build_missing,
                         )

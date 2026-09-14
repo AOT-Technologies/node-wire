@@ -80,9 +80,7 @@ def wait_for_ready(base_url: str, *, timeout: float, poll_interval: float = 2.0)
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            resp = httpx.post(
-                base_url, json=_initialize_request(), headers=_headers(), timeout=5.0
-            )
+            resp = httpx.post(base_url, json=_initialize_request(), headers=_headers(), timeout=5.0)
             if resp.status_code == 200:
                 return
             last_error = RuntimeError(f"HTTP {resp.status_code}: {resp.text[:300]}")
@@ -133,7 +131,9 @@ def main() -> None:
 
     expected = expected_tool_names(args.connector_id, logic_path)
     if not expected:
-        raise SystemExit(f"discover_actions() found zero actions in {logic_path} — nothing to verify.")
+        raise SystemExit(
+            f"discover_actions() found zero actions in {logic_path} — nothing to verify."
+        )
     print(f"Expected {len(expected)} tool(s) from {logic_path}:")
     for name in sorted(expected):
         print(f"  - {name}")
@@ -158,7 +158,9 @@ def main() -> None:
 
     if missing or extra:
         if missing:
-            print(f"\nMISSING (ported action not exposed via MCP): {sorted(missing)}", file=sys.stderr)
+            print(
+                f"\nMISSING (ported action not exposed via MCP): {sorted(missing)}", file=sys.stderr
+            )
         if extra:
             print(
                 f"\nEXTRA (advertised tool with no matching source action): {sorted(extra)}",

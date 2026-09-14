@@ -16,7 +16,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from bindings.factory import ConnectorFactory
-from node_wire_runtime.secrets import EnvSecretProvider, OverlaySecretProvider, tenant_scoped_secret_key
+from node_wire_runtime.secrets import (
+    EnvSecretProvider,
+    OverlaySecretProvider,
+    tenant_scoped_secret_key,
+)
 
 
 def _factory(monkeypatch: pytest.MonkeyPatch) -> ConnectorFactory:
@@ -73,7 +77,9 @@ def test_named_tenant_rotation_callback_writes_scoped_key_to_overlay(
 
     provider._on_refresh_token_rotated("rotated-value")
 
-    scoped = tenant_scoped_secret_key("acme", "microsoft_teams", "MS_REFRESH_TOKEN", config_name="prod")
+    scoped = tenant_scoped_secret_key(
+        "acme", "microsoft_teams", "MS_REFRESH_TOKEN", config_name="prod"
+    )
     assert OverlaySecretProvider.instance().get_secret(scoped) == "rotated-value"
 
 

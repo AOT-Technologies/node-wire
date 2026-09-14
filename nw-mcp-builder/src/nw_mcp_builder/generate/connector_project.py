@@ -5,8 +5,8 @@
 """Emit a thin MCP host that runs a node-wire connector via wheels only.
 
 Installs three Cython wheels into the image (``node-wire-runtime``,
-``node-wire-bindings``, ``node-wire-<connector>``). No ``vendor/`` tree and no
-``PYTHONPATH=/nw_src`` — packages come from site-packages after ``pip install``.
+``node-wire-bindings``, ``node-wire-<connector>``). No vendored source tree —
+packages come from site-packages after ``pip install``.
 """
 
 from __future__ import annotations
@@ -65,9 +65,7 @@ def write_connector_project(
     if not (node_wire_root / "pyproject.toml").is_file():
         raise FileNotFoundError(f"node-wire root missing pyproject.toml: {node_wire_root}")
 
-    runtime_wheel, bindings_wheel, connector_wheel = _resolve_wheels(
-        node_wire_root, connector_id
-    )
+    runtime_wheel, bindings_wheel, connector_wheel = _resolve_wheels(node_wire_root, connector_id)
 
     server_name = scope.server.name
     project_name = f"{server_name}-mcp"
@@ -199,13 +197,11 @@ def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path
 
     if not list(runtime_dist.glob("*.whl")):
         raise FileNotFoundError(
-            f"No node-wire-runtime wheel in {runtime_dist}. "
-            "Build it: `nw gen-whl --runtime`."
+            f"No node-wire-runtime wheel in {runtime_dist}. Build it: `nw gen-whl --runtime`."
         )
     if not list(bindings_dist.glob("*.whl")):
         raise FileNotFoundError(
-            f"No node-wire-bindings wheel in {bindings_dist}. "
-            "Build it: `nw gen-whl --bindings`."
+            f"No node-wire-bindings wheel in {bindings_dist}. Build it: `nw gen-whl --bindings`."
         )
     if not list(connector_dist.glob("*.whl")):
         raise FileNotFoundError(
@@ -214,12 +210,10 @@ def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path
         )
 
     runtime = sorted(runtime_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
-    bindings = sorted(
-        bindings_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True
-    )[0]
-    connector = sorted(
-        connector_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True
-    )[0]
+    bindings = sorted(bindings_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
+    connector = sorted(connector_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[
+        0
+    ]
     return runtime, bindings, connector
 
 
