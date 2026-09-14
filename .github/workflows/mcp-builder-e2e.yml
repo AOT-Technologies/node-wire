@@ -66,6 +66,7 @@ jobs:
               - "nw-mcp-builder/**"
               - "nw-connector-builder/**"
               - "packages/runtime/**"
+              - "packages/bindings/**"
               - "src/bindings/**"
               - "src/node_wire_runtime/**"
               - "docker/wheel-builder/**"

@@ -47,7 +47,6 @@ def test_wheel_invokes_build_packages_linux_only(fake_root: Path) -> None:
     wheel.assert_called_once_with(
         fake_root,
         connector_id="pet_store",
-        runtime=False,
         host=False,
         all_=False,
     )
@@ -62,9 +61,25 @@ def test_wheel_runtime_and_host_flags(fake_root: Path) -> None:
     assert result.exit_code == 0, result.output
     wheel.assert_called_once_with(
         fake_root,
-        connector_id=None,
         runtime=True,
+        bindings=False,
         host=True,
+        all_=False,
+    )
+
+
+def test_wheel_bindings_flag(fake_root: Path) -> None:
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.cli.run_wheel_build") as wheel,
+    ):
+        result = runner.invoke(app, ["gen-whl", "--bindings"])
+    assert result.exit_code == 0, result.output
+    wheel.assert_called_once_with(
+        fake_root,
+        runtime=False,
+        bindings=True,
+        host=False,
         all_=False,
     )
 
@@ -76,8 +91,14 @@ def test_wheel_host_and_all_conflict(fake_root: Path) -> None:
 
 
 def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
-    (fake_root / "packages" / "runtime" / "dist" / "runtime.whl").write_bytes(b"x")
-    (fake_root / "packages" / "connectors" / "pet_store" / "dist" / "c.whl").write_bytes(b"x")
+    for rel in (
+        "packages/runtime/dist/runtime.whl",
+        "packages/bindings/dist/bindings.whl",
+        "packages/connectors/pet_store/dist/c.whl",
+    ):
+        path = fake_root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
     project = fake_root / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
 
@@ -105,8 +126,14 @@ def test_docker_build_subprocess(fake_root: Path) -> None:
 
 def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
     """Default generate chains connector → wheel → mcp → wire without re-invoking nw."""
-    (fake_root / "packages" / "runtime" / "dist" / "runtime.whl").write_bytes(b"x")
-    (fake_root / "packages" / "connectors" / "pet_store" / "dist" / "c.whl").write_bytes(b"x")
+    for rel in (
+        "packages/runtime/dist/runtime.whl",
+        "packages/bindings/dist/bindings.whl",
+        "packages/connectors/pet_store/dist/c.whl",
+    ):
+        path = fake_root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
     project = fake_root / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
 
@@ -147,10 +174,10 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         )
 
     assert result.exit_code == 0, result.output
-    assert order == ["connector", "wheel", "mcp", "wire"]
+    assert order == ["connector", "wheel", "wheel", "mcp", "wire"]
     rb.assert_called_once()
     assert rb.call_args.kwargs["no_mcp"] is True
-    wh.assert_called_once()
+    assert wh.call_count == 2
     mp.assert_called_once()
     reg.assert_called_once_with(fake_root, "pet_store")
     # No subprocess re-invocation of the nw CLI itself
@@ -211,27 +238,42 @@ def test_prerequisite_interactive_builds_then_continues(fake_root: Path) -> None
 
     def build_runtime():
         built.append("runtime")
-        (fake_root / "packages" / "runtime" / "dist" / "r.whl").write_bytes(b"x")
+        path = fake_root / "packages" / "runtime" / "dist" / "r.whl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+
+    def build_bindings():
+        built.append("bindings")
+        path = fake_root / "packages" / "bindings" / "dist" / "b.whl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
 
     def build_connector():
         built.append("connector")
-        (fake_root / "packages" / "connectors" / "pet_store" / "dist" / "c.whl").write_bytes(b"x")
+        path = fake_root / "packages" / "connectors" / "pet_store" / "dist" / "c.whl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+
+    def fake_wheel_build(root, **kw):
+        if kw.get("runtime") or kw.get("bindings"):
+            if kw.get("runtime"):
+                build_runtime()
+            if kw.get("bindings"):
+                build_bindings()
+            return
+        build_connector()
 
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.prerequisites.is_interactive", return_value=True),
         patch("nw_cli.prerequisites.Confirm.ask", return_value=True),
-        patch(
-            "nw_cli.cli.run_wheel_build",
-            side_effect=lambda root, **kw: (
-                build_runtime() if kw.get("runtime") else build_connector()
-            ),
-        ),
+        patch("nw_cli.cli.run_wheel_build", side_effect=fake_wheel_build),
         patch("nw_cli.cli.run_mcp_build", return_value=project) as mcp,
     ):
         result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
     assert "runtime" in built
+    assert "bindings" in built
     assert "connector" in built
     mcp.assert_called_once()
 

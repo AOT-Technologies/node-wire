@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`nw-mcp-builder` / MCP Docker images**: generated hosts are **wheels-only** — install
+  `node-wire-runtime`, new `node-wire-bindings` (`packages/bindings`), and the connector
+  wheel. The previous `vendor/node_wire_src` + `PYTHONPATH=/nw_src` dual layout is gone.
+  Use `nw gen-whl --bindings` (or `nw gen-whl --runtime --bindings`) to build the bindings
+  wheel; `nw gen-all` builds runtime + bindings + connector.
+- **`node_wire_runtime.policies`**: added package `__init__.py` so Cython wheels include the
+  nested `policies` package (was previously missing / misplaced in the wheel).
 - **`nw-connector-builder`**: connector-level `oauth2` auth is now derived for specs whose
   security scheme declares a `clientCredentials` or `authorizationCode` flow, instead of being
   soft-dropped outright. `clientCredentials` maps to `OAuth2AuthProvider(grant_method=

@@ -23,7 +23,6 @@ def _load_generated_module(project_dir: Path, connector_id: str = "demo_conn"):
     # Project root markers used by _project_root()
     (project_dir / "pyproject.toml").write_text('[project]\nname="x"\n', encoding="utf-8")
     (project_dir / "config").mkdir(exist_ok=True)
-    (project_dir / "vendor" / "node_wire_src" / "bindings").mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location(
         f"nw_mcp_generated_{connector_id}",
@@ -102,12 +101,11 @@ def test_load_env_missing_project_root(tmp_path: Path, monkeypatch: pytest.Monke
 def test_load_env_container_without_project_root_layout(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Regression: the Dockerfile COPYs vendor/node_wire_src/ -> /nw_src (flattened,
-    losing the vendor/node_wire_src nesting under the module) and never COPYs
-    pyproject.toml, so _project_root()'s layout heuristics never match inside a
-    real container. _load_env() must not treat that as fatal — it crash-looped
-    every generated image with "auth error: cannot locate generated MCP project
-    root" until this was fixed to check container mode first.
+    """Regression: the Dockerfile never COPYs pyproject.toml, so _project_root()
+    heuristics never match inside a real container. _load_env() must not treat
+    that as fatal — it crash-looped every generated image with
+    "auth error: cannot locate generated MCP project root" until container mode
+    was checked first.
     """
     orphan = tmp_path / "app" / "src" / "pkg"
     orphan.mkdir(parents=True)

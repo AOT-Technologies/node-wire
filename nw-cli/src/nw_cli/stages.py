@@ -56,14 +56,20 @@ def run_logged_command(
 
 
 def wheels_present(node_wire_root: Path, connector_id: str) -> bool:
-    """True when runtime and connector ``dist/`` each contain at least one ``.whl``."""
-    runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    return bool(list(runtime_dist.glob("*.whl"))) and bool(list(connector_dist.glob("*.whl")))
+    """True when runtime, bindings, and connector ``dist/`` each have a ``.whl``."""
+    return (
+        runtime_wheel_present(node_wire_root)
+        and bindings_wheel_present(node_wire_root)
+        and connector_wheel_present(node_wire_root, connector_id)
+    )
 
 
 def runtime_wheel_present(node_wire_root: Path) -> bool:
     return bool(list((node_wire_root / "packages" / "runtime" / "dist").glob("*.whl")))
+
+
+def bindings_wheel_present(node_wire_root: Path) -> bool:
+    return bool(list((node_wire_root / "packages" / "bindings" / "dist").glob("*.whl")))
 
 
 def connector_wheel_present(node_wire_root: Path, connector_id: str) -> bool:
@@ -88,22 +94,27 @@ def run_wheel_build(
     *,
     connector_id: str | None = None,
     runtime: bool = False,
+    bindings: bool = False,
     host: bool = False,
     all_: bool = False,
     log: LogFn | None = None,
 ) -> None:
-    """Subprocess ``scripts/build-packages.sh`` for connector and/or runtime."""
-    if not runtime and not connector_id:
-        raise StageError("--connector-id is required unless --runtime is set")
+    """Subprocess ``scripts/build-packages.sh`` for connector / runtime / bindings."""
+    if not runtime and not bindings and not connector_id:
+        raise StageError("--connector-id is required unless --runtime or --bindings is set")
 
     mode = build_mode_flag(host=host, all_=all_)
     script = node_wire_root / "scripts" / "build-packages.sh"
     if not script.is_file():
         raise StageError(f"build-packages.sh not found: {script}")
 
-    # Spec: --runtime builds only packages/runtime (not bundled with connector).
-    if runtime:
+    # Spec: --runtime / --bindings build only that package (not bundled with connector).
+    if runtime and bindings:
+        targets = ["packages/runtime", "packages/bindings"]
+    elif runtime:
         targets = ["packages/runtime"]
+    elif bindings:
+        targets = ["packages/bindings"]
     else:
         targets = [f"packages/connectors/{connector_id}"]
 

@@ -25,6 +25,7 @@ from nw_cli.progress import GenerateProgress
 from nw_cli.root import RootError, resolve_node_wire_root
 from nw_cli.stages import (
     StageError,
+    bindings_wheel_present,
     connector_wheel_present,
     register_all_packages,
     run_docker_build,
@@ -145,40 +146,47 @@ def gen_all(
             progress.run_stage("connector", _connector)
 
             if not no_wheel:
-                progress.run_stage(
-                    "wheel",
-                    lambda: run_wheel_build(node_wire_root, connector_id=id, log=progress.log),
-                )
+
+                def _wheels() -> None:
+                    # MCP hosts need runtime + bindings + connector wheels.
+                    run_wheel_build(
+                        node_wire_root, runtime=True, bindings=True, log=progress.log
+                    )
+                    run_wheel_build(node_wire_root, connector_id=id, log=progress.log)
+
+                progress.run_stage("wheel", _wheels)
 
             if not no_mcp:
 
                 def _mcp() -> Path:
                     if not wheels_present(node_wire_root, id):
+
+                        def _build_missing() -> None:
+                            run_wheel_build(
+                                node_wire_root,
+                                runtime=True,
+                                bindings=True,
+                                log=progress.log,
+                            )
+                            run_wheel_build(
+                                node_wire_root,
+                                connector_id=id,
+                                log=progress.log,
+                            )
+
                         ensure(
                             False,
                             prompt=(
                                 f"Wheels missing for '{id}' "
-                                f"(packages/runtime/dist or "
+                                f"(packages/runtime|bindings/dist or "
                                 f"packages/connectors/{id}/dist) — build now?"
                             ),
-                            fix_command=f"nw gen-whl --connector-id {id}",
-                            build_fn=lambda: run_wheel_build(
-                                node_wire_root,
-                                connector_id=id,
-                                log=progress.log,
+                            fix_command=(
+                                f"nw gen-whl --runtime --bindings && "
+                                f"nw gen-whl --connector-id {id}"
                             ),
+                            build_fn=_build_missing,
                         )
-                        if not runtime_wheel_present(node_wire_root):
-                            ensure(
-                                False,
-                                prompt="Runtime wheel still missing — build it now?",
-                                fix_command="nw gen-whl --runtime",
-                                build_fn=lambda: run_wheel_build(
-                                    node_wire_root,
-                                    runtime=True,
-                                    log=progress.log,
-                                ),
-                            )
                     return run_mcp_build(node_wire_root, id, force_output=force)
 
                 progress.run_stage("mcp", _mcp)
@@ -204,11 +212,14 @@ def gen_all(
 @app.command("gen-whl")
 def gen_whl(
     id: Optional[str] = typer.Option(
-        None, "--connector-id", help="Connector id (required unless --runtime)"
+        None, "--connector-id", help="Connector id (required unless --runtime/--bindings)"
     ),
     host: bool = typer.Option(False, "--host", help="Host-only wheel build"),
     all_: bool = typer.Option(False, "--all", help="Full cibuildwheel matrix"),
-    runtime: bool = typer.Option(False, "--runtime", help="Build only packages/runtime"),
+    runtime: bool = typer.Option(False, "--runtime", help="Build packages/runtime"),
+    bindings: bool = typer.Option(
+        False, "--bindings", help="Build packages/bindings (MCP host surface)"
+    ),
 ) -> None:
     """Build binary wheels via scripts/build-packages.sh (Linux-only by default)."""
     node_wire_root = _root()
@@ -219,23 +230,37 @@ def gen_whl(
         )
         raise typer.Exit(2)
 
-    if not runtime and not id:
+    if not runtime and not bindings and not id:
         err_console.print(
-            "[bold #e01d5a]error:[/bold #e01d5a] --connector-id is required unless --runtime is set"
+            "[bold #e01d5a]error:[/bold #e01d5a] --connector-id is required "
+            "unless --runtime and/or --bindings is set"
         )
         raise typer.Exit(2)
 
     try:
         with console.status("[bold]Building wheels…[/bold]", spinner="dots"):
-            run_wheel_build(
-                node_wire_root,
-                connector_id=id,
-                runtime=runtime,
-                host=host,
-                all_=all_,
-            )
-        target = "packages/runtime" if runtime else f"packages/connectors/{id}"
-        console.print(f"[green]Wheel build OK[/green] ({target})")
+            targets: list[str] = []
+            if runtime or bindings:
+                run_wheel_build(
+                    node_wire_root,
+                    runtime=runtime,
+                    bindings=bindings,
+                    host=host,
+                    all_=all_,
+                )
+                if runtime:
+                    targets.append("packages/runtime")
+                if bindings:
+                    targets.append("packages/bindings")
+            if id:
+                run_wheel_build(
+                    node_wire_root,
+                    connector_id=id,
+                    host=host,
+                    all_=all_,
+                )
+                targets.append(f"packages/connectors/{id}")
+        console.print(f"[green]Wheel build OK[/green] ({', '.join(targets)})")
     except StageError as exc:
         err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")
         raise typer.Exit(1) from exc
@@ -257,6 +282,14 @@ def gen_mcp(
             prompt="Runtime wheel not found in packages/runtime/dist/ — build it now?",
             fix_command="nw gen-whl --runtime",
             build_fn=lambda: run_wheel_build(node_wire_root, runtime=True),
+        )
+
+    if not bindings_wheel_present(node_wire_root):
+        ensure(
+            False,
+            prompt="Bindings wheel not found in packages/bindings/dist/ — build it now?",
+            fix_command="nw gen-whl --bindings",
+            build_fn=lambda: run_wheel_build(node_wire_root, bindings=True),
         )
 
     if not connector_wheel_present(node_wire_root, id):

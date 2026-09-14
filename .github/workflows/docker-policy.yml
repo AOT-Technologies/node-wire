@@ -70,4 +70,8 @@ jobs:
             echo "ERROR: $gen must copy installed packages from deps stage" >&2
             exit 1
           fi
+          if grep -qE 'vendor/node_wire_src|/nw_src' "$gen"; then
+            echo "ERROR: $gen must be wheels-only (no vendor/ or /nw_src)" >&2
+            exit 1
+          fi
           echo "PASS: all Dockerfiles pinned and non-root"

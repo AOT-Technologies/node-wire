@@ -42,6 +42,7 @@ WHEEL_BUILDER_CONTEXT="$ROOT_DIR/docker/wheel-builder"
 
 ALL_PACKAGES=(
   packages/runtime
+  packages/bindings
   packages/connectors/google_drive
   packages/connectors/fhir_epic
   packages/connectors/fhir_cerner

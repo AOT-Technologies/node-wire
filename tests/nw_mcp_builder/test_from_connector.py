@@ -167,22 +167,27 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert (project_dir / "src" / "demo_conn_nw_mcp" / "__main__.py").is_file()
     assert (project_dir / ".env.example").is_file()
     assert (project_dir / "wheels").is_dir()
-    assert list((project_dir / "wheels").glob("*.whl"))
-    assert (project_dir / "vendor" / "node_wire_src" / "bindings").is_dir()
+    assert len(list((project_dir / "wheels").glob("*.whl"))) == 3
+    assert not (project_dir / "vendor").exists()
     assert (project_dir / "Dockerfile").is_file()
     assert (project_dir / ".dockerignore").is_file()
     dockerfile = (project_dir / "Dockerfile").read_text(encoding="utf-8")
     # fake_node_wire has no uv.lock → fallback pin that excludes mcp 2.x
     assert "mcp>=1.6.0,<2" in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
+    assert "node-wire-bindings" in (project_dir / "pyproject.toml").read_text(encoding="utf-8")
     assert '"mcp>=1.6.0,<2"' in dockerfile
+    assert "node-wire-bindings" in dockerfile
     assert "@sha256:" in dockerfile
     assert "USER app" in dockerfile
     assert "COPY --chmod=0755 config/connectors.yaml" in dockerfile
+    assert "vendor" not in dockerfile
+    assert "/nw_src" not in dockerfile
     assert "COPY .env" not in dockerfile
     assert "NW_MCP_AUTH_DISABLED" not in dockerfile
     dockerignore = (project_dir / ".dockerignore").read_text(encoding="utf-8")
     assert "**/.env" in dockerignore
     assert "!config/connectors.yaml" in dockerignore
+    assert "vendor" not in dockerignore
 
     with pytest.raises(FileExistsError, match="already exists"):
         run_from_connector(

@@ -33,8 +33,10 @@ def test_build_mode_flag_defaults_and_mutex() -> None:
 
 def test_wheels_present_helpers(tmp_path: Path) -> None:
     runtime = tmp_path / "packages" / "runtime" / "dist"
+    bindings = tmp_path / "packages" / "bindings" / "dist"
     conn = tmp_path / "packages" / "connectors" / "pet_store" / "dist"
     runtime.mkdir(parents=True)
+    bindings.mkdir(parents=True)
     conn.mkdir(parents=True)
     assert wheels_present(tmp_path, "pet_store") is False
     assert runtime_wheel_present(tmp_path) is False
@@ -44,6 +46,7 @@ def test_wheels_present_helpers(tmp_path: Path) -> None:
     assert runtime_wheel_present(tmp_path) is True
     assert wheels_present(tmp_path, "pet_store") is False
 
+    (bindings / "bindings-0.1-py3-none-any.whl").write_bytes(b"whl")
     (conn / "pet_store-0.1-py3-none-any.whl").write_bytes(b"whl")
     assert connector_wheel_present(tmp_path, "pet_store") is True
     assert wheels_present(tmp_path, "pet_store") is True

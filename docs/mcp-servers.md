@@ -376,7 +376,7 @@ docker build -t salesforce-nw-mcp .
 docker run --rm --env-file .env -p 8081:8081 salesforce-nw-mcp
 ```
 
-The generated Dockerfile is multi-stage and digest-pinned (`python:3.12-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (deps stage), vendored src, `config/connectors.yaml`, and the thin host. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/nw_src:/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image; set `NW_MCP_AUTH_DISABLED=true` at run time for local Inspector use.
+The generated Dockerfile is multi-stage and digest-pinned (`python:3.12-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host — no vendored `src/` on `PYTHONPATH`. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image; set `NW_MCP_AUTH_DISABLED=true` at run time for local Inspector use.
 
 `--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
 
@@ -391,7 +391,8 @@ The generated Dockerfile is multi-stage and digest-pinned (`python:3.12-slim@sha
 | `No node-wire-runtime wheel in .../dist` | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
 | Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.12-slim`) |
 | `Output project already exists` | Pass `--force-output` |
-| `No module named node_wire_runtime.policies` | Regenerate — vendored `vendor/node_wire_src/node_wire_runtime` should be present |
+| `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
+| `No module named bindings` / `No node-wire-bindings wheel` | Build bindings: `nw gen-whl --bindings` |
 | `uv sync` / import errors on generated host | Use `--python 3.14` (or whatever ABI your `.whl` files were built with) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
