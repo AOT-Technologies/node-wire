@@ -36,7 +36,7 @@ dependencies = [
   "grpcio>=1.62.0",
   "grpcio-tools>=1.62.0",
   "aiosmtplib>=3.0.1",
-  "httpx[http2]>=0.27.0,<0.28.0",
+  "httpx[http2]>=0.27.0,<0.29.0",
   "pyyaml>=6.0.1",
   "stripe>=10.0.0",
   "email-validator>=2.0.0",
@@ -68,7 +68,7 @@ nw-slack = "agents.slack_mcp:main"
 
 [project.optional-dependencies]
 agents = [
-  "mcp>=1.6.0,<2",                 # Official Python MCP SDK (includes FastMCP); v2 breaks low-level decorators
+  "mcp>=1.6.0,<3",                 # Official Python MCP SDK (includes FastMCP); v2 breaks low-level decorators
   "groq>=0.9.0",                   # Groq LLM SDK
   "openai>=1.30.0",                # OpenAI SDK
   "google-generativeai>=0.7.0",    # Gemini SDK
@@ -113,7 +113,7 @@ dev = [
     "pre-commit>=4.0.0",
     "pytest-playwright>=0.4.0",
     "diff-cover>=9.0.0",
-    "cyclonedx-bom==4.6.1",
+    "cyclonedx-bom==7.3.1",
     "reuse>=5.0.0",
     "licenseheaders>=0.8.8",
     "nw-cli",
