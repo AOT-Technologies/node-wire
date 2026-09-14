@@ -146,8 +146,10 @@ jobs:
 
       - name: Run generated MCP container
         run: |
+          # NW_MCP_HOST defaults to 127.0.0.1 (local-only); published ports need 0.0.0.0.
           docker run -d --name pet-store-mcp \
             -p 8081:8081 \
+            -e NW_MCP_HOST=0.0.0.0 \
             -e NW_MCP_AUTH_DISABLED=true \
             -e NW_MCP_SCOPE_POLICY_DEFAULT=allow \
             pet-store-nw-mcp:ci
