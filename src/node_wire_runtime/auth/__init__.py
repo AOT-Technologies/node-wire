@@ -24,10 +24,13 @@ StaticTokenAuthProvider
     Optionally base64-encodes the value for HTTP Basic auth.
 
 OAuth2AuthProvider
-    Fetches and caches OAuth 2.0 access tokens (Client Credentials grant).
-    Supports ``private_key_jwt`` (SMART Backend Services / Epic / Cerner) and
-    ``client_secret_post``. Uses ``asyncio.Lock`` to prevent concurrent
-    token-refresh storms.
+    Fetches and caches OAuth 2.0 access tokens. Supports ``private_key_jwt``
+    (SMART Backend Services / Epic / Cerner), ``client_secret_post`` (app-only
+    client credentials), and ``refresh_token`` (the non-interactive tail end
+    of an authorization_code flow — e.g. Salesforce). Uses ``asyncio.Lock`` to
+    prevent concurrent token-refresh storms. For ``refresh_token``, an
+    optional ``on_refresh_token_rotated`` callback lets the host app persist
+    a replacement refresh token when the IdP rotates it.
 
 ServiceAccountAuthProvider
     Resolves a Google service-account JSON secret and returns

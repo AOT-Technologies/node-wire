@@ -35,6 +35,7 @@ from node_wire_runtime.secrets import (
     EnvSecretProvider,
     OverlaySecretProvider,
     TenantSecretProvider,
+    tenant_scoped_secret_key,
 )
 
 logger = logging.getLogger("bindings.factory")
@@ -132,6 +133,40 @@ def _build_secret_provider() -> SecretProvider:
             EnvSecretProvider(),
         )
     raise ValueError(f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env.")
+
+
+def _make_refresh_token_rotation_callback(
+    *, connector_id: str, tenant_id: str, config_name: Optional[str], refresh_token_secret: str
+):
+    """Default ``on_refresh_token_rotated`` hook: persist into the process-wide overlay.
+
+    ``OverlaySecretProvider`` sits in front of every ``_build_secret_provider()`` chain, so
+    writing here means the *next* ``get_secret`` call for this key — tenant-scoped or not —
+    sees the rotated value immediately, without needing a real durable-storage integration.
+    This is process-local only: it does not survive a restart. A host app that needs the
+    rotated token to outlive a restart still has to persist it elsewhere itself (this hook
+    only closes the "still running, IdP rotated the token" gap, not restart-durability).
+    """
+    overlay = OverlaySecretProvider.instance()
+    write_key = (
+        refresh_token_secret
+        if tenant_id == DEFAULT_TENANT
+        else tenant_scoped_secret_key(
+            tenant_id, connector_id, refresh_token_secret, config_name=config_name
+        )
+    )
+
+    def _persist(new_value: str) -> None:
+        overlay.set_secret(write_key, new_value)
+        logger.info(
+            "OAuth2AuthProvider: persisted rotated refresh token for connector=%r "
+            "tenant=%r into the in-memory secret overlay (process-local; does not "
+            "survive a restart)",
+            connector_id,
+            tenant_id,
+        )
+
+    return _persist
 
 
 def _build_policy_hook() -> PolicyHook | None:
@@ -288,12 +323,21 @@ class ConnectorFactory:
             self._store.init(bootstrap_payload)
 
     def _build_auth_provider(
-        self, connector_id: str, cfg: dict, *, secret_provider: SecretProvider | None = None
+        self,
+        connector_id: str,
+        cfg: dict,
+        *,
+        secret_provider: SecretProvider | None = None,
+        tenant_id: str = DEFAULT_TENANT,
+        config_name: Optional[str] = None,
     ) -> Any:
         """Construct the appropriate AuthProvider from the connector's ``auth:`` block.
 
         ``secret_provider`` defaults to the factory's shared provider (used for
         enumeration instances); the invoke path passes a tenant-scoped provider.
+        ``tenant_id`` / ``config_name`` are only used to scope the oauth2
+        refresh-token-rotation persistence key the same way the caller scoped
+        ``secret_provider`` itself — see :func:`_make_refresh_token_rotation_callback`.
         Falls back to :class:`NoAuthProvider` when the block is absent.
         """
         from node_wire_runtime.auth import (
@@ -331,6 +375,15 @@ class ConnectorFactory:
             )
 
         if provider_type == "oauth2":
+            refresh_token_secret = auth_cfg.get("refresh_token_secret")
+            on_rotated = None
+            if auth_cfg.get("grant_method") == "refresh_token" and refresh_token_secret:
+                on_rotated = _make_refresh_token_rotation_callback(
+                    connector_id=connector_id,
+                    tenant_id=tenant_id,
+                    config_name=config_name,
+                    refresh_token_secret=refresh_token_secret,
+                )
             return OAuth2AuthProvider(
                 secret_provider=sp,
                 grant_method=auth_cfg.get("grant_method", "private_key_jwt"),
@@ -340,12 +393,13 @@ class ConnectorFactory:
                 private_key_secret=auth_cfg.get("private_key_secret"),
                 kid_secret=auth_cfg.get("kid_secret"),
                 client_secret_secret=auth_cfg.get("client_secret_secret"),
-                refresh_token_secret=auth_cfg.get("refresh_token_secret"),
+                refresh_token_secret=refresh_token_secret,
                 scopes=auth_cfg.get("scopes"),
                 scopes_secret=auth_cfg.get("scopes_secret"),
                 extra_content_type_headers=auth_cfg.get("extra_headers"),
                 buffer_secs=int(auth_cfg.get("buffer_secs", 60)),
                 jwt_ttl_secs=int(auth_cfg.get("jwt_ttl_secs", 300)),
+                on_refresh_token_rotated=on_rotated,
             )
 
         if provider_type == "service_account":
@@ -432,7 +486,11 @@ class ConnectorFactory:
             )
 
         auth_provider = self._build_auth_provider(
-            record.connector_id, record.raw, secret_provider=scoped
+            record.connector_id,
+            record.raw,
+            secret_provider=scoped,
+            tenant_id=record.tenant_id,
+            config_name=record.name,
         )
         from node_wire_runtime.rest import RestConnector
 

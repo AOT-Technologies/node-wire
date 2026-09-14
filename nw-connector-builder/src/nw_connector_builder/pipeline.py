@@ -119,7 +119,8 @@ def run_build(
                     connector_id,
                     base_url=result.default_base_url,
                     auth_block=result.auth_plan.yaml_block,
-                    secret_key=result.auth_plan.secret_key,
+                    secret_keys=result.auth_plan.secret_keys,
+                    secret_defaults=result.auth_plan.secret_defaults,
                 )
                 wire_info = {"ok": True, "wired": True}
             except WireError as exc:

@@ -32,7 +32,41 @@ skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself
   common scheme across operations if none is declared)
 - `apiKey` in `header` or `query`, `http` `bearer`, `http` `basic` — mapped to Node Wire's
   `static_token` / `apikey_query` auth providers
+- `oauth2` with a declared `clientCredentials` or `authorizationCode` flow — mapped to
+  `OAuth2AuthProvider` (`grant_method: client_secret_post` / `refresh_token`). Neither flow is
+  minted by the generator from spec data alone; it scaffolds what *is* derivable (token URL,
+  declared scopes) and emits blank secret placeholders for what the operator must provision.
+  `clientCredentials` needs only `<ID>_CLIENT_ID` / `<ID>_CLIENT_SECRET` (fully unattended).
+  `authorizationCode` additionally needs `<ID>_REFRESH_TOKEN`, obtained via a one-time
+  interactive consent completed **outside** Node Wire — see "OAuth2 authorizationCode" below.
 - Anonymous connectors (no scheme, or only unsupported schemes present) build as `auth: none`
+
+#### OAuth2 `authorizationCode`
+
+This flow requires a human to complete a browser redirect + consent at least once — no
+generator can (or should) do that for an arbitrary host app. What the generator produces
+instead is a `grant_method: refresh_token` scaffold: the *first* refresh token is a manual,
+out-of-band step (register an app with the provider, complete the interactive consent, copy
+the resulting refresh token into `<ID>_REFRESH_TOKEN`); every access token after that is minted
+automatically by `OAuth2AuthProvider` from the stored refresh token, no further interaction
+needed. The report's `auth.notes` entry spells out the authorization URL and the exact env vars
+to set.
+
+**`offline_access`:** most OIDC providers, including Microsoft identity platform, only issue a
+refresh token during that interactive consent if `offline_access` was among the requested
+scopes — a resource API's OpenAPI spec commonly omits this protocol-level scope from its
+resource-specific scope list (it's not one of *its* permissions). The generator adds
+`offline_access` to the derived `scopes` automatically when it's missing, so the scope list
+you copy for the manual consent step is one that will actually produce a refresh token.
+
+**Rotation:** if the identity provider rotates the refresh token on use (Entra does this
+routinely), `OAuth2AuthProvider` caches the new value in memory and keeps working for the rest
+of that process's lifetime even with no persistence configured. Pass
+`OAuth2AuthProvider(on_refresh_token_rotated=...)` (wired automatically for `--wire`-generated,
+YAML-configured connectors — see `_build_auth_provider` in `src/bindings/factory.py`, which
+persists into the process-wide secret overlay) so the replacement also survives a restart.
+Node Wire's own persistence is process-local only — see [`mcp-client-oauth.md`](mcp-client-oauth.md)
+for the analogous host-owns-durable-persistence pattern used for outbound MCP client auth.
 
 ### Codegen
 
@@ -68,14 +102,18 @@ skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself
 
 ### Auth schemes
 
-- **OAuth2** and **OpenID Connect** — operations secured only by these are soft-dropped, not
-  supported with a workaround
-- **mutualTLS**
+- **OAuth2 `implicit` and `password` (ROPC)** — never supported, deliberately. `implicit`
+  is deprecated and has no refresh token; `password` requires the connector to handle a raw
+  user password, which this codebase's secrets-hygiene posture rules out on principle, not
+  just for lack of tooling. Operations secured only by these are soft-dropped.
+- **OpenID Connect** and **mutualTLS**
 - **Cookie-based API keys**
 - **AND-combined** multi-scheme security (`security: [{a: [], b: []}]`)
 - More than one auth provider per connector — a connector is single-scheme, even if the spec
   declares several; operations needing a divergent scheme are soft-dropped
 - Per-operation auth overrides — auth is connector-level only
+
+(`oauth2` with `clientCredentials` or `authorizationCode` flows moved to "In scope" above.)
 
 ### Spec features
 

@@ -8,27 +8,15 @@ name: Python package security PR checks
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/security-pr.yml"
-      - ".github/workflows/publish.yml"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "packages/**"
-      - "src/**"
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/security-pr.yml"
-      - ".github/workflows/publish.yml"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "packages/**"
-      - "src/**"
   schedule:
     - cron: "17 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -38,8 +26,69 @@ env:
   PIP_AUDIT_VERSION: "2.7.3"
 
 jobs:
-  vulnerability-scan:
+  changes:
+    name: Detect connector package path changes
+    runs-on: ubuntu-latest
+    outputs:
+      connectors: ${{ steps.result.outputs.connectors }}
+    steps:
+      - name: Checkout repository
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Path filter
+        id: filter
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: |
+            connectors:
+              - "packages/connectors/**"
+              - ".github/workflows/security-pr.yml"
+              - ".github/workflows/publish.yml"
+              - "pyproject.toml"
+              - "uv.lock"
+
+      - name: Set connectors output
+        id: result
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "connectors=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "connectors=${{ steps.filter.outputs.connectors }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Always runs — require this check in branch protection.
+  vulnerability-scan-runtime:
+    name: Vulnerability scan (packages/runtime)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install package and audit tool
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade "setuptools>=78.1.1"
+          python -m pip install "packages/runtime"
+          python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
+
+      - name: Vulnerability scan (blocks any vulnerability)
+        run: pip-audit
+
+  # Path-filtered on PRs/pushes; always on schedule / workflow_dispatch.
+  # Not a branch-protection required check — defense in depth + release audit.
+  vulnerability-scan-connectors:
     name: Vulnerability scan (${{ matrix.package_path }})
+    needs: changes
+    if: needs.changes.outputs.connectors == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,7 +96,6 @@ jobs:
       fail-fast: false
       matrix:
         package_path:
-          - packages/runtime
           - packages/connectors/http_generic
           - packages/connectors/stripe
           - packages/connectors/smtp

@@ -80,6 +80,7 @@ def wire_sample_env(
     connector_id: str,
     *,
     secret_keys: list[str],
+    secret_defaults: dict[str, str] | None = None,
 ) -> None:
     if not path.is_file():
         # Create minimal file
@@ -112,9 +113,10 @@ def wire_sample_env(
         if m:
             existing_keys.add(m.group(1))
 
+    defaults = secret_defaults or {}
     for key in secret_keys:
         if key and key not in existing_keys:
-            new_lines.append(f"{key}=")
+            new_lines.append(f"{key}={defaults.get(key, '')}")
 
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
@@ -125,11 +127,16 @@ def apply_wire(
     *,
     base_url: str,
     auth_block: dict[str, Any],
-    secret_key: str,
+    secret_keys: list[str],
+    secret_defaults: dict[str, str] | None = None,
 ) -> None:
     yaml_path = node_wire_root / "config" / "connectors.yaml"
     env_path = node_wire_root / "sample.env"
     wire_connectors_yaml(yaml_path, connector_id, base_url=base_url, auth_block=auth_block)
-    keys = [secret_key] if secret_key else []
-    wire_sample_env(env_path, connector_id, secret_keys=keys)
+    wire_sample_env(
+        env_path,
+        connector_id,
+        secret_keys=[k for k in secret_keys if k],
+        secret_defaults=secret_defaults,
+    )
     logger.info("--wire updated %s and %s", yaml_path, env_path)

@@ -72,6 +72,56 @@ def test_wire_sample_env_creates_file_and_allowlist(tmp_path: Path) -> None:
     assert "PET_STORE_TOKEN=" in text
 
 
+def test_wire_sample_env_prefills_secret_defaults(tmp_path: Path) -> None:
+    path = tmp_path / "sample.env"
+    wire_sample_env(
+        path,
+        "microsoft_teams",
+        secret_keys=["MICROSOFT_TEAMS_TOKEN_URL", "MICROSOFT_TEAMS_CLIENT_ID"],
+        secret_defaults={"MICROSOFT_TEAMS_TOKEN_URL": "https://idp.example.com/token"},
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "MICROSOFT_TEAMS_TOKEN_URL=https://idp.example.com/token" in text
+    # No default supplied for this one -> blank placeholder, same as before.
+    assert "MICROSOFT_TEAMS_CLIENT_ID=" in text
+
+
+def test_apply_wire_multiple_secret_keys_with_defaults(tmp_path: Path) -> None:
+    (tmp_path / "config").mkdir()
+    yaml_path = tmp_path / "config" / "connectors.yaml"
+    yaml_path.write_text("connectors: {}\n", encoding="utf-8")
+    apply_wire(
+        tmp_path,
+        "microsoft_teams",
+        base_url="https://graph.microsoft.com/v1.0",
+        auth_block={
+            "provider": "oauth2",
+            "grant_method": "refresh_token",
+            "token_url_secret": "MICROSOFT_TEAMS_TOKEN_URL",
+            "client_id_secret": "MICROSOFT_TEAMS_CLIENT_ID",
+            "client_secret_secret": "MICROSOFT_TEAMS_CLIENT_SECRET",
+            "refresh_token_secret": "MICROSOFT_TEAMS_REFRESH_TOKEN",
+        },
+        secret_keys=[
+            "MICROSOFT_TEAMS_TOKEN_URL",
+            "MICROSOFT_TEAMS_CLIENT_ID",
+            "MICROSOFT_TEAMS_CLIENT_SECRET",
+            "MICROSOFT_TEAMS_REFRESH_TOKEN",
+        ],
+        secret_defaults={
+            "MICROSOFT_TEAMS_TOKEN_URL": "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        },
+    )
+    env = (tmp_path / "sample.env").read_text(encoding="utf-8")
+    assert (
+        "MICROSOFT_TEAMS_TOKEN_URL=https://login.microsoftonline.com/common/oauth2/v2.0/token"
+        in env
+    )
+    assert "MICROSOFT_TEAMS_CLIENT_ID=" in env
+    assert "MICROSOFT_TEAMS_CLIENT_SECRET=" in env
+    assert "MICROSOFT_TEAMS_REFRESH_TOKEN=" in env
+
+
 def test_apply_wire(tmp_path: Path) -> None:
     (tmp_path / "config").mkdir()
     yaml_path = tmp_path / "config" / "connectors.yaml"
@@ -82,7 +132,7 @@ def test_apply_wire(tmp_path: Path) -> None:
         "pet_store",
         base_url=base_url,
         auth_block={"provider": "static_token", "secret_key": "PET_STORE_API_KEY"},
-        secret_key="PET_STORE_API_KEY",
+        secret_keys=["PET_STORE_API_KEY"],
     )
     data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert data["connectors"]["pet_store"]["base_url"] == base_url
