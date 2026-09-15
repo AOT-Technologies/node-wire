@@ -53,6 +53,8 @@ __all__ = [
 DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-20241022"
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1"
 DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
 DEFAULT_OLLAMA_API_KEY = "ollama"
@@ -249,7 +251,7 @@ class LLMProviderFactory:
             kwargs["model"] = os.environ.get("GROQ_MODEL", DEFAULT_GROQ_MODEL)
         elif provider == "openai":
             kwargs["api_key"] = os.environ.get("OPENAI_API_KEY", "")
-            kwargs["model"] = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+            kwargs["model"] = os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
             base_url = os.environ.get("OPENAI_BASE_URL", "").strip()
             if base_url:
                 kwargs["base_url"] = base_url
@@ -258,7 +260,7 @@ class LLMProviderFactory:
             kwargs["model"] = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
         elif provider == "anthropic":
             kwargs["api_key"] = os.environ.get("ANTHROPIC_API_KEY", "")
-            kwargs["model"] = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
+            kwargs["model"] = os.environ.get("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
         elif provider == "nvidia":
             kwargs["api_key"] = os.environ.get("NVIDIA_API_KEY", "")
             kwargs["model"] = os.environ.get("NVIDIA_MODEL", DEFAULT_NVIDIA_MODEL)
@@ -308,6 +310,21 @@ class LLMProviderFactory:
                 api_key=os.environ.get("GROQ_API_KEY", ""),
                 model=model,
             )
+        if provider == "openai":
+            kwargs: Dict[str, Any] = {
+                "api_key": os.environ.get("OPENAI_API_KEY", ""),
+                "model": model,
+            }
+            openai_base = os.environ.get("OPENAI_BASE_URL", "").strip()
+            if openai_base:
+                kwargs["base_url"] = openai_base
+            return cls.create("openai", **kwargs)
+        if provider == "anthropic":
+            return cls.create(
+                "anthropic",
+                api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
+                model=model,
+            )
         if provider == "nvidia":
             return cls.create(
                 "nvidia",
@@ -332,7 +349,7 @@ class LLMProviderFactory:
             )
         raise ValueError(
             f"Unsupported llm_option provider {provider!r}. "
-            "Playground switcher supports: groq, nvidia, ollama, openrouter."
+            "Playground switcher supports: groq, openai, anthropic, nvidia, ollama, openrouter."
         )
 
     @classmethod
@@ -352,6 +369,41 @@ class LLMProviderFactory:
                     "label": groq_id,
                     "provider": "groq",
                     "model": groq_model,
+                    "tools_note": None,
+                    "source": "env",
+                }
+            )
+
+        openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if openai_key:
+            openai_model = (
+                os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL).strip() or DEFAULT_OPENAI_MODEL
+            )
+            openai_id = f"openai/{openai_model}"
+            options.append(
+                {
+                    "id": openai_id,
+                    "label": openai_id,
+                    "provider": "openai",
+                    "model": openai_model,
+                    "tools_note": None,
+                    "source": "env",
+                }
+            )
+
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if anthropic_key:
+            anthropic_model = (
+                os.environ.get("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL).strip()
+                or DEFAULT_ANTHROPIC_MODEL
+            )
+            anthropic_id = f"anthropic/{anthropic_model}"
+            options.append(
+                {
+                    "id": anthropic_id,
+                    "label": anthropic_id,
+                    "provider": "anthropic",
+                    "model": anthropic_model,
                     "tools_note": None,
                     "source": "env",
                 }

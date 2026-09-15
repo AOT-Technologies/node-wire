@@ -226,6 +226,51 @@ def test_llm_factory_create_from_option_groq_and_nvidia(monkeypatch: pytest.Monk
     )
 
 
+def test_llm_factory_create_from_option_openai_and_anthropic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+
+    with patch("agents.providers.openai_provider.OpenAI") as ctor:
+        openai = LLMProviderFactory.create_from_option("openai/gpt-4o-mini")
+    from agents.providers.openai_provider import OpenAIProvider
+
+    assert isinstance(openai, OpenAIProvider)
+    assert openai._model == "gpt-4o-mini"
+    ctor.assert_called_once_with(api_key="sk-test")
+
+    with patch("agents.providers.anthropic_provider.anthropic") as anth_mod:
+        anth_mod.Anthropic = MagicMock()
+        claude = LLMProviderFactory.create_from_option("anthropic/claude-3-5-haiku-20241022")
+    from agents.providers.anthropic_provider import AnthropicProvider
+
+    assert isinstance(claude, AnthropicProvider)
+    assert claude._model == "claude-3-5-haiku-20241022"
+    anth_mod.Anthropic.assert_called_once_with(api_key="sk-ant-test")
+
+
+def test_llm_factory_list_playground_options_includes_openai_and_anthropic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+
+    catalog = LLMProviderFactory.list_playground_options()
+    assert [o["id"] for o in catalog["options"]] == [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3-5-haiku-20241022",
+    ]
+    assert catalog["default_id"] == "openai/gpt-4o-mini"
+
+
 def test_llm_factory_create_from_option_empty_defaults_to_groq(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -250,6 +295,8 @@ def test_llm_factory_list_playground_options_prefers_groq_default(
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
     catalog = LLMProviderFactory.list_playground_options()
     assert catalog["default_id"] == "groq/openai/gpt-oss-120b"
@@ -305,6 +352,8 @@ def test_llm_factory_list_playground_options_includes_openrouter(
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
     monkeypatch.delenv("OPENROUTER_MODELS", raising=False)
     monkeypatch.delenv("OPENROUTER_MODEL", raising=False)
@@ -330,6 +379,8 @@ def test_llm_factory_list_playground_options_openrouter_models(
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
     monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
     monkeypatch.setenv(
         "OPENROUTER_MODELS",
@@ -348,6 +399,8 @@ def test_llm_factory_list_playground_options_includes_ollama(
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5:7b")
     catalog = LLMProviderFactory.list_playground_options()

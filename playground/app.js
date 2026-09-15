@@ -2264,6 +2264,8 @@ document.addEventListener('DOMContentLoaded', () => {
             provider === 'nvidia' ? 'NVIDIA'
             : provider === 'openrouter' ? 'OpenRouter'
             : provider === 'ollama' ? 'Ollama'
+            : provider === 'openai' ? 'OpenAI'
+            : provider === 'anthropic' ? 'Claude'
             : provider.charAt(0).toUpperCase() + provider.slice(1);
         let shortModel = lastSeg;
         if (provider === 'nvidia' && /nemotron/i.test(lastSeg)) {
@@ -2435,7 +2437,6 @@ document.addEventListener('DOMContentLoaded', () => {
         group.setAttribute('role', 'presentation');
         const selectedInGroup = openrouter.some((item) => item.id === agentLlmSelectedId);
         if (selectedInGroup) group.classList.add('is-open', 'has-selected');
-        let groupPinned = selectedInGroup;
 
         const toggle = document.createElement('button');
         toggle.type = 'button';
@@ -2485,12 +2486,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            groupPinned = !groupPinned;
-            setGroupOpen(groupPinned);
-        });
-        group.addEventListener('mouseenter', () => setGroupOpen(true));
-        group.addEventListener('mouseleave', () => {
-            if (!groupPinned) setGroupOpen(false);
+            setGroupOpen(nested.hidden);
         });
 
         group.appendChild(toggle);
