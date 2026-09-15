@@ -1906,20 +1906,25 @@ async def llm_discover_ollama(base_url: str = "http://127.0.0.1:11434") -> Dict[
         normalized_base = normalize_openai_compatible_base_url(base_url)
         origin = ollama_origin_from_base_url(normalized_base)
         tags_url = f"{origin.rstrip('/')}/api/tags"
-    except ValueError as exc:
-        return {"models": [], "base_url": None, "error": str(exc)}
+    except ValueError:
+        logger.warning("Ollama discover rejected invalid base_url")
+        return {
+            "models": [],
+            "base_url": None,
+            "error": "Invalid Ollama URL. Use http or https.",
+        }
 
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             response = await client.get(tags_url)
             response.raise_for_status()
             payload = response.json()
-    except Exception as exc:
-        logger.warning("Ollama discover failed | url=%s | error=%s", tags_url, exc)
+    except Exception:
+        logger.warning("Ollama discover failed | url=%s", tags_url, exc_info=True)
         return {
             "models": [],
             "base_url": normalized_base,
-            "error": f"Could not reach Ollama at {origin}: {exc}",
+            "error": "Could not reach Ollama. Check the base URL and that Ollama is running.",
         }
 
     models: List[str] = []

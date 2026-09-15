@@ -57,7 +57,8 @@ def test_llm_discover_ollama_rejects_invalid_scheme() -> None:
     assert resp.status_code == 200
     data = resp.json()
     assert data["models"] == []
-    assert data["error"]
+    assert data["base_url"] is None
+    assert data["error"] == "Invalid Ollama URL. Use http or https."
 
 
 def test_agent_chat_forwards_llm_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
