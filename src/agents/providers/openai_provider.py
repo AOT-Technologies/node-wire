@@ -79,7 +79,7 @@ except ImportError:
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI LLM provider with native tool calling.
 
-    Also used for OpenAI-compatible endpoints (e.g. NVIDIA Integrate) via ``base_url``.
+    Also used for OpenAI-compatible endpoints (NVIDIA Integrate, OpenRouter, local Ollama) via ``base_url``.
     """
 
     def __init__(

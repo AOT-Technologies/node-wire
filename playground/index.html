@@ -201,7 +201,29 @@ SPDX-License-Identifier: Apache-2.0
                                 <path d="M6 9l6 6 6-6"/>
                             </svg>
                         </button>
-                        <ul id="agent-llm-menu" class="agent-llm-menu hidden" role="listbox"></ul>
+                        <ul id="agent-llm-menu" class="agent-llm-menu hidden" role="listbox">
+                            <li id="agent-llm-menu-list" class="agent-llm-menu-list" role="presentation"></li>
+                            <li class="agent-llm-menu-footer" role="presentation">
+                                <button type="button" id="agent-llm-add-toggle" class="agent-llm-add-toggle">+ Add local model</button>
+                                <div id="agent-llm-add-panel" class="agent-llm-add-panel hidden">
+                                    <label class="agent-llm-add-label">Provider</label>
+                                    <input type="text" id="agent-llm-add-provider" class="agent-llm-add-input" value="ollama" readonly>
+                                    <label class="agent-llm-add-label" for="agent-llm-add-base">Base URL</label>
+                                    <div class="agent-llm-add-row">
+                                        <input type="text" id="agent-llm-add-base" class="agent-llm-add-input" value="http://127.0.0.1:11434/v1" placeholder="http://127.0.0.1:11434/v1">
+                                        <button type="button" id="agent-llm-discover-btn" class="agent-llm-add-btn secondary">Discover</button>
+                                    </div>
+                                    <label class="agent-llm-add-label" for="agent-llm-add-model">Model</label>
+                                    <input type="text" id="agent-llm-add-model" class="agent-llm-add-input" placeholder="qwen2.5:7b">
+                                    <select id="agent-llm-add-model-select" class="agent-llm-add-input hidden" aria-label="Discovered Ollama models"></select>
+                                    <p id="agent-llm-add-status" class="agent-llm-add-status hidden" role="status"></p>
+                                    <div class="agent-llm-add-actions">
+                                        <button type="button" id="agent-llm-add-save" class="agent-llm-add-btn primary">Add</button>
+                                        <button type="button" id="agent-llm-add-cancel" class="agent-llm-add-btn secondary">Cancel</button>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
                     </div>
                     <input type="text" id="agent-input" placeholder="Ask me about a patient, workflow, or task..." autocomplete="off">
                     <button type="button" id="agent-send-btn" class="chat-send-btn">
