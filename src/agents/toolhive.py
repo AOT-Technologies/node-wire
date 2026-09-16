@@ -51,6 +51,7 @@ import json
 import logging
 import os
 import sys
+import time
 import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -69,16 +70,39 @@ import re
 
 from dotenv import load_dotenv
 
+# llm_base is the dependency-free leaf of the agents package (unlike
+# agents.llm_factory, which is imported lazily below to avoid a cycle).
+from agents.llm_base import TokenUsage
+
 load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("agents.toolhive")
+# Dedicated LLM traffic logger: which model served each request/response.
+llm_logger = logging.getLogger("agents.llm")
 
 
 _EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _SMTP_EMAIL_FIELDS = {"from_email", "to", "cc", "bcc", "reply_to", "sender"}
+
+
+def _llm_model_name(provider: Any) -> str:
+    """Model id of an LLM provider for logging (Gemini stores it as ``_model_name``)."""
+    return str(getattr(provider, "_model", None) or getattr(provider, "_model_name", "unknown"))
+
+
+def _usage_as_dict(usage: Optional[TokenUsage], steps_used: int) -> Optional[Dict[str, Any]]:
+    """Serialise turn usage for transport; ``None`` when no backend reported any."""
+    if usage is None:
+        return None
+    return {
+        "prompt_tokens": usage.prompt_tokens,
+        "completion_tokens": usage.completion_tokens,
+        "total_tokens": usage.total_tokens,
+        "steps": steps_used,
+    }
 
 
 def _redact_tool_args_for_log(tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
@@ -200,7 +224,12 @@ def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
     return chunks
 
 
-def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
+def _stream_done_event(
+    trace_id: str,
+    *,
+    success: bool,
+    usage: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     from node_wire_runtime.streaming import stream_completion_log
 
     stream_completion_log(trace_id, success, connector_id="agent", action="run_events")
@@ -209,6 +238,7 @@ def _stream_done_event(trace_id: str, *, success: bool) -> Dict[str, Any]:
         "trace_id": trace_id,
         "success": success,
         "message": f"Streaming completed. trace_id={trace_id}",
+        "usage": usage,
     }
 
 
@@ -233,6 +263,10 @@ class AgentRunResult:
     steps: List[AgentStep] = field(default_factory=list)
     final_answer: Optional[str] = None
     error: Optional[str] = None
+    # Summed across every LLM call in the turn, not just the final one: the
+    # ReAct loop re-sends the whole history plus all tool schemas each step.
+    usage: Optional["TokenUsage"] = None
+    steps_used: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -673,7 +707,22 @@ class ToolHiveAgent:
         abort_after_tool_failures = False
 
         for step_num in range(1, self._max_steps + 1):
+            result.steps_used = step_num
             logger.info("Agent step %d / %d", step_num, self._max_steps)
+
+            model = _llm_model_name(self._llm)
+            # Inline replace so CodeQL treats newline stripping as a sanitizer.
+            llm_logger.info(
+                "LLM request | trace_id=%s | provider=%s | model=%s | step=%d "
+                "| messages=%d | tools=%d",
+                trace_id,
+                type(self._llm).__name__,
+                model.replace("\r", " ").replace("\n", " "),
+                step_num,
+                len(messages),
+                len(tools),
+            )
+            started = time.perf_counter()
 
             try:
                 llm_resp = self._llm.chat_with_tools(messages, tools)
@@ -681,6 +730,27 @@ class ToolHiveAgent:
                 result.error = f"LLM error at step {step_num}: {exc}"
                 logger.error(result.error)
                 return result
+
+            if llm_resp.usage is not None:
+                result.usage = (
+                    llm_resp.usage if result.usage is None else result.usage + llm_resp.usage
+                )
+
+            # Inline replace so CodeQL treats newline stripping as a sanitizer.
+            llm_logger.info(
+                "LLM response | trace_id=%s | model=%s | step=%d | elapsed_ms=%.0f "
+                "| stop_reason=%s | tool_calls=%d | content_chars=%d "
+                "| prompt_tokens=%s | completion_tokens=%s",
+                trace_id,
+                model.replace("\r", " ").replace("\n", " "),
+                step_num,
+                (time.perf_counter() - started) * 1000,
+                llm_resp.stop_reason,
+                len(llm_resp.tool_calls),
+                len(llm_resp.content or ""),
+                llm_resp.usage.prompt_tokens if llm_resp.usage else "n/a",
+                llm_resp.usage.completion_tokens if llm_resp.usage else "n/a",
+            )
 
             # Track the assistant turn
             messages.append(
@@ -848,10 +918,27 @@ class ToolHiveAgent:
             LLMMessage(role="user", content=task),
         ]
         tool_failures: Dict[str, int] = {}
+        turn_usage: Optional[TokenUsage] = None
+        steps_used = 0
 
         for step_num in range(1, self._max_steps + 1):
+            steps_used = step_num
             logger.info("Streaming agent step %d / %d", step_num, self._max_steps)
             yield {"type": "status", "message": f"Agent reasoning step {step_num}"}
+
+            model = _llm_model_name(self._llm)
+            # Inline replace so CodeQL treats newline stripping as a sanitizer.
+            llm_logger.info(
+                "LLM request | trace_id=%s | provider=%s | model=%s | step=%d "
+                "| messages=%d | tools=%d",
+                trace_id,
+                type(self._llm).__name__,
+                model.replace("\r", " ").replace("\n", " "),
+                step_num,
+                len(messages),
+                len(tools),
+            )
+            started = time.perf_counter()
 
             try:
                 llm_resp = self._llm.chat_with_tools(messages, tools)
@@ -859,8 +946,31 @@ class ToolHiveAgent:
                 error = f"LLM error at step {step_num}: {exc}"
                 logger.error(error)
                 yield {"type": "error", "trace_id": trace_id, "message": error}
-                yield _stream_done_event(trace_id, success=False)
+                yield _stream_done_event(
+                    trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
+                )
                 return
+
+            if llm_resp.usage is not None:
+                turn_usage = (
+                    llm_resp.usage if turn_usage is None else turn_usage + llm_resp.usage
+                )
+
+            # Inline replace so CodeQL treats newline stripping as a sanitizer.
+            llm_logger.info(
+                "LLM response | trace_id=%s | model=%s | step=%d | elapsed_ms=%.0f "
+                "| stop_reason=%s | tool_calls=%d | content_chars=%d "
+                "| prompt_tokens=%s | completion_tokens=%s",
+                trace_id,
+                model.replace("\r", " ").replace("\n", " "),
+                step_num,
+                (time.perf_counter() - started) * 1000,
+                llm_resp.stop_reason,
+                len(llm_resp.tool_calls),
+                len(llm_resp.content or ""),
+                llm_resp.usage.prompt_tokens if llm_resp.usage else "n/a",
+                llm_resp.usage.completion_tokens if llm_resp.usage else "n/a",
+            )
 
             messages.append(
                 LLMMessage(
@@ -873,7 +983,9 @@ class ToolHiveAgent:
             if not llm_resp.wants_tool_call:
                 for chunk in _chunk_agent_text(llm_resp.content or ""):
                     yield {"type": "final_chunk", "content": chunk}
-                yield _stream_done_event(trace_id, success=True)
+                yield _stream_done_event(
+                    trace_id, success=True, usage=_usage_as_dict(turn_usage, steps_used)
+                )
                 return
 
             abort_message: Optional[str] = None
@@ -919,14 +1031,18 @@ class ToolHiveAgent:
             if abort_message:
                 for chunk in _chunk_agent_text(abort_message):
                     yield {"type": "final_chunk", "content": chunk}
-                yield _stream_done_event(trace_id, success=False)
+                yield _stream_done_event(
+                    trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
+                )
                 return
 
         error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
         logger.warning(error)
         for chunk in _chunk_agent_text(error):
             yield {"type": "final_chunk", "content": chunk}
-        yield _stream_done_event(trace_id, success=False)
+        yield _stream_done_event(
+            trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
+        )
 
 
 # ---------------------------------------------------------------------------

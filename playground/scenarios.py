@@ -80,6 +80,11 @@ ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUP
 
 
 logger = logging.getLogger("playground.scenarios")
+# Dedicated LLM traffic logger: which model is selected for each chat request.
+llm_logger = logging.getLogger("agents.llm")
+
+# Simplified: process-wide, not per-session — the playground is single-user local dev.
+_last_llm_option: Optional[str] = None
 
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -1829,6 +1834,10 @@ class AgentChatResponse(BaseModel):
     success: bool
     tenant_id: Optional[str] = None
     config_name: Optional[str] = None
+    # Token totals for the whole turn; None when the backend reports no usage.
+    usage: Optional[Dict[str, Any]] = None
+    # Model that produced this turn, so the client can bucket totals per model.
+    llm_option: Optional[str] = None
 
 
 _TOOL_CALLING_FALLBACK_NOTE = (
@@ -1864,6 +1873,34 @@ def _augment_reply_for_tool_calling_errors(reply: str) -> str:
     if looks_like_tool_calling_unsupported(reply) and "Switch back to Groq" not in reply:
         return reply.rstrip() + _TOOL_CALLING_FALLBACK_NOTE
     return reply
+
+
+def _log_llm_selection(llm_option: Optional[str], trace_id: Optional[str] = None) -> str:
+    """Log the active LLM option, calling out a change from the previous request.
+
+    Returns the effective option id so callers can label per-model token totals.
+    """
+    global _last_llm_option
+    from agents.llm_factory import DEFAULT_GROQ_MODEL
+
+    effective = llm_option or f"groq/{os.environ.get('GROQ_MODEL', DEFAULT_GROQ_MODEL)}"
+    previous = _last_llm_option
+    _last_llm_option = effective
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
+    if previous and previous != effective:
+        llm_logger.info(
+            "LLM switched | trace_id=%s | from=%s | to=%s",
+            trace_id or "-",
+            previous.replace("\r", " ").replace("\n", " "),
+            effective.replace("\r", " ").replace("\n", " "),
+        )
+    else:
+        llm_logger.info(
+            "LLM selected | trace_id=%s | option=%s",
+            trace_id or "-",
+            effective.replace("\r", " ").replace("\n", " "),
+        )
+    return effective
 
 
 def _resolve_playground_llm_base_url(raw: Optional[str]) -> Optional[str]:
@@ -2172,6 +2209,7 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             "Agent Chat | creating LLM provider from option: %s",
             str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
         )
+        effective_llm_option = _log_llm_selection(llm_option, trace_id)
         llm_base_url = _resolve_playground_llm_base_url(payload.llm_base_url)
         llm_provider = LLMProviderFactory.create_from_option(llm_option, base_url=llm_base_url)
 
@@ -2288,6 +2326,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
                 str(eff_config or "(default)").replace("\r", " ").replace("\n", " "),
             )
 
+        from agents.toolhive import _usage_as_dict
+
         return AgentChatResponse(
             reply=reply,
             steps=chat_steps,
@@ -2295,6 +2335,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             success=run_result.success,
             tenant_id=eff_tenant,
             config_name=eff_config,
+            usage=_usage_as_dict(run_result.usage, run_result.steps_used),
+            llm_option=effective_llm_option,
         )
 
     except HTTPException:
@@ -2374,6 +2416,7 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                 "Agent Chat stream | creating LLM provider from option: %s",
                 str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
             )
+            effective_llm_option = _log_llm_selection(llm_option)
             llm_base_url = _resolve_playground_llm_base_url(payload.llm_base_url)
             llm_provider = LLMProviderFactory.create_from_option(llm_option, base_url=llm_base_url)
             task = _build_agent_chat_task(payload)
@@ -2410,6 +2453,7 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                             event = dict(event)
                             event["tenant_id"] = step_tenant
                             event["config_name"] = step_config
+                            event["llm_option"] = effective_llm_option
                         if (
                             fallback_to_local
                             and event.get("type") == "error"
@@ -2456,6 +2500,7 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                         )
                         event["tenant_id"] = eff_tenant
                         event["config_name"] = eff_config
+                        event["llm_option"] = effective_llm_option
                     yield json.dumps(event) + "\n"
 
         except HTTPException:

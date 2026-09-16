@@ -169,6 +169,19 @@ SPDX-License-Identifier: Apache-2.0
                         <span class="transport-status-dot"></span>
                         <span class="transport-status-label">Transport: stdio</span>
                     </div>
+                    <button type="button" id="token-usage-pill" class="token-usage-pill hidden" aria-expanded="false" aria-controls="token-usage-panel" title="Session token usage">
+                        <span id="token-usage-pill-label">0 tokens</span>
+                    </button>
+                    <div id="token-usage-panel" class="token-usage-panel hidden" role="region" aria-label="Session token usage by model">
+                        <div class="token-usage-panel-head">Session tokens by model</div>
+                        <table class="token-usage-table">
+                            <thead>
+                                <tr><th scope="col">Model</th><th scope="col">In</th><th scope="col">Out</th><th scope="col">Total</th><th scope="col">Turns</th></tr>
+                            </thead>
+                            <tbody id="token-usage-tbody"></tbody>
+                        </table>
+                        <p class="token-usage-note">Counts come from each provider and use that model's own tokenizer, so totals are not comparable across models.</p>
+                    </div>
                 </div>
 
                 <div class="chat-container" id="agent-chat-history">

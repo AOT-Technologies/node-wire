@@ -469,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+        resetTokenUsage();
         log('Agent chat reset', 'system');
     });
 
@@ -2175,13 +2176,44 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function appendTraceBadge(traceId, transportLabel = '') {
-        if (!traceId) return;
-        const badge = document.createElement('div');
-        badge.className = 'chat-trace-badge';
-        const suffix = transportLabel ? ` | ${transportLabel}` : '';
-        badge.textContent = `TRC-${traceId.toUpperCase().slice(0, 8)}${suffix}`;
-        agentChatHistory.appendChild(badge);
+    function appendTurnMetaCard(traceId, usage, transportLabel = '') {
+        if (!traceId && !usage) return;
+        const card = document.createElement('div');
+        card.className = 'chat-turn-meta';
+
+        const addSegment = (text, { mono = false, title = '' } = {}) => {
+            const seg = document.createElement('span');
+            seg.className = mono ? 'chat-turn-meta-item is-mono' : 'chat-turn-meta-item';
+            seg.textContent = text;
+            if (title) seg.title = title;
+            card.appendChild(seg);
+        };
+
+        if (traceId) {
+            addSegment(`TRC-${traceId.toUpperCase().slice(0, 8)}`, {
+                mono: true,
+                title: `Full trace id: ${traceId}`
+            });
+        }
+        if (transportLabel) addSegment(transportLabel);
+
+        // Providers that do not report usage (e.g. some Ollama builds) get no counts.
+        if (usage) {
+            const steps = usage.steps || 1;
+            addSegment(`${formatTokenCount(usage.prompt_tokens)} tokens in`, {
+                mono: true,
+                title: 'Prompt tokens summed across every LLM call in this turn.'
+            });
+            addSegment(`${formatTokenCount(usage.completion_tokens)} tokens out`, {
+                mono: true,
+                title: 'Completion tokens summed across every LLM call in this turn.'
+            });
+            addSegment(`${steps} step${steps === 1 ? '' : 's'}`, {
+                title: 'The agent re-sends the full history and all tool schemas on each step.'
+            });
+        }
+
+        agentChatHistory.appendChild(card);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
@@ -2195,6 +2227,72 @@ document.addEventListener('DOMContentLoaded', () => {
         end.textContent = displayMessage;
         agentChatHistory.appendChild(end);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
+    }
+
+    // --- Token usage: per-model session totals, reset on reload / New Chat ---
+
+    const tokenUsageByModel = new Map();
+
+    function formatTokenCount(value) {
+        return typeof value === 'number' ? value.toLocaleString() : 'n/a';
+    }
+
+    function recordTokenUsage(usage, llmOption) {
+        if (!usage) return;
+        const key = llmOption || 'unknown';
+        const bucket = tokenUsageByModel.get(key)
+            || { prompt: 0, completion: 0, total: 0, turns: 0 };
+        bucket.prompt += usage.prompt_tokens || 0;
+        bucket.completion += usage.completion_tokens || 0;
+        bucket.total += usage.total_tokens
+            || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
+        bucket.turns += 1;
+        tokenUsageByModel.set(key, bucket);
+        renderTokenUsagePanel();
+    }
+
+    function renderTokenUsagePanel() {
+        const pill = document.getElementById('token-usage-pill');
+        const pillLabel = document.getElementById('token-usage-pill-label');
+        const tbody = document.getElementById('token-usage-tbody');
+        if (!pill || !pillLabel || !tbody) return;
+
+        if (tokenUsageByModel.size === 0) {
+            pill.classList.add('hidden');
+            return;
+        }
+        pill.classList.remove('hidden');
+
+        let sessionTotal = 0;
+        tbody.replaceChildren();
+        for (const [model, bucket] of tokenUsageByModel) {
+            sessionTotal += bucket.total;
+            const row = document.createElement('tr');
+            for (const value of [
+                model,
+                formatTokenCount(bucket.prompt),
+                formatTokenCount(bucket.completion),
+                formatTokenCount(bucket.total),
+                String(bucket.turns)
+            ]) {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            }
+            tbody.appendChild(row);
+        }
+        pillLabel.textContent = `${sessionTotal.toLocaleString()} tokens`;
+    }
+
+    function resetTokenUsage() {
+        tokenUsageByModel.clear();
+        const pill = document.getElementById('token-usage-pill');
+        const panel = document.getElementById('token-usage-panel');
+        if (pill) {
+            pill.classList.add('hidden');
+            pill.setAttribute('aria-expanded', 'false');
+        }
+        if (panel) panel.classList.add('hidden');
     }
 
     function updateAgentTransportStatus() {
@@ -2809,6 +2907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let traceId = '';
                 let success = true;
                 let doneMessage = '';
+                let turnUsage = null;
 
                 await readNdjsonStream(response, {
                     meta: (event) => {
@@ -2850,6 +2949,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                         streamView.loader.classList.add('hidden');
                         appendStreamEndMessage(doneMessage, success, finalElapsed);
+                        turnUsage = event.usage || null;
+                        recordTokenUsage(event.usage, event.llm_option);
                     }
                 });
 
@@ -2870,7 +2971,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (streamView) streamView.text.textContent = finalText;
                 }
                 agentConversationHistory.push({ role: 'assistant', content: finalText });
-                appendTraceBadge(traceId, 'streamable-http');
+                appendTurnMetaCard(traceId, turnUsage, 'streamable-http');
                 log(`Agent Chat: ${success ? 'Stream complete' : 'Stream failed'} | ${doneMessage}`, success ? 'success' : 'error');
                 return;
             }
@@ -2906,8 +3007,9 @@ document.addEventListener('DOMContentLoaded', () => {
             appendChatBubble('assistant', data.reply);
             agentConversationHistory.push({ role: 'assistant', content: data.reply });
 
-            // Add trace badge
-            appendTraceBadge(data.trace_id);
+            // Trace id + token counts for this turn
+            appendTurnMetaCard(data.trace_id, data.usage);
+            recordTokenUsage(data.usage, data.llm_option);
 
             log(`Agent Chat: ${data.success ? 'Success' : 'Responded'} | steps=${data.steps ? data.steps.length : 0}`, data.success ? 'success' : 'system');
             await applyAgentTenancy(data.tenant_id, data.config_name);
@@ -2981,6 +3083,17 @@ document.addEventListener('DOMContentLoaded', () => {
             sendAgentMessage();
         }
     });
+
+    const tokenUsagePill = document.getElementById('token-usage-pill');
+    if (tokenUsagePill) {
+        tokenUsagePill.addEventListener('click', () => {
+            const panel = document.getElementById('token-usage-panel');
+            if (!panel) return;
+            const willOpen = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !willOpen);
+            tokenUsagePill.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+    }
 
     // ─── External Patient Viewer — form submission ───────────────────────────
     if (extViewerForm) {

@@ -45,12 +45,39 @@ class LLMMessage:
 
 
 @dataclass
+class TokenUsage:
+    """Token counts for a single LLM call, normalised across providers.
+
+    Fields are optional because not every backend reports usage (notably
+    Ollama's OpenAI-compatible endpoint), and ``None`` must stay
+    distinguishable from a genuine zero.
+    """
+
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+    def __add__(self, other: "TokenUsage") -> "TokenUsage":
+        def _add(a: Optional[int], b: Optional[int]) -> Optional[int]:
+            if a is None and b is None:
+                return None
+            return (a or 0) + (b or 0)
+
+        return TokenUsage(
+            prompt_tokens=_add(self.prompt_tokens, other.prompt_tokens),
+            completion_tokens=_add(self.completion_tokens, other.completion_tokens),
+            total_tokens=_add(self.total_tokens, other.total_tokens),
+        )
+
+
+@dataclass
 class LLMResponse:
     """Raw response from the LLM."""
 
     content: Optional[str]
     tool_calls: List[ToolCall] = field(default_factory=list)
     stop_reason: str = "stop"  # "stop" | "tool_calls"
+    usage: Optional[TokenUsage] = None
 
     @property
     def wants_tool_call(self) -> bool:
