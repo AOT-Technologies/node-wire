@@ -28,8 +28,8 @@ skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself
 
 ### Auth
 
-- One connector-level scheme, chosen from the document's top-level `security` (or the most
-  common scheme across operations if none is declared)
+- One connector-level **default** scheme, chosen from the document's top-level `security` (or the
+  most common scheme across operations if none is declared)
 - `apiKey` in `header` or `query`, `http` `bearer`, `http` `basic` — mapped to Node Wire's
   `static_token` / `apikey_query` auth providers
 - `oauth2` with a declared `clientCredentials` or `authorizationCode` flow — mapped to
@@ -39,7 +39,60 @@ skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself
   `clientCredentials` needs only `<ID>_CLIENT_ID` / `<ID>_CLIENT_SECRET` (fully unattended).
   `authorizationCode` additionally needs `<ID>_REFRESH_TOKEN`, obtained via a one-time
   interactive consent completed **outside** Node Wire — see "OAuth2 authorizationCode" below.
+- `oauth2` with no unattended flow (`implicit` / `password` / none declared) and `openIdConnect` —
+  mapped to a **host-supplied** bearer (`static_token`, `host_supplied: true`): Node Wire presents
+  `<ID>_ACCESS_TOKEN` verbatim as a `Bearer` header but never acquires, refreshes, or detects the
+  expiry of it — see "Host-supplied auth tier" below. This is presentation only; the acquisition
+  ban on `implicit` / `password` (below, under "Out of scope") is unchanged.
+- Operations needing a **different, still-presentable** scheme than the connector default are not
+  dropped — the generator emits it as an additional, named entry in `auth_schemes:` and routes just
+  those actions to it (`auth_scheme=<name>` per `@nw_action`, resolved at runtime by
+  `resolve_auth_provider`, which fails closed on an unknown name). A connector is no longer
+  necessarily single-scheme; see "Per-action auth schemes" below.
 - Anonymous connectors (no scheme, or only unsupported schemes present) build as `auth: none`
+
+#### Host-supplied auth tier
+
+Some schemes Node Wire can *present* but will never *acquire*: `oauth2` `implicit` / `password` (no
+refresh token, or a flow that needs a raw user password — ruled out on principle, not tooling, see
+"Out of scope" below) and `openIdConnect` (its underlying flow can't be introspected from the spec
+alone). Rather than soft-dropping every operation gated by one of these — which is what silently
+turned "13/20 operations generated" into "20/20" for petstore-style specs — the generator scaffolds
+a `static_token` provider marked `host_supplied: true` that presents `<ID>_ACCESS_TOKEN` as a
+`Bearer` header with **no** acquisition, refresh, or expiry detection. The host application owns
+obtaining and rotating that token entirely out-of-band; a stale token surfaces as a plain `401`
+from the upstream API, not a managed refresh cycle. The build report's `auth.notes` names the
+triggering scheme and the exact secret key to set.
+
+**This is not OAuth2 (or OIDC) client support — it's a static bearer, full stop.** At runtime,
+`host_supplied: true` is inert: the provider is the exact same `StaticTokenAuthProvider` used for
+a plain `http: bearer` scheme, with the flag existing only for the build report / generated
+`sample.env` comment. Node Wire never calls a token endpoint, never performs a grant exchange,
+never negotiates scope, never authenticates as a client — none of the actual OAuth2 protocol runs
+for these schemes. Contrast this with `clientCredentials` / `authorizationCode` above, where Node
+Wire genuinely *is* an OAuth2 client: it owns the grant exchange and refreshes the token
+indefinitely, unattended, after one-time setup. "We'll present any bearer token you hand us" is a
+much weaker claim than "we support this flow," and deliberately so — see the acquisition-vs-
+presentation distinction above.
+
+This also means the operational cost is real, not just a labeling nuance. `implicit` tokens in
+particular are typically short-lived (commonly ~1 hour) with **no refresh token by spec** — so a
+host using this tier for an `implicit`-secured operation has to redo the *entire interactive
+browser redirect* every time the token expires and update `<ID>_ACCESS_TOKEN` itself. Nothing in
+Node Wire detects the coming expiry or warns beforehand; the connector just starts getting `401`s.
+That is a materially heavier operational burden than the flows Node Wire actually manages, where
+expiry and renewal are invisible to the operator after initial setup.
+
+#### Per-action auth schemes
+
+A connector can serve **more than one** OpenAPI security scheme from a single instance. The
+connector-level default (`auth:` in `connectors.yaml`) still covers most operations; any operation
+whose declared security is a *different* scheme — but one that's still presentable (self-managed or
+host-supplied, i.e. not `mutualTLS`, cookie `apiKey`, AND-multi, or unrecognized) — gets its own
+named entry under the new, additive `auth_schemes:` config block, and the generated action passes
+`auth_scheme=<name>` so the runtime resolves the right `AuthProvider` per call instead of per
+connector. This is what let petstore-style specs (an `apiKey` default alongside operations gated by
+an `oauth2` `implicit` scheme) stop soft-dropping those operations.
 
 #### OAuth2 `authorizationCode`
 
@@ -102,18 +155,24 @@ for the analogous host-owns-durable-persistence pattern used for outbound MCP cl
 
 ### Auth schemes
 
-- **OAuth2 `implicit` and `password` (ROPC)** — never supported, deliberately. `implicit`
-  is deprecated and has no refresh token; `password` requires the connector to handle a raw
-  user password, which this codebase's secrets-hygiene posture rules out on principle, not
-  just for lack of tooling. Operations secured only by these are soft-dropped.
-- **OpenID Connect** and **mutualTLS**
-- **Cookie-based API keys**
-- **AND-combined** multi-scheme security (`security: [{a: [], b: []}]`)
-- More than one auth provider per connector — a connector is single-scheme, even if the spec
-  declares several; operations needing a divergent scheme are soft-dropped
-- Per-operation auth overrides — auth is connector-level only
+- **OAuth2 `implicit` and `password` (ROPC)** — Node Wire never *acquires* these, deliberately.
+  `implicit` is deprecated and has no refresh token; `password` requires the connector to handle a
+  raw user password, which this codebase's secrets-hygiene posture rules out on principle, not
+  just for lack of tooling. Operations secured only by these are no longer soft-dropped, though —
+  see "Host-supplied auth tier" above, which presents (but never obtains) a host-supplied bearer
+  token instead.
+- **mutualTLS** — genuinely unpresentable (a transport-layer client certificate, not a
+  header/param); operations secured only by it are soft-dropped
+- **Cookie-based API keys** — no `name=value` cookie formatting in `StaticTokenAuthProvider` yet;
+  soft-dropped
+- **AND-combined** multi-scheme security (`security: [{a: [], b: []}]`) — soft-dropped
+- Automatic acquisition of `implicit` / `password` / `openIdConnect` credentials — Node Wire will
+  present a host-supplied bearer token for these (see above) but will never obtain, refresh, or
+  detect its expiry
 
-(`oauth2` with `clientCredentials` or `authorizationCode` flows moved to "In scope" above.)
+(`oauth2` with `clientCredentials` or `authorizationCode` flows, `openIdConnect` and
+non-unattended `oauth2` flows via the host-supplied tier, and multi-scheme connectors via
+per-action `auth_schemes:`, all moved to "In scope" above.)
 
 ### Spec features
 

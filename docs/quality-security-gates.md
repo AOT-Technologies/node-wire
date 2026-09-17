@@ -135,8 +135,8 @@ uv run pytest tests/ -v
 To keep pytest collection and REST app startup deterministic, `tests/conftest.py` sets a fixed environment before imports:
 
 - `NW_REST_LOAD_DOTENV=false` so REST startup does not merge a repo-root `.env` over test variables.
-- `NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml` so optional connectors outside the pytest allowlist remain `enabled: false` (for example `slack` and `salesforce`).
-- `NW_ALLOWED_CONNECTORS=http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner` so only the supported test connector set is loaded during collection.
+- `NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml`, a fixture that mirrors `config/connectors.yaml` with all eight publishable connectors enabled.
+- `NW_ALLOWED_CONNECTORS=http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack` so exactly those eight connectors are loaded during collection.
 
 Do not rely on `.env` values during pytest collection. The test harness intentionally overrides them so local developer state does not affect CI or test outcomes.
 

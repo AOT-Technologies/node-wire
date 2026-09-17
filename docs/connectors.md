@@ -295,6 +295,26 @@ So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BO
 
 The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (e.g. redeploy) if the underlying secret is rotated.
 
+### Multiple auth schemes per connector
+
+A connector isn't limited to the single provider built from its `auth:` block. Add a **named**, additional provider per entry under `auth_schemes:` in `connectors.yaml` (same field shape as `auth:`, any provider type):
+
+```yaml
+connectors:
+  my_api:
+    enabled: true
+    auth:
+      provider: static_token
+      secret_key: MY_API_KEY
+    auth_schemes:
+      legacy_bearer:
+        provider: static_token
+        secret_key: MY_API_LEGACY_TOKEN
+        prefix: Bearer
+```
+
+Select a named scheme per call with `await self.get_auth_headers(auth_scheme="legacy_bearer")` (or the lower-level `self.resolve_auth_provider("legacy_bearer")`) instead of the connector default. **`resolve_auth_provider`** fails closed with `ValueError` on an unknown scheme name — there's no silent fallback to the default provider. This is the same mechanism `nw-connector-builder` uses to generate `auth_scheme=` on divergent per-action calls (see [nw-connector-builder.md](nw-connector-builder.md#per-action-auth-schemes)); hand-written connectors can use it directly for the same reason — an upstream API that requires more than one security scheme across its operations.
+
 ### Configuration (`connectors.yaml`)
 
 ```yaml

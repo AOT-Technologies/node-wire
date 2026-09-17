@@ -51,8 +51,6 @@ ALL_PACKAGES=(
   packages/connectors/salesforce
   packages/connectors/http_generic
   packages/connectors/slack
-  packages/connectors/demo_pets_test
-  packages/connectors/pet_store
 )
 
 

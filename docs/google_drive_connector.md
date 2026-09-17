@@ -15,7 +15,7 @@ For **MCP** (e.g. ToolHive), tools are named `google_drive_<action>` from the co
 
 ---
 
-## User OAuth (OIDC / upstream bearer)
+## User OAuth (OIDC / upstream bearer) { #upstream_bearer }
 
 For **per-user Google Drive access** (each caller uses their own Drive), set:
 

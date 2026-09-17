@@ -40,28 +40,31 @@ Generated output lands in the monorepo (not under `nw-connector-builder/`):
 ```mermaid
 flowchart LR
   spec[OpenAPI / Swagger]
-  load[Load + validate]
+  load["Load spec<br/>(file or URL)"]
+  normalize["Normalize<br/>Swagger 2.0 → 3.x"]
+  validate["Resolve refs<br/>+ validate"]
   derive[Derive actions]
   stage[Stage codegen]
   gate[Import + pytest gate]
   promote[Promote to repo]
   mcp[MCP hand-off]
   wire["--wire config"]
-  spec --> load --> derive --> stage --> gate --> promote
+  spec --> load --> normalize --> validate --> derive --> stage --> gate --> promote
   promote --> mcp
   promote --> wire
 ```
 
 For a connector id like `pet_store`:
 
-1. **Load** the spec from a local file or `http(s)` URL (`--path`)
-2. **Normalize** Swagger 2.0 → OpenAPI 3.x when needed; reject remote `$ref`s
-3. **Derive** `@nw_action` plans, soft-drop unsupported operations, collapse auth to one connector-level provider
-4. **Codegen** into a temp staging tree (`schema.py`, `logic.py`, package `pyproject.toml`, model tests)
-5. **Gate** — import smoke + `pytest` on staged model tests (must pass before promote)
-6. **Promote** atomically into `src/node_wire_<id>/` and `packages/connectors/<id>/`
-7. **MCP hand-off** (default) — call `nw-mcp-builder` for `out/<name>-mcp/`
-8. **Wire** (optional `--wire`) — update `config/connectors.yaml` and `sample.env`
+1. **Load** — read the spec document from a local file path or `http(s)` URL (`--path`). URL fetches go through Node Wire's SSRF guard (`assert_safe_destination`) and never follow redirects. The raw bytes are decoded as UTF-8 and parsed as YAML/JSON into a document, then the version is detected from `swagger: "2.0"` vs. `openapi: "3.x"`.
+2. **Normalize** — Swagger 2.0 documents are translated into OpenAPI 3.x in-house; OpenAPI 3.x documents pass through unchanged.
+3. **Validate** — reject any **remote** (absolute-URL) `$ref`s outright (only local relative / in-document `#/` refs are allowed), resolve the remaining local `$ref`s in place with `prance`, then structurally and semantically validate the fully-resolved document with `openapi-spec-validator`. This step also resolves the connector's base URL (`--base-url` override, else the first `servers[]` entry).
+4. **Derive** — from the validated document, work out the connector's auth plan (one connector-level default scheme, plus any additional per-action schemes — see [Auth mapping](#auth-mapping) below) and, per operation, either a plan for a generated `@nw_action` or a soft-drop reason (unsupported/divergent-and-unpresentable/AND-multi security, unsupported parameter styles, etc. — see [Soft-drop rules](#soft-drop-rules)).
+5. **Codegen** — write a temp staging tree: `schema.py` (Pydantic input/output models) and `logic.py`, a `RestConnector` subclass with one `@nw_action`-decorated async method per derived action. Each method's `@nw_action(...)` decorator (`requires_auth=False` for anonymous actions) makes it discoverable by `nw-mcp-builder`'s regex scan; the method body itself calls `self.execute_rest(...)`, passing `auth_scheme=<name>` when the action uses a named, non-default scheme from step 4. Also emits the package `pyproject.toml` and model tests.
+6. **Gate** — import smoke + `pytest` on staged model tests (must pass before promote)
+7. **Promote** atomically into `src/node_wire_<id>/` and `packages/connectors/<id>/`
+8. **MCP hand-off** (default) — call `nw-mcp-builder`, which regex-scrapes the promoted `logic.py` for `@nw_action` methods, for `out/<name>-mcp/`
+9. **Wire** (optional `--wire`) — update `config/connectors.yaml` and `sample.env`
 
 Promote never runs if the gate fails. MCP or `--wire` failures after a clean promote return exit code `1` but leave the connector in the tree.
 
@@ -212,7 +215,7 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 
 ## Auth mapping
 
-The builder picks **one** connector-level security scheme (document `security`, else the most common supported operation scheme) and maps it to a Node Wire auth provider for `--wire` / `connectors.yaml`:
+The builder picks **one connector-level default** security scheme (document `security`, else the most common scheme across operations) and maps it to a Node Wire auth provider for `--wire` / `connectors.yaml`:
 
 | OpenAPI scheme | Node Wire `auth.provider` | Typical secret env |
 |----------------|---------------------------|--------------------|
@@ -222,6 +225,7 @@ The builder picks **one** connector-level security scheme (document `security`, 
 | `http` + `basic` | `static_token` (`prefix: Basic`, base64) | `<ID>_BASIC_AUTH` |
 | `oauth2` flow `clientCredentials` | `oauth2` (`grant_method: client_secret_post`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET` |
 | `oauth2` flow `authorizationCode` | `oauth2` (`grant_method: refresh_token`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET`, `<ID>_REFRESH_TOKEN` (manual one-time step) |
+| `oauth2` with no unattended flow (`implicit` / `password` / none declared), or `openIdConnect` | `static_token` (`prefix: Bearer`, `host_supplied: true`) | `<ID>_ACCESS_TOKEN` |
 | None / unsupported only | `none` (anonymous) | — |
 
 `<ID>_TOKEN_URL` is also emitted for both `oauth2` rows, pre-filled in `sample.env` with the
@@ -230,16 +234,22 @@ block so a sandbox/prod override never needs a code change). `authorizationCode`
 requires completing an interactive consent **outside** Node Wire before `<ID>_REFRESH_TOKEN` can
 be set — see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#oauth2-authorizationcode).
 
-**Not supported** as connector-level auth (operations that require only these are soft-dropped):
+### Host-supplied tier
 
-- `oauth2` with only `implicit` and/or `password` flows declared (deliberately never supported,
-  not just unimplemented — see scope doc)
-- `openIdConnect`
+`oauth2` flows Node Wire cannot run unattended (`implicit`, `password`, or no flow the generator recognizes) and `openIdConnect` are **not** soft-dropped — they map to a **host-supplied** bearer token: Node Wire presents whatever value sits in `<ID>_ACCESS_TOKEN` as a plain `Bearer` header but never obtains, refreshes, or detects the expiry of it. The operator's host application is responsible for acquiring and rotating that token out-of-band. This is presentation only, never described as "supports implicit/password" — the acquisition ban on those flows is unchanged, see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#out-of-scope). The build report's `auth.notes` spells out which scheme triggered it and the exact secret key to set.
+
+**"Presents a bearer token" is not the same claim as "supports the flow."** At runtime this tier is the exact same `static_token` provider as a plain `http: bearer` scheme — Node Wire never calls a token endpoint or performs a grant exchange for it. It will happily present *any* bearer string, OAuth2-derived or not; that's a much weaker guarantee than the autonomous acquire-and-refresh behavior `clientCredentials`/`authorizationCode` actually get. See [nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier) for the full reasoning, including why `implicit` in particular carries a real operational cost (no refresh token by spec — the host must redo the full interactive consent every time the token expires).
+
+### Per-action auth schemes
+
+Operations that require a **different, still-presentable** scheme than the connector-level default (self-managed or host-supplied — anything except `mutualTLS`, cookie `apiKey`, AND-multi, or an unrecognized type) are no longer soft-dropped as divergent. Instead the builder emits an **additional, named** scheme in `auth_schemes:` (alongside the default `auth:` block) and routes just those actions to it via `auth_scheme=<scheme_name>` on the generated `@nw_action` call — the runtime resolves it with `resolve_auth_provider(auth_scheme)`, which fails closed on an unknown name. This is what lets one connector serve multiple OpenAPI security schemes from a single instance — e.g. `petstore.swagger.io`, where most operations use an `apiKey` default but a handful require an `oauth2` (`implicit`) scheme that's now generated as a host-supplied `auth_schemes` entry instead of being dropped.
+
+**Still soft-dropped** as unsupported (operations that require only these are skipped):
+
 - `mutualTLS`
+- Cookie API keys (`apiKey` `in: cookie`)
 - AND multi-scheme requirements (`security: [{ a: [], b: [] }]`)
-- Cookie API keys
-
-Operations that require a **different** supported scheme than the connector-level choice are soft-dropped as divergent.
+- Unrecognized scheme types
 
 ---
 
@@ -322,9 +332,13 @@ connectors:
     auth:   # omitted when anonymous
       provider: ...
       secret_key: ...
+    auth_schemes:   # only present when a divergent scheme needed its own auth_scheme=
+      <scheme_name>:
+        provider: ...
+        secret_key: ...
 ```
 
-**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (e.g. `PET_STORE_API_KEY=`).
+**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (e.g. `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme).
 
 Wire edits preserve YAML comments via `ruamel.yaml`. Failures set exit code `1` but do not roll back the promoted connector.
 
