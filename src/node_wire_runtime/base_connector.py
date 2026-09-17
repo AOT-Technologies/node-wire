@@ -238,9 +238,30 @@ def sdk_action(
     return decorator
 
 
-def nw_action(name: str):
-    """Backward-compatible decorator alias for sdk_action()."""
-    return sdk_action(name)
+def nw_action(
+    name: str,
+    *,
+    alias_tolerant: bool = False,
+    mcp_normalize: Optional[Callable[[Dict[str, Any]], None]] = None,
+    requires_auth: bool = True,
+    scopes: Optional[List[str]] = None,
+    rate_limit: Optional[Dict[str, Any]] = None,
+    deprecated: bool = False,
+):
+    """Backward-compatible decorator alias for sdk_action().
+
+    Forwards every sdk_action() keyword — added because generated connectors need
+    requires_auth=False for anonymous actions (see nw-connector-builder codegen).
+    """
+    return sdk_action(
+        name,
+        alias_tolerant=alias_tolerant,
+        mcp_normalize=mcp_normalize,
+        requires_auth=requires_auth,
+        scopes=scopes,
+        rate_limit=rate_limit,
+        deprecated=deprecated,
+    )
 
 
 @dataclass
@@ -290,7 +311,7 @@ class BaseConnector(ABC):
         if cls.__dict__.get("_nw_abstract_base", False):
             return
 
-        # Phase 0: auto-generate @nw_action methods from action_specs (opt-in).
+        # Auto-generate @nw_action methods from action_specs (opt-in).
         # Must run before the dir(cls) discovery loop below.
         _generate_methods_from_action_specs(cls)
 
@@ -397,6 +418,7 @@ class BaseConnector(ABC):
         secret_provider: Optional[SecretProvider] = None,
         policy_hook: Optional[PolicyHook] = None,
         auth_provider: Optional[AuthProvider] = None,
+        auth_providers: Optional[Dict[str, AuthProvider]] = None,
         config: Optional[Dict[str, Any]] = None,
         tenant_id: Optional[str] = None,
         config_name: Optional[str] = None,
@@ -419,6 +441,8 @@ class BaseConnector(ABC):
         self._auth_provider: AuthProvider = (
             auth_provider if auth_provider is not None else NoAuthProvider()
         )
+        # Named providers for multi-scheme connectors; empty for single-scheme.
+        self._auth_providers: Dict[str, AuthProvider] = dict(auth_providers or {})
         self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
         self._client: Any = None
 
@@ -464,7 +488,23 @@ class BaseConnector(ABC):
         """
         return self._auth_provider
 
-    async def get_auth_headers(self) -> Dict[str, str]:
+    def resolve_auth_provider(self, auth_scheme: Optional[str] = None) -> AuthProvider:
+        """Resolve which :class:`AuthProvider` an action should use.
+
+        ``auth_scheme=None`` returns the connector default. A named scheme looks it
+        up in ``_auth_providers`` and **fails closed** on unknown names.
+        """
+        if auth_scheme is None:
+            return self._auth_provider
+        try:
+            return self._auth_providers[auth_scheme]
+        except KeyError:
+            raise ValueError(
+                f"{type(self).__name__}: unknown auth_scheme {auth_scheme!r}; "
+                f"configured: {sorted(self._auth_providers)}"
+            ) from None
+
+    async def get_auth_headers(self, auth_scheme: Optional[str] = None) -> Dict[str, str]:
         """Return authentication headers from the configured :class:`AuthProvider`.
 
         Connectors should call this instead of reading secrets directly::
@@ -473,9 +513,10 @@ class BaseConnector(ABC):
             # merge with any connector-specific headers
             headers.update({"Content-Type": "application/json"})
 
-        Returns an empty dict when the provider is :class:`NoAuthProvider`.
+        Returns an empty dict when the provider is :class:`NoAuthProvider`. Pass
+        ``auth_scheme`` to select a named scheme instead of the connector default.
         """
-        return await self._auth_provider.get_headers()
+        return await self.resolve_auth_provider(auth_scheme).get_headers()
 
     async def run(
         self,

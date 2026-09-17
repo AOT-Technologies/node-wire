@@ -121,6 +121,8 @@ def run_build(
                     auth_block=result.auth_plan.yaml_block,
                     secret_keys=result.auth_plan.secret_keys,
                     secret_defaults=result.auth_plan.secret_defaults,
+                    host_supplied=result.auth_plan.tier == "host_supplied",
+                    extra_auth_plans=result.extra_auth_plans,
                 )
                 wire_info = {"ok": True, "wired": True}
             except WireError as exc:

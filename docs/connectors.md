@@ -278,7 +278,7 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 | **`none`** | (Default) No auth headers added. | `http_generic` |
 | **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). | `stripe`, `slack` |
 | **`apikey_query`** | Appends an API key as a query-string parameter instead of a header. | — |
-| **`upstream_bearer`** | Passes through the caller's own bearer token to the vendor API (per-request, not cached). | `google_drive` (opt-in override) |
+| **`upstream_bearer`** | Passes through the caller's own bearer token to the vendor API (per-request, not cached). Credential relay, not an ordinary provider — requires the connector to also be listed in `NW_UPSTREAM_BEARER_CONNECTORS` (fails closed otherwise); Node Wire does not verify the token's audience matches the vendor API, that's the host's job. See [google_drive_connector.md](google_drive_connector.md#upstream_bearer). | `google_drive` (opt-in override) |
 | **`static_credentials`** | Username + password pair (e.g. SMTP relay). | `smtp` |
 | **`service_account`** | Google-style service account JSON + scopes. | `google_drive` |
 | **`oauth2`** | Token exchange (`private_key_jwt`, `refresh_token`, `client_secret_post`, etc.). Handles caching and expiry. | `fhir_epic`, `salesforce` |

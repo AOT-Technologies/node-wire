@@ -45,11 +45,17 @@ connectors:
       provider: service_account
       sa_json_secret: GOOGLE_DRIVE_SA_JSON
       scopes:
-        - https://www.googleapis.com/auth/drive
-    # OIDC / per-user Drive (ToolHive upstream bearer passthrough):
+      - https://www.googleapis.com/auth/drive
+    # OIDC / per-user Drive (ToolHive upstream bearer passthrough) — credential
+    # relay, a trust-boundary decision: Node Wire forwards the caller's own inbound
+    # token to Google Drive's API as-is, verifying nothing about whether that token
+    # is actually valid for Drive (audience binding is the host's responsibility).
+    # Requires BOTH of the following — neither alone is sufficient, this fails
+    # closed otherwise:
+    #   1. auth: { provider: upstream_bearer }   (or GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer)
+    #   2. NW_UPSTREAM_BEARER_CONNECTORS=google_drive   (see sample.env)
     # auth:
     #   provider: upstream_bearer
-    # Or: GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer (overrides yaml when set)
 
   fhir_epic:
     enabled: true
@@ -78,10 +84,10 @@ connectors:
       algorithm: RS384
       scopes_secret: CERNER_SCOPES
       scopes:
-        - system/Patient.read
-        - system/Encounter.read
-        - system/DocumentReference.read
-        - system/DocumentReference.write
+      - system/Patient.read
+      - system/Encounter.read
+      - system/DocumentReference.read
+      - system/DocumentReference.write
 
   salesforce:
     enabled: true

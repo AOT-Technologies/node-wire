@@ -31,12 +31,18 @@ class ConnectorAuthPlan:
     notes: list[str]
     secret_keys: list[str] = field(default_factory=list)
     secret_defaults: dict[str, str] = field(default_factory=dict)
+    # "self_managed": Node Wire owns acquisition + presentation (or no auth).
+    # "host_supplied": Node Wire only presents a bearer token the host obtains/rotates.
+    tier: Literal["self_managed", "host_supplied"] = "self_managed"
 
 
 @dataclass
 class OpSecurityDecision:
     mode: AuthMode
     reason: str | None = None
+    # For "divergent": the presentable scheme this op needs (codegen routes to it).
+    # None for "required"/"optional" — those use the connector default.
+    scheme_name: str | None = None
 
 
 _UNSUPPORTED_TYPES = frozenset({"openIdConnect", "mutualTLS"})
@@ -85,6 +91,32 @@ def _scheme_supported(scheme: dict[str, Any] | None) -> bool:
     if t == "http":
         return str(scheme.get("scheme", "")).lower() in {"bearer", "basic"}
     return False
+
+
+def _scheme_host_supplied(scheme: dict[str, Any] | None) -> bool:
+    """Host-supplied schemes: presentable as a bearer token, never acquired by Node Wire.
+
+    Covers oauth2 with no unattended grant (``implicit``, ``password``, etc.) and
+    ``openIdConnect``. Contrast ``_scheme_supported``, which is for schemes Node Wire
+    fully owns end to end.
+    """
+    if not scheme:
+        return False
+    t = scheme.get("type")
+    if t == "oauth2":
+        return _oauth2_flow_kind(scheme) is None
+    return t == "openIdConnect"
+
+
+def _scheme_presentable(scheme: dict[str, Any] | None) -> bool:
+    """True for anything Node Wire can attach to an outbound request at all —
+    ``_scheme_supported`` (self-managed) or ``_scheme_host_supplied``. False
+    only for genuinely unpresentable schemes: mutualTLS (a transport-layer
+    client certificate, not a header/param), apiKey-in-cookie (no
+    ``name=value`` cookie formatting in ``StaticTokenAuthProvider`` yet), and
+    unrecognized scheme types.
+    """
+    return _scheme_supported(scheme) or _scheme_host_supplied(scheme)
 
 
 def _scheme_fingerprint(name: str, scheme: dict[str, Any]) -> str:
@@ -186,13 +218,59 @@ def build_auth_plan(
     if t == "oauth2":
         kind = _oauth2_flow_kind(scheme)
         if kind is None:
-            return ConnectorAuthPlan(
-                None, None, "none", "", {}, notes=["Chosen scheme could not be mapped"]
-            )
+            return _build_host_supplied_auth_plan(upper, chosen_name, scheme)
         return _build_oauth2_auth_plan(upper, chosen_name, scheme, kind)
+
+    if t == "openIdConnect":
+        return _build_host_supplied_auth_plan(upper, chosen_name, scheme)
 
     return ConnectorAuthPlan(
         None, None, "none", "", {}, notes=["Chosen scheme could not be mapped"]
+    )
+
+
+def _build_host_supplied_auth_plan(
+    upper: str,
+    chosen_name: str,
+    scheme: dict[str, Any],
+) -> ConnectorAuthPlan:
+    """Scaffold a host-supplied bearer for a scheme Node Wire never acquires.
+
+    Presentation only — no acquisition, refresh, or expiry handling. The host
+    must supply and rotate the token (see nw-connector-builder-scope.md).
+    """
+    t = scheme.get("type")
+    if t == "oauth2":
+        flows = sorted((scheme.get("flows") or {}).keys()) or ["<none declared>"]
+        origin = f"declares oauth2 flow(s) {flows!r} with no unattended grant Node Wire can run"
+    else:
+        origin = "declares openIdConnect, whose underlying flow can't be introspected from the spec"
+
+    secret_key = f"{upper}_ACCESS_TOKEN"
+    block = {
+        "provider": "static_token",
+        "secret_key": secret_key,
+        "header_name": "Authorization",
+        "prefix": "Bearer",
+        "host_supplied": True,
+    }
+    notes = [
+        f"HOST-SUPPLIED CREDENTIAL: scheme {chosen_name!r} {origin}. Node Wire never "
+        "acquires this credential — the host application must obtain it (e.g. complete "
+        f"the provider's own auth flow) and set {secret_key} itself. Node Wire will "
+        "present whatever value is there as a Bearer token but performs no refresh and "
+        "detects no expiry; a stale token surfaces as a plain 401 from the API, not a "
+        "managed refresh cycle."
+    ]
+    return ConnectorAuthPlan(
+        scheme_name=chosen_name,
+        scheme=scheme,
+        provider="static_token",
+        secret_key=secret_key,
+        yaml_block=block,
+        notes=notes,
+        secret_keys=[secret_key],
+        tier="host_supplied",
     )
 
 
@@ -307,7 +385,7 @@ def evaluate_operation_security(
     if len(security) == 1 and security[0] == {}:
         return OpSecurityDecision("optional")
 
-    candidates: list[str] = []
+    candidates: list[tuple[str, str]] = []  # (scheme_name, fingerprint)
     saw_unsupported_only = False
     for req in security:
         if not isinstance(req, dict):
@@ -320,42 +398,48 @@ def evaluate_operation_security(
             )
         name = next(iter(req.keys()))
         scheme = schemes.get(name)
-        if not _scheme_supported(scheme):
+        # Presentable = self-managed or host-supplied; fingerprint mismatch -> divergent.
+        if not _scheme_presentable(scheme):
             saw_unsupported_only = True
             continue
         assert scheme is not None
-        candidates.append(_scheme_fingerprint(name, scheme))
+        candidates.append((name, _scheme_fingerprint(name, scheme)))
 
     if not candidates:
         if saw_unsupported_only:
-            return OpSecurityDecision(
-                "unsupported", "oauth2/openIdConnect/mutualTLS or unknown scheme"
-            )
+            return OpSecurityDecision("unsupported", "mutualTLS, apiKey-in-cookie, or unknown scheme")
         return OpSecurityDecision("optional" if connector_fp else "anonymous")
 
     # OR of requirements — keep if any matches connector scheme
     if connector_fp is None:
         return OpSecurityDecision("optional")
-    if connector_fp in candidates:
+    if connector_fp in (fp for _, fp in candidates):
         return OpSecurityDecision("required")
+    # Presentable but not the connector default — route by name instead of dropping.
+    divergent_name = candidates[0][0]
     return OpSecurityDecision(
-        "divergent", f"requires scheme other than connector-level {connector_fp}"
+        "divergent",
+        f"uses scheme {divergent_name!r}, connector default is a different scheme",
+        scheme_name=divergent_name,
     )
 
 
-def choose_connector_scheme(
-    doc: dict[str, Any],
-    schemes: dict[str, Any],
+def _pick_named_global_scheme(
+    doc_sec: Any, schemes: dict[str, Any], predicate: Any
 ) -> str | None:
-    """Pick global security scheme else most common required supported scheme."""
-    doc_sec = doc.get("security")
-    if isinstance(doc_sec, list):
-        for req in doc_sec:
-            if isinstance(req, dict) and len(req) == 1:
-                name = next(iter(req.keys()))
-                if _scheme_supported(schemes.get(name)):
-                    return name
+    if not isinstance(doc_sec, list):
+        return None
+    for req in doc_sec:
+        if isinstance(req, dict) and len(req) == 1:
+            name = next(iter(req.keys()))
+            if predicate(schemes.get(name)):
+                return name
+    return None
 
+
+def _count_scheme_usage(
+    doc: dict[str, Any], schemes: dict[str, Any], doc_sec: Any, predicate: Any
+) -> dict[str, int]:
     counts: dict[str, int] = {}
     for path_item in (doc.get("paths") or {}).values():
         if not isinstance(path_item, dict):
@@ -372,12 +456,40 @@ def choose_connector_scheme(
                 if not isinstance(req, dict) or len(req) != 1:
                     continue
                 name = next(iter(req.keys()))
-                if _scheme_supported(schemes.get(name)):
+                if predicate(schemes.get(name)):
                     counts[name] = counts.get(name, 0) + 1
+    return counts
 
-    if not counts:
+
+def choose_connector_scheme(
+    doc: dict[str, Any],
+    schemes: dict[str, Any],
+) -> str | None:
+    """Pick global security scheme else most common required supported scheme.
+
+    Self-managed schemes (``_scheme_supported``) always win when present — so a
+    mixed-scheme Petstore-shaped doc keeps ``api_key`` as default. Host-supplied
+    schemes are only considered when no self-managed scheme exists, so they cannot
+    outvote a mapped scheme by raw usage count.
+    """
+    doc_sec = doc.get("security")
+
+    picked = _pick_named_global_scheme(doc_sec, schemes, _scheme_supported)
+    if picked is not None:
+        return picked
+
+    counts = _count_scheme_usage(doc, schemes, doc_sec, _scheme_supported)
+    if counts:
+        return max(counts.items(), key=lambda kv: kv[1])[0]
+
+    picked = _pick_named_global_scheme(doc_sec, schemes, _scheme_host_supplied)
+    if picked is not None:
+        return picked
+
+    host_counts = _count_scheme_usage(doc, schemes, doc_sec, _scheme_host_supplied)
+    if not host_counts:
         return None
-    return max(counts.items(), key=lambda kv: kv[1])[0]
+    return max(host_counts.items(), key=lambda kv: kv[1])[0]
 
 
 def connector_fingerprint(name: str | None, schemes: dict[str, Any]) -> str | None:

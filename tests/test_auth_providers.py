@@ -394,6 +394,49 @@ async def test_base_connector_no_provider_defaults_to_no_auth(tmp_path: Any) -> 
 
 
 # ---------------------------------------------------------------------------
+# Per-action auth_scheme selection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resolve_auth_provider_none_returns_default() -> None:
+    sp = _DictSecretProvider({"MY_API_KEY": "secret-123"})
+    default = StaticTokenAuthProvider(secret_provider=sp, secret_key="MY_API_KEY")
+    connector = _DummyConnector(secret_provider=sp, auth_provider=default)
+    assert connector.resolve_auth_provider(None) is default
+    assert connector.resolve_auth_provider() is default
+
+
+@pytest.mark.asyncio
+async def test_resolve_auth_provider_named_scheme_returns_extra_provider() -> None:
+    sp = _DictSecretProvider({"DEFAULT_KEY": "d", "EXTRA_TOKEN": "e"})
+    default = StaticTokenAuthProvider(secret_provider=sp, secret_key="DEFAULT_KEY")
+    extra = StaticTokenAuthProvider(secret_provider=sp, secret_key="EXTRA_TOKEN")
+    connector = _DummyConnector(
+        secret_provider=sp,
+        auth_provider=default,
+        auth_providers={"petstore_auth": extra},
+    )
+    assert connector.resolve_auth_provider("petstore_auth") is extra
+    headers = await connector.get_auth_headers("petstore_auth")
+    assert headers == {"Authorization": "Bearer e"}
+    # Default is untouched by the presence of extra schemes.
+    assert connector.resolve_auth_provider(None) is default
+
+
+@pytest.mark.asyncio
+async def test_resolve_auth_provider_unknown_scheme_fails_closed() -> None:
+    """An unrecognized auth_scheme must raise, never silently fall back to the
+    default provider or to no auth — that would send the wrong credential (or none)
+    to an API expecting a specific one."""
+    sp = _DictSecretProvider({"DEFAULT_KEY": "d"})
+    default = StaticTokenAuthProvider(secret_provider=sp, secret_key="DEFAULT_KEY")
+    connector = _DummyConnector(secret_provider=sp, auth_provider=default)
+    with pytest.raises(ValueError, match="unknown auth_scheme"):
+        connector.resolve_auth_provider("does_not_exist")
+
+
+# ---------------------------------------------------------------------------
 # Factory._build_auth_provider()
 # ---------------------------------------------------------------------------
 
@@ -423,6 +466,43 @@ def test_factory_builds_static_token_provider() -> None:
     cfg = {"auth": {"provider": "static_token", "secret_key": "my_api_key", "prefix": ""}}
     provider = factory._build_auth_provider("stripe", cfg)
     assert isinstance(provider, StaticTokenAuthProvider)
+
+
+def test_factory_builds_extra_auth_providers_from_auth_schemes() -> None:
+    """`auth_schemes:` builds one named AuthProvider per entry alongside default `auth:`."""
+    from bindings.factory import ConnectorFactory
+    from node_wire_runtime.auth import StaticTokenAuthProvider
+
+    sp = _DictSecretProvider({"PET_STORE_API_KEY": "k", "PET_STORE_ACCESS_TOKEN": "t"})
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+
+    cfg = {
+        "auth": {"provider": "static_token", "secret_key": "PET_STORE_API_KEY", "header_name": "api_key", "prefix": ""},
+        "auth_schemes": {
+            "petstore_auth": {
+                "provider": "static_token",
+                "secret_key": "PET_STORE_ACCESS_TOKEN",
+                "header_name": "Authorization",
+                "prefix": "Bearer",
+                "host_supplied": True,
+            }
+        },
+    }
+    default = factory._build_auth_provider("pet_store", cfg)
+    extras = factory._build_extra_auth_providers("pet_store", cfg)
+    assert isinstance(default, StaticTokenAuthProvider)
+    assert set(extras) == {"petstore_auth"}
+    assert isinstance(extras["petstore_auth"], StaticTokenAuthProvider)
+
+
+def test_factory_builds_no_extra_auth_providers_when_auth_schemes_absent() -> None:
+    """Connectors without `auth_schemes` get an empty extras dict."""
+    from bindings.factory import ConnectorFactory
+
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = _DictSecretProvider({})
+    assert factory._build_extra_auth_providers("stripe", {}) == {}
 
 
 def test_factory_builds_oauth2_provider() -> None:
@@ -465,7 +545,8 @@ def test_factory_builds_service_account_provider() -> None:
 
 
 @pytest.mark.asyncio
-async def test_factory_builds_upstream_bearer_provider() -> None:
+async def test_factory_builds_upstream_bearer_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """upstream_bearer also requires NW_UPSTREAM_BEARER_CONNECTORS allowlist."""
     from bindings.factory import ConnectorFactory
     from node_wire_runtime.auth.base import (
         get_upstream_bearer,
@@ -473,6 +554,7 @@ async def test_factory_builds_upstream_bearer_provider() -> None:
         set_upstream_bearer,
     )
 
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     sp = _DictSecretProvider({})
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
@@ -495,12 +577,43 @@ async def test_factory_builds_upstream_bearer_provider() -> None:
     assert get_upstream_bearer() is None
 
 
+def test_upstream_bearer_fails_closed_without_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """provider=upstream_bearer alone is insufficient — allowlist required too."""
+    from bindings.factory import ConnectorFactory
+
+    monkeypatch.delenv("NW_UPSTREAM_BEARER_CONNECTORS", raising=False)
+    sp = _DictSecretProvider({})
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+
+    with pytest.raises(ValueError, match="NW_UPSTREAM_BEARER_CONNECTORS"):
+        factory._build_auth_provider("google_drive", {"auth": {"provider": "upstream_bearer"}})
+
+
+def test_upstream_bearer_allowlist_is_per_connector(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Allowlisting one connector must not implicitly allow another — no blast-radius
+    leak across connectors."""
+    from bindings.factory import ConnectorFactory
+
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
+    sp = _DictSecretProvider({})
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = sp
+
+    # Allowlisted connector: fine.
+    factory._build_auth_provider("google_drive", {"auth": {"provider": "upstream_bearer"}})
+    # A different connector, not allowlisted, must still fail closed.
+    with pytest.raises(ValueError, match="NW_UPSTREAM_BEARER_CONNECTORS"):
+        factory._build_auth_provider("some_other_api", {"auth": {"provider": "upstream_bearer"}})
+
+
 def test_google_drive_auth_provider_env_overrides_yaml(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from bindings.factory import ConnectorFactory
 
     monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     sp = _DictSecretProvider({})
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp

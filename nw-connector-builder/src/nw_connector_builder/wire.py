@@ -25,6 +25,7 @@ def wire_connectors_yaml(
     *,
     base_url: str,
     auth_block: dict[str, Any],
+    extra_auth_blocks: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     try:
         from ruamel.yaml import YAML
@@ -51,6 +52,9 @@ def wire_connectors_yaml(
     }
     if auth_block:
         block["auth"] = auth_block
+    if extra_auth_blocks:
+        # Named schemes beyond the connector default (multi-scheme specs).
+        block["auth_schemes"] = extra_auth_blocks
     data["connectors"][connector_id] = block
 
     # Atomic write
@@ -81,6 +85,7 @@ def wire_sample_env(
     *,
     secret_keys: list[str],
     secret_defaults: dict[str, str] | None = None,
+    host_supplied_keys: frozenset[str] = frozenset(),
 ) -> None:
     if not path.is_file():
         # Create minimal file
@@ -116,6 +121,12 @@ def wire_sample_env(
     defaults = secret_defaults or {}
     for key in secret_keys:
         if key and key not in existing_keys:
+            if key in host_supplied_keys:
+                new_lines.append(
+                    f"# {key}: host-supplied credential — Node Wire will not obtain, "
+                    "refresh, or detect the expiry of this token. See auth.notes in "
+                    f"the {connector_id} build report."
+                )
             new_lines.append(f"{key}={defaults.get(key, '')}")
 
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
@@ -129,14 +140,40 @@ def apply_wire(
     auth_block: dict[str, Any],
     secret_keys: list[str],
     secret_defaults: dict[str, str] | None = None,
+    host_supplied: bool = False,
+    extra_auth_plans: dict[str, Any] | None = None,
 ) -> None:
+    """``extra_auth_plans``: scheme_name -> plan with ``.yaml_block`` / secrets / ``.tier``.
+
+    Empty/``None`` for single-scheme connectors (the common case).
+    """
+    extra_auth_plans = extra_auth_plans or {}
+
+    extra_auth_blocks = {name: plan.yaml_block for name, plan in extra_auth_plans.items()}
+
+    all_secret_keys = list(secret_keys)
+    all_secret_defaults = dict(secret_defaults or {})
+    host_supplied_keys: set[str] = set(secret_keys) if host_supplied else set()
+    for plan in extra_auth_plans.values():
+        all_secret_keys.extend(plan.secret_keys)
+        all_secret_defaults.update(plan.secret_defaults)
+        if plan.tier == "host_supplied":
+            host_supplied_keys.update(plan.secret_keys)
+
     yaml_path = node_wire_root / "config" / "connectors.yaml"
     env_path = node_wire_root / "sample.env"
-    wire_connectors_yaml(yaml_path, connector_id, base_url=base_url, auth_block=auth_block)
+    wire_connectors_yaml(
+        yaml_path,
+        connector_id,
+        base_url=base_url,
+        auth_block=auth_block,
+        extra_auth_blocks=extra_auth_blocks,
+    )
     wire_sample_env(
         env_path,
         connector_id,
-        secret_keys=[k for k in secret_keys if k],
-        secret_defaults=secret_defaults,
+        secret_keys=[k for k in all_secret_keys if k],
+        secret_defaults=all_secret_defaults,
+        host_supplied_keys=frozenset(k for k in host_supplied_keys if k),
     )
     logger.info("--wire updated %s and %s", yaml_path, env_path)

@@ -19,6 +19,13 @@ For **MCP** (e.g. ToolHive), tools are named `google_drive_<action>` from the co
 
 For **per-user Google Drive access** (each caller uses their own Drive), set:
 
+`upstream_bearer` is a **credential relay**, not an ordinary auth provider: Node Wire
+forwards the caller's own inbound MCP bearer token to Google Drive's API as-is. It does
+not verify that token is actually valid for Drive — audience binding is the host
+application's responsibility (e.g. only enable this when the IdP issuing the inbound
+token is one whose tokens are already scoped to Drive). Fails closed by design: setting
+the provider alone does nothing.
+
 ```yaml
 google_drive:
   auth:
@@ -31,13 +38,20 @@ Or set the environment variable (overrides `connectors.yaml` when present):
 GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer
 ```
 
+**And**, independently, add `google_drive` to the explicit relay allowlist — required in
+addition to the setting above, not instead of it:
+
+```env
+NW_UPSTREAM_BEARER_CONNECTORS=google_drive
+```
+
 Allowed values: `service_account` (default), `upstream_bearer`.
 
 Run the **google-drive-only** MCP server (`python -m agents.google_drive_mcp`) with `NW_MCP_TRANSPORT=streamable-http`. The `Authorization: Bearer` token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do **not** set `NW_MCP_API_KEY`, `NW_MCP_JWT_SECRET`, or `GOOGLE_DRIVE_SA_JSON` for this profile.
 
 **ToolHive OIDC manifests:** copy and adapt from [mcp-builder `out/google-drive-mcp/deploy/`](https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy) (`mcpexternalauthconfig.yaml`, `mcpoidcconfig.yaml`, `mcpserver.yaml`) — use image/entrypoint `nw-google-drive` / `python -m agents.google_drive_mcp`.
 
-**Note:** Passthrough MCP auth applies only when this server exposes `google_drive` alone with `upstream_bearer`. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth.
+**Note:** passthrough activates for any MCP server that exposes an explicit, bounded connector list (`connector_ids=[...]`, never the unrestricted "exposes everything" default) containing at least one relay-allowlisted connector — it is no longer restricted to a google-drive-only server, though that remains the only connector this repo actually configures for it today. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth unless one of those connectors is also allowlisted.
 
 With `NW_MCP_SCOPE_POLICY_DEFAULT=deny` (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (`mcp:google_drive.<action>`) from its manifest to upstream bearer callers so `tools/list` is not empty. Google OAuth on the `Authorization: Bearer` token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.
 

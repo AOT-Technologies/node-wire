@@ -119,6 +119,18 @@ def _validate_doc(doc: Any) -> Dict[str, Any]:
         raise ConfigStoreError("config 'config' block must be a JSON object")
     if "auth" in doc and not isinstance(doc["auth"], dict):
         raise ConfigStoreError("config 'auth' block must be a JSON object")
+    if "auth_schemes" in doc:
+        # Named schemes beyond the default `auth` block (multi-scheme connectors).
+        auth_schemes = doc["auth_schemes"]
+        if not isinstance(auth_schemes, dict):
+            raise ConfigStoreError("config 'auth_schemes' block must be a JSON object")
+        for scheme_name, scheme_block in auth_schemes.items():
+            if not isinstance(scheme_name, str) or not scheme_name.strip():
+                raise ConfigStoreError("config 'auth_schemes' keys must be non-empty strings")
+            if not isinstance(scheme_block, dict):
+                raise ConfigStoreError(
+                    f"config 'auth_schemes[{scheme_name!r}]' must be a JSON object"
+                )
     return doc
 
 

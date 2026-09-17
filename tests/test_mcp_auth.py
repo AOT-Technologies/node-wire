@@ -471,6 +471,7 @@ def test_streamable_http_upstream_passthrough_accepts_google_bearer(
 ) -> None:
     monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     monkeypatch.setenv("NW_MCP_API_KEY", "unit-test-secret")
 
     server = McpServer(connector_ids=["google_drive"])
@@ -498,6 +499,7 @@ def test_upstream_passthrough_denied_mode_lists_google_drive_tools(
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
     monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
 
     server = McpServer(connector_ids=["google_drive"])
     assert server._upstream_passthrough is True
@@ -522,6 +524,7 @@ def test_streamable_http_upstream_passthrough_denied_lists_tools(
     monkeypatch.delenv("NW_MCP_AUTH_ENABLED", raising=False)
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
     monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
 
     server = McpServer(connector_ids=["google_drive"])
     assert server._upstream_passthrough_scopes
@@ -618,3 +621,73 @@ def test_canonical_disable_flag_takes_precedence(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "false")
     monkeypatch.setenv("NW_MCP_AUTH_ENABLED", "false")  # legacy would say "disable"
     assert mcp_auth_disabled() is False
+
+
+# ---------------------------------------------------------------------------
+# upstream_bearer gating
+# ---------------------------------------------------------------------------
+
+
+def test_unrestricted_server_never_gets_passthrough(monkeypatch: pytest.MonkeyPatch) -> None:
+    """connector_ids=None means "exposes every registered connector" — such a server
+    can never safely reason about relay scope, so passthrough must stay off even if
+    an allowlisted, upstream_bearer connector happens to be registered."""
+    from bindings.factory import ConnectorFactory
+    from bindings.mcp_server.server import _resolve_upstream_passthrough, _upstream_passthrough_scopes
+    from node_wire_runtime.connector_registry import auto_register
+
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "google_drive,stripe")
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()
+
+    assert _resolve_upstream_passthrough(factory, None) is False
+    assert _upstream_passthrough_scopes(factory, None) == ()
+
+
+def test_resolve_upstream_passthrough_generalizes_beyond_google_drive_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The old gate required connector_ids == exactly {"google_drive"}. It must now
+    activate for any bounded connector_ids set that *contains* an allowlisted,
+    upstream_bearer connector — alongside an unrelated, non-relay connector."""
+    from bindings.factory import ConnectorFactory
+    from bindings.mcp_server.server import _resolve_upstream_passthrough
+    from node_wire_runtime.connector_registry import auto_register
+
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "google_drive,stripe")
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()
+
+    assert _resolve_upstream_passthrough(factory, frozenset({"google_drive", "stripe"})) is True
+    # A server exposing only the non-relay connector must not get passthrough.
+    assert _resolve_upstream_passthrough(factory, frozenset({"stripe"})) is False
+
+
+def test_upstream_passthrough_scopes_excludes_non_relay_connector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression for a real scope-leak bug found while generalizing this gate:
+    granted scopes must be computed only from connectors that actually relay the
+    token, never from every connector the server happens to expose alongside it."""
+    from bindings.factory import ConnectorFactory
+    from bindings.mcp_server.server import _upstream_passthrough_scopes
+    from node_wire_runtime.connector_registry import auto_register
+
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "google_drive,stripe")
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()
+
+    scopes = _upstream_passthrough_scopes(factory, frozenset({"google_drive", "stripe"}))
+    assert not any("stripe" in s for s in scopes)
+    # Stripe alone (no relay connector at all) must yield no granted scopes.
+    assert _upstream_passthrough_scopes(factory, frozenset({"stripe"})) == ()

@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from nw_connector_builder.derive.auth import ConnectorAuthPlan
 from nw_connector_builder.wire import WireError, apply_wire, wire_connectors_yaml, wire_sample_env
 
 
@@ -139,3 +140,66 @@ def test_apply_wire(tmp_path: Path) -> None:
     env = (tmp_path / "sample.env").read_text(encoding="utf-8")
     assert "NW_ALLOWED_CONNECTORS=pet_store" in env
     assert "PET_STORE_API_KEY=" in env
+
+
+def test_apply_wire_with_extra_auth_plans_writes_auth_schemes_block(tmp_path: Path) -> None:
+    """Multi-scheme wire: default `auth` plus named `auth_schemes` and secrets."""
+    (tmp_path / "config").mkdir()
+    yaml_path = tmp_path / "config" / "connectors.yaml"
+    yaml_path.write_text("connectors: {}\n", encoding="utf-8")
+    extra_plan = ConnectorAuthPlan(
+        scheme_name="petstore_auth",
+        scheme={"type": "oauth2", "flows": {"implicit": {}}},
+        provider="static_token",
+        secret_key="PET_STORE_ACCESS_TOKEN",
+        yaml_block={
+            "provider": "static_token",
+            "secret_key": "PET_STORE_ACCESS_TOKEN",
+            "header_name": "Authorization",
+            "prefix": "Bearer",
+            "host_supplied": True,
+        },
+        notes=["HOST-SUPPLIED CREDENTIAL: ..."],
+        secret_keys=["PET_STORE_ACCESS_TOKEN"],
+        tier="host_supplied",
+    )
+    apply_wire(
+        tmp_path,
+        "pet_store",
+        base_url="https://petstore.swagger.io/v2",
+        auth_block={"provider": "static_token", "secret_key": "PET_STORE_API_KEY", "header_name": "api_key"},
+        secret_keys=["PET_STORE_API_KEY"],
+        extra_auth_plans={"petstore_auth": extra_plan},
+    )
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    block = data["connectors"]["pet_store"]
+    assert block["auth"]["secret_key"] == "PET_STORE_API_KEY"
+    assert block["auth_schemes"]["petstore_auth"]["secret_key"] == "PET_STORE_ACCESS_TOKEN"
+    assert block["auth_schemes"]["petstore_auth"]["host_supplied"] is True
+
+    env = (tmp_path / "sample.env").read_text(encoding="utf-8")
+    assert "PET_STORE_API_KEY=" in env
+    assert "PET_STORE_ACCESS_TOKEN=" in env
+    # The default scheme's own secret must NOT be marked host-supplied (it's
+    # self_managed) — only the extra scheme's secret gets the warning comment.
+    lines = env.splitlines()
+    default_idx = lines.index("PET_STORE_API_KEY=")
+    extra_idx = lines.index("PET_STORE_ACCESS_TOKEN=")
+    assert not lines[default_idx - 1].startswith("#")
+    assert lines[extra_idx - 1].startswith("# PET_STORE_ACCESS_TOKEN: host-supplied")
+
+
+def test_apply_wire_without_extra_auth_plans_omits_auth_schemes_block(tmp_path: Path) -> None:
+    """Single-scheme connectors omit the `auth_schemes` key entirely."""
+    (tmp_path / "config").mkdir()
+    yaml_path = tmp_path / "config" / "connectors.yaml"
+    yaml_path.write_text("connectors: {}\n", encoding="utf-8")
+    apply_wire(
+        tmp_path,
+        "stripe",
+        base_url="https://api.stripe.com/v1",
+        auth_block={"provider": "static_token", "secret_key": "STRIPE_API_KEY"},
+        secret_keys=["STRIPE_API_KEY"],
+    )
+    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert "auth_schemes" not in data["connectors"]["stripe"]
