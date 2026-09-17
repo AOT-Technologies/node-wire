@@ -4,7 +4,10 @@
 #
 from __future__ import annotations
 
+import asyncio
 import time
+import urllib.parse
+from typing import Awaitable, Callable
 
 import pytest
 import httpx
@@ -22,6 +25,7 @@ from node_wire_runtime.mcp_client.discovery import (
     ProtectedResourceMetadata,
 )
 from node_wire_runtime.mcp_client.exceptions import McpAudienceMismatch, McpTokenRefreshError
+from node_wire_runtime.mcp_client.oauth_flow import OAuthTokenSet
 from node_wire_runtime.mcp_client.storage import ClientRegistration
 from node_wire_runtime.mcp_client.token_manager import TokenManager
 from node_wire_runtime.mcp_client.token_storage import (
@@ -60,7 +64,11 @@ def _config() -> McpClientConfig:
     )
 
 
-def _manager(*, store: InMemoryTokenStore | None = None) -> TokenManager:
+def _manager(
+    *,
+    store: InMemoryTokenStore | None = None,
+    reauthorize: Callable[[], Awaitable[OAuthTokenSet]] | None = None,
+) -> TokenManager:
     reg = ClientRegistration(
         issuer="https://issuer.example",
         client_id="cid",
@@ -79,6 +87,7 @@ def _manager(*, store: InMemoryTokenStore | None = None) -> TokenManager:
         discovery=_discovery(),
         registration=reg,
         auth_flow=flow,
+        reauthorize=reauthorize,
     )
 
 
@@ -185,3 +194,117 @@ def test_jwt_audience_mismatch() -> None:
     )
     with pytest.raises(McpAudienceMismatch):
         mgr.validate_access_token_audience(token)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_get_bearer_token_issues_one_refresh() -> None:
+    """Racing callers must share one refresh, not each POST the same refresh token.
+
+    Models an IdP that rotates single-use refresh tokens: the second POST of an
+    already-spent token is rejected with invalid_grant, which discards the
+    partition and forces a full re-authorization.
+    """
+    store = InMemoryTokenStore()
+    reauth_calls = 0
+
+    async def _reauthorize() -> OAuthTokenSet:
+        # Stands in for the interactive loopback flow. Without it the unfixed code
+        # blocks forever here waiting on a browser instead of failing an assert.
+        nonlocal reauth_calls
+        reauth_calls += 1
+        return OAuthTokenSet(
+            access_token="reauthorized",
+            token_type="Bearer",
+            expires_in=3600,
+            refresh_token="rt-reauth",
+            scope=None,
+        )
+
+    mgr = _manager(store=store, reauthorize=_reauthorize)
+    expired = stored_from_oauth_response(
+        user_id="alice",
+        mcp_server_url="https://mcp.example.com/mcp",
+        issuer="https://issuer.example",
+        access_token="old",
+        token_type="Bearer",
+        expires_in=1,
+        refresh_token="rt1",
+        scope=None,
+    )
+    expired.expires_at = time.time() - 10
+    mgr.save_tokens(expired)
+
+    posts: list[str] = []
+    spent: set[str] = set()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = dict(urllib.parse.parse_qsl(request.content.decode()))
+        presented = body["refresh_token"]
+        posts.append(presented)
+        # Yield control so every racing caller is in flight at once — without an
+        # await point here the coroutines would serialize by accident.
+        await asyncio.sleep(0)
+        if presented in spent:
+            return httpx.Response(400, json={"error": "invalid_grant"})
+        spent.add(presented)
+        return httpx.Response(
+            200,
+            json={
+                "access_token": "new",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "refresh_token": "rt2",
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        tokens = await asyncio.wait_for(
+            asyncio.gather(*(mgr.get_bearer_token(http_client=client) for _ in range(5))),
+            timeout=10,
+        )
+
+    assert posts == ["rt1"], f"expected a single refresh exchange, got {posts}"
+    assert tokens == ["new"] * 5
+    assert reauth_calls == 0, "a redundant refresh discarded the partition"
+
+
+@pytest.mark.asyncio
+async def test_refresh_tokens_skips_exchange_when_another_caller_won() -> None:
+    """The 401 path in client.py loads `stored` outside the lock; a caller that
+    arrives with a superseded token set gets the newer one, not an invalid_grant."""
+    store = InMemoryTokenStore()
+    mgr = _manager(store=store)
+    stale = stored_from_oauth_response(
+        user_id="alice",
+        mcp_server_url="https://mcp.example.com/mcp",
+        issuer="https://issuer.example",
+        access_token="old",
+        token_type="Bearer",
+        expires_in=1,
+        refresh_token="rt1",
+        scope=None,
+    )
+    mgr.save_tokens(stale)
+    # Another caller refreshed in between, as client.py's 401 path allows.
+    mgr.save_tokens(
+        stored_from_oauth_response(
+            user_id="alice",
+            mcp_server_url="https://mcp.example.com/mcp",
+            issuer="https://issuer.example",
+            access_token="new",
+            token_type="Bearer",
+            expires_in=3600,
+            refresh_token="rt2",
+            scope=None,
+        )
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError("no token request should be made")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await mgr.refresh_tokens(stale, http_client=client)
+
+    assert result.access_token == "new"
