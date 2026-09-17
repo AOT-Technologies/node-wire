@@ -407,7 +407,9 @@ def evaluate_operation_security(
 
     if not candidates:
         if saw_unsupported_only:
-            return OpSecurityDecision("unsupported", "mutualTLS, apiKey-in-cookie, or unknown scheme")
+            return OpSecurityDecision(
+                "unsupported", "mutualTLS, apiKey-in-cookie, or unknown scheme"
+            )
         return OpSecurityDecision("optional" if connector_fp else "anonymous")
 
     # OR of requirements — keep if any matches connector scheme
@@ -424,9 +426,7 @@ def evaluate_operation_security(
     )
 
 
-def _pick_named_global_scheme(
-    doc_sec: Any, schemes: dict[str, Any], predicate: Any
-) -> str | None:
+def _pick_named_global_scheme(doc_sec: Any, schemes: dict[str, Any], predicate: Any) -> str | None:
     if not isinstance(doc_sec, list):
         return None
     for req in doc_sec:

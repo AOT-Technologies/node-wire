@@ -14,7 +14,9 @@ from node_wire_runtime.config_store import ConfigStoreError, ConnectorConfigStor
 def test_auth_schemes_must_be_an_object() -> None:
     store = ConnectorConfigStore()
     with pytest.raises(ConfigStoreError, match="auth_schemes"):
-        store.create("__default__", "pet_store", {"name": "default", "auth_schemes": ["not", "a", "dict"]})
+        store.create(
+            "__default__", "pet_store", {"name": "default", "auth_schemes": ["not", "a", "dict"]}
+        )
 
 
 def test_auth_schemes_entry_must_be_an_object() -> None:

@@ -167,7 +167,11 @@ def test_apply_wire_with_extra_auth_plans_writes_auth_schemes_block(tmp_path: Pa
         tmp_path,
         "pet_store",
         base_url="https://petstore.swagger.io/v2",
-        auth_block={"provider": "static_token", "secret_key": "PET_STORE_API_KEY", "header_name": "api_key"},
+        auth_block={
+            "provider": "static_token",
+            "secret_key": "PET_STORE_API_KEY",
+            "header_name": "api_key",
+        },
         secret_keys=["PET_STORE_API_KEY"],
         extra_auth_plans={"petstore_auth": extra_plan},
     )

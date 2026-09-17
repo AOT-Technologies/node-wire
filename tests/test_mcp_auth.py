@@ -633,7 +633,10 @@ def test_unrestricted_server_never_gets_passthrough(monkeypatch: pytest.MonkeyPa
     can never safely reason about relay scope, so passthrough must stay off even if
     an allowlisted, upstream_bearer connector happens to be registered."""
     from bindings.factory import ConnectorFactory
-    from bindings.mcp_server.server import _resolve_upstream_passthrough, _upstream_passthrough_scopes
+    from bindings.mcp_server.server import (
+        _resolve_upstream_passthrough,
+        _upstream_passthrough_scopes,
+    )
     from node_wire_runtime.connector_registry import auto_register
 
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "google_drive,stripe")

@@ -304,7 +304,9 @@ def test_build_auth_plan_oauth2_implicit_is_host_supplied() -> None:
     schemes = {
         "petstore_auth": {
             "type": "oauth2",
-            "flows": {"implicit": {"authorizationUrl": "https://petstore.swagger.io/oauth/authorize"}},
+            "flows": {
+                "implicit": {"authorizationUrl": "https://petstore.swagger.io/oauth/authorize"}
+            },
         },
     }
     plan = build_auth_plan("pet_store", schemes, "petstore_auth")
@@ -321,7 +323,9 @@ def test_build_auth_plan_oauth2_implicit_is_host_supplied() -> None:
 
 
 def test_build_auth_plan_openid_connect_is_host_supplied() -> None:
-    schemes = {"oidc": {"type": "openIdConnect", "openIdConnectUrl": "https://idp.example.com/.well-known"}}
+    schemes = {
+        "oidc": {"type": "openIdConnect", "openIdConnectUrl": "https://idp.example.com/.well-known"}
+    }
     plan = build_auth_plan("acme", schemes, "oidc")
     assert plan.provider == "static_token"
     assert plan.tier == "host_supplied"
@@ -372,7 +376,9 @@ def test_choose_connector_scheme_mapped_wins_over_host_supplied_petstore_shape()
         "api_key": {"type": "apiKey", "in": "header", "name": "api_key"},
         "petstore_auth": {
             "type": "oauth2",
-            "flows": {"implicit": {"authorizationUrl": "https://petstore.swagger.io/oauth/authorize"}},
+            "flows": {
+                "implicit": {"authorizationUrl": "https://petstore.swagger.io/oauth/authorize"}
+            },
         },
     }
     doc = {
@@ -456,7 +462,12 @@ def test_derive_petstore_shape_generates_all_ops_zero_drops() -> None:
                     "operationId": "getPetById",
                     "security": [{"api_key": []}],
                     "parameters": [
-                        {"name": "petId", "in": "path", "required": True, "schema": {"type": "integer"}}
+                        {
+                            "name": "petId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer"},
+                        }
                     ],
                     "responses": {"200": {"description": "ok"}},
                 },
@@ -464,7 +475,12 @@ def test_derive_petstore_shape_generates_all_ops_zero_drops() -> None:
                     "operationId": "updatePetWithForm",
                     "security": [{"petstore_auth": ["write:pets"]}],
                     "parameters": [
-                        {"name": "petId", "in": "path", "required": True, "schema": {"type": "integer"}}
+                        {
+                            "name": "petId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer"},
+                        }
                     ],
                     "responses": {"200": {"description": "ok"}},
                 },
@@ -472,7 +488,12 @@ def test_derive_petstore_shape_generates_all_ops_zero_drops() -> None:
                     "operationId": "deletePet",
                     "security": [{"petstore_auth": ["write:pets"]}],
                     "parameters": [
-                        {"name": "petId", "in": "path", "required": True, "schema": {"type": "integer"}}
+                        {
+                            "name": "petId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer"},
+                        }
                     ],
                     "responses": {"200": {"description": "ok"}},
                 },
@@ -482,7 +503,12 @@ def test_derive_petstore_shape_generates_all_ops_zero_drops() -> None:
                     "operationId": "uploadFile",
                     "security": [{"petstore_auth": ["write:pets"]}],
                     "parameters": [
-                        {"name": "petId", "in": "path", "required": True, "schema": {"type": "integer"}}
+                        {
+                            "name": "petId",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer"},
+                        }
                     ],
                     "responses": {"200": {"description": "ok"}},
                 }
@@ -532,7 +558,9 @@ def test_derive_petstore_shape_generates_all_ops_zero_drops() -> None:
                 "petstore_auth": {
                     "type": "oauth2",
                     "flows": {
-                        "implicit": {"authorizationUrl": "https://petstore.swagger.io/oauth/authorize"}
+                        "implicit": {
+                            "authorizationUrl": "https://petstore.swagger.io/oauth/authorize"
+                        }
                     },
                 },
             }

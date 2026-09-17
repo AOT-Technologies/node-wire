@@ -478,7 +478,12 @@ def test_factory_builds_extra_auth_providers_from_auth_schemes() -> None:
     factory._secret_provider = sp
 
     cfg = {
-        "auth": {"provider": "static_token", "secret_key": "PET_STORE_API_KEY", "header_name": "api_key", "prefix": ""},
+        "auth": {
+            "provider": "static_token",
+            "secret_key": "PET_STORE_API_KEY",
+            "header_name": "api_key",
+            "prefix": "",
+        },
         "auth_schemes": {
             "petstore_auth": {
                 "provider": "static_token",
