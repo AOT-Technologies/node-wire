@@ -8,9 +8,21 @@ Simplified: one YAML file rewritten on each mutation; gitignored by the repo.
 
 Lives in the runtime (not a binding) because REST, gRPC, and MCP must all
 observe the same persisted tenant/config dataset from the same file — this is
-shared runtime *state* across transports, not connector business logic (see
-docs/adr/0002-connector-specific-logic-stays-in-the-connector.md, which covers
-the latter and explicitly carves this module out as the exception).
+shared runtime *state* across transports, not connector business logic.
+
+Connector-specific secret shapes are declared, not inferred: see
+:func:`declare_secret_shape`. A connector that has not declared one cannot
+persist tenant secrets once enforcement is on.
+
+Rollout is staged via ``NW_SECRET_SHAPE_POLICY`` (:func:`secret_shape_policy`):
+
+- ``warn`` (default) — undeclared connectors are logged and allowed through, so
+  upgrading this package cannot break an existing deployment.
+- ``enforce`` — undeclared connectors are refused.
+
+Boot never applies the gate: :func:`load_tenants` restores already-persisted
+secrets regardless, so a missing declaration can't become a startup failure.
+Use :func:`undeclared_persisted_connectors` to find what is in that state.
 """
 
 from __future__ import annotations
@@ -21,7 +33,7 @@ import os
 import re
 import threading
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Tuple
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Optional, Set, Tuple
 
 import yaml
 
@@ -86,7 +98,69 @@ SECRET_FORMAT_BY_CONNECTOR: Dict[str, Dict[str, str]] = {
         "SALESFORCE_CLIENT_SECRET": "opaque_secret",
         "SALESFORCE_REFRESH_TOKEN": "opaque_secret",
     },
+    # Credentials are optional (logic.py falls back to env, then to an
+    # unauthenticated relay), so these are format-checked but not required.
+    "smtp": {
+        "SMTP_USERNAME": "opaque_secret",
+        "SMTP_PASSWORD": "opaque_secret",
+    },
 }
+
+
+class SecretShapeNotDeclaredError(ValueError):
+    """Raised when a connector persists tenant secrets without a declared shape.
+
+    Subclasses ``ValueError`` so the REST binding's existing ``except ValueError``
+    handlers surface it as a 400 rather than a 500.
+    """
+
+
+# Connectors that genuinely have no tenant secrets. Listing them is the explicit
+# form of "nothing to validate", so it reads as a decision rather than as a row
+# someone forgot to add.
+_NO_TENANT_SECRETS: FrozenSet[str] = frozenset({"http_generic"})
+
+# Every connector permitted to persist tenant secrets. Seeded from the tables
+# above; out-of-tree and generated connectors register via declare_secret_shape().
+# Absence is an error under the "enforce" policy — see
+# require_declared_secret_shape().
+_DECLARED_SECRET_SHAPES: Set[str] = (
+    set(SHARED_ENV_BY_CONNECTOR)
+    | set(REQUIRED_SECRETS_BY_CONNECTOR)
+    | set(SECRET_FORMAT_BY_CONNECTOR)
+    | set(_NO_TENANT_SECRETS)
+)
+
+SECRET_SHAPE_POLICY_ENV = "NW_SECRET_SHAPE_POLICY"
+SECRET_SHAPE_POLICY_WARN = "warn"
+SECRET_SHAPE_POLICY_ENFORCE = "enforce"
+
+
+def secret_shape_policy() -> str:
+    """Resolve the undeclared-connector policy: ``warn`` (default) or ``enforce``.
+
+    Defaults to ``warn`` so upgrading this package cannot start rejecting secret
+    writes for connectors that predate the declaration requirement — operators
+    run warn first, read the logged connector ids, declare them, then set
+    ``enforce``. An *invalid* value is treated as ``enforce``, matching
+    ``mcp_scope_policy``'s unknown-mode-means-deny: a typo in a security knob
+    must not silently disable it.
+
+    Read per call, not cached, so it can be flipped without a restart.
+    """
+    raw = (os.getenv(SECRET_SHAPE_POLICY_ENV) or "").strip().lower()
+    if not raw:
+        return SECRET_SHAPE_POLICY_WARN
+    if raw in (SECRET_SHAPE_POLICY_WARN, SECRET_SHAPE_POLICY_ENFORCE):
+        return raw
+    logger.warning(
+        "Invalid %s=%r; falling back to %r",
+        SECRET_SHAPE_POLICY_ENV,
+        raw,
+        SECRET_SHAPE_POLICY_ENFORCE,
+    )
+    return SECRET_SHAPE_POLICY_ENFORCE
+
 
 _PEM_PRIVATE_RE = re.compile(
     r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
@@ -163,8 +237,137 @@ _FORMAT_VALIDATORS: Dict[str, Callable[[str], None]] = {
 }
 
 
+def declare_secret_shape(
+    connector_id: str,
+    *,
+    required: Iterable[str] = (),
+    formats: Optional[Mapping[str, str]] = None,
+    shared_env: Iterable[Tuple[str, str]] = (),
+) -> None:
+    """Declare a connector's tenant-secret shape. Call at import time.
+
+    Out-of-tree and generated connectors must call this before they can persist
+    tenant secrets. Passing only ``connector_id`` declares that the connector has
+    no tenant secrets — an explicit statement, unlike the absence it replaces.
+
+    The declaration **replaces** any previous one for this connector rather than
+    merging into it, so dropping a key from a re-declaration actually drops its
+    check and ``declare_secret_shape(cid)`` really does mean "no secrets".
+    Repeating an identical call is a no-op; replacing a *different* existing
+    shape is logged, because that is usually an accident (two packages claiming
+    the same connector id) rather than an intent.
+
+    A format kind with no registered validator raises here, so a typo fails at
+    declaration time instead of silently skipping the check at write time.
+    """
+    cid = (connector_id or "").strip()
+    if not cid:
+        raise ValueError("connector_id is required to declare a secret shape")
+
+    fmt_map = {str(k): str(v) for k, v in (formats or {}).items()}
+    unknown = sorted({v for v in fmt_map.values() if v not in _FORMAT_VALIDATORS})
+    if unknown:
+        raise ValueError(
+            f"unknown secret format kind(s) for {cid}: {', '.join(unknown)}. "
+            f"Known kinds: {', '.join(sorted(_FORMAT_VALIDATORS))}"
+        )
+
+    required_keys = [str(k) for k in required]
+    env_pairs = [(str(a), str(b)) for a, b in shared_env]
+
+    # Mutating the three shared tables — take the module lock like every other
+    # mutator here (save_tenants/load_tenants/upsert_tenant_secrets) so a
+    # declaration can't interleave with a read-merge-validate-write sequence.
+    # _lock is an RLock, so a declaration made from under it still works.
+    with _lock:
+        previous = (
+            REQUIRED_SECRETS_BY_CONNECTOR.get(cid),
+            SECRET_FORMAT_BY_CONNECTOR.get(cid),
+            SHARED_ENV_BY_CONNECTOR.get(cid),
+        )
+        incoming = (
+            required_keys or None,
+            fmt_map or None,
+            env_pairs or None,
+        )
+        if cid in _DECLARED_SECRET_SHAPES and previous != incoming:
+            logger.warning(
+                "Replacing an existing secret-shape declaration",
+                extra={"connector_id": cid},
+            )
+
+        for table, value in (
+            (REQUIRED_SECRETS_BY_CONNECTOR, required_keys),
+            (SECRET_FORMAT_BY_CONNECTOR, fmt_map),
+            (SHARED_ENV_BY_CONNECTOR, env_pairs),
+        ):
+            if value:
+                table[cid] = value  # type: ignore[assignment]
+            else:
+                table.pop(cid, None)
+        _DECLARED_SECRET_SHAPES.add(cid)
+
+
+def require_declared_secret_shape(connector_id: str) -> None:
+    """Refuse an undeclared connector under the ``enforce`` policy; warn under ``warn``.
+
+    Fail-closed in spirit, matching ``base_connector.resolve_auth_provider`` and
+    ``identity.py``: an unrecognised connector_id must not be handed the empty
+    shape that used to mean "store anything, validate nothing". The staged
+    default (see :func:`secret_shape_policy`) is what makes that safe to adopt.
+
+    Membership is read without the lock: ``set`` lookup is atomic under the GIL
+    and this sits on the write path, so locking every read would add contention
+    for no benefit.
+    """
+    if connector_id in _DECLARED_SECRET_SHAPES:
+        return
+
+    policy = secret_shape_policy()
+    # The operator gets the actionable detail; the caller does not. Echoing the
+    # registry back over HTTP would let any tenant enumerate every connector
+    # deployed on the host by POSTing guesses at /v1/connectors/<id>/secrets.
+    logger.warning(
+        "Tenant secrets submitted for a connector with no declared secret shape; "
+        "declare_secret_shape() is required before these secrets can be validated "
+        "(policy=%s, declared_count=%d)",
+        policy,
+        len(_DECLARED_SECRET_SHAPES),
+        extra={"connector_id": connector_id, "secret_shape_policy": policy},
+    )
+    if policy == SECRET_SHAPE_POLICY_WARN:
+        return
+    # Deliberately does not distinguish "no such connector" from "exists but
+    # undeclared" — that difference is itself deployment information.
+    raise SecretShapeNotDeclaredError(
+        f"connector {connector_id!r} is unknown or not configured to accept tenant secrets"
+    )
+
+
+def _undeclared_in_mirror() -> List[str]:
+    """Connector ids present in the loaded secrets mirror with no declared shape."""
+    seen: Set[str] = set()
+    for connectors in _nested_secrets_mirror.values():
+        if isinstance(connectors, dict):
+            seen.update(str(cid) for cid in connectors)
+    return sorted(seen - _DECLARED_SECRET_SHAPES)
+
+
+def undeclared_persisted_connectors() -> List[str]:
+    """Connector ids with persisted tenant secrets but no declared secret shape.
+
+    Operational counterpart to the count logged at load time: these connectors
+    keep serving already-stored secrets unvalidated, and under the ``enforce``
+    policy any *new* write for them is refused. Declare them, or clear their
+    secrets.
+    """
+    with _lock:
+        return _undeclared_in_mirror()
+
+
 def validate_required_secrets(connector_id: str, logical_secrets: Mapping[str, str]) -> None:
     """Raise ValueError when required varying keys are missing from an effective secrets map."""
+    require_declared_secret_shape(connector_id)
     required = REQUIRED_SECRETS_BY_CONNECTOR.get(connector_id) or []
     missing = [
         key
@@ -177,6 +380,7 @@ def validate_required_secrets(connector_id: str, logical_secrets: Mapping[str, s
 
 def validate_secret_formats(connector_id: str, logical_secrets: Mapping[str, str]) -> None:
     """Raise ValueError when supplied secret values fail format checks for this connector."""
+    require_declared_secret_shape(connector_id)
     formats = SECRET_FORMAT_BY_CONNECTOR.get(connector_id) or {}
     errors: List[str] = []
     for key, value in logical_secrets.items():
@@ -268,6 +472,11 @@ def upsert_tenant_secrets(
     name = (config_name or "").strip()
     if not name:
         raise ValueError("config_name is required for tenant secrets")
+
+    # Gate here, not only inside the validators: they run conditionally
+    # (`if require_varying` / `if merged`), so an undeclared connector could
+    # otherwise reach the write below with both checks skipped.
+    require_declared_secret_shape(connector_id)
 
     overlay = OverlaySecretProvider.instance()
     merged: Dict[str, str] = {
@@ -409,6 +618,20 @@ def load_tenants(store: ConnectorConfigStore) -> None:
                 "tenants": len(tenants) if isinstance(tenants, dict) else 0,
             },
         )
+        # Boot deliberately does not run the declaration gate: refusing to load
+        # already-persisted secrets would turn a missing declaration into a
+        # startup failure. But the gap must not be invisible, so surface a count
+        # and let the operator get the ids from undeclared_persisted_connectors()
+        # — the ids themselves come from the same traversal as the secret values,
+        # which CodeQL's clear-text-logging check treats as tainted (see above).
+        stale = _undeclared_in_mirror()
+        if stale:
+            logger.warning(
+                "Loaded persisted secrets for %d connector(s) with no declared secret "
+                "shape; these were stored before the declaration requirement and are "
+                "served unvalidated. Call undeclared_persisted_connectors() for the ids",
+                len(stale),
+            )
 
 
 def list_secret_logical_keys(tenant_id: str, connector_id: str, config_name: str) -> List[str]:

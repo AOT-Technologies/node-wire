@@ -17,8 +17,11 @@ from fastapi.testclient import TestClient
 from bindings.factory import ConnectorFactory
 from bindings.rest_api.app import app, get_factory
 from node_wire_runtime.tenant_persistence import (
+    SecretShapeNotDeclaredError,
+    declare_secret_shape,
     load_tenants,
     save_tenants,
+    secret_shape_policy,
     upsert_tenant_secrets,
 )
 from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
@@ -424,6 +427,11 @@ def test_concurrent_upsert_and_save_do_not_race(
     # (verified directly against the pre-fix module before writing this test).
     from node_wire_runtime import tenant_persistence as tp
 
+    # This test's connector is fictional; declare its (empty) secret shape so the
+    # fail-closed gate in upsert_tenant_secrets lets the writes through. What is
+    # under test here is locking, not validation.
+    tp.declare_secret_shape("demo_connector")
+
     for i in range(1200):
         tp._nested_secrets_mirror[f"seed-{i}"] = {"seed_connector": {"cfg": {"K": "v"}}}
 
@@ -479,3 +487,284 @@ def test_concurrent_upsert_and_save_do_not_race(
         assert OverlaySecretProvider.instance().get_secret(scoped) == (
             f"val-{worker_id}-{n_iters - 1}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Mandatory secret-shape declaration (fail-closed gate)
+# ---------------------------------------------------------------------------
+
+
+def _undeclared_id() -> str:
+    """A connector id guaranteed absent from the declaration registry."""
+    from node_wire_runtime import tenant_persistence as tp
+
+    cid = "never_declared_cx"
+    assert cid not in tp._DECLARED_SECRET_SHAPES
+    return cid
+
+
+def test_undeclared_connector_cannot_persist_secrets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "t.yaml"))
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "enforce")
+    with pytest.raises(SecretShapeNotDeclaredError):
+        upsert_tenant_secrets(
+            "acme",
+            _undeclared_id(),
+            {"SOME_TOKEN": "whatever"},
+            config_name="cfg",
+        )
+
+
+def test_undeclared_connector_refused_even_when_both_checks_would_skip(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The gate must not live only inside the validators.
+
+    require_varying=False skips validate_required_secrets and an all-blank
+    payload skips validate_secret_formats, so before the gate moved up into
+    upsert_tenant_secrets this combination wrote with zero validation.
+    """
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "t.yaml"))
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "enforce")
+    with pytest.raises(SecretShapeNotDeclaredError):
+        upsert_tenant_secrets(
+            "acme",
+            _undeclared_id(),
+            {"BLANK": "   "},
+            config_name="cfg",
+            auto_shared_env=False,
+            require_varying=False,
+        )
+
+
+def test_gate_error_is_a_value_error_so_rest_returns_400() -> None:
+    """The REST binding maps ValueError -> 400; a 500 here would leak as a crash."""
+    assert issubclass(SecretShapeNotDeclaredError, ValueError)
+
+
+def test_declaring_no_secrets_is_an_explicit_declaration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "t.yaml"))
+    declare_secret_shape("shapeless_cx")
+    keys = upsert_tenant_secrets(
+        "acme",
+        "shapeless_cx",
+        {"ANYTHING": "value"},
+        config_name="cfg",
+        auto_shared_env=False,
+        require_varying=False,
+    )
+    assert keys == ["ANYTHING"]
+
+
+def test_http_generic_is_declared_as_having_no_secrets() -> None:
+    from node_wire_runtime import tenant_persistence as tp
+
+    assert "http_generic" in tp._DECLARED_SECRET_SHAPES
+    assert "http_generic" not in tp.REQUIRED_SECRETS_BY_CONNECTOR
+    assert "http_generic" not in tp.SECRET_FORMAT_BY_CONNECTOR
+
+
+def test_declare_secret_shape_rejects_unknown_format_kind() -> None:
+    with pytest.raises(ValueError, match="unknown secret format kind"):
+        declare_secret_shape("bad_kind_cx", formats={"K": "definitely_not_a_kind"})
+
+
+def test_declared_formats_are_enforced(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A declared connector still gets its format checks — declaring isn't exempting."""
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "t.yaml"))
+    declare_secret_shape("fussy_cx", formats={"TOKEN": "slack_bot_token"})
+    with pytest.raises(ValueError, match="TOKEN"):
+        upsert_tenant_secrets(
+            "acme",
+            "fussy_cx",
+            {"TOKEN": "not-an-xoxb-token"},
+            config_name="cfg",
+            auto_shared_env=False,
+            require_varying=False,
+        )
+
+
+def test_smtp_credentials_are_format_checked_but_optional(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "t.yaml"))
+    # Optional: smtp declares no required keys, so an empty upsert is fine.
+    upsert_tenant_secrets(
+        "acme", "smtp", {}, config_name="cfg", auto_shared_env=False, require_varying=True
+    )
+    # But a supplied value is still checked (opaque_secret rejects multi-line).
+    with pytest.raises(ValueError, match="SMTP_PASSWORD"):
+        upsert_tenant_secrets(
+            "acme",
+            "smtp",
+            {"SMTP_PASSWORD": "line1\nline2"},
+            config_name="cfg",
+            auto_shared_env=False,
+            require_varying=False,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Staged rollout policy + non-disclosure
+# ---------------------------------------------------------------------------
+
+
+def test_policy_defaults_to_warn_so_upgrades_do_not_break(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_SECRET_SHAPE_POLICY", raising=False)
+    assert secret_shape_policy() == "warn"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("warn", "warn"),
+        ("enforce", "enforce"),
+        ("  ENFORCE  ", "enforce"),
+        ("typo", "enforce"),
+        ("", "warn"),
+    ],
+)
+def test_policy_resolution(monkeypatch: pytest.MonkeyPatch, value: str, expected: str) -> None:
+    """An invalid value must resolve to enforce — a typo in a security knob
+    must not silently disable it (same rule as mcp_scope_policy's unknown->deny)."""
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", value)
+    assert secret_shape_policy() == expected
+
+
+def test_warn_policy_allows_undeclared_connector_through(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "t.yaml"))
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "warn")
+    keys = upsert_tenant_secrets(
+        "acme",
+        _undeclared_id(),
+        {"SOME_TOKEN": "whatever"},
+        config_name="cfg",
+        auto_shared_env=False,
+        require_varying=False,
+    )
+    assert keys == ["SOME_TOKEN"]
+
+
+def test_gate_error_does_not_enumerate_deployed_connectors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The caller-facing message must not leak the registry.
+
+    It reaches the client as an HTTP 400 detail, so echoing the declared set
+    would let any tenant inventory every connector on the host by POSTing
+    guesses at /v1/connectors/<id>/secrets.
+    """
+    from node_wire_runtime import tenant_persistence as tp
+
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "enforce")
+    with pytest.raises(SecretShapeNotDeclaredError) as excinfo:
+        tp.require_declared_secret_shape("acme_internal_payroll")
+
+    detail = str(excinfo.value)
+    for declared in tp._DECLARED_SECRET_SHAPES:
+        assert declared not in detail, f"leaked {declared!r} to the caller"
+    # Nor should it hint at the internal declaration API.
+    assert "declare_secret_shape" not in detail
+
+
+def test_undeclared_attempt_is_logged_for_operators(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """What the caller does not get, the operator must: the connector id."""
+    from node_wire_runtime import tenant_persistence as tp
+
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "warn")
+    with caplog.at_level("WARNING", logger="runtime.tenant_persistence"):
+        tp.require_declared_secret_shape("acme_internal_payroll")
+
+    records = [r for r in caplog.records if "no declared secret shape" in r.getMessage()]
+    assert records, "no operator-facing warning emitted"
+    assert getattr(records[-1], "connector_id", None) == "acme_internal_payroll"
+
+
+# ---------------------------------------------------------------------------
+# Declaration replace semantics
+# ---------------------------------------------------------------------------
+
+
+def test_declaring_empty_clears_a_previous_declaration() -> None:
+    """The error message tells operators that passing no required/formats means
+    "no secrets"; that must be true even for an already-declared connector."""
+    from node_wire_runtime import tenant_persistence as tp
+
+    declare_secret_shape("clearme_cx", required=["A"], formats={"A": "opaque_secret"})
+    assert tp.REQUIRED_SECRETS_BY_CONNECTOR.get("clearme_cx") == ["A"]
+
+    declare_secret_shape("clearme_cx")
+    assert "clearme_cx" not in tp.REQUIRED_SECRETS_BY_CONNECTOR
+    assert "clearme_cx" not in tp.SECRET_FORMAT_BY_CONNECTOR
+    # Still declared — it now declares "no tenant secrets".
+    assert "clearme_cx" in tp._DECLARED_SECRET_SHAPES
+
+
+def test_redeclaring_replaces_rather_than_merges() -> None:
+    from node_wire_runtime import tenant_persistence as tp
+
+    declare_secret_shape(
+        "replaceme_cx",
+        required=["A", "B"],
+        formats={"A": "opaque_secret", "B": "jwt_kid"},
+    )
+    declare_secret_shape("replaceme_cx", required=["A"], formats={"A": "opaque_secret"})
+    assert tp.REQUIRED_SECRETS_BY_CONNECTOR["replaceme_cx"] == ["A"]
+    assert tp.SECRET_FORMAT_BY_CONNECTOR["replaceme_cx"] == {"A": "opaque_secret"}
+
+
+def test_identical_redeclaration_is_quiet(caplog: pytest.LogCaptureFixture) -> None:
+    declare_secret_shape("quiet_cx", required=["A"], formats={"A": "opaque_secret"})
+    with caplog.at_level("WARNING", logger="runtime.tenant_persistence"):
+        declare_secret_shape("quiet_cx", required=["A"], formats={"A": "opaque_secret"})
+    assert not [r for r in caplog.records if "Replacing an existing" in r.getMessage()]
+
+
+def test_conflicting_redeclaration_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    """Two packages claiming one connector id is usually a mistake, so it is visible."""
+    declare_secret_shape("conflict_cx", required=["A"])
+    with caplog.at_level("WARNING", logger="runtime.tenant_persistence"):
+        declare_secret_shape("conflict_cx", required=["B"])
+    assert [r for r in caplog.records if "Replacing an existing" in r.getMessage()]
+
+
+# ---------------------------------------------------------------------------
+# Boot never applies the gate
+# ---------------------------------------------------------------------------
+
+
+def test_load_tenants_restores_undeclared_secrets_and_reports_them(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A missing declaration must not become a startup failure, but it must be
+    visible: the secrets load, and the connector is reported as undeclared."""
+    from node_wire_runtime import tenant_persistence as tp
+
+    path = tmp_path / "legacy.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "tenants": {},
+                "secrets": {"acme": {"legacy_undeclared_cx": {"cfg": {"TOKEN": "v"}}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NW_TENANTS_PATH", str(path))
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "enforce")
+
+    load_tenants(_factory().store)  # must not raise even under enforce
+
+    scoped = tenant_scoped_secret_key("acme", "legacy_undeclared_cx", "TOKEN", config_name="cfg")
+    assert OverlaySecretProvider.instance().get_secret(scoped) == "v"
+    assert "legacy_undeclared_cx" in tp.undeclared_persisted_connectors()
