@@ -456,7 +456,7 @@ def _dockerfile(
 # Multi-stage MCP host image (wheels-only):
 # - deps: install runtime + bindings + connector wheels + PyPI deps
 #   (BuildKit pip cache); wheels never enter the final image layers.
-# - runtime: copy site-packages from deps, then thin host src + config last
+# - runtime: copy /usr/local from deps, then thin host src + config last
 #   so source edits do not invalidate the expensive install layer.
 
 FROM {PYTHON_312_SLIM_IMAGE} AS deps
@@ -465,8 +465,17 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \\
     PYTHONDONTWRITEBYTECODE=1
 
 COPY wheels/ /wheels/
+# --no-compile, not --no-cache-dir: the local wheels install offline via
+# --find-links, but the PyPI tree behind them (opentelemetry-*, traceloop-sdk,
+# cryptography via PyJWT[crypto], pydantic, mcp) is a real download. Every
+# `gen-all` produces new wheel files, which invalidates this layer, so that
+# download repeats on each loop. --no-cache-dir told pip to neither read nor
+# write a cache, leaving the mount above permanently empty and doing nothing.
+# --no-compile then avoids writing .pyc files the next two lines only delete.
+# The find still earns its place: it strips the base image's own stdlib
+# __pycache__, which shrinks the /usr/local copied into the final stage.
 RUN --mount=type=cache,target=/root/.cache/pip \\
-    pip install --no-cache-dir --find-links=/wheels \\
+    pip install --no-compile --find-links=/wheels \\
         node-wire-runtime {BINDINGS_DIST_PACKAGE} {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
     && find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true \\
     && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
@@ -490,11 +499,13 @@ ENV PYTHONPATH=/app/src \\
 
 WORKDIR /app
 
-# Installed packages only — no /wheels in the final image.
-COPY --from=deps /usr/local /usr/local
-
+# Before the COPY below: this depends on nothing from the deps stage, so
+# keeping it above the 154MB copy lets it stay cached when wheels change.
 RUN groupadd --system --gid 1000 app \\
     && useradd --system --uid 1000 --gid app --home /nonexistent --no-create-home --shell /usr/sbin/nologin app
+
+# Installed packages only — no /wheels in the final image.
+COPY --from=deps /usr/local /usr/local
 
 # --chmod normalizes to a known-good, world-readable mode regardless of the
 # host file's permissions (e.g. config/connectors.yaml is 600 on disk) —
