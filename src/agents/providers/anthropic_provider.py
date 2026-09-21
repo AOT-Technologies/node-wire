@@ -17,9 +17,25 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
 
 logger = logging.getLogger("agents.providers.anthropic")
+
+
+def _usage_from_response(response: Any) -> Optional[TokenUsage]:
+    """Normalise Anthropic's usage block, which has no total field."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    prompt = getattr(usage, "input_tokens", None)
+    completion = getattr(usage, "output_tokens", None)
+    if prompt is None and completion is None:
+        return None
+    return TokenUsage(
+        prompt_tokens=prompt,
+        completion_tokens=completion,
+        total_tokens=(prompt or 0) + (completion or 0),
+    )
 
 
 def _mcp_tool_to_claude(tool: Dict[str, Any]) -> Dict[str, Any]:
@@ -144,4 +160,5 @@ class AnthropicProvider(BaseLLMProvider):
             content=" ".join(text_parts) if text_parts else None,
             tool_calls=tool_calls,
             stop_reason="tool_calls" if tool_calls else "stop",
+            usage=_usage_from_response(response),
         )
