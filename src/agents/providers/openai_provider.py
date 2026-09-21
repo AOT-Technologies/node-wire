@@ -17,7 +17,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, cast
 
-from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
 from agents.schema_utils import openai_compatible_tool_parameters
 
 logger = logging.getLogger("agents.providers.openai")
@@ -67,6 +67,21 @@ def _messages_to_openai(messages: List[LLMMessage]) -> List[Dict[str, Any]]:
     return result
 
 
+def _usage_from_response(response: Any) -> Optional[TokenUsage]:
+    """Read the OpenAI-style ``usage`` block, tolerating backends that omit it.
+
+    Ollama's OpenAI-compatible endpoint does not always populate ``usage``.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    return TokenUsage(
+        prompt_tokens=getattr(usage, "prompt_tokens", None),
+        completion_tokens=getattr(usage, "completion_tokens", None),
+        total_tokens=getattr(usage, "total_tokens", None),
+    )
+
+
 OpenAI: Any
 try:
     from openai import OpenAI as _OpenAI
@@ -79,7 +94,7 @@ except ImportError:
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI LLM provider with native tool calling.
 
-    Also used for OpenAI-compatible endpoints (e.g. NVIDIA Integrate) via ``base_url``.
+    Also used for OpenAI-compatible endpoints (NVIDIA Integrate, OpenRouter, local Ollama) via ``base_url``.
     """
 
     def __init__(
@@ -133,4 +148,5 @@ class OpenAIProvider(BaseLLMProvider):
             content=msg.content,
             tool_calls=tool_calls,
             stop_reason=stop_reason,
+            usage=_usage_from_response(response),
         )

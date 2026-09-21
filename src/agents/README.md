@@ -39,6 +39,10 @@ A modular factory system supporting diverse LLM backends:
 - **Google Gemini**: Large context windows with Gemini-2.0-flash.
 - **Anthropic**: High-reasoning capabilities with Claude-3.5-Haiku.
 - **NVIDIA**: OpenAI-compatible endpoint, defaults to `nvidia/nemotron-3.5-lightning-30b-a3b`.
+- **OpenRouter**: OpenAI-compatible endpoint; playground catalog defaults to
+  `poolside/laguna-s-2.1:free`, `liquid/lfm-2.5-2.6b:free`,
+  `nex-agi/nex-n2.5-pro:free`, and `inclusionai/ling-3.0-flash-fin:free`.
+- **Ollama**: Local OpenAI-compatible endpoint (playground **+ Add local model**).
 
 ---
 
@@ -63,7 +67,7 @@ Configuration is managed via environment variables in your `.env` file.
 
 ### **LLM Credentials**
 ```bash
-# Provider Selection: groq | openai | gemini | anthropic | nvidia
+# Provider Selection: groq | openai | gemini | anthropic | nvidia | ollama | openrouter
 LLM_PROVIDER=groq
 GROQ_API_KEY=gsk_...
 
@@ -73,6 +77,17 @@ GROQ_MODEL=llama-3.3-70b-versatile
 # NVIDIA (OpenAI-compatible) — used when LLM_PROVIDER=nvidia
 NVIDIA_API_KEY=nvapi-...
 NVIDIA_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b
+
+# OpenRouter (OpenAI-compatible) — playground switcher or LLM_PROVIDER=openrouter
+# Free-tier models log prompts — do not send confidential or personal data.
+# OPENROUTER_API_KEY=sk-or-v1-...
+# OPENROUTER_MODEL=poolside/laguna-s-2.1:free
+# OPENROUTER_MODELS=poolside/laguna-s-2.1:free,liquid/lfm-2.5-2.6b:free,nex-agi/nex-n2.5-pro:free,inclusionai/ling-3.0-flash-fin:free
+
+# Ollama (local OpenAI-compatible) — playground "+ Add local model" or LLM_PROVIDER=ollama
+# OLLAMA_BASE_URL=http://127.0.0.1:11434/v1
+# OLLAMA_MODEL=qwen2.5:7b
+# OLLAMA_API_KEY=ollama
 ```
 
 ### **MCP & Orchestration**

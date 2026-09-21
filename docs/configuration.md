@@ -37,7 +37,7 @@ copy sample.env .env
 | **Slack** | `SLACK_BOT_TOKEN` | Sending Slack messages |
 | **Stripe** | `STRIPE_API_KEY` | Stripe payments |
 | **Salesforce** | `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN` | Salesforce CRM integration |
-| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL` (or other provider keys) | AI agent / ToolHive / playground LLM switcher |
+| **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL`, `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` / `OPENROUTER_MODEL` / `OPENROUTER_MODELS`, `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_API_KEY` (or other provider keys) | AI agent / ToolHive / playground LLM switcher (Groq, NVIDIA, OpenRouter, local Ollama). OpenRouter free models log prompts — do not send PHI/confidential data. |
 
 ### Transport & Binding Config
 

@@ -16,13 +16,25 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, cast
 
-from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
 from agents.schema_utils import openai_compatible_tool_parameters
 
 
 logger = logging.getLogger("agents.providers.groq")
+
+
+def _usage_from_response(response: Any) -> Optional[TokenUsage]:
+    """Read Groq's OpenAI-style ``usage`` block, tolerating its absence."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    return TokenUsage(
+        prompt_tokens=getattr(usage, "prompt_tokens", None),
+        completion_tokens=getattr(usage, "completion_tokens", None),
+        total_tokens=getattr(usage, "total_tokens", None),
+    )
 
 
 def _mcp_tool_to_groq(tool: Dict[str, Any]) -> Dict[str, Any]:
@@ -131,4 +143,5 @@ class GroqProvider(BaseLLMProvider):
             content=msg.content,
             tool_calls=tool_calls,
             stop_reason=stop_reason,
+            usage=_usage_from_response(response),
         )
