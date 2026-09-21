@@ -148,11 +148,21 @@ class GoogleDriveConnector(BaseConnector):
             drive = build("drive", "v3", credentials=creds)
         else:
             drive = self.get_client()
-        extra = {"trace_id": trace_id, **(log_extra or {})}
+        extra = {
+            "trace_id": trace_id,
+            "connector_id": self.connector_id,
+            **(log_extra or {}),
+        }
         logger.info("Google Drive %s", action_name, extra=extra)
         try:
             raw = await execute_spec_in_thread(drive, spec, params)
         except HttpError as exc:
+            logger.error(
+                "Google Drive %s failed | status=%s",
+                action_name,
+                getattr(getattr(exc, "resp", None), "status", None),
+                extra=extra,
+            )
             self._translate_and_raise_http_error(exc)
         return GoogleDriveOperationOutput(
             raw=raw,

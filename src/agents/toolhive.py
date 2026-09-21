@@ -69,6 +69,7 @@ from typing import (
 import re
 
 from dotenv import load_dotenv
+from node_wire_runtime.log_sanitization import connector_id_from_tool_name
 
 # llm_base is the dependency-free leaf of the agents package (unlike
 # agents.llm_factory, which is imported lazily below to avoid a cycle).
@@ -128,6 +129,14 @@ def _redact_tool_args_for_log(tool_name: str, args: Dict[str, Any]) -> Dict[str,
         else:
             scrubbed[key] = value
     return scrubbed
+
+
+def _tool_log_extra(tool_name: str) -> Dict[str, str]:
+    extra: Dict[str, str] = {"tool_name": tool_name}
+    cid = connector_id_from_tool_name(tool_name)
+    if cid:
+        extra["connector_id"] = cid
+    return extra
 
 
 def omit_null_tool_args(arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -771,7 +780,12 @@ class ToolHiveAgent:
             # Execute each tool call
             for tc in llm_resp.tool_calls:
                 scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
-                logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
+                logger.info(
+                    "Calling tool: %s | args=%s",
+                    tc.name,
+                    scrubbed_args,
+                    extra=_tool_log_extra(tc.name),
+                )
                 agent_step = AgentStep(
                     step=step_num,
                     tool_called=tc.name,
@@ -788,6 +802,7 @@ class ToolHiveAgent:
                         "Tool %s returned response of length: %d chars",
                         tc.name,
                         len(tool_result_str),
+                        extra=_tool_log_extra(tc.name),
                     )
 
                     # --- AUTOMATIC PAGINATION TOKEN HANDLING ---
@@ -814,7 +829,7 @@ class ToolHiveAgent:
 
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"
-                    logger.error("Tool %s failed: %s", tc.name, exc)
+                    logger.error("Tool %s failed: %s", tc.name, exc, extra=_tool_log_extra(tc.name))
 
                 agent_step.tool_result = tool_result_str
                 result.steps.append(agent_step)
@@ -826,6 +841,7 @@ class ToolHiveAgent:
                         tc.name,
                         len(tool_result_str),
                         len(llm_tool_content),
+                        extra=_tool_log_extra(tc.name),
                     )
 
                 messages.append(
@@ -989,16 +1005,26 @@ class ToolHiveAgent:
             abort_message: Optional[str] = None
             for tc in llm_resp.tool_calls:
                 scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
-                logger.info("Calling tool: %s | args=%s", tc.name, scrubbed_args)
+                logger.info(
+                    "Calling tool: %s | args=%s",
+                    tc.name,
+                    scrubbed_args,
+                    extra=_tool_log_extra(tc.name),
+                )
 
                 try:
                     tool_result_str = await self._mcp.call_tool(
                         tc.name, omit_null_tool_args(tc.arguments)
                     )
-                    logger.info("Tool %s returned: %.200s", tc.name, tool_result_str)
+                    logger.info(
+                        "Tool %s returned: %.200s",
+                        tc.name,
+                        tool_result_str,
+                        extra=_tool_log_extra(tc.name),
+                    )
                 except Exception as exc:
                     tool_result_str = f"ERROR: {exc}"
-                    logger.error("Tool %s failed: %s", tc.name, exc)
+                    logger.error("Tool %s failed: %s", tc.name, exc, extra=_tool_log_extra(tc.name))
 
                 yield {
                     "type": "step",
