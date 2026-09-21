@@ -114,7 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const brandLabel = document.querySelector('.brand-text h1 span.accent');
     const tagline = document.querySelector('.tagline');
     const layoutMain = document.querySelector('.layout-main');
+    const appWrapper = document.querySelector('.app-wrapper');
     const colProgress = document.getElementById('col-progress');
+
+    function setAgentChatLayout(enabled) {
+        if (!appWrapper) return;
+        appWrapper.classList.toggle('is-agent-chat', Boolean(enabled));
+    }
 
     // Agent Chat Elements
     const agentPanel = document.getElementById('agent-panel');
@@ -341,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
                 layoutMain.classList.add('agent-mode');
+                setAgentChatLayout(true);
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
@@ -379,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
+                setAgentChatLayout(false);
                 connectorsListPanel.classList.add('hidden');
                 playgroundView.classList.remove('hidden');
                 if (backToConnectorsBtn) backToConnectorsBtn.classList.add('hidden');
@@ -398,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
+                setAgentChatLayout(false);
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
                 connectorStatus.textContent = 'Connectors Ready';
@@ -421,6 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rootSelectionView.classList.remove('hidden');
         document.getElementById('connector-apps-selection-view').classList.add('hidden');
         layoutMain.classList.add('hidden');
+        layoutMain.classList.remove('agent-mode');
+        setAgentChatLayout(false);
         headerActions.classList.add('hidden');
         tagline.textContent = 'Autonomous Connector Orchestration Platform';
         log('Returned to main selection screen', 'system');
@@ -727,6 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
                 layoutMain.classList.add('agent-mode');
+                setAgentChatLayout(true);
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
@@ -736,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
+                setAgentChatLayout(false);
                 // By default show the list if we just switched to connectors tab
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
@@ -2141,23 +2154,83 @@ document.addEventListener('DOMContentLoaded', () => {
     // AI Agent Chat Logic
     // ======================================================
 
+    // Lightweight markdown for assistant replies (ChatGPT/Gemini-style). Escape first.
+    function formatAgentMarkdown(text) {
+        if (text == null || text === '') return '';
+        let html = escapeHTML(String(text));
+        // Links: [label](https://...)
+        html = html.replace(
+            /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+        // Bare URLs (skip ones already inside href=")
+        html = html.replace(
+            /(?<!href="|">)(https?:\/\/[^\s<]+)/g,
+            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+        html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+        const lines = html.split('\n');
+        const blocks = [];
+        let listType = null; // 'ul' | 'ol' | null
+        let listItems = [];
+
+        const flushList = () => {
+            if (!listType) return;
+            blocks.push(`<${listType}>${listItems.join('')}</${listType}>`);
+            listType = null;
+            listItems = [];
+        };
+
+        for (const rawLine of lines) {
+            const line = rawLine.trimEnd();
+            const bullet = line.match(/^\s*[-*•]\s+(.+)$/);
+            const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+            if (bullet) {
+                if (listType !== 'ul') {
+                    flushList();
+                    listType = 'ul';
+                }
+                listItems.push(`<li>${bullet[1]}</li>`);
+            } else if (numbered) {
+                if (listType !== 'ol') {
+                    flushList();
+                    listType = 'ol';
+                }
+                listItems.push(`<li>${numbered[1]}</li>`);
+            } else if (line.trim() === '') {
+                flushList();
+            } else {
+                flushList();
+                blocks.push(`<p>${line.trim()}</p>`);
+            }
+        }
+        flushList();
+        return blocks.join('') || `<p>${html}</p>`;
+    }
+
     function appendChatBubble(role, content) {
         const bubble = document.createElement('div');
         bubble.className = `chat-bubble ${role}`;
         const roleLabel = role === 'user' ? 'You' : 'Agent';
-        bubble.innerHTML = `<div class="bubble-content"><span class="bubble-role">${escapeHTML(roleLabel)}</span><p>${escapeHTML(content)}</p></div>`;
+        const body = role === 'assistant'
+            ? `<div class="bubble-body">${formatAgentMarkdown(content)}</div>`
+            : `<p>${escapeHTML(content)}</p>`;
+        bubble.innerHTML = `<div class="bubble-content"><span class="bubble-role">${escapeHTML(roleLabel)}</span>${body}</div>`;
         agentChatHistory.appendChild(bubble);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
         return bubble;
     }
 
-    function appendStreamingBubble(label = 'Agent Streaming') {
+    function appendStreamingBubble(label = 'Agent') {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble assistant streaming-bubble';
         bubble.innerHTML = `
             <div class="bubble-content">
                 <span class="bubble-role">${escapeHTML(label)}</span>
-                <p class="streaming-text"></p>
+                <div class="bubble-body streaming-text"></div>
                 <div class="stream-tail-loader">
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
@@ -2795,20 +2868,53 @@ document.addEventListener('DOMContentLoaded', () => {
         const resultIcon = isError ? '✗' : '✓';
 
         let argsStr = '';
-        try { argsStr = JSON.stringify(step.args, null, 2); } catch(e) { argsStr = String(step.args); }
+        try { argsStr = JSON.stringify(step.args, null, 2); } catch (e) { argsStr = String(step.args); }
+        const fullResult = step.result || '';
 
-        let resultPreview = step.result || '';
-        if (resultPreview.length > 200) resultPreview = resultPreview.slice(0, 200) + '…';
+        // One-line summary only — never dump args/result until expanded.
+        let hint = '';
+        if (step.args && typeof step.args === 'object') {
+            const keys = Object.keys(step.args);
+            if (keys.length === 1) {
+                const v = step.args[keys[0]];
+                const short = typeof v === 'string' ? v : JSON.stringify(v);
+                hint = `${keys[0]}=${(short || '').length > 36 ? `${String(short).slice(0, 36)}…` : short}`;
+            } else if (keys.length > 1) {
+                hint = `${keys.length} args`;
+            }
+        }
 
         card.innerHTML = `
-            <div class="step-card-header">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                Tool: ${escapeHTML(step.tool)}
+            <div class="step-card-summary">
+                <span class="step-card-toggle-main">
+                    <svg class="step-card-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    <span class="step-card-tool-name">${escapeHTML(step.tool)}</span>
+                    ${hint ? `<span class="step-card-hint">${escapeHTML(hint)}</span>` : ''}
+                    <span class="step-card-status ${resultClass}" title="${isError ? 'Failed' : 'Succeeded'}">${resultIcon}</span>
+                </span>
+                <button type="button" class="step-card-toggle" aria-expanded="false" title="Show tool details">
+                    <span class="step-card-toggle-label">Details</span>
+                    <svg class="step-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
             </div>
-            <div class="step-card-body">${escapeHTML(argsStr)}</div>
-            ${resultPreview ? `<div class="step-card-result ${resultClass}">${resultIcon} ${escapeHTML(resultPreview)}</div>` : ''}
+            <div class="step-card-details hidden">
+                <div class="step-card-body">${escapeHTML(argsStr)}</div>
+                ${fullResult ? `<div class="step-card-result ${resultClass}">${resultIcon} ${escapeHTML(fullResult)}</div>` : ''}
+            </div>
         `;
-        
+
+        const toggle = card.querySelector('.step-card-toggle');
+        const details = card.querySelector('.step-card-details');
+        const label = card.querySelector('.step-card-toggle-label');
+        toggle.addEventListener('click', () => {
+            const open = details.classList.contains('hidden');
+            details.classList.toggle('hidden', !open);
+            card.classList.toggle('is-expanded', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.title = open ? 'Hide tool details' : 'Show tool details';
+            if (label) label.textContent = open ? 'Hide' : 'Details';
+        });
+
         const streamingBubble = agentChatHistory.querySelector('.streaming-bubble');
         if (streamingBubble) {
             agentChatHistory.insertBefore(card, streamingBubble);
@@ -2927,6 +3033,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     final_chunk: (event) => {
                         agentTyping.classList.add('hidden');
                         finalText += event.content || '';
+                        // Plain text while tokens arrive; format once the stream settles.
                         streamView.text.textContent = finalText;
                         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
                     },
@@ -2948,6 +3055,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                         streamView.loader.classList.add('hidden');
+                        if (finalText) {
+                            streamView.text.innerHTML = formatAgentMarkdown(finalText);
+                            streamView.text.classList.add('is-formatted');
+                        }
                         appendStreamEndMessage(doneMessage, success, finalElapsed);
                         turnUsage = event.usage || null;
                         recordTokenUsage(event.usage, event.llm_option);
@@ -2968,7 +3079,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!finalText) {
                     finalText = success ? 'Completed.' : 'The stream ended before a final answer was returned.';
-                    if (streamView) streamView.text.textContent = finalText;
+                    if (streamView) {
+                        streamView.text.innerHTML = formatAgentMarkdown(finalText);
+                        streamView.text.classList.add('is-formatted');
+                    }
+                } else if (streamView && !streamView.text.classList.contains('is-formatted')) {
+                    streamView.text.innerHTML = formatAgentMarkdown(finalText);
+                    streamView.text.classList.add('is-formatted');
                 }
                 agentConversationHistory.push({ role: 'assistant', content: finalText });
                 appendTurnMetaCard(traceId, turnUsage, 'streamable-http');

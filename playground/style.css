@@ -1388,15 +1388,57 @@ input[type="range"]::-webkit-slider-thumb:hover {
    AI Agent Chat UI
    ============================================ */
 
+/*
+ * Fill the remaining viewport in agent mode so the input row stays visible
+ * on any screen — only .chat-container scrolls, not the page.
+ */
+.app-wrapper.is-agent-chat {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    gap: 1rem;
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+    overflow: hidden;
+}
+
+.app-wrapper.is-agent-chat > .dashboard-header {
+    flex-shrink: 0;
+}
+
+.layout-main.agent-mode {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.layout-main.agent-mode .connectors-toolbar {
+    flex-shrink: 0;
+    margin-bottom: 0.75rem;
+}
+
 .agent-chat-card {
     display: flex;
     flex-direction: column;
-    min-height: 520px;
-    max-height: 72vh;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    height: auto;
+    overflow: hidden;
+}
+
+.agent-chat-card > .card-title,
+.agent-chat-card > .transport-status-bar,
+.agent-chat-card > .typing-indicator,
+.agent-chat-card > .chat-input-row,
+.agent-chat-card > .agent-llm-note {
+    flex-shrink: 0;
 }
 
 .chat-container {
-    flex: 1;
+    flex: 1 1 auto;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -1404,6 +1446,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     padding: 0.5rem 0;
     margin-bottom: 1rem;
     scroll-behavior: smooth;
+    min-height: 0;
 }
 
 .chat-bubble {
@@ -1447,6 +1490,45 @@ input[type="range"]::-webkit-slider-thumb:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+.bubble-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.bubble-body p {
+    margin: 0;
+}
+
+.bubble-body ul,
+.bubble-body ol {
+    margin: 0;
+    padding-left: 1.15rem;
+}
+
+.bubble-body li {
+    margin: 0.2rem 0;
+}
+
+.bubble-body a {
+    color: var(--brand-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+}
+
+.bubble-body code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    background: #f1f5f9;
+    padding: 0.1em 0.35em;
+    border-radius: 0.3rem;
+}
+
+.bubble-body strong {
+    font-weight: 650;
+}
+
 .bubble-role {
     display: block;
     font-size: 0.7rem;
@@ -1461,43 +1543,136 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: rgba(255, 255, 255, 0.75);
 }
 
-/* Tool Step Cards (inside chat) */
+/* Tool Step Cards (inside chat) — one-line summary; details hidden until toggled */
 .agent-step-card {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-left: 3px solid var(--brand-accent);
     border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    margin: 0.5rem 0;
+    padding: 0;
+    margin: 0.35rem 0;
     font-size: 0.825rem;
     animation: bubbleIn 0.3s ease-out forwards;
     max-width: 90%;
+    /* Flex column chat can crush overflow:hidden children; keep tool rows intact. */
+    flex-shrink: 0;
+    overflow: visible;
 }
 
-.step-card-header {
+.step-card-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.65rem 0.45rem 0.85rem;
+}
+
+.step-card-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: white;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.step-card-toggle:hover {
+    color: var(--brand-accent);
+    border-color: var(--brand-accent);
+}
+
+.step-card-toggle:focus-visible {
+    outline: 2px solid var(--brand-accent);
+    outline-offset: 1px;
+}
+
+.step-card-toggle-main {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: var(--brand-accent);
+    min-width: 0;
+    flex: 1;
 }
 
-.step-card-header svg {
+.step-card-tool-icon {
     width: 14px;
     height: 14px;
     flex-shrink: 0;
+    color: var(--brand-accent);
+}
+
+.step-card-tool-name {
+    font-weight: 600;
+    color: var(--brand-accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.step-card-hint {
+    flex-shrink: 1;
+    min-width: 0;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.step-card-status {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.step-card-status.success {
+    color: var(--success);
+}
+
+.step-card-status.error {
+    color: var(--error);
+}
+
+.step-card-chevron {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+}
+
+.agent-step-card.is-expanded .step-card-chevron {
+    transform: rotate(180deg);
+}
+
+.agent-step-card.is-expanded .step-card-toggle {
+    color: var(--brand-accent);
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+.step-card-details {
+    padding: 0 0.85rem 0.75rem;
+}
+
+.step-card-details.hidden {
+    display: none !important;
 }
 
 .step-card-body {
     font-family: 'Courier New', monospace;
     font-size: 0.75rem;
-    color: var(--text-muted);
     background: #0f172a;
     color: #38bdf8;
     padding: 0.5rem 0.75rem;
     border-radius: 0.5rem;
-    max-height: 120px;
+    max-height: 220px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-all;
@@ -1509,6 +1684,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: var(--text-muted);
     border-top: 1px dashed #e2e8f0;
     padding-top: 0.4rem;
+    max-height: 280px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .step-card-result.success {
@@ -2003,7 +2182,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
     box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
 }
 
-.streaming-bubble p {
+.streaming-bubble p,
+.streaming-bubble .streaming-text:not(.is-formatted) {
     white-space: pre-wrap;
 }
 
@@ -2471,7 +2651,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
     box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
 }
 
-.streaming-bubble p {
+.streaming-bubble p,
+.streaming-bubble .streaming-text:not(.is-formatted) {
     white-space: pre-wrap;
 }
 
