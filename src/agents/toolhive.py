@@ -952,9 +952,7 @@ class ToolHiveAgent:
                 return
 
             if llm_resp.usage is not None:
-                turn_usage = (
-                    llm_resp.usage if turn_usage is None else turn_usage + llm_resp.usage
-                )
+                turn_usage = llm_resp.usage if turn_usage is None else turn_usage + llm_resp.usage
 
             # Inline replace so CodeQL treats newline stripping as a sanitizer.
             llm_logger.info(
