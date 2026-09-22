@@ -145,8 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if not VERSION_RE.fullmatch(version):
         print(
-            f"ERROR: {version!r} is not MAJOR.MINOR.PATCH or a PEP 440 "
-            "pre-release (aN/bN/rcN)",
+            f"ERROR: {version!r} is not MAJOR.MINOR.PATCH or a PEP 440 pre-release (aN/bN/rcN)",
             file=sys.stderr,
         )
         return 1
