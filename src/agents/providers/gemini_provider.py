@@ -19,9 +19,21 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, ToolCall
+from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
 
 logger = logging.getLogger("agents.providers.gemini")
+
+
+def _usage_from_response(response: Any) -> Optional[TokenUsage]:
+    """Normalise Gemini's ``usage_metadata`` block."""
+    usage = getattr(response, "usage_metadata", None)
+    if usage is None:
+        return None
+    return TokenUsage(
+        prompt_tokens=getattr(usage, "prompt_token_count", None),
+        completion_tokens=getattr(usage, "candidates_token_count", None),
+        total_tokens=getattr(usage, "total_token_count", None),
+    )
 
 
 def _mcp_schema_to_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -157,4 +169,5 @@ class GeminiProvider(BaseLLMProvider):
             content=" ".join(text_parts) if text_parts else None,
             tool_calls=tool_calls,
             stop_reason="tool_calls" if tool_calls else "stop",
+            usage=_usage_from_response(response),
         )

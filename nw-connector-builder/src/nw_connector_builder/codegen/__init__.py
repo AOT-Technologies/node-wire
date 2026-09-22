@@ -212,15 +212,18 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         in_name = _pascal(a.name) + "Input"
         out_name = _pascal(a.name) + "Output"
         auth_kw = "" if a.auth else ", auth=False"
+        decorator_kw = "" if a.auth else ", requires_auth=False"
+        # auth_scheme_name is an OpenAPI securitySchemes key — always emit via !r.
+        scheme_kw = f", auth_scheme={a.auth_scheme_name!r}" if a.auth_scheme_name else ""
         lines += [
-            f'    @nw_action("{a.name}")',
+            f'    @nw_action("{a.name}"{decorator_kw})',
             f"    async def {a.name}(self, params: {in_name}, *, trace_id: str) -> {out_name}:",
             "        return await self.execute_rest(",
             f'            method="{a.method}",',
             f"            path_template={a.path!r},",
             "            params=params,",
             f"            output_model={out_name},",
-            f"            trace_id=trace_id{auth_kw},",
+            f"            trace_id=trace_id{auth_kw}{scheme_kw},",
             "        )",
             "",
         ]

@@ -25,7 +25,7 @@ All unit tests, integration tests, and example scenarios within the `tests/` and
 
 - **Dummy Emails:** `doc@example.com`, `patient@example.com`, `noreply@node-wire.local`
 - **Dummy Patient IDs:** `12724066`, `eXYZ123`
-- **Dummy Credentials:** Credentials in tests use explicit `dummy` or `test` prefixes (e.g., `sk_test_dummy`).
+- **Dummy Credentials:** Credentials in tests use explicit `dummy`, `test`, or `mock` markers (e.g., `sk_test_mock`).
 
 If you are contributing to Node Wire, you **must** ensure that no real data from your environment is included in your commits.
 

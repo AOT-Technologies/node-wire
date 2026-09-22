@@ -51,7 +51,7 @@ locally before opening a PR:
 - **Type-check:** `uv run mypy` (uses the `src` target from `pyproject.toml`;
   avoid `mypy .`, which pulls in packaging `setup.py` files and produces
   duplicate-module noise)
-- **Security (SAST):** `uv run bandit -c pyproject.toml -r src`
+- **Security (SAST):** `uv run bandit -c pyproject.toml -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src`
 - **Tests:** `uv run pytest`
 
 See [docs/code-quality-compliance.md](docs/code-quality-compliance.md) and

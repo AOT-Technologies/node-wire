@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import Optional
 
 from .config import McpClientConfig, TokenStoreMode, canonicalize_mcp_server_url
-from node_wire_runtime.secrets import EnvSecretProvider, SecretProvider
+from node_wire_runtime.secrets import (
+    ChainedSecretProvider,
+    EnvSecretProvider,
+    OverlaySecretProvider,
+    SecretProvider,
+)
 
 logger = logging.getLogger("runtime.mcp_client.token_storage")
 
@@ -176,7 +181,16 @@ class OsKeychainTokenStore(TokenStore):
 
 
 class SecretProviderTokenStore(TokenStore):
-    """Store encrypted blobs in a configured secret backend (env JSON per partition key)."""
+    """Persist tokens through the same host-managed secret overlay every other
+    runtime credential write already uses (see ``OverlaySecretProvider`` and
+    ``bindings/factory.py``'s oauth2 refresh-token rotation callback — identical
+    pattern). Node Wire does not own durable secret storage; the host does, via
+    whatever ``SecretProvider`` backend it configures (env, AWS/Azure/GCP/Vault, or
+    its own config-store-driven overlay writes). Writing here is process-local only —
+    it does not survive a restart on its own. A host that needs restart durability
+    persists the write itself (e.g. by also calling the config-store secrets API),
+    exactly as already documented for oauth2 refresh-token rotation.
+    """
 
     def __init__(
         self,
@@ -205,18 +219,12 @@ class SecretProviderTokenStore(TokenStore):
 
     def save(self, tokens: StoredOAuthTokens) -> None:
         key = token_partition_key(tokens.user_id, tokens.mcp_server_url, tokens.issuer)
-        # SecretProvider is read-only in runtime; persist via env only in tests.
-        # Production server deployments should use OsKeychainTokenStore or external vault
-        # integration wired by operators; this store supports EnvSecretProvider round-trip
-        # when NW_MCP_OAUTH_TOKEN_* vars are injected by the platform.
-        import os
-
-        os.environ[self._secret_key(key)] = json.dumps(asdict(tokens))
+        OverlaySecretProvider.instance().set_secret(
+            self._secret_key(key), json.dumps(asdict(tokens))
+        )
 
     def delete(self, partition_key: str) -> None:
-        import os
-
-        os.environ.pop(self._secret_key(partition_key), None)
+        OverlaySecretProvider.instance().unset(self._secret_key(partition_key))
 
 
 def make_token_store(
@@ -227,7 +235,13 @@ def make_token_store(
 ) -> TokenStore:
     mode = config.auth.token.store
     if mode == TokenStoreMode.CONFIGURED_SECRET_STORE:
-        return SecretProviderTokenStore(secret_provider or EnvSecretProvider())
+        # Overlay in front of the caller's provider (or env) — same composition as
+        # bindings/factory.py's _build_secret_provider(), so a save() written to the
+        # overlay is visible to the very next get(), matching the rest of the runtime.
+        default_reader = secret_provider or EnvSecretProvider()
+        return SecretProviderTokenStore(
+            ChainedSecretProvider(OverlaySecretProvider.instance(), default_reader)
+        )
     return OsKeychainTokenStore(
         fallback_dir=token_store_path or config.auth.registration_store_path,
     )

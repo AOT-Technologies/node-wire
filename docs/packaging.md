@@ -15,6 +15,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 | PyPI name | Source path | Entry-point key |
 |---|---|---|
 | `node-wire-runtime` | `src/node_wire_runtime/` | — (no entry point; this is the runtime) |
+| `node-wire-bindings` | `src/bindings/` (MCP surface) | — (factory / invoke / mcp_server for MCP images) |
 | `node-wire-fhir-cerner` | `src/node_wire_fhir_cerner/` | `fhir_cerner` |
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
@@ -24,7 +25,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 | `node-wire-smtp` | `src/node_wire_smtp/` | `smtp` |
 | `node-wire-stripe` | `src/node_wire_stripe/` | `stripe` |
 
-Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`.
+Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`; MCP bindings at `packages/bindings/pyproject.toml`.
 
 **Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
 

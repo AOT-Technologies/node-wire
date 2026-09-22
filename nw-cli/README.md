@@ -30,6 +30,8 @@ uv run nw gen-all --connector-id pet_store --path ./openapi.yaml
 # Standalone stages
 uv run nw gen-whl --connector-id pet_store
 uv run nw gen-whl --runtime
+uv run nw gen-whl --bindings
+uv run nw gen-whl --runtime --bindings
 uv run nw gen-mcp --connector-id pet_store --force-output
 uv run nw docker-build --connector-id pet_store --tag latest
 ```

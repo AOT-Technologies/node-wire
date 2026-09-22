@@ -61,6 +61,26 @@ uv run nw gen-all \
 | `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration |
 | `--force` | Overwrite existing connector / MCP output |
 
+Stages run in-process and in order, each skippable independently; the `mcp` stage additionally checks for wheels before building and can trigger a build-or-prompt sub-step of its own:
+
+```mermaid
+flowchart TD
+  start(["nw gen-all"]) --> connector["Connector codegen<br/>run_build(no_mcp=True)"]
+  connector --> wheelFlag{"--no-wheel?"}
+  wheelFlag -- no --> wheel["Wheel build<br/>runtime + bindings, then connector"]
+  wheelFlag -- yes --> mcpFlag
+  wheel --> mcpFlag{"--no-mcp?"}
+  mcpFlag -- no --> wheelsCheck{"Wheels already<br/>present for id?"}
+  wheelsCheck -- no --> ensureBuild["TTY: prompt to build<br/>Non-TTY: exit 1 with fix command"]
+  ensureBuild --> mcpBuild
+  wheelsCheck -- yes --> mcpBuild["MCP host build<br/>run_mcp_build"]
+  mcpFlag -- yes --> wireFlag
+  mcpBuild --> wireFlag{"--no-wire?"}
+  wireFlag -- no --> wire["Wire<br/>connectors.yaml + sample.env + ALL_PACKAGES"]
+  wireFlag -- yes --> done(["Done"])
+  wire --> done
+```
+
 Stages are **in-process** function calls (never re-invokes `nw`). Connector codegen always passes `no_mcp=True` to `run_build` so the builder’s host-only MCP hand-off is skipped; MCP uses `skip_build_wheels=True` against wheels from `build-packages.sh`.
 
 When wire is enabled:

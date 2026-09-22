@@ -56,7 +56,7 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 - `StreamSignal`, `stream_completion_log`, `resolve_stream_buffer_ms`, `BufferedStreamIterator`.
 
 ### Version
-- `__version__`
+- `__version__` — module attribute (not itself listed in `__all__`, but always accessible and stable)
 
 ## Connector contract (extensibility API)
 

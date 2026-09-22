@@ -9,14 +9,14 @@ from importlib import import_module
 from typing import Any, Dict
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
 from node_wire_stripe.schema import ChargeInput
 from node_wire_runtime import BaseConnector
-from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY
+from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY, nw_action
 
 
 def _normalize_for_mcp(connector_id: str, action: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,6 +35,29 @@ def test_registry_contains_base_connectors():
     assert "google_drive" in _CONNECTOR_REGISTRY
     assert "stripe" in _CONNECTOR_REGISTRY
     assert "fhir_epic" in _CONNECTOR_REGISTRY
+
+
+class _AnonPing(BaseModel):
+    action: str = "ping"
+
+
+class _AnonPong(BaseModel):
+    ok: bool = True
+
+
+class _AnonConnector(BaseConnector):
+    connector_id = "test_anon_ping"
+    output_model = _AnonPong
+
+    @nw_action("ping", requires_auth=False)
+    async def ping(self, params: _AnonPing, *, trace_id: str) -> _AnonPong:
+        return _AnonPong()
+
+
+def test_nw_action_forwards_requires_auth_false():
+    """nw_action() must forward requires_auth like sdk_action() does."""
+    meta = _AnonConnector.nw_action_metas()["ping"]
+    assert meta.requires_auth is False
 
 
 def test_manifest_emits_per_action():

@@ -9,6 +9,7 @@ description = "Generate node-wire connectors from Swagger/OpenAPI specs"
 requires-python = ">=3.11"
 dependencies = [
     "prance[osv]>=0.22.2",
+    "openapi-spec-validator>=0.9.0",
     "datamodel-code-generator>=0.26.0",
     "ruamel.yaml>=0.18.0",
     "pydantic>=2.6.0,<3.0.0",
@@ -29,6 +30,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nw_connector_builder"]
+
+[tool.uv]
+override-dependencies = [
+    "openapi-spec-validator>=0.9.0",
+]
 
 [tool.uv.sources]
 nw-mcp-builder = { path = "../nw-mcp-builder", editable = true }

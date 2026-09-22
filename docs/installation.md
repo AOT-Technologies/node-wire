@@ -128,6 +128,6 @@ pre-commit install
 
 ### Running Tests
 ```bash
-pytest tests/ -v
+uv run pytest tests/ -v
 ```
-Integration tests are skipped unless the relevant environment variables (secrets) are set.
+`tests/playground/` (integration tests against real connector credentials) is excluded by default via `--ignore=tests/playground` in `pyproject.toml`'s pytest `addopts` — run it explicitly with the relevant secret env vars set (see `.github/workflows/pytest.yml`'s `playground-integration` job) if you need it: `uv run pytest tests/playground/ --no-cov -v`.

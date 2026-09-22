@@ -1,0 +1,692 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Real-time log monitoring with success rate and status distribution",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "nan",
+                "result": {
+                  "text": "No data"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "none",
+          "decimals": 1,
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^C$/",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  # stdio branch: filter by connector_id label\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" [$__range]))\n  or\n  # streamable-http branch: filter by message text, no connector_id label\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" [$__range]))\n) or vector(1)",
+          "hide": true,
+          "queryType": "instant",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  # stdio branch: failures with connector filter\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" |~ \"(?i)failed|error\" [$__range]))\n  or\n  # streamable-http branch: failures with connector filter\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" |~ \"(?i)failed|error\" [$__range]))\n) or vector(0)",
+          "hide": true,
+          "queryType": "instant",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "expression": "(($A - $B) / $A) * 100",
+          "hide": false,
+          "refId": "C",
+          "type": "math"
+        }
+      ],
+      "title": "Success Rate %",
+      "description": "Filtered by Connector Type and Transport. Covers both stdio (connector_id label) and streamable-http (observed_timestamp label) transports.",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Success"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Warning"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "sort": "desc",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" | level=\"info\" [$__range]))\n  or\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" | level=\"info\" [$__range]))\n) or vector(0)",
+          "legendFormat": "Success",
+          "queryType": "instant",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" |~ \"(?i)failed|error\" [$__range]))\n  or\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" |~ \"(?i)failed|error\" [$__range]))\n) or vector(0)",
+          "legendFormat": "Failed",
+          "queryType": "instant",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" | level=\"warn\" [$__range]))\n  or\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" | level=\"warn\" [$__range]))\n) or vector(0)",
+          "legendFormat": "Warning",
+          "queryType": "instant",
+          "refId": "C"
+        }
+      ],
+      "title": "Log Level Distribution",
+      "description": "Filtered by Connector Type and Transport variables.",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "log lines / 5 min",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failures"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Warnings"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "All Activity"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum",
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" [5m]))\n  or\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" [5m]))\n)",
+          "legendFormat": "All Activity",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" |~ \"(?i)failed|error\" [5m]))\n  or\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" |~ \"(?i)failed|error\" [5m]))\n)",
+          "legendFormat": "Failures",
+          "queryType": "range",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "(\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" | level=\"warn\" [5m]))\n  or\n  sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" | level=\"warn\" [5m]))\n)",
+          "legendFormat": "Warnings",
+          "queryType": "range",
+          "refId": "C"
+        }
+      ],
+      "title": "Connector Activity Over Time (per 5 min)",
+      "description": "Filtered by Connector Type and Transport variables. Both stdio and streamable-http are included.",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "log lines / 5 min",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum",
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum by (connector_id) (count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\" [5m]))",
+          "legendFormat": "stdio: {{connector_id}}",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\" [5m]))",
+          "legendFormat": "streamable-http",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ],
+      "title": "Activity by Transport & Connector (per 5 min)",
+      "description": "stdio connectors broken out by connector_id label. streamable-http grouped together. Both respect the Connector Type filter.",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Filtered by Connector Type and Transport. stdio logs filtered by connector_id label; streamable-http logs filtered by message text.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableInfiniteScrolling": true,
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showControls": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "syntaxHighlighting": true,
+        "unwrappedColumns": false,
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "# stdio: filter by connector_id label\n{service_name=\"node-wire\"} | logfmt | connector_id=~\"${connector_type:regex}\"",
+          "queryType": "range",
+          "refId": "A",
+          "legendFormat": ""
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "# streamable-http: filter by message text\n{service_name=\"node-wire\"} | logfmt | connector_id=\"\" | observed_timestamp!=\"\" |~ \"${connector_type:regex}\"",
+          "queryType": "range",
+          "refId": "B",
+          "legendFormat": ""
+        }
+      ],
+      "title": "All Connector Logs",
+      "type": "logs"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [
+    "connectors",
+    "logs",
+    "monitoring"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "allowCustomValue": false,
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "includeAll": true,
+        "label": "Connector Type",
+        "multi": true,
+        "name": "connector_type",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "fhir_epic",
+            "value": "fhir_epic"
+          },
+          {
+            "selected": false,
+            "text": "google_drive",
+            "value": "google_drive"
+          },
+          {
+            "selected": false,
+            "text": "fhir_cerner",
+            "value": "fhir_cerner"
+          },
+          {
+            "selected": false,
+            "text": "smtp",
+            "value": "smtp"
+          },
+          {
+            "selected": false,
+            "text": "stripe",
+            "value": "stripe"
+          },
+          {
+            "selected": false,
+            "text": "http_generic",
+            "value": "http_generic"
+          }
+        ],
+        "query": "fhir_epic,fhir_cerner,google_drive,smtp,stripe,http_generic",
+        "type": "custom",
+        "valuesFormat": "csv"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Connector Logs & Status",
+  "uid": "connector_logs_fixed",
+  "version": 22,
+  "weekStart": ""
+}

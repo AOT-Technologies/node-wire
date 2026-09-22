@@ -6,7 +6,8 @@
 
 Steps:
   1. Resolve connector package under node-wire ``packages/connectors/<id>``
-  2. Build ``node-wire-runtime`` + ``node-wire-<connector>`` wheels into dist/
+  2. Build ``node-wire-runtime`` + ``node-wire-bindings`` + ``node-wire-<connector>``
+     wheels into dist/
   3. Ensure a connector-mode scope fixture exists (create/update from logic.py)
   4. Run ``run_connector_pipeline`` → ``out/<server>-mcp/``
   5. Write ``.env.example`` with secret env names from connectors.yaml / sample.env
@@ -126,13 +127,15 @@ def build_connector_wheels(
     connector_id: str,
     *,
     python: str | None = None,
-) -> tuple[Path, Path]:
-    """Build runtime + connector wheels into each package's ``dist/``."""
+) -> tuple[Path, Path, Path]:
+    """Build runtime + bindings + connector wheels into each package's ``dist/``."""
     runtime_pkg = node_wire_root / "packages" / "runtime"
+    bindings_pkg = node_wire_root / "packages" / "bindings"
     connector_pkg = node_wire_root / "packages" / "connectors" / connector_id
     runtime_whl = _build_wheel(runtime_pkg, python=python)
+    bindings_whl = _build_wheel(bindings_pkg, python=python)
     connector_whl = _build_wheel(connector_pkg, python=python)
-    return runtime_whl, connector_whl
+    return runtime_whl, bindings_whl, connector_whl
 
 
 def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
@@ -189,10 +192,15 @@ def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
 
 def _require_wheels(node_wire_root: Path, connector_id: str) -> None:
     runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
+    bindings_dist = node_wire_root / "packages" / "bindings" / "dist"
     connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
     if not list(runtime_dist.glob("*.whl")):
         raise FileNotFoundError(
             f"Missing runtime wheel in {runtime_dist} (omit --skip-build-wheels)"
+        )
+    if not list(bindings_dist.glob("*.whl")):
+        raise FileNotFoundError(
+            f"Missing bindings wheel in {bindings_dist} (omit --skip-build-wheels)"
         )
     if not list(connector_dist.glob("*.whl")):
         raise FileNotFoundError(

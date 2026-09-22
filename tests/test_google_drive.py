@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -136,9 +137,12 @@ def test_google_drive_schema_discriminator_validation():
 
 
 @pytest.mark.asyncio
-async def test_google_drive_upstream_bearer_uses_request_token() -> None:
+async def test_google_drive_upstream_bearer_uses_request_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from bindings.factory import ConnectorFactory
 
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     sp = MockSecretProvider()
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
@@ -167,9 +171,12 @@ async def test_google_drive_upstream_bearer_uses_request_token() -> None:
 
 
 @pytest.mark.asyncio
-async def test_google_drive_upstream_bearer_no_token_raises() -> None:
+async def test_google_drive_upstream_bearer_no_token_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from bindings.factory import ConnectorFactory
 
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     sp = MockSecretProvider()
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
@@ -217,6 +224,7 @@ def test_google_drive_execute_translates_http_errors(
     payload: dict,
     status: int,
     expected_exception: type[Exception],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     from googleapiclient.errors import HttpError
 
@@ -236,8 +244,11 @@ def test_google_drive_execute_translates_http_errors(
             side_effect=_raise_http_error,
         ),
     ):
+        caplog.set_level(logging.ERROR, logger="connectors.google_drive")
         with pytest.raises(expected_exception):
             asyncio.run(connector.internal_execute(params, trace_id="test-trace"))
+        assert "failed" in caplog.text
+        assert any(getattr(r, "connector_id", None) == "google_drive" for r in caplog.records)
 
 
 @pytest.mark.asyncio

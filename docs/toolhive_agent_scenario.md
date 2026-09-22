@@ -399,6 +399,7 @@ python -m agents.toolhive \
 | `--recipient-email` | Yes | Where to send the patient summary |
 | `--drive-folder-id` | No | Google Drive folder ID; defaults to `GOOGLE_DRIVE_FOLDER_ID` env var |
 | `--max-steps` | No | Maximum LLM reasoning steps (default: 10) |
+| `--max-tool-failures` | No | Stop after this many failed calls to the same tool name (default: `TOOLHIVE_MAX_TOOL_FAILURES` env, else 2) |
 | `--tenant-id` | No | Pin MCP tenant (`X-Tenant-ID` on HTTP; `NW_TENANT_ID` for `--local`). Defaults from `NW_TENANT_ID` env. |
 | `--config-name` | No | Calls `nw_select_config` at start so every connector uses that name |
 
@@ -415,6 +416,9 @@ LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-... python -m agents.toolhive ..
 
 # Use Google Gemini
 LLM_PROVIDER=gemini GEMINI_API_KEY=AIza... python -m agents.toolhive ...
+
+# Use NVIDIA (OpenAI-compatible endpoint)
+LLM_PROVIDER=nvidia NVIDIA_API_KEY=nvapi-... python -m agents.toolhive ...
 ```
 
 ### Sample output

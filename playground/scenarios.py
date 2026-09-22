@@ -80,6 +80,11 @@ ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUP
 
 
 logger = logging.getLogger("playground.scenarios")
+# Dedicated LLM traffic logger: which model is selected for each chat request.
+llm_logger = logging.getLogger("agents.llm")
+
+# Simplified: process-wide, not per-session — the playground is single-user local dev.
+_last_llm_option: Optional[str] = None
 
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -1813,6 +1818,7 @@ class AgentChatInput(BaseModel):
     message: str
     history: List[Dict[str, str]] = []  # [{"role": "user/assistant", "content": "..."}]
     llm_option: Optional[str] = None  # e.g. "groq/openai/gpt-oss-120b"
+    llm_base_url: Optional[str] = None  # override for ollama / custom local entries
 
 
 class AgentChatStepResponse(BaseModel):
@@ -1828,6 +1834,10 @@ class AgentChatResponse(BaseModel):
     success: bool
     tenant_id: Optional[str] = None
     config_name: Optional[str] = None
+    # Token totals for the whole turn; None when the backend reports no usage.
+    usage: Optional[Dict[str, Any]] = None
+    # Model that produced this turn, so the client can bucket totals per model.
+    llm_option: Optional[str] = None
 
 
 _TOOL_CALLING_FALLBACK_NOTE = (
@@ -1865,6 +1875,46 @@ def _augment_reply_for_tool_calling_errors(reply: str) -> str:
     return reply
 
 
+def _log_llm_selection(llm_option: Optional[str], trace_id: Optional[str] = None) -> str:
+    """Log the active LLM option, calling out a change from the previous request.
+
+    Returns the effective option id so callers can label per-model token totals.
+    """
+    global _last_llm_option
+    from agents.llm_factory import DEFAULT_GROQ_MODEL
+
+    effective = llm_option or f"groq/{os.environ.get('GROQ_MODEL', DEFAULT_GROQ_MODEL)}"
+    previous = _last_llm_option
+    _last_llm_option = effective
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
+    if previous and previous != effective:
+        llm_logger.info(
+            "LLM switched | trace_id=%s | from=%s | to=%s",
+            trace_id or "-",
+            previous.replace("\r", " ").replace("\n", " "),
+            effective.replace("\r", " ").replace("\n", " "),
+        )
+    else:
+        llm_logger.info(
+            "LLM selected | trace_id=%s | option=%s",
+            trace_id or "-",
+            effective.replace("\r", " ").replace("\n", " "),
+        )
+    return effective
+
+
+def _resolve_playground_llm_base_url(raw: Optional[str]) -> Optional[str]:
+    """Validate and normalize optional playground ``llm_base_url``."""
+    if not (raw or "").strip():
+        return None
+    from agents.llm_factory import normalize_openai_compatible_base_url
+
+    try:
+        return normalize_openai_compatible_base_url(raw or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/agent-transport")
 async def agent_transport() -> Dict[str, str]:
     transport = _current_agent_transport()
@@ -1880,6 +1930,48 @@ async def llm_options() -> Dict[str, Any]:
     from agents.llm_factory import LLMProviderFactory
 
     return LLMProviderFactory.list_playground_options()
+
+
+@router.get("/llm-discover-ollama")
+async def llm_discover_ollama(base_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
+    """Discover model tags from a running Ollama server."""
+    import httpx
+
+    from agents.llm_factory import normalize_openai_compatible_base_url, ollama_origin_from_base_url
+
+    try:
+        normalized_base = normalize_openai_compatible_base_url(base_url)
+        origin = ollama_origin_from_base_url(normalized_base)
+        tags_url = f"{origin.rstrip('/')}/api/tags"
+    except ValueError:
+        logger.warning("Ollama discover rejected invalid base_url")
+        return {
+            "models": [],
+            "base_url": None,
+            "error": "Invalid Ollama URL. Use http or https.",
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(tags_url)
+            response.raise_for_status()
+            payload = response.json()
+    except Exception:
+        logger.warning("Ollama discover failed | url=%s", tags_url, exc_info=True)
+        return {
+            "models": [],
+            "base_url": normalized_base,
+            "error": "Could not reach Ollama. Check the base URL and that Ollama is running.",
+        }
+
+    models: List[str] = []
+    for item in payload.get("models") or []:
+        if isinstance(item, dict):
+            name = (item.get("name") or "").strip()
+            if name:
+                models.append(name)
+    models.sort()
+    return {"models": models, "base_url": normalized_base, "error": None}
 
 
 AGENT_GUARDRAIL_PROMPT = (
@@ -1920,6 +2012,10 @@ AGENT_GUARDRAIL_PROMPT = (
     "- Before calling any tool, verify you have ALL required parameters.\n"
     "- If a tool call fails, explain the error clearly and ask the user how to proceed.\n"
     "- Always confirm what you've done after completing the requested actions.\n"
+    "- Write final answers in a clean ChatGPT/Gemini style: one short result sentence "
+    "first, then a tight bullet list of what you did, then any links or notes. "
+    "Use plain markdown (bullets, bold sparingly, full URLs). Do not dump tool JSON, "
+    "do not narrate internal reasoning, and do not pad with filler.\n"
     "- Keep responses concise and professional.\n"
     "\n"
     "MULTI-TENANCY:\n"
@@ -2117,7 +2213,9 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             "Agent Chat | creating LLM provider from option: %s",
             str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
         )
-        llm_provider = LLMProviderFactory.create_from_option(llm_option)
+        effective_llm_option = _log_llm_selection(llm_option, trace_id)
+        llm_base_url = _resolve_playground_llm_base_url(payload.llm_base_url)
+        llm_provider = LLMProviderFactory.create_from_option(llm_option, base_url=llm_base_url)
 
         task = _build_agent_chat_task(payload)
 
@@ -2232,6 +2330,8 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
                 str(eff_config or "(default)").replace("\r", " ").replace("\n", " "),
             )
 
+        from agents.toolhive import _usage_as_dict
+
         return AgentChatResponse(
             reply=reply,
             steps=chat_steps,
@@ -2239,8 +2339,12 @@ async def agent_chat(request: Request, payload: AgentChatInput) -> AgentChatResp
             success=run_result.success,
             tenant_id=eff_tenant,
             config_name=eff_config,
+            usage=_usage_as_dict(run_result.usage, run_result.steps_used),
+            llm_option=effective_llm_option,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Agent Chat failed: %s", e, exc_info=True)
         reply = (
@@ -2316,7 +2420,9 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                 "Agent Chat stream | creating LLM provider from option: %s",
                 str(llm_option or "(default groq)").replace("\r", " ").replace("\n", " "),
             )
-            llm_provider = LLMProviderFactory.create_from_option(llm_option)
+            effective_llm_option = _log_llm_selection(llm_option)
+            llm_base_url = _resolve_playground_llm_base_url(payload.llm_base_url)
+            llm_provider = LLMProviderFactory.create_from_option(llm_option, base_url=llm_base_url)
             task = _build_agent_chat_task(payload)
             transport = _current_agent_transport()
             urls = resolve_mcp_urls() if transport == "streamable-http" else []
@@ -2351,6 +2457,7 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                             event = dict(event)
                             event["tenant_id"] = step_tenant
                             event["config_name"] = step_config
+                            event["llm_option"] = effective_llm_option
                         if (
                             fallback_to_local
                             and event.get("type") == "error"
@@ -2397,8 +2504,11 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
                         )
                         event["tenant_id"] = eff_tenant
                         event["config_name"] = eff_config
+                        event["llm_option"] = effective_llm_option
                     yield json.dumps(event) + "\n"
 
+        except HTTPException:
+            raise
         except Exception as exc:
             trace_id = str(uuid.uuid4())
             logger.error("Agent Chat stream failed (trace_id=%s): %s", trace_id, exc, exc_info=True)

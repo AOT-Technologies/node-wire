@@ -24,6 +24,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/nw_cli"]
 
+[tool.uv]
+override-dependencies = [
+    "openapi-spec-validator>=0.9.0",
+]
+
 [tool.uv.sources]
 nw-connector-builder = { path = "../nw-connector-builder", editable = true }
 nw-mcp-builder = { path = "../nw-mcp-builder", editable = true }

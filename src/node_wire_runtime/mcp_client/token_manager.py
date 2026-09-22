@@ -166,25 +166,43 @@ class TokenManager:
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> str:
         discovery = await self.ensure_discovery()
-        stored = self.load_stored()
         lead = self._config.auth.token.refresh_lead_seconds
 
+        # Fast path: a still-valid token needs no lock.
+        stored = self.load_stored()
         if stored and not force_refresh and not stored.is_expired(lead_seconds=lead):
             self.validate_access_token_audience(stored.access_token)
             return stored.access_token
 
-        if stored and stored.refresh_token and not force_refresh:
-            try:
-                refreshed = await self.refresh_tokens(stored, http_client=http_client)
-                self.validate_access_token_audience(refreshed.access_token)
-                return refreshed.access_token
-            except McpTokenRefreshError:
-                self.discard_tokens()
+        # Slow path. The lock spans re-check *and* refresh so concurrent callers
+        # issue one token request between them. Checking expiry outside the lock
+        # and taking it only around the POST lets every racing caller decide to
+        # refresh: against an IdP that rotates single-use refresh tokens the first
+        # POST invalidates the shared token, and the rest get invalid_grant and
+        # discard the partition into a full re-authorization.
+        async with self._refresh_lock:
+            # A caller ahead of us may have refreshed while we waited. force_refresh
+            # asked for a new token explicitly, so it falls through as it did before.
+            stored = self.load_stored()
+            if stored and not force_refresh and not stored.is_expired(lead_seconds=lead):
+                self.validate_access_token_audience(stored.access_token)
+                return stored.access_token
 
-        token_set = await self._run_reauthorize()
-        persisted = self.persist_oauth_token_set(token_set, issuer=discovery.issuer)
-        self.validate_access_token_audience(persisted.access_token)
-        return persisted.access_token
+            if stored and stored.refresh_token and not force_refresh:
+                try:
+                    refreshed = await self._refresh_tokens_locked(
+                        stored,
+                        http_client=http_client,
+                    )
+                    self.validate_access_token_audience(refreshed.access_token)
+                    return refreshed.access_token
+                except McpTokenRefreshError:
+                    self.discard_tokens()
+
+            token_set = await self._run_reauthorize()
+            persisted = self.persist_oauth_token_set(token_set, issuer=discovery.issuer)
+            self.validate_access_token_audience(persisted.access_token)
+            return persisted.access_token
 
     async def _run_reauthorize(self) -> OAuthTokenSet:
         if self._reauthorize is not None:
@@ -204,8 +222,32 @@ class TokenManager:
         *,
         http_client: Optional[httpx.AsyncClient] = None,
     ) -> StoredOAuthTokens:
+        """Exchange the stored refresh token for a new token set.
+
+        Public entry point — takes the refresh lock itself. Callers already
+        holding it (``get_bearer_token``) must use ``_refresh_tokens_locked``:
+        ``asyncio.Lock`` is not reentrant.
+        """
+        async with self._refresh_lock:
+            return await self._refresh_tokens_locked(stored, http_client=http_client)
+
+    async def _refresh_tokens_locked(
+        self,
+        stored: StoredOAuthTokens,
+        *,
+        http_client: Optional[httpx.AsyncClient] = None,
+    ) -> StoredOAuthTokens:
+        """Refresh-token exchange. Caller must hold ``_refresh_lock``."""
         if not stored.refresh_token:
             raise McpTokenRefreshError("No refresh token available")
+
+        # Someone may have refreshed while we waited for the lock, which leaves the
+        # token set we were handed stale — and its refresh_token already spent at an
+        # IdP that rotates them. Hand back the newer one instead of POSTing a
+        # consumed token and tripping the invalid_grant path below.
+        current = self.load_stored()
+        if current is not None and current.access_token != stored.access_token:
+            return current
 
         discovery = await self.ensure_discovery()
         registration = self._flow._registration  # noqa: SLF001
@@ -229,39 +271,38 @@ class TokenManager:
             if auth:
                 headers["Authorization"] = auth
 
-            async with self._refresh_lock:
-                resp = await client.post(
-                    discovery.authorization_server.token_endpoint,
-                    data=data,
-                    headers=headers,
+            resp = await client.post(
+                discovery.authorization_server.token_endpoint,
+                data=data,
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                body = (
+                    resp.json()
+                    if resp.headers.get("content-type", "").startswith("application/json")
+                    else {}
                 )
-                if resp.status_code != 200:
-                    body = (
-                        resp.json()
-                        if resp.headers.get("content-type", "").startswith("application/json")
-                        else {}
-                    )
-                    if body.get("error") == "invalid_grant":
-                        self.discard_tokens()
-                    raise McpTokenRefreshError(f"Refresh failed with HTTP {resp.status_code}")
-                body = resp.json()
-                access = body.get("access_token")
-                if not access:
-                    raise McpTokenRefreshError("Refresh response missing access_token")
+                if body.get("error") == "invalid_grant":
+                    self.discard_tokens()
+                raise McpTokenRefreshError(f"Refresh failed with HTTP {resp.status_code}")
+            body = resp.json()
+            access = body.get("access_token")
+            if not access:
+                raise McpTokenRefreshError("Refresh response missing access_token")
 
-                new_refresh = body.get("refresh_token") or stored.refresh_token
-                updated = stored_from_oauth_response(
-                    user_id=stored.user_id,
-                    mcp_server_url=stored.mcp_server_url,
-                    issuer=stored.issuer,
-                    access_token=str(access),
-                    token_type=str(body.get("token_type") or stored.token_type),
-                    expires_in=_optional_int(body.get("expires_in")),
-                    refresh_token=new_refresh,
-                    scope=body.get("scope") or stored.scope,
-                )
-                self.save_tokens(updated)
-                return updated
+            new_refresh = body.get("refresh_token") or stored.refresh_token
+            updated = stored_from_oauth_response(
+                user_id=stored.user_id,
+                mcp_server_url=stored.mcp_server_url,
+                issuer=stored.issuer,
+                access_token=str(access),
+                token_type=str(body.get("token_type") or stored.token_type),
+                expires_in=_optional_int(body.get("expires_in")),
+                refresh_token=new_refresh,
+                scope=body.get("scope") or stored.scope,
+            )
+            self.save_tokens(updated)
+            return updated
         except httpx.HTTPError as exc:
             raise McpTokenRefreshError(f"Refresh HTTP error: {exc}") from exc
         finally:

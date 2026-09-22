@@ -114,7 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const brandLabel = document.querySelector('.brand-text h1 span.accent');
     const tagline = document.querySelector('.tagline');
     const layoutMain = document.querySelector('.layout-main');
+    const appWrapper = document.querySelector('.app-wrapper');
     const colProgress = document.getElementById('col-progress');
+
+    function setAgentChatLayout(enabled) {
+        if (!appWrapper) return;
+        appWrapper.classList.toggle('is-agent-chat', Boolean(enabled));
+    }
 
     // Agent Chat Elements
     const agentPanel = document.getElementById('agent-panel');
@@ -127,6 +133,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const agentLlmTrigger = document.getElementById('agent-llm-trigger');
     const agentLlmTriggerLabel = document.getElementById('agent-llm-trigger-label');
     const agentLlmMenu = document.getElementById('agent-llm-menu');
+    const agentLlmMenuList = document.getElementById('agent-llm-menu-list');
+    const agentLlmAddToggle = document.getElementById('agent-llm-add-toggle');
+    const agentLlmAddPanel = document.getElementById('agent-llm-add-panel');
+    const agentLlmAddBase = document.getElementById('agent-llm-add-base');
+    const agentLlmAddModel = document.getElementById('agent-llm-add-model');
+    const agentLlmAddModelSelect = document.getElementById('agent-llm-add-model-select');
+    const agentLlmDiscoverBtn = document.getElementById('agent-llm-discover-btn');
+    const agentLlmAddSave = document.getElementById('agent-llm-add-save');
+    const agentLlmAddCancel = document.getElementById('agent-llm-add-cancel');
+    const agentLlmAddStatus = document.getElementById('agent-llm-add-status');
     const agentLlmNote = document.getElementById('agent-llm-note');
     let agentConversationHistory = [];
     let agentBusy = false;
@@ -134,6 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let agentLlmOptions = [];
     let agentLlmSelectedId = '';
     const AGENT_LLM_STORAGE_KEY = 'nw_playground_llm_option';
+    const AGENT_LLM_CUSTOM_KEY = 'nw_playground_llm_custom';
+    const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434/v1';
+    const OLLAMA_TOOLS_NOTE =
+        'Tool calling may be limited on local Ollama models. If tool calls fail, switch back to Groq.';
 
     const pipelineLabels = {
         ehr: [
@@ -327,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
                 layoutMain.classList.add('agent-mode');
+                setAgentChatLayout(true);
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
@@ -365,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
+                setAgentChatLayout(false);
                 connectorsListPanel.classList.add('hidden');
                 playgroundView.classList.remove('hidden');
                 if (backToConnectorsBtn) backToConnectorsBtn.classList.add('hidden');
@@ -384,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
+                setAgentChatLayout(false);
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
                 connectorStatus.textContent = 'Connectors Ready';
@@ -407,6 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rootSelectionView.classList.remove('hidden');
         document.getElementById('connector-apps-selection-view').classList.add('hidden');
         layoutMain.classList.add('hidden');
+        layoutMain.classList.remove('agent-mode');
+        setAgentChatLayout(false);
         headerActions.classList.add('hidden');
         tagline.textContent = 'Autonomous Connector Orchestration Platform';
         log('Returned to main selection screen', 'system');
@@ -455,6 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+        resetTokenUsage();
         log('Agent chat reset', 'system');
     });
 
@@ -712,6 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.remove('hidden');
                 connectorsView.classList.add('hidden');
                 layoutMain.classList.add('agent-mode');
+                setAgentChatLayout(true);
                 connectorStatus.textContent = 'AI Agent Online';
                 tagline.textContent = 'Autonomous Healthcare Assistant';
                 document.documentElement.style.setProperty('--brand-accent', '#8b5cf6');
@@ -721,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 agentPanel.classList.add('hidden');
                 connectorsView.classList.remove('hidden');
                 layoutMain.classList.remove('agent-mode');
+                setAgentChatLayout(false);
                 // By default show the list if we just switched to connectors tab
                 connectorsListPanel.classList.remove('hidden');
                 playgroundView.classList.add('hidden');
@@ -2126,23 +2154,87 @@ document.addEventListener('DOMContentLoaded', () => {
     // AI Agent Chat Logic
     // ======================================================
 
+    // Lightweight markdown for assistant replies (ChatGPT/Gemini-style). Escape first.
+    // Avoid lookbehind (?<!…) so the script parses on Safari < 16.4 and similar engines.
+    function formatAgentMarkdown(text) {
+        if (text == null || text === '') return '';
+        let html = escapeHTML(String(text));
+        // Links: [label](https://...)
+        html = html.replace(
+            /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+        // Bare URLs — skip matches already inside href="…" or as <a>…</a> link text.
+        html = html.replace(/(https?:\/\/[^\s<]+)/g, (url, offset, full) => {
+            const prev6 = full.slice(Math.max(0, offset - 6), offset);
+            const prev2 = full.slice(Math.max(0, offset - 2), offset);
+            if (prev6 === 'href="' || prev2 === '">') return url;
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        });
+        // Bold before italic so **…** is not treated as italics.
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+        html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+        const lines = html.split('\n');
+        const blocks = [];
+        let listType = null; // 'ul' | 'ol' | null
+        let listItems = [];
+
+        const flushList = () => {
+            if (!listType) return;
+            blocks.push(`<${listType}>${listItems.join('')}</${listType}>`);
+            listType = null;
+            listItems = [];
+        };
+
+        for (const rawLine of lines) {
+            const line = rawLine.trimEnd();
+            const bullet = line.match(/^\s*[-*•]\s+(.+)$/);
+            const numbered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+            if (bullet) {
+                if (listType !== 'ul') {
+                    flushList();
+                    listType = 'ul';
+                }
+                listItems.push(`<li>${bullet[1]}</li>`);
+            } else if (numbered) {
+                if (listType !== 'ol') {
+                    flushList();
+                    listType = 'ol';
+                }
+                listItems.push(`<li>${numbered[1]}</li>`);
+            } else if (line.trim() === '') {
+                flushList();
+            } else {
+                flushList();
+                blocks.push(`<p>${line.trim()}</p>`);
+            }
+        }
+        flushList();
+        return blocks.join('') || `<p>${html}</p>`;
+    }
+
     function appendChatBubble(role, content) {
         const bubble = document.createElement('div');
         bubble.className = `chat-bubble ${role}`;
         const roleLabel = role === 'user' ? 'You' : 'Agent';
-        bubble.innerHTML = `<div class="bubble-content"><span class="bubble-role">${escapeHTML(roleLabel)}</span><p>${escapeHTML(content)}</p></div>`;
+        const body = role === 'assistant'
+            ? `<div class="bubble-body">${formatAgentMarkdown(content)}</div>`
+            : `<p>${escapeHTML(content)}</p>`;
+        bubble.innerHTML = `<div class="bubble-content"><span class="bubble-role">${escapeHTML(roleLabel)}</span>${body}</div>`;
         agentChatHistory.appendChild(bubble);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
         return bubble;
     }
 
-    function appendStreamingBubble(label = 'Agent Streaming') {
+    function appendStreamingBubble(label = 'Agent') {
         const bubble = document.createElement('div');
         bubble.className = 'chat-bubble assistant streaming-bubble';
         bubble.innerHTML = `
             <div class="bubble-content">
                 <span class="bubble-role">${escapeHTML(label)}</span>
-                <p class="streaming-text"></p>
+                <div class="bubble-body streaming-text"></div>
                 <div class="stream-tail-loader">
                     <span class="typing-dot"></span>
                     <span class="typing-dot"></span>
@@ -2161,13 +2253,44 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function appendTraceBadge(traceId, transportLabel = '') {
-        if (!traceId) return;
-        const badge = document.createElement('div');
-        badge.className = 'chat-trace-badge';
-        const suffix = transportLabel ? ` | ${transportLabel}` : '';
-        badge.textContent = `TRC-${traceId.toUpperCase().slice(0, 8)}${suffix}`;
-        agentChatHistory.appendChild(badge);
+    function appendTurnMetaCard(traceId, usage, transportLabel = '') {
+        if (!traceId && !usage) return;
+        const card = document.createElement('div');
+        card.className = 'chat-turn-meta';
+
+        const addSegment = (text, { mono = false, title = '' } = {}) => {
+            const seg = document.createElement('span');
+            seg.className = mono ? 'chat-turn-meta-item is-mono' : 'chat-turn-meta-item';
+            seg.textContent = text;
+            if (title) seg.title = title;
+            card.appendChild(seg);
+        };
+
+        if (traceId) {
+            addSegment(`TRC-${traceId.toUpperCase().slice(0, 8)}`, {
+                mono: true,
+                title: `Full trace id: ${traceId}`
+            });
+        }
+        if (transportLabel) addSegment(transportLabel);
+
+        // Providers that do not report usage (e.g. some Ollama builds) get no counts.
+        if (usage) {
+            const steps = usage.steps || 1;
+            addSegment(`${formatTokenCount(usage.prompt_tokens)} tokens in`, {
+                mono: true,
+                title: 'Prompt tokens summed across every LLM call in this turn.'
+            });
+            addSegment(`${formatTokenCount(usage.completion_tokens)} tokens out`, {
+                mono: true,
+                title: 'Completion tokens summed across every LLM call in this turn.'
+            });
+            addSegment(`${steps} step${steps === 1 ? '' : 's'}`, {
+                title: 'The agent re-sends the full history and all tool schemas on each step.'
+            });
+        }
+
+        agentChatHistory.appendChild(card);
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
@@ -2183,6 +2306,72 @@ document.addEventListener('DOMContentLoaded', () => {
         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
     }
 
+    // --- Token usage: per-model session totals, reset on reload / New Chat ---
+
+    const tokenUsageByModel = new Map();
+
+    function formatTokenCount(value) {
+        return typeof value === 'number' ? value.toLocaleString() : 'n/a';
+    }
+
+    function recordTokenUsage(usage, llmOption) {
+        if (!usage) return;
+        const key = llmOption || 'unknown';
+        const bucket = tokenUsageByModel.get(key)
+            || { prompt: 0, completion: 0, total: 0, turns: 0 };
+        bucket.prompt += usage.prompt_tokens || 0;
+        bucket.completion += usage.completion_tokens || 0;
+        bucket.total += usage.total_tokens
+            || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
+        bucket.turns += 1;
+        tokenUsageByModel.set(key, bucket);
+        renderTokenUsagePanel();
+    }
+
+    function renderTokenUsagePanel() {
+        const pill = document.getElementById('token-usage-pill');
+        const pillLabel = document.getElementById('token-usage-pill-label');
+        const tbody = document.getElementById('token-usage-tbody');
+        if (!pill || !pillLabel || !tbody) return;
+
+        if (tokenUsageByModel.size === 0) {
+            pill.classList.add('hidden');
+            return;
+        }
+        pill.classList.remove('hidden');
+
+        let sessionTotal = 0;
+        tbody.replaceChildren();
+        for (const [model, bucket] of tokenUsageByModel) {
+            sessionTotal += bucket.total;
+            const row = document.createElement('tr');
+            for (const value of [
+                model,
+                formatTokenCount(bucket.prompt),
+                formatTokenCount(bucket.completion),
+                formatTokenCount(bucket.total),
+                String(bucket.turns)
+            ]) {
+                const cell = document.createElement('td');
+                cell.textContent = value;
+                row.appendChild(cell);
+            }
+            tbody.appendChild(row);
+        }
+        pillLabel.textContent = `${sessionTotal.toLocaleString()} tokens`;
+    }
+
+    function resetTokenUsage() {
+        tokenUsageByModel.clear();
+        const pill = document.getElementById('token-usage-pill');
+        const panel = document.getElementById('token-usage-panel');
+        if (pill) {
+            pill.classList.add('hidden');
+            pill.setAttribute('aria-expanded', 'false');
+        }
+        if (panel) panel.classList.add('hidden');
+    }
+
     function updateAgentTransportStatus() {
         if (!agentTransportStatus) return;
         const label = agentTransportMode === 'streamable-http' ? 'Streamable HTTP' : 'stdio';
@@ -2193,29 +2382,108 @@ document.addEventListener('DOMContentLoaded', () => {
         return agentLlmSelectedId || null;
     }
 
+    function selectedAgentLlmChatPayload() {
+        const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
+        const payload = { llm_option: selectedAgentLlmOption() };
+        if (selected && selected.provider === 'ollama' && selected.base_url) {
+            payload.llm_base_url = selected.base_url;
+        }
+        return payload;
+    }
+
+    function loadCustomLlmOptions() {
+        try {
+            const raw = localStorage.getItem(AGENT_LLM_CUSTOM_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+            return [];
+        }
+    }
+
+    function saveCustomLlmOptions(entries) {
+        try {
+            localStorage.setItem(AGENT_LLM_CUSTOM_KEY, JSON.stringify(entries));
+        } catch (_e) {
+            /* ignore */
+        }
+    }
+
+    function mergeServerAndCustomLlmOptions(serverOptions) {
+        const merged = new Map();
+        for (const item of serverOptions || []) {
+            merged.set(item.id, { ...item });
+        }
+        for (const item of loadCustomLlmOptions()) {
+            const id = item.id || `${item.provider}/${item.model}`;
+            merged.set(id, {
+                id,
+                label: item.label || id,
+                provider: item.provider || 'ollama',
+                model: item.model,
+                base_url: item.base_url || DEFAULT_OLLAMA_BASE_URL,
+                tools_note: OLLAMA_TOOLS_NOTE,
+                source: 'custom',
+            });
+        }
+        return Array.from(merged.values());
+    }
+
     function shortLlmLabel(optionId) {
         if (!optionId) return 'Model';
         const slash = optionId.indexOf('/');
         const provider = (slash >= 0 ? optionId.slice(0, slash) : optionId).toLowerCase();
         const model = slash >= 0 ? optionId.slice(slash + 1) : '';
         const lastSeg = (model.split('/').pop() || model || provider).trim();
-        const providerLabel = provider === 'nvidia' ? 'NVIDIA' : provider.charAt(0).toUpperCase() + provider.slice(1);
-        // Prefer a compact model token for the closed button.
+        const providerLabel =
+            provider === 'nvidia' ? 'NVIDIA'
+            : provider === 'openrouter' ? 'OpenRouter'
+            : provider === 'ollama' ? 'Ollama'
+            : provider === 'openai' ? 'OpenAI'
+            : provider === 'anthropic' ? 'Claude'
+            : provider.charAt(0).toUpperCase() + provider.slice(1);
         let shortModel = lastSeg;
         if (provider === 'nvidia' && /nemotron/i.test(lastSeg)) {
             shortModel = 'Nemotron';
+        } else if (provider === 'openrouter') {
+            shortModel = lastSeg.replace(/:free$/i, '') || lastSeg;
         } else if (provider === 'groq') {
             if (/gpt-oss/i.test(lastSeg)) shortModel = 'GPT-OSS';
             else if (/llama/i.test(lastSeg)) shortModel = 'Llama';
+        } else if (provider === 'ollama' && shortModel.length > 14) {
+            shortModel = shortModel.slice(0, 12) + '…';
         }
         if (shortModel.length > 18) shortModel = shortModel.slice(0, 16) + '…';
         return `${providerLabel} · ${shortModel}`;
     }
 
+    function llmProviderOf(item) {
+        return String(item && item.provider || (item && item.id || '').split('/')[0] || '').toLowerCase();
+    }
+
+    function openRouterChildShortLabel(item) {
+        const model = (item && item.model) || String(item && item.id || '').split('/').slice(1).join('/');
+        const lastSeg = (model.split('/').pop() || model).trim();
+        const shortModel = lastSeg.replace(/:free$/i, '') || lastSeg;
+        return shortModel.length > 18 ? shortModel.slice(0, 16) + '…' : shortModel;
+    }
+
+    function setAgentLlmAddPanelOpen(open) {
+        if (!agentLlmAddPanel) return;
+        agentLlmAddPanel.classList.toggle('hidden', !open);
+        if (!open && agentLlmAddStatus) {
+            agentLlmAddStatus.textContent = '';
+            agentLlmAddStatus.classList.add('hidden');
+            agentLlmAddStatus.classList.remove('error');
+        }
+    }
+
     function setAgentLlmOpen(open) {
         if (!agentLlmTrigger || !agentLlmMenu) return;
+        if (open) renderAgentLlmMenu();
         agentLlmTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
         agentLlmMenu.classList.toggle('hidden', !open);
+        if (!open) setAgentLlmAddPanelOpen(false);
     }
 
     function syncAgentLlmTrigger() {
@@ -2223,7 +2491,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selected = agentLlmOptions.find((opt) => opt.id === agentLlmSelectedId);
         if (!agentLlmOptions.length) {
             agentLlmTriggerLabel.textContent = 'No LLM';
-            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            if (agentLlmTrigger) agentLlmTrigger.disabled = false;
             return;
         }
         if (agentLlmTrigger) agentLlmTrigger.disabled = false;
@@ -2264,33 +2532,228 @@ document.addEventListener('DOMContentLoaded', () => {
         setAgentLlmOpen(false);
     }
 
-    function renderAgentLlmMenu() {
-        if (!agentLlmMenu) return;
-        agentLlmMenu.innerHTML = '';
-        for (const item of agentLlmOptions) {
-            const li = document.createElement('li');
-            li.setAttribute('role', 'presentation');
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'agent-llm-menu-item';
-            btn.dataset.id = item.id;
-            btn.setAttribute('role', 'option');
-            btn.setAttribute('aria-selected', item.id === agentLlmSelectedId ? 'true' : 'false');
-
-            const shortEl = document.createElement('span');
-            shortEl.className = 'agent-llm-menu-item-short';
-            shortEl.textContent = shortLlmLabel(item.id);
-
-            const fullEl = document.createElement('span');
-            fullEl.className = 'agent-llm-menu-item-full';
-            fullEl.textContent = item.label || item.id;
-
-            btn.appendChild(shortEl);
-            btn.appendChild(fullEl);
-            btn.addEventListener('click', () => chooseAgentLlm(item.id));
-            li.appendChild(btn);
-            agentLlmMenu.appendChild(li);
+    function removeCustomLlmOption(optionId) {
+        const next = loadCustomLlmOptions().filter((item) => (item.id || `${item.provider}/${item.model}`) !== optionId);
+        saveCustomLlmOptions(next);
+        if (agentLlmSelectedId === optionId) {
+            agentLlmSelectedId = '';
         }
+        loadAgentLlmOptions();
+    }
+
+    function appendAgentLlmMenuItem(parent, item, nested) {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'presentation');
+        const row = document.createElement('div');
+        row.className = 'agent-llm-menu-item-row';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'agent-llm-menu-item';
+        if (nested) btn.classList.add('nested');
+        btn.dataset.id = item.id;
+        btn.setAttribute('role', 'option');
+        btn.setAttribute('aria-selected', item.id === agentLlmSelectedId ? 'true' : 'false');
+
+        const shortEl = document.createElement('span');
+        shortEl.className = 'agent-llm-menu-item-short';
+        shortEl.textContent = nested ? openRouterChildShortLabel(item) : shortLlmLabel(item.id);
+
+        const fullEl = document.createElement('span');
+        fullEl.className = 'agent-llm-menu-item-full';
+        fullEl.textContent = nested ? (item.model || item.label || item.id) : (item.label || item.id);
+
+        btn.appendChild(shortEl);
+        btn.appendChild(fullEl);
+        btn.addEventListener('click', () => chooseAgentLlm(item.id));
+        row.appendChild(btn);
+
+        if (item.source === 'custom') {
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'agent-llm-menu-remove';
+            removeBtn.title = 'Remove custom model';
+            removeBtn.setAttribute('aria-label', `Remove ${item.label || item.id}`);
+            removeBtn.textContent = '\u00d7';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeCustomLlmOption(item.id);
+            });
+            row.appendChild(removeBtn);
+        }
+
+        li.appendChild(row);
+        parent.appendChild(li);
+    }
+
+    function renderAgentLlmMenu() {
+        if (!agentLlmMenuList) return;
+        agentLlmMenuList.innerHTML = '';
+        const openrouter = agentLlmOptions.filter((item) => llmProviderOf(item) === 'openrouter');
+        let groupInserted = false;
+        const insertOpenRouterGroup = () => {
+            if (groupInserted || !openrouter.length) return;
+            groupInserted = true;
+            appendOpenRouterGroup(openrouter);
+        };
+        for (const item of agentLlmOptions) {
+            if (llmProviderOf(item) === 'openrouter') {
+                insertOpenRouterGroup();
+                continue;
+            }
+            appendAgentLlmMenuItem(agentLlmMenuList, item, false);
+        }
+        insertOpenRouterGroup();
+    }
+
+    function appendOpenRouterGroup(openrouter) {
+        const group = document.createElement('li');
+        group.className = 'agent-llm-group';
+        group.setAttribute('role', 'presentation');
+        const selectedInGroup = openrouter.some((item) => item.id === agentLlmSelectedId);
+        if (selectedInGroup) group.classList.add('is-open', 'has-selected');
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'agent-llm-group-toggle';
+        toggle.setAttribute('aria-expanded', selectedInGroup ? 'true' : 'false');
+        toggle.setAttribute('aria-label', 'OpenRouter models');
+
+        const shortEl = document.createElement('span');
+        shortEl.className = 'agent-llm-menu-item-short';
+        shortEl.textContent = 'OpenRouter';
+
+        const fullEl = document.createElement('span');
+        fullEl.className = 'agent-llm-menu-item-full';
+        fullEl.textContent = `${openrouter.length} model${openrouter.length === 1 ? '' : 's'}`;
+
+        const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        chevron.setAttribute('class', 'agent-llm-group-chevron');
+        chevron.setAttribute('viewBox', '0 0 24 24');
+        chevron.setAttribute('fill', 'none');
+        chevron.setAttribute('stroke', 'currentColor');
+        chevron.setAttribute('stroke-width', '2.25');
+        chevron.setAttribute('aria-hidden', 'true');
+        const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        chevronPath.setAttribute('d', 'M9 6l6 6-6 6');
+        chevron.appendChild(chevronPath);
+
+        const toggleText = document.createElement('span');
+        toggleText.className = 'agent-llm-group-toggle-text';
+        toggleText.appendChild(shortEl);
+        toggleText.appendChild(fullEl);
+        toggle.appendChild(toggleText);
+        toggle.appendChild(chevron);
+
+        const nested = document.createElement('ul');
+        nested.className = 'agent-llm-group-items';
+        nested.setAttribute('role', 'group');
+        nested.hidden = !selectedInGroup;
+        for (const item of openrouter) {
+            appendAgentLlmMenuItem(nested, item, true);
+        }
+
+        const setGroupOpen = (open) => {
+            group.classList.toggle('is-open', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            nested.hidden = !open;
+        };
+
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setGroupOpen(nested.hidden);
+        });
+
+        group.appendChild(toggle);
+        group.appendChild(nested);
+        agentLlmMenuList.appendChild(group);
+    }
+
+    function showAddLlmStatus(message, isError) {
+        if (!agentLlmAddStatus) return;
+        agentLlmAddStatus.textContent = message;
+        agentLlmAddStatus.classList.remove('hidden');
+        agentLlmAddStatus.classList.toggle('error', !!isError);
+    }
+
+    async function discoverOllamaModels() {
+        if (!agentLlmAddBase) return;
+        const baseUrl = agentLlmAddBase.value.trim() || DEFAULT_OLLAMA_BASE_URL;
+        if (agentLlmDiscoverBtn) agentLlmDiscoverBtn.disabled = true;
+        showAddLlmStatus('Discovering models…', false);
+        try {
+            const response = await fetch(
+                `/scenarios/llm-discover-ollama?base_url=${encodeURIComponent(baseUrl)}`
+            );
+            if (!response.ok) throw new Error(`Server returned ${response.status}`);
+            const data = await response.json();
+            if (data.base_url && agentLlmAddBase) {
+                agentLlmAddBase.value = data.base_url;
+            }
+            const models = Array.isArray(data.models) ? data.models : [];
+            if (agentLlmAddModelSelect) {
+                agentLlmAddModelSelect.innerHTML = '';
+                if (models.length) {
+                    for (const name of models) {
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        agentLlmAddModelSelect.appendChild(opt);
+                    }
+                    agentLlmAddModelSelect.classList.remove('hidden');
+                    if (agentLlmAddModel) {
+                        agentLlmAddModel.classList.add('hidden');
+                        agentLlmAddModel.value = models[0];
+                    }
+                    showAddLlmStatus(`Found ${models.length} model(s).`, false);
+                } else {
+                    agentLlmAddModelSelect.classList.add('hidden');
+                    if (agentLlmAddModel) agentLlmAddModel.classList.remove('hidden');
+                    showAddLlmStatus(data.error || 'No models found. Enter a model name manually.', true);
+                }
+            }
+        } catch (error) {
+            if (agentLlmAddModelSelect) agentLlmAddModelSelect.classList.add('hidden');
+            if (agentLlmAddModel) agentLlmAddModel.classList.remove('hidden');
+            showAddLlmStatus(`Discover failed: ${error.message}`, true);
+        } finally {
+            if (agentLlmDiscoverBtn) agentLlmDiscoverBtn.disabled = false;
+        }
+    }
+
+    function saveCustomLlmFromPanel() {
+        const provider = 'ollama';
+        const baseUrl = (agentLlmAddBase && agentLlmAddBase.value.trim()) || DEFAULT_OLLAMA_BASE_URL;
+        let model = '';
+        if (agentLlmAddModelSelect && !agentLlmAddModelSelect.classList.contains('hidden')) {
+            model = agentLlmAddModelSelect.value.trim();
+        } else if (agentLlmAddModel) {
+            model = agentLlmAddModel.value.trim();
+        }
+        if (!model) {
+            showAddLlmStatus('Enter or select a model name.', true);
+            return;
+        }
+        const id = `${provider}/${model}`;
+        const entry = {
+            id,
+            provider,
+            model,
+            base_url: baseUrl,
+            label: id,
+            source: 'custom',
+        };
+        const existing = loadCustomLlmOptions().filter((item) => (item.id || `${item.provider}/${item.model}`) !== id);
+        existing.push(entry);
+        saveCustomLlmOptions(existing);
+        agentLlmSelectedId = id;
+        try {
+            localStorage.setItem(AGENT_LLM_STORAGE_KEY, id);
+        } catch (_e) {
+            /* ignore */
+        }
+        setAgentLlmAddPanelOpen(false);
+        loadAgentLlmOptions();
     }
 
     async function loadAgentLlmOptions() {
@@ -2299,11 +2762,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/scenarios/llm-options');
             if (!response.ok) throw new Error(`Server returned ${response.status}`);
             const data = await response.json();
-            agentLlmOptions = Array.isArray(data.options) ? data.options : [];
+            agentLlmOptions = mergeServerAndCustomLlmOptions(
+                Array.isArray(data.options) ? data.options : []
+            );
 
             if (!agentLlmOptions.length) {
                 agentLlmSelectedId = '';
-                if (agentLlmMenu) agentLlmMenu.innerHTML = '';
+                renderAgentLlmMenu();
                 syncAgentLlmTrigger();
                 updateAgentLlmNote();
                 setAgentLlmOpen(false);
@@ -2331,9 +2796,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            agentLlmSelectedId = chosen;
+            if (!agentLlmSelectedId || !agentLlmOptions.some((o) => o.id === agentLlmSelectedId)) {
+                agentLlmSelectedId = chosen;
+            }
             try {
-                localStorage.setItem(AGENT_LLM_STORAGE_KEY, chosen);
+                localStorage.setItem(AGENT_LLM_STORAGE_KEY, agentLlmSelectedId);
             } catch (_e) {
                 /* ignore */
             }
@@ -2341,14 +2808,18 @@ document.addEventListener('DOMContentLoaded', () => {
             syncAgentLlmTrigger();
             updateAgentLlmNote();
         } catch (error) {
-            agentLlmOptions = [];
-            agentLlmSelectedId = '';
-            if (agentLlmMenu) agentLlmMenu.innerHTML = '';
-            if (agentLlmTriggerLabel) agentLlmTriggerLabel.textContent = 'Unavailable';
-            if (agentLlmTrigger) agentLlmTrigger.disabled = true;
+            agentLlmOptions = mergeServerAndCustomLlmOptions([]);
+            agentLlmSelectedId = agentLlmOptions.length ? agentLlmOptions[0].id : '';
+            renderAgentLlmMenu();
+            if (agentLlmTriggerLabel) {
+                agentLlmTriggerLabel.textContent = agentLlmOptions.length ? shortLlmLabel(agentLlmSelectedId) : 'Unavailable';
+            }
+            if (agentLlmTrigger) agentLlmTrigger.disabled = false;
             updateAgentLlmNote();
             setAgentLlmOpen(false);
-            log(`LLM options unavailable (${error.message})`, 'system');
+            if (!agentLlmOptions.length) {
+                log(`LLM options unavailable (${error.message})`, 'system');
+            }
         }
     }
 
@@ -2401,20 +2872,53 @@ document.addEventListener('DOMContentLoaded', () => {
         const resultIcon = isError ? '✗' : '✓';
 
         let argsStr = '';
-        try { argsStr = JSON.stringify(step.args, null, 2); } catch(e) { argsStr = String(step.args); }
+        try { argsStr = JSON.stringify(step.args, null, 2); } catch (e) { argsStr = String(step.args); }
+        const fullResult = step.result || '';
 
-        let resultPreview = step.result || '';
-        if (resultPreview.length > 200) resultPreview = resultPreview.slice(0, 200) + '…';
+        // One-line summary only — never dump args/result until expanded.
+        let hint = '';
+        if (step.args && typeof step.args === 'object') {
+            const keys = Object.keys(step.args);
+            if (keys.length === 1) {
+                const v = step.args[keys[0]];
+                const short = typeof v === 'string' ? v : JSON.stringify(v);
+                hint = `${keys[0]}=${(short || '').length > 36 ? `${String(short).slice(0, 36)}…` : short}`;
+            } else if (keys.length > 1) {
+                hint = `${keys.length} args`;
+            }
+        }
 
         card.innerHTML = `
-            <div class="step-card-header">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                Tool: ${escapeHTML(step.tool)}
+            <div class="step-card-summary">
+                <span class="step-card-toggle-main">
+                    <svg class="step-card-tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    <span class="step-card-tool-name">${escapeHTML(step.tool)}</span>
+                    ${hint ? `<span class="step-card-hint">${escapeHTML(hint)}</span>` : ''}
+                    <span class="step-card-status ${resultClass}" title="${isError ? 'Failed' : 'Succeeded'}">${resultIcon}</span>
+                </span>
+                <button type="button" class="step-card-toggle" aria-expanded="false" title="Show tool details">
+                    <span class="step-card-toggle-label">Details</span>
+                    <svg class="step-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
             </div>
-            <div class="step-card-body">${escapeHTML(argsStr)}</div>
-            ${resultPreview ? `<div class="step-card-result ${resultClass}">${resultIcon} ${escapeHTML(resultPreview)}</div>` : ''}
+            <div class="step-card-details hidden">
+                <div class="step-card-body">${escapeHTML(argsStr)}</div>
+                ${fullResult ? `<div class="step-card-result ${resultClass}">${resultIcon} ${escapeHTML(fullResult)}</div>` : ''}
+            </div>
         `;
-        
+
+        const toggle = card.querySelector('.step-card-toggle');
+        const details = card.querySelector('.step-card-details');
+        const label = card.querySelector('.step-card-toggle-label');
+        toggle.addEventListener('click', () => {
+            const open = details.classList.contains('hidden');
+            details.classList.toggle('hidden', !open);
+            card.classList.toggle('is-expanded', open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.title = open ? 'Hide tool details' : 'Show tool details';
+            if (label) label.textContent = open ? 'Hide' : 'Details';
+        });
+
         const streamingBubble = agentChatHistory.querySelector('.streaming-bubble');
         if (streamingBubble) {
             agentChatHistory.insertBefore(card, streamingBubble);
@@ -2503,7 +3007,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         message: message,
                         history: agentConversationHistory.slice(0, -1),
-                        llm_option: selectedAgentLlmOption()
+                        ...selectedAgentLlmChatPayload()
                     })
                 });
 
@@ -2513,6 +3017,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let traceId = '';
                 let success = true;
                 let doneMessage = '';
+                let turnUsage = null;
 
                 await readNdjsonStream(response, {
                     meta: (event) => {
@@ -2532,6 +3037,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     final_chunk: (event) => {
                         agentTyping.classList.add('hidden');
                         finalText += event.content || '';
+                        // Plain text while tokens arrive; format once the stream settles.
                         streamView.text.textContent = finalText;
                         agentChatHistory.scrollTop = agentChatHistory.scrollHeight;
                     },
@@ -2553,7 +3059,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                         streamView.loader.classList.add('hidden');
+                        if (finalText) {
+                            streamView.text.innerHTML = formatAgentMarkdown(finalText);
+                            streamView.text.classList.add('is-formatted');
+                        }
                         appendStreamEndMessage(doneMessage, success, finalElapsed);
+                        turnUsage = event.usage || null;
+                        recordTokenUsage(event.usage, event.llm_option);
                     }
                 });
 
@@ -2571,10 +3083,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (!finalText) {
                     finalText = success ? 'Completed.' : 'The stream ended before a final answer was returned.';
-                    if (streamView) streamView.text.textContent = finalText;
+                    if (streamView) {
+                        streamView.text.innerHTML = formatAgentMarkdown(finalText);
+                        streamView.text.classList.add('is-formatted');
+                    }
+                } else if (streamView && !streamView.text.classList.contains('is-formatted')) {
+                    streamView.text.innerHTML = formatAgentMarkdown(finalText);
+                    streamView.text.classList.add('is-formatted');
                 }
                 agentConversationHistory.push({ role: 'assistant', content: finalText });
-                appendTraceBadge(traceId, 'streamable-http');
+                appendTurnMetaCard(traceId, turnUsage, 'streamable-http');
                 log(`Agent Chat: ${success ? 'Stream complete' : 'Stream failed'} | ${doneMessage}`, success ? 'success' : 'error');
                 return;
             }
@@ -2588,7 +3106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     message: message,
                     history: agentConversationHistory.slice(0, -1), // Exclude current message (already in payload)
-                    llm_option: selectedAgentLlmOption()
+                    ...selectedAgentLlmChatPayload()
                 })
             });
 
@@ -2610,8 +3128,9 @@ document.addEventListener('DOMContentLoaded', () => {
             appendChatBubble('assistant', data.reply);
             agentConversationHistory.push({ role: 'assistant', content: data.reply });
 
-            // Add trace badge
-            appendTraceBadge(data.trace_id);
+            // Trace id + token counts for this turn
+            appendTurnMetaCard(data.trace_id, data.usage);
+            recordTokenUsage(data.usage, data.llm_option);
 
             log(`Agent Chat: ${data.success ? 'Success' : 'Responded'} | steps=${data.steps ? data.steps.length : 0}`, data.success ? 'success' : 'system');
             await applyAgentTenancy(data.tenant_id, data.config_name);
@@ -2640,6 +3159,36 @@ document.addEventListener('DOMContentLoaded', () => {
             setAgentLlmOpen(open);
         });
     }
+    if (agentLlmAddToggle) {
+        agentLlmAddToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = agentLlmAddPanel && agentLlmAddPanel.classList.contains('hidden');
+            setAgentLlmAddPanelOpen(!!open);
+        });
+    }
+    if (agentLlmDiscoverBtn) {
+        agentLlmDiscoverBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            discoverOllamaModels();
+        });
+    }
+    if (agentLlmAddSave) {
+        agentLlmAddSave.addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveCustomLlmFromPanel();
+        });
+    }
+    if (agentLlmAddCancel) {
+        agentLlmAddCancel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setAgentLlmAddPanelOpen(false);
+        });
+    }
+    if (agentLlmAddModelSelect) {
+        agentLlmAddModelSelect.addEventListener('change', () => {
+            if (agentLlmAddModel) agentLlmAddModel.value = agentLlmAddModelSelect.value;
+        });
+    }
     document.addEventListener('click', (e) => {
         if (!agentLlmPicker) return;
         if (agentLlmPicker.contains(e.target)) return;
@@ -2655,6 +3204,17 @@ document.addEventListener('DOMContentLoaded', () => {
             sendAgentMessage();
         }
     });
+
+    const tokenUsagePill = document.getElementById('token-usage-pill');
+    if (tokenUsagePill) {
+        tokenUsagePill.addEventListener('click', () => {
+            const panel = document.getElementById('token-usage-panel');
+            if (!panel) return;
+            const willOpen = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !willOpen);
+            tokenUsagePill.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+    }
 
     // ─── External Patient Viewer — form submission ───────────────────────────
     if (extViewerForm) {

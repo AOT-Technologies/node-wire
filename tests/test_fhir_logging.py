@@ -79,6 +79,7 @@ async def test_fhir_cerner_name_search_error_does_not_log_response_body(
             await connector.internal_execute(params, trace_id="trace-cerner")
 
     assert PHI_MARKER not in caplog.text
+    assert any(getattr(r, "connector_id", None) == "fhir_cerner" for r in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -98,3 +99,4 @@ async def test_fhir_epic_name_search_error_does_not_log_response_body(
             await connector.internal_execute(params, trace_id="trace-epic")
 
     assert PHI_MARKER not in caplog.text
+    assert any(getattr(r, "connector_id", None) == "fhir_epic" for r in caplog.records)
