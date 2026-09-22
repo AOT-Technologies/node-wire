@@ -690,6 +690,23 @@ def test_undeclared_attempt_is_logged_for_operators(
     assert getattr(records[-1], "connector_id", None) == "acme_internal_payroll"
 
 
+def test_undeclared_log_strips_crlf_from_connector_id(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """connector_id is caller-controlled; CR/LF must not reach the log line."""
+    from node_wire_runtime import tenant_persistence as tp
+
+    monkeypatch.setenv("NW_SECRET_SHAPE_POLICY", "warn")
+    with caplog.at_level("WARNING", logger="runtime.tenant_persistence"):
+        tp.require_declared_secret_shape("evil\r\ninjected")
+
+    records = [r for r in caplog.records if "no declared secret shape" in r.getMessage()]
+    assert records
+    logged = getattr(records[-1], "connector_id", "")
+    assert "\r" not in logged and "\n" not in logged
+    assert logged == "evilinjected"
+
+
 # ---------------------------------------------------------------------------
 # Declaration replace semantics
 # ---------------------------------------------------------------------------

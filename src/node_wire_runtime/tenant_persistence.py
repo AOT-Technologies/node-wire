@@ -136,6 +136,11 @@ SECRET_SHAPE_POLICY_WARN = "warn"
 SECRET_SHAPE_POLICY_ENFORCE = "enforce"
 
 
+def _log_safe(value: object) -> str:
+    """Strip CR/LF so caller-controlled values cannot split log lines (CWE-117)."""
+    return str(value).replace("\r", "").replace("\n", "")
+
+
 def secret_shape_policy() -> str:
     """Resolve the undeclared-connector policy: ``warn`` (default) or ``enforce``.
 
@@ -151,12 +156,17 @@ def secret_shape_policy() -> str:
     raw = (os.getenv(SECRET_SHAPE_POLICY_ENV) or "").strip().lower()
     if not raw:
         return SECRET_SHAPE_POLICY_WARN
-    if raw in (SECRET_SHAPE_POLICY_WARN, SECRET_SHAPE_POLICY_ENFORCE):
-        return raw
+    # Return the interned constants, not ``raw``: CodeQL treats getenv as
+    # attacker-controlled, and ``return raw`` would keep that taint even after
+    # the membership check (log injection into the undeclared-shape warning).
+    if raw == SECRET_SHAPE_POLICY_WARN:
+        return SECRET_SHAPE_POLICY_WARN
+    if raw == SECRET_SHAPE_POLICY_ENFORCE:
+        return SECRET_SHAPE_POLICY_ENFORCE
     logger.warning(
         "Invalid %s=%r; falling back to %r",
         SECRET_SHAPE_POLICY_ENV,
-        raw,
+        _log_safe(raw),
         SECRET_SHAPE_POLICY_ENFORCE,
     )
     return SECRET_SHAPE_POLICY_ENFORCE
@@ -293,7 +303,7 @@ def declare_secret_shape(
         if cid in _DECLARED_SECRET_SHAPES and previous != incoming:
             logger.warning(
                 "Replacing an existing secret-shape declaration",
-                extra={"connector_id": cid},
+                extra={"connector_id": _log_safe(cid)},
             )
 
         for table, value in (
@@ -333,7 +343,10 @@ def require_declared_secret_shape(connector_id: str) -> None:
         "(policy=%s, declared_count=%d)",
         policy,
         len(_DECLARED_SECRET_SHAPES),
-        extra={"connector_id": connector_id, "secret_shape_policy": policy},
+        extra={
+            "connector_id": _log_safe(connector_id),
+            "secret_shape_policy": policy,
+        },
     )
     if policy == SECRET_SHAPE_POLICY_WARN:
         return
