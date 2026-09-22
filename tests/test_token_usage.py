@@ -53,9 +53,7 @@ def test_openai_usage_from_response_present() -> None:
     resp = SimpleNamespace(
         usage=SimpleNamespace(prompt_tokens=11, completion_tokens=7, total_tokens=18)
     )
-    assert openai_usage(resp) == TokenUsage(
-        prompt_tokens=11, completion_tokens=7, total_tokens=18
-    )
+    assert openai_usage(resp) == TokenUsage(prompt_tokens=11, completion_tokens=7, total_tokens=18)
 
 
 def test_openai_usage_from_response_missing() -> None:
@@ -91,9 +89,7 @@ def test_gemini_usage_from_metadata() -> None:
             total_token_count=11,
         )
     )
-    assert gemini_usage(resp) == TokenUsage(
-        prompt_tokens=9, completion_tokens=2, total_tokens=11
-    )
+    assert gemini_usage(resp) == TokenUsage(prompt_tokens=9, completion_tokens=2, total_tokens=11)
     assert gemini_usage(SimpleNamespace(usage_metadata=None)) is None
 
 
