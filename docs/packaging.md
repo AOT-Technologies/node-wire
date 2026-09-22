@@ -347,11 +347,20 @@ pip install "node-wire-runtime[gcp]"    # google-cloud-secret-manager
 
 ## Release process (tag-first)
 
-Releases are **tag-driven**. Create and push a SemVer tag first; the GitHub Release
-workflow validates the tag and creates the release. Package publishing is a separate
-manual step per package, bound to that tag.
+Releases are **tag-driven**. Create and push a tag first; package publishing is a
+separate manual step per package, bound to that tag. Tag shape selects the channel:
 
-### Step 1 — Prepare the release
+- **Stable** (`v1.2.0`) — Create Release Tag → GitHub Release → publish
+- **Beta** (`v1.2.0b1`) — Create Release Tag → publish (no GitHub Release)
+
+Both channels use the same `.github/workflows/publish.yml`. PyPI treats PEP 440
+pre-releases as pre-releases: `pip install node-wire-runtime` stays on stable;
+`pip install --pre node-wire-runtime` or an exact pin (for example
+`node-wire-runtime==1.2.0b1`) installs a beta.
+
+### Stable release
+
+#### Step 1 — Prepare the release
 
 1. Bump lockstep package versions with `./scripts/bump-version.py X.Y.Z` (root
    `pyproject.toml`, every `packages/**/pyproject.toml`, and connector
@@ -363,9 +372,9 @@ manual step per package, bound to that tag.
    missing).
 3. Merge to `main` and confirm required CI checks are green.
 
-### Step 2 — Create the tag
+#### Step 2 — Create the tag
 
-Dispatch **Create Release Tag** in Actions (`.github/workflows/create-tag.yml`) with `version` set to `1.0.0` (no leading `v`). It validates the version is MAJOR.MINOR.PATCH, that the tag doesn't already exist, that every package's version matches, and that `CHANGELOG.md` has an entry for it — then creates and pushes the `v1.0.0` tag itself. Run this before dispatching "GitHub Release" below.
+Dispatch **Create Release Tag** in Actions (`.github/workflows/create-tag.yml`) with `version` set to `1.0.0` (no leading `v`). It validates the version is `MAJOR.MINOR.PATCH` or a PEP 440 pre-release (`aN` / `bN` / `rcN`), that the tag doesn't already exist, that every package's version matches, and that `CHANGELOG.md` has an entry for it — then creates and pushes the `v1.0.0` tag itself. For stable releases, run this before dispatching "GitHub Release" below.
 
 Manual fallback, if you must create the tag by hand (bypasses the validation above):
 
@@ -374,9 +383,10 @@ git tag -a v1.0.0 -m "Release 1.0.0"
 git push origin v1.0.0
 ```
 
-### Step 3 — Create the GitHub Release
+#### Step 3 — Create the GitHub Release
 
 Dispatch **GitHub Release** in Actions with `version` set to `1.0.0` (no leading `v`).
+Stable versions only — the workflow rejects PEP 440 pre-releases.
 
 **Workflow:** `.github/workflows/github-release.yml` — manual `workflow_dispatch`
 after the tag has been pushed.
@@ -389,7 +399,7 @@ The workflow:
 4. Creates `release-manifest.txt` listing all publishable package paths (one per entry in `github-release.yml`'s `package_paths` list).
 5. Creates the GitHub Release with changelog notes, SBOM, and manifest attached.
 
-### Step 4 — Publish packages to PyPI
+#### Step 4 — Publish packages to PyPI
 
 After the GitHub Release exists, dispatch `.github/workflows/publish.yml` **once per
 package** (once per entry in the `allowed` set in that workflow).
@@ -403,11 +413,11 @@ package** (once per entry in the `allowed` set in that workflow).
 
 **Prerequisites checked before build:**
 
-- Tag resolves to a valid SemVer version.
+- Tag resolves to a valid stable (`X.Y.Z`) or PEP 440 pre-release version.
 - `package_path` is allowlisted.
 - Package `pyproject.toml` version matches the tag.
 - `CHANGELOG.md` contains the matching release section/link.
-- A GitHub Release exists for the tag.
+- For **stable** tags only: a GitHub Release exists for the tag.
 
 **Pipeline steps:**
 
@@ -422,18 +432,41 @@ package** (once per entry in the `allowed` set in that workflow).
 
 > **PyPI Trusted Publisher:** The workflow file is kept as `publish.yml` and the
 > workflow name as `Publish Node Wire package` so existing PyPI publisher
-> configuration continues to work.
+> configuration continues to work. Stable and beta both use this same publisher.
 
 If a published release must be withdrawn or replaced, follow
 [release-rollback.md](release-rollback.md) (PyPI yank, corrective patch release,
 and GitHub tag/release handling).
+
+### Beta PyPI publish
+
+Beta builds ship to the **same PyPI projects** as PEP 440 pre-releases. They
+**never** create a GitHub Release (`github-release.yml` rejects pre-release
+versions).
+
+1. Bump with `./scripts/bump-version.py 1.2.0b1` (also accepts `aN` / `rcN`).
+   The script scaffolds a dated `## [1.2.0b1]` section with a short **Notes**
+   stub and a footer tag link.
+2. Fill in the Notes, merge to `main`, confirm CI is green.
+3. Dispatch **Create Release Tag** with `version` set to `1.2.0b1` (no leading `v`).
+4. Dispatch `.github/workflows/publish.yml` once per allowlisted package with
+   `tag: v1.2.0b1`. Publish skips the GitHub Release check for pre-release tags.
+
+Install a beta with:
+
+```bash
+pip install --pre node-wire-runtime
+# or pin exactly:
+pip install node-wire-runtime==1.2.0b1
+```
 
 ---
 
 ## CI publish flow (Trusted Publisher)
 
 See [Release process (tag-first)](#release-process-tag-first) above for the full
-end-to-end flow. The package publish workflow is `.github/workflows/publish.yml`.
+end-to-end flow (stable and beta). The package publish workflow is
+`.github/workflows/publish.yml`.
 
 ---
 

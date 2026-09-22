@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-07-30
-
 ### Added
 
 - **`nw-cli`**: a new unified CLI (`nw`) for the OpenAPI → connector → wheel →
@@ -85,6 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/toolhive_agent_scenario.md`).
 - CI workflows hardened for consistency across quality, security, and publish
   checks.
+- Publish workflow accepts PEP 440 pre-release tags (`aN` / `bN` / `rcN`) and
+  skips the GitHub Release prerequisite for those tags so betas can ship to
+  PyPI without a GitHub Release; Create Release Tag and `bump-version.py`
+  accept the same version shapes (`docs/packaging.md`, `docs/versioning.md`).
 
 ### Fixed
 
@@ -170,6 +172,5 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Dependency lockfile upgraded to resolve known CVEs in transitive packages.
 - Packaging, publish workflow, and security scanning aligned on the nine-package surface.
 
-[1.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.0
 [1.0.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.0.0
 [0.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v0.1.0

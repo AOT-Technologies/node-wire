@@ -9,8 +9,12 @@ Updates root + packages/**/pyproject.toml (not nw-mcp-builder), connector
 node-wire-runtime dependency floors, and scaffolds a CHANGELOG.md section/link
 when missing.
 
+Accepts stable ``MAJOR.MINOR.PATCH`` or PEP 440 pre-releases (``aN`` / ``bN`` /
+``rcN``).
+
 Usage:
   ./scripts/bump-version.py 1.0.1
+  ./scripts/bump-version.py 1.2.0b1
   ./scripts/bump-version.py 1.0.1 --dry-run
 """
 
@@ -23,7 +27,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+# Stable X.Y.Z, or PEP 440 pre-release X.Y.ZaN / X.Y.ZbN / X.Y.ZrcN.
+VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?$")
+PRE_RELEASE_RE = re.compile(r"^\d+\.\d+\.\d+(?:a|b|rc)\d+$")
 PROJECT_VERSION_RE = re.compile(
     r'^version\s*=\s*"[^"]*"',
     re.MULTILINE,
@@ -35,11 +41,20 @@ CHANGELOG_HEADING_RE = re.compile(
     r"^## \[([^\]]+)\](?: - \d{4}-\d{2}-\d{2})?\s*$",
     re.MULTILINE,
 )
+# Match stable or pre-release footer links when inserting a new one.
+CHANGELOG_LINK_RE = re.compile(
+    r"^\[\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?\]: ",
+    re.MULTILINE,
+)
 RELEASE_URL = "https://github.com/AOT-Technologies/node-wire/releases/tag/v{version}"
 
 
 def _pyproject_paths() -> list[Path]:
     return [ROOT / "pyproject.toml", *sorted((ROOT / "packages").glob("**/pyproject.toml"))]
+
+
+def _is_pre_release(version: str) -> bool:
+    return bool(PRE_RELEASE_RE.fullmatch(version))
 
 
 def _set_project_version(text: str, version: str, path: Path) -> str:
@@ -70,7 +85,10 @@ def _changelog_has_link(text: str, version: str) -> bool:
 
 def _scaffold_changelog(text: str, version: str) -> str:
     today = dt.date.today().isoformat()
-    stub = f"## [{version}] - {today}\n\n### Added\n\n- \n\n### Changed\n\n- \n\n"
+    if _is_pre_release(version):
+        stub = f"## [{version}] - {today}\n\n### Notes\n\n- \n\n"
+    else:
+        stub = f"## [{version}] - {today}\n\n### Added\n\n- \n\n### Changed\n\n- \n\n"
 
     updated = text
     if not _changelog_has_section(updated, version):
@@ -87,7 +105,7 @@ def _scaffold_changelog(text: str, version: str) -> str:
     if not _changelog_has_link(updated, version):
         link_line = f"[{version}]: {RELEASE_URL.format(version=version)}\n"
         # Insert before the first existing version link, or append at EOF.
-        first_link = re.search(r"^\[\d+\.\d+\.\d+\]: ", updated, re.MULTILINE)
+        first_link = CHANGELOG_LINK_RE.search(updated)
         if first_link:
             updated = updated[: first_link.start()] + link_line + updated[first_link.start() :]
         else:
@@ -110,7 +128,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "version",
-        help="Semver version without leading v (for example, 1.0.1)",
+        help=(
+            "Version without leading v: MAJOR.MINOR.PATCH or PEP 440 "
+            "pre-release (for example, 1.0.1 or 1.2.0b1)"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -123,7 +144,11 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: pass the version without a leading v", file=sys.stderr)
         return 1
     if not VERSION_RE.fullmatch(version):
-        print(f"ERROR: {version!r} is not a MAJOR.MINOR.PATCH version", file=sys.stderr)
+        print(
+            f"ERROR: {version!r} is not MAJOR.MINOR.PATCH or a PEP 440 "
+            "pre-release (aN/bN/rcN)",
+            file=sys.stderr,
+        )
         return 1
 
     changed: list[str] = []
