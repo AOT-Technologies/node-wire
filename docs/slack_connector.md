@@ -155,5 +155,5 @@ Uploads a file to a Slack channel or DM.
 
 ### Related
 
-- Pre-built per-connector Docker images: [docs/packaging.md](packaging.md)
-- Connector Architecture: [docs/connectors.md](connectors.md)
+- Pre-built per-connector Docker images: [packaging.md](packaging.md)
+- Connector Architecture: [connectors.md](connectors.md)

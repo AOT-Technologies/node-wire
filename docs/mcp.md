@@ -107,15 +107,14 @@ Each connector runs as its own independent MCP server (often in a dedicated Dock
 
 ## Multi-tenancy
 
-When `NW_MULTITENANCY_ENABLED=true`, MCP loads `config/tenants.yaml` (or `NW_TENANTS_PATH`) and exposes `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to **every connector** on that MCP process by default, but each connector tool also accepts an optional per-call `config_name` argument that outranks the shared selection for that one call. `tenant_id` is never accepted as a tool argument — tenant is always resolved from the session/request, never from tool call arguments.
+When `NW_MULTITENANCY_ENABLED=true`, MCP loads tenants/configs and exposes
+`nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`.
+Tenant is never a connector-tool argument.
 
-Tenant pin precedence differs by transport:
-- **stdio:** the `NW_TENANT_ID` env pin is the default until `nw_select_tenant` is called, after which the selection overrides it for the rest of the session.
-- **streamable-http:** the live per-request `X-Tenant-ID` header (or JWT tenant claim) always wins, on every request — a prior `nw_select_tenant` call in one session can never shadow another concurrent session's request-level tenant. A tenant claim in the JWT that disagrees with the caller-supplied header/session tenant is rejected with a `TenantIdentityMismatchError` (403 `TENANT_IDENTITY_MISMATCH`), not silently overridden.
-
-**Session vs instance pin:** `nw_select_tenant` sets the MCP **session** overlay (which tenant/config names bindings pass into `factory.get`). The factory then sets **`_tenant_id` on the connector instance**; `run()` uses that pin when `tenant_id` is omitted and returns `TENANT_MISMATCH` if a caller passes a different id.
-
-**Full guide:** [Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp)
+Full variable reference and host/factory contract:
+[Configuration — Multi-tenancy](configuration.md#multi-tenancy).
+MCP transport pin rules and ToolHive notes:
+[Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp).
 
 ---
 

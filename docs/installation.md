@@ -35,9 +35,9 @@ cp sample.env .env
 # Windows (CMD)
 copy sample.env .env
 ```
-*(Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others)*
-
-Node Wire uses a fail-closed connector allowlist. If `NW_ALLOWED_CONNECTORS` is missing or empty, no connectors are loaded even when they are enabled in `config/connectors.yaml`.
+*(Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others. Unset or empty
+loads no connectors — fail-closed. Full reference:
+[Configuration — Required Variables](configuration.md#required-variables).)*
 
 By default the platform is single-tenant (every call resolves to `__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file (defaults to `config/tenants.yaml`). See [Configuration — Multi-tenancy](configuration.md#multi-tenancy).
 

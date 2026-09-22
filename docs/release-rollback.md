@@ -39,11 +39,19 @@ reaches PyPI or GitHub. Read it together with
   ([SECURITY.md](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md)).
 - **Comms** — notifies users via GitHub Discussions, release notes, or advisory.
 
+## Terminology note
+
+- **PEP 440 pre-release / beta** (e.g. `1.2.0b1`, tag `v1.2.0b1`) — PyPI channel selected by
+  version shape. Betas **never** create a GitHub Release. See
+  [versioning.md](versioning.md#pypi-pre-releases-beta).
+- **GitHub Release “Set as a pre-release”** — a UI checkbox on an existing GitHub Release. That
+  is unrelated to PEP 440 betas; do not confuse the two when following this runbook.
+
 ## Step 1 — Triage and freeze
 
 1. Confirm which **package(s)** and **version(s)** are affected (nine publishable
    packages; see [packaging.md](packaging.md#package-inventory)).
-2. Record the Git tag (`vX.Y.Z`), commit SHA, and PyPI project name(s).
+2. Record the Git tag (`vX.Y.Z` or `vX.Y.ZbN`), commit SHA, and PyPI project name(s).
 3. **Stop further publishes** of the affected version until root cause is known.
 4. Open an internal incident thread (issue or private channel) with:
    - impact (install broken, data leak, CVE, etc.)
@@ -52,7 +60,9 @@ reaches PyPI or GitHub. Read it together with
 
 ## Step 2 — Yank on PyPI
 
-Yanking requires a PyPI account with maintainer rights on the project.
+Yanking requires a PyPI account with maintainer rights on the project. The same
+yank flow applies to **stable** and **PEP 440 beta** versions (they share PyPI
+projects).
 
 ```bash
 # List current files for a project (optional)
@@ -64,6 +74,8 @@ pip index versions node-wire-runtime
 
 # Or via twine (if configured):
 twine yank node-wire-runtime 1.0.0 --reason "Install regression; use 1.0.1 instead"
+# Beta example:
+# twine yank node-wire-runtime 1.2.0b1 --reason "Bad beta; use 1.2.0b2 instead"
 ```
 
 Repeat for every affected package (runtime and any connector wheels published
@@ -71,23 +83,31 @@ at the bad version).
 
 **Yank reason template:**
 
-> Do not use. Install &lt;fixed-version&gt; instead. See &lt;GitHub release or advisory URL&gt;.
+> Do not use. Install &lt;fixed-version&gt; instead. See &lt;GitHub release, CHANGELOG, or advisory URL&gt;.
 
 ## Step 3 — Publish a corrective release
 
 1. Fix the defect on `main` (or a release branch) with tests.
-2. Bump **PATCH** per [SemVer](versioning.md) (e.g. `1.0.0` → `1.0.1`).
+2. Bump the version:
+   - **Stable:** bump **PATCH** per [SemVer](versioning.md) (e.g. `1.0.0` → `1.0.1`).
+   - **Beta:** bump the pre-release segment (e.g. `1.2.0b1` → `1.2.0b2`) with
+     `./scripts/bump-version.py` — do not reuse a yanked PEP 440 version.
 3. Update [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) with the fix and yank notice.
 4. Run the local pre-publish checklist in [packaging.md](packaging.md#pre-pypi-local-validation-checklist).
-5. Dispatch `.github/workflows/publish.yml` for each affected `package_path`
-   with the corrective release `tag` (e.g. `v1.0.1`).
+5. Follow the stable or beta operator flow in [packaging.md](packaging.md#release-process-tag-first),
+   then dispatch `.github/workflows/publish.yml` for each affected `package_path`
+   with the corrective `tag` (e.g. `v1.0.1` or `v1.2.0b2`).
 
 ## Step 4 — GitHub release and tags
+
+Applies to **stable** tags only. PEP 440 betas have no GitHub Release — after yanking
+a beta on PyPI, delete or leave the git tag as needed and publish the next `bN`/`rcN`
+(or ship the final `X.Y.Z`).
 
 | Situation | Action |
 |---|---|
 | Tag points at bad commit, not widely used | Delete remote tag; retag fixed commit; edit GitHub Release |
-| Tag already referenced externally | **Do not** rewrite history; publish new tag `vX.Y.Z+1` and mark old release as pre-release with warning |
+| Tag already referenced externally | **Do not** rewrite history; publish new tag `vX.Y.Z+1` and mark the old GitHub Release with **“Set as a pre-release”** (GitHub UI checkbox) plus a warning in the notes |
 | GitHub Release notes wrong | Edit release description; link to corrective version |
 
 ```bash
@@ -121,7 +141,7 @@ before public announcement.
 
 - [ ] Root cause documented (issue or post-mortem)
 - [ ] CI gap closed if the defect should have been caught pre-publish
-- [ ] [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) and [docs/troubleshooting.md](troubleshooting.md) updated if user-visible
+- [ ] [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) and [troubleshooting.md](troubleshooting.md) updated if user-visible
 - [ ] Branch protection / required checks reviewed
 - [ ] If secrets were exposed: rotate credentials, run secret scan (see
       [quality-security-gates.md](quality-security-gates.md#secret-scanning)),
@@ -145,7 +165,7 @@ pip install node-wire-runtime==1.0.1
 
 ## Related docs
 
-- [Packaging & Publishing](packaging.md) — publish workflow and pre-release checks
-- [Versioning policy](versioning.md) — when to bump MAJOR/MINOR/PATCH
+- [Packaging & Publishing](packaging.md) — publish workflow and pre-publish checks
+- [Versioning policy](versioning.md) — when to bump MAJOR/MINOR/PATCH (and PEP 440 betas)
 - [Security Policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) — vulnerability reporting and advisories
 - [Quality & security gates](quality-security-gates.md) — CI checks and scans

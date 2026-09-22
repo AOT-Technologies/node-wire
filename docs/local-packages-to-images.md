@@ -50,7 +50,7 @@ The script (`scripts/build-packages.sh` in default mode, not `--all`):
 - writes artifacts under each package's `dist/` folder,
 - fails if any `.py` source files leak into a wheel.
 
-Use `--linux-only` when you only need container wheels, or `--host-only` to skip Docker. For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [docs/packaging.md](packaging.md).
+Use `--linux-only` when you only need container wheels, or `--host-only` to skip Docker. For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [packaging.md](packaging.md).
 
 ---
 

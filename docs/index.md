@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 [![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
 [![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
-[![PyPI](https://img.shields.io/pypi/v/node-wire.svg)](https://pypi.org/project/node-wire/)
+[![PyPI runtime](https://img.shields.io/pypi/v/node-wire-runtime.svg?label=node-wire-runtime)](https://pypi.org/project/node-wire-runtime/)
 [![GitHub Release](https://img.shields.io/github/v/release/AOT-Technologies/node-wire)](https://github.com/AOT-Technologies/node-wire/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE)
 
@@ -16,7 +16,7 @@ SPDX-License-Identifier: Apache-2.0
   <img src="images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
 </p>
 
-node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
+Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
 ## Prerequisites
 
@@ -95,6 +95,16 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 | FHIR Epic | SMART on FHIR | [Connectors](connectors.md) |
 | FHIR Cerner | SMART on FHIR | [Connectors](connectors.md) |
 | HTTP Generic | REST bridge | [Connectors](connectors.md) |
+
+## Docs map
+
+| Area | Pages |
+|---|---|
+| MCP | [Overview](mcp.md) · [MCP host builder](mcp-servers.md) · [Client OAuth](mcp-client-oauth.md) · [ToolHive scenario](toolhive_agent_scenario.md) |
+| Packaging & release | [Packaging](packaging.md) · [Versioning](versioning.md) · [Release rollback](release-rollback.md) · [Local wheels → images](local-packages-to-images.md) |
+| Development | [Contributing](contributing.md) · [Code quality](code-quality-compliance.md) · [Quality & security gates](quality-security-gates.md) · [Public API](public-api.md) · [Troubleshooting](troubleshooting.md) |
+| Compliance | [Privacy](privacy.md) · [HIPAA considerations](compliance/hipaa-considerations.md) |
+| Builder scope | [What OpenAPI codegen supports](nw-connector-builder-scope.md) |
 
 ## Contributing
 
