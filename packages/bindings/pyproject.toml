@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-bindings"
-version = "1.1.0"
+version = "1.0.0"
 description = "Node Wire bindings — MCP host surface (factory, invoke, mcp_server)"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -12,7 +12,7 @@ authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com
 readme = "README.md"
 
 dependencies = [
-    "node-wire-runtime>=1.1.0",
+    "node-wire-runtime>=1.0.0",
     "mcp>=1.6.0,<2",
     "PyJWT[crypto]>=2.8.0",
     "python-dotenv>=1.0.0",
