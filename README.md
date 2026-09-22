@@ -34,7 +34,7 @@ Before getting started, make sure you have:
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
-uv sync --frozen --all-extras --dev
+uv sync --frozen --extra agents --dev
 ```
 *(Requires `uv`. See [Installation](docs/installation.md) for lockfile update workflow.)*
 

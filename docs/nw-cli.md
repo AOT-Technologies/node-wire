@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 `nw` is the unified CLI for the OpenAPI → connector → wheel → MCP host → Docker image pipeline. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](packaging.md), and [`nw-mcp-builder`](mcp-servers.md) without replacing those tools.
 
-ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. See `scripts/deploy-openapi-mcp-toolhive.md` for manual deploy steps.
+ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. For manual ToolHive registration and the end-to-end agent path, see [mcp-servers.md](mcp-servers.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 

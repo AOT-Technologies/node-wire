@@ -294,10 +294,10 @@ At startup, `auto_register()` discovers all installed connectors via the `node_w
 
 ### Runtime loading knobs
 
-| Env var | Default | Purpose |
-|---|---|---|
-| `NW_ALLOWED_CONNECTORS` | _(empty — load nothing)_ | Comma-separated allowlist of entry-point names (e.g. `stripe,fhir_epic`). **Unset or empty loads no connectors** (fail-closed). Set explicitly in production and local `.env`. |
-| `NW_CONNECTOR_MODULE_PREFIX` | `node_wire_` | Connectors whose target module doesn't start with this prefix are skipped with a warning. Set to `""` to disable the check. |
+Fail-closed connector loading and related env vars are documented in
+[configuration.md](configuration.md#required-variables). Packaging clients must
+still set `NW_ALLOWED_CONNECTORS` and may set `NW_CONNECTOR_MODULE_PREFIX`
+(default `node_wire_`) when embedding wheels.
 
 ---
 
@@ -319,40 +319,37 @@ connectors:
 
 See `config/connectors.yaml` for the full working example and `src/node_wire_runtime/connectors.yaml.sample` for a commented template with all supported fields.
 
-For per-connector detail (operations, env vars, request/response shapes) see `docs/connectors.md` and each connector's `README.md` under `src/node_wire_<name>/`.
+For per-connector detail (operations, env vars, request/response shapes) see
+[connectors.md](connectors.md) and each connector's `README.md` under
+`src/node_wire_<name>/`.
 
-### Secret backend (`NW_SECRET_BACKEND`)
-
-| Value | Behavior |
-|---|---|
-| `env` _(default)_ | Reads from process environment. Raises `SecretNotFoundError` for absent keys (fail-closed). |
-| `aws_env` | Tries AWS Secrets Manager JSON bundle first; falls back to env on `SecretNotFoundError`. Propagates `SecretProviderError` immediately (broken provider is never silently swallowed). |
-
-Required env vars for `aws_env`:
-
-- `NW_AWS_SECRETS_MANAGER_SECRET_ID` — secret name or ARN (required)
-- `AWS_REGION` — defaults to `us-east-1`
-
-**Legacy flag:** `NW_ENV_SECRET_LEGACY_EMPTY=true` returns `""` for missing keys instead of raising. This exists for backwards compatibility only — do not use in production.
-
-Additional cloud backends (`vault`, `azure`, `gcp`) ship as optional extras in `node-wire-runtime` but are not currently wired into the factory:
-
-```bash
-pip install "node-wire-runtime[aws]"    # boto3
-pip install "node-wire-runtime[vault]"  # hvac
-pip install "node-wire-runtime[azure]"  # azure-keyvault-secrets
-pip install "node-wire-runtime[gcp]"    # google-cloud-secret-manager
-```
+Secret backends (`NW_SECRET_BACKEND`, `aws_env`, optional vault/azure/gcp extras)
+are documented in [configuration.md — Secrets Management](configuration.md#secrets-management).
 
 ---
 
 ## Release process (tag-first)
 
-Releases are **tag-driven**. Create and push a SemVer tag first; the GitHub Release
-workflow validates the tag and creates the release. Package publishing is a separate
-manual step per package, bound to that tag.
+Releases are **tag-driven**. Create and push a tag first; package publishing is a
+separate manual step per package, bound to that tag. Tag shape selects the channel:
 
-### Step 1 — Prepare the release
+- **Stable** (`v1.2.0`) — Create Release Tag → GitHub Release → publish
+- **Beta** (`v1.2.0b1`) — Create Release Tag → publish (no GitHub Release)
+
+Both channels use the same `.github/workflows/publish.yml`. PyPI treats PEP 440
+pre-releases as pre-releases: `pip install node-wire-runtime` stays on stable;
+`pip install --pre node-wire-runtime` or an exact pin (for example
+`node-wire-runtime==1.2.0b1`) installs a beta.
+
+**Create Release Tag** (`.github/workflows/create-tag.yml`) accepts both
+`MAJOR.MINOR.PATCH` and PEP 440 pre-releases (`aN` / `bN` / `rcN`). It checks
+that the tag is free, package versions match, and `CHANGELOG.md` has the matching
+entry, then pushes `v…`. Use a stable version for the steps below; use a
+pre-release version for [Beta PyPI publish](#beta-pypi-publish).
+
+### Stable release
+
+#### Step 1 — Prepare the release
 
 1. Bump lockstep package versions with `./scripts/bump-version.py X.Y.Z` (root
    `pyproject.toml`, every `packages/**/pyproject.toml`, and connector
@@ -364,9 +361,11 @@ manual step per package, bound to that tag.
    missing).
 3. Merge to `main` and confirm required CI checks are green.
 
-### Step 2 — Create the tag
+#### Step 2 — Create the tag
 
-Dispatch **Create Release Tag** in Actions (`.github/workflows/create-tag.yml`) with `version` set to `1.0.0` (no leading `v`). It validates the version is MAJOR.MINOR.PATCH, that the tag doesn't already exist, that every package's version matches, and that `CHANGELOG.md` has an entry for it — then creates and pushes the `v1.0.0` tag itself. Run this before dispatching "GitHub Release" below.
+Dispatch **Create Release Tag** in Actions with `version` set to `1.0.0` (no
+leading `v`). For stable releases, run this before dispatching "GitHub Release"
+below.
 
 Manual fallback, if you must create the tag by hand (bypasses the validation above):
 
@@ -375,9 +374,10 @@ git tag -a v1.0.0 -m "Release 1.0.0"
 git push origin v1.0.0
 ```
 
-### Step 3 — Create the GitHub Release
+#### Step 3 — Create the GitHub Release
 
 Dispatch **GitHub Release** in Actions with `version` set to `1.0.0` (no leading `v`).
+Stable versions only — the workflow rejects PEP 440 pre-releases.
 
 **Workflow:** `.github/workflows/github-release.yml` — manual `workflow_dispatch`
 after the tag has been pushed.
@@ -390,7 +390,7 @@ The workflow:
 4. Creates `release-manifest.txt` listing all publishable package paths (one per entry in `github-release.yml`'s `package_paths` list).
 5. Creates the GitHub Release with changelog notes, SBOM, and manifest attached.
 
-### Step 4 — Publish packages to PyPI
+#### Step 4 — Publish packages to PyPI
 
 After the GitHub Release exists, dispatch `.github/workflows/publish.yml` **once per
 package** (once per entry in the `allowed` set in that workflow).
@@ -402,9 +402,9 @@ package** (once per entry in the `allowed` set in that workflow).
 | `tag` | `v1.0.0` | Must match an existing release tag |
 | `package_path` | `packages/connectors/stripe` | Must match the workflow allowlist |
 
-**Prerequisites checked before build:**
+**Prerequisites checked before build (stable):**
 
-- Tag resolves to a valid SemVer version.
+- Tag resolves to a valid stable `X.Y.Z` version.
 - `package_path` is allowlisted.
 - Package `pyproject.toml` version matches the tag.
 - `CHANGELOG.md` contains the matching release section/link.
@@ -412,29 +412,53 @@ package** (once per entry in the `allowed` set in that workflow).
 
 **Pipeline steps:**
 
-1. Matrix-build wheels on Ubuntu, macOS, Windows via `cibuildwheel` (Python 3.11, 3.12)
+1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (Python 3.11, 3.12)
 2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
 3. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
 4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations
 
-> **Note:** The release-level SBOM is attached to the GitHub Release (step 2).
+> **Note:** The release-level SBOM is attached to the GitHub Release (step 3).
 > Package publish produces PyPI Sigstore attestations per wheel; it does not
 > generate a separate SBOM.
 
 > **PyPI Trusted Publisher:** The workflow file is kept as `publish.yml` and the
 > workflow name as `Publish Node Wire package` so existing PyPI publisher
-> configuration continues to work.
+> configuration continues to work. Stable and beta both use this same publisher.
 
 If a published release must be withdrawn or replaced, follow
 [release-rollback.md](release-rollback.md) (PyPI yank, corrective patch release,
 and GitHub tag/release handling).
+
+### Beta PyPI publish
+
+Beta builds ship to the **same PyPI projects** as PEP 440 pre-releases. They
+**never** create a GitHub Release (`github-release.yml` rejects pre-release
+versions).
+
+1. Bump with `./scripts/bump-version.py 1.2.0b1` (also accepts `aN` / `rcN`).
+   The script scaffolds a dated `## [1.2.0b1]` section with a short **Notes**
+   stub and a footer tag link.
+2. Fill in the Notes, merge to `main`, confirm CI is green.
+3. Dispatch **Create Release Tag** with `version` set to `1.2.0b1` (no leading `v`).
+4. Dispatch `.github/workflows/publish.yml` once per allowlisted package with
+   `tag: v1.2.0b1`. Publish skips the GitHub Release check for pre-release tags
+   (same pipeline steps as stable otherwise).
+
+Install a beta with:
+
+```bash
+pip install --pre node-wire-runtime
+# or pin exactly:
+pip install node-wire-runtime==1.2.0b1
+```
 
 ---
 
 ## CI publish flow (Trusted Publisher)
 
 See [Release process (tag-first)](#release-process-tag-first) above for the full
-end-to-end flow. The package publish workflow is `.github/workflows/publish.yml`.
+end-to-end flow (stable and beta). The package publish workflow is
+`.github/workflows/publish.yml`.
 
 ---
 
@@ -442,7 +466,11 @@ end-to-end flow. The package publish workflow is `.github/workflows/publish.yml`
 
 The `docker/*/Dockerfile` images are **demonstration templates** for packaging a single connector as a standalone MCP server. They are not production orchestration artefacts.
 
-For a local end-to-end walkthrough (build wheels first, then build Docker images that consume those wheels), see [docs/local-packages-to-images.md](local-packages-to-images.md).
+Generated MCP host images expect **Linux** wheels built for **Python 3.12**
+(`python:3.12-slim` in the generated Dockerfile). See
+[mcp-servers.md](mcp-servers.md#platform-and-toolhive-read-this-first) and
+[local-packages-to-images.md](local-packages-to-images.md) for the wheel → image
+walkthrough.
 
 ```bash
 docker build -f docker/smtp/Dockerfile -t nw-smtp .

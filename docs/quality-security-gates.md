@@ -113,7 +113,7 @@ treat it as defense in depth; the in-repo workflow provides auditable CI evidenc
 
 ```bash
 # Install dev tools from committed lockfile
-uv sync --frozen --all-extras --dev
+uv sync --frozen --extra agents --dev
 
 # Security gate (matches CI failure threshold)
 uv run bandit -c pyproject.toml \

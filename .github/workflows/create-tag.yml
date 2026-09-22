@@ -5,13 +5,15 @@
 
 name: Create Release Tag
 
-# Step 1 of the release flow. Run this first, then run "GitHub Release".
+# Step 1 of the release/beta flow. Accepts stable MAJOR.MINOR.PATCH or PEP 440
+# pre-releases (aN/bN/rcN). For stable: run "GitHub Release" next, then publish.
+# For beta: skip GitHub Release and dispatch publish.yml directly.
 # Go to Actions → "Create Release Tag" → Run workflow with the target version.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Semver version to tag, without leading v (for example, 1.0.0)"
+        description: "Version to tag, without leading v (for example, 1.0.0 or 1.2.0b1)"
         required: true
         type: string
 
@@ -30,17 +32,29 @@ jobs:
           fetch-depth: 0
 
       - name: Validate version format
+        id: validate_version
         shell: python
         run: |
+          import os
           import re
           import sys
 
           version = "${{ inputs.version }}".strip()
-          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
-              print(f"ERROR: {version!r} is not a MAJOR.MINOR.PATCH version", file=sys.stderr)
+          # Stable X.Y.Z, or PEP 440 pre-release X.Y.ZaN / X.Y.ZbN / X.Y.ZrcN.
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?", version):
+              print(
+                  f"ERROR: {version!r} is not MAJOR.MINOR.PATCH or a PEP 440 "
+                  "pre-release (aN/bN/rcN)",
+                  file=sys.stderr,
+              )
               sys.exit(1)
 
-          print(f"Version {version} is valid semver")
+          is_pre = bool(re.fullmatch(r"\d+\.\d+\.\d+(?:a|b|rc)\d+", version))
+          channel = "beta" if is_pre else "stable"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"channel={channel}\n")
+
+          print(f"Version {version} is valid ({channel})")
 
       - name: Check tag does not already exist
         run: |
@@ -103,10 +117,17 @@ jobs:
           print(f"PASS: CHANGELOG.md has a valid [{version}] entry")
 
       - name: Create and push tag
+        env:
+          CHANNEL: ${{ steps.validate_version.outputs.channel }}
         run: |
           TAG="v${{ inputs.version }}"
+          if [ "${CHANNEL}" = "beta" ]; then
+            MSG="Beta ${TAG}"
+          else
+            MSG="Release ${TAG}"
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${TAG}" -m "Release ${TAG}"
+          git tag -a "${TAG}" -m "${MSG}"
           git push origin "${TAG}"
-          echo "Tagged $(git rev-parse HEAD) as ${TAG}"
+          echo "Tagged $(git rev-parse HEAD) as ${TAG} (${MSG})"

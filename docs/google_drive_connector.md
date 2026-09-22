@@ -11,7 +11,7 @@ This document covers the Google Drive connector under `src/node_wire_google_driv
 1. **[Google Drive service account setup](#google-drive-service-account-setup)** — Create a GCP service account, enable the Drive API, configure `.env`, share a folder, and verify connectivity.
 2. **[REST API reference](#rest-api-reference)** — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.
 
-For **MCP** (e.g. ToolHive), tools are named `google_drive_<action>` from the connector manifest (e.g. `google_drive_files_upload`). Legacy dotted names (`google_drive.files.upload`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+For **MCP** (e.g. ToolHive), tools are named `google_drive_<action>` from the connector manifest (e.g. `google_drive_files_upload`). Legacy dotted names (`google_drive.files.upload`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 
@@ -165,7 +165,7 @@ $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
 
 > This sets the variable for the current PowerShell session. To persist it across sessions, use `[System.Environment]::SetEnvironmentVariable("GOOGLE_DRIVE_SA_JSON", (Get-Content -Path $saPath -Raw), "User")` or add the path to your `.env` file manually.
 
-> **For ToolHive deployment:** Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `GOOGLE_DRIVE_SA_JSON`. See [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+> **For ToolHive deployment:** Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `GOOGLE_DRIVE_SA_JSON`. See [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ### Step 6: Share a Google Drive Folder with the Service Account
 
@@ -489,4 +489,4 @@ The connector never raises raw `HttpError`; it always translates errors into one
 
 ### Related
 
-- AI-orchestrated workflows (ToolHive, MCP agent): [docs/toolhive_agent_scenario.md](toolhive_agent_scenario.md)
+- AI-orchestrated workflows (ToolHive, MCP agent): [toolhive_agent_scenario.md](toolhive_agent_scenario.md)

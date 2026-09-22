@@ -474,10 +474,13 @@ COPY wheels/ /wheels/
 # --no-compile then avoids writing .pyc files the next two lines only delete.
 # The find still earns its place: it strips the base image's own stdlib
 # __pycache__, which shrinks the /usr/local copied into the final stage.
+# Brace the __pycache__ cleanup so `|| true` cannot mask a failed pip install
+# (shell associates `&&`/`||` left-to-right; bare `pip && find || true && …`
+# succeeds even when pip fails).
 RUN --mount=type=cache,target=/root/.cache/pip \\
     pip install --no-compile --find-links=/wheels \\
         node-wire-runtime {BINDINGS_DIST_PACKAGE} {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
-    && find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true \\
+    && {{ find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true; }} \\
     && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
 
 FROM {PYTHON_312_SLIM_IMAGE}

@@ -36,7 +36,7 @@ uv run nw gen-mcp --connector-id pet_store --force-output
 uv run nw docker-build --connector-id pet_store --tag latest
 ```
 
-ToolHive deploy/verify stays manual — see `scripts/deploy-openapi-mcp-toolhive.md`.
+ToolHive deploy/verify stays manual — see [mcp-servers.md](../docs/mcp-servers.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../docs/toolhive_agent_scenario.md).
 
 ### Tests
 

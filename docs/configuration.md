@@ -24,7 +24,8 @@ copy sample.env .env
 
 | Variable | Description |
 |----------|-------------|
-| `NW_ALLOWED_CONNECTORS` | **Required.** A comma-separated list of connector names to load (e.g., `fhir_epic,http_generic`). Node Wire defaults to a fail-closed policy. |
+| `NW_ALLOWED_CONNECTORS` | **Required.** A comma-separated list of connector names to load (e.g., `fhir_epic,http_generic`). Node Wire defaults to a fail-closed policy: unset or empty loads **no** connectors, even when they are `enabled` in `config/connectors.yaml`. |
+| `NW_CONNECTOR_MODULE_PREFIX` | Optional. Connectors whose entry-point target module does not start with this prefix are skipped with a warning. Default `node_wire_`; set to `""` to disable the check. |
 
 ### Connector Secrets
 
@@ -108,7 +109,34 @@ connectors:
 
 ## Secrets Management
 
-The factory uses an `EnvSecretProvider` by default. It looks up keys exactly as provided, and then in uppercase (e.g., `my_key` then `MY_KEY`).
+The factory selects a secret provider from `NW_SECRET_BACKEND` (default `env` →
+`EnvSecretProvider`). Env lookups use the key as given, then `key.upper()` (e.g.
+`my_key` then `MY_KEY`). Missing keys raise `SecretNotFoundError` (fail-closed)
+unless `NW_ENV_SECRET_LEGACY_EMPTY=true` (legacy empty-string behaviour — do not
+use in production).
+
+### Secret backend (`NW_SECRET_BACKEND`)
+
+| Value | Behavior |
+|---|---|
+| `env` _(default)_ | Reads from process environment. Raises `SecretNotFoundError` for absent keys (fail-closed). |
+| `aws_env` | Tries AWS Secrets Manager JSON bundle first; falls back to env on `SecretNotFoundError`. Propagates `SecretProviderError` immediately (broken provider is never silently swallowed). |
+
+Required env vars for `aws_env`:
+
+- `NW_AWS_SECRETS_MANAGER_SECRET_ID` — secret name or ARN (required)
+- `AWS_REGION` — defaults to `us-east-1`
+
+Additional cloud backends (`vault`, `azure`, `gcp`) ship as optional extras in
+`node-wire-runtime` but are **not** currently wired into the factory — using them
+requires custom composition:
+
+```bash
+pip install "node-wire-runtime[aws]"    # boto3
+pip install "node-wire-runtime[vault]"  # hvac
+pip install "node-wire-runtime[azure]"  # azure-keyvault-secrets
+pip install "node-wire-runtime[gcp]"    # google-cloud-secret-manager
+```
 
 ### Google Drive Service Account (Local Example)
 

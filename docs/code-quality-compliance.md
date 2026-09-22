@@ -15,7 +15,7 @@ Linting and type checks run automatically in CI on pull requests against the `ma
 Install development dependencies from the committed lockfile:
 
 ```bash
-uv sync --frozen --all-extras --dev
+uv sync --frozen --extra agents --dev
 ```
 
 Then run the local quality checks:
@@ -67,7 +67,7 @@ bash scripts/add-license-headers.sh
 
 ## Dependency lockfile
 
-`uv.lock` is the source of truth for CI and local development installs. CI uses `uv sync --frozen --all-extras --dev`, which refuses to resolve new versions and verifies package hashes from the lockfile.
+`uv.lock` is the source of truth for CI and local development installs. CI uses `uv sync --frozen --extra agents --dev`, which refuses to resolve new versions and verifies package hashes from the lockfile.
 
 ### Update workflow
 
@@ -98,7 +98,7 @@ bash scripts/run-compliance-checks.sh
 
 That script:
 
-1. Syncs the locked environment (`uv sync --frozen --all-extras --dev`).
+1. Syncs the locked environment (`uv sync --frozen --extra agents --dev`).
 2. Regenerates `DEPENDENCIES.md`.
 3. Generates `sbom.json` (CycloneDX SBOM).
 4. Runs **Bandit** for static application security testing (`--severity-level high`).

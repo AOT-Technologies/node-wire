@@ -68,6 +68,24 @@ def test_generated_dockerfile_is_wheels_only_multistage() -> None:
     assert text.index("COPY --from=deps") < text.index("COPY --chmod=0755 config/connectors.yaml")
 
 
+def test_generated_dockerfile_pip_failure_is_not_masked_by_pycache_cleanup() -> None:
+    """Regression: bare `pip && find || true && …` succeeds when pip fails
+    because `&&`/`||` associate left-to-right. The __pycache__ cleanup must be
+    braced so `|| true` applies only to find."""
+    text = _sample_dockerfile()
+    assert "pip install --no-compile --find-links=/wheels" in text
+    # Old (buggy) form must not appear.
+    assert (
+        "&& find /usr/local -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true \\"
+        not in text
+    )
+    # Braced form: pip failure short-circuits before cleanup.
+    assert (
+        "&& { find /usr/local -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true; } \\"
+        in text
+    )
+
+
 def test_generated_dockerfile_application_tree_is_not_writable() -> None:
     text = _sample_dockerfile()
     assert "chmod -R a-w /app" in text

@@ -2473,7 +2473,7 @@ wheels = [
 
 [[package]]
 name = "node-wire"
-version = "1.1.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosmtplib" },
@@ -2483,7 +2483,6 @@ dependencies = [
     { name = "google-auth" },
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
-    { name = "grpcio-tools" },
     { name = "httpx", extra = ["http2"] },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
@@ -2507,6 +2506,9 @@ agents = [
     { name = "groq" },
     { name = "mcp" },
     { name = "openai" },
+]
+grpc-codegen = [
+    { name = "grpcio-tools" },
 ]
 
 [package.dev-dependencies]
@@ -2544,7 +2546,7 @@ requires-dist = [
     { name = "groq", marker = "extra == 'agents'", specifier = ">=0.9.0" },
     { name = "grpcio", specifier = ">=1.62.0" },
     { name = "grpcio-health-checking", specifier = ">=1.62.0" },
-    { name = "grpcio-tools", specifier = ">=1.62.0" },
+    { name = "grpcio-tools", marker = "extra == 'grpc-codegen'", specifier = ">=1.62.0" },
     { name = "httpx", extras = ["http2"], specifier = ">=0.27.0,<0.28.0" },
     { name = "mcp", marker = "extra == 'agents'", specifier = ">=1.6.0,<2" },
     { name = "openai", marker = "extra == 'agents'", specifier = ">=1.30.0" },
@@ -2562,7 +2564,7 @@ requires-dist = [
     { name = "traceloop-sdk", specifier = ">=0.53.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.0" },
 ]
-provides-extras = ["agents"]
+provides-extras = ["agents", "grpc-codegen"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2589,7 +2591,7 @@ docs = [
 
 [[package]]
 name = "node-wire-runtime"
-version = "1.1.0"
+version = "1.0.0"
 source = { editable = "packages/runtime" }
 dependencies = [
     { name = "httpx", extra = ["http2"] },

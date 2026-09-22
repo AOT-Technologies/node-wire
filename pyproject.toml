@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 [project]
 name = "node-wire"
-version = "1.1.0"
+version = "1.0.0"
 description = "Node Wire — runtime, connectors, and bindings"
 license = "Apache-2.0"
 requires-python = ">=3.11"
@@ -34,7 +34,6 @@ dependencies = [
   "fastapi>=0.111.0",
   "uvicorn[standard]>=0.30.0",
   "grpcio>=1.62.0",
-  "grpcio-tools>=1.62.0",
   "aiosmtplib>=3.0.1",
   "httpx[http2]>=0.27.0,<0.28.0",
   "pyyaml>=6.0.1",
@@ -73,6 +72,12 @@ agents = [
   "openai>=1.30.0",                # OpenAI SDK
   "google-generativeai>=0.7.0",    # Gemini SDK
   "anthropic>=0.28.0",             # Claude SDK
+]
+# Build-time only: regenerate gRPC stubs via scripts/generate-grpc-stubs.sh.
+# Not required to run the platform (stubs are committed). Avoids pulling a
+# native compile of grpcio-tools into plain runtime / Windows installs.
+grpc-codegen = [
+  "grpcio-tools>=1.62.0",
 ]
 
 # Development entry points — register all connectors so auto_register() works

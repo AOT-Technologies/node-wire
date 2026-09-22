@@ -12,10 +12,17 @@ cd "$ROOT_DIR"
 PROTO_DIR="src/bindings/grpc_server"
 PROTO_FILE="${PROTO_DIR}/connector.proto"
 
+# grpcio-tools is the optional ``grpc-codegen`` extra — not a runtime dependency.
 if command -v uv >/dev/null 2>&1; then
-  PYTHON=(uv run python)
+  PYTHON=(uv run --extra grpc-codegen python)
 else
   PYTHON=(python3)
+  if ! "${PYTHON[@]}" -c "import grpc_tools" 2>/dev/null; then
+    echo "ERROR: grpcio-tools is required to regenerate gRPC stubs." >&2
+    echo "  With uv:  uv sync --extra grpc-codegen" >&2
+    echo "  With pip: pip install -e '.[grpc-codegen]'" >&2
+    exit 1
+  fi
 fi
 
 "${PYTHON[@]}" -m grpc_tools.protoc \
