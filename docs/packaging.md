@@ -15,7 +15,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 | PyPI name | Source path | Entry-point key |
 |---|---|---|
 | `node-wire-runtime` | `src/node_wire_runtime/` | — (no entry point; this is the runtime) |
-| `node-wire-bindings` | `src/bindings/` (MCP surface) | — (factory / invoke / mcp_server for MCP images) |
+| `node-wire-bindings` **(not published)** | `src/bindings/` (MCP surface) | — (factory / invoke / mcp_server for MCP images) |
 | `node-wire-fhir-cerner` | `src/node_wire_fhir_cerner/` | `fhir_cerner` |
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
@@ -27,7 +27,12 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`; MCP bindings at `packages/bindings/pyproject.toml`.
 
-**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
+**Only the runtime and connectors ship to PyPI.** `node-wire-bindings` is built as a
+local wheel (`scripts/build-packages.sh`, `nw gen-whl --bindings`) for MCP Docker
+images and is deliberately absent from the package lists in `publish.yml`,
+`github-release.yml`, and `security-pr.yml`. Do not add it to them.
+
+**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) (which also builds the unpublished bindings wheel). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
 
 ---
 
@@ -54,7 +59,7 @@ After implementing the connector runtime (see [connectors.md](connectors.md), or
 | `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point |
 | `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates) below |
 | [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
-| [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to the `package` dropdown **and** the `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
 | [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
 | [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) below |
 | This doc — [Package inventory](#package-inventory) | Add row |
@@ -124,9 +129,24 @@ Replace `<name>` with the connector's snake_case name (e.g. `my_service`) and `<
 
 Three workflow files each maintain a hardcoded list of publishable packages. Add one entry to each when shipping a new connector.
 
-#### `.github/workflows/publish.yml` — `allowed` set
+#### `.github/workflows/publish.yml` — `package` dropdown + `allowed` set
 
-Inside the `validate` step, add your package path to the `allowed` Python set:
+Two places, and they must agree. First, the dispatch dropdown under
+`on.workflow_dispatch.inputs.package.options`:
+
+```yaml
+# .github/workflows/publish.yml
+      package:
+        type: choice
+        options:
+          - packages/runtime
+          - packages/connectors/http_generic
+          # ... existing entries ...
+          - packages/connectors/<name>   # ← add this line
+```
+
+Then the server-side allowlist inside the `validate` step, which re-checks the
+value the dropdown supplied:
 
 ```python
 # .github/workflows/publish.yml  (inside the inline Python script)
@@ -138,6 +158,9 @@ allowed = {
     "packages/connectors/<name>",   # ← add this line
 }
 ```
+
+A path in the dropdown but missing from `allowed` fails the run at the validate
+step; a path in `allowed` but missing from the dropdown is simply unreachable.
 
 #### `.github/workflows/github-release.yml` — `package_paths` list
 
@@ -330,22 +353,24 @@ are documented in [configuration.md — Secrets Management](configuration.md#sec
 
 ## Release process (tag-first)
 
-Releases are **tag-driven**. Create and push a tag first; package publishing is a
-separate manual step per package, bound to that tag. Tag shape selects the channel:
+Stable releases are **tag-driven**: create and push the tag first, then publish each
+package from it. Betas need no tag — publish derives the pre-release version itself.
 
-- **Stable** (`v1.2.0`) — Create Release Tag → GitHub Release → publish
-- **Beta** (`v1.2.0b1`) — Create Release Tag → publish (no GitHub Release)
+- **Stable** (`v1.2.0`) — Create Release Tag → GitHub Release → publish with `channel: release`
+- **Beta** — publish with `channel: beta` from any branch or tag (no tag, no GitHub Release)
 
-Both channels use the same `.github/workflows/publish.yml`. PyPI treats PEP 440
-pre-releases as pre-releases: `pip install node-wire-runtime` stays on stable;
+Both channels use the same `.github/workflows/publish.yml`; its `channel` input
+selects the behaviour, and the version always comes from the selected package's
+`pyproject.toml` rather than from a tag name. PyPI treats PEP 440 pre-releases as
+pre-releases: `pip install node-wire-runtime` stays on stable;
 `pip install --pre node-wire-runtime` or an exact pin (for example
 `node-wire-runtime==1.2.0b1`) installs a beta.
 
 **Create Release Tag** (`.github/workflows/create-tag.yml`) accepts both
 `MAJOR.MINOR.PATCH` and PEP 440 pre-releases (`aN` / `bN` / `rcN`). It checks
 that the tag is free, package versions match, and `CHANGELOG.md` has the matching
-entry, then pushes `v…`. Use a stable version for the steps below; use a
-pre-release version for [Beta PyPI publish](#beta-pypi-publish).
+entry, then pushes `v…`. Stable releases use it with the version from the steps
+below; [Beta PyPI publish](#beta-pypi-publish) does not use it at all.
 
 ### Stable release
 
@@ -393,22 +418,24 @@ The workflow:
 #### Step 4 — Publish packages to PyPI
 
 After the GitHub Release exists, dispatch `.github/workflows/publish.yml` **once per
-package** (once per entry in the `allowed` set in that workflow).
+package** (once per entry in the `allowed` set in that workflow). There is no version
+input — the version is read from the selected package's `pyproject.toml`, so dispatch
+from the release tag via the **Use workflow from** dropdown.
 
 **Required inputs:**
 
 | Input | Example | Notes |
 |---|---|---|
-| `tag` | `v1.0.0` | Must match an existing release tag |
-| `package_path` | `packages/connectors/stripe` | Must match the workflow allowlist |
+| `channel` | `release` | `release` publishes the declared version as-is; `beta` derives the next pre-release |
+| `package` | `packages/connectors/stripe` | Dropdown backed by the workflow allowlist |
 
-**Prerequisites checked before build (stable):**
+**Prerequisites checked before build (`channel: release`):**
 
-- Tag resolves to a valid stable `X.Y.Z` version.
-- `package_path` is allowlisted.
-- Package `pyproject.toml` version matches the tag.
+- `package` is allowlisted.
+- Package `pyproject.toml` declares a stable `X.Y.Z` version.
+- That version is not already published on PyPI.
 - `CHANGELOG.md` contains the matching release section/link.
-- A GitHub Release exists for the tag.
+- A GitHub Release exists for `v<version>`.
 
 **Pipeline steps:**
 
@@ -435,14 +462,19 @@ Beta builds ship to the **same PyPI projects** as PEP 440 pre-releases. They
 **never** create a GitHub Release (`github-release.yml` rejects pre-release
 versions).
 
-1. Bump with `./scripts/bump-version.py 1.2.0b1` (also accepts `aN` / `rcN`).
-   The script scaffolds a dated `## [1.2.0b1]` section with a short **Notes**
-   stub and a footer tag link.
-2. Fill in the Notes, merge to `main`, confirm CI is green.
-3. Dispatch **Create Release Tag** with `version` set to `1.2.0b1` (no leading `v`).
-4. Dispatch `.github/workflows/publish.yml` once per allowlisted package with
-   `tag: v1.2.0b1`. Publish skips the GitHub Release check for pre-release tags
-   (same pipeline steps as stable otherwise).
+Leave `pyproject.toml` on the plain `X.Y.Z` version you are working towards —
+publish derives the pre-release suffix itself.
+
+1. Confirm the packages declare the target stable version (e.g. `1.2.0`) and CI is green.
+2. Dispatch `.github/workflows/publish.yml` from that branch or tag, once per
+   allowlisted package, with `channel: beta`. The workflow reads what is already on
+   PyPI and publishes the next unused suffix — `1.2.0b1`, then `1.2.0b2`, and so on —
+   stamping it into the wheel at build time. No changelog entry, git tag, or GitHub
+   Release is required; pipeline steps are otherwise identical to stable.
+
+> **Note:** `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
+> rejects a pre-release `project.version`. Keep the source tree on `X.Y.Z` and let
+> `channel: beta` derive the suffix.
 
 Install a beta with:
 
@@ -496,4 +528,4 @@ Run these gates before triggering the CI publish workflow (default `build-packag
 - [ ] `auto_register()` loads expected connectors
 - [ ] `pytest tests/test_connector_registry.py tests/test_connectors_basic.py` passes
 - [ ] Wheel SHA256 checksums recorded and match expected values
-- [ ] `package_path` and `tag` inputs match the allowlist and an existing release tag before dispatching the workflow
+- [ ] `package` and `channel` inputs are correct before dispatching, and for `channel: release` the tag and GitHub Release already exist
