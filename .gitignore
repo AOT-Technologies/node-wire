@@ -27,8 +27,7 @@ connectorplatform-*.json
 *credentials*.json
 service_account.json
 
-# Grafana exports (auto-generated)
-grafana/*.json
+
 
 # Generated compliance artifacts
 sbom.json

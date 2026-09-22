@@ -69,6 +69,7 @@ def log_legacy_gdrive_action_upload_usage() -> None:
             "event": "mcp.legacy.alias",
             "alias": "action_upload",
             "tool": "google_drive.files.upload",
+            "connector_id": "google_drive",
         },
     )
 

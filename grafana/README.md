@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 ## What is included
 
 - `docker-compose.yml` runs `grafana/otel-lgtm` (Grafana + Loki + OTLP endpoints).
-- A sample dashboard JSON is not shipped in this repository; create panels from Loki logs or export your own dashboard after wiring the stack.
+- Sample dashboard: import `connector-logs-status.json`.
 - Exposed ports:
   - `3000` -> Grafana UI
   - `4317` -> OTLP gRPC ingest
@@ -36,16 +36,18 @@ docker compose down
 
 ## Import or build a dashboard
 
-1. In Grafana, go to **Dashboards** -> **New** -> **Import** (or build panels manually).
-2. Choose **Loki** as the datasource (UID is usually `loki` in this stack).
-3. Query connector logs with labels such as `connector_type` and `status`.
+1. In Grafana, go to **Dashboards** -> **New** -> **Import**.
+2. Upload `grafana/connector-logs-status.json` (or paste its contents).
+3. Choose **Loki** as the datasource (UID is usually `loki` in this stack).
 4. Save the dashboard.
+
+Queries use `{service_name="node-wire"} | logfmt` with two branches: lines that already have `connector_id`, and OTEL lines that have `observed_timestamp` but an empty `connector_id` (those are also filtered by Connector Type against the message text). **All** is `.*`.
 
 ## Monitor the dashboard
 
 - Set a useful time range (for example, last 30 minutes).
 - Keep auto-refresh on (dashboard default is `30s`).
-- Use **Connector Type** filter to switch between `fhir` and `google_drive`.
+- Use **Connector Type** filter to switch between connectors (for example `fhir_epic` or `google_drive`).
 - Watch panel trends while your connector traffic is running.
 
 ## Dashboard features
