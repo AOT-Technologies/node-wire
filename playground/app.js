@@ -2155,6 +2155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ======================================================
 
     // Lightweight markdown for assistant replies (ChatGPT/Gemini-style). Escape first.
+    // Avoid lookbehind (?<!…) so the script parses on Safari < 16.4 and similar engines.
     function formatAgentMarkdown(text) {
         if (text == null || text === '') return '';
         let html = escapeHTML(String(text));
@@ -2163,13 +2164,16 @@ document.addEventListener('DOMContentLoaded', () => {
             /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
             '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
         );
-        // Bare URLs (skip ones already inside href=")
-        html = html.replace(
-            /(?<!href="|">)(https?:\/\/[^\s<]+)/g,
-            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-        );
+        // Bare URLs — skip matches already inside href="…" or as <a>…</a> link text.
+        html = html.replace(/(https?:\/\/[^\s<]+)/g, (url, offset, full) => {
+            const prev6 = full.slice(Math.max(0, offset - 6), offset);
+            const prev2 = full.slice(Math.max(0, offset - 2), offset);
+            if (prev6 === 'href="' || prev2 === '">') return url;
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        });
+        // Bold before italic so **…** is not treated as italics.
         html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+        html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
         html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
 
         const lines = html.split('\n');
