@@ -268,6 +268,197 @@ async def test_oauth2_refresh_token_missing_secret_raises() -> None:
 
 
 # ---------------------------------------------------------------------------
+# OAuth2AuthProvider — refresh_token rotation callback
+# ---------------------------------------------------------------------------
+
+
+async def test_refresh_token_rotation_invokes_sync_callback() -> None:
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-old",
+        }
+    )
+    seen: list[str] = []
+    provider = OAuth2AuthProvider(
+        secret_provider=sp,
+        grant_method="refresh_token",
+        token_url_secret="token_url",
+        client_id_secret="client_id",
+        refresh_token_secret="refresh_token",
+        on_refresh_token_rotated=seen.append,
+    )
+
+    async def fake_post(url: str, data: dict) -> dict:
+        return {"access_token": "tok", "expires_in": 3600, "refresh_token": "rt-new"}
+
+    with patch.object(OAuth2AuthProvider, "_post_token", side_effect=fake_post):
+        await provider.get_headers()
+
+    assert seen == ["rt-new"]
+
+
+async def test_refresh_token_rotation_invokes_async_callback() -> None:
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-old",
+        }
+    )
+    seen: list[str] = []
+
+    async def callback(new_token: str) -> None:
+        seen.append(new_token)
+
+    provider = OAuth2AuthProvider(
+        secret_provider=sp,
+        grant_method="refresh_token",
+        token_url_secret="token_url",
+        client_id_secret="client_id",
+        refresh_token_secret="refresh_token",
+        on_refresh_token_rotated=callback,
+    )
+
+    async def fake_post(url: str, data: dict) -> dict:
+        return {"access_token": "tok", "expires_in": 3600, "refresh_token": "rt-new"}
+
+    with patch.object(OAuth2AuthProvider, "_post_token", side_effect=fake_post):
+        await provider.get_headers()
+
+    assert seen == ["rt-new"]
+
+
+async def test_refresh_token_rotation_without_callback_logs_and_continues(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-old",
+        }
+    )
+    provider = OAuth2AuthProvider(
+        secret_provider=sp,
+        grant_method="refresh_token",
+        token_url_secret="token_url",
+        client_id_secret="client_id",
+        refresh_token_secret="refresh_token",
+    )
+
+    async def fake_post(url: str, data: dict) -> dict:
+        return {"access_token": "tok", "expires_in": 3600, "refresh_token": "rt-new"}
+
+    with caplog.at_level("WARNING", logger="runtime.auth.oauth2"):
+        with patch.object(OAuth2AuthProvider, "_post_token", side_effect=fake_post):
+            headers = await provider.get_headers()
+
+    assert headers["Authorization"] == "Bearer tok"
+    assert any("rotated refresh_token" in rec.message for rec in caplog.records)
+
+
+async def test_refresh_token_unchanged_does_not_invoke_callback() -> None:
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-same",
+        }
+    )
+    seen: list[str] = []
+    provider = OAuth2AuthProvider(
+        secret_provider=sp,
+        grant_method="refresh_token",
+        token_url_secret="token_url",
+        client_id_secret="client_id",
+        refresh_token_secret="refresh_token",
+        on_refresh_token_rotated=seen.append,
+    )
+
+    async def fake_post(url: str, data: dict) -> dict:
+        # IdP echoes the same refresh_token back — not a rotation.
+        return {"access_token": "tok", "expires_in": 3600, "refresh_token": "rt-same"}
+
+    with patch.object(OAuth2AuthProvider, "_post_token", side_effect=fake_post):
+        await provider.get_headers()
+
+    assert seen == []
+
+
+async def test_refresh_token_override_used_on_next_refresh_without_callback() -> None:
+    """A rotated token must survive in-process even with no persistence hook at all —
+    the secret store still holds the now-invalidated 'rt-old' value."""
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-old",
+        }
+    )
+    provider = OAuth2AuthProvider(
+        secret_provider=sp,
+        grant_method="refresh_token",
+        token_url_secret="token_url",
+        client_id_secret="client_id",
+        refresh_token_secret="refresh_token",
+    )
+    captured: list[dict] = []
+    responses = iter(
+        [
+            {"access_token": "tok1", "expires_in": 0, "refresh_token": "rt-new"},
+            {"access_token": "tok2", "expires_in": 3600},
+        ]
+    )
+
+    async def fake_post(url: str, data: dict) -> dict:
+        captured.append(data)
+        return next(responses)
+
+    with patch.object(OAuth2AuthProvider, "_post_token", side_effect=fake_post):
+        await provider.get_headers()  # rotates rt-old -> rt-new
+        await provider.get_headers()  # expires_in=0 forces an immediate second refresh
+
+    assert captured[0]["refresh_token"] == "rt-old"
+    assert captured[1]["refresh_token"] == "rt-new"
+
+
+async def test_refresh_token_rotation_callback_failure_does_not_break_auth(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    sp = _DictSecretProvider(
+        {
+            "token_url": "https://idp.example.com/token",
+            "client_id": "my-client",
+            "refresh_token": "rt-old",
+        }
+    )
+
+    def bad_callback(_: str) -> None:
+        raise RuntimeError("persistence backend unavailable")
+
+    provider = OAuth2AuthProvider(
+        secret_provider=sp,
+        grant_method="refresh_token",
+        token_url_secret="token_url",
+        client_id_secret="client_id",
+        refresh_token_secret="refresh_token",
+        on_refresh_token_rotated=bad_callback,
+    )
+
+    async def fake_post(url: str, data: dict) -> dict:
+        return {"access_token": "tok", "expires_in": 3600, "refresh_token": "rt-new"}
+
+    with caplog.at_level("ERROR", logger="runtime.auth.oauth2"):
+        with patch.object(OAuth2AuthProvider, "_post_token", side_effect=fake_post):
+            headers = await provider.get_headers()
+
+    assert headers["Authorization"] == "Bearer tok"
+    assert any("callback failed" in rec.message for rec in caplog.records)
+
+
+# ---------------------------------------------------------------------------
 # OAuth2AuthProvider — private_key_jwt grant
 # ---------------------------------------------------------------------------
 

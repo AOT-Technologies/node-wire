@@ -126,6 +126,11 @@ class OverlaySecretProvider(SecretProvider):
     def set_secret(self, key: str, value: str) -> None:
         self._data[key] = value
 
+    def unset(self, key: str) -> None:
+        """Remove a single key, if present. No-op if absent — callers never need to
+        check existence first."""
+        self._data.pop(key, None)
+
     def set_many(self, mapping: dict[str, str]) -> None:
         for k, v in mapping.items():
             self._data[str(k)] = str(v)

@@ -44,7 +44,7 @@ To run all configured hooks across the repository:
 pre-commit run --all-files
 ```
 
-The current pre-commit setup includes Ruff, Ruff formatting, Mypy, and Bandit.
+The current pre-commit setup includes Ruff, Ruff formatting, Mypy, REUSE, and Bandit (plus generic hygiene hooks: trailing-whitespace, end-of-file-fixer, check-yaml).
 
 ## Copyright headers and REUSE compliance
 
@@ -101,8 +101,9 @@ That script:
 1. Syncs the locked environment (`uv sync --frozen --all-extras --dev`).
 2. Regenerates `DEPENDENCIES.md`.
 3. Generates `sbom.json` (CycloneDX SBOM).
-4. Runs **Bandit** for static application security testing.
+4. Runs **Bandit** for static application security testing (`--severity-level high`).
 5. Runs **pip-audit** for dependency vulnerability scanning.
+6. Runs **REUSE lint** for licensing compliance.
 
 ## Related docs
 

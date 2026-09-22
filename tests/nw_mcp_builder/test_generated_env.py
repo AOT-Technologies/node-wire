@@ -23,7 +23,6 @@ def _load_generated_module(project_dir: Path, connector_id: str = "demo_conn"):
     # Project root markers used by _project_root()
     (project_dir / "pyproject.toml").write_text('[project]\nname="x"\n', encoding="utf-8")
     (project_dir / "config").mkdir(exist_ok=True)
-    (project_dir / "vendor" / "node_wire_src" / "bindings").mkdir(parents=True, exist_ok=True)
 
     spec = importlib.util.spec_from_file_location(
         f"nw_mcp_generated_{connector_id}",
@@ -97,3 +96,25 @@ def test_load_env_missing_project_root(tmp_path: Path, monkeypatch: pytest.Monke
     spec.loader.exec_module(mod)
     with pytest.raises(SystemExit, match="cannot locate generated MCP project root"):
         mod._load_env()
+
+
+def test_load_env_container_without_project_root_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: the Dockerfile never COPYs pyproject.toml, so _project_root()
+    heuristics never match inside a real container. _load_env() must not treat
+    that as fatal — it crash-looped every generated image with
+    "auth error: cannot locate generated MCP project root" until container mode
+    was checked first.
+    """
+    orphan = tmp_path / "app" / "src" / "pkg"
+    orphan.mkdir(parents=True)
+    main_path = orphan / "__main__.py"
+    main_path.write_text(_main_py(connector_id="x"), encoding="utf-8")
+    monkeypatch.setenv("NW_MCP_CONTAINER", "true")
+    spec = importlib.util.spec_from_file_location("container_orphan_main", main_path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod._load_env()  # must not raise
+    assert os.environ["NW_REST_LOAD_DOTENV"] == "false"

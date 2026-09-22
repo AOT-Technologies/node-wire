@@ -276,6 +276,7 @@ class RestConnector(BaseConnector):
         secret_provider: Any = None,
         policy_hook: Any = None,
         auth_provider: Any = None,
+        auth_providers: Optional[Dict[str, Any]] = None,
         config: Optional[Dict[str, Any]] = None,
         base_url: Optional[str] = None,
         tenant_id: Optional[str] = None,
@@ -285,6 +286,7 @@ class RestConnector(BaseConnector):
             secret_provider=secret_provider,
             policy_hook=policy_hook,
             auth_provider=auth_provider,
+            auth_providers=auth_providers,
             config=config,
             tenant_id=tenant_id,
             config_name=config_name,
@@ -311,6 +313,7 @@ class RestConnector(BaseConnector):
         output_model: Type[BaseModel],
         trace_id: str,
         auth: bool = True,
+        auth_scheme: Optional[str] = None,
     ) -> Any:
         """Execute an HTTP call using ``nw_in`` field metadata on ``params``."""
         base = self.resolve_base_url()
@@ -326,9 +329,10 @@ class RestConnector(BaseConnector):
         headers = _build_headers(header_params)
 
         if auth:
-            auth_headers = await self.get_auth_headers()
+            provider = self.resolve_auth_provider(auth_scheme)
+            auth_headers = await provider.get_headers()
             headers.update(auth_headers)
-            query_auth = await self.auth_provider.get_query_params()
+            query_auth = await provider.get_query_params()
             if query_auth:
                 # Auth wins on key collision.
                 query_pairs = [(k, v) for k, v in query_pairs if k not in query_auth]

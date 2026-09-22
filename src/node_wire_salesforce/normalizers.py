@@ -5,7 +5,7 @@
 """
 Salesforce-specific MCP argument normalizers.
 
-Owned by this connector (see docs/adr/0002-connector-specific-logic-stays-in-the-connector.md).
+Owned by this connector.
 Thin wrappers around this package's own coalesce_*_args helpers (schema.py) — previously
 these lived in node_wire_runtime.mcp_normalizers and imported back into this connector,
 a Layer A -> Layer B dependency running backwards.

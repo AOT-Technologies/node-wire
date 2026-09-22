@@ -5,7 +5,7 @@
 """
 SMTP-specific MCP argument normalizers.
 
-Owned by this connector (see docs/adr/0002-connector-specific-logic-stays-in-the-connector.md).
+Owned by this connector.
 """
 
 from __future__ import annotations

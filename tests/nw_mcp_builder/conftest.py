@@ -92,11 +92,9 @@ class DemoConnConnector(BaseConnector):
     bindings = root / "src" / "bindings"
     bindings.mkdir(parents=True)
     (bindings / "__init__.py").write_text("", encoding="utf-8")
-    # Needed for _vendor_minimal_node_wire_src (generate/connector_project.py), which
-    # copies this directory into the generated MCP host's vendor/ tree — unrelated to
-    # discover_actions, which inserts this src/ tree at the front of sys.path (same as
-    # gate.py); node_wire_runtime itself is unaffected since it's already in sys.modules
-    # by the time any test runs, and the module cache wins before sys.path is consulted.
+    # discover_actions inserts this src/ tree at the front of sys.path (same as
+    # gate.py); node_wire_runtime itself is unaffected since it's already in
+    # sys.modules by the time any test runs.
     runtime = root / "src" / "node_wire_runtime"
     runtime.mkdir(parents=True)
     (runtime / "__init__.py").write_text("", encoding="utf-8")
@@ -123,6 +121,10 @@ connectors:
     _touch_wheel(
         root / "packages" / "runtime" / "dist" / "node_wire_runtime-1.0.0-py3-none-any.whl",
         package_dir="node_wire_runtime-1.0.0.dist-info",
+    )
+    _touch_wheel(
+        root / "packages" / "bindings" / "dist" / "node_wire_bindings-1.0.0-py3-none-any.whl",
+        package_dir="node_wire_bindings-1.0.0.dist-info",
     )
     _touch_wheel(
         pkg / "dist" / "node_wire_demo_conn-1.0.0-py3-none-any.whl",

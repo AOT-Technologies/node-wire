@@ -74,12 +74,15 @@ def test_build_wheel_raises_when_no_whl(tmp_path: Path) -> None:
             _build_wheel(pkg)
 
 
-def test_build_connector_wheels_calls_both(tmp_path: Path) -> None:
+def test_build_connector_wheels_calls_all_three(tmp_path: Path) -> None:
     runtime = tmp_path / "packages" / "runtime"
+    bindings = tmp_path / "packages" / "bindings"
     connector = tmp_path / "packages" / "connectors" / "demo"
     runtime.mkdir(parents=True)
+    bindings.mkdir(parents=True)
     connector.mkdir(parents=True)
     r_whl = runtime / "dist" / "r.whl"
+    b_whl = bindings / "dist" / "b.whl"
     c_whl = connector / "dist" / "c.whl"
 
     def fake_build(package_dir: Path, *, python: str | None = None) -> Path:
@@ -87,10 +90,14 @@ def test_build_connector_wheels_calls_both(tmp_path: Path) -> None:
             r_whl.parent.mkdir(parents=True, exist_ok=True)
             r_whl.write_bytes(b"r")
             return r_whl
+        if package_dir == bindings:
+            b_whl.parent.mkdir(parents=True, exist_ok=True)
+            b_whl.write_bytes(b"b")
+            return b_whl
         c_whl.parent.mkdir(parents=True, exist_ok=True)
         c_whl.write_bytes(b"c")
         return c_whl
 
     with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=fake_build):
         out = build_connector_wheels(tmp_path, "demo")
-    assert out == (r_whl, c_whl)
+    assert out == (r_whl, b_whl, c_whl)

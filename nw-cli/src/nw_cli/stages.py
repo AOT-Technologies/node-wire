@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from nw_mcp_builder.from_connector import run_from_connector
@@ -27,6 +28,7 @@ def run_logged_command(
     *,
     cwd: Path,
     log: LogFn | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> int:
     """Run *cmd*, streaming combined stdout/stderr line-by-line through *log*.
 
@@ -41,6 +43,7 @@ def run_logged_command(
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        env=dict(env) if env is not None else None,
     )
     assert proc.stdout is not None
     for line in proc.stdout:
@@ -53,14 +56,20 @@ def run_logged_command(
 
 
 def wheels_present(node_wire_root: Path, connector_id: str) -> bool:
-    """True when runtime and connector ``dist/`` each contain at least one ``.whl``."""
-    runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    return bool(list(runtime_dist.glob("*.whl"))) and bool(list(connector_dist.glob("*.whl")))
+    """True when runtime, bindings, and connector ``dist/`` each have a ``.whl``."""
+    return (
+        runtime_wheel_present(node_wire_root)
+        and bindings_wheel_present(node_wire_root)
+        and connector_wheel_present(node_wire_root, connector_id)
+    )
 
 
 def runtime_wheel_present(node_wire_root: Path) -> bool:
     return bool(list((node_wire_root / "packages" / "runtime" / "dist").glob("*.whl")))
+
+
+def bindings_wheel_present(node_wire_root: Path) -> bool:
+    return bool(list((node_wire_root / "packages" / "bindings" / "dist").glob("*.whl")))
 
 
 def connector_wheel_present(node_wire_root: Path, connector_id: str) -> bool:
@@ -85,22 +94,27 @@ def run_wheel_build(
     *,
     connector_id: str | None = None,
     runtime: bool = False,
+    bindings: bool = False,
     host: bool = False,
     all_: bool = False,
     log: LogFn | None = None,
 ) -> None:
-    """Subprocess ``scripts/build-packages.sh`` for connector and/or runtime."""
-    if not runtime and not connector_id:
-        raise StageError("--connector-id is required unless --runtime is set")
+    """Subprocess ``scripts/build-packages.sh`` for connector / runtime / bindings."""
+    if not runtime and not bindings and not connector_id:
+        raise StageError("--connector-id is required unless --runtime or --bindings is set")
 
     mode = build_mode_flag(host=host, all_=all_)
     script = node_wire_root / "scripts" / "build-packages.sh"
     if not script.is_file():
         raise StageError(f"build-packages.sh not found: {script}")
 
-    # Spec: --runtime builds only packages/runtime (not bundled with connector).
-    if runtime:
+    # Spec: --runtime / --bindings build only that package (not bundled with connector).
+    if runtime and bindings:
+        targets = ["packages/runtime", "packages/bindings"]
+    elif runtime:
         targets = ["packages/runtime"]
+    elif bindings:
+        targets = ["packages/bindings"]
     else:
         targets = [f"packages/connectors/{connector_id}"]
 
@@ -134,14 +148,34 @@ def run_docker_build(
     tag: str = "latest",
     log: LogFn | None = None,
 ) -> str:
-    """``docker build -t <server>-mcp:<tag> .`` inside the generated project dir."""
+    """Build the generated MCP image with BuildKit enabled.
+
+    Always sets ``DOCKER_BUILDKIT=1`` so Dockerfile ``RUN --mount=type=cache``
+    works. When ``NW_DOCKER_CACHE_FROM`` / ``NW_DOCKER_CACHE_TO`` are set (e.g.
+    ``type=gha,scope=…`` in CI), uses ``docker buildx build --load`` with those
+    cache backends; otherwise plain ``docker build``.
+    """
     project = mcp_project_dir(node_wire_root, connector_id)
     if not project.is_dir():
         raise StageError(f"MCP project directory not found: {project}")
 
     image = docker_image_tag(connector_id, tag)
-    cmd = ["docker", "build", "-t", image, "."]
-    code = run_logged_command(cmd, cwd=project, log=log)
+    env = os.environ.copy()
+    env["DOCKER_BUILDKIT"] = "1"
+
+    cache_from = env.get("NW_DOCKER_CACHE_FROM", "").strip()
+    cache_to = env.get("NW_DOCKER_CACHE_TO", "").strip()
+    if cache_from or cache_to:
+        cmd = ["docker", "buildx", "build", "--load", "-t", image]
+        if cache_from:
+            cmd.extend(["--cache-from", cache_from])
+        if cache_to:
+            cmd.extend(["--cache-to", cache_to])
+        cmd.append(".")
+    else:
+        cmd = ["docker", "build", "-t", image, "."]
+
+    code = run_logged_command(cmd, cwd=project, log=log, env=env)
     if code != 0:
         raise StageError(f"docker build failed (exit {code}): {image}")
     return image

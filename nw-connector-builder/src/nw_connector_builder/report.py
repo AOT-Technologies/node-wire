@@ -46,7 +46,14 @@ def build_report(
             }
         )
         report["generated_actions"] = [
-            {"name": a.name, "method": a.method, "path": a.path, "auth": a.auth}
+            {
+                "name": a.name,
+                "method": a.method,
+                "path": a.path,
+                "auth": a.auth,
+                # Omit when using connector default.
+                **({"auth_scheme": a.auth_scheme_name} if a.auth_scheme_name else {}),
+            }
             for a in result.actions
         ]
         report["skipped"] = [
@@ -61,10 +68,25 @@ def build_report(
         report["auth"] = {
             "scheme_name": result.auth_plan.scheme_name,
             "provider": result.auth_plan.provider,
+            "tier": result.auth_plan.tier,
             "secret_key": result.auth_plan.secret_key,
+            "secret_keys": result.auth_plan.secret_keys,
             "yaml": result.auth_plan.yaml_block,
             "notes": result.auth_plan.notes,
         }
+        if result.extra_auth_plans:
+            # Non-default schemes used by >=1 generated action.
+            report["auth"]["extra_schemes"] = {
+                name: {
+                    "provider": plan.provider,
+                    "tier": plan.tier,
+                    "secret_key": plan.secret_key,
+                    "secret_keys": plan.secret_keys,
+                    "yaml": plan.yaml_block,
+                    "notes": plan.notes,
+                }
+                for name, plan in result.extra_auth_plans.items()
+            }
         report["notes"] = result.notes
 
     if gate is not None:
@@ -98,6 +120,10 @@ def print_report(report: dict[str, Any]) -> None:
     if auth:
         # Do not print secret_key (env name) — keep it in report.json only.
         print(f"  auth: provider={auth.get('provider')}")
+        for note in auth.get("notes") or []:
+            print(f"    NOTE: {note}")
+    for note in report.get("notes") or []:
+        print(f"  NOTE: {note}")
     gate = report.get("gate")
     if gate:
         print(f"  gate: {gate}")

@@ -310,25 +310,44 @@ def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int
     return data, False, 0, next_page_token
 
 
+def _upstream_bearer_connector_ids(
+    factory: ConnectorFactory,
+    connector_ids: frozenset[str] | None,
+) -> frozenset[str]:
+    """Exposed connectors that relay the caller's bearer token (requires bounded
+    ``connector_ids``). Allowlist already enforced at provider construction.
+    """
+    if not connector_ids:
+        return frozenset()
+    eligible = set()
+    for cid in connector_ids:
+        cfg = factory._configs.get(cid)
+        if cfg is None:
+            continue
+        if (cfg.raw.get("auth") or {}).get("provider") == "upstream_bearer":
+            eligible.add(cid)
+    return frozenset(eligible)
+
+
 def _resolve_upstream_passthrough(
     factory: ConnectorFactory,
     connector_ids: frozenset[str] | None,
 ) -> bool:
-    """Enable when google_drive-only MCP server uses upstream_bearer auth."""
-    if connector_ids != frozenset({"google_drive"}):
-        return False
-    cfg = factory._configs.get("google_drive")
-    if cfg is None:
-        return False
-    auth = cfg.raw.get("auth") or {}
-    return auth.get("provider") == "upstream_bearer"
+    """Enable inbound-token passthrough when >=1 exposed connector relays it."""
+    return bool(_upstream_bearer_connector_ids(factory, connector_ids))
 
 
 def _upstream_passthrough_scopes(
     factory: ConnectorFactory,
     connector_ids: frozenset[str] | None,
 ) -> tuple[str, ...]:
-    if connector_ids is None:
+    """Scopes granted to a passed-through token, computed *only* from the connectors
+    that actually relay it — never from every connector this server happens to
+    expose. Computing this over the full ``connector_ids`` set would leak scopes from
+    unrelated (non-passthrough) connectors into the passthrough-granted set.
+    """
+    passthrough_ids = _upstream_bearer_connector_ids(factory, connector_ids)
+    if not passthrough_ids:
         return ()
     scope_map = load_scope_map_from_env()
     default_mode = load_scope_policy_default_from_env()
@@ -336,7 +355,7 @@ def _upstream_passthrough_scopes(
     scopes: set[str] = set()
     for entry in manifest:
         cid = entry["connector_id"]
-        if cid not in connector_ids:
+        if cid not in passthrough_ids:
             continue
         required = resolve_required_scope_for_action(
             connector_id=cid,

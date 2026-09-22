@@ -137,9 +137,12 @@ def test_google_drive_schema_discriminator_validation():
 
 
 @pytest.mark.asyncio
-async def test_google_drive_upstream_bearer_uses_request_token() -> None:
+async def test_google_drive_upstream_bearer_uses_request_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from bindings.factory import ConnectorFactory
 
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     sp = MockSecretProvider()
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
@@ -168,9 +171,12 @@ async def test_google_drive_upstream_bearer_uses_request_token() -> None:
 
 
 @pytest.mark.asyncio
-async def test_google_drive_upstream_bearer_no_token_raises() -> None:
+async def test_google_drive_upstream_bearer_no_token_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from bindings.factory import ConnectorFactory
 
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
     sp = MockSecretProvider()
     factory = ConnectorFactory.__new__(ConnectorFactory)
     factory._secret_provider = sp
