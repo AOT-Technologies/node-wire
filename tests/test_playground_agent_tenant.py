@@ -229,6 +229,7 @@ def test_agent_chat_uses_llm_option(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NVIDIA_API_KEY", "nk")
     monkeypatch.setenv("NW_MCP_TRANSPORT", "stdio")
 
+    from agents.llm_base import TokenUsage
     from agents.toolhive import AgentRunResult
 
     created: list[str | None] = []
@@ -243,7 +244,12 @@ def test_agent_chat_uses_llm_option(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def fake_run(self, task):
         return AgentRunResult(
-            success=True, final_answer="hello from agent", steps=[], trace_id="t1"
+            success=True,
+            final_answer="hello from agent",
+            steps=[],
+            trace_id="t1",
+            usage=TokenUsage(prompt_tokens=42, completion_tokens=8, total_tokens=50),
+            steps_used=1,
         )
 
     class _CM:
@@ -283,6 +289,13 @@ def test_agent_chat_uses_llm_option(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["success"] is True
     assert body["reply"] == "hello from agent"
     assert created == ["nvidia/nvidia/nemotron-3.5-lightning-30b-a3b"]
+    assert body["llm_option"] == "nvidia/nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert body["usage"] == {
+        "prompt_tokens": 42,
+        "completion_tokens": 8,
+        "total_tokens": 50,
+        "steps": 1,
+    }
 
 
 def test_tenancy_from_agent_steps_selects_tenant_and_config() -> None:

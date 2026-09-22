@@ -2165,7 +2165,10 @@ document.addEventListener('DOMContentLoaded', () => {
             '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
         );
         // Bare URLs — skip matches already inside href="…" or as <a>…</a> link text.
-        html = html.replace(/(https?:\/\/[^\s<]+)/g, (url, offset, full) => {
+        // No capturing group: replace callback is (match, offset, string). A capturing
+        // group would shift args so `full` became a number and `.slice` threw on Safari/Chrome.
+        // Still no lookbehind — safe on Safari < 16.4.
+        html = html.replace(/https?:\/\/[^\s<]+/g, (url, offset, full) => {
             const prev6 = full.slice(Math.max(0, offset - 6), offset);
             const prev2 = full.slice(Math.max(0, offset - 2), offset);
             if (prev6 === 'href="' || prev2 === '">') return url;
@@ -3051,6 +3054,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         traceId = event.trace_id || traceId;
                         success = Boolean(event.success);
                         doneMessage = event.message || `Streaming ${success ? 'completed' : 'failed'}. trace_id=${traceId}`;
+                        // Record usage before markdown so a format error cannot drop the pill/meta.
+                        turnUsage = event.usage || null;
+                        recordTokenUsage(event.usage, event.llm_option);
                         applyAgentTenancy(event.tenant_id, event.config_name);
                         
                         if (timerInterval) {
@@ -3059,13 +3065,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         const finalElapsed = ((Date.now() - startTime) / 1000).toFixed(2);
                         streamView.loader.classList.add('hidden');
+                        // Drop streaming marker so the next turn's step cards insert before *this* turn's bubble only while live.
+                        if (streamView.bubble) {
+                            streamView.bubble.classList.remove('streaming-bubble');
+                        }
                         if (finalText) {
                             streamView.text.innerHTML = formatAgentMarkdown(finalText);
                             streamView.text.classList.add('is-formatted');
                         }
                         appendStreamEndMessage(doneMessage, success, finalElapsed);
-                        turnUsage = event.usage || null;
-                        recordTokenUsage(event.usage, event.llm_option);
                     }
                 });
 
