@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from agents.llm_base import TokenUsage
 from agents.llm_factory import (
     BaseLLMProvider,
     LLMMessage,
@@ -295,6 +296,89 @@ async def test_agent_run_events_emits_done_message_with_trace_id() -> None:
     assert events[-1]["success"] is True
     assert events[-1]["trace_id"] == events[0]["trace_id"]
     assert events[-1]["message"] == f"Streaming completed. trace_id={events[0]['trace_id']}"
+
+
+@pytest.mark.asyncio
+async def test_agent_run_accumulates_token_usage_across_steps() -> None:
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "12724066"})],
+            stop_reason="tool_calls",
+            usage=TokenUsage(prompt_tokens=100, completion_tokens=10, total_tokens=110),
+        ),
+        LLMResponse(
+            content="Done.",
+            tool_calls=[],
+            stop_reason="stop",
+            usage=TokenUsage(prompt_tokens=200, completion_tokens=20, total_tokens=220),
+        ),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.return_value = '{"status": "ok"}'
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=5)
+    result = await agent.run("Fetch patient")
+
+    assert result.success is True
+    assert result.usage is not None
+    assert result.usage.prompt_tokens == 300
+    assert result.usage.completion_tokens == 30
+    assert result.usage.total_tokens == 330
+    assert result.steps_used == 2
+
+
+@pytest.mark.asyncio
+async def test_agent_run_usage_stays_none_when_backend_omits_it() -> None:
+    responses = [
+        LLMResponse(content="No tools.", tool_calls=[], stop_reason="stop"),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=3)
+    result = await agent.run("Say hi")
+
+    assert result.success is True
+    assert result.usage is None
+
+
+@pytest.mark.asyncio
+async def test_agent_run_events_done_includes_accumulated_usage() -> None:
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "12724066"})],
+            stop_reason="tool_calls",
+            usage=TokenUsage(prompt_tokens=50, completion_tokens=5, total_tokens=55),
+        ),
+        LLMResponse(
+            content="All done.",
+            tool_calls=[],
+            stop_reason="stop",
+            usage=TokenUsage(prompt_tokens=80, completion_tokens=15, total_tokens=95),
+        ),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.return_value = '{"status": "ok"}'
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=5)
+    events = [event async for event in agent.run_events("Fetch patient")]
+
+    done = events[-1]
+    assert done["type"] == "done"
+    assert done["success"] is True
+    assert done["usage"] == {
+        "prompt_tokens": 130,
+        "completion_tokens": 20,
+        "total_tokens": 150,
+        "steps": 2,
+    }
 
 
 @pytest.mark.asyncio
