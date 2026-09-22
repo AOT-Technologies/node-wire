@@ -2418,6 +2418,11 @@ SPDX-License-Identifier: Apache-2.0
 <td>— (no entry point; this is the runtime)</td>
 </tr>
 <tr>
+<td><code>node-wire-bindings</code></td>
+<td><code>src/bindings/</code> (MCP surface)</td>
+<td>— (factory / invoke / mcp_server for MCP images)</td>
+</tr>
+<tr>
 <td><code>node-wire-fhir-cerner</code></td>
 <td><code>src/node_wire_fhir_cerner/</code></td>
 <td><code>fhir_cerner</code></td>
@@ -2459,7 +2464,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
-<p>Each connector's <code>pyproject.toml</code> lives at <code>packages/connectors/&lt;name&gt;/pyproject.toml</code>; the runtime's is at <code>packages/runtime/pyproject.toml</code>.</p>
+<p>Each connector's <code>pyproject.toml</code> lives at <code>packages/connectors/&lt;name&gt;/pyproject.toml</code>; the runtime's is at <code>packages/runtime/pyproject.toml</code>; MCP bindings at <code>packages/bindings/pyproject.toml</code>.</p>
 <p><strong>Source of truth:</strong> Keep this table in sync with <code>ALL_PACKAGES</code> in <a href="https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh"><code>scripts/build-packages.sh</code></a>. MCP Docker images are a <strong>separate subset</strong> — see <a href="#docker-demo-images">Docker demo images</a>. <code>http_generic</code> is publishable on PyPI but does not have a standalone MCP container image.</p>
 <hr />
 <h2 id="adding-a-new-publishable-connector">Adding a new publishable connector<a class="headerlink" href="#adding-a-new-publishable-connector" title="Anchor link to this section">&para;</a></h2>

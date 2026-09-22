@@ -1994,7 +1994,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="s1">  }'</span>
 </span></code></pre></div>
 <h3 id="agentic-mcp">Agentic (MCP)<a class="headerlink" href="#agentic-mcp" title="Anchor link to this section">&para;</a></h3>
-<p>If registered via MCP, the agent can call <code>salesforce.create_lead</code> with the following arguments:</p>
+<p>If registered via MCP, the agent can call the advertised tool <code>salesforce_create_lead</code> (legacy dotted form <code>salesforce.create_lead</code> still invokes but isn't what <code>tools/list</code> advertises) with the following arguments:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"LastName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Smith"</span><span class="p">,</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"Company"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HealthTech"</span><span class="p">,</span>

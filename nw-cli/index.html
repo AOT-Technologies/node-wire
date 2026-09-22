@@ -2040,6 +2040,22 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
+<p>Stages run in-process and in order, each skippable independently; the <code>mcp</code> stage additionally checks for wheels before building and can trigger a build-or-prompt sub-step of its own:</p>
+<pre class="mermaid"><code>flowchart TD
+  start(["nw gen-all"]) --&gt; connector["Connector codegen&lt;br/&gt;run_build(no_mcp=True)"]
+  connector --&gt; wheelFlag{"--no-wheel?"}
+  wheelFlag -- no --&gt; wheel["Wheel build&lt;br/&gt;runtime + bindings, then connector"]
+  wheelFlag -- yes --&gt; mcpFlag
+  wheel --&gt; mcpFlag{"--no-mcp?"}
+  mcpFlag -- no --&gt; wheelsCheck{"Wheels already&lt;br/&gt;present for id?"}
+  wheelsCheck -- no --&gt; ensureBuild["TTY: prompt to build&lt;br/&gt;Non-TTY: exit 1 with fix command"]
+  ensureBuild --&gt; mcpBuild
+  wheelsCheck -- yes --&gt; mcpBuild["MCP host build&lt;br/&gt;run_mcp_build"]
+  mcpFlag -- yes --&gt; wireFlag
+  mcpBuild --&gt; wireFlag{"--no-wire?"}
+  wireFlag -- no --&gt; wire["Wire&lt;br/&gt;connectors.yaml + sample.env + ALL_PACKAGES"]
+  wireFlag -- yes --&gt; done(["Done"])
+  wire --&gt; done</code></pre>
 <p>Stages are <strong>in-process</strong> function calls (never re-invokes <code>nw</code>). Connector codegen always passes <code>no_mcp=True</code> to <code>run_build</code> so the builder’s host-only MCP hand-off is skipped; MCP uses <code>skip_build_wheels=True</code> against wheels from <code>build-packages.sh</code>.</p>
 <p>When wire is enabled:</p>
 <ul>

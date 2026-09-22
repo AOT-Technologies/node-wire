@@ -3118,6 +3118,11 @@ SPDX-License-Identifier: Apache-2.0
 <td>Maximum LLM reasoning steps (default: 10)</td>
 </tr>
 <tr>
+<td><code>--max-tool-failures</code></td>
+<td>No</td>
+<td>Stop after this many failed calls to the same tool name (default: <code>TOOLHIVE_MAX_TOOL_FAILURES</code> env, else 2)</td>
+</tr>
+<tr>
 <td><code>--tenant-id</code></td>
 <td>No</td>
 <td>Pin MCP tenant (<code>X-Tenant-ID</code> on HTTP; <code>NW_TENANT_ID</code> for <code>--local</code>). Defaults from <code>NW_TENANT_ID</code> env.</td>
@@ -3139,6 +3144,9 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
 </span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Use Google Gemini</span>
 </span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="nv">LLM_PROVIDER</span><span class="o">=</span>gemini<span class="w"> </span><span class="nv">GEMINI_API_KEY</span><span class="o">=</span>AIza...<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span>...
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># Use NVIDIA (OpenAI-compatible endpoint)</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="nv">LLM_PROVIDER</span><span class="o">=</span>nvidia<span class="w"> </span><span class="nv">NVIDIA_API_KEY</span><span class="o">=</span>nvapi-...<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>agents.toolhive<span class="w"> </span>...
 </span></code></pre></div>
 <h3 id="sample-output">Sample output<a class="headerlink" href="#sample-output" title="Anchor link to this section">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>============================================================

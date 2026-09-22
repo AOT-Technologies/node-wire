@@ -2081,10 +2081,11 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td><code>auth.token.store</code></td>
 <td><code>os-keychain</code></td>
-<td>Token storage backend</td>
+<td>Token storage backend: <code>os-keychain</code> or <code>configured-secret-store</code> (<code>NW_MCP_OAUTH_TOKEN_STORE</code>)</td>
 </tr>
 </tbody>
 </table>
+<p><code>configured-secret-store</code> persists tokens through the same host-managed <code>SecretProvider</code> overlay every other runtime credential write uses (<code>OverlaySecretProvider</code> — see <code>SecretProviderTokenStore</code> in <code>mcp_client/token_storage.py</code>), not raw <code>os.environ</code>. Like the analogous oauth2 refresh-token rotation pattern in <a href="../nw-connector-builder-scope/#oauth2-authorizationcode"><code>nw-connector-builder-scope.md</code></a>, this write is <strong>process-local only</strong> — Node Wire does not own durable secret storage. A host that needs the token to survive a restart must persist it itself via whatever backend it configures (env, AWS/Azure/GCP/Vault, or its own config-store-driven overlay writes).</p>
 <h2 id="discovery">Discovery<a class="headerlink" href="#discovery" title="Anchor link to this section">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.mcp_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">discover</span><span class="p">,</span> <span class="n">discovery_cache_for_config</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>

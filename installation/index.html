@@ -2163,9 +2163,9 @@ SPDX-License-Identifier: Apache-2.0
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pre-commit<span class="w"> </span>install
 </span></code></pre></div>
 <h3 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Anchor link to this section">&para;</a></h3>
-<p><div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
+<p><div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
 </span></code></pre></div>
-Integration tests are skipped unless the relevant environment variables (secrets) are set.</p>
+<code>tests/playground/</code> (integration tests against real connector credentials) is excluded by default via <code>--ignore=tests/playground</code> in <code>pyproject.toml</code>'s pytest <code>addopts</code> — run it explicitly with the relevant secret env vars set (see <code>.github/workflows/pytest.yml</code>'s <code>playground-integration</code> job) if you need it: <code>uv run pytest tests/playground/ --no-cov -v</code>.</p>
 
 
 

@@ -2002,7 +2002,7 @@ SPDX-License-Identifier: Apache-2.0
 <p>To run all configured hooks across the repository:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files
 </span></code></pre></div>
-<p>The current pre-commit setup includes Ruff, Ruff formatting, Mypy, and Bandit.</p>
+<p>The current pre-commit setup includes Ruff, Ruff formatting, Mypy, REUSE, and Bandit (plus generic hygiene hooks: trailing-whitespace, end-of-file-fixer, check-yaml).</p>
 <h2 id="copyright-headers-and-reuse-compliance">Copyright headers and REUSE compliance<a class="headerlink" href="#copyright-headers-and-reuse-compliance" title="Anchor link to this section">&para;</a></h2>
 <p>This repository enforces open-source licensing compliance using <a href="https://reuse.software/">REUSE</a>. First-party files should contain the appropriate SPDX copyright and license headers.</p>
 <h3 id="verify-compliance">Verify compliance<a class="headerlink" href="#verify-compliance" title="Anchor link to this section">&para;</a></h3>
@@ -2040,8 +2040,9 @@ SPDX-License-Identifier: Apache-2.0
 <li>Syncs the locked environment (<code>uv sync --frozen --all-extras --dev</code>).</li>
 <li>Regenerates <code>DEPENDENCIES.md</code>.</li>
 <li>Generates <code>sbom.json</code> (CycloneDX SBOM).</li>
-<li>Runs <strong>Bandit</strong> for static application security testing.</li>
+<li>Runs <strong>Bandit</strong> for static application security testing (<code>--severity-level high</code>).</li>
 <li>Runs <strong>pip-audit</strong> for dependency vulnerability scanning.</li>
+<li>Runs <strong>REUSE lint</strong> for licensing compliance.</li>
 </ol>
 <h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
 <ul>

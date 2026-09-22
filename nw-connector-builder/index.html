@@ -945,6 +945,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Auth mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#host-supplied-tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host-supplied tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-action-auth-schemes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-action auth schemes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2067,6 +2095,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Auth mapping">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#host-supplied-tier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Host-supplied tier
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-action-auth-schemes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-action auth schemes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2325,25 +2381,28 @@ SPDX-License-Identifier: Apache-2.0
 <h2 id="what-it-does-end-to-end">What it does (end to end)<a class="headerlink" href="#what-it-does-end-to-end" title="Anchor link to this section">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
   spec[OpenAPI / Swagger]
-  load[Load + validate]
+  load["Load spec&lt;br/&gt;(file or URL)"]
+  normalize["Normalize&lt;br/&gt;Swagger 2.0 → 3.x"]
+  validate["Resolve refs&lt;br/&gt;+ validate"]
   derive[Derive actions]
   stage[Stage codegen]
   gate[Import + pytest gate]
   promote[Promote to repo]
   mcp[MCP hand-off]
   wire["--wire config"]
-  spec --&gt; load --&gt; derive --&gt; stage --&gt; gate --&gt; promote
+  spec --&gt; load --&gt; normalize --&gt; validate --&gt; derive --&gt; stage --&gt; gate --&gt; promote
   promote --&gt; mcp
   promote --&gt; wire</code></pre>
 <p>For a connector id like <code>pet_store</code>:</p>
 <ol>
-<li><strong>Load</strong> the spec from a local file or <code>http(s)</code> URL (<code>--path</code>)</li>
-<li><strong>Normalize</strong> Swagger 2.0 → OpenAPI 3.x when needed; reject remote <code>$ref</code>s</li>
-<li><strong>Derive</strong> <code>@nw_action</code> plans, soft-drop unsupported operations, collapse auth to one connector-level provider</li>
-<li><strong>Codegen</strong> into a temp staging tree (<code>schema.py</code>, <code>logic.py</code>, package <code>pyproject.toml</code>, model tests)</li>
+<li><strong>Load</strong> — read the spec document from a local file path or <code>http(s)</code> URL (<code>--path</code>). URL fetches go through Node Wire's SSRF guard (<code>assert_safe_destination</code>) and never follow redirects. The raw bytes are decoded as UTF-8 and parsed as YAML/JSON into a document, then the version is detected from <code>swagger: "2.0"</code> vs. <code>openapi: "3.x"</code>.</li>
+<li><strong>Normalize</strong> — Swagger 2.0 documents are translated into OpenAPI 3.x in-house; OpenAPI 3.x documents pass through unchanged.</li>
+<li><strong>Validate</strong> — reject any <strong>remote</strong> (absolute-URL) <code>$ref</code>s outright (only local relative / in-document <code>#/</code> refs are allowed), resolve the remaining local <code>$ref</code>s in place with <code>prance</code>, then structurally and semantically validate the fully-resolved document with <code>openapi-spec-validator</code>. This step also resolves the connector's base URL (<code>--base-url</code> override, else the first <code>servers[]</code> entry).</li>
+<li><strong>Derive</strong> — from the validated document, work out the connector's auth plan (one connector-level default scheme, plus any additional per-action schemes — see <a href="#auth-mapping">Auth mapping</a> below) and, per operation, either a plan for a generated <code>@nw_action</code> or a soft-drop reason (unsupported/divergent-and-unpresentable/AND-multi security, unsupported parameter styles, etc. — see <a href="#soft-drop-rules">Soft-drop rules</a>).</li>
+<li><strong>Codegen</strong> — write a temp staging tree: <code>schema.py</code> (Pydantic input/output models) and <code>logic.py</code>, a <code>RestConnector</code> subclass with one <code>@nw_action</code>-decorated async method per derived action. Each method's <code>@nw_action(...)</code> decorator (<code>requires_auth=False</code> for anonymous actions) makes it discoverable by <code>nw-mcp-builder</code>'s regex scan; the method body itself calls <code>self.execute_rest(...)</code>, passing <code>auth_scheme=&lt;name&gt;</code> when the action uses a named, non-default scheme from step 4. Also emits the package <code>pyproject.toml</code> and model tests.</li>
 <li><strong>Gate</strong> — import smoke + <code>pytest</code> on staged model tests (must pass before promote)</li>
 <li><strong>Promote</strong> atomically into <code>src/node_wire_&lt;id&gt;/</code> and <code>packages/connectors/&lt;id&gt;/</code></li>
-<li><strong>MCP hand-off</strong> (default) — call <code>nw-mcp-builder</code> for <code>out/&lt;name&gt;-mcp/</code></li>
+<li><strong>MCP hand-off</strong> (default) — call <code>nw-mcp-builder</code>, which regex-scrapes the promoted <code>logic.py</code> for <code>@nw_action</code> methods, for <code>out/&lt;name&gt;-mcp/</code></li>
 <li><strong>Wire</strong> (optional <code>--wire</code>) — update <code>config/connectors.yaml</code> and <code>sample.env</code></li>
 </ol>
 <p>Promote never runs if the gate fails. MCP or <code>--wire</code> failures after a clean promote return exit code <code>1</code> but leave the connector in the tree.</p>
@@ -2534,7 +2593,7 @@ SPDX-License-Identifier: Apache-2.0
 </table>
 <hr />
 <h2 id="auth-mapping">Auth mapping<a class="headerlink" href="#auth-mapping" title="Anchor link to this section">&para;</a></h2>
-<p>The builder picks <strong>one</strong> connector-level security scheme (document <code>security</code>, else the most common supported operation scheme) and maps it to a Node Wire auth provider for <code>--wire</code> / <code>connectors.yaml</code>:</p>
+<p>The builder picks <strong>one connector-level default</strong> security scheme (document <code>security</code>, else the most common scheme across operations) and maps it to a Node Wire auth provider for <code>--wire</code> / <code>connectors.yaml</code>:</p>
 <table>
 <thead>
 <tr>
@@ -2565,21 +2624,44 @@ SPDX-License-Identifier: Apache-2.0
 <td><code>&lt;ID&gt;_BASIC_AUTH</code></td>
 </tr>
 <tr>
+<td><code>oauth2</code> flow <code>clientCredentials</code></td>
+<td><code>oauth2</code> (<code>grant_method: client_secret_post</code>)</td>
+<td><code>&lt;ID&gt;_CLIENT_ID</code>, <code>&lt;ID&gt;_CLIENT_SECRET</code></td>
+</tr>
+<tr>
+<td><code>oauth2</code> flow <code>authorizationCode</code></td>
+<td><code>oauth2</code> (<code>grant_method: refresh_token</code>)</td>
+<td><code>&lt;ID&gt;_CLIENT_ID</code>, <code>&lt;ID&gt;_CLIENT_SECRET</code>, <code>&lt;ID&gt;_REFRESH_TOKEN</code> (manual one-time step)</td>
+</tr>
+<tr>
+<td><code>oauth2</code> with no unattended flow (<code>implicit</code> / <code>password</code> / none declared), or <code>openIdConnect</code></td>
+<td><code>static_token</code> (<code>prefix: Bearer</code>, <code>host_supplied: true</code>)</td>
+<td><code>&lt;ID&gt;_ACCESS_TOKEN</code></td>
+</tr>
+<tr>
 <td>None / unsupported only</td>
 <td><code>none</code> (anonymous)</td>
 <td>—</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Not supported</strong> as connector-level auth (operations that require only these are soft-dropped):</p>
+<p><code>&lt;ID&gt;_TOKEN_URL</code> is also emitted for both <code>oauth2</code> rows, pre-filled in <code>sample.env</code> with the
+spec's <code>tokenUrl</code> (public API metadata, not a secret — kept as a reference like the rest of the
+block so a sandbox/prod override never needs a code change). <code>authorizationCode</code> additionally
+requires completing an interactive consent <strong>outside</strong> Node Wire before <code>&lt;ID&gt;_REFRESH_TOKEN</code> can
+be set — see <a href="../nw-connector-builder-scope/#oauth2-authorizationcode">nw-connector-builder-scope.md</a>.</p>
+<h3 id="host-supplied-tier">Host-supplied tier<a class="headerlink" href="#host-supplied-tier" title="Anchor link to this section">&para;</a></h3>
+<p><code>oauth2</code> flows Node Wire cannot run unattended (<code>implicit</code>, <code>password</code>, or no flow the generator recognizes) and <code>openIdConnect</code> are <strong>not</strong> soft-dropped — they map to a <strong>host-supplied</strong> bearer token: Node Wire presents whatever value sits in <code>&lt;ID&gt;_ACCESS_TOKEN</code> as a plain <code>Bearer</code> header but never obtains, refreshes, or detects the expiry of it. The operator's host application is responsible for acquiring and rotating that token out-of-band. This is presentation only, never described as "supports implicit/password" — the acquisition ban on those flows is unchanged, see <a href="../nw-connector-builder-scope/#out-of-scope">nw-connector-builder-scope.md</a>. The build report's <code>auth.notes</code> spells out which scheme triggered it and the exact secret key to set.</p>
+<p><strong>"Presents a bearer token" is not the same claim as "supports the flow."</strong> At runtime this tier is the exact same <code>static_token</code> provider as a plain <code>http: bearer</code> scheme — Node Wire never calls a token endpoint or performs a grant exchange for it. It will happily present <em>any</em> bearer string, OAuth2-derived or not; that's a much weaker guarantee than the autonomous acquire-and-refresh behavior <code>clientCredentials</code>/<code>authorizationCode</code> actually get. See <a href="../nw-connector-builder-scope/#host-supplied-auth-tier">nw-connector-builder-scope.md</a> for the full reasoning, including why <code>implicit</code> in particular carries a real operational cost (no refresh token by spec — the host must redo the full interactive consent every time the token expires).</p>
+<h3 id="per-action-auth-schemes">Per-action auth schemes<a class="headerlink" href="#per-action-auth-schemes" title="Anchor link to this section">&para;</a></h3>
+<p>Operations that require a <strong>different, still-presentable</strong> scheme than the connector-level default (self-managed or host-supplied — anything except <code>mutualTLS</code>, cookie <code>apiKey</code>, AND-multi, or an unrecognized type) are no longer soft-dropped as divergent. Instead the builder emits an <strong>additional, named</strong> scheme in <code>auth_schemes:</code> (alongside the default <code>auth:</code> block) and routes just those actions to it via <code>auth_scheme=&lt;scheme_name&gt;</code> on the generated <code>@nw_action</code> call — the runtime resolves it with <code>resolve_auth_provider(auth_scheme)</code>, which fails closed on an unknown name. This is what lets one connector serve multiple OpenAPI security schemes from a single instance — e.g. <code>petstore.swagger.io</code>, where most operations use an <code>apiKey</code> default but a handful require an <code>oauth2</code> (<code>implicit</code>) scheme that's now generated as a host-supplied <code>auth_schemes</code> entry instead of being dropped.</p>
+<p><strong>Still soft-dropped</strong> as unsupported (operations that require only these are skipped):</p>
 <ul>
-<li><code>oauth2</code></li>
-<li><code>openIdConnect</code></li>
 <li><code>mutualTLS</code></li>
+<li>Cookie API keys (<code>apiKey</code> <code>in: cookie</code>)</li>
 <li>AND multi-scheme requirements (<code>security: [{ a: [], b: [] }]</code>)</li>
-<li>Cookie API keys</li>
+<li>Unrecognized scheme types</li>
 </ul>
-<p>Operations that require a <strong>different</strong> supported scheme than the connector-level choice are soft-dropped as divergent.</p>
 <hr />
 <h2 id="soft-drop-rules">Soft-drop rules<a class="headerlink" href="#soft-drop-rules" title="Anchor link to this section">&para;</a></h2>
 <p>Unsupported operations are <strong>skipped</strong> (listed in the report) rather than aborting the build — unless <strong>zero</strong> operations remain (hard failure).</p>
@@ -2638,8 +2720,12 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span><span class="w">   </span><span class="c1"># omitted when anonymous</span>
 </span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="nt">auth_schemes</span><span class="p">:</span><span class="w">   </span><span class="c1"># only present when a divergent scheme needed its own auth_scheme=</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="nt">&lt;scheme_name&gt;</span><span class="p">:</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">        </span><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </span></code></pre></div>
-<p><strong><code>sample.env</code></strong> — appends the connector to <code>NW_ALLOWED_CONNECTORS</code> and adds empty placeholders for derived secret keys (e.g. <code>PET_STORE_API_KEY=</code>).</p>
+<p><strong><code>sample.env</code></strong> — appends the connector to <code>NW_ALLOWED_CONNECTORS</code> and adds empty placeholders for derived secret keys (e.g. <code>PET_STORE_API_KEY=</code>, and <code>PET_STORE_ACCESS_TOKEN=</code> for a host-supplied scheme).</p>
 <p>Wire edits preserve YAML comments via <code>ruamel.yaml</code>. Failures set exit code <code>1</code> but do not roll back the promoted connector.</p>
 <hr />
 <h2 id="mcp-hand-off">MCP hand-off<a class="headerlink" href="#mcp-hand-off" title="Anchor link to this section">&para;</a></h2>

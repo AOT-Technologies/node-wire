@@ -2053,12 +2053,89 @@ skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself
 </ul>
 <h3 id="auth">Auth<a class="headerlink" href="#auth" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li>One connector-level scheme, chosen from the document's top-level <code>security</code> (or the most
-  common scheme across operations if none is declared)</li>
+<li>One connector-level <strong>default</strong> scheme, chosen from the document's top-level <code>security</code> (or the
+  most common scheme across operations if none is declared)</li>
 <li><code>apiKey</code> in <code>header</code> or <code>query</code>, <code>http</code> <code>bearer</code>, <code>http</code> <code>basic</code> — mapped to Node Wire's
   <code>static_token</code> / <code>apikey_query</code> auth providers</li>
+<li><code>oauth2</code> with a declared <code>clientCredentials</code> or <code>authorizationCode</code> flow — mapped to
+  <code>OAuth2AuthProvider</code> (<code>grant_method: client_secret_post</code> / <code>refresh_token</code>). Neither flow is
+  minted by the generator from spec data alone; it scaffolds what <em>is</em> derivable (token URL,
+  declared scopes) and emits blank secret placeholders for what the operator must provision.
+  <code>clientCredentials</code> needs only <code>&lt;ID&gt;_CLIENT_ID</code> / <code>&lt;ID&gt;_CLIENT_SECRET</code> (fully unattended).
+  <code>authorizationCode</code> additionally needs <code>&lt;ID&gt;_REFRESH_TOKEN</code>, obtained via a one-time
+  interactive consent completed <strong>outside</strong> Node Wire — see "OAuth2 authorizationCode" below.</li>
+<li><code>oauth2</code> with no unattended flow (<code>implicit</code> / <code>password</code> / none declared) and <code>openIdConnect</code> —
+  mapped to a <strong>host-supplied</strong> bearer (<code>static_token</code>, <code>host_supplied: true</code>): Node Wire presents
+  <code>&lt;ID&gt;_ACCESS_TOKEN</code> verbatim as a <code>Bearer</code> header but never acquires, refreshes, or detects the
+  expiry of it — see "Host-supplied auth tier" below. This is presentation only; the acquisition
+  ban on <code>implicit</code> / <code>password</code> (below, under "Out of scope") is unchanged.</li>
+<li>Operations needing a <strong>different, still-presentable</strong> scheme than the connector default are not
+  dropped — the generator emits it as an additional, named entry in <code>auth_schemes:</code> and routes just
+  those actions to it (<code>auth_scheme=&lt;name&gt;</code> per <code>@nw_action</code>, resolved at runtime by
+  <code>resolve_auth_provider</code>, which fails closed on an unknown name). A connector is no longer
+  necessarily single-scheme; see "Per-action auth schemes" below.</li>
 <li>Anonymous connectors (no scheme, or only unsupported schemes present) build as <code>auth: none</code></li>
 </ul>
+<h4 id="host-supplied-auth-tier">Host-supplied auth tier<a class="headerlink" href="#host-supplied-auth-tier" title="Anchor link to this section">&para;</a></h4>
+<p>Some schemes Node Wire can <em>present</em> but will never <em>acquire</em>: <code>oauth2</code> <code>implicit</code> / <code>password</code> (no
+refresh token, or a flow that needs a raw user password — ruled out on principle, not tooling, see
+"Out of scope" below) and <code>openIdConnect</code> (its underlying flow can't be introspected from the spec
+alone). Rather than soft-dropping every operation gated by one of these — which is what silently
+turned "13/20 operations generated" into "20/20" for petstore-style specs — the generator scaffolds
+a <code>static_token</code> provider marked <code>host_supplied: true</code> that presents <code>&lt;ID&gt;_ACCESS_TOKEN</code> as a
+<code>Bearer</code> header with <strong>no</strong> acquisition, refresh, or expiry detection. The host application owns
+obtaining and rotating that token entirely out-of-band; a stale token surfaces as a plain <code>401</code>
+from the upstream API, not a managed refresh cycle. The build report's <code>auth.notes</code> names the
+triggering scheme and the exact secret key to set.</p>
+<p><strong>This is not OAuth2 (or OIDC) client support — it's a static bearer, full stop.</strong> At runtime,
+<code>host_supplied: true</code> is inert: the provider is the exact same <code>StaticTokenAuthProvider</code> used for
+a plain <code>http: bearer</code> scheme, with the flag existing only for the build report / generated
+<code>sample.env</code> comment. Node Wire never calls a token endpoint, never performs a grant exchange,
+never negotiates scope, never authenticates as a client — none of the actual OAuth2 protocol runs
+for these schemes. Contrast this with <code>clientCredentials</code> / <code>authorizationCode</code> above, where Node
+Wire genuinely <em>is</em> an OAuth2 client: it owns the grant exchange and refreshes the token
+indefinitely, unattended, after one-time setup. "We'll present any bearer token you hand us" is a
+much weaker claim than "we support this flow," and deliberately so — see the acquisition-vs-
+presentation distinction above.</p>
+<p>This also means the operational cost is real, not just a labeling nuance. <code>implicit</code> tokens in
+particular are typically short-lived (commonly ~1 hour) with <strong>no refresh token by spec</strong> — so a
+host using this tier for an <code>implicit</code>-secured operation has to redo the <em>entire interactive
+browser redirect</em> every time the token expires and update <code>&lt;ID&gt;_ACCESS_TOKEN</code> itself. Nothing in
+Node Wire detects the coming expiry or warns beforehand; the connector just starts getting <code>401</code>s.
+That is a materially heavier operational burden than the flows Node Wire actually manages, where
+expiry and renewal are invisible to the operator after initial setup.</p>
+<h4 id="per-action-auth-schemes">Per-action auth schemes<a class="headerlink" href="#per-action-auth-schemes" title="Anchor link to this section">&para;</a></h4>
+<p>A connector can serve <strong>more than one</strong> OpenAPI security scheme from a single instance. The
+connector-level default (<code>auth:</code> in <code>connectors.yaml</code>) still covers most operations; any operation
+whose declared security is a <em>different</em> scheme — but one that's still presentable (self-managed or
+host-supplied, i.e. not <code>mutualTLS</code>, cookie <code>apiKey</code>, AND-multi, or unrecognized) — gets its own
+named entry under the new, additive <code>auth_schemes:</code> config block, and the generated action passes
+<code>auth_scheme=&lt;name&gt;</code> so the runtime resolves the right <code>AuthProvider</code> per call instead of per
+connector. This is what let petstore-style specs (an <code>apiKey</code> default alongside operations gated by
+an <code>oauth2</code> <code>implicit</code> scheme) stop soft-dropping those operations.</p>
+<h4 id="oauth2-authorizationcode">OAuth2 <code>authorizationCode</code><a class="headerlink" href="#oauth2-authorizationcode" title="Anchor link to this section">&para;</a></h4>
+<p>This flow requires a human to complete a browser redirect + consent at least once — no
+generator can (or should) do that for an arbitrary host app. What the generator produces
+instead is a <code>grant_method: refresh_token</code> scaffold: the <em>first</em> refresh token is a manual,
+out-of-band step (register an app with the provider, complete the interactive consent, copy
+the resulting refresh token into <code>&lt;ID&gt;_REFRESH_TOKEN</code>); every access token after that is minted
+automatically by <code>OAuth2AuthProvider</code> from the stored refresh token, no further interaction
+needed. The report's <code>auth.notes</code> entry spells out the authorization URL and the exact env vars
+to set.</p>
+<p><strong><code>offline_access</code>:</strong> most OIDC providers, including Microsoft identity platform, only issue a
+refresh token during that interactive consent if <code>offline_access</code> was among the requested
+scopes — a resource API's OpenAPI spec commonly omits this protocol-level scope from its
+resource-specific scope list (it's not one of <em>its</em> permissions). The generator adds
+<code>offline_access</code> to the derived <code>scopes</code> automatically when it's missing, so the scope list
+you copy for the manual consent step is one that will actually produce a refresh token.</p>
+<p><strong>Rotation:</strong> if the identity provider rotates the refresh token on use (Entra does this
+routinely), <code>OAuth2AuthProvider</code> caches the new value in memory and keeps working for the rest
+of that process's lifetime even with no persistence configured. Pass
+<code>OAuth2AuthProvider(on_refresh_token_rotated=...)</code> (wired automatically for <code>--wire</code>-generated,
+YAML-configured connectors — see <code>_build_auth_provider</code> in <code>src/bindings/factory.py</code>, which
+persists into the process-wide secret overlay) so the replacement also survives a restart.
+Node Wire's own persistence is process-local only — see <a href="../mcp-client-oauth/"><code>mcp-client-oauth.md</code></a>
+for the analogous host-owns-durable-persistence pattern used for outbound MCP client auth.</p>
 <h3 id="codegen">Codegen<a class="headerlink" href="#codegen" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li>Actions discoverable via <code>@nw_action</code> on a generated <code>RestConnector</code> subclass (regex-scrapable
@@ -2091,15 +2168,24 @@ skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself
 <h2 id="out-of-scope">Out of scope<a class="headerlink" href="#out-of-scope" title="Anchor link to this section">&para;</a></h2>
 <h3 id="auth-schemes">Auth schemes<a class="headerlink" href="#auth-schemes" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>OAuth2</strong> and <strong>OpenID Connect</strong> — operations secured only by these are soft-dropped, not
-  supported with a workaround</li>
-<li><strong>mutualTLS</strong></li>
-<li><strong>Cookie-based API keys</strong></li>
-<li><strong>AND-combined</strong> multi-scheme security (<code>security: [{a: [], b: []}]</code>)</li>
-<li>More than one auth provider per connector — a connector is single-scheme, even if the spec
-  declares several; operations needing a divergent scheme are soft-dropped</li>
-<li>Per-operation auth overrides — auth is connector-level only</li>
+<li><strong>OAuth2 <code>implicit</code> and <code>password</code> (ROPC)</strong> — Node Wire never <em>acquires</em> these, deliberately.
+  <code>implicit</code> is deprecated and has no refresh token; <code>password</code> requires the connector to handle a
+  raw user password, which this codebase's secrets-hygiene posture rules out on principle, not
+  just for lack of tooling. Operations secured only by these are no longer soft-dropped, though —
+  see "Host-supplied auth tier" above, which presents (but never obtains) a host-supplied bearer
+  token instead.</li>
+<li><strong>mutualTLS</strong> — genuinely unpresentable (a transport-layer client certificate, not a
+  header/param); operations secured only by it are soft-dropped</li>
+<li><strong>Cookie-based API keys</strong> — no <code>name=value</code> cookie formatting in <code>StaticTokenAuthProvider</code> yet;
+  soft-dropped</li>
+<li><strong>AND-combined</strong> multi-scheme security (<code>security: [{a: [], b: []}]</code>) — soft-dropped</li>
+<li>Automatic acquisition of <code>implicit</code> / <code>password</code> / <code>openIdConnect</code> credentials — Node Wire will
+  present a host-supplied bearer token for these (see above) but will never obtain, refresh, or
+  detect its expiry</li>
 </ul>
+<p>(<code>oauth2</code> with <code>clientCredentials</code> or <code>authorizationCode</code> flows, <code>openIdConnect</code> and
+non-unattended <code>oauth2</code> flows via the host-supplied tier, and multi-scheme connectors via
+per-action <code>auth_schemes:</code>, all moved to "In scope" above.)</p>
 <h3 id="spec-features">Spec features<a class="headerlink" href="#spec-features" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><strong>Remote <code>$ref</code>s</strong> (absolute URLs) — rejected outright; the input document must be

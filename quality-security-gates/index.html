@@ -2009,15 +2009,23 @@ SPDX-License-Identifier: Apache-2.0
 <p>Runs on every pull request and on pushes to <code>main</code>.</p>
 <p>Required jobs:</p>
 <ul>
-<li><code>bandit</code>: writes <code>bandit-report.json</code> (with <code>--exit-zero</code> so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on <strong>high</strong>-severity findings in the enforce step.</li>
+<li><code>bandit</code>: writes <code>bandit-report.json</code> (with <code>--exit-zero</code> so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on <strong>high</strong>-severity findings in the enforce step. Scan roots: <code>src/</code>, <code>nw-cli/src/</code>, <code>nw-mcp-builder/src/</code>, <code>nw-connector-builder/src/</code>.</li>
 </ul>
 <p>Workflow: <code>.github/workflows/codeql.yml</code></p>
 <p>Runs GitHub CodeQL static analysis for Python on pull requests, pushes to <code>main</code>, and weekly (Mondays). No repository secrets are required.</p>
 <p>Workflow: <code>.github/workflows/pytest.yml</code></p>
 <p>Runs the full test suite on <strong>Linux, macOS, and Windows</strong> (Python 3.11 and 3.12
 matrix) with coverage on every pull request and push to <code>main</code>.
+Branch protection requires the <strong>Ubuntu</strong> cells only; macOS/Windows remain
+informational (OSS portability signal without blocking merges on runner flakiness).
 Playground integration tests remain manual (<code>workflow_dispatch</code>) on Ubuntu only.</p>
 <p>Workflow: <code>.github/workflows/lint.yml</code> also runs <code>lockfile-check</code> (<code>uv lock --check</code>) to fail PRs when <code>pyproject.toml</code> changes without an updated <code>uv.lock</code>.</p>
+<p>Workflow: <code>.github/workflows/mcp-builder-e2e.yml</code></p>
+<p>End-to-end gate for the priority surface (<code>nw</code> CLI → connector codegen → MCP
+Docker image → live <code>tools/list</code>). The heavy pet-store job is <strong>path-filtered</strong>
+(plus weekly schedule / <code>workflow_dispatch</code>). An always-run job
+<code>MCP builder e2e gate</code> succeeds when e2e is skipped and fails when e2e fails —
+require <strong>that</strong> check name in branch protection, not the path-filtered job.</p>
 <p>Workflow: <code>.github/workflows/secret-scan.yml</code></p>
 <p>Runs <a href="https://github.com/gitleaks/gitleaks">Gitleaks</a> on pull requests, pushes to
 <code>main</code>, weekly (Mondays), and on manual dispatch. The workflow checks
@@ -2026,29 +2034,28 @@ scanned, not only the working tree.</p>
 <p>Required checks to add in branch protection:</p>
 <ul>
 <li><code>Lint and Type Check / Lockfile freshness</code></li>
+<li><code>Lint and Type Check / Ruff Linters</code></li>
+<li><code>Lint and Type Check / Mypy Type Check</code></li>
 <li><code>Quality gates / Bandit security scan</code></li>
 <li><code>CodeQL / Analyze (Python)</code></li>
 <li><code>Secret scan / Gitleaks secret scan</code></li>
 <li><code>CI – Pytest / Run pytest (ubuntu-latest, Python 3.11)</code></li>
 <li><code>CI – Pytest / Run pytest (ubuntu-latest, Python 3.12)</code></li>
-<li><code>CI – Pytest / Run pytest (macos-latest, Python 3.11)</code></li>
-<li><code>CI – Pytest / Run pytest (macos-latest, Python 3.12)</code></li>
-<li><code>CI – Pytest / Run pytest (windows-latest, Python 3.11)</code></li>
-<li><code>CI – Pytest / Run pytest (windows-latest, Python 3.12)</code></li>
+<li><code>MCP builder e2e (pet-store) / MCP builder e2e gate</code></li>
 <li><code>Python package security PR checks / Vulnerability scan (packages/runtime)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/http_generic)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/stripe)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/smtp)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/google_drive)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/fhir_cerner)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/fhir_epic)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/salesforce)</code></li>
-<li><code>Python package security PR checks / Vulnerability scan (packages/connectors/slack)</code></li>
 </ul>
 <p>Configure branch protection so pull requests cannot merge unless all required checks pass.</p>
+<p>Informational (run in CI, not required to merge): macOS/Windows pytest cells;
+connector-package <code>pip-audit</code> matrix (path-filtered on PRs, always on schedule);
+REUSE lint (still runs in <code>lint.yml</code>); DCO (skips bot PRs — do not require it or
+Dependabot merges will stick on a skipped check).</p>
 <h2 id="cve-scanning-policy">CVE scanning policy<a class="headerlink" href="#cve-scanning-policy" title="Anchor link to this section">&para;</a></h2>
 <ul>
 <li>PR and push-to-main scanning runs in <code>.github/workflows/security-pr.yml</code>.</li>
+<li><code>packages/runtime</code> is audited on <strong>every</strong> PR / push to <code>main</code> (required check).</li>
+<li>Connector packages under <code>packages/connectors/*</code> are audited when those paths
+  (or lockfile / related workflows) change, and on the daily schedule — not
+  required in branch protection.</li>
 <li>Release-time scanning remains in <code>.github/workflows/publish.yml</code> as defense in depth.</li>
 <li>The PR/push gate (<code>security-pr.yml</code>) runs <code>pip-audit</code> with no <code>--fail-on</code> threshold, so it <strong>blocks on any vulnerability</strong>. The release workflow (<code>publish.yml</code>) uses <code>pip-audit --fail-on HIGH</code> as defense in depth.</li>
 <li>Scheduled scans catch newly disclosed CVEs even when code does not change.</li>
@@ -2079,21 +2086,25 @@ treat it as defense in depth; the in-repo workflow provides auditable CI evidenc
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Security gate (matches CI failure threshold)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>uv<span class="w"> </span>run<span class="w"> </span>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span>-r<span class="w"> </span>src<span class="w"> </span>--severity-level<span class="w"> </span>high
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Optional: JSON report + same summary as CI logs</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>uv<span class="w"> </span>run<span class="w"> </span>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span>-r<span class="w"> </span>src<span class="w"> </span>-f<span class="w"> </span>json<span class="w"> </span>-o<span class="w"> </span>bandit-report.json<span class="w"> </span>--exit-zero
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>python<span class="w"> </span>scripts/bandit_report_summary.py<span class="w"> </span>bandit-report.json
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># Tests + coverage (run via pytest.yml in CI)</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>uv<span class="w"> </span>run<span class="w"> </span>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>-r<span class="w"> </span>src<span class="w"> </span>nw-cli/src<span class="w"> </span>nw-mcp-builder/src<span class="w"> </span>nw-connector-builder/src<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span>--severity-level<span class="w"> </span>high
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Optional: JSON report + same summary as CI logs</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>uv<span class="w"> </span>run<span class="w"> </span>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>-r<span class="w"> </span>src<span class="w"> </span>nw-cli/src<span class="w"> </span>nw-mcp-builder/src<span class="w"> </span>nw-connector-builder/src<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>-f<span class="w"> </span>json<span class="w"> </span>-o<span class="w"> </span>bandit-report.json<span class="w"> </span>--exit-zero
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>python<span class="w"> </span>scripts/bandit_report_summary.py<span class="w"> </span>bandit-report.json
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># Tests + coverage (run via pytest.yml in CI)</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
 </span></code></pre></div>
 <h2 id="deterministic-pytest-environment">Deterministic pytest environment<a class="headerlink" href="#deterministic-pytest-environment" title="Anchor link to this section">&para;</a></h2>
 <p>To keep pytest collection and REST app startup deterministic, <code>tests/conftest.py</code> sets a fixed environment before imports:</p>
 <ul>
 <li><code>NW_REST_LOAD_DOTENV=false</code> so REST startup does not merge a repo-root <code>.env</code> over test variables.</li>
-<li><code>NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml</code> so optional connectors outside the pytest allowlist remain <code>enabled: false</code> (for example <code>slack</code> and <code>salesforce</code>).</li>
-<li><code>NW_ALLOWED_CONNECTORS=http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner</code> so only the supported test connector set is loaded during collection.</li>
+<li><code>NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml</code>, a fixture that mirrors <code>config/connectors.yaml</code> with all eight publishable connectors enabled.</li>
+<li><code>NW_ALLOWED_CONNECTORS=http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack</code> so exactly those eight connectors are loaded during collection.</li>
 </ul>
 <p>Do not rely on <code>.env</code> values during pytest collection. The test harness intentionally overrides them so local developer state does not affect CI or test outcomes.</p>
 <h3 id="pre-commit">Pre-commit<a class="headerlink" href="#pre-commit" title="Anchor link to this section">&para;</a></h3>
@@ -2113,14 +2124,19 @@ treat it as defense in depth; the in-repo workflow provides auditable CI evidenc
 <h3 id="scope">Scope<a class="headerlink" href="#scope" title="Anchor link to this section">&para;</a></h3>
 <p>Policy:</p>
 <ul>
-<li>Scan target: <code>src/</code> (runtime, bindings, in-tree connector implementations installed via the root package).</li>
+<li>Scan targets: <code>src/</code> (runtime, bindings, in-tree connectors), plus <code>nw-cli/src/</code>,
+  <code>nw-mcp-builder/src/</code>, and <code>nw-connector-builder/src/</code> (CLI → MCP pipeline).</li>
 <li>Exclude: <code>.venv</code>, <code>venv</code>, <code>tests</code>, <code>playground</code>, <code>dist</code>, <code>htmlcov</code>.</li>
 <li>CI enforcement threshold: <code>--severity-level high</code>.</li>
 <li><strong>Packages tree:</strong> connector distributions under <code>packages/connectors/*</code> are audited for CVEs in <code>.github/workflows/security-pr.yml</code> (<code>pip-audit</code>). Run Bandit against those paths separately if you need SAST on a standalone checkout.</li>
 </ul>
 <p>If legacy findings block adoption, create a baseline once and track deltas:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span>-r<span class="w"> </span>src<span class="w"> </span>-f<span class="w"> </span>json<span class="w"> </span>-o<span class="w"> </span>bandit-baseline.json<span class="w"> </span>--exit-zero
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span>-r<span class="w"> </span>src<span class="w"> </span>--baseline<span class="w"> </span>bandit-baseline.json<span class="w"> </span>--severity-level<span class="w"> </span>high
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>-r<span class="w"> </span>src<span class="w"> </span>nw-cli/src<span class="w"> </span>nw-mcp-builder/src<span class="w"> </span>nw-connector-builder/src<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-f<span class="w"> </span>json<span class="w"> </span>-o<span class="w"> </span>bandit-baseline.json<span class="w"> </span>--exit-zero
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>bandit<span class="w"> </span>-c<span class="w"> </span>pyproject.toml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>-r<span class="w"> </span>src<span class="w"> </span>nw-cli/src<span class="w"> </span>nw-mcp-builder/src<span class="w"> </span>nw-connector-builder/src<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span>--baseline<span class="w"> </span>bandit-baseline.json<span class="w"> </span>--severity-level<span class="w"> </span>high
 </span></code></pre></div>
 <h2 id="sbom-generation">SBOM generation<a class="headerlink" href="#sbom-generation" title="Anchor link to this section">&para;</a></h2>
 <p>CycloneDX SBOM (<code>sbom.json</code>) is generated by:</p>
@@ -2133,7 +2149,8 @@ treat it as defense in depth; the in-repo workflow provides auditable CI evidenc
 <li>Security scan runs on every PR: enforced by <code>quality-gates.yml</code> (Bandit) and <code>codeql.yml</code> (CodeQL).</li>
 <li>Builds fail on high-severity Bandit findings: Bandit gate in CI.</li>
 <li>Static analysis visible in GitHub Security tab: CodeQL upload from CI.</li>
-<li>Tests run on every PR: enforced by <code>pytest.yml</code> (Linux/macOS/Windows × Python 3.11/3.12).</li>
+<li>Tests run on every PR: enforced by <code>pytest.yml</code> (required: Ubuntu × Python 3.11/3.12).</li>
+<li>MCP pipeline integrity: <code>mcp-builder-e2e.yml</code> gate required; heavy pet-store job path-filtered.</li>
 <li>Developers run checks locally: documented commands and pre-commit (Bandit).</li>
 <li>Config version-controlled: <code>pyproject.toml</code>, <code>.pre-commit-config.yaml</code>, workflow files.</li>
 </ul>

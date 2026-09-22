@@ -2642,7 +2642,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
 </span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>salesforce-nw-mcp
 </span></code></pre></div>
-<p>The generated Dockerfile is digest-pinned (<code>python:3.12-slim@sha256:…</code>), runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels, vendored src, <code>config/connectors.yaml</code>, and the thin host. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. <code>PYTHONPATH=/nw_src:/app/src</code> and <code>python -m &lt;module&gt;</code> are the entrypoint. MCP auth is <strong>not</strong> disabled in the image; set <code>NW_MCP_AUTH_DISABLED=true</code> at run time for local Inspector use.</p>
+<p>The generated Dockerfile is multi-stage and digest-pinned (<code>python:3.12-slim@sha256:…</code>): wheels install in a <code>deps</code> stage (BuildKit pip cache), then <code>/usr/local</code> is copied into the runtime stage with app sources last for layer caching. It runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels (<code>node-wire-runtime</code>, <code>node-wire-bindings</code>, connector), <code>config/connectors.yaml</code>, and the thin host — no vendored <code>src/</code> on <code>PYTHONPATH</code>. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. <code>PYTHONPATH=/app/src</code> and <code>python -m &lt;module&gt;</code> are the entrypoint. MCP auth is <strong>not</strong> disabled in the image, and the scope policy defaults <strong>fail-closed</strong> (<code>deny</code>) there too — unlike local <code>uv run</code>, which sets <code>NW_MCP_AUTH_DISABLED=true</code> and <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> automatically for Inspector convenience. A container started without both set accepts connections but <code>tools/list</code> comes back empty. Set <code>NW_MCP_AUTH_DISABLED=true</code> / <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> at run time for local Inspector/ToolHive use.</p>
 <p><code>--env-file</code> injects process environment. Do not bind-mount <code>.env</code> into the container filesystem.</p>
 <p><strong>MCP SDK:</strong> Pin <code>mcp&gt;=1.6.0,&lt;2</code>. MCP SDK 2.x breaks <code>@server.list_tools()</code> on the current server binding.</p>
 <hr />
@@ -2669,7 +2669,11 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>No module named node_wire_runtime.policies</code></td>
-<td>Regenerate — vendored <code>vendor/node_wire_src/node_wire_runtime</code> should be present</td>
+<td>Rebuild runtime wheel (<code>nw gen-whl --runtime</code>) — <code>policies</code> must be a package with <code>__init__.py</code></td>
+</tr>
+<tr>
+<td><code>No module named bindings</code> / <code>No node-wire-bindings wheel</code></td>
+<td>Build bindings: <code>nw gen-whl --bindings</code></td>
 </tr>
 <tr>
 <td><code>uv sync</code> / import errors on generated host</td>
