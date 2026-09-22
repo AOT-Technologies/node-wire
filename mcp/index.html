@@ -2122,12 +2122,13 @@ SPDX-License-Identifier: Apache-2.0
 - <strong>Generate a custom standalone MCP host with <code>nw-mcp-builder</code>:</strong> <a href="../mcp-servers/">mcp-servers.md</a></p>
 <hr />
 <h2 id="multi-tenancy">Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Anchor link to this section">&para;</a></h2>
-<p>When <code>NW_MULTITENANCY_ENABLED=true</code>, MCP loads <code>config/tenants.yaml</code> (or <code>NW_TENANTS_PATH</code>) and exposes <code>nw_list_tenants</code>, <code>nw_select_tenant</code>, <code>nw_list_configs</code>, and <code>nw_select_config</code>. <code>nw_select_config</code>'s selection applies to <strong>every connector</strong> on that MCP process by default, but each connector tool also accepts an optional per-call <code>config_name</code> argument that outranks the shared selection for that one call. <code>tenant_id</code> is never accepted as a tool argument — tenant is always resolved from the session/request, never from tool call arguments.</p>
-<p>Tenant pin precedence differs by transport:
-- <strong>stdio:</strong> the <code>NW_TENANT_ID</code> env pin is the default until <code>nw_select_tenant</code> is called, after which the selection overrides it for the rest of the session.
-- <strong>streamable-http:</strong> the live per-request <code>X-Tenant-ID</code> header (or JWT tenant claim) always wins, on every request — a prior <code>nw_select_tenant</code> call in one session can never shadow another concurrent session's request-level tenant. A tenant claim in the JWT that disagrees with the caller-supplied header/session tenant is rejected with a <code>TenantIdentityMismatchError</code> (403 <code>TENANT_IDENTITY_MISMATCH</code>), not silently overridden.</p>
-<p><strong>Session vs instance pin:</strong> <code>nw_select_tenant</code> sets the MCP <strong>session</strong> overlay (which tenant/config names bindings pass into <code>factory.get</code>). The factory then sets <strong><code>_tenant_id</code> on the connector instance</strong>; <code>run()</code> uses that pin when <code>tenant_id</code> is omitted and returns <code>TENANT_MISMATCH</code> if a caller passes a different id.</p>
-<p><strong>Full guide:</strong> <a href="../mcp-servers/#multi-tenancy-mcp">Multi-tenancy (MCP)</a></p>
+<p>When <code>NW_MULTITENANCY_ENABLED=true</code>, MCP loads tenants/configs and exposes
+<code>nw_list_tenants</code>, <code>nw_select_tenant</code>, <code>nw_list_configs</code>, and <code>nw_select_config</code>.
+Tenant is never a connector-tool argument.</p>
+<p>Full variable reference and host/factory contract:
+<a href="../configuration/#multi-tenancy">Configuration — Multi-tenancy</a>.
+MCP transport pin rules and ToolHive notes:
+<a href="../mcp-servers/#multi-tenancy-mcp">Multi-tenancy (MCP)</a>.</p>
 <hr />
 <h2 id="fhir-tool-arguments-cerner-epic">FHIR Tool Arguments (Cerner / Epic)<a class="headerlink" href="#fhir-tool-arguments-cerner-epic" title="Anchor link to this section">&para;</a></h2>
 <p>Tool names follow the pattern <code>fhir_cerner_&lt;action&gt;</code> and <code>fhir_epic_&lt;action&gt;</code> (e.g. <code>fhir_cerner_read_patient</code>). The MCP server normalizes common LLM aliases (e.g., <code>patientId</code> → <code>resource_id</code>).</p>

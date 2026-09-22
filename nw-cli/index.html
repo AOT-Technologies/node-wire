@@ -1957,7 +1957,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <h1 id="nw-cli">nw CLI<a class="headerlink" href="#nw-cli" title="Anchor link to this section">&para;</a></h1>
 <p><code>nw</code> is the unified CLI for the OpenAPI → connector → wheel → MCP host → Docker image pipeline. It orchestrates <a href="../nw-connector-builder/"><code>nw-connector-builder</code></a>, <a href="../packaging/"><code>scripts/build-packages.sh</code></a>, and <a href="../mcp-servers/"><code>nw-mcp-builder</code></a> without replacing those tools.</p>
-<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. See <code>scripts/deploy-openapi-mcp-toolhive.md</code> for manual deploy steps.</p>
+<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. For manual ToolHive registration and the end-to-end agent path, see <a href="../mcp-servers/#platform-and-toolhive-read-this-first">mcp-servers.md</a> and <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="install">Install<a class="headerlink" href="#install" title="Anchor link to this section">&para;</a></h2>
 <p><code>nw-cli</code> is part of the monorepo <strong>dev</strong> dependency group. From the <strong>node-wire</strong> repo root (hard assumption — there is no <code>--node-wire-root</code> flag):</p>

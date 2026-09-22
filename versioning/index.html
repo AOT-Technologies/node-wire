@@ -1331,6 +1331,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Release process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypi-pre-releases-beta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyPI pre-releases (beta)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1757,6 +1774,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Release process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypi-pre-releases-beta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyPI pre-releases (beta)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -1882,9 +1916,19 @@ manifest <code>deprecated</code> flag; deprecated MCP arguments follow a phased 
 <p>Security and bug fixes target the latest <code>1.x</code> release and <code>main</code>. See
 <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md">SECURITY.md</a> for the support matrix and reporting process.</p>
 <h2 id="release-process">Release process<a class="headerlink" href="#release-process" title="Anchor link to this section">&para;</a></h2>
-<p>Each release is tagged <code>vMAJOR.MINOR.PATCH</code>, published to PyPI via Trusted
+<p>Stable releases are tagged <code>vMAJOR.MINOR.PATCH</code>, published to PyPI via Trusted
 Publisher (OIDC) with Sigstore attestations, and recorded in
-<a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a>.</p>
+<a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a>.
+See <a href="../packaging/#release-process-tag-first">packaging.md</a> for the tag-first
+operator flow.</p>
+<h3 id="pypi-pre-releases-beta">PyPI pre-releases (beta)<a class="headerlink" href="#pypi-pre-releases-beta" title="Anchor link to this section">&para;</a></h3>
+<p>Optional pre-releases use <a href="https://packaging.python.org/en/latest/specifications/version-specifiers/">PEP 440</a>
+forms such as <code>1.2.0b1</code>, <code>1.2.0a1</code>, or <code>1.2.0rc1</code> (tags <code>v1.2.0b1</code>, …). These are
+<strong>not</strong> SemVer pre-release tags (<code>1.2.0-beta.1</code>). They publish to the same PyPI
+projects as stable builds and do <strong>not</strong> create a GitHub Release. Public API
+guarantees in this document apply to the final <code>MAJOR.MINOR.PATCH</code> release; a
+pre-release does not change those guarantees early. Install with
+<code>pip install --pre …</code> or an exact version pin.</p>
 
 
 

@@ -2127,7 +2127,7 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong><a href="#google-drive-service-account-setup">Google Drive service account setup</a></strong> — Create a GCP service account, enable the Drive API, configure <code>.env</code>, share a folder, and verify connectivity.</li>
 <li><strong><a href="#rest-api-reference">REST API reference</a></strong> — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.</li>
 </ol>
-<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (e.g. <code>google_drive_files_upload</code>). Legacy dotted names (<code>google_drive.files.upload</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">docs/toolhive_agent_scenario.md</a>.</p>
+<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (e.g. <code>google_drive_files_upload</code>). Legacy dotted names (<code>google_drive.files.upload</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="upstream_bearer">User OAuth (OIDC / upstream bearer)<a class="headerlink" href="#upstream_bearer" title="Anchor link to this section">&para;</a></h2>
 <p>For <strong>per-user Google Drive access</strong> (each caller uses their own Drive), set:</p>
@@ -2238,7 +2238,7 @@ addition to the setting above, not instead of it:</p>
 </span></code></pre></div>
 <blockquote>
 <p>This sets the variable for the current PowerShell session. To persist it across sessions, use <code>[System.Environment]::SetEnvironmentVariable("GOOGLE_DRIVE_SA_JSON", (Get-Content -Path $saPath -Raw), "User")</code> or add the path to your <code>.env</code> file manually.</p>
-<p><strong>For ToolHive deployment:</strong> Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named <code>GOOGLE_DRIVE_SA_JSON</code>. See <a href="../toolhive_agent_scenario/">docs/toolhive_agent_scenario.md</a>.</p>
+<p><strong>For ToolHive deployment:</strong> Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named <code>GOOGLE_DRIVE_SA_JSON</code>. See <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 </blockquote>
 <h3 id="step-6-share-a-google-drive-folder-with-the-service-account">Step 6: Share a Google Drive Folder with the Service Account<a class="headerlink" href="#step-6-share-a-google-drive-folder-with-the-service-account" title="Anchor link to this section">&para;</a></h3>
 <p>The service account starts with no access to any Drive files. You must explicitly share folders or files with it, just like sharing with any other Google user.</p>
@@ -2519,7 +2519,7 @@ addition to the setting above, not instead of it:</p>
 <p>The connector never raises raw <code>HttpError</code>; it always translates errors into one of these exception classes so Layer A can apply consistent retry and circuit-breaker behavior.</p>
 <h3 id="related">Related<a class="headerlink" href="#related" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li>AI-orchestrated workflows (ToolHive, MCP agent): <a href="../toolhive_agent_scenario/">docs/toolhive_agent_scenario.md</a></li>
+<li>AI-orchestrated workflows (ToolHive, MCP agent): <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a></li>
 </ul>
 
 

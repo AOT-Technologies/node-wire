@@ -1984,7 +1984,7 @@ SPDX-License-Identifier: Apache-2.0
 <p>Linting and type checks run automatically in CI on pull requests against the <code>main</code> branch via <code>.github/workflows/lint.yml</code>. Security and package compliance checks are additionally enforced through <code>.github/workflows/quality-gates.yml</code> and <code>.github/workflows/security-pr.yml</code>.</p>
 <h2 id="manual-usage-for-developers">Manual usage for developers<a class="headerlink" href="#manual-usage-for-developers" title="Anchor link to this section">&para;</a></h2>
 <p>Install development dependencies from the committed lockfile:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--extra<span class="w"> </span>agents<span class="w"> </span>--dev
 </span></code></pre></div>
 <p>Then run the local quality checks:</p>
 <ul>
@@ -2014,7 +2014,7 @@ SPDX-License-Identifier: Apache-2.0
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>scripts/add-license-headers.sh
 </span></code></pre></div>
 <h2 id="dependency-lockfile">Dependency lockfile<a class="headerlink" href="#dependency-lockfile" title="Anchor link to this section">&para;</a></h2>
-<p><code>uv.lock</code> is the source of truth for CI and local development installs. CI uses <code>uv sync --frozen --all-extras --dev</code>, which refuses to resolve new versions and verifies package hashes from the lockfile.</p>
+<p><code>uv.lock</code> is the source of truth for CI and local development installs. CI uses <code>uv sync --frozen --extra agents --dev</code>, which refuses to resolve new versions and verifies package hashes from the lockfile.</p>
 <h3 id="update-workflow">Update workflow<a class="headerlink" href="#update-workflow" title="Anchor link to this section">&para;</a></h3>
 <ol>
 <li>Edit dependency declarations in <code>pyproject.toml</code>.</li>
@@ -2037,7 +2037,7 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p>That script:</p>
 <ol>
-<li>Syncs the locked environment (<code>uv sync --frozen --all-extras --dev</code>).</li>
+<li>Syncs the locked environment (<code>uv sync --frozen --extra agents --dev</code>).</li>
 <li>Regenerates <code>DEPENDENCIES.md</code>.</li>
 <li>Generates <code>sbom.json</code> (CycloneDX SBOM).</li>
 <li>Runs <strong>Bandit</strong> for static application security testing (<code>--severity-level high</code>).</li>

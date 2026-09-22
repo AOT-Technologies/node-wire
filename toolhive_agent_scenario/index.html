@@ -3291,7 +3291,7 @@ SPDX-License-Identifier: Apache-2.0
 <h2 id="running-tests">Running tests<a class="headerlink" href="#running-tests" title="Anchor link to this section">&para;</a></h2>
 <p>The test suite covers the agent and MCP server without making any real API calls:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># dev is not a pip extra (it's a uv dependency group) — for the dev toolchain use:</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--all-extras<span class="w"> </span>--dev
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--frozen<span class="w"> </span>--extra<span class="w"> </span>agents<span class="w"> </span>--dev
 </span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>pytest<span class="w"> </span>tests/test_toolhive_agent.py<span class="w"> </span>-v
 </span></code></pre></div>
 <p>Expect every test collected from <code>tests/test_toolhive_agent.py</code> to pass (names and count change as the suite evolves). If a test fails, re-run with <code>-v</code> and compare against the current definitions in that file.</p>

@@ -1474,6 +1474,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#terminology-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#step-1-triage-and-freeze" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1793,6 +1804,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#terminology-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology note
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#step-1-triage-and-freeze" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2019,11 +2041,19 @@ reaches PyPI or GitHub. Read it together with
   (<a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md">SECURITY.md</a>).</li>
 <li><strong>Comms</strong> — notifies users via GitHub Discussions, release notes, or advisory.</li>
 </ul>
+<h2 id="terminology-note">Terminology note<a class="headerlink" href="#terminology-note" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><strong>PEP 440 pre-release / beta</strong> (e.g. <code>1.2.0b1</code>, tag <code>v1.2.0b1</code>) — PyPI channel selected by
+  version shape. Betas <strong>never</strong> create a GitHub Release. See
+  <a href="../versioning/#pypi-pre-releases-beta">versioning.md</a>.</li>
+<li><strong>GitHub Release “Set as a pre-release”</strong> — a UI checkbox on an existing GitHub Release. That
+  is unrelated to PEP 440 betas; do not confuse the two when following this runbook.</li>
+</ul>
 <h2 id="step-1-triage-and-freeze">Step 1 — Triage and freeze<a class="headerlink" href="#step-1-triage-and-freeze" title="Anchor link to this section">&para;</a></h2>
 <ol>
 <li>Confirm which <strong>package(s)</strong> and <strong>version(s)</strong> are affected (ten publishable
    packages; see <a href="../packaging/#package-inventory">packaging.md</a>).</li>
-<li>Record the Git tag (<code>vX.Y.Z</code>), commit SHA, and PyPI project name(s).</li>
+<li>Record the Git tag (<code>vX.Y.Z</code> or <code>vX.Y.ZbN</code>), commit SHA, and PyPI project name(s).</li>
 <li><strong>Stop further publishes</strong> of the affected version until root cause is known.</li>
 <li>Open an internal incident thread (issue or private channel) with:</li>
 <li>impact (install broken, data leak, CVE, etc.)</li>
@@ -2031,7 +2061,9 @@ reaches PyPI or GitHub. Read it together with
 <li>whether users who already installed must take action</li>
 </ol>
 <h2 id="step-2-yank-on-pypi">Step 2 — Yank on PyPI<a class="headerlink" href="#step-2-yank-on-pypi" title="Anchor link to this section">&para;</a></h2>
-<p>Yanking requires a PyPI account with maintainer rights on the project.</p>
+<p>Yanking requires a PyPI account with maintainer rights on the project. The same
+yank flow applies to <strong>stable</strong> and <strong>PEP 440 beta</strong> versions (they share PyPI
+projects).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># List current files for a project (optional)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>index<span class="w"> </span>versions<span class="w"> </span>node-wire-runtime
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -2041,23 +2073,32 @@ reaches PyPI or GitHub. Read it together with
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Or via twine (if configured):</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>twine<span class="w"> </span>yank<span class="w"> </span>node-wire-runtime<span class="w"> </span><span class="m">1</span>.0.0<span class="w"> </span>--reason<span class="w"> </span><span class="s2">"Install regression; use 1.0.1 instead"</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Beta example:</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># twine yank node-wire-runtime 1.2.0b1 --reason "Bad beta; use 1.2.0b2 instead"</span>
 </span></code></pre></div>
 <p>Repeat for every affected package (runtime and any connector wheels published
 at the bad version).</p>
 <p><strong>Yank reason template:</strong></p>
 <blockquote>
-<p>Do not use. Install &lt;fixed-version&gt; instead. See &lt;GitHub release or advisory URL&gt;.</p>
+<p>Do not use. Install &lt;fixed-version&gt; instead. See &lt;GitHub release, CHANGELOG, or advisory URL&gt;.</p>
 </blockquote>
 <h2 id="step-3-publish-a-corrective-release">Step 3 — Publish a corrective release<a class="headerlink" href="#step-3-publish-a-corrective-release" title="Anchor link to this section">&para;</a></h2>
 <ol>
 <li>Fix the defect on <code>main</code> (or a release branch) with tests.</li>
-<li>Bump <strong>PATCH</strong> per <a href="../versioning/">SemVer</a> (e.g. <code>1.0.0</code> → <code>1.0.1</code>).</li>
+<li>Bump the version:</li>
+<li><strong>Stable:</strong> bump <strong>PATCH</strong> per <a href="../versioning/">SemVer</a> (e.g. <code>1.0.0</code> → <code>1.0.1</code>).</li>
+<li><strong>Beta:</strong> bump the pre-release segment (e.g. <code>1.2.0b1</code> → <code>1.2.0b2</code>) with
+     <code>./scripts/bump-version.py</code> — do not reuse a yanked PEP 440 version.</li>
 <li>Update <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a> with the fix and yank notice.</li>
 <li>Run the local pre-publish checklist in <a href="../packaging/#pre-pypi-local-validation-checklist">packaging.md</a>.</li>
-<li>Dispatch <code>.github/workflows/publish.yml</code> for each affected <code>package_path</code>
-   with the corrective release <code>tag</code> (e.g. <code>v1.0.1</code>).</li>
+<li>Follow the stable or beta operator flow in <a href="../packaging/#release-process-tag-first">packaging.md</a>,
+   then dispatch <code>.github/workflows/publish.yml</code> for each affected <code>package_path</code>
+   with the corrective <code>tag</code> (e.g. <code>v1.0.1</code> or <code>v1.2.0b2</code>).</li>
 </ol>
 <h2 id="step-4-github-release-and-tags">Step 4 — GitHub release and tags<a class="headerlink" href="#step-4-github-release-and-tags" title="Anchor link to this section">&para;</a></h2>
+<p>Applies to <strong>stable</strong> tags only. PEP 440 betas have no GitHub Release — after yanking
+a beta on PyPI, delete or leave the git tag as needed and publish the next <code>bN</code>/<code>rcN</code>
+(or ship the final <code>X.Y.Z</code>).</p>
 <table>
 <thead>
 <tr>
@@ -2072,7 +2113,7 @@ at the bad version).</p>
 </tr>
 <tr>
 <td>Tag already referenced externally</td>
-<td><strong>Do not</strong> rewrite history; publish new tag <code>vX.Y.Z+1</code> and mark old release as pre-release with warning</td>
+<td><strong>Do not</strong> rewrite history; publish new tag <code>vX.Y.Z+1</code> and mark the old GitHub Release with <strong>“Set as a pre-release”</strong> (GitHub UI checkbox) plus a warning in the notes</td>
 </tr>
 <tr>
 <td>GitHub Release notes wrong</td>
@@ -2106,7 +2147,7 @@ before public announcement.</p>
 <ul class="task-list">
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Root cause documented (issue or post-mortem)</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> CI gap closed if the defect should have been caught pre-publish</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a> and <a href="../troubleshooting/">docs/troubleshooting.md</a> updated if user-visible</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a> and <a href="../troubleshooting/">troubleshooting.md</a> updated if user-visible</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Branch protection / required checks reviewed</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> If secrets were exposed: rotate credentials, run secret scan (see
       <a href="../quality-security-gates/#secret-scanning">quality-security-gates.md</a>),
@@ -2125,8 +2166,8 @@ without a communications plan.</p>
 </span></code></pre></div>
 <h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><a href="../packaging/">Packaging &amp; Publishing</a> — publish workflow and pre-release checks</li>
-<li><a href="../versioning/">Versioning policy</a> — when to bump MAJOR/MINOR/PATCH</li>
+<li><a href="../packaging/">Packaging &amp; Publishing</a> — publish workflow and pre-publish checks</li>
+<li><a href="../versioning/">Versioning policy</a> — when to bump MAJOR/MINOR/PATCH (and PEP 440 betas)</li>
 <li><a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md">Security Policy</a> — vulnerability reporting and advisories</li>
 <li><a href="../quality-security-gates/">Quality &amp; security gates</a> — CI checks and scans</li>
 </ul>

@@ -1534,17 +1534,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#secret-backend-nw_secret_backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Secret backend (NW_SECRET_BACKEND)
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1563,10 +1552,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-1-prepare-the-release" class="md-nav__link">
+  <a href="#stable-release" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1 — Prepare the release
+        Stable release
       
     </span>
   </a>
@@ -1574,32 +1563,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-create-the-tag" class="md-nav__link">
+  <a href="#beta-pypi-publish" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Create the tag
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-3-create-the-github-release" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3 — Create the GitHub Release
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-4-publish-packages-to-pypi" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4 — Publish packages to PyPI
+        Beta PyPI publish
       
     </span>
   </a>
@@ -2215,17 +2182,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#secret-backend-nw_secret_backend" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Secret backend (NW_SECRET_BACKEND)
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -2244,10 +2200,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-1-prepare-the-release" class="md-nav__link">
+  <a href="#stable-release" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1 — Prepare the release
+        Stable release
       
     </span>
   </a>
@@ -2255,32 +2211,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-2-create-the-tag" class="md-nav__link">
+  <a href="#beta-pypi-publish" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 2 — Create the tag
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-3-create-the-github-release" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3 — Create the GitHub Release
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-4-publish-packages-to-pypi" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4 — Publish packages to PyPI
+        Beta PyPI publish
       
     </span>
   </a>
@@ -2740,27 +2674,10 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p>At startup, <code>auto_register()</code> discovers all installed connectors via the <code>node_wire.connectors</code> <a href="https://packaging.python.org/en/latest/specifications/entry-points/">entry-point group</a> — no explicit import list required.</p>
 <h3 id="runtime-loading-knobs">Runtime loading knobs<a class="headerlink" href="#runtime-loading-knobs" title="Anchor link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Env var</th>
-<th>Default</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NW_ALLOWED_CONNECTORS</code></td>
-<td><em>(empty — load nothing)</em></td>
-<td>Comma-separated allowlist of entry-point names (e.g. <code>stripe,fhir_epic</code>). <strong>Unset or empty loads no connectors</strong> (fail-closed). Set explicitly in production and local <code>.env</code>.</td>
-</tr>
-<tr>
-<td><code>NW_CONNECTOR_MODULE_PREFIX</code></td>
-<td><code>node_wire_</code></td>
-<td>Connectors whose target module doesn't start with this prefix are skipped with a warning. Set to <code>""</code> to disable the check.</td>
-</tr>
-</tbody>
-</table>
+<p>Fail-closed connector loading and related env vars are documented in
+<a href="../configuration/#required-variables">configuration.md</a>. Packaging clients must
+still set <code>NW_ALLOWED_CONNECTORS</code> and may set <code>NW_CONNECTOR_MODULE_PREFIX</code>
+(default <code>node_wire_</code>) when embedding wheels.</p>
 <hr />
 <h2 id="connectorsyaml-and-secrets"><code>connectors.yaml</code> and secrets<a class="headerlink" href="#connectorsyaml-and-secrets" title="Anchor link to this section">&para;</a></h2>
 <h3 id="minimal-connectorsyaml">Minimal <code>connectors.yaml</code><a class="headerlink" href="#minimal-connectorsyaml" title="Anchor link to this section">&para;</a></h3>
@@ -2774,44 +2691,30 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p><code>enabled</code> gates whether the connector is instantiated. <code>exposed_via</code> controls which protocols (<code>rest</code>, <code>grpc</code>, <code>mcp</code>) surface it. A connector that is installed but <code>enabled: false</code> will not run.</p>
 <p>See <code>config/connectors.yaml</code> for the full working example and <code>src/node_wire_runtime/connectors.yaml.sample</code> for a commented template with all supported fields.</p>
-<p>For per-connector detail (operations, env vars, request/response shapes) see <code>docs/connectors.md</code> and each connector's <code>README.md</code> under <code>src/node_wire_&lt;name&gt;/</code>.</p>
-<h3 id="secret-backend-nw_secret_backend">Secret backend (<code>NW_SECRET_BACKEND</code>)<a class="headerlink" href="#secret-backend-nw_secret_backend" title="Anchor link to this section">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>Value</th>
-<th>Behavior</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>env</code> <em>(default)</em></td>
-<td>Reads from process environment. Raises <code>SecretNotFoundError</code> for absent keys (fail-closed).</td>
-</tr>
-<tr>
-<td><code>aws_env</code></td>
-<td>Tries AWS Secrets Manager JSON bundle first; falls back to env on <code>SecretNotFoundError</code>. Propagates <code>SecretProviderError</code> immediately (broken provider is never silently swallowed).</td>
-</tr>
-</tbody>
-</table>
-<p>Required env vars for <code>aws_env</code>:</p>
-<ul>
-<li><code>NW_AWS_SECRETS_MANAGER_SECRET_ID</code> — secret name or ARN (required)</li>
-<li><code>AWS_REGION</code> — defaults to <code>us-east-1</code></li>
-</ul>
-<p><strong>Legacy flag:</strong> <code>NW_ENV_SECRET_LEGACY_EMPTY=true</code> returns <code>""</code> for missing keys instead of raising. This exists for backwards compatibility only — do not use in production.</p>
-<p>Additional cloud backends (<code>vault</code>, <code>azure</code>, <code>gcp</code>) ship as optional extras in <code>node-wire-runtime</code> but are not currently wired into the factory:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[aws]"</span><span class="w">    </span><span class="c1"># boto3</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[vault]"</span><span class="w">  </span><span class="c1"># hvac</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[azure]"</span><span class="w">  </span><span class="c1"># azure-keyvault-secrets</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[gcp]"</span><span class="w">    </span><span class="c1"># google-cloud-secret-manager</span>
-</span></code></pre></div>
+<p>For per-connector detail (operations, env vars, request/response shapes) see
+<a href="../connectors/">connectors.md</a> and each connector's <code>README.md</code> under
+<code>src/node_wire_&lt;name&gt;/</code>.</p>
+<p>Secret backends (<code>NW_SECRET_BACKEND</code>, <code>aws_env</code>, optional vault/azure/gcp extras)
+are documented in <a href="../configuration/#secrets-management">configuration.md — Secrets Management</a>.</p>
 <hr />
 <h2 id="release-process-tag-first">Release process (tag-first)<a class="headerlink" href="#release-process-tag-first" title="Anchor link to this section">&para;</a></h2>
-<p>Releases are <strong>tag-driven</strong>. Create and push a SemVer tag first; the GitHub Release
-workflow validates the tag and creates the release. Package publishing is a separate
-manual step per package, bound to that tag.</p>
-<h3 id="step-1-prepare-the-release">Step 1 — Prepare the release<a class="headerlink" href="#step-1-prepare-the-release" title="Anchor link to this section">&para;</a></h3>
+<p>Releases are <strong>tag-driven</strong>. Create and push a tag first; package publishing is a
+separate manual step per package, bound to that tag. Tag shape selects the channel:</p>
+<ul>
+<li><strong>Stable</strong> (<code>v1.2.0</code>) — Create Release Tag → GitHub Release → publish</li>
+<li><strong>Beta</strong> (<code>v1.2.0b1</code>) — Create Release Tag → publish (no GitHub Release)</li>
+</ul>
+<p>Both channels use the same <code>.github/workflows/publish.yml</code>. PyPI treats PEP 440
+pre-releases as pre-releases: <code>pip install node-wire-runtime</code> stays on stable;
+<code>pip install --pre node-wire-runtime</code> or an exact pin (for example
+<code>node-wire-runtime==1.2.0b1</code>) installs a beta.</p>
+<p><strong>Create Release Tag</strong> (<code>.github/workflows/create-tag.yml</code>) accepts both
+<code>MAJOR.MINOR.PATCH</code> and PEP 440 pre-releases (<code>aN</code> / <code>bN</code> / <code>rcN</code>). It checks
+that the tag is free, package versions match, and <code>CHANGELOG.md</code> has the matching
+entry, then pushes <code>v…</code>. Use a stable version for the steps below; use a
+pre-release version for <a href="#beta-pypi-publish">Beta PyPI publish</a>.</p>
+<h3 id="stable-release">Stable release<a class="headerlink" href="#stable-release" title="Anchor link to this section">&para;</a></h3>
+<h4 id="step-1-prepare-the-release">Step 1 — Prepare the release<a class="headerlink" href="#step-1-prepare-the-release" title="Anchor link to this section">&para;</a></h4>
 <ol>
 <li>Bump lockstep package versions with <code>./scripts/bump-version.py X.Y.Z</code> (root
    <code>pyproject.toml</code>, every <code>packages/**/pyproject.toml</code>, and connector
@@ -2823,14 +2726,17 @@ manual step per package, bound to that tag.</p>
    missing).</li>
 <li>Merge to <code>main</code> and confirm required CI checks are green.</li>
 </ol>
-<h3 id="step-2-create-the-tag">Step 2 — Create the tag<a class="headerlink" href="#step-2-create-the-tag" title="Anchor link to this section">&para;</a></h3>
-<p>Dispatch <strong>Create Release Tag</strong> in Actions (<code>.github/workflows/create-tag.yml</code>) with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>). It validates the version is MAJOR.MINOR.PATCH, that the tag doesn't already exist, that every package's version matches, and that <code>CHANGELOG.md</code> has an entry for it — then creates and pushes the <code>v1.0.0</code> tag itself. Run this before dispatching "GitHub Release" below.</p>
+<h4 id="step-2-create-the-tag">Step 2 — Create the tag<a class="headerlink" href="#step-2-create-the-tag" title="Anchor link to this section">&para;</a></h4>
+<p>Dispatch <strong>Create Release Tag</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no
+leading <code>v</code>). For stable releases, run this before dispatching "GitHub Release"
+below.</p>
 <p>Manual fallback, if you must create the tag by hand (bypasses the validation above):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
 </span></code></pre></div>
-<h3 id="step-3-create-the-github-release">Step 3 — Create the GitHub Release<a class="headerlink" href="#step-3-create-the-github-release" title="Anchor link to this section">&para;</a></h3>
-<p>Dispatch <strong>GitHub Release</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>).</p>
+<h4 id="step-3-create-the-github-release">Step 3 — Create the GitHub Release<a class="headerlink" href="#step-3-create-the-github-release" title="Anchor link to this section">&para;</a></h4>
+<p>Dispatch <strong>GitHub Release</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>).
+Stable versions only — the workflow rejects PEP 440 pre-releases.</p>
 <p><strong>Workflow:</strong> <code>.github/workflows/github-release.yml</code> — manual <code>workflow_dispatch</code>
 after the tag has been pushed.</p>
 <p>The workflow:</p>
@@ -2841,7 +2747,7 @@ after the tag has been pushed.</p>
 <li>Creates <code>release-manifest.txt</code> listing all publishable package paths (one per entry in <code>github-release.yml</code>'s <code>package_paths</code> list).</li>
 <li>Creates the GitHub Release with changelog notes, SBOM, and manifest attached.</li>
 </ol>
-<h3 id="step-4-publish-packages-to-pypi">Step 4 — Publish packages to PyPI<a class="headerlink" href="#step-4-publish-packages-to-pypi" title="Anchor link to this section">&para;</a></h3>
+<h4 id="step-4-publish-packages-to-pypi">Step 4 — Publish packages to PyPI<a class="headerlink" href="#step-4-publish-packages-to-pypi" title="Anchor link to this section">&para;</a></h4>
 <p>After the GitHub Release exists, dispatch <code>.github/workflows/publish.yml</code> <strong>once per
 package</strong> (once per entry in the <code>allowed</code> set in that workflow).</p>
 <p><strong>Required inputs:</strong></p>
@@ -2866,9 +2772,9 @@ package</strong> (once per entry in the <code>allowed</code> set in that workflo
 </tr>
 </tbody>
 </table>
-<p><strong>Prerequisites checked before build:</strong></p>
+<p><strong>Prerequisites checked before build (stable):</strong></p>
 <ul>
-<li>Tag resolves to a valid SemVer version.</li>
+<li>Tag resolves to a valid stable <code>X.Y.Z</code> version.</li>
 <li><code>package_path</code> is allowlisted.</li>
 <li>Package <code>pyproject.toml</code> version matches the tag.</li>
 <li><code>CHANGELOG.md</code> contains the matching release section/link.</li>
@@ -2876,30 +2782,54 @@ package</strong> (once per entry in the <code>allowed</code> set in that workflo
 </ul>
 <p><strong>Pipeline steps:</strong></p>
 <ol>
-<li>Matrix-build wheels on Ubuntu, macOS, Windows via <code>cibuildwheel</code> (Python 3.11, 3.12)</li>
+<li>Matrix-build wheels on Ubuntu, macOS, and Windows via <code>cibuildwheel</code> (Python 3.11, 3.12)</li>
 <li>Post-build gate: verify zero <code>.py</code> files per wheel; record SHA256 checksums</li>
 <li>Merge artifacts; <code>pip-audit --fail-on HIGH</code> CVE gate</li>
 <li>Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations</li>
 </ol>
 <blockquote>
-<p><strong>Note:</strong> The release-level SBOM is attached to the GitHub Release (step 2).
+<p><strong>Note:</strong> The release-level SBOM is attached to the GitHub Release (step 3).
 Package publish produces PyPI Sigstore attestations per wheel; it does not
 generate a separate SBOM.</p>
 <p><strong>PyPI Trusted Publisher:</strong> The workflow file is kept as <code>publish.yml</code> and the
 workflow name as <code>Publish Node Wire package</code> so existing PyPI publisher
-configuration continues to work.</p>
+configuration continues to work. Stable and beta both use this same publisher.</p>
 </blockquote>
 <p>If a published release must be withdrawn or replaced, follow
 <a href="../release-rollback/">release-rollback.md</a> (PyPI yank, corrective patch release,
 and GitHub tag/release handling).</p>
+<h3 id="beta-pypi-publish">Beta PyPI publish<a class="headerlink" href="#beta-pypi-publish" title="Anchor link to this section">&para;</a></h3>
+<p>Beta builds ship to the <strong>same PyPI projects</strong> as PEP 440 pre-releases. They
+<strong>never</strong> create a GitHub Release (<code>github-release.yml</code> rejects pre-release
+versions).</p>
+<ol>
+<li>Bump with <code>./scripts/bump-version.py 1.2.0b1</code> (also accepts <code>aN</code> / <code>rcN</code>).
+   The script scaffolds a dated <code>## [1.2.0b1]</code> section with a short <strong>Notes</strong>
+   stub and a footer tag link.</li>
+<li>Fill in the Notes, merge to <code>main</code>, confirm CI is green.</li>
+<li>Dispatch <strong>Create Release Tag</strong> with <code>version</code> set to <code>1.2.0b1</code> (no leading <code>v</code>).</li>
+<li>Dispatch <code>.github/workflows/publish.yml</code> once per allowlisted package with
+   <code>tag: v1.2.0b1</code>. Publish skips the GitHub Release check for pre-release tags
+   (same pipeline steps as stable otherwise).</li>
+</ol>
+<p>Install a beta with:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>node-wire-runtime
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># or pin exactly:</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="o">==</span><span class="m">1</span>.2.0b1
+</span></code></pre></div>
 <hr />
 <h2 id="ci-publish-flow-trusted-publisher">CI publish flow (Trusted Publisher)<a class="headerlink" href="#ci-publish-flow-trusted-publisher" title="Anchor link to this section">&para;</a></h2>
 <p>See <a href="#release-process-tag-first">Release process (tag-first)</a> above for the full
-end-to-end flow. The package publish workflow is <code>.github/workflows/publish.yml</code>.</p>
+end-to-end flow (stable and beta). The package publish workflow is
+<code>.github/workflows/publish.yml</code>.</p>
 <hr />
 <h2 id="docker-demo-images">Docker demo images<a class="headerlink" href="#docker-demo-images" title="Anchor link to this section">&para;</a></h2>
 <p>The <code>docker/*/Dockerfile</code> images are <strong>demonstration templates</strong> for packaging a single connector as a standalone MCP server. They are not production orchestration artefacts.</p>
-<p>For a local end-to-end walkthrough (build wheels first, then build Docker images that consume those wheels), see <a href="../local-packages-to-images/">docs/local-packages-to-images.md</a>.</p>
+<p>Generated MCP host images expect <strong>Linux</strong> wheels built for <strong>Python 3.12</strong>
+(<code>python:3.12-slim</code> in the generated Dockerfile). See
+<a href="../mcp-servers/#platform-and-toolhive-read-this-first">mcp-servers.md</a> and
+<a href="../local-packages-to-images/">local-packages-to-images.md</a> for the wheel → image
+walkthrough.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/smtp/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smtp<span class="w"> </span>.
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/google-drive/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-google-drive<span class="w"> </span>.
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/fhir-epic/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smartonfhir-epic<span class="w"> </span>.

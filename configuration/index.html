@@ -694,6 +694,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#secret-backend-nw_secret_backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secret backend (NW_SECRET_BACKEND)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#google-drive-service-account-local-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1823,6 +1834,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#secret-backend-nw_secret_backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secret backend (NW_SECRET_BACKEND)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#google-drive-service-account-local-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1944,7 +1966,11 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td><code>NW_ALLOWED_CONNECTORS</code></td>
-<td><strong>Required.</strong> A comma-separated list of connector names to load (e.g., <code>fhir_epic,http_generic</code>). Node Wire defaults to a fail-closed policy.</td>
+<td><strong>Required.</strong> A comma-separated list of connector names to load (e.g., <code>fhir_epic,http_generic</code>). Node Wire defaults to a fail-closed policy: unset or empty loads <strong>no</strong> connectors, even when they are <code>enabled</code> in <code>config/connectors.yaml</code>.</td>
+</tr>
+<tr>
+<td><code>NW_CONNECTOR_MODULE_PREFIX</code></td>
+<td>Optional. Connectors whose entry-point target module does not start with this prefix are skipped with a warning. Default <code>node_wire_</code>; set to <code>""</code> to disable the check.</td>
 </tr>
 </tbody>
 </table>
@@ -2194,15 +2220,51 @@ SPDX-License-Identifier: Apache-2.0
 </ul>
 <hr />
 <h2 id="secrets-management">Secrets Management<a class="headerlink" href="#secrets-management" title="Anchor link to this section">&para;</a></h2>
-<p>The factory uses an <code>EnvSecretProvider</code> by default. It looks up keys exactly as provided, and then in uppercase (e.g., <code>my_key</code> then <code>MY_KEY</code>).</p>
+<p>The factory selects a secret provider from <code>NW_SECRET_BACKEND</code> (default <code>env</code> →
+<code>EnvSecretProvider</code>). Env lookups use the key as given, then <code>key.upper()</code> (e.g.
+<code>my_key</code> then <code>MY_KEY</code>). Missing keys raise <code>SecretNotFoundError</code> (fail-closed)
+unless <code>NW_ENV_SECRET_LEGACY_EMPTY=true</code> (legacy empty-string behaviour — do not
+use in production).</p>
+<h3 id="secret-backend-nw_secret_backend">Secret backend (<code>NW_SECRET_BACKEND</code>)<a class="headerlink" href="#secret-backend-nw_secret_backend" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>env</code> <em>(default)</em></td>
+<td>Reads from process environment. Raises <code>SecretNotFoundError</code> for absent keys (fail-closed).</td>
+</tr>
+<tr>
+<td><code>aws_env</code></td>
+<td>Tries AWS Secrets Manager JSON bundle first; falls back to env on <code>SecretNotFoundError</code>. Propagates <code>SecretProviderError</code> immediately (broken provider is never silently swallowed).</td>
+</tr>
+</tbody>
+</table>
+<p>Required env vars for <code>aws_env</code>:</p>
+<ul>
+<li><code>NW_AWS_SECRETS_MANAGER_SECRET_ID</code> — secret name or ARN (required)</li>
+<li><code>AWS_REGION</code> — defaults to <code>us-east-1</code></li>
+</ul>
+<p>Additional cloud backends (<code>vault</code>, <code>azure</code>, <code>gcp</code>) ship as optional extras in
+<code>node-wire-runtime</code> but are <strong>not</strong> currently wired into the factory — using them
+requires custom composition:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[aws]"</span><span class="w">    </span><span class="c1"># boto3</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[vault]"</span><span class="w">  </span><span class="c1"># hvac</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[azure]"</span><span class="w">  </span><span class="c1"># azure-keyvault-secrets</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"node-wire-runtime[gcp]"</span><span class="w">    </span><span class="c1"># google-cloud-secret-manager</span>
+</span></code></pre></div>
 <h3 id="google-drive-service-account-local-example">Google Drive Service Account (Local Example)<a class="headerlink" href="#google-drive-service-account-local-example" title="Anchor link to this section">&para;</a></h3>
 <p>For local development, you can set <code>GOOGLE_DRIVE_SA_JSON</code> to the absolute path of your service account JSON file.</p>
 <p><strong>PowerShell (Windows):</strong>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">$saPath</span> <span class="p">=</span> <span class="s2">"C:\path\to\service_account.json"</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">$env:GOOGLE_DRIVE_SA_JSON</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="n">-Path</span> <span class="nv">$saPath</span> <span class="n">-Raw</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">$saPath</span> <span class="p">=</span> <span class="s2">"C:\path\to\service_account.json"</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">$env:GOOGLE_DRIVE_SA_JSON</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="n">-Path</span> <span class="nv">$saPath</span> <span class="n">-Raw</span>
 </span></code></pre></div></p>
 <p><strong>Bash (Linux/macOS):</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GOOGLE_DRIVE_SA_JSON</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>/path/to/service_account.json<span class="k">)</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GOOGLE_DRIVE_SA_JSON</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>/path/to/service_account.json<span class="k">)</span>
 </span></code></pre></div></p>
 <hr />
 <h2 id="security-best-practices">Security Best Practices<a class="headerlink" href="#security-best-practices" title="Anchor link to this section">&para;</a></h2>
