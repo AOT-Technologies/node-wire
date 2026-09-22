@@ -5,7 +5,7 @@
 """
 Cerner-specific MCP argument normalizers and search guards.
 
-Owned by this connector (see docs/adr/0002-connector-specific-logic-stays-in-the-connector.md):
+Owned by this connector:
 duplicated from node_wire_fhir_epic's copy rather than shared via node_wire_runtime.
 """
 

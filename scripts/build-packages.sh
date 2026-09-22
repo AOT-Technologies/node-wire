@@ -42,6 +42,7 @@ WHEEL_BUILDER_CONTEXT="$ROOT_DIR/docker/wheel-builder"
 
 ALL_PACKAGES=(
   packages/runtime
+  packages/bindings
   packages/connectors/google_drive
   packages/connectors/fhir_epic
   packages/connectors/fhir_cerner
@@ -327,7 +328,14 @@ for PKG in "${PACKAGES[@]}"; do
   fi
 
   if [[ "$BUILD_LINUX" -eq 1 ]]; then
+    # Match the host uid/gid so Cython/setuptools can write build/ and dist/
+    # into the bind-mounted workspace (Dockerfile USER app is uid 1000; GH
+    # Actions runners are typically 1001). HOME=/tmp keeps tool caches writable
+    # when the overridden uid has no /etc/passwd entry in the image.
+    mkdir -p "$PKG/build" "$PKG/dist"
     docker run --rm \
+      --user "$(id -u):$(id -g)" \
+      -e HOME=/tmp \
       -v "$ROOT_DIR:/work" \
       -w "/work/$PKG" \
       "$WHEEL_BUILDER_IMAGE" \

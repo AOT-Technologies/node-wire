@@ -2,13 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Emit a thin MCP host that runs a node-wire connector via wheels.
+"""Emit a thin MCP host that runs a node-wire connector via wheels only.
 
-ponytail: Docker-parity packaging -- install runtime+connector ``.whl`` for
-entry points / deps, and put a *minimal* node-wire ``src`` slice on PYTHONPATH
-(``bindings`` + ``node_wire_runtime`` + ``node_wire_<connector_id>``). Cython
-wheels alone can omit nested packages (e.g. ``node_wire_runtime.policies``);
-other connectors are not vendored (``NW_ALLOWED_CONNECTORS`` pins one id).
+Installs three Cython wheels into the image (``node-wire-runtime``,
+``node-wire-bindings``, ``node-wire-<connector>``). No vendored source tree —
+packages come from site-packages after ``pip install``.
 """
 
 from __future__ import annotations
@@ -23,26 +21,6 @@ from nw_mcp_builder.schema.models import MCPScope
 
 logger = logging.getLogger(__name__)
 
-# Cache / bytecode dirs omitted from the vendored tree. Also drop credential
-# filenames so a checkout accident cannot be copied into the image context.
-_VENDOR_IGNORE = shutil.ignore_patterns(
-    "__pycache__",
-    "*.pyc",
-    "*.pyo",
-    ".mypy_cache",
-    ".ruff_cache",
-    "*.egg-info",
-    ".env",
-    ".env.*",
-    "tenants.yaml",
-    "tenants.yaml.tmp",
-    "playground_tenants.yaml",
-    "*.pem",
-    "*.key",
-    "credentials.json",
-    "service-account*.json",
-)
-
 # node-wire McpServer uses the mcp 1.x decorator API (@server.list_tools()),
 # which was removed in mcp 2.0. Prefer the version locked in the monorepo.
 _MCP_DEP_FALLBACK = "mcp>=1.6.0,<2"
@@ -53,6 +31,8 @@ _MCP_DEP_FALLBACK = "mcp>=1.6.0,<2"
 PYTHON_312_SLIM_IMAGE = (
     "python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4"
 )
+
+BINDINGS_DIST_PACKAGE = "node-wire-bindings"
 
 
 def server_name_to_module(name: str) -> str:
@@ -85,10 +65,7 @@ def write_connector_project(
     if not (node_wire_root / "pyproject.toml").is_file():
         raise FileNotFoundError(f"node-wire root missing pyproject.toml: {node_wire_root}")
 
-    runtime_wheel, connector_wheel = _resolve_wheels(node_wire_root, connector_id)
-    nw_src = node_wire_root / "src"
-    if not (nw_src / "bindings").is_dir():
-        raise FileNotFoundError(f"node-wire src/bindings package missing: {nw_src / 'bindings'}")
+    runtime_wheel, bindings_wheel, connector_wheel = _resolve_wheels(node_wire_root, connector_id)
 
     server_name = scope.server.name
     project_name = f"{server_name}-mcp"
@@ -103,12 +80,11 @@ def write_connector_project(
     wheels_dir = project_dir / "wheels"
     wheels_dir.mkdir()
     runtime_dest = wheels_dir / runtime_wheel.name
+    bindings_dest = wheels_dir / bindings_wheel.name
     connector_dest = wheels_dir / connector_wheel.name
     shutil.copy2(runtime_wheel, runtime_dest)
+    shutil.copy2(bindings_wheel, bindings_dest)
     shutil.copy2(connector_wheel, connector_dest)
-
-    vendor_src = project_dir / "vendor" / "node_wire_src"
-    _vendor_minimal_node_wire_src(nw_src, vendor_src, connector_id)
 
     config_src = node_wire_root / "config" / "connectors.yaml"
     if not config_src.is_file():
@@ -127,6 +103,7 @@ def write_connector_project(
             description=scope.server.description,
             connector_pkg=connector_pkg,
             runtime_wheel_name=runtime_dest.name,
+            bindings_wheel_name=bindings_dest.name,
             connector_wheel_name=connector_dest.name,
             mcp_dep=mcp_dep,
         ),
@@ -148,6 +125,7 @@ def write_connector_project(
             connector_pkg=connector_pkg,
             description=scope.server.description,
             runtime_wheel_name=runtime_dest.name,
+            bindings_wheel_name=bindings_dest.name,
             connector_wheel_name=connector_dest.name,
         ),
         encoding="utf-8",
@@ -164,38 +142,11 @@ def write_connector_project(
     (project_dir / ".dockerignore").write_text(_dockerignore(), encoding="utf-8")
 
     logger.info(
-        "Wrote connector host project dir=%s connector_id=%s",
+        "Wrote connector host project dir=%s connector_id=%s (wheels-only)",
         project_dir,
         connector_id,
     )
     return project_dir
-
-
-def _vendor_minimal_node_wire_src(
-    nw_src: Path,
-    vendor_src: Path,
-    connector_id: str,
-) -> None:
-    """Copy only packages required for a single-connector MCP host.
-
-    Full ``src/`` is unnecessary: unused connectors (slack, fhir, …) are never
-    loaded when ``NW_ALLOWED_CONNECTORS`` is pinned to ``connector_id``.
-    """
-    packages = (
-        "bindings",
-        "node_wire_runtime",
-        f"node_wire_{connector_id}",
-    )
-    vendor_src.mkdir(parents=True, exist_ok=False)
-    for name in packages:
-        src = nw_src / name
-        if not src.is_dir():
-            raise FileNotFoundError(
-                f"Required package missing under node-wire src: {src} "
-                f"(needed for connector_id={connector_id!r})"
-            )
-        shutil.copytree(src, vendor_src / name, ignore=_VENDOR_IGNORE)
-        logger.info("Vendored %s -> %s", src, vendor_src / name)
 
 
 def resolve_mcp_dependency(node_wire_root: Path) -> str:
@@ -239,31 +190,31 @@ def resolve_mcp_dependency(node_wire_root: Path) -> str:
     return _MCP_DEP_FALLBACK
 
 
-def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path]:
+def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path, Path]:
     runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
+    bindings_dist = node_wire_root / "packages" / "bindings" / "dist"
     connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    runtime_wheels = sorted(
-        runtime_dist.glob("*.whl"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    connector_wheels = sorted(
-        connector_dist.glob("*.whl"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not runtime_wheels:
+
+    if not list(runtime_dist.glob("*.whl")):
         raise FileNotFoundError(
-            f"No node-wire-runtime wheel in {runtime_dist}. "
-            "Build it (e.g. uvx --from build pyproject-build --wheel -o dist "
-            "in packages/runtime)."
+            f"No node-wire-runtime wheel in {runtime_dist}. Build it: `nw gen-whl --runtime`."
         )
-    if not connector_wheels:
+    if not list(bindings_dist.glob("*.whl")):
+        raise FileNotFoundError(
+            f"No node-wire-bindings wheel in {bindings_dist}. Build it: `nw gen-whl --bindings`."
+        )
+    if not list(connector_dist.glob("*.whl")):
         raise FileNotFoundError(
             f"No node-wire-{connector_id.replace('_', '-')} wheel in "
-            f"{connector_dist}. Build it in packages/connectors/{connector_id}."
+            f"{connector_dist}. Build it: `nw gen-whl --connector-id {connector_id}`."
         )
-    return runtime_wheels[0], connector_wheels[0]
+
+    runtime = sorted(runtime_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
+    bindings = sorted(bindings_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
+    connector = sorted(connector_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[
+        0
+    ]
+    return runtime, bindings, connector
 
 
 def _pyproject_toml(
@@ -273,6 +224,7 @@ def _pyproject_toml(
     description: str,
     connector_pkg: str,
     runtime_wheel_name: str,
+    bindings_wheel_name: str,
     connector_wheel_name: str,
     mcp_dep: str,
 ) -> str:
@@ -284,6 +236,7 @@ description = "{_escape_toml(description)}"
 requires-python = ">=3.11"
 dependencies = [
     "node-wire-runtime",
+    "{BINDINGS_DIST_PACKAGE}",
     "{connector_pkg}",
     "{mcp_dep}",
     "httpx[http2]>=0.27.0,<0.28.0",
@@ -302,28 +255,28 @@ packages = ["src/{module_name}"]
 
 [tool.uv.sources]
 node-wire-runtime = {{ path = "wheels/{runtime_wheel_name}" }}
+{BINDINGS_DIST_PACKAGE} = {{ path = "wheels/{bindings_wheel_name}" }}
 {connector_pkg} = {{ path = "wheels/{connector_wheel_name}" }}
 '''
 
 
 def _main_py(*, connector_id: str) -> str:
     return f'''\
-# ponytail: thin host -- runtime+connector from wheels; bindings vendored
+# ponytail: thin host -- runtime + bindings + connector from wheels
 """Entry point: run node-wire McpServer for connector `{connector_id}`."""
 
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 
 def _project_root() -> Path | None:
     here = Path(__file__).resolve().parent
     for root in (here, *here.parents):
-        if (root / "vendor" / "node_wire_src" / "bindings").is_dir():
-            return root
         if (root / "pyproject.toml").is_file() and (root / "config").is_dir():
+            return root
+        if (root / "wheels").is_dir() and (root / "config").is_dir():
             return root
     return None
 
@@ -336,34 +289,24 @@ def _running_in_container() -> bool:
 
 
 def _load_env() -> None:
-    # Never let vendored MCP/REST merge cwd .env over process env.
+    # Never let process cwd .env override orchestrator-injected secrets.
     os.environ["NW_REST_LOAD_DOTENV"] = "false"
+    # Images: secrets come from the orchestrator (docker -e / --env-file /
+    # ToolHive). Do not read a filesystem .env — that file must not be in the
+    # image. Inside a container, NW_CONFIG_PATH is already set via Dockerfile ENV.
+    if _running_in_container():
+        return
     root = _project_root()
     if root is None:
         raise SystemExit(
             "auth error: cannot locate generated MCP project root "
-            "(expected vendor/node_wire_src/bindings or config/ + pyproject.toml)."
+            "(expected config/ + pyproject.toml or wheels/)."
         )
-    # Images: secrets come from the orchestrator (docker -e / --env-file /
-    # ToolHive). Do not read a filesystem .env — that file must not be in the
-    # image, and a bind-mount would expose it in the container filesystem.
-    if _running_in_container():
-        return
     env_path = root / ".env"
     if env_path.is_file():
         from dotenv import load_dotenv
 
         load_dotenv(env_path, override=False)
-
-
-def _ensure_bindings_on_path() -> None:
-    root = _project_root()
-    if root is not None:
-        nw_src = root / "vendor" / "node_wire_src"
-        if (nw_src / "bindings").is_dir():
-            nw_src_str = str(nw_src)
-            if nw_src_str not in sys.path:
-                sys.path.insert(0, nw_src_str)
 
 
 def main() -> None:
@@ -379,7 +322,6 @@ def main() -> None:
         cfg = root / "config" / "connectors.yaml"
         if cfg.is_file():
             os.environ.setdefault("NW_CONFIG_PATH", str(cfg))
-    _ensure_bindings_on_path()
 
     from bindings.mcp_server.server import McpServer
 
@@ -403,6 +345,7 @@ def _readme(
     connector_pkg: str,
     description: str,
     runtime_wheel_name: str,
+    bindings_wheel_name: str,
     connector_wheel_name: str,
 ) -> str:
     return f"""\
@@ -412,8 +355,8 @@ def _readme(
 
 Thin host generated by **nw-mcp-builder** (node-wire Docker packaging):
 
-- Wheels: `wheels/{runtime_wheel_name}`, `wheels/{connector_wheel_name}`
-- PYTHONPATH: vendored `vendor/node_wire_src` (`bindings`, `node_wire_runtime`, `node_wire_{connector_id}` only)
+- Wheels: `wheels/{runtime_wheel_name}`, `wheels/{bindings_wheel_name}`, `wheels/{connector_wheel_name}`
+- Imports come from installed wheels (no vendored `src/` on PYTHONPATH)
 - Auth/OTel live in the node-wire connector, not this host
 
 ```text
@@ -444,22 +387,23 @@ Process env (ToolHive secrets, Docker `-e` / `--env-file`) is preferred. A proje
 | `NW_MCP_PORT` | `8081` | HTTP port |
 | `NW_ALLOWED_CONNECTORS` | `{connector_id}` | Connector allowlist |
 | `NW_MCP_AUTH_DISABLED` | `true` locally; **unset in images** | Local/Inspector only — do not bake into Docker |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` locally; **unset (= `deny`) in images** | With no `NW_MCP_ACTION_SCOPE_MAP_JSON`, `deny` silently returns zero tools from `tools/list` — this is separate from `NW_MCP_AUTH_DISABLED` and must be set explicitly too, e.g. for local ToolHive testing |
 
 ## Docker
 
-Secrets stay **out of the image**. `.dockerignore` is a whitelist (wheels, vendor src, `config/connectors.yaml`, host `src/` only). `.env`, `.env.example`, and tenant YAML never enter the build context. Inject credentials at **run** time:
+Secrets stay **out of the image**. `.dockerignore` is a whitelist (wheels, `config/connectors.yaml`, host `src/` only). `.env`, `.env.example`, and tenant YAML never enter the build context. Inject credentials at **run** time:
 
 ```bash
-docker build -t {module_name} .
+DOCKER_BUILDKIT=1 docker build -t {module_name} .
 docker run --rm --env-file .env -p 8081:8081 {module_name}
 # ToolHive / K8s: pass secrets as process env, not a file baked into layers
 ```
 
 `--env-file` sets process environment; it does not COPY the file into the image. Do not `COPY` or bind-mount `.env` into the container filesystem.
 
-The image is digest-pinned, runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth unless you set `NW_MCP_AUTH_DISABLED` at runtime.
+The image is multi-stage and digest-pinned: wheels install in a `deps` stage (BuildKit pip cache), then only `/usr/local` is copied into the runtime stage. App sources (`src/`, config) are copied **after** that so source edits do not bust the install layer. Runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth or open the scope policy unless you set `NW_MCP_AUTH_DISABLED` / `NW_MCP_SCOPE_POLICY_DEFAULT` at runtime. Both default fail-closed in images (unlike local `uv run`, which sets both for Inspector convenience) — a container started without them accepts connections but `tools/list` comes back empty.
 
-Installs `{connector_pkg}` + `node-wire-runtime` from `./wheels`.
+Installs `{connector_pkg}` + `node-wire-runtime` + `{BINDINGS_DIST_PACKAGE}` from `./wheels`.
 """
 
 
@@ -475,8 +419,6 @@ def _dockerignore() -> str:
 *
 !wheels/
 !wheels/**
-!vendor/node_wire_src/
-!vendor/node_wire_src/**
 !config/
 !config/connectors.yaml
 !src/
@@ -506,10 +448,38 @@ def _dockerfile(
     mcp_dep: str,
 ) -> str:
     return f'''\
+# syntax=docker/dockerfile:1
 ##
 ## SPDX-FileCopyrightText: 2026 AOT Technologies
 ## SPDX-License-Identifier: Apache-2.0
 ##
+# Multi-stage MCP host image (wheels-only):
+# - deps: install runtime + bindings + connector wheels + PyPI deps
+#   (BuildKit pip cache); wheels never enter the final image layers.
+# - runtime: copy /usr/local from deps, then thin host src + config last
+#   so source edits do not invalidate the expensive install layer.
+
+FROM {PYTHON_312_SLIM_IMAGE} AS deps
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \\
+    PYTHONDONTWRITEBYTECODE=1
+
+COPY wheels/ /wheels/
+# --no-compile, not --no-cache-dir: the local wheels install offline via
+# --find-links, but the PyPI tree behind them (opentelemetry-*, traceloop-sdk,
+# cryptography via PyJWT[crypto], pydantic, mcp) is a real download. Every
+# `gen-all` produces new wheel files, which invalidates this layer, so that
+# download repeats on each loop. --no-cache-dir told pip to neither read nor
+# write a cache, leaving the mount above permanently empty and doing nothing.
+# --no-compile then avoids writing .pyc files the next two lines only delete.
+# The find still earns its place: it strips the base image's own stdlib
+# __pycache__, which shrinks the /usr/local copied into the final stage.
+RUN --mount=type=cache,target=/root/.cache/pip \\
+    pip install --no-compile --find-links=/wheels \\
+        node-wire-runtime {BINDINGS_DIST_PACKAGE} {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
+    && find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true \\
+    && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
+
 FROM {PYTHON_312_SLIM_IMAGE}
 
 LABEL org.opencontainers.image.title="{module_name}" \\
@@ -517,7 +487,7 @@ LABEL org.opencontainers.image.title="{module_name}" \\
       org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
 
 # No secrets in ENV. NW_MCP_CONTAINER disables filesystem .env loading.
-ENV PYTHONPATH=/nw_src:/app/src \\
+ENV PYTHONPATH=/app/src \\
     PYTHONDONTWRITEBYTECODE=1 \\
     PYTHONUNBUFFERED=1 \\
     PIP_DISABLE_PIP_VERSION_CHECK=1 \\
@@ -529,18 +499,26 @@ ENV PYTHONPATH=/nw_src:/app/src \\
 
 WORKDIR /app
 
-COPY wheels/ /wheels/
-COPY vendor/node_wire_src/ /nw_src/
-COPY config/connectors.yaml /app/config/connectors.yaml
-COPY src/ /app/src/
+# Before the COPY below: this depends on nothing from the deps stage, so
+# keeping it above the 154MB copy lets it stay cached when wheels change.
+RUN groupadd --system --gid 1000 app \\
+    && useradd --system --uid 1000 --gid app --home /nonexistent --no-create-home --shell /usr/sbin/nologin app
 
-RUN pip install --no-cache-dir --find-links=/wheels \\
-    node-wire-runtime {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
-    && rm -rf /wheels /root/.cache/pip \\
-    && groupadd --system --gid 1000 app \\
-    && useradd --system --uid 1000 --gid app --home /nonexistent --no-create-home --shell /usr/sbin/nologin app \\
-    && chown -R root:root /app /nw_src \\
-    && chmod -R a-w /app /nw_src
+# Installed packages only — no /wheels in the final image.
+COPY --from=deps /usr/local /usr/local
+
+# --chmod normalizes to a known-good, world-readable mode regardless of the
+# host file's permissions (e.g. config/connectors.yaml is 600 on disk) —
+# the final `chmod -R a-w` below only ever *removes* the write bit, so a
+# source file with no group/other bits would stay unreadable by `USER app`.
+# Use 0755 (not 0644) even for the YAML file: Docker applies --chmod to
+# parent dirs it creates for the destination path, and a 0644 directory has
+# no execute bit → ``USER app`` cannot traverse ``/app/config``.
+COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml
+COPY --chmod=0755 src/ /app/src/
+
+RUN chown -R root:root /app \\
+    && chmod -R a-w /app
 
 USER app
 

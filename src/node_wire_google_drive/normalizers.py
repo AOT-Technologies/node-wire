@@ -5,7 +5,7 @@
 """
 Google Drive-specific MCP argument normalizers.
 
-Owned by this connector (see docs/adr/0002-connector-specific-logic-stays-in-the-connector.md).
+Owned by this connector.
 Includes the legacy ``action: "upload"`` alias deprecation flag (previously
 node_wire_runtime.mcp_contract, which despite its generic-sounding name was
 entirely Drive-specific — one env var for one legacy alias on one connector).

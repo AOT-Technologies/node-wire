@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
-"""
+r"""
 Cython build for node-wire-runtime.
 
 Compiles all .py files to .so/.pyd extensions and overrides build_py

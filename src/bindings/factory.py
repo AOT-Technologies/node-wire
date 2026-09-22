@@ -35,6 +35,7 @@ from node_wire_runtime.secrets import (
     EnvSecretProvider,
     OverlaySecretProvider,
     TenantSecretProvider,
+    tenant_scoped_secret_key,
 )
 
 logger = logging.getLogger("bindings.factory")
@@ -44,6 +45,19 @@ _DEFAULT_CONFIG_PATH = _PLATFORM_ROOT / "config" / "connectors.yaml"
 
 _GOOGLE_DRIVE_AUTH_PROVIDER_ENV = "GOOGLE_DRIVE_AUTH_PROVIDER"
 _GOOGLE_DRIVE_AUTH_PROVIDERS = frozenset({"service_account", "upstream_bearer"})
+
+_UPSTREAM_BEARER_ALLOWLIST_ENV = "NW_UPSTREAM_BEARER_CONNECTORS"
+
+
+def _upstream_bearer_allowlist() -> frozenset[str]:
+    """Connector ids allowed to relay the inbound caller's bearer token downstream.
+
+    Fail-closed: empty by default. A connector must be listed here *and* set
+    ``provider: upstream_bearer``. Node Wire does not verify token audience —
+    that is the host's responsibility.
+    """
+    raw = os.environ.get(_UPSTREAM_BEARER_ALLOWLIST_ENV, "")
+    return frozenset(p.strip() for p in raw.split(",") if p.strip())
 
 
 def _resolve_google_drive_auth(auth_cfg: dict[str, Any]) -> dict[str, Any]:
@@ -132,6 +146,40 @@ def _build_secret_provider() -> SecretProvider:
             EnvSecretProvider(),
         )
     raise ValueError(f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env.")
+
+
+def _make_refresh_token_rotation_callback(
+    *, connector_id: str, tenant_id: str, config_name: Optional[str], refresh_token_secret: str
+):
+    """Default ``on_refresh_token_rotated`` hook: persist into the process-wide overlay.
+
+    ``OverlaySecretProvider`` sits in front of every ``_build_secret_provider()`` chain, so
+    writing here means the *next* ``get_secret`` call for this key — tenant-scoped or not —
+    sees the rotated value immediately, without needing a real durable-storage integration.
+    This is process-local only: it does not survive a restart. A host app that needs the
+    rotated token to outlive a restart still has to persist it elsewhere itself (this hook
+    only closes the "still running, IdP rotated the token" gap, not restart-durability).
+    """
+    overlay = OverlaySecretProvider.instance()
+    write_key = (
+        refresh_token_secret
+        if tenant_id == DEFAULT_TENANT
+        else tenant_scoped_secret_key(
+            tenant_id, connector_id, refresh_token_secret, config_name=config_name
+        )
+    )
+
+    def _persist(new_value: str) -> None:
+        overlay.set_secret(write_key, new_value)
+        logger.info(
+            "OAuth2AuthProvider: persisted rotated refresh token for connector=%r "
+            "tenant=%r into the in-memory secret overlay (process-local; does not "
+            "survive a restart)",
+            connector_id,
+            tenant_id,
+        )
+
+    return _persist
 
 
 def _build_policy_hook() -> PolicyHook | None:
@@ -277,9 +325,11 @@ class ConnectorFactory:
                     "config": {
                         k: v
                         for k, v in cfg_raw.items()
-                        if k not in ("enabled", "exposed_via", "auth")
+                        if k not in ("enabled", "exposed_via", "auth", "auth_schemes")
                     },
                     "auth": cfg_raw.get("auth", {}),
+                    # Named schemes (top-level, like `auth`) — must not land in `config`.
+                    "auth_schemes": cfg_raw.get("auth_schemes", {}),
                     "exposed_via": exposed_via,
                 }
                 bootstrap_payload[DEFAULT_TENANT][connector_id] = [doc]
@@ -288,13 +338,72 @@ class ConnectorFactory:
             self._store.init(bootstrap_payload)
 
     def _build_auth_provider(
-        self, connector_id: str, cfg: dict, *, secret_provider: SecretProvider | None = None
+        self,
+        connector_id: str,
+        cfg: dict,
+        *,
+        secret_provider: SecretProvider | None = None,
+        tenant_id: str = DEFAULT_TENANT,
+        config_name: Optional[str] = None,
     ) -> Any:
         """Construct the appropriate AuthProvider from the connector's ``auth:`` block.
 
         ``secret_provider`` defaults to the factory's shared provider (used for
         enumeration instances); the invoke path passes a tenant-scoped provider.
+        ``tenant_id`` / ``config_name`` are only used to scope the oauth2
+        refresh-token-rotation persistence key the same way the caller scoped
+        ``secret_provider`` itself — see :func:`_make_refresh_token_rotation_callback`.
         Falls back to :class:`NoAuthProvider` when the block is absent.
+        """
+        sp = secret_provider if secret_provider is not None else self._secret_provider
+        auth_cfg = cfg.get("auth") or {}
+        if connector_id == "google_drive":
+            auth_cfg = _resolve_google_drive_auth(auth_cfg)
+        return self._build_one_auth_provider(
+            connector_id,
+            auth_cfg,
+            secret_provider=sp,
+            tenant_id=tenant_id,
+            config_name=config_name,
+        )
+
+    def _build_extra_auth_providers(
+        self,
+        connector_id: str,
+        cfg: dict,
+        *,
+        secret_provider: SecretProvider | None = None,
+        tenant_id: str = DEFAULT_TENANT,
+        config_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build named providers from ``auth_schemes:`` (empty when single-scheme)."""
+        sp = secret_provider if secret_provider is not None else self._secret_provider
+        auth_schemes_cfg = cfg.get("auth_schemes") or {}
+        return {
+            name: self._build_one_auth_provider(
+                connector_id,
+                auth_cfg or {},
+                secret_provider=sp,
+                tenant_id=tenant_id,
+                config_name=config_name,
+            )
+            for name, auth_cfg in auth_schemes_cfg.items()
+        }
+
+    def _build_one_auth_provider(
+        self,
+        connector_id: str,
+        auth_cfg: dict,
+        *,
+        secret_provider: SecretProvider,
+        tenant_id: str = DEFAULT_TENANT,
+        config_name: Optional[str] = None,
+    ) -> Any:
+        """Construct a single AuthProvider from one resolved auth block. Shared by the
+        default-scheme path (:meth:`_build_auth_provider`) and the extra-schemes path
+        (:meth:`_build_extra_auth_providers`) — identical provider-construction logic,
+        just fed a different config dict and (for extras) never the google_drive
+        env-override resolution, which only applies to a connector's default scheme.
         """
         from node_wire_runtime.auth import (
             ApiKeyQueryAuthProvider,
@@ -304,11 +413,7 @@ class ConnectorFactory:
             StaticTokenAuthProvider,
         )
 
-        sp = secret_provider if secret_provider is not None else self._secret_provider
-
-        auth_cfg = cfg.get("auth") or {}
-        if connector_id == "google_drive":
-            auth_cfg = _resolve_google_drive_auth(auth_cfg)
+        sp = secret_provider
         provider_type = auth_cfg.get("provider", "none")
 
         if provider_type in ("none", ""):
@@ -331,6 +436,15 @@ class ConnectorFactory:
             )
 
         if provider_type == "oauth2":
+            refresh_token_secret = auth_cfg.get("refresh_token_secret")
+            on_rotated = None
+            if auth_cfg.get("grant_method") == "refresh_token" and refresh_token_secret:
+                on_rotated = _make_refresh_token_rotation_callback(
+                    connector_id=connector_id,
+                    tenant_id=tenant_id,
+                    config_name=config_name,
+                    refresh_token_secret=refresh_token_secret,
+                )
             return OAuth2AuthProvider(
                 secret_provider=sp,
                 grant_method=auth_cfg.get("grant_method", "private_key_jwt"),
@@ -340,12 +454,13 @@ class ConnectorFactory:
                 private_key_secret=auth_cfg.get("private_key_secret"),
                 kid_secret=auth_cfg.get("kid_secret"),
                 client_secret_secret=auth_cfg.get("client_secret_secret"),
-                refresh_token_secret=auth_cfg.get("refresh_token_secret"),
+                refresh_token_secret=refresh_token_secret,
                 scopes=auth_cfg.get("scopes"),
                 scopes_secret=auth_cfg.get("scopes_secret"),
                 extra_content_type_headers=auth_cfg.get("extra_headers"),
                 buffer_secs=int(auth_cfg.get("buffer_secs", 60)),
                 jwt_ttl_secs=int(auth_cfg.get("jwt_ttl_secs", 300)),
+                on_refresh_token_rotated=on_rotated,
             )
 
         if provider_type == "service_account":
@@ -362,6 +477,23 @@ class ConnectorFactory:
             )
 
         if provider_type == "upstream_bearer":
+            # Credential relay: require allowlist AND provider config (fail closed).
+            allowlist = _upstream_bearer_allowlist()
+            if connector_id not in allowlist:
+                raise ValueError(
+                    f"connector {connector_id!r} sets auth.provider=upstream_bearer but is "
+                    f"not in {_UPSTREAM_BEARER_ALLOWLIST_ENV} — credential relay requires "
+                    f"explicit opt-in via both connectors.yaml AND "
+                    f"{_UPSTREAM_BEARER_ALLOWLIST_ENV} (comma-separated connector ids); "
+                    "neither alone is sufficient. This is not something to silently work "
+                    "around — confirm relaying the caller's own token to this connector's "
+                    "API is actually intended before adding it to the allowlist."
+                )
+            logger.info(
+                "upstream_bearer passthrough enabled for connector (allowlisted)",
+                extra={"connector_id": connector_id},
+            )
+
             from node_wire_runtime.auth.base import AuthProvider, get_upstream_bearer
 
             class _UpstreamBearerProvider(AuthProvider):  # type: ignore[misc]
@@ -371,6 +503,10 @@ class ConnectorFactory:
                     token = get_upstream_bearer()
                     if not token:
                         raise RuntimeError("Upstream bearer token required")
+                    logger.info(
+                        "upstream_bearer credential relayed",
+                        extra={"connector_id": connector_id},
+                    )
                     return {"Authorization": f"Bearer {token}"}
 
                 async def get_client_credentials(self):  # type: ignore[override]
@@ -379,6 +515,10 @@ class ConnectorFactory:
                     token = get_upstream_bearer()
                     if not token:
                         return None
+                    logger.info(
+                        "upstream_bearer credential relayed",
+                        extra={"connector_id": connector_id},
+                    )
                     return Credentials(token=token)
 
             return _UpstreamBearerProvider()
@@ -432,7 +572,18 @@ class ConnectorFactory:
             )
 
         auth_provider = self._build_auth_provider(
-            record.connector_id, record.raw, secret_provider=scoped
+            record.connector_id,
+            record.raw,
+            secret_provider=scoped,
+            tenant_id=record.tenant_id,
+            config_name=record.name,
+        )
+        auth_providers = self._build_extra_auth_providers(
+            record.connector_id,
+            record.raw,
+            secret_provider=scoped,
+            tenant_id=record.tenant_id,
+            config_name=record.name,
         )
         from node_wire_runtime.rest import RestConnector
 
@@ -444,6 +595,8 @@ class ConnectorFactory:
             "tenant_id": record.tenant_id,
             "config_name": record.name,
         }
+        if auth_providers:
+            kwargs["auth_providers"] = auth_providers
         if issubclass(connector_cls, RestConnector) and record.raw.get("base_url"):
             kwargs["base_url"] = record.raw["base_url"]
         return connector_cls(**kwargs)

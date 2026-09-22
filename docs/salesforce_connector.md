@@ -71,7 +71,7 @@ curl -X POST http://localhost:8000/connectors/salesforce/create_lead \
 
 ### Agentic (MCP)
 
-If registered via MCP, the agent can call `salesforce.create_lead` with the following arguments:
+If registered via MCP, the agent can call the advertised tool `salesforce_create_lead` (legacy dotted form `salesforce.create_lead` still invokes but isn't what `tools/list` advertises) with the following arguments:
 
 ```json
 {

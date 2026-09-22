@@ -55,6 +55,8 @@ class ActionPlan:
     auth: bool  # False for anonymous
     deprecated: bool = False
     examples: dict[str, Any] = field(default_factory=dict)
+    # Non-default scheme for divergent ops; None = connector default.
+    auth_scheme_name: str | None = None
 
 
 @dataclass
@@ -74,6 +76,8 @@ class DeriveResult:
     coverage_warning: bool
     total_operations: int
     notes: list[str] = field(default_factory=list)
+    # Non-default schemes used by >=1 generated action; empty for single-scheme connectors.
+    extra_auth_plans: dict[str, ConnectorAuthPlan] = field(default_factory=dict)
 
 
 class DeriveError(Exception):
@@ -287,7 +291,8 @@ def derive_operations(
 
     for (method, path, op, _cand), name in zip(raw_ops, names):
         sec = evaluate_operation_security(op.get("security"), doc.get("security"), schemes, fp)
-        if sec.mode in {"unsupported", "divergent", "and_multi"}:
+        # "divergent" = presentable non-default scheme; route by auth_scheme_name.
+        if sec.mode in {"unsupported", "and_multi"}:
             drops.append(SoftDrop(method, path, op.get("operationId"), sec.reason or sec.mode))
             continue
 
@@ -380,6 +385,7 @@ def derive_operations(
                 auth=sec.mode != "anonymous",
                 deprecated=bool(op.get("deprecated")),
                 examples=examples,
+                auth_scheme_name=sec.scheme_name if sec.mode == "divergent" else None,
             )
         )
 
@@ -387,6 +393,13 @@ def derive_operations(
         raise DeriveError("Zero usable operations after soft-drops; cannot build connector")
 
     coverage_warning = len(actions) < (total * 0.5)
+    # Plans for every non-default scheme a generated action actually uses.
+    extra_scheme_names = sorted(
+        {a.auth_scheme_name for a in actions if a.auth_scheme_name is not None}
+    )
+    extra_auth_plans = {
+        name: build_auth_plan(connector_id, schemes, name) for name in extra_scheme_names
+    }
     return DeriveResult(
         actions=actions,
         drops=drops,
@@ -395,4 +408,5 @@ def derive_operations(
         coverage_warning=coverage_warning,
         total_operations=total,
         notes=notes,
+        extra_auth_plans=extra_auth_plans,
     )

@@ -41,7 +41,7 @@ reaches PyPI or GitHub. Read it together with
 
 ## Step 1 — Triage and freeze
 
-1. Confirm which **package(s)** and **version(s)** are affected (nine publishable
+1. Confirm which **package(s)** and **version(s)** are affected (ten publishable
    packages; see [packaging.md](packaging.md#package-inventory)).
 2. Record the Git tag (`vX.Y.Z`), commit SHA, and PyPI project name(s).
 3. **Stop further publishes** of the affected version until root cause is known.

@@ -123,6 +123,7 @@ dev = [
 default-groups = ["dev"]
 override-dependencies = [
   "lxml>=6.1.0",
+  "openapi-spec-validator>=0.9.0",
 ]
 
 [tool.uv.sources]
@@ -140,6 +141,7 @@ addopts = [
   "--cov-report=html:htmlcov",
   "--cov-report=xml:coverage.xml",
   "--ignore=tests/playground",
+  "--import-mode=importlib",
 ]
 
 [tool.coverage.run]

@@ -1,0 +1,193 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+# Regression test for the nw-cli / nw-mcp-builder pipeline. Generates a real
+# connector (pet_store) from a public OpenAPI spec via `nw gen-all`, builds
+# real wheels and a real Docker image via `nw docker-build`, boots the
+# container, and checks its live `tools/list` against the actions the
+# generator actually produced.
+#
+# Every existing nw-cli / nw-mcp-builder unit test mocks out codegen, wheel
+# builds, and docker build — none of them boot a real container. This is the
+# only job that exercises the full pipeline end-to-end, so it would have
+# caught the container crash-loop / silently-empty-tools/list class of
+# regression fixed 2026-09-11.
+#
+# The heavy e2e job is path-filtered (and forced on schedule / workflow_dispatch).
+# An always-run gate job reports success when e2e is skipped, so branch
+# protection can require a stable check name without blocking unrelated PRs.
+name: MCP builder e2e (pet-store)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly — catches silent rot when no path-filtered PR touched the pipeline.
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+  # paths-filter uses the GitHub API on pull_request events.
+  pull-requests: read
+  # buildx type=gha cache write for pet-store-mcp-e2e
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CONNECTOR_ID: pet_store
+  PETSTORE_SPEC_URL: https://petstore.swagger.io/v2/swagger.json
+
+jobs:
+  changes:
+    name: Detect MCP pipeline path changes
+    runs-on: ubuntu-latest
+    outputs:
+      mcp_pipeline: ${{ steps.result.outputs.mcp_pipeline }}
+    steps:
+      - name: Checkout repository
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Path filter
+        id: filter
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: |
+            mcp_pipeline:
+              - "nw-cli/**"
+              - "nw-mcp-builder/**"
+              - "nw-connector-builder/**"
+              - "packages/runtime/**"
+              - "packages/bindings/**"
+              - "src/bindings/**"
+              - "src/node_wire_runtime/**"
+              - "docker/wheel-builder/**"
+              - "scripts/build-packages.sh"
+              - "scripts/verify_mcp_tools_list.py"
+              - "config/connectors.yaml"
+              - "pyproject.toml"
+              - "uv.lock"
+              - ".github/workflows/mcp-builder-e2e.yml"
+
+      - name: Set mcp_pipeline output
+        id: result
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mcp_pipeline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mcp_pipeline=${{ steps.filter.outputs.mcp_pipeline }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  pet-store-mcp-e2e:
+    name: Generate, build, and boot pet_store MCP server
+    needs: changes
+    if: needs.changes.outputs.mcp_pipeline == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      # petstore.swagger.io is a public demo service; retry to absorb transient
+      # flakiness rather than failing the pipeline regression check on it.
+      - name: nw gen-all (connector codegen -> wheels -> MCP host -> wire)
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in 1 2 3; do
+            if uv run nw gen-all \
+              --connector-id "${CONNECTOR_ID}" \
+              --path "${PETSTORE_SPEC_URL}" \
+              --force; then
+              ok=1
+              break
+            fi
+            echo "gen-all attempt ${attempt} failed; retrying in 15s..." >&2
+            sleep 15
+          done
+          if [[ "${ok}" -ne 1 ]]; then
+            echo "gen-all failed after 3 attempts" >&2
+            exit 1
+          fi
+
+      - name: nw docker-build
+        env:
+          NW_DOCKER_CACHE_FROM: type=gha,scope=mcp-builder-e2e
+          NW_DOCKER_CACHE_TO: type=gha,mode=max,scope=mcp-builder-e2e
+        run: uv run nw docker-build --connector-id "${CONNECTOR_ID}" --tag ci
+
+      - name: Run generated MCP container
+        run: |
+          # NW_MCP_HOST defaults to 127.0.0.1 (local-only); published ports need 0.0.0.0.
+          docker run -d --name pet-store-mcp \
+            -p 8081:8081 \
+            -e NW_MCP_HOST=0.0.0.0 \
+            -e NW_MCP_AUTH_DISABLED=true \
+            -e NW_MCP_SCOPE_POLICY_DEFAULT=allow \
+            pet-store-nw-mcp:ci
+
+      - name: Verify tools/list matches generated actions
+        run: uv run python scripts/verify_mcp_tools_list.py --connector-id "${CONNECTOR_ID}"
+
+      - name: Container logs
+        if: always()
+        run: docker logs pet-store-mcp || true
+
+      - name: Stop and remove container
+        if: always()
+        run: docker rm -f pet-store-mcp || true
+
+  # Always runs. Require this check name in branch protection — not the heavy
+  # e2e job — so unrelated PRs are not blocked when e2e is path-skipped.
+  mcp-e2e-gate:
+    name: MCP builder e2e gate
+    needs: [changes, pet-store-mcp-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce e2e result (success or skipped)
+        run: |
+          set -euo pipefail
+          changes="${{ needs.changes.result }}"
+          e2e="${{ needs.pet-store-mcp-e2e.result }}"
+          echo "changes result: ${changes}"
+          echo "pet-store-mcp-e2e result: ${e2e}"
+          if [[ "${changes}" != "success" ]]; then
+            echo "Path-filter job failed (${changes})" >&2
+            exit 1
+          fi
+          case "${e2e}" in
+            success|skipped) exit 0 ;;
+            *)
+              echo "MCP builder e2e failed or was cancelled (${e2e})" >&2
+              exit 1
+              ;;
+          esac

@@ -271,6 +271,87 @@ async def test_execute_rest_auth_false_skips_auth(monkeypatch: pytest.MonkeyPatc
     assert "api_key" not in dict(pairs)
 
 
+def test_rest_connector_forwards_auth_providers_kwarg() -> None:
+    """RestConnector must forward auth_providers through BaseConnector.__init__."""
+    default = ApiKeyQueryAuthProvider(
+        secret_provider=_DictSecrets({"K": "d"}), secret_key="K", name="api_key"
+    )
+    extra = ApiKeyQueryAuthProvider(
+        secret_provider=_DictSecrets({"E": "e"}), secret_key="E", name="token"
+    )
+    connector = _DemoConnector(
+        auth_provider=default,
+        auth_providers={"petstore_auth": extra},
+        base_url="https://api.example.com",
+    )
+    assert connector.resolve_auth_provider(None) is default
+    assert connector.resolve_auth_provider("petstore_auth") is extra
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_with_named_auth_scheme_uses_extra_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """auth_scheme= routes execute_rest() to the named provider, not the default."""
+    captured: dict[str, Any] = {}
+
+    class _FakeResponse:
+        status_code = 200
+        content = b'{"ok": true}'
+        headers = {"content-type": "application/json"}
+        text = '{"ok": true}'
+
+        def json(self) -> dict:
+            return {"ok": True}
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class _FakeClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def request(self, **kwargs: Any) -> _FakeResponse:
+            captured["request"] = kwargs
+            return _FakeResponse()
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _FakeClient)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination",
+        AsyncMock(return_value=None),
+    )
+
+    default = ApiKeyQueryAuthProvider(
+        secret_provider=_DictSecrets({"K": "default-tok"}), secret_key="K", name="api_key"
+    )
+    extra = ApiKeyQueryAuthProvider(
+        secret_provider=_DictSecrets({"E": "extra-tok"}), secret_key="E", name="access_token"
+    )
+    connector = _DemoConnector(
+        auth_provider=default,
+        auth_providers={"petstore_auth": extra},
+        base_url="https://api.example.com",
+    )
+    params = _ListInput(username="octocat")
+    await connector.execute_rest(
+        "GET",
+        "/users/{username}/things",
+        params,
+        output_model=RestResponseOutput,
+        trace_id="t1",
+        auth_scheme="petstore_auth",
+    )
+    params_pairs = dict(captured["request"]["params"])
+    assert params_pairs["access_token"] == "extra-tok"
+    assert "api_key" not in params_pairs
+
+
 def test_factory_apikey_query_and_unknown_raises() -> None:
     from bindings.factory import ConnectorFactory
 
