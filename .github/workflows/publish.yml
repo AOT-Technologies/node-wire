@@ -7,18 +7,21 @@
 # yamllint disable rule:line-length
 name: Publish Node Wire package
 
-# Manual trigger after a GitHub Release exists for the tag.
+# Manual trigger per package. Tag shape selects the channel:
+#   v1.0.0     (stable) — requires an existing GitHub Release for the tag
+#   v1.2.0b1   (beta)   — PEP 440 pre-release; skips GitHub Release check
 # package_path must match the allowlist below (prevents confused-deputy path abuse).
 #
 # Examples:
 #   tag: v1.0.0
+#   tag: v1.2.0b1
 #   package_path: packages/runtime
 #   package_path: packages/connectors/fhir_epic
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish from (e.g. v1.0.0)"
+        description: "Tag to publish from (e.g. v1.0.0 or v1.2.0b1)"
         required: true
         type: string
       package_path:
@@ -44,6 +47,7 @@ jobs:
     outputs:
       release_version: ${{ steps.resolve.outputs.release_version }}
       release_tag: ${{ steps.resolve.outputs.release_tag }}
+      channel: ${{ steps.resolve.outputs.channel }}
       package_path: ${{ steps.validate.outputs.package_path }}
       artifact_slug: ${{ steps.validate.outputs.artifact_slug }}
 
@@ -66,15 +70,25 @@ jobs:
           tag = os.environ["INPUT_TAG"].strip()
           version = tag[1:] if tag.startswith("v") else tag
 
-          if not re.fullmatch(r"\d+\.\d+\.\d+", version):
-              print(f"ERROR: {version!r} is not a MAJOR.MINOR.PATCH version", file=sys.stderr)
+          # Tag shape selects channel: stable X.Y.Z vs PEP 440 pre-release.
+          if re.fullmatch(r"\d+\.\d+\.\d+", version):
+              channel = "stable"
+          elif re.fullmatch(r"\d+\.\d+\.\d+(?:a|b|rc)\d+", version):
+              channel = "beta"
+          else:
+              print(
+                  f"ERROR: {version!r} is not MAJOR.MINOR.PATCH or a PEP 440 "
+                  "pre-release (aN/bN/rcN)",
+                  file=sys.stderr,
+              )
               sys.exit(1)
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"release_version={version}\n")
               out.write(f"release_tag={tag}\n")
+              out.write(f"channel={channel}\n")
 
-          print(f"Publishing from tag {tag} (version {version})")
+          print(f"Publishing from tag {tag} (version {version}, channel {channel})")
 
       - name: Validate package path (allowlist)
         id: validate
@@ -151,7 +165,9 @@ jobs:
 
           print(f"PASS: package version and changelog match {version}")
 
+      # Stable only: beta tags never create a GitHub Release.
       - name: Verify GitHub Release exists
+        if: steps.resolve.outputs.channel == 'stable'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

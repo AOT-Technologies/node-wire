@@ -120,7 +120,7 @@ jobs:
 
       - name: Install release dependencies
         run: |
-          uv sync --frozen --all-extras --no-dev
+          uv sync --frozen --extra agents --no-dev
           uv pip install "cyclonedx-bom==${{ env.CYCLONEDX_BOM_VERSION }}"
 
       - name: Generate SBOM

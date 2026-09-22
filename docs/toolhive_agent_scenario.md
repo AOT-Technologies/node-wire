@@ -559,7 +559,7 @@ The test suite covers the agent and MCP server without making any real API calls
 
 ```bash
 # dev is not a pip extra (it's a uv dependency group) — for the dev toolchain use:
-uv sync --frozen --all-extras --dev
+uv sync --frozen --extra agents --dev
 pytest tests/test_toolhive_agent.py -v
 ```
 
