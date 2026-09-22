@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 echo "====================================="
 echo "0. Syncing locked dependencies..."
 echo "====================================="
-uv sync --frozen --all-extras --dev
+uv sync --frozen --extra agents --dev
 
 echo "====================================="
 echo "1. Generating DEPENDENCIES.md..."

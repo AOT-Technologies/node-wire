@@ -49,7 +49,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
 
       # In-tree Cython .so/.pyd from local editable/wheel builds shadow .py and zero coverage.
       - name: Remove Cython extension modules from src/
@@ -95,7 +95,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
 
       - name: Remove Cython extension modules from src/
         shell: bash
@@ -135,7 +135,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
 
       - name: Install Playwright browsers
         run: uv run python -m playwright install chromium --with-deps

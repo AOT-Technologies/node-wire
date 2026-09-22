@@ -38,7 +38,7 @@ jobs:
             pyproject.toml
             uv.lock
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
       # Bandit exits non-zero when *any* finding exists (incl. low/medium). The
       # enforce step below gates on high only; use --exit-zero here so this step
       # always produces the JSON artifact and the job can print a summary.

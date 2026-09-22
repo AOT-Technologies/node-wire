@@ -27,7 +27,7 @@ Before getting started, see the [Installation guide](installation.md) for full s
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
-uv sync --frozen --all-extras --dev
+uv sync --frozen --extra agents --dev
 cp sample.env .env
 export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/* and /ready return 503 until auth is configured
 MODE=API uv run node-wire

@@ -146,6 +146,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Moved `grpcio-tools` out of core `node-wire` dependencies into the optional
+  `grpc-codegen` extra (used only by `scripts/generate-grpc-stubs.sh`). Plain
+  installs and CI `uv sync --extra agents --dev` no longer pull a native
+  compile of `grpcio-tools` (fixes Windows MSVC failures when no wheel matches).
 - `ErrorMapper` now scopes error-code matching per connector ID with an
   MRO-specific match, fixing a cross-connector leak where one connector's
   error code could surface through another connector's error handling.

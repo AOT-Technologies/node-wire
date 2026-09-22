@@ -48,8 +48,10 @@ By default the platform is single-tenant (every call resolves to `__default__`).
 The repository commits `uv.lock` for reproducible installs. Use `--frozen` in CI and local dev:
 
 ```bash
-uv sync --frozen --all-extras --dev   # full dev + agents (matches CI)
-uv sync --frozen --no-dev             # runtime only
+uv sync --frozen --extra agents --dev   # full dev + agents (matches CI)
+uv sync --frozen --no-dev               # runtime only
+# Regenerating gRPC stubs only (scripts/generate-grpc-stubs.sh):
+# uv sync --frozen --extra grpc-codegen
 ```
 
 Plain `uv sync --frozen` (no `--no-dev`) still installs the `dev` dependency group — `pyproject.toml` sets `default-groups = ["dev"]` — so it is **not** a runtime-only install on its own.
@@ -63,7 +65,8 @@ uv lock
 **Using `pip` (unpinned; not recommended for reproducible builds):**
 - Full install (including AI agents): `pip install -e ".[agents]"`
 - Minimal install (REST/gRPC only): `pip install -e .`
-- Dev tooling (ruff/mypy/pytest/bandit): there is no `dev` extra — `dev` is a `uv` `[dependency-groups]` entry, not a `pip` install extra, so `pip install -e ".[dev,agents]"` fails. Use `uv sync --frozen --all-extras --dev` for the dev toolchain, or install ruff/mypy/pytest/bandit manually if you must stay on plain `pip`.
+- gRPC stub regeneration: `pip install -e ".[grpc-codegen]"` (optional; stubs are already committed)
+- Dev tooling (ruff/mypy/pytest/bandit): there is no `dev` extra — `dev` is a `uv` `[dependency-groups]` entry, not a `pip` install extra, so `pip install -e ".[dev,agents]"` fails. Use `uv sync --frozen --extra agents --dev` for the dev toolchain, or install ruff/mypy/pytest/bandit manually if you must stay on plain `pip`.
 
 ### 4. Verify the installation
 ```bash

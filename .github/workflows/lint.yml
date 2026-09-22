@@ -57,7 +57,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
 
       - name: Run Ruff (Linting)
         # --output-format=github automatically creates inline annotations on your PR code!
@@ -86,7 +86,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
 
       - name: Run REUSE lint
         run: uv run reuse lint
@@ -111,7 +111,7 @@ jobs:
             uv.lock
 
       - name: Install dependencies
-        run: uv sync --frozen --all-extras --dev
+        run: uv sync --frozen --extra agents --dev
 
       - name: Run Mypy (Type checking)
         run: uv run mypy
