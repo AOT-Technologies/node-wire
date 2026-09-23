@@ -2087,13 +2087,14 @@ at the bad version).</p>
 <li>Fix the defect on <code>main</code> (or a release branch) with tests.</li>
 <li>Bump the version:</li>
 <li><strong>Stable:</strong> bump <strong>PATCH</strong> per <a href="../versioning/">SemVer</a> (e.g. <code>1.0.0</code> → <code>1.0.1</code>).</li>
-<li><strong>Beta:</strong> bump the pre-release segment (e.g. <code>1.2.0b1</code> → <code>1.2.0b2</code>) with
-     <code>./scripts/bump-version.py</code> — do not reuse a yanked PEP 440 version.</li>
+<li><strong>Beta:</strong> no source bump needed — re-dispatching <code>channel: beta</code> publishes the
+     next unused <code>bN</code>, and PyPI never allows reuse of a yanked version.</li>
 <li>Update <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a> with the fix and yank notice.</li>
 <li>Run the local pre-publish checklist in <a href="../packaging/#pre-pypi-local-validation-checklist">packaging.md</a>.</li>
 <li>Follow the stable or beta operator flow in <a href="../packaging/#release-process-tag-first">packaging.md</a>,
-   then dispatch <code>.github/workflows/publish.yml</code> for each affected <code>package_path</code>
-   with the corrective <code>tag</code> (e.g. <code>v1.0.1</code> or <code>v1.2.0b2</code>).</li>
+   then dispatch <code>.github/workflows/publish.yml</code> for each affected package —
+   from the corrective tag (e.g. <code>v1.0.1</code>) with <code>channel: release</code>, or from the
+   fix branch with <code>channel: beta</code> to cut the next <code>bN</code>.</li>
 </ol>
 <h2 id="step-4-github-release-and-tags">Step 4 — GitHub release and tags<a class="headerlink" href="#step-4-github-release-and-tags" title="Anchor link to this section">&para;</a></h2>
 <p>Applies to <strong>stable</strong> tags only. PEP 440 betas have no GitHub Release — after yanking

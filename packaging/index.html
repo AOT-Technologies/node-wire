@@ -2352,7 +2352,7 @@ SPDX-License-Identifier: Apache-2.0
 <td>— (no entry point; this is the runtime)</td>
 </tr>
 <tr>
-<td><code>node-wire-bindings</code></td>
+<td><code>node-wire-bindings</code> <strong>(not published)</strong></td>
 <td><code>src/bindings/</code> (MCP surface)</td>
 <td>— (factory / invoke / mcp_server for MCP images)</td>
 </tr>
@@ -2399,7 +2399,11 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <p>Each connector's <code>pyproject.toml</code> lives at <code>packages/connectors/&lt;name&gt;/pyproject.toml</code>; the runtime's is at <code>packages/runtime/pyproject.toml</code>; MCP bindings at <code>packages/bindings/pyproject.toml</code>.</p>
-<p><strong>Source of truth:</strong> Keep this table in sync with <code>ALL_PACKAGES</code> in <a href="https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh"><code>scripts/build-packages.sh</code></a>. MCP Docker images are a <strong>separate subset</strong> — see <a href="#docker-demo-images">Docker demo images</a>. <code>http_generic</code> is publishable on PyPI but does not have a standalone MCP container image.</p>
+<p><strong>Only the runtime and connectors ship to PyPI.</strong> <code>node-wire-bindings</code> is built as a
+local wheel (<code>scripts/build-packages.sh</code>, <code>nw gen-whl --bindings</code>) for MCP Docker
+images and is deliberately absent from the package lists in <code>publish.yml</code>,
+<code>github-release.yml</code>, and <code>security-pr.yml</code>. Do not add it to them.</p>
+<p><strong>Source of truth:</strong> Keep this table in sync with <code>ALL_PACKAGES</code> in <a href="https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh"><code>scripts/build-packages.sh</code></a> (which also builds the unpublished bindings wheel). MCP Docker images are a <strong>separate subset</strong> — see <a href="#docker-demo-images">Docker demo images</a>. <code>http_generic</code> is publishable on PyPI but does not have a standalone MCP container image.</p>
 <hr />
 <h2 id="adding-a-new-publishable-connector">Adding a new publishable connector<a class="headerlink" href="#adding-a-new-publishable-connector" title="Anchor link to this section">&para;</a></h2>
 <p>After implementing the connector runtime (see <a href="../connectors/">connectors.md</a>, or generate a REST skeleton with <a href="../nw-connector-builder/">nw-connector-builder</a>), update these files to ship it on PyPI and optionally as a standalone MCP server.</p>
@@ -2458,7 +2462,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><a href="https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml"><code>.github/workflows/publish.yml</code></a></td>
-<td>Add to <code>allowed</code> set — see <a href="#ci-allowlist-updates">CI allowlist updates</a> below</td>
+<td>Add to the <code>package</code> dropdown <strong>and</strong> the <code>allowed</code> set — see <a href="#ci-allowlist-updates">CI allowlist updates</a> below</td>
 </tr>
 <tr>
 <td><a href="https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml"><code>.github/workflows/github-release.yml</code></a></td>
@@ -2535,36 +2539,50 @@ SPDX-License-Identifier: Apache-2.0
 <p>Replace <code>&lt;name&gt;</code> with the connector's snake_case name (e.g. <code>my_service</code>) and <code>&lt;connector_id&gt;</code> with the entry-point key (same string used in <code>config/connectors.yaml</code> and <code>NW_ALLOWED_CONNECTORS</code>).</p>
 <h3 id="ci-allowlist-updates">CI allowlist updates<a class="headerlink" href="#ci-allowlist-updates" title="Anchor link to this section">&para;</a></h3>
 <p>Three workflow files each maintain a hardcoded list of publishable packages. Add one entry to each when shipping a new connector.</p>
-<h4 id="githubworkflowspublishyml-allowed-set"><code>.github/workflows/publish.yml</code> — <code>allowed</code> set<a class="headerlink" href="#githubworkflowspublishyml-allowed-set" title="Anchor link to this section">&para;</a></h4>
-<p>Inside the <code>validate</code> step, add your package path to the <code>allowed</code> Python set:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># .github/workflows/publish.yml  (inside the inline Python script)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">allowed</span> <span class="o">=</span> <span class="p">{</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s2">"packages/runtime"</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">"packages/connectors/http_generic"</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="s2">"packages/connectors/stripe"</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="c1"># ... existing entries ...</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="s2">"packages/connectors/&lt;name&gt;"</span><span class="p">,</span>   <span class="c1"># ← add this line</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
+<h4 id="githubworkflowspublishyml-package-dropdown-allowed-set"><code>.github/workflows/publish.yml</code> — <code>package</code> dropdown + <code>allowed</code> set<a class="headerlink" href="#githubworkflowspublishyml-package-dropdown-allowed-set" title="Anchor link to this section">&para;</a></h4>
+<p>Two places, and they must agree. First, the dispatch dropdown under
+<code>on.workflow_dispatch.inputs.package.options</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># .github/workflows/publish.yml</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">      </span><span class="nt">package</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">choice</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="nt">options</span><span class="p">:</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/runtime</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/connectors/http_generic</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span><span class="c1"># ... existing entries ...</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/connectors/&lt;name&gt;</span><span class="w">   </span><span class="c1"># ← add this line</span>
 </span></code></pre></div>
-<h4 id="githubworkflowsgithub-releaseyml-package_paths-list"><code>.github/workflows/github-release.yml</code> — <code>package_paths</code> list<a class="headerlink" href="#githubworkflowsgithub-releaseyml-package_paths-list" title="Anchor link to this section">&para;</a></h4>
-<p>Inside the release-manifest step, add your path to the <code>package_paths</code> Python list:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># .github/workflows/github-release.yml  (inside the inline Python script)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">package_paths</span> <span class="o">=</span> <span class="p">[</span>
+<p>Then the server-side allowlist inside the <code>validate</code> step, which re-checks the
+value the dropdown supplied:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># .github/workflows/publish.yml  (inside the inline Python script)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">allowed</span> <span class="o">=</span> <span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="s2">"packages/runtime"</span><span class="p">,</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="s2">"packages/connectors/http_generic"</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="c1"># ... existing entries ...</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="s2">"packages/connectors/&lt;name&gt;"</span><span class="p">,</span>   <span class="c1"># ← add this line</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">]</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="s2">"packages/connectors/stripe"</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="c1"># ... existing entries ...</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="s2">"packages/connectors/&lt;name&gt;"</span><span class="p">,</span>   <span class="c1"># ← add this line</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>A path in the dropdown but missing from <code>allowed</code> fails the run at the validate
+step; a path in <code>allowed</code> but missing from the dropdown is simply unreachable.</p>
+<h4 id="githubworkflowsgithub-releaseyml-package_paths-list"><code>.github/workflows/github-release.yml</code> — <code>package_paths</code> list<a class="headerlink" href="#githubworkflowsgithub-releaseyml-package_paths-list" title="Anchor link to this section">&para;</a></h4>
+<p>Inside the release-manifest step, add your path to the <code>package_paths</code> Python list:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># .github/workflows/github-release.yml  (inside the inline Python script)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">package_paths</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">"packages/runtime"</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">"packages/connectors/http_generic"</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="c1"># ... existing entries ...</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="s2">"packages/connectors/&lt;name&gt;"</span><span class="p">,</span>   <span class="c1"># ← add this line</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">]</span>
 </span></code></pre></div>
 <h4 id="githubworkflowssecurity-pryml-matrix-package_path"><code>.github/workflows/security-pr.yml</code> — matrix <code>package_path</code><a class="headerlink" href="#githubworkflowssecurity-pryml-matrix-package_path" title="Anchor link to this section">&para;</a></h4>
 <p>Add a new YAML list item under <code>jobs.&lt;job&gt;.strategy.matrix.package_path</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># .github/workflows/security-pr.yml</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">matrix</span><span class="p">:</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">package_path</span><span class="p">:</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/runtime</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/connectors/http_generic</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="c1"># ... existing entries ...</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/connectors/&lt;name&gt;</span><span class="w">   </span><span class="c1"># ← add this line</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># .github/workflows/security-pr.yml</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">matrix</span><span class="p">:</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">package_path</span><span class="p">:</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/runtime</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/connectors/http_generic</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="c1"># ... existing entries ...</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">packages/connectors/&lt;name&gt;</span><span class="w">   </span><span class="c1"># ← add this line</span>
 </span></code></pre></div>
 <h3 id="tier-3-standalone-mcp-server-optional">Tier 3 — Standalone MCP server (optional)<a class="headerlink" href="#tier-3-standalone-mcp-server-optional" title="Anchor link to this section">&para;</a></h3>
 <blockquote>
@@ -2610,67 +2628,67 @@ SPDX-License-Identifier: Apache-2.0
 <p>Prerequisites: <code>pip install build cython wheel</code> (and a usable <code>python</code> on the host). Run <code>bash scripts/build-packages.sh --help</code> for usage.</p>
 <h3 id="build-all-packages-default">Build all packages (default)<a class="headerlink" href="#build-all-packages-default" title="Anchor link to this section">&para;</a></h3>
 <p>For a single connector (or runtime) from the orchestrator CLI, see <a href="../nw-cli/"><code>nw gen-whl</code></a> — it wraps this script with Linux-only as the default.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>scripts/build-packages.sh
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>bash<span class="w"> </span>scripts/build-packages.sh
 </span></code></pre></div>
 <p>Default mode builds each package path listed in <code>ALL_PACKAGES</code> in the script (see the <a href="#package-inventory">Package inventory</a> for the current set): <code>python -m build --wheel</code> on the <strong>host</strong>, then again inside <strong>Docker</strong> so you get Linux-tagged wheels suitable for containers. <strong>Docker must be installed and the daemon running</strong> (unless you use <code>--host-only</code>). After each package, the script scans every produced wheel and fails if any <code>.py</code> file appears inside the archive.</p>
 <p>Linux builds use a <strong>local-only</strong> image <code>nw-wheel-builder:local</code> from <a href="https://github.com/AOT-Technologies/node-wire/blob/main/docker/wheel-builder/Dockerfile"><code>docker/wheel-builder/Dockerfile</code></a> (build-essential + Cython toolchain). The script runs <code>docker build</code> once per invocation; Docker layer cache makes later runs fast when the Dockerfile is unchanged. This image is <strong>not published</strong> to Docker Hub or any registry.</p>
 <h3 id="host-only-or-linux-only">Host-only or Linux-only<a class="headerlink" href="#host-only-or-linux-only" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Fast local iteration — host OS wheels only (no Docker)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--host-only
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--host-only<span class="w"> </span>packages/connectors/stripe
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># or: uv run nw gen-whl --connector-id stripe --host</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Container / ToolHive wheels only</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--linux-only
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--linux-only<span class="w"> </span>packages/runtime
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="c1"># or: uv run nw gen-whl --connector-id stripe</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1">#     uv run nw gen-whl --runtime</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Fast local iteration — host OS wheels only (no Docker)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--host-only
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--host-only<span class="w"> </span>packages/connectors/stripe
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># or: uv run nw gen-whl --connector-id stripe --host</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># Container / ToolHive wheels only</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--linux-only
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--linux-only<span class="w"> </span>packages/runtime
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1"># or: uv run nw gen-whl --connector-id stripe</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1">#     uv run nw gen-whl --runtime</span>
 </span></code></pre></div>
 <p><code>--host-only</code> and <code>--linux-only</code> cannot be combined with each other or with <code>--all</code>.</p>
 <h3 id="artifact-layout-and-safe-command-usage">Artifact layout and safe command usage<a class="headerlink" href="#artifact-layout-and-safe-command-usage" title="Anchor link to this section">&para;</a></h3>
 <p><code>scripts/build-packages.sh</code> writes wheels per package under <code>packages/**/dist/</code> (there is no single repo-root <code>dist/</code> output).</p>
 <p>Before using wildcard wheel commands, clear old wheel artifacts so commands do not accidentally match stale versions:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>rm<span class="w"> </span>-f<span class="w"> </span>packages/runtime/dist/*.whl
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>rm<span class="w"> </span>-f<span class="w"> </span>packages/connectors/stripe/dist/*.whl
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>rm<span class="w"> </span>-f<span class="w"> </span>packages/runtime/dist/*.whl
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>rm<span class="w"> </span>-f<span class="w"> </span>packages/connectors/stripe/dist/*.whl
 </span></code></pre></div>
 <h3 id="build-a-single-package">Build a single package<a class="headerlink" href="#build-a-single-package" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/connectors/stripe
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/connectors/stripe
 </span></code></pre></div>
 <h3 id="optional-broader-wheels-with-cibuildwheel-all">Optional: broader wheels with cibuildwheel (<code>--all</code>)<a class="headerlink" href="#optional-broader-wheels-with-cibuildwheel-all" title="Anchor link to this section">&para;</a></h3>
 <p>For additional platform wheels from your <strong>current machine</strong> (whatever <code>cibuildwheel</code> can target there), install it and use the same script:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'cibuildwheel&gt;=2.16.0'</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--all
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--all<span class="w"> </span>packages/runtime
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'cibuildwheel&gt;=2.16.0'</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--all
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--all<span class="w"> </span>packages/runtime
 </span></code></pre></div>
 <p><code>CIBW_BUILD</code> / <code>CIBW_SKIP</code> default to the same patterns as <code>.github/workflows/publish.yml</code> unless you override them in the environment. Full Linux + macOS + Windows coverage is still best done in CI, not guaranteed from one laptop.</p>
 <h3 id="inspect-wheel-contents">Inspect wheel contents<a class="headerlink" href="#inspect-wheel-contents" title="Anchor link to this section">&para;</a></h3>
 <p>After building, confirm no source leaks:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>unzip<span class="w"> </span>-l<span class="w"> </span>packages/connectors/stripe/dist/node_wire_stripe-*.whl
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># Must show .so/.pyd files only — no .py files</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>unzip<span class="w"> </span>-l<span class="w"> </span>packages/connectors/stripe/dist/node_wire_stripe-*.whl
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="c1"># Must show .so/.pyd files only — no .py files</span>
 </span></code></pre></div>
 <h3 id="install-from-wheels-and-verify-entry-points">Install from wheels and verify entry points<a class="headerlink" href="#install-from-wheels-and-verify-entry-points" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Install into an active (clean) virtual env</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>packages/runtime/dist/node_wire_runtime-*.whl<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>packages/connectors/stripe/dist/node_wire_stripe-*.whl
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="c1"># Confirm entry points registered</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="s2">from importlib.metadata import entry_points</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="s2">print(list(entry_points(group='node_wire.connectors')))</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="s2">"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Install into an active (clean) virtual env</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span>packages/runtime/dist/node_wire_runtime-*.whl<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span>packages/connectors/stripe/dist/node_wire_stripe-*.whl
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="c1"># Confirm entry points registered</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="s2">from importlib.metadata import entry_points</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="s2">print(list(entry_points(group='node_wire.connectors')))</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="s2">"</span>
 </span></code></pre></div>
 <h3 id="verify-connector-loading">Verify connector loading<a class="headerlink" href="#verify-connector-loading" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="s2">from node_wire_runtime.connector_registry import auto_register</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="s2">loaded = auto_register()</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="s2">print('Loaded:', loaded)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="s2">"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="s2">from node_wire_runtime.connector_registry import auto_register</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="s2">loaded = auto_register()</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="s2">print('Loaded:', loaded)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="s2">"</span>
 </span></code></pre></div>
 <hr />
 <h2 id="client-consumption-model">Client consumption model<a class="headerlink" href="#client-consumption-model" title="Anchor link to this section">&para;</a></h2>
 <p>A downstream client installs only what it needs:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="w"> </span>node-wire-stripe<span class="w"> </span>node-wire-fhir-epic
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="w"> </span>node-wire-stripe<span class="w"> </span>node-wire-fhir-epic
 </span></code></pre></div>
 <p>At startup, <code>auto_register()</code> discovers all installed connectors via the <code>node_wire.connectors</code> <a href="https://packaging.python.org/en/latest/specifications/entry-points/">entry-point group</a> — no explicit import list required.</p>
 <h3 id="runtime-loading-knobs">Runtime loading knobs<a class="headerlink" href="#runtime-loading-knobs" title="Anchor link to this section">&para;</a></h3>
@@ -2681,13 +2699,13 @@ still set <code>NW_ALLOWED_CONNECTORS</code> and may set <code>NW_CONNECTOR_MODU
 <hr />
 <h2 id="connectorsyaml-and-secrets"><code>connectors.yaml</code> and secrets<a class="headerlink" href="#connectorsyaml-and-secrets" title="Anchor link to this section">&para;</a></h2>
 <h3 id="minimal-connectorsyaml">Minimal <code>connectors.yaml</code><a class="headerlink" href="#minimal-connectorsyaml" title="Anchor link to this section">&para;</a></h3>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">connectors</span><span class="p">:</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">stripe</span><span class="p">:</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mcp"</span><span class="p p-Indicator">]</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="nt">fhir_epic</span><span class="p">:</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">connectors</span><span class="p">:</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">stripe</span><span class="p">:</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"mcp"</span><span class="p p-Indicator">]</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="nt">fhir_epic</span><span class="p">:</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </span></code></pre></div>
 <p><code>enabled</code> gates whether the connector is instantiated. <code>exposed_via</code> controls which protocols (<code>rest</code>, <code>grpc</code>, <code>mcp</code>) surface it. A connector that is installed but <code>enabled: false</code> will not run.</p>
 <p>See <code>config/connectors.yaml</code> for the full working example and <code>src/node_wire_runtime/connectors.yaml.sample</code> for a commented template with all supported fields.</p>
@@ -2698,21 +2716,23 @@ still set <code>NW_ALLOWED_CONNECTORS</code> and may set <code>NW_CONNECTOR_MODU
 are documented in <a href="../configuration/#secrets-management">configuration.md — Secrets Management</a>.</p>
 <hr />
 <h2 id="release-process-tag-first">Release process (tag-first)<a class="headerlink" href="#release-process-tag-first" title="Anchor link to this section">&para;</a></h2>
-<p>Releases are <strong>tag-driven</strong>. Create and push a tag first; package publishing is a
-separate manual step per package, bound to that tag. Tag shape selects the channel:</p>
+<p>Stable releases are <strong>tag-driven</strong>: create and push the tag first, then publish each
+package from it. Betas need no tag — publish derives the pre-release version itself.</p>
 <ul>
-<li><strong>Stable</strong> (<code>v1.2.0</code>) — Create Release Tag → GitHub Release → publish</li>
-<li><strong>Beta</strong> (<code>v1.2.0b1</code>) — Create Release Tag → publish (no GitHub Release)</li>
+<li><strong>Stable</strong> (<code>v1.2.0</code>) — Create Release Tag → GitHub Release → publish with <code>channel: release</code></li>
+<li><strong>Beta</strong> — publish with <code>channel: beta</code> from any branch or tag (no tag, no GitHub Release)</li>
 </ul>
-<p>Both channels use the same <code>.github/workflows/publish.yml</code>. PyPI treats PEP 440
-pre-releases as pre-releases: <code>pip install node-wire-runtime</code> stays on stable;
+<p>Both channels use the same <code>.github/workflows/publish.yml</code>; its <code>channel</code> input
+selects the behaviour, and the version always comes from the selected package's
+<code>pyproject.toml</code> rather than from a tag name. PyPI treats PEP 440 pre-releases as
+pre-releases: <code>pip install node-wire-runtime</code> stays on stable;
 <code>pip install --pre node-wire-runtime</code> or an exact pin (for example
 <code>node-wire-runtime==1.2.0b1</code>) installs a beta.</p>
 <p><strong>Create Release Tag</strong> (<code>.github/workflows/create-tag.yml</code>) accepts both
 <code>MAJOR.MINOR.PATCH</code> and PEP 440 pre-releases (<code>aN</code> / <code>bN</code> / <code>rcN</code>). It checks
 that the tag is free, package versions match, and <code>CHANGELOG.md</code> has the matching
-entry, then pushes <code>v…</code>. Use a stable version for the steps below; use a
-pre-release version for <a href="#beta-pypi-publish">Beta PyPI publish</a>.</p>
+entry, then pushes <code>v…</code>. Stable releases use it with the version from the steps
+below; <a href="#beta-pypi-publish">Beta PyPI publish</a> does not use it at all.</p>
 <h3 id="stable-release">Stable release<a class="headerlink" href="#stable-release" title="Anchor link to this section">&para;</a></h3>
 <h4 id="step-1-prepare-the-release">Step 1 — Prepare the release<a class="headerlink" href="#step-1-prepare-the-release" title="Anchor link to this section">&para;</a></h4>
 <ol>
@@ -2731,8 +2751,8 @@ pre-release version for <a href="#beta-pypi-publish">Beta PyPI publish</a>.</p>
 leading <code>v</code>). For stable releases, run this before dispatching "GitHub Release"
 below.</p>
 <p>Manual fallback, if you must create the tag by hand (bypasses the validation above):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
 </span></code></pre></div>
 <h4 id="step-3-create-the-github-release">Step 3 — Create the GitHub Release<a class="headerlink" href="#step-3-create-the-github-release" title="Anchor link to this section">&para;</a></h4>
 <p>Dispatch <strong>GitHub Release</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>).
@@ -2749,7 +2769,9 @@ after the tag has been pushed.</p>
 </ol>
 <h4 id="step-4-publish-packages-to-pypi">Step 4 — Publish packages to PyPI<a class="headerlink" href="#step-4-publish-packages-to-pypi" title="Anchor link to this section">&para;</a></h4>
 <p>After the GitHub Release exists, dispatch <code>.github/workflows/publish.yml</code> <strong>once per
-package</strong> (once per entry in the <code>allowed</code> set in that workflow).</p>
+package</strong> (once per entry in the <code>allowed</code> set in that workflow). There is no version
+input — the version is read from the selected package's <code>pyproject.toml</code>, so dispatch
+from the release tag via the <strong>Use workflow from</strong> dropdown.</p>
 <p><strong>Required inputs:</strong></p>
 <table>
 <thead>
@@ -2761,24 +2783,24 @@ package</strong> (once per entry in the <code>allowed</code> set in that workflo
 </thead>
 <tbody>
 <tr>
-<td><code>tag</code></td>
-<td><code>v1.0.0</code></td>
-<td>Must match an existing release tag</td>
+<td><code>channel</code></td>
+<td><code>release</code></td>
+<td><code>release</code> publishes the declared version as-is; <code>beta</code> derives the next pre-release</td>
 </tr>
 <tr>
-<td><code>package_path</code></td>
+<td><code>package</code></td>
 <td><code>packages/connectors/stripe</code></td>
-<td>Must match the workflow allowlist</td>
+<td>Dropdown backed by the workflow allowlist</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Prerequisites checked before build (stable):</strong></p>
+<p><strong>Prerequisites checked before build (<code>channel: release</code>):</strong></p>
 <ul>
-<li>Tag resolves to a valid stable <code>X.Y.Z</code> version.</li>
-<li><code>package_path</code> is allowlisted.</li>
-<li>Package <code>pyproject.toml</code> version matches the tag.</li>
+<li><code>package</code> is allowlisted.</li>
+<li>Package <code>pyproject.toml</code> declares a stable <code>X.Y.Z</code> version.</li>
+<li>That version is not already published on PyPI.</li>
 <li><code>CHANGELOG.md</code> contains the matching release section/link.</li>
-<li>A GitHub Release exists for the tag.</li>
+<li>A GitHub Release exists for <code>v&lt;version&gt;</code>.</li>
 </ul>
 <p><strong>Pipeline steps:</strong></p>
 <ol>
@@ -2802,20 +2824,25 @@ and GitHub tag/release handling).</p>
 <p>Beta builds ship to the <strong>same PyPI projects</strong> as PEP 440 pre-releases. They
 <strong>never</strong> create a GitHub Release (<code>github-release.yml</code> rejects pre-release
 versions).</p>
+<p>Leave <code>pyproject.toml</code> on the plain <code>X.Y.Z</code> version you are working towards —
+publish derives the pre-release suffix itself.</p>
 <ol>
-<li>Bump with <code>./scripts/bump-version.py 1.2.0b1</code> (also accepts <code>aN</code> / <code>rcN</code>).
-   The script scaffolds a dated <code>## [1.2.0b1]</code> section with a short <strong>Notes</strong>
-   stub and a footer tag link.</li>
-<li>Fill in the Notes, merge to <code>main</code>, confirm CI is green.</li>
-<li>Dispatch <strong>Create Release Tag</strong> with <code>version</code> set to <code>1.2.0b1</code> (no leading <code>v</code>).</li>
-<li>Dispatch <code>.github/workflows/publish.yml</code> once per allowlisted package with
-   <code>tag: v1.2.0b1</code>. Publish skips the GitHub Release check for pre-release tags
-   (same pipeline steps as stable otherwise).</li>
+<li>Confirm the packages declare the target stable version (e.g. <code>1.2.0</code>) and CI is green.</li>
+<li>Dispatch <code>.github/workflows/publish.yml</code> from that branch or tag, once per
+   allowlisted package, with <code>channel: beta</code>. The workflow reads what is already on
+   PyPI and publishes the next unused suffix — <code>1.2.0b1</code>, then <code>1.2.0b2</code>, and so on —
+   stamping it into the wheel at build time. No changelog entry, git tag, or GitHub
+   Release is required; pipeline steps are otherwise identical to stable.</li>
 </ol>
+<blockquote>
+<p><strong>Note:</strong> <code>./scripts/bump-version.py</code> still accepts <code>aN</code>/<code>bN</code>/<code>rcN</code>, but publish
+rejects a pre-release <code>project.version</code>. Keep the source tree on <code>X.Y.Z</code> and let
+<code>channel: beta</code> derive the suffix.</p>
+</blockquote>
 <p>Install a beta with:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>node-wire-runtime
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># or pin exactly:</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="o">==</span><span class="m">1</span>.2.0b1
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>node-wire-runtime
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="c1"># or pin exactly:</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="o">==</span><span class="m">1</span>.2.0b1
 </span></code></pre></div>
 <hr />
 <h2 id="ci-publish-flow-trusted-publisher">CI publish flow (Trusted Publisher)<a class="headerlink" href="#ci-publish-flow-trusted-publisher" title="Anchor link to this section">&para;</a></h2>
@@ -2830,13 +2857,13 @@ end-to-end flow (stable and beta). The package publish workflow is
 <a href="../mcp-servers/#platform-and-toolhive-read-this-first">mcp-servers.md</a> and
 <a href="../local-packages-to-images/">local-packages-to-images.md</a> for the wheel → image
 walkthrough.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/smtp/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smtp<span class="w"> </span>.
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/google-drive/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-google-drive<span class="w"> </span>.
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/fhir-epic/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smartonfhir-epic<span class="w"> </span>.
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/fhir-cerner/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smartonfhir-cerner<span class="w"> </span>.
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/stripe/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-stripe<span class="w"> </span>.
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/salesforce/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-salesforce<span class="w"> </span>.
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/slack/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-slack<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/smtp/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smtp<span class="w"> </span>.
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/google-drive/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-google-drive<span class="w"> </span>.
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/fhir-epic/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smartonfhir-epic<span class="w"> </span>.
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/fhir-cerner/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smartonfhir-cerner<span class="w"> </span>.
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/stripe/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-stripe<span class="w"> </span>.
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/salesforce/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-salesforce<span class="w"> </span>.
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/slack/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-slack<span class="w"> </span>.
 </span></code></pre></div>
 <p>For compose config see <code>docker-compose.mcp.yml</code>; for ToolHive registration of these pre-built images see <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
@@ -2849,7 +2876,7 @@ walkthrough.</p>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>auto_register()</code> loads expected connectors</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>pytest tests/test_connector_registry.py tests/test_connectors_basic.py</code> passes</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Wheel SHA256 checksums recorded and match expected values</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>package_path</code> and <code>tag</code> inputs match the allowlist and an existing release tag before dispatching the workflow</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> <code>package</code> and <code>channel</code> inputs are correct before dispatching, and for <code>channel: release</code> the tag and GitHub Release already exist</li>
 </ul>
 
 
