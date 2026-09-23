@@ -71,6 +71,20 @@ def test_run_wheel_build_nonzero_exit(tmp_path: Path) -> None:
             run_wheel_build(tmp_path, connector_id="pet_store")
 
 
+def test_run_wheel_build_uses_posix_relative_script(tmp_path: Path) -> None:
+    """Git Bash treats \\ in argv as escapes; never pass an absolute Windows path."""
+    script = tmp_path / "scripts" / "build-packages.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/bin/bash\n", encoding="utf-8")
+    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
+        run_wheel_build(tmp_path, connector_id="pet_store")
+    cmd = run.call_args.args[0]
+    assert cmd[0] == "bash"
+    assert cmd[1] == "scripts/build-packages.sh"
+    assert "\\" not in cmd[1]
+    assert run.call_args.kwargs["cwd"] == tmp_path
+
+
 def test_run_docker_build_missing_project(tmp_path: Path) -> None:
     with pytest.raises(StageError, match="MCP project directory not found"):
         run_docker_build(tmp_path, "pet_store")
