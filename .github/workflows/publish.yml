@@ -448,10 +448,10 @@ jobs:
       - name: Install built wheels for CVE scan
         run: pip install dist/*cp311*manylinux*.whl
 
-      - name: Vulnerability scan (CVE gate — blocks publish on HIGH or higher)
+      - name: Vulnerability scan (CVE gate — blocks publish on any known vuln)
         run: |
           pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
-          pip-audit --fail-on HIGH
+          pip-audit -s osv
 
       - name: Publish to PyPI (Trusted Publisher / OIDC + Sigstore attestations)
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
