@@ -88,3 +88,32 @@ def test_bandit_report_summary_writes_sarif_and_step_summary(tmp_path: Path) -> 
     summary = summary_path.read_text(encoding="utf-8")
     assert "### Bandit" in summary
     assert "Low: 1" in summary
+
+
+def test_bandit_fail_on_high_passes_when_clean() -> None:
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), str(FIXTURE), "--fail-on", "high"],
+        cwd=str(REPO_ROOT),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0
+    assert "PASS: no high-severity" in proc.stdout
+    assert "Bandit report summary" not in proc.stdout
+
+
+def test_bandit_fail_on_high_exits_when_present(tmp_path: Path) -> None:
+    report = tmp_path / "bandit.json"
+    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    data["metrics"]["_totals"]["SEVERITY.HIGH"] = 2
+    report.write_text(json.dumps(data), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), str(report), "--fail-on", "high"],
+        cwd=str(REPO_ROOT),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 1
+    assert "::error::2 high-severity Bandit finding(s)" in proc.stdout

@@ -115,6 +115,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", nargs="?", default="bandit-report.json")
     parser.add_argument("--sarif-out", type=Path)
+    parser.add_argument(
+        "--fail-on",
+        choices=("high",),
+        help="Exit 1 when findings at this severity are present. Skips the log summary.",
+    )
     args = parser.parse_args()
 
     path = Path(args.report)
@@ -136,6 +141,14 @@ def main() -> None:
     results = data.get("results", [])
     if not isinstance(results, list):
         results = []
+
+    if args.fail_on == "high":
+        if high:
+            print(f"::error::{high} high-severity Bandit finding(s)")
+            print(f"ERROR: {high} high-severity Bandit finding(s)", file=sys.stderr)
+            sys.exit(1)
+        print(f"PASS: no high-severity Bandit findings (medium {medium}, low {low})")
+        return
 
     print("=== Bandit report summary ===")
     print(f"Report: {path.resolve()}")
