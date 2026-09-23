@@ -294,8 +294,14 @@ def test_run_wheel_build_subprocess_args(fake_root: Path) -> None:
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         run_wheel_build(fake_root, connector_id="pet_store")
         cmd = run.call_args.args[0]
-        assert "--linux-only" in cmd
-        assert "packages/connectors/pet_store" in cmd
+        # Relative POSIX path so Git Bash on Windows does not eat backslashes.
+        assert cmd == [
+            "bash",
+            "scripts/build-packages.sh",
+            "--linux-only",
+            "packages/connectors/pet_store",
+        ]
+        assert "\\" not in cmd[1]
         assert run.call_args.kwargs["cwd"] == fake_root
 
 
