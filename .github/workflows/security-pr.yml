@@ -81,7 +81,7 @@ jobs:
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
-        run: pip-audit
+        run: pip-audit -s osv
 
   # Path-filtered on PRs/pushes; always on schedule / workflow_dispatch.
   # Not a branch-protection required check — defense in depth + release audit.
@@ -123,4 +123,4 @@ jobs:
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
-        run: pip-audit
+        run: pip-audit -s osv
