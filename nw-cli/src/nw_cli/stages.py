@@ -118,7 +118,9 @@ def run_wheel_build(
     else:
         targets = [f"packages/connectors/{connector_id}"]
 
-    cmd = ["bash", str(script), mode, *targets]
+    # Relative POSIX path: cwd is node_wire_root. An absolute Windows path
+    # (G:\...) is eaten by Git Bash as escape sequences (exit 127).
+    cmd = ["bash", "scripts/build-packages.sh", mode, *targets]
     code = run_logged_command(cmd, cwd=node_wire_root, log=log)
     if code != 0:
         raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
