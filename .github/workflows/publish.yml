@@ -7,36 +7,52 @@
 # yamllint disable rule:line-length
 name: Publish Node Wire package
 
-# Manual trigger per package. Tag shape selects the channel:
-#   v1.0.0     (stable) — requires an existing GitHub Release for the tag
-#   v1.2.0b1   (beta)   — PEP 440 pre-release; skips GitHub Release check
-# package_path must match the allowlist below (prevents confused-deputy path abuse).
+# Manual trigger per package. There is no version input — the version is read
+# from the selected package's pyproject.toml at the ref you dispatch from
+# (branch or tag, chosen in the "Use workflow from" dropdown).
 #
-# Examples:
-#   tag: v1.0.0
-#   tag: v1.2.0b1
-#   package_path: packages/runtime
-#   package_path: packages/connectors/fhir_epic
+#   channel: release — publishes that version as-is (e.g. 1.0.0).
+#                      Requires a dated CHANGELOG entry and an existing
+#                      GitHub Release tagged v<version>.
+#   channel: beta    — publishes a PEP 440 pre-release derived from it
+#                      (1.0.0 -> 1.0.0b1, then b2, b3 ...). The next beta
+#                      number is resolved from what already exists on PyPI.
+#                      No changelog entry or GitHub Release required.
+#
+# package is a dropdown backed by the allowlist below (the allowlist is still
+# enforced server-side to prevent confused-deputy path abuse).
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag to publish from (e.g. v1.0.0 or v1.2.0b1)"
+      channel:
+        description: "Release channel"
         required: true
-        type: string
-      package_path:
-        description: |
-          Relative path to the package directory (must be allowlisted).
-          Examples: packages/runtime | packages/connectors/fhir_epic
+        type: choice
+        default: beta
+        options:
+          - beta
+          - release
+      package:
+        description: "Package to publish"
         required: true
-        type: string
+        type: choice
+        options:
+          - packages/runtime
+          - packages/connectors/http_generic
+          - packages/connectors/stripe
+          - packages/connectors/smtp
+          - packages/connectors/google_drive
+          - packages/connectors/fhir_cerner
+          - packages/connectors/fhir_epic
+          - packages/connectors/salesforce
+          - packages/connectors/slack
 
 env:
   PIP_AUDIT_VERSION: "2.7.3"
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # Verify prerequisites before building wheels.
+  # Resolve the version from source and verify prerequisites before building.
   # ─────────────────────────────────────────────────────────────────────────────
   prerequisites:
     name: Verify prerequisites
@@ -45,64 +61,31 @@ jobs:
       contents: read
 
     outputs:
-      release_version: ${{ steps.resolve.outputs.release_version }}
-      release_tag: ${{ steps.resolve.outputs.release_tag }}
-      channel: ${{ steps.resolve.outputs.channel }}
+      base_version: ${{ steps.version.outputs.base_version }}
+      publish_version: ${{ steps.channel.outputs.publish_version }}
+      channel: ${{ inputs.channel }}
       package_path: ${{ steps.validate.outputs.package_path }}
       artifact_slug: ${{ steps.validate.outputs.artifact_slug }}
 
     steps:
+      # Every job pins to this exact commit so all wheels come from one source.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: refs/tags/${{ inputs.tag }}
-          fetch-depth: 0
-
-      - name: Resolve release version from tag
-        id: resolve
-        shell: python
-        env:
-          INPUT_TAG: ${{ inputs.tag }}
-        run: |
-          import os
-          import re
-          import sys
-
-          tag = os.environ["INPUT_TAG"].strip()
-          version = tag[1:] if tag.startswith("v") else tag
-
-          # Tag shape selects channel: stable X.Y.Z vs PEP 440 pre-release.
-          if re.fullmatch(r"\d+\.\d+\.\d+", version):
-              channel = "stable"
-          elif re.fullmatch(r"\d+\.\d+\.\d+(?:a|b|rc)\d+", version):
-              channel = "beta"
-          else:
-              print(
-                  f"ERROR: {version!r} is not MAJOR.MINOR.PATCH or a PEP 440 "
-                  "pre-release (aN/bN/rcN)",
-                  file=sys.stderr,
-              )
-              sys.exit(1)
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
-              out.write(f"release_version={version}\n")
-              out.write(f"release_tag={tag}\n")
-              out.write(f"channel={channel}\n")
-
-          print(f"Publishing from tag {tag} (version {version}, channel {channel})")
+          ref: ${{ github.sha }}
 
       - name: Validate package path (allowlist)
         id: validate
         shell: python
         env:
-          INPUT_PACKAGE_PATH: ${{ inputs.package_path }}
+          INPUT_PACKAGE: ${{ inputs.package }}
         run: |
           import os
           import sys
 
-          raw = os.environ["INPUT_PACKAGE_PATH"].strip().replace("\\", "/")
+          raw = os.environ["INPUT_PACKAGE"].strip().replace("\\", "/")
           norm = os.path.normpath(raw).replace("\\", "/")
           if norm.startswith("..") or os.path.isabs(raw):
-              print("ERROR: invalid package_path", file=sys.stderr)
+              print("ERROR: invalid package path", file=sys.stderr)
               sys.exit(1)
           allowed = {
               "packages/runtime",
@@ -116,7 +99,7 @@ jobs:
               "packages/connectors/slack",
           }
           if norm not in allowed:
-              print(f"ERROR: package_path {norm!r} is not allowlisted.", file=sys.stderr)
+              print(f"ERROR: package {norm!r} is not allowlisted.", file=sys.stderr)
               print("Allowed:", sorted(allowed), file=sys.stderr)
               sys.exit(1)
 
@@ -126,30 +109,115 @@ jobs:
               out.write(f"package_path={norm}\n")
               out.write(f"artifact_slug={artifact_slug}\n")
 
-          print(f"PASS: package_path {norm!r} is allowlisted")
+          print(f"PASS: package {norm!r} is allowlisted")
 
-      - name: Verify package version and changelog
+      - name: Read version and distribution name from pyproject.toml
+        id: version
         shell: python
+        env:
+          PACKAGE_PATH: ${{ steps.validate.outputs.package_path }}
         run: |
+          import os
           import pathlib
           import re
           import sys
           import tomllib
 
-          version = "${{ steps.resolve.outputs.release_version }}"
-          package_path = pathlib.Path("${{ steps.validate.outputs.package_path }}")
+          package_path = pathlib.Path(os.environ["PACKAGE_PATH"])
+          project = tomllib.loads(
+              (package_path / "pyproject.toml").read_text(encoding="utf-8")
+          ).get("project", {})
 
-          data = tomllib.loads((package_path / "pyproject.toml").read_text(encoding="utf-8"))
-          actual = data.get("project", {}).get("version")
-          if actual != version:
+          dist_name = project.get("name")
+          base_version = project.get("version")
+          if not dist_name or not base_version:
               print(
-                  f"ERROR: {package_path}/pyproject.toml version {actual!r} "
-                  f"does not match tag version {version!r}",
+                  f"ERROR: {package_path}/pyproject.toml is missing project.name "
+                  "or project.version",
                   file=sys.stderr,
               )
               sys.exit(1)
 
+          # The source of truth must be a plain release version; the beta
+          # channel appends the pre-release suffix itself.
+          if not re.fullmatch(r"\d+\.\d+\.\d+", base_version):
+              print(
+                  f"ERROR: project.version {base_version!r} is not MAJOR.MINOR.PATCH",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"dist_name={dist_name}\n")
+              out.write(f"base_version={base_version}\n")
+
+          print(f"{dist_name} declares version {base_version}")
+
+      # release -> publish the declared version as-is, and refuse if PyPI
+      # already has it. beta -> next unused <base>bN on PyPI.
+      - name: Resolve version for channel
+        id: channel
+        shell: python
+        env:
+          INPUT_CHANNEL: ${{ inputs.channel }}
+          DIST_NAME: ${{ steps.version.outputs.dist_name }}
+          BASE_VERSION: ${{ steps.version.outputs.base_version }}
+        run: |
+          import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.request
+
+          channel = os.environ["INPUT_CHANNEL"]
+          dist_name = os.environ["DIST_NAME"]
+          base = os.environ["BASE_VERSION"]
+
+          published: set[str] = set()
+          url = f"https://pypi.org/pypi/{dist_name}/json"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as resp:
+                  published = set(json.load(resp).get("releases", {}))
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+              print(f"{dist_name} has no PyPI releases yet")
+
+          if channel == "release":
+              if base in published:
+                  print(
+                      f"ERROR: {dist_name} {base} is already on PyPI. Bump "
+                      f"project.version before publishing a release.",
+                      file=sys.stderr,
+                  )
+                  sys.exit(1)
+              publish_version = base
+          else:
+              beta = re.compile(rf"^{re.escape(base)}b(\d+)$")
+              used = [int(m.group(1)) for v in published if (m := beta.match(v))]
+              publish_version = f"{base}b{max(used, default=0) + 1}"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"publish_version={publish_version}\n")
+
+          print(f"Publishing {dist_name} {publish_version} to the {channel} channel")
+
+      # Stable only: betas are cut before the changelog section is finalised.
+      - name: Verify changelog
+        if: inputs.channel == 'release'
+        shell: python
+        env:
+          VERSION: ${{ steps.version.outputs.base_version }}
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+
+          version = os.environ["VERSION"]
           changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+
           heading = re.compile(
               rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\s*$",
               re.MULTILINE,
@@ -163,15 +231,15 @@ jobs:
               print(f"ERROR: CHANGELOG.md is missing the [{version}] release link", file=sys.stderr)
               sys.exit(1)
 
-          print(f"PASS: package version and changelog match {version}")
+          print(f"PASS: changelog documents {version}")
 
-      # Stable only: beta tags never create a GitHub Release.
+      # Stable only: beta versions never get a GitHub Release.
       - name: Verify GitHub Release exists
-        if: steps.resolve.outputs.channel == 'stable'
+        if: inputs.channel == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "${{ steps.resolve.outputs.release_tag }}" \
+          gh release view "v${{ steps.version.outputs.base_version }}" \
             --json tagName \
             --jq '.tagName'
 
@@ -195,12 +263,44 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
+          ref: ${{ github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
+
+      # No-op on the release channel; stamps the pre-release version on beta.
+      - name: Stamp publish version into pyproject.toml
+        shell: python
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
+          PUBLISH_VERSION: ${{ needs.prerequisites.outputs.publish_version }}
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          version = os.environ["PUBLISH_VERSION"]
+          pyproject = pathlib.Path(os.environ["PACKAGE_PATH"]) / "pyproject.toml"
+
+          text = pyproject.read_text(encoding="utf-8")
+          patched, count = re.subn(
+              r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1
+          )
+          if count != 1:
+              print(f"ERROR: no version line to patch in {pyproject}", file=sys.stderr)
+              sys.exit(1)
+          pyproject.write_text(patched, encoding="utf-8")
+
+          actual = tomllib.loads(patched)["project"]["version"]
+          if actual != version:
+              print(f"ERROR: patched version is {actual!r}, expected {version!r}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"PASS: building {pyproject.parent} at version {version}")
 
       - name: Install build tools
         run: python -m pip install --upgrade pip "cython>=3.0" "cibuildwheel>=2.16.0"
@@ -262,7 +362,7 @@ jobs:
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: wheels-${{ matrix.os }}-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          name: wheels-${{ matrix.os }}-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
           if-no-files-found: error
 
@@ -283,7 +383,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: refs/tags/${{ needs.prerequisites.outputs.release_tag }}
+          ref: ${{ github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -293,7 +393,7 @@ jobs:
       - name: Download all wheel artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          pattern: wheels-*-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          pattern: wheels-*-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist-all
           merge-multiple: true
 
@@ -308,16 +408,16 @@ jobs:
       - name: Upload wheel checksums
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: wheel-checksums-${{ needs.prerequisites.outputs.release_tag }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          name: wheel-checksums-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist/sha256sums.txt
           if-no-files-found: error
 
-      - name: Validate wheel version matches tag
+      - name: Validate wheel version matches resolved version
         shell: python
         run: |
           import glob, sys
 
-          expected = "${{ needs.prerequisites.outputs.release_version }}"
+          expected = "${{ needs.prerequisites.outputs.publish_version }}"
           wheels = glob.glob("dist/*.whl")
           if not wheels:
               print("ERROR: No wheels found for publish", file=sys.stderr)

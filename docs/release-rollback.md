@@ -90,13 +90,14 @@ at the bad version).
 1. Fix the defect on `main` (or a release branch) with tests.
 2. Bump the version:
    - **Stable:** bump **PATCH** per [SemVer](versioning.md) (e.g. `1.0.0` → `1.0.1`).
-   - **Beta:** bump the pre-release segment (e.g. `1.2.0b1` → `1.2.0b2`) with
-     `./scripts/bump-version.py` — do not reuse a yanked PEP 440 version.
+   - **Beta:** no source bump needed — re-dispatching `channel: beta` publishes the
+     next unused `bN`, and PyPI never allows reuse of a yanked version.
 3. Update [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) with the fix and yank notice.
 4. Run the local pre-publish checklist in [packaging.md](packaging.md#pre-pypi-local-validation-checklist).
 5. Follow the stable or beta operator flow in [packaging.md](packaging.md#release-process-tag-first),
-   then dispatch `.github/workflows/publish.yml` for each affected `package_path`
-   with the corrective `tag` (e.g. `v1.0.1` or `v1.2.0b2`).
+   then dispatch `.github/workflows/publish.yml` for each affected package —
+   from the corrective tag (e.g. `v1.0.1`) with `channel: release`, or from the
+   fix branch with `channel: beta` to cut the next `bN`.
 
 ## Step 4 — GitHub release and tags
 
