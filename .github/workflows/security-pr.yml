@@ -83,7 +83,17 @@ jobs:
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
-        run: pip-audit -s osv
+        shell: bash
+        run: |
+          set +e
+          pip-audit -s osv --format json --output pip-audit.json --progress-spinner off
+          audit_status=$?
+          python scripts/ci_step_summary.py pip-audit pip-audit.json --title "packages/runtime"
+          summary_status=$?
+          if [[ "${audit_status}" -ne 0 ]]; then
+            exit "${audit_status}"
+          fi
+          exit "${summary_status}"
 
   # Path-filtered on PRs/pushes; always on schedule / workflow_dispatch.
   # Not a branch-protection required check — defense in depth + release audit.
@@ -126,4 +136,16 @@ jobs:
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
-        run: pip-audit -s osv
+        shell: bash
+        env:
+          AUDIT_TITLE: ${{ matrix.package_path }}
+        run: |
+          set +e
+          pip-audit -s osv --format json --output pip-audit.json --progress-spinner off
+          audit_status=$?
+          python scripts/ci_step_summary.py pip-audit pip-audit.json --title "${AUDIT_TITLE}"
+          summary_status=$?
+          if [[ "${audit_status}" -ne 0 ]]; then
+            exit "${audit_status}"
+          fi
+          exit "${summary_status}"

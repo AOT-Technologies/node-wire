@@ -132,3 +132,7 @@ jobs:
           git tag -a "${TAG}" -m "${MSG}"
           git push origin "${TAG}"
           echo "Tagged $(git rev-parse HEAD) as ${TAG} (${MSG})"
+          {
+            echo "### Release tag"
+            echo "Tagged $(git rev-parse HEAD) as ${TAG} (${MSG})."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -183,13 +183,20 @@ jobs:
           e2e="${{ needs.pet-store-mcp-e2e.result }}"
           echo "changes result: ${changes}"
           echo "pet-store-mcp-e2e result: ${e2e}"
+          {
+            echo "### MCP builder e2e"
+            echo "- changes: ${changes}"
+            echo "- pet-store-mcp-e2e: ${e2e}"
+          } >> "$GITHUB_STEP_SUMMARY"
           if [[ "${changes}" != "success" ]]; then
+            echo "::error::Path-filter job failed (${changes})"
             echo "Path-filter job failed (${changes})" >&2
             exit 1
           fi
           case "${e2e}" in
             success|skipped) exit 0 ;;
             *)
+              echo "::error::MCP builder e2e failed or was cancelled (${e2e})"
               echo "MCP builder e2e failed or was cancelled (${e2e})" >&2
               exit 1
               ;;

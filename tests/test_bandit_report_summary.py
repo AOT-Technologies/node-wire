@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -62,3 +63,28 @@ def test_bandit_fixture_is_valid_json() -> None:
     assert "metrics" in data
     assert "_totals" in data["metrics"]
     assert isinstance(data.get("results"), list)
+
+
+def test_bandit_report_summary_writes_sarif_and_step_summary(tmp_path: Path) -> None:
+    sarif_path = tmp_path / "bandit.sarif"
+    summary_path = tmp_path / "summary.md"
+    env = os.environ.copy()
+    env["GITHUB_STEP_SUMMARY"] = str(summary_path)
+
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), str(FIXTURE), "--sarif-out", str(sarif_path)],
+        cwd=str(REPO_ROOT),
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert proc.returncode == 0
+    sarif = json.loads(sarif_path.read_text(encoding="utf-8"))
+    result = sarif["runs"][0]["results"][0]
+    assert result["ruleId"] == "B999"
+    assert result["level"] == "note"
+    assert result["locations"][0]["physicalLocation"]["region"]["startLine"] == 1
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "### Bandit" in summary
+    assert "Low: 1" in summary

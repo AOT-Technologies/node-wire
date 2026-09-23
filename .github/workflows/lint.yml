@@ -36,7 +36,13 @@ jobs:
             uv.lock
 
       - name: Verify uv.lock matches pyproject.toml
+        id: lock
         run: uv lock --check
+
+      - name: Report lockfile check
+        if: always()
+        run: |
+          echo "### Lockfile: ${{ steps.lock.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
   ruff:
     name: Ruff Linters
@@ -62,11 +68,22 @@ jobs:
         run: uv sync --frozen --extra agents --dev
 
       - name: Run Ruff (Linting)
+        id: ruff
         # --output-format=github automatically creates inline annotations on your PR code!
         run: uv run ruff check --output-format=github .
 
       - name: Run Ruff (Formatting Check)
+        id: ruff-format
         run: uv run ruff format --check .
+
+      - name: Report Ruff
+        if: always()
+        run: |
+          {
+            echo "### Ruff"
+            echo "- Lint: ${{ steps.ruff.outcome }}"
+            echo "- Format: ${{ steps.ruff-format.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   reuse:
     name: REUSE compliance
@@ -92,7 +109,13 @@ jobs:
         run: uv sync --frozen --extra agents --dev
 
       - name: Run REUSE lint
+        id: reuse
         run: uv run reuse lint
+
+      - name: Report REUSE
+        if: always()
+        run: |
+          echo "### REUSE lint: ${{ steps.reuse.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
   mypy:
     name: Mypy Type Check
@@ -118,4 +141,16 @@ jobs:
         run: uv sync --frozen --extra agents --dev
 
       - name: Run Mypy (Type checking)
-        run: uv run mypy
+        shell: bash
+        run: |
+          echo "::add-matcher::.github/matchers/mypy.json"
+          set +e
+          uv run mypy --show-column-numbers --show-error-codes 2>&1 | tee mypy.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          uv run python scripts/ci_step_summary.py mypy mypy.txt
+          summary_status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
+          exit "${summary_status}"

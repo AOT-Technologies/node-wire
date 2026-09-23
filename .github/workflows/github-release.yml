@@ -194,3 +194,14 @@ jobs:
             --notes-file release-notes.md \
             sbom.json \
             release-manifest.txt
+
+      - name: Report GitHub release
+        run: |
+          {
+            echo "### GitHub Release"
+            echo "- Tag: ${RELEASE_TAG}"
+            echo "- Version: ${RELEASE_VERSION}"
+            echo "- Checked-out commit: $(git rev-parse HEAD)"
+            echo "- State: draft"
+            echo "- Artifacts: sbom.json, release-manifest.txt, release-notes.md"
+          } >> "$GITHUB_STEP_SUMMARY"

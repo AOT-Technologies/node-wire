@@ -59,7 +59,20 @@ jobs:
           find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete || true
 
       - name: Run pytest
-        run: uv run pytest --cov --cov-report=html --cov-report=term-missing
+        shell: bash
+        env:
+          REPORT_TITLE: Pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
+        run: |
+          set +e
+          uv run pytest --cov --cov-report=html --cov-report=term-missing --junitxml=pytest-junit.xml
+          status=$?
+          set -e
+          uv run python scripts/ci_step_summary.py pytest pytest-junit.xml coverage.xml --title "${REPORT_TITLE}"
+          summary_status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
+          exit "${summary_status}"
 
       # One leg only, short retention: six legs x 90 days was ~750 MB of the
       # account's 500 MB artifact allowance, and the reports are identical.
@@ -70,7 +83,7 @@ jobs:
           name: coverage-html-${{ matrix.os }}-py${{ matrix.python-version }}
           path: htmlcov/
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: error
 
 
   patch-coverage:
@@ -108,14 +121,39 @@ jobs:
           find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete || true
 
       - name: Run pytest with coverage
-        run: uv run pytest --cov --cov-report=xml
+        shell: bash
+        run: |
+          set +e
+          uv run pytest --cov --cov-report=xml --junitxml=pytest-junit.xml
+          status=$?
+          set -e
+          uv run python scripts/ci_step_summary.py pytest pytest-junit.xml coverage.xml --title "Patch coverage pytest"
+          summary_status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
+          exit "${summary_status}"
 
       - name: Enforce 80% coverage on changed lines
-        run: >
-          uv run diff-cover coverage.xml
-          --compare-branch origin/${{ github.base_ref }}
-          --fail-under 80
-          --show-uncovered
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set +e
+          uv run diff-cover coverage.xml \
+            --compare-branch "origin/${BASE_REF}" \
+            --fail-under 80 \
+            --show-uncovered | tee diff-cover.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Diff coverage"
+            echo ""
+            echo '```'
+            head -n 200 diff-cover.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "${status}"
 
   playground-integration:
     name: Playground integration tests
@@ -191,7 +229,18 @@ jobs:
           NW_REST_AUTH_DISABLED: "true"
           NW_REST_LOAD_DOTENV: "false"
           NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe,slack,fhir_epic,fhir_cerner,http_generic"
-        run: uv run pytest tests/playground/ --no-cov -v
+        shell: bash
+        run: |
+          set +e
+          uv run pytest tests/playground/ --no-cov -v --junitxml=pytest-junit.xml
+          status=$?
+          set -e
+          uv run python scripts/ci_step_summary.py pytest pytest-junit.xml --title "Playground integration"
+          summary_status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
+          exit "${summary_status}"
 
       - name: Upload Playwright traces on failure
         if: failure()
