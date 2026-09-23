@@ -26,8 +26,7 @@ if "AS deps" not in body or "COPY --from=deps /usr/local /usr/local" not in body
     sys.exit(1)
 if re.search(r"vendor/node_wire_src|/nw_src", body):
     print(
-        f"ERROR: {sys.argv[1]} Dockerfile template must be wheels-only "
-        "(no vendor/ or /nw_src)",
+        f"ERROR: {sys.argv[1]} Dockerfile template must be wheels-only (no vendor/ or /nw_src)",
         file=sys.stderr,
     )
     sys.exit(1)
