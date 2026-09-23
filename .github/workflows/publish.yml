@@ -312,6 +312,13 @@ jobs:
         env:
           CIBW_BUILD: "cp311-* cp312-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
+          # Each package's pyproject.toml points `where` at the monorepo's shared
+          # src/ tree via a relative path (../../src or ../../../src, depending on
+          # nesting depth) — both collapse to /src once resolved from /project,
+          # the manylinux/musllinux container's fixed cwd. But that container only
+          # receives a copy of the package directory itself, not the rest of the
+          # repo, so bind-mount the real src/ tree straight into /src.
+          CIBW_CONTAINER_ENGINE: "docker; create_args: --volume=${{ github.workspace }}/src:/src"
 
       - name: Verify binary-only wheel (no .py source)
         shell: python
