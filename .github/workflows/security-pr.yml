@@ -29,6 +29,7 @@ jobs:
   changes:
     name: Detect connector package path changes
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       connectors: ${{ steps.result.outputs.connectors }}
     steps:
@@ -63,6 +64,7 @@ jobs:
   vulnerability-scan-runtime:
     name: Vulnerability scan (packages/runtime)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -90,6 +92,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.connectors == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     strategy:

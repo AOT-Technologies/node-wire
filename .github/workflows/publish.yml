@@ -57,6 +57,7 @@ jobs:
   prerequisites:
     name: Verify prerequisites
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
 
@@ -294,6 +295,7 @@ jobs:
             python: cp312
             cibw_skip: "*-win32 *-manylinux_i686 pp*"
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     permissions:
       contents: read
 
@@ -418,6 +420,7 @@ jobs:
         with:
           name: wheels-${{ matrix.platform }}-${{ matrix.python }}-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
+          retention-days: 1
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -430,6 +433,7 @@ jobs:
     name: Publish to PyPI
     needs: [prerequisites, build-wheels]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       id-token: write
       contents: read
@@ -464,6 +468,7 @@ jobs:
         with:
           name: wheel-checksums-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist/sha256sums.txt
+          retention-days: 30
           if-no-files-found: error
 
       - name: Validate wheel version matches resolved version

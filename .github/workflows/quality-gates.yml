@@ -24,6 +24,7 @@ jobs:
   bandit:
     name: Bandit security scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Python
@@ -56,6 +57,7 @@ jobs:
         with:
           name: bandit-report
           path: bandit-report.json
+          retention-days: 7
           if-no-files-found: error
       - name: Enforce high-severity Bandit gate
         run: >
