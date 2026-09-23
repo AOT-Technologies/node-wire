@@ -26,11 +26,11 @@
 #   python3 or python on PATH; pip install build cython wheel
 #
 # Prerequisites (--all mode):
-#   python -m pip install 'cibuildwheel>=2.16.0'
+#   python -m pip install 'cibuildwheel==4.2.1'
 #
 # Security guarantee:
-#   Each wheel is verified to contain zero .py source files before printing "PASS".
-#   Any leaked .py files trigger an exit 1.
+#   Each wheel is verified to contain zero .py source files and at least one
+#   .so/.pyd extension before printing "PASS". A leak or an empty wheel exits 1.
 
 set -euo pipefail
 
@@ -125,31 +125,39 @@ if [[ ${#PACKAGES[@]} -eq 0 ]]; then
   PACKAGES=("${ALL_PACKAGES[@]}")
 fi
 
-# Verify wheels contain no .py files (binary-only wheels). First arg: python binary.
-verify_wheels_no_py() {
+# Verify wheels are binary-only: no .py sources, at least one compiled
+# extension. First arg: python binary.
+verify_binary_only_wheels() {
   local py="$1"
   shift
   local -a wheels=("$@")
   local whl
-  local py_leak
+  local check_out
   local pkg_failed=0
 
   for whl in "${wheels[@]}"; do
-    py_leak=$("$py" - "$whl" <<'PYCHECK'
+    check_out=$("$py" - "$whl" 2>&1 <<'PYCHECK'
 import sys
 import zipfile
 
 wheel_path = sys.argv[1]
 with zipfile.ZipFile(wheel_path) as zf:
-    leaked = [name for name in zf.namelist() if name.endswith(".py")]
+    names = zf.namelist()
 
+leaked = [name for name in names if name.endswith(".py")]
 if leaked:
+    print("leaked .py files:")
     print("\n".join(leaked))
     sys.exit(1)
+
+compiled = [name for name in names if name.endswith((".so", ".pyd"))]
+if not compiled:
+    print("no .so or .pyd extensions in the wheel")
+    sys.exit(1)
 PYCHECK
-    2>&1) || {
-      echo "SECURITY FAIL: .py files leaked into $whl:" >&2
-      echo "$py_leak" >&2
+    ) || {
+      echo "SECURITY FAIL: $whl is not a binary-only wheel:" >&2
+      echo "$check_out" >&2
       pkg_failed=1
       break
     }
@@ -177,7 +185,7 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
 
   if ! "$PYTHON" -c "import cibuildwheel" >/dev/null 2>&1; then
     echo "ERROR: cibuildwheel is not installed in the current Python environment." >&2
-    echo "Install with: $PYTHON -m pip install --upgrade 'cibuildwheel>=2.16.0'" >&2
+    echo "Install with: $PYTHON -m pip install 'cibuildwheel==4.2.1'" >&2
     exit 1
   fi
 
@@ -219,12 +227,12 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
       continue
     fi
 
-    if ! verify_wheels_no_py "$PYTHON" "${WHEELS[@]}"; then
-      FAILED+=("$PKG (.py leak)")
+    if ! verify_binary_only_wheels "$PYTHON" "${WHEELS[@]}"; then
+      FAILED+=("$PKG (not binary-only)")
       continue
     fi
 
-    echo "PASS: ${#WHEELS[@]} wheel(s) for $PKG — no .py source files"
+    echo "PASS: ${#WHEELS[@]} wheel(s) for $PKG — compiled extensions, no .py source"
   done
 
   echo ""
@@ -355,12 +363,12 @@ for PKG in "${PACKAGES[@]}"; do
     continue
   fi
 
-  if ! verify_wheels_no_py "$PYTHON_HOST" "${WHEELS[@]}"; then
-    FAILED+=("$PKG (.py leak)")
+  if ! verify_binary_only_wheels "$PYTHON_HOST" "${WHEELS[@]}"; then
+    FAILED+=("$PKG (not binary-only)")
     continue
   fi
 
-  echo "PASS: ${#WHEELS[@]} wheel(s) for $PKG — no .py source files"
+  echo "PASS: ${#WHEELS[@]} wheel(s) for $PKG — compiled extensions, no .py source"
 done
 
 echo ""
