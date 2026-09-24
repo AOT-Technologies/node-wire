@@ -15,7 +15,7 @@ from node_wire_runtime import __version__, _resolve_version
 def test_resolve_version_from_installed_distribution() -> None:
     with patch("importlib.metadata.version", side_effect=["9.9.9"]) as pkg_version:
         assert _resolve_version() == "9.9.9"
-    pkg_version.assert_called_once_with("node-wire-runtime")
+    pkg_version.assert_called_once_with("aot-node-wire")
 
 
 def test_resolve_version_falls_back_to_pyproject() -> None:

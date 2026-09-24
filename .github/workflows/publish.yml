@@ -557,6 +557,7 @@ jobs:
         with:
           packages-dir: dist/
           attestations: true
+          verbose: true
 
       - name: Report PyPI publish
         run: |
