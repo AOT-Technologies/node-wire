@@ -83,31 +83,30 @@ jobs:
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
-        run: pip-audit -s osv
+        shell: bash
+        run: |
+          set +e
+          pip-audit -s osv --format json --output pip-audit.json --progress-spinner off
+          audit_status=$?
+          python scripts/ci_step_summary.py pip-audit pip-audit.json --title "packages/runtime"
+          summary_status=$?
+          if [[ "${audit_status}" -ne 0 ]]; then
+            exit "${audit_status}"
+          fi
+          exit "${summary_status}"
 
   # Path-filtered on PRs/pushes; always on schedule / workflow_dispatch.
+  # One environment: pip-audit reports the vulnerable distribution, so eight
+  # installs of the same runtime were duplicate scans.
   # Not a branch-protection required check — defense in depth + release audit.
   vulnerability-scan-connectors:
-    name: Vulnerability scan (${{ matrix.package_path }})
+    name: Vulnerability scan (connectors)
     needs: changes
     if: needs.changes.outputs.connectors == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        package_path:
-          - packages/connectors/http_generic
-          - packages/connectors/stripe
-          - packages/connectors/smtp
-          - packages/connectors/google_drive
-          - packages/connectors/fhir_cerner
-          - packages/connectors/fhir_epic
-          - packages/connectors/salesforce
-          - packages/connectors/slack
-
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -118,12 +117,31 @@ jobs:
 
       # Connector packages declare node-wire-runtime>=1.0.0 as a PyPI-style dep; install
       # packages/runtime from the repo so pip resolves it without requiring a published wheel.
-      - name: Install package and audit tool
+      - name: Install packages and audit tool
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade "setuptools>=83.0.0"
-          python -m pip install "packages/runtime" "${{ matrix.package_path }}"
+          python -m pip install \
+            "packages/runtime" \
+            "packages/connectors/http_generic" \
+            "packages/connectors/stripe" \
+            "packages/connectors/smtp" \
+            "packages/connectors/google_drive" \
+            "packages/connectors/fhir_cerner" \
+            "packages/connectors/fhir_epic" \
+            "packages/connectors/salesforce" \
+            "packages/connectors/slack"
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
-        run: pip-audit -s osv
+        shell: bash
+        run: |
+          set +e
+          pip-audit -s osv --format json --output pip-audit.json --progress-spinner off
+          audit_status=$?
+          python scripts/ci_step_summary.py pip-audit pip-audit.json --title "connectors"
+          summary_status=$?
+          if [[ "${audit_status}" -ne 0 ]]; then
+            exit "${audit_status}"
+          fi
+          exit "${summary_status}"

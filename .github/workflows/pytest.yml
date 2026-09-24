@@ -15,35 +15,74 @@ on:
 
 permissions:
   contents: read
+  # paths-filter reads the pull request file list.
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Push and manual runs use every OS. Pull requests stay on Ubuntu unless
+  # they touch the Cython inputs (src/ or a package setup.py); main still
+  # runs the full matrix after merge.
+  changes:
+    name: Select pytest runners
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      os: ${{ steps.matrix.outputs.os }}
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Detect extension source changes
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: |
+            extensions:
+              - "src/**"
+              - "packages/**/setup.py"
+              - ".github/workflows/pytest.yml"
+
+      - name: Choose OS matrix
+        id: matrix
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EXTENSIONS: ${{ steps.filter.outputs.extensions }}
+        run: |
+          if [[ "${EVENT_NAME}" != "pull_request" || "${EXTENSIONS}" == "true" ]]; then
+            echo 'os=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
+            echo "Full OS matrix"
+          else
+            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo "Ubuntu only (pull request does not touch extension sources)"
+          fi
+
   test:
     name: Run pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: changes
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.changes.outputs.os) }}
         python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - name: Install uv
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
@@ -56,10 +95,23 @@ jobs:
       - name: Remove Cython extension modules from src/
         shell: bash
         run: |
-          find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete || true
+          find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete
 
       - name: Run pytest
-        run: uv run pytest --cov --cov-report=html --cov-report=term-missing
+        shell: bash
+        env:
+          REPORT_TITLE: Pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
+        run: |
+          set +e
+          uv run pytest --cov --cov-report=html --cov-report=term-missing --junitxml=pytest-junit.xml
+          status=$?
+          set -e
+          uv run python scripts/ci_step_summary.py pytest pytest-junit.xml coverage.xml --title "${REPORT_TITLE}"
+          summary_status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
+          exit "${summary_status}"
 
       # One leg only, short retention: six legs x 90 days was ~750 MB of the
       # account's 500 MB artifact allowance, and the reports are identical.
@@ -70,14 +122,34 @@ jobs:
           name: coverage-html-${{ matrix.os }}-py${{ matrix.python-version }}
           path: htmlcov/
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: error
+
+      - name: Upload coverage.xml for diff-cover
+        if: >-
+          always() &&
+          github.event_name == 'pull_request' &&
+          matrix.os == 'ubuntu-latest' &&
+          matrix.python-version == '3.12' &&
+          hashFiles('coverage.xml') != ''
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 1
+          if-no-files-found: error
 
 
   patch-coverage:
     name: Patch coverage (changed lines ≥ 80%)
+    needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event_name == 'pull_request'
+    timeout-minutes: 15
+    # Run when Ubuntu 3.12 finished, including when a macOS or Windows leg failed.
+    if: >-
+      github.event_name == 'pull_request' &&
+      always() &&
+      needs.test.result != 'cancelled' &&
+      needs.test.result != 'skipped'
 
     steps:
       - name: Checkout repository
@@ -86,14 +158,16 @@ jobs:
           # Full history so diff-cover can diff against the base branch.
           fetch-depth: 0
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+      - name: Download coverage.xml from Ubuntu 3.12
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          python-version: "3.11"
+          name: coverage-xml
+          path: .
 
       - name: Install uv
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
+          python-version: "3.12"
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
@@ -102,20 +176,26 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --extra agents --dev
 
-      - name: Remove Cython extension modules from src/
-        shell: bash
-        run: |
-          find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete || true
-
-      - name: Run pytest with coverage
-        run: uv run pytest --cov --cov-report=xml
-
       - name: Enforce 80% coverage on changed lines
-        run: >
-          uv run diff-cover coverage.xml
-          --compare-branch origin/${{ github.base_ref }}
-          --fail-under 80
-          --show-uncovered
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set +e
+          uv run diff-cover coverage.xml \
+            --compare-branch "origin/${BASE_REF}" \
+            --fail-under 80 \
+            --show-uncovered | tee diff-cover.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Diff coverage"
+            echo ""
+            echo '```'
+            head -n 200 diff-cover.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "${status}"
 
   playground-integration:
     name: Playground integration tests
@@ -127,14 +207,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: "3.11"
-
       - name: Install uv
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
+          python-version: "3.11"
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
@@ -191,7 +267,18 @@ jobs:
           NW_REST_AUTH_DISABLED: "true"
           NW_REST_LOAD_DOTENV: "false"
           NW_ALLOWED_CONNECTORS: "google_drive,salesforce,stripe,slack,fhir_epic,fhir_cerner,http_generic"
-        run: uv run pytest tests/playground/ --no-cov -v
+        shell: bash
+        run: |
+          set +e
+          uv run pytest tests/playground/ --no-cov -v --junitxml=pytest-junit.xml
+          status=$?
+          set -e
+          uv run python scripts/ci_step_summary.py pytest pytest-junit.xml --title "Playground integration"
+          summary_status=$?
+          if [[ "${status}" -ne 0 ]]; then
+            exit "${status}"
+          fi
+          exit "${summary_status}"
 
       - name: Upload Playwright traces on failure
         if: failure()

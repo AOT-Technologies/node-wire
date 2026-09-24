@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+
+# Shell scripts must keep LF endings on checkout, even on Windows runners
+# (default core.autocrlf=true there would otherwise inject \r before
+# keywords like "then"/"fi", breaking bash parsing).
+*.sh text eol=lf

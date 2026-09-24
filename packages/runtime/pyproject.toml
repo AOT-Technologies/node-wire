@@ -8,8 +8,20 @@ version = "1.0.0"
 description = "Node Wire runtime — connector framework, resilience, observability, and pluggable secrets"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 readme = "README.md"
+keywords = ["connectors", "mcp", "rest", "grpc", "integration", "runtime"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Topic :: System :: Networking",
+]
 
 dependencies = [
     "pydantic>=2.6.0,<3.0.0",
@@ -31,6 +43,13 @@ aws   = ["boto3>=1.34.0"]
 vault = ["hvac>=2.1.0"]
 azure = ["azure-keyvault-secrets>=4.8.0", "azure-identity>=1.16.0"]
 gcp   = ["google-cloud-secret-manager>=2.20.0"]
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Documentation = "https://aot-technologies.github.io/node-wire/"
+Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]

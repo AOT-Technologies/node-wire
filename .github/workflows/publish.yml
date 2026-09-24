@@ -163,6 +163,7 @@ jobs:
           INPUT_CHANNEL: ${{ inputs.channel }}
           DIST_NAME: ${{ steps.version.outputs.dist_name }}
           BASE_VERSION: ${{ steps.version.outputs.base_version }}
+          PACKAGE_PATH: ${{ steps.validate.outputs.package_path }}
         run: |
           import json
           import os
@@ -203,6 +204,25 @@ jobs:
               out.write(f"publish_version={publish_version}\n")
 
           print(f"Publishing {dist_name} {publish_version} to the {channel} channel")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              package_path = os.environ.get("PACKAGE_PATH", "")
+              with open(summary_path, "a", encoding="utf-8") as summary:
+                  summary.write(
+                      "\n".join(
+                          [
+                              "### Publish plan",
+                              "",
+                              f"- Channel: {channel}",
+                              f"- Package: {package_path}",
+                              f"- Distribution: {dist_name}",
+                              f"- Base version: {base}",
+                              f"- Publish version: {publish_version}",
+                              "",
+                          ]
+                      )
+                  )
 
       # Stable only: betas are cut before the changelog section is finalised.
       - name: Verify changelog
@@ -465,7 +485,15 @@ jobs:
       # Written outside dist/ — pypa/gh-action-pypi-publish uploads every file
       # under packages-dir, and a checksums file isn't a valid distribution.
       - name: Record checksums
-        run: sha256sum dist/*.whl | tee sha256sums.txt
+        run: |
+          sha256sum dist/*.whl | tee sha256sums.txt
+          {
+            echo "### Wheels (${{ needs.prerequisites.outputs.publish_version }})"
+            echo ""
+            echo '```'
+            cat sha256sums.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload wheel checksums
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -508,13 +536,34 @@ jobs:
       # ships setuptools 79.0.1 (PYSEC-2026-3447); the fix is 83.0.0. That
       # copy is not part of the wheel — same upgrade as security-pr.yml.
       - name: Vulnerability scan (CVE gate — blocks publish on any known vuln)
+        shell: bash
+        env:
+          AUDIT_TITLE: ${{ needs.prerequisites.outputs.package_path }}
         run: |
           python -m pip install --upgrade "setuptools>=83.0.0"
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
-          pip-audit -s osv
+          set +e
+          pip-audit -s osv --format json --output pip-audit.json --progress-spinner off
+          audit_status=$?
+          python scripts/ci_step_summary.py pip-audit pip-audit.json --title "${AUDIT_TITLE}"
+          summary_status=$?
+          if [[ "${audit_status}" -ne 0 ]]; then
+            exit "${audit_status}"
+          fi
+          exit "${summary_status}"
 
       - name: Publish to PyPI (Trusted Publisher / OIDC + Sigstore attestations)
         uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
         with:
           packages-dir: dist/
           attestations: true
+
+      - name: Report PyPI publish
+        run: |
+          {
+            echo "### Published to PyPI"
+            echo "- Package: ${{ needs.prerequisites.outputs.package_path }}"
+            echo "- Version: ${{ needs.prerequisites.outputs.publish_version }}"
+            echo "- Channel: ${{ needs.prerequisites.outputs.channel }}"
+            echo "- Attestations: enabled"
+          } >> "$GITHUB_STEP_SUMMARY"
