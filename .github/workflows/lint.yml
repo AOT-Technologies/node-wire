@@ -45,7 +45,7 @@ jobs:
           echo "### Lockfile: ${{ steps.lock.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
   ruff:
-    name: Ruff and REUSE
+    name: Ruff Linters
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
