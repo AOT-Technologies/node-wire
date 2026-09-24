@@ -139,6 +139,36 @@ jobs:
           if-no-files-found: error
 
 
+  # Branch protection requires a context that every pull request produces. The
+  # OS matrix is chosen at runtime, so the macOS and Windows legs do not exist
+  # on most pull requests and their check names stay "Expected" forever. This
+  # job always runs and reports the matrix result under one stable name.
+  pytest-gate:
+    name: Pytest matrix complete
+    needs: [changes, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+
+    steps:
+      - name: Check matrix result
+        shell: bash
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          SELECTED_OS: ${{ needs.changes.outputs.os }}
+        run: |
+          echo "Runner selection: ${CHANGES_RESULT} (os=${SELECTED_OS:-unset})"
+          echo "Pytest matrix:    ${TEST_RESULT}"
+          # Anything other than success - including skipped, which means the
+          # matrix never ran - is a failure. A green gate must mean every
+          # selected leg passed.
+          if [[ "${TEST_RESULT}" != "success" ]]; then
+            echo "::error::Pytest matrix did not pass (result: ${TEST_RESULT})"
+            exit 1
+          fi
+
+
   patch-coverage:
     name: Patch coverage (changed lines ≥ 80%)
     needs: test
