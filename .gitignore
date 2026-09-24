@@ -20,7 +20,6 @@ config/playground_tenants.yaml.tmp
 .coverage
 .coverage.*
 htmlcov/
-*.gitattributes
 # GCP / cloud credentials
 connectorplatform-*.json
 *-service-account.json
