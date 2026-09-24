@@ -518,3 +518,4 @@ jobs:
         with:
           packages-dir: dist/
           attestations: true
+          verbose: true
