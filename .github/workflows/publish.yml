@@ -461,13 +461,17 @@ jobs:
           find dist-all -name "*.whl" -exec cp {} dist/ \;
           echo "Wheels collected:"
           ls dist/
-          sha256sum dist/*.whl | tee dist/sha256sums.txt
+
+      # Written outside dist/ — pypa/gh-action-pypi-publish uploads every file
+      # under packages-dir, and a checksums file isn't a valid distribution.
+      - name: Record checksums
+        run: sha256sum dist/*.whl | tee sha256sums.txt
 
       - name: Upload wheel checksums
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: wheel-checksums-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
-          path: dist/sha256sums.txt
+          path: sha256sums.txt
           retention-days: 30
           if-no-files-found: error
 
