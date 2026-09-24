@@ -25,9 +25,7 @@ class ParallelBuildExt(_BuildExt):
             self.parallel = os.cpu_count() or 1
 
 
-src_root = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../../src/node_wire_smtp")
-)
+src_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src/node_wire_smtp"))
 py_files = glob.glob(os.path.join(src_root, "**", "*.py"), recursive=True)
 
 # Guarded so Cython's process pool can re-import this file on macOS and Windows.

@@ -68,7 +68,7 @@ from .streaming import (
 def _resolve_version() -> str:
     from importlib.metadata import PackageNotFoundError, version as pkg_version
 
-    for dist_name in ("node-wire-runtime", "node-wire"):
+    for dist_name in ("aot-node-wire", "node-wire-runtime", "node-wire"):
         try:
             return pkg_version(dist_name)
         except PackageNotFoundError:
