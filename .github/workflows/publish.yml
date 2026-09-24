@@ -57,6 +57,7 @@ jobs:
   prerequisites:
     name: Verify prerequisites
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
 
@@ -244,35 +245,57 @@ jobs:
             --jq '.tagName'
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Build a binary wheel for each platform (Linux / macOS / Windows).
-  # cibuildwheel compiles Cython extensions and produces manylinux / macosx /
-  # win_amd64 wheels. The NoPyBuild override in setup.py ensures .py source
-  # files are excluded from all wheels.
+  # Build a binary wheel for each platform (Linux / macOS / Windows) and
+  # CPython version. cibuildwheel compiles Cython extensions and produces
+  # manylinux / musllinux / macosx / win_amd64 wheels. The NoPyBuild override
+  # in setup.py keeps .py source files out of every wheel.
+  #
+  # cibuildwheel builds identifiers one at a time, and an ubuntu runner would
+  # also build manylinux then musllinux in that same process. One job per
+  # platform and interpreter overlaps those compiles. The wheel set is
+  # unchanged: cp311 and cp312 for manylinux, musllinux, macOS, and Windows.
   # ─────────────────────────────────────────────────────────────────────────────
   build-wheels:
-    name: Build (${{ matrix.name_suffix }})
+    name: Build (${{ matrix.platform }} ${{ matrix.python }})
     needs: prerequisites
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Split Linux into separate manylinux/musllinux jobs so they run in
-          # parallel instead of sequentially in one job — cibuildwheel builds
-          # both libc variants on ubuntu-latest by default, which roughly
-          # doubles that job's wall-clock time vs macOS/Windows.
           - os: ubuntu-latest
-            name_suffix: manylinux
+            platform: manylinux
+            python: cp311
             cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
           - os: ubuntu-latest
-            name_suffix: musllinux
+            platform: manylinux
+            python: cp312
+            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
+          - os: ubuntu-latest
+            platform: musllinux
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux* pp*"
+          - os: ubuntu-latest
+            platform: musllinux
+            python: cp312
             cibw_skip: "*-win32 *-manylinux* pp*"
           - os: macos-latest
-            name_suffix: macos
+            platform: macos
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux_i686 pp*"
+          - os: macos-latest
+            platform: macos
+            python: cp312
             cibw_skip: "*-win32 *-manylinux_i686 pp*"
           - os: windows-latest
-            name_suffix: windows
+            platform: windows
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux_i686 pp*"
+          - os: windows-latest
+            platform: windows
+            python: cp312
             cibw_skip: "*-win32 *-manylinux_i686 pp*"
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     permissions:
       contents: read
 
@@ -318,16 +341,20 @@ jobs:
 
           print(f"PASS: building {pyproject.parent} at version {version}")
 
-      - name: Install build tools
-        run: python -m pip install --upgrade pip "cython>=3.0" "cibuildwheel>=2.16.0"
+      # Cython and setuptools come from each package's build-system.requires
+      # inside the isolated build. uv (the cibuildwheel extra) replaces pip
+      # when creating those environments.
+      - name: Install cibuildwheel
+        run: python -m pip install "cibuildwheel[uv]==4.2.1"
 
       - name: Build platform wheel(s)
         run: |
           cd "${{ needs.prerequisites.outputs.package_path }}"
           python -m cibuildwheel --output-dir dist
         env:
-          CIBW_BUILD: "cp311-* cp312-*"
+          CIBW_BUILD: "${{ matrix.python }}-*"
           CIBW_SKIP: ${{ matrix.cibw_skip }}
+          CIBW_BUILD_FRONTEND: "build[uv]"
           # Each package's pyproject.toml points `where` at the monorepo's shared
           # src/ tree via a relative path (../../src or ../../../src, depending on
           # nesting depth) — both collapse to /src once resolved from /project,
@@ -336,7 +363,7 @@ jobs:
           # repo, so bind-mount the real src/ tree straight into /src.
           CIBW_CONTAINER_ENGINE: "docker; create_args: --volume=${{ github.workspace }}/src:/src"
 
-      - name: Verify binary-only wheel (no .py source)
+      - name: Verify binary-only wheel (compiled extensions, no .py source)
         shell: python
         run: |
           import glob, sys, zipfile
@@ -348,21 +375,27 @@ jobs:
               sys.exit(1)
 
           leaked: dict[str, list[str]] = {}
+          empty: list[str] = []
           for whl in wheels:
               with zipfile.ZipFile(whl) as zf:
-                  bad = [n for n in zf.namelist() if n.endswith(".py")]
+                  names = zf.namelist()
+              bad = [n for n in names if n.endswith(".py")]
               if bad:
                   leaked[whl] = bad
+              elif not any(n.endswith((".so", ".pyd")) for n in names):
+                  empty.append(whl)
 
-          if leaked:
-              print("SECURITY FAIL: .py files found in wheel(s):", file=sys.stderr)
+          if leaked or empty:
+              print("SECURITY FAIL: wheel is not binary-only:", file=sys.stderr)
               for whl, files in leaked.items():
-                  print(f"  {whl}:", file=sys.stderr)
+                  print(f"  {whl} contains .py:", file=sys.stderr)
                   for f in files:
                       print(f"    {f}", file=sys.stderr)
+              for whl in empty:
+                  print(f"  {whl} contains no .so or .pyd extensions", file=sys.stderr)
               sys.exit(1)
 
-          print(f"PASS: {len(wheels)} wheel(s) verified — no .py source files")
+          print(f"PASS: {len(wheels)} wheel(s) verified — compiled extensions, no .py source")
 
       - name: Record wheel SHA256 (artifact integrity)
         shell: python
@@ -385,8 +418,9 @@ jobs:
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: wheels-${{ matrix.name_suffix }}-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          name: wheels-${{ matrix.platform }}-${{ matrix.python }}-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
+          retention-days: 1
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -399,6 +433,7 @@ jobs:
     name: Publish to PyPI
     needs: [prerequisites, build-wheels]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       id-token: write
       contents: read
@@ -433,6 +468,7 @@ jobs:
         with:
           name: wheel-checksums-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
           path: dist/sha256sums.txt
+          retention-days: 30
           if-no-files-found: error
 
       - name: Validate wheel version matches resolved version
@@ -464,9 +500,13 @@ jobs:
       - name: Install built wheels for CVE scan
         run: pip install dist/*cp311*manylinux*.whl
 
+      # pip-audit scans the whole environment. ubuntu-latest's Python still
+      # ships setuptools 79.0.1 (PYSEC-2026-3447); the fix is 83.0.0. That
+      # copy is not part of the wheel — same upgrade as security-pr.yml.
       - name: Vulnerability scan (CVE gate — blocks publish on any known vuln)
         run: |
-          pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
+          python -m pip install --upgrade "setuptools>=83.0.0"
+          python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
           pip-audit -s osv
 
       - name: Publish to PyPI (Trusted Publisher / OIDC + Sigstore attestations)

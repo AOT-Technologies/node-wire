@@ -101,11 +101,17 @@ include = ["node_wire_<name>*"]
 #### `setup.py` template
 
 ```python
+#
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+# SPDX-License-Identifier: Apache-2.0
+#
 # packages/connectors/<name>/setup.py
 import glob
 import os
+
 from Cython.Build import cythonize
 from setuptools import setup
+from setuptools.command.build_ext import build_ext as _BuildExt
 from setuptools.command.build_py import build_py as _BuildPy
 
 
@@ -114,13 +120,32 @@ class NoPyBuild(_BuildPy):
         return []
 
 
-src_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src/node_wire_<name>"))
+class ParallelBuildExt(_BuildExt):
+    """Compile extension modules with one compiler job per core."""
+
+    def finalize_options(self):
+        super().finalize_options()
+        if self.parallel is None:
+            self.parallel = os.cpu_count() or 1
+
+
+src_root = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../../src/node_wire_<name>")
+)
 py_files = glob.glob(os.path.join(src_root, "**", "*.py"), recursive=True)
 
-setup(
-    cmdclass={"build_py": NoPyBuild},
-    ext_modules=cythonize(py_files, compiler_directives={"language_level": "3"}, build_dir="build"),
-)
+# Guarded so Cython's process pool can re-import this file on macOS and Windows.
+if __name__ == "__main__":
+    setup(
+        cmdclass={"build_py": NoPyBuild, "build_ext": ParallelBuildExt},
+        ext_modules=cythonize(
+            py_files,
+            nthreads=os.cpu_count() or 1,
+            compiler_directives={"language_level": "3"},
+            build_dir="build",
+            annotate=False,
+        ),
+    )
 ```
 
 Replace `<name>` with the connector's snake_case name (e.g. `my_service`) and `<connector_id>` with the entry-point key (same string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`).
@@ -262,12 +287,12 @@ bash scripts/build-packages.sh packages/connectors/stripe
 For additional platform wheels from your **current machine** (whatever `cibuildwheel` can target there), install it and use the same script:
 
 ```bash
-python -m pip install 'cibuildwheel>=2.16.0'
+python -m pip install 'cibuildwheel==4.2.1'
 bash scripts/build-packages.sh --all
 bash scripts/build-packages.sh --all packages/runtime
 ```
 
-`CIBW_BUILD` / `CIBW_SKIP` default to the same patterns as `.github/workflows/publish.yml` unless you override them in the environment. Full Linux + macOS + Windows coverage is still best done in CI, not guaranteed from one laptop.
+Local `--all` builds CPython 3.11 and 3.12 (`CIBW_BUILD=cp311-* cp312-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds the same interpreters with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
 
 ### Inspect wheel contents
 

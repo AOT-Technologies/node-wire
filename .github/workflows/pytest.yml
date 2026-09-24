@@ -24,6 +24,7 @@ jobs:
   test:
     name: Run pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
@@ -60,18 +61,22 @@ jobs:
       - name: Run pytest
         run: uv run pytest --cov --cov-report=html --cov-report=term-missing
 
+      # One leg only, short retention: six legs x 90 days was ~750 MB of the
+      # account's 500 MB artifact allowance, and the reports are identical.
       - name: Upload HTML coverage report
-        if: always()
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: coverage-html-${{ matrix.os }}-py${{ matrix.python-version }}
           path: htmlcov/
+          retention-days: 7
           if-no-files-found: ignore
 
 
   patch-coverage:
     name: Patch coverage (changed lines ≥ 80%)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.event_name == 'pull_request'
 
     steps:
@@ -115,6 +120,7 @@ jobs:
   playground-integration:
     name: Playground integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.event_name == 'workflow_dispatch'
 
     steps:
@@ -193,4 +199,5 @@ jobs:
         with:
           name: playwright-traces
           path: test-results/
+          retention-days: 7
           if-no-files-found: ignore
