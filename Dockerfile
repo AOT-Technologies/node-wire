@@ -48,7 +48,7 @@ ENV PYTHONPATH=/app/src
 # Install runtime + connector packages using local wheel artifacts
 RUN pip install --no-cache-dir --find-links=/wheels \
     node-wire-runtime \
-    node-wire-http-generic \
+    node-wire-http \
     node-wire-stripe \
     node-wire-smtp \
     node-wire-slack \

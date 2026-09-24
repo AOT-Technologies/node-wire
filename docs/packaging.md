@@ -19,7 +19,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 | `node-wire-fhir-cerner` | `src/node_wire_fhir_cerner/` | `fhir_cerner` |
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
-| `node-wire-http-generic` | `src/node_wire_http_generic/` | `http_generic` |
+| `node-wire-http` | `src/node_wire_http_generic/` | `http_generic` |
 | `node-wire-salesforce` | `src/node_wire_salesforce/` | `salesforce` |
 | `node-wire-slack` | `src/node_wire_slack/` | `slack` |
 | `node-wire-smtp` | `src/node_wire_smtp/` | `smtp` |

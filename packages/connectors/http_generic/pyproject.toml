@@ -3,12 +3,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [project]
-name = "node-wire-http-generic"
+name = "node-wire-http"
 version = "1.0.0"
 description = "Node Wire connector — generic HTTP REST client (GET/POST/PUT/DELETE/PATCH)"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+readme = "README.md"
+keywords = ["connectors", "mcp", "rest", "http", "integration", "node-wire"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: System :: Networking",
+]
 
 dependencies = [
     "node-wire-runtime>=1.0.0",
@@ -17,6 +30,13 @@ dependencies = [
 
 [project.entry-points."node_wire.connectors"]
 http_generic = "node_wire_http_generic.logic"
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Documentation = "https://aot-technologies.github.io/node-wire/"
+Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
