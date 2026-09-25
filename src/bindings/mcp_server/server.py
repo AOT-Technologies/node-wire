@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import copy
 import contextvars
+import ipaddress
 import json
 import logging
 import os
@@ -51,7 +52,6 @@ from node_wire_runtime.tenant_session import TenantSessionOverlay
 logger = logging.getLogger("bindings.mcp_server")
 
 _DEFAULT_MCP_HOST = "127.0.0.1"
-_PUBLIC_BIND_HOSTS = frozenset({"0.0.0.0", "::"})
 
 # Read-only meta-tools (not connectors). Advertised names are OpenAI/NVIDIA-safe
 # (no dots). Legacy dotted names still invoke.
@@ -232,7 +232,10 @@ def resolve_mcp_host(env_value: str | None = None) -> str:
 
 
 def is_public_bind_host(host: str) -> bool:
-    return host in _PUBLIC_BIND_HOSTS
+    try:
+        return ipaddress.ip_address(host).is_unspecified
+    except ValueError:
+        return False
 
 
 _streamable_http_identity_ctx: contextvars.ContextVar[CallerIdentity | None] = (

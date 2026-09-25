@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
+import subprocess  # nosec B404  # local CLI pipeline; Popen below uses an arg list, no shell=True
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
@@ -36,7 +36,7 @@ def run_logged_command(
     Callers that own a live Progress must pass ``progress.log`` so output stays
     above the bars instead of writing to the raw TTY.
     """
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # nosec B603  # arg list from trusted local pipeline callers, no shell
         cmd,
         cwd=cwd,
         stdout=subprocess.PIPE,

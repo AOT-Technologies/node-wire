@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 
@@ -16,7 +17,6 @@ logger = logging.getLogger("bindings.grpc_server")
 # Mirror the MCP binding's host model (bindings/mcp_server/server.py): default to
 # loopback and require an explicit opt-in to expose the server on all interfaces.
 _DEFAULT_GRPC_HOST = "127.0.0.1"
-_PUBLIC_BIND_HOSTS = frozenset({"0.0.0.0", "::"})
 
 
 def resolve_grpc_host(env_value: str | None = None) -> str:
@@ -27,7 +27,10 @@ def resolve_grpc_host(env_value: str | None = None) -> str:
 
 
 def is_public_bind_host(host: str) -> bool:
-    return host in _PUBLIC_BIND_HOSTS
+    try:
+        return ipaddress.ip_address(host).is_unspecified
+    except ValueError:
+        return False
 
 
 def _format_bind_target(host: str, port: int) -> str:
