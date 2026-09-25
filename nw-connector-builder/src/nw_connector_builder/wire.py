@@ -75,8 +75,9 @@ def wire_connectors_yaml(
 
             try:
                 os.close(fd)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                # Best-effort cleanup during error unwinding; fd may already be closed.
+                logger.debug("os.close(%d) during cleanup failed: %s", fd, exc)
 
 
 def wire_sample_env(

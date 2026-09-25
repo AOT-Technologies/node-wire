@@ -20,7 +20,7 @@ class RedirectMode(str, Enum):
 
 class TokenStoreMode(str, Enum):
     OS_KEYCHAIN = "os-keychain"
-    CONFIGURED_SECRET_STORE = "configured-secret-store"
+    CONFIGURED_SECRET_STORE = "configured-secret-store"  # nosec B105  # enum label, not a credential
 
 
 class AuthDiscoveryConfig(BaseModel):

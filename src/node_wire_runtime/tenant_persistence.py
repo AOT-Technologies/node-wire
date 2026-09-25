@@ -78,6 +78,8 @@ REQUIRED_SECRETS_BY_CONNECTOR: Dict[str, List[str]] = {
 }
 
 # Format kind per logical secret key (validated only for newly supplied values).
+# Values are format-classifier labels (e.g. "opaque_secret"), not credentials —
+# B105 pattern-matches the env-var key names beside them (TOKEN/SECRET/PASSWORD).
 SECRET_FORMAT_BY_CONNECTOR: Dict[str, Dict[str, str]] = {
     "google_drive": {"GOOGLE_DRIVE_SA_JSON": "google_sa_json"},
     "fhir_epic": {
@@ -91,18 +93,18 @@ SECRET_FORMAT_BY_CONNECTOR: Dict[str, Dict[str, str]] = {
         "CERNER_KID": "jwt_kid",
         "CERNER_SCOPES": "scopes_space_separated",
     },
-    "slack": {"SLACK_BOT_TOKEN": "slack_bot_token"},
+    "slack": {"SLACK_BOT_TOKEN": "slack_bot_token"},  # nosec B105
     "stripe": {"stripe_api_key": "stripe_secret_key"},
     "salesforce": {
         "SALESFORCE_CLIENT_ID": "opaque_secret",
-        "SALESFORCE_CLIENT_SECRET": "opaque_secret",
-        "SALESFORCE_REFRESH_TOKEN": "opaque_secret",
+        "SALESFORCE_CLIENT_SECRET": "opaque_secret",  # nosec B105
+        "SALESFORCE_REFRESH_TOKEN": "opaque_secret",  # nosec B105
     },
     # Credentials are optional (logic.py falls back to env, then to an
     # unauthenticated relay), so these are format-checked but not required.
     "smtp": {
         "SMTP_USERNAME": "opaque_secret",
-        "SMTP_PASSWORD": "opaque_secret",
+        "SMTP_PASSWORD": "opaque_secret",  # nosec B105
     },
 }
 
@@ -131,9 +133,11 @@ _DECLARED_SECRET_SHAPES: Set[str] = (
     | set(_NO_TENANT_SECRETS)
 )
 
-SECRET_SHAPE_POLICY_ENV = "NW_SECRET_SHAPE_POLICY"
-SECRET_SHAPE_POLICY_WARN = "warn"
-SECRET_SHAPE_POLICY_ENFORCE = "enforce"
+# Policy-mode labels, not credentials — B105 pattern-matches the "SECRET_"
+# prefix on the identifier alone, irrespective of the string's content.
+SECRET_SHAPE_POLICY_ENV = "NW_SECRET_SHAPE_POLICY"  # nosec B105
+SECRET_SHAPE_POLICY_WARN = "warn"  # nosec B105
+SECRET_SHAPE_POLICY_ENFORCE = "enforce"  # nosec B105
 
 
 def _log_safe(value: object) -> str:

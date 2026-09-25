@@ -210,8 +210,9 @@ def _encode_request_body(
                     raw = base64.b64decode(val, validate=False)
                     files.append((key, (key, raw)))
                     continue
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    # Heuristic match, not confirmed base64 — fall back to string field.
+                    logger.debug("base64 decode failed for field %r: %s", key, exc)
             if isinstance(val, (bytes, bytearray)):
                 files.append((key, (key, bytes(val))))
             else:

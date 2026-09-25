@@ -62,10 +62,10 @@ def config_from_env(*, server_url: str | None = None) -> McpClientConfig:
         if redirect_mode_raw == "configured-url"
         else RedirectMode.LOOPBACK
     )
-    token_store_raw = (os.environ.get("NW_MCP_OAUTH_TOKEN_STORE") or "os-keychain").strip().lower()
+    store_mode_raw = (os.environ.get("NW_MCP_OAUTH_TOKEN_STORE") or "os-keychain").strip().lower()
     token_store = (
         TokenStoreMode.CONFIGURED_SECRET_STORE
-        if token_store_raw == "configured-secret-store"
+        if store_mode_raw == "configured-secret-store"
         else TokenStoreMode.OS_KEYCHAIN
     )
 

@@ -387,8 +387,9 @@ class ToolHiveMcpClient:
             notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
             try:
                 await client.post(self._base_url, json=notif, headers=self._build_request_headers())
-            except Exception:
-                pass  # Notifications have no response; ignore transport errors
+            except Exception as exc:
+                # Notifications have no response; ignore transport errors.
+                logger.debug("MCP initialized notification failed: %s", exc)
 
         self._initialized = True
 
@@ -923,8 +924,11 @@ class ToolHiveAgent:
             logger.info("Discovered %d MCP tools", len(tools))
             yield {"type": "status", "message": f"Discovered {len(tools)} MCP tools"}
         except Exception as exc:
-            error = f"Failed to list MCP tools: {exc}"
-            logger.error(error)
+            logger.error("Failed to list MCP tools: %s", exc, exc_info=True)
+            error = (
+                "Failed to list MCP tools. Please check the server configuration "
+                f"and try again. trace_id={trace_id}"
+            )
             yield {"type": "error", "trace_id": trace_id, "message": error}
             yield _stream_done_event(trace_id, success=False)
             return
@@ -959,8 +963,11 @@ class ToolHiveAgent:
             try:
                 llm_resp = self._llm.chat_with_tools(messages, tools)
             except Exception as exc:
-                error = f"LLM error at step {step_num}: {exc}"
-                logger.error(error)
+                logger.error("LLM error at step %d: %s", step_num, exc, exc_info=True)
+                error = (
+                    f"LLM error at step {step_num}. Please check the server configuration "
+                    f"and try again. trace_id={trace_id}"
+                )
                 yield {"type": "error", "trace_id": trace_id, "message": error}
                 yield _stream_done_event(
                     trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
@@ -1023,8 +1030,14 @@ class ToolHiveAgent:
                         extra=_tool_log_extra(tc.name),
                     )
                 except Exception as exc:
-                    tool_result_str = f"ERROR: {exc}"
-                    logger.error("Tool %s failed: %s", tc.name, exc, extra=_tool_log_extra(tc.name))
+                    logger.error(
+                        "Tool %s failed: %s",
+                        tc.name,
+                        exc,
+                        exc_info=True,
+                        extra=_tool_log_extra(tc.name),
+                    )
+                    tool_result_str = f'ERROR: Tool "{tc.name}" failed. trace_id={trace_id}'
 
                 yield {
                     "type": "step",

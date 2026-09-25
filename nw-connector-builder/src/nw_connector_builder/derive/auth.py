@@ -142,7 +142,7 @@ def build_auth_plan(
             scheme_name=None,
             scheme=None,
             provider="none",
-            secret_key="",
+            secret_key="",  # nosec B106  # env-var key name, empty means "no auth configured"
             yaml_block={},
             notes=["No connector-level auth scheme (anonymous / no supported schemes)"],
         )

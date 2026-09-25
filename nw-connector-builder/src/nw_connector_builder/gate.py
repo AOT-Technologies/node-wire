@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404  # local build gate; call below uses an arg list, no shell=True
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,7 +83,7 @@ def run_pytest_gate(staging: Path, connector_id: str) -> tuple[bool, str]:
     src = staging / "src"
     env = os.environ.copy()
     env["PYTHONPATH"] = str(src) + os.pathsep + env.get("PYTHONPATH", "")
-    proc = subprocess.run(
+    proc = subprocess.run(  # nosec B603  # sys.executable + fixed args, no shell
         [sys.executable, "-m", "pytest", str(pkg_tests), "-q", "--tb=short"],
         capture_output=True,
         text=True,
