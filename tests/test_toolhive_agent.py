@@ -157,6 +157,18 @@ class _MockLLMProvider(BaseLLMProvider):
         return resp
 
 
+class _RaisingLLMProvider(BaseLLMProvider):
+    """A mock LLM whose chat_with_tools always raises."""
+
+    def __init__(self, message: str) -> None:
+        self._message = message
+
+    def chat_with_tools(
+        self, messages: List[LLMMessage], tools: List[Dict[str, Any]]
+    ) -> LLMResponse:
+        raise RuntimeError(self._message)
+
+
 # ---------------------------------------------------------------------------
 # LLM Factory tests
 # ---------------------------------------------------------------------------
@@ -470,6 +482,74 @@ async def test_agent_fails_when_mcp_unreachable() -> None:
 
     assert result.success is False
     assert "Failed to list MCP tools" in (result.error or "")
+
+
+@pytest.mark.asyncio
+async def test_agent_run_events_list_tools_failure_emits_sanitized_error() -> None:
+    """The streamed error must not leak the raw exception text to the client."""
+    provider = _MockLLMProvider([])
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.side_effect = ConnectionError("internal host db-primary.corp:5432 down")
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider)
+    events = [event async for event in agent.run_events("Do anything")]
+
+    error_events = [e for e in events if e["type"] == "error"]
+    assert len(error_events) == 1
+    assert "Failed to list MCP tools" in error_events[0]["message"]
+    assert "trace_id=" in error_events[0]["message"]
+    assert "db-primary.corp" not in error_events[0]["message"]
+    assert events[-1]["type"] == "done"
+    assert events[-1]["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_agent_run_events_llm_error_emits_sanitized_error() -> None:
+    """The streamed error must not leak the raw exception text to the client."""
+    provider = _RaisingLLMProvider("api key sk-secret123 rejected")
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider)
+    events = [event async for event in agent.run_events("Do anything")]
+
+    error_events = [e for e in events if e["type"] == "error"]
+    assert len(error_events) == 1
+    assert "LLM error at step 1" in error_events[0]["message"]
+    assert "trace_id=" in error_events[0]["message"]
+    assert "sk-secret123" not in error_events[0]["message"]
+    assert events[-1]["type"] == "done"
+    assert events[-1]["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_agent_run_events_tool_error_emits_sanitized_step_result() -> None:
+    """The streamed step result must not leak the raw exception text to the client."""
+    responses = [
+        LLMResponse(
+            content=None,
+            tool_calls=[_tool_call("fhir_cerner_read_patient", {"resource_id": "bad"})],
+            stop_reason="tool_calls",
+        ),
+        LLMResponse(
+            content="Unable to fetch patient — error recorded.", tool_calls=[], stop_reason="stop"
+        ),
+    ]
+    provider = _MockLLMProvider(responses)
+    mock_mcp = AsyncMock(spec=ToolHiveMcpClient)
+    mock_mcp.list_tools.return_value = SAMPLE_TOOLS
+    mock_mcp.call_tool.side_effect = RuntimeError("FHIR token abc123 rejected")
+
+    agent = ToolHiveAgent(mcp_client=mock_mcp, llm_provider=provider, max_steps=5)
+    events = [event async for event in agent.run_events("Fetch patient bad")]
+
+    step_events = [e for e in events if e["type"] == "step"]
+    assert len(step_events) == 1
+    result = step_events[0]["result"]
+    assert result.startswith("ERROR: ")
+    assert "fhir_cerner_read_patient" in result
+    assert "trace_id=" in result
+    assert "abc123" not in result
 
 
 @pytest.mark.asyncio

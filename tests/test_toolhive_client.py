@@ -85,3 +85,36 @@ def test_toolhive_mcp_client_initialize_list_tools_call_tool() -> None:
             assert text == "sent"
 
     asyncio.run(_run())
+
+
+def test_toolhive_mcp_client_initialize_survives_notification_transport_error() -> None:
+    """The initialized notification is fire-and-forget; transport errors are swallowed."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode())
+        method = body.get("method")
+        req_id = body.get("id")
+        if method == "initialize":
+            return httpx.Response(
+                200,
+                json={"jsonrpc": "2.0", "id": req_id, "result": {"protocolVersion": "2024-11-05"}},
+                headers={"Mcp-Session-Id": "sess-abc"},
+            )
+        if method == "notifications/initialized":
+            raise httpx.ReadTimeout("notification timed out", request=request)
+        return httpx.Response(404, json={"error": "unknown"})
+
+    transport = httpx.MockTransport(handler)
+    _RealAsyncClient = httpx.AsyncClient
+
+    def make_client(**kwargs: object) -> httpx.AsyncClient:
+        return _RealAsyncClient(transport=transport, timeout=float(kwargs.get("timeout", 60.0)))
+
+    async def _run() -> None:
+        with patch("httpx.AsyncClient", side_effect=make_client):
+            client = ToolHiveMcpClient("http://127.0.0.1:9/mcp")
+            await client._initialize()
+            assert client._initialized is True
+            assert client._session_id == "sess-abc"
+
+    asyncio.run(_run())
