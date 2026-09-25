@@ -79,7 +79,8 @@ def test_oauth2_implicit_and_password_are_host_supplied_not_unsupported() -> Non
     assert d3.scheme_name == "O"
 
 
-def test_oauth2_client_credentials_flow_is_supported() -> None:
+def test_oauth2_client_credentials_flow_is_presentable() -> None:
+    """clientCredentials is host-supplied (presentable), never acquired by the generator."""
     schemes = {
         "O": {
             "type": "oauth2",
@@ -96,7 +97,8 @@ def test_oauth2_client_credentials_flow_is_supported() -> None:
     assert d.mode == "required"
 
 
-def test_oauth2_authorization_code_flow_is_supported() -> None:
+def test_oauth2_authorization_code_flow_is_presentable() -> None:
+    """authorizationCode is host-supplied (presentable), never acquired by the generator."""
     schemes = {
         "O": {
             "type": "oauth2",
@@ -114,7 +116,7 @@ def test_oauth2_authorization_code_flow_is_supported() -> None:
     assert d.mode == "required"
 
 
-def test_build_auth_plan_oauth2_client_credentials() -> None:
+def test_build_auth_plan_oauth2_client_credentials_is_host_supplied() -> None:
     schemes = {
         "oauth2": {
             "type": "oauth2",
@@ -127,23 +129,24 @@ def test_build_auth_plan_oauth2_client_credentials() -> None:
         },
     }
     plan = build_auth_plan("microsoft_teams", schemes, "oauth2")
-    assert plan.provider == "oauth2"
-    assert plan.yaml_block["grant_method"] == "client_secret_post"
-    assert plan.yaml_block["token_url_secret"] == "MICROSOFT_TEAMS_TOKEN_URL"
-    assert plan.yaml_block["client_id_secret"] == "MICROSOFT_TEAMS_CLIENT_ID"
-    assert plan.yaml_block["client_secret_secret"] == "MICROSOFT_TEAMS_CLIENT_SECRET"
-    assert plan.yaml_block["scopes"] == ["read", "write"]
-    assert "refresh_token_secret" not in plan.yaml_block
-    assert plan.secret_defaults["MICROSOFT_TEAMS_TOKEN_URL"] == "https://idp.example.com/token"
-    assert set(plan.secret_keys) == {
-        "MICROSOFT_TEAMS_TOKEN_URL",
-        "MICROSOFT_TEAMS_CLIENT_ID",
-        "MICROSOFT_TEAMS_CLIENT_SECRET",
+    assert plan.provider == "static_token"
+    assert plan.tier == "host_supplied"
+    assert plan.secret_key == "MICROSOFT_TEAMS_ACCESS_TOKEN"
+    assert plan.yaml_block == {
+        "provider": "static_token",
+        "secret_key": "MICROSOFT_TEAMS_ACCESS_TOKEN",
+        "header_name": "Authorization",
+        "prefix": "Bearer",
+        "host_supplied": True,
     }
-    assert any("unattended" in n.lower() for n in plan.notes)
+    assert plan.secret_keys == ["MICROSOFT_TEAMS_ACCESS_TOKEN"]
+    assert plan.secret_defaults == {}
+    assert any("HOST-SUPPLIED CREDENTIAL" in n for n in plan.notes)
+    assert any("tokenUrl=https://idp.example.com/token" in n for n in plan.notes)
+    assert not any("grant_method" in n for n in plan.notes)
 
 
-def test_build_auth_plan_oauth2_authorization_code() -> None:
+def test_build_auth_plan_oauth2_authorization_code_is_host_supplied() -> None:
     schemes = {
         "oauth2": {
             "type": "oauth2",
@@ -157,47 +160,24 @@ def test_build_auth_plan_oauth2_authorization_code() -> None:
         },
     }
     plan = build_auth_plan("microsoft_teams", schemes, "oauth2")
-    assert plan.provider == "oauth2"
-    assert plan.yaml_block["grant_method"] == "refresh_token"
-    assert plan.yaml_block["refresh_token_secret"] == "MICROSOFT_TEAMS_REFRESH_TOKEN"
-    # offline_access is force-added: Entra (and most OIDC providers) won't issue a refresh
-    # token during interactive consent without it, even though the spec doesn't declare it.
-    assert plan.yaml_block["scopes"] == ["Team.ReadBasic.All", "offline_access"]
-    assert plan.secret_key == "MICROSOFT_TEAMS_REFRESH_TOKEN"
-    assert set(plan.secret_keys) == {
-        "MICROSOFT_TEAMS_TOKEN_URL",
-        "MICROSOFT_TEAMS_CLIENT_ID",
-        "MICROSOFT_TEAMS_CLIENT_SECRET",
-        "MICROSOFT_TEAMS_REFRESH_TOKEN",
-    }
-    assert (
-        plan.secret_defaults["MICROSOFT_TEAMS_TOKEN_URL"]
-        == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    assert plan.provider == "static_token"
+    assert plan.tier == "host_supplied"
+    assert plan.secret_key == "MICROSOFT_TEAMS_ACCESS_TOKEN"
+    assert plan.yaml_block["host_supplied"] is True
+    assert "grant_method" not in plan.yaml_block
+    assert "scopes" not in plan.yaml_block
+    assert "offline_access" not in "".join(plan.notes)
+    assert any(
+        "authorizationUrl=https://login.microsoftonline.com/common/oauth2/v2.0/authorize" in n
+        for n in plan.notes
     )
-    assert any("one-time" in n.lower() or "interactive" in n.lower() for n in plan.notes)
-    assert any("on_refresh_token_rotated" in n for n in plan.notes)
-    assert any("offline_access" in n for n in plan.notes)
+    assert any(
+        "tokenUrl=https://login.microsoftonline.com/common/oauth2/v2.0/token" in n
+        for n in plan.notes
+    )
 
 
-def test_build_auth_plan_oauth2_authorization_code_offline_access_not_duplicated() -> None:
-    schemes = {
-        "oauth2": {
-            "type": "oauth2",
-            "flows": {
-                "authorizationCode": {
-                    "authorizationUrl": "https://idp.example.com/authorize",
-                    "tokenUrl": "https://idp.example.com/token",
-                    "scopes": {"read": "Read access", "offline_access": "Get a refresh token"},
-                }
-            },
-        },
-    }
-    plan = build_auth_plan("acme", schemes, "oauth2")
-    assert plan.yaml_block["scopes"] == ["read", "offline_access"]
-    assert not any("Added 'offline_access'" in n for n in plan.notes)
-
-
-def test_derive_microsoft_teams_style_spec_no_longer_soft_dropped() -> None:
+def test_derive_microsoft_teams_style_spec_is_host_supplied() -> None:
     doc = {
         "openapi": "3.0.3",
         "info": {"title": "t", "version": "1"},
@@ -237,11 +217,12 @@ def test_derive_microsoft_teams_style_spec_no_longer_soft_dropped() -> None:
     result = derive_operations(doc, connector_id="microsoft_teams")
     assert result.drops == []
     assert {a.name for a in result.actions} == {"list_installed_apps"}
-    assert result.auth_plan.provider == "oauth2"
-    assert result.auth_plan.yaml_block["grant_method"] == "refresh_token"
-    # The spec's declared scopes don't include offline_access; without it Entra never
-    # issues a refresh token, so the generator adds it — see derive/auth.py.
-    assert "offline_access" in result.auth_plan.yaml_block["scopes"]
+    assert result.auth_plan.provider == "static_token"
+    assert result.auth_plan.tier == "host_supplied"
+    assert result.auth_plan.yaml_block["host_supplied"] is True
+    assert result.auth_plan.secret_key == "MICROSOFT_TEAMS_ACCESS_TOKEN"
+    assert "grant_method" not in result.auth_plan.yaml_block
+    assert "scopes" not in result.auth_plan.yaml_block
 
 
 def test_derive_demo_pets() -> None:
@@ -601,3 +582,92 @@ def test_derive_petstore_shape_generates_all_ops_zero_drops() -> None:
     assert extra.tier == "host_supplied"
     assert extra.provider == "static_token"
     assert extra.yaml_block["host_supplied"] is True
+    # Default is api_key — no collision — so the extra keeps <ID>_ACCESS_TOKEN.
+    assert extra.secret_key == "PET_STORE_ACCESS_TOKEN"
+
+
+def test_extra_host_supplied_secret_uniquified_when_default_already_uses_access_token() -> None:
+    """Two oauth2 schemes: default keeps <ID>_ACCESS_TOKEN; extra is suffixed."""
+    doc = {
+        "openapi": "3.0.3",
+        "info": {"title": "t", "version": "1"},
+        "servers": [{"url": "https://api.example.com"}],
+        "paths": {
+            "/a": {
+                "get": {
+                    "operationId": "getA",
+                    "security": [{"default_auth": []}],
+                    "responses": {"200": {"description": "ok"}},
+                }
+            },
+            "/b": {
+                "get": {
+                    "operationId": "getB",
+                    "security": [{"other_auth": []}],
+                    "responses": {"200": {"description": "ok"}},
+                }
+            },
+        },
+        "components": {
+            "securitySchemes": {
+                "default_auth": {
+                    "type": "oauth2",
+                    "flows": {"clientCredentials": {"tokenUrl": "https://idp.example.com/token"}},
+                },
+                "other_auth": {
+                    "type": "oauth2",
+                    "flows": {
+                        "authorizationCode": {
+                            "authorizationUrl": "https://idp.example.com/authorize",
+                            "tokenUrl": "https://idp.example.com/token",
+                        }
+                    },
+                },
+            }
+        },
+    }
+    result = derive_operations(doc, connector_id="acme")
+    assert result.auth_plan.secret_key == "ACME_ACCESS_TOKEN"
+    assert set(result.extra_auth_plans) == {"other_auth"}
+    extra = result.extra_auth_plans["other_auth"]
+    assert extra.secret_key == "ACME_OTHER_AUTH_ACCESS_TOKEN"
+    assert extra.yaml_block["secret_key"] == "ACME_OTHER_AUTH_ACCESS_TOKEN"
+    assert any("ACME_OTHER_AUTH_ACCESS_TOKEN" in n for n in extra.notes)
+
+
+def test_extra_self_managed_secret_uniquified_when_kind_matches_default() -> None:
+    """Two apiKey headers need two values — the extra must not reuse <ID>_API_KEY."""
+    doc = {
+        "openapi": "3.0.3",
+        "info": {"title": "t", "version": "1"},
+        "servers": [{"url": "https://api.example.com"}],
+        "security": [{"primary_key": []}],
+        "paths": {
+            "/a": {
+                "get": {
+                    "operationId": "getA",
+                    "responses": {"200": {"description": "ok"}},
+                }
+            },
+            "/b": {
+                "get": {
+                    "operationId": "getB",
+                    "security": [{"partner_key": []}],
+                    "responses": {"200": {"description": "ok"}},
+                }
+            },
+        },
+        "components": {
+            "securitySchemes": {
+                "primary_key": {"type": "apiKey", "in": "header", "name": "X-Api-Key"},
+                "partner_key": {"type": "apiKey", "in": "header", "name": "X-Partner-Key"},
+            }
+        },
+    }
+    result = derive_operations(doc, connector_id="acme")
+    assert result.auth_plan.secret_key == "ACME_API_KEY"
+    extra = result.extra_auth_plans["partner_key"]
+    assert extra.secret_key == "ACME_PARTNER_KEY_API_KEY"
+    assert extra.yaml_block["secret_key"] == "ACME_PARTNER_KEY_API_KEY"
+    assert extra.yaml_block["header_name"] == "X-Partner-Key"
+    assert extra.secret_keys == ["ACME_PARTNER_KEY_API_KEY"]

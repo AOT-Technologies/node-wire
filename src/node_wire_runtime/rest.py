@@ -42,6 +42,38 @@ class RestResponseOutput(BaseModel):
     body: Any = None
 
 
+class RestEnvelopeError(Exception):
+    """A 2xx response whose declared success flag reported failure.
+
+    Some APIs answer ``200 OK`` with ``{"ok": false, "error": "..."}`` instead of
+    an HTTP error status. Nothing above this layer can tell that apart from a
+    successful call, so the connector would report success for a failed request.
+    Raised only when the caller passes ``envelope_ok_field`` — see
+    :meth:`RestConnector.execute_rest`.
+    """
+
+    def __init__(self, field: str, payload: Dict[str, Any]) -> None:
+        self.field = field
+        self.payload = payload
+        detail = payload.get("error")
+        # `error` is this envelope convention's companion to the flag. Truncated:
+        # some APIs return a whole nested object there, and this string reaches logs.
+        suffix = f": {str(detail)[:200]}" if isinstance(detail, str) and detail else ""
+        super().__init__(f"API reported {field}=false{suffix}")
+
+
+def _check_envelope(payload: Any, field: Optional[str]) -> None:
+    """Raise :class:`RestEnvelopeError` when ``payload[field]`` is literally ``false``.
+
+    A missing field is not a failure: the flag is only meaningful when the API
+    actually sent it, and absence means the response said nothing either way.
+    """
+    if not field or not isinstance(payload, dict):
+        return
+    if payload.get(field) is False:
+        raise RestEnvelopeError(field, payload)
+
+
 def _field_extra(model: BaseModel, name: str) -> dict[str, Any]:
     field = type(model).model_fields.get(name)
     if field is None:
@@ -315,8 +347,15 @@ class RestConnector(BaseConnector):
         trace_id: str,
         auth: bool = True,
         auth_scheme: Optional[str] = None,
+        envelope_ok_field: Optional[str] = None,
     ) -> Any:
-        """Execute an HTTP call using ``nw_in`` field metadata on ``params``."""
+        """Execute an HTTP call using ``nw_in`` field metadata on ``params``.
+
+        ``envelope_ok_field`` names a boolean field in the JSON body that the API
+        sets to ``false`` to report failure while still answering ``2xx``. When
+        given and the field comes back ``false``, raises :class:`RestEnvelopeError`
+        instead of returning a response that looks successful. Defaults to off.
+        """
         base = self.resolve_base_url()
         path_params, query_params, header_params, body, media_type = split_params_by_location(
             params
@@ -395,6 +434,7 @@ class RestConnector(BaseConnector):
                     body_val = response.text
             else:
                 body_val = response.text if response.content else None
+            _check_envelope(body_val, envelope_ok_field)
             return RestResponseOutput(
                 status_code=response.status_code,
                 headers=resp_headers,
@@ -410,4 +450,5 @@ class RestConnector(BaseConnector):
             raise ValueError(
                 f"Expected JSON response for {output_model.__name__}, got non-JSON body"
             ) from exc
+        _check_envelope(payload, envelope_ok_field)
         return output_model.model_validate(payload)

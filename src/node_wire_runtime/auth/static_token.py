@@ -12,13 +12,31 @@ request header.
 
 Suitable for:
   - API-key authentication (e.g. Stripe, generic HTTP connectors)
-  - Pre-issued bearer tokens that do not expire
+  - Pre-issued bearer tokens that do not expire (``cache=True``, the default)
+  - Host-supplied OAuth access tokens the host rotates out-of-band
+    (``cache=False`` — re-read the secret on every call)
   - HTTP Basic authentication (set ``encoding="base64"``)
 
-The secret is fetched **once** and held in memory for the lifetime of the
-provider instance. Because these secrets are long-lived and do not expire, no
-TTL or refresh mechanism is implemented — tear down and recreate the provider
-if the secret is rotated.
+With ``cache=True`` (default) the secret is fetched **once** and held in memory
+for the lifetime of the provider instance. Call :meth:`refresh` or recreate
+the provider if the secret is rotated.
+
+With ``cache=False`` every :meth:`get_headers` call re-reads the secret. Whether
+that actually surfaces a rotated value depends on the configured
+:class:`SecretProvider` — this provider adds no caching of its own, but several
+backends cache internally:
+
+  - ``EnvSecretProvider`` / ``OverlaySecretProvider`` resolve live, so a rotated
+    value is seen on the next call. This is the case the host-supplied tier
+    targets.
+  - ``AwsSecretsManagerProvider`` / ``GcpSecretManagerProvider`` /
+    ``HashiCorpVaultProvider`` fetch their whole bundle in ``__init__`` and serve
+    later reads from memory — re-reading returns the same value until the
+    provider itself is recreated.
+  - ``AzureKeyVaultProvider`` resolves live, but ``get_secret`` is a *blocking*
+    network call: with ``cache=False`` every outbound request performs a Key
+    Vault round-trip inside the async path. Prefer ``cache=True`` plus an
+    explicit :meth:`refresh` there.
 """
 
 from __future__ import annotations
@@ -54,6 +72,12 @@ class StaticTokenAuthProvider(AuthProvider):
         Optional encoding applied to the raw secret before injection.
         Currently supports ``"base64"`` (for HTTP Basic auth pairs that are
         already formatted as ``user:password``). Default: ``None``.
+    cache:
+        When ``True`` (default), resolve the secret once and reuse the header.
+        When ``False``, re-read the secret on every :meth:`get_headers` call —
+        used for host-supplied OAuth access tokens the host may rotate. Only
+        surfaces rotations for live-resolving secret providers (env / overlay);
+        see the module docstring for the per-backend caveats.
     """
 
     def __init__(
@@ -64,12 +88,14 @@ class StaticTokenAuthProvider(AuthProvider):
         header_name: str = "Authorization",
         prefix: str = "Bearer",
         encoding: Optional[str] = None,
+        cache: bool = True,
     ) -> None:
         self._secret_provider = secret_provider
         self._secret_key = secret_key
         self._header_name = header_name
         self._prefix = prefix
         self._encoding = encoding
+        self._cache = cache
         self._cached_header: Optional[Dict[str, str]] = None
 
     def _build_header(self) -> Dict[str, str]:
@@ -82,7 +108,13 @@ class StaticTokenAuthProvider(AuthProvider):
         return {self._header_name: value}
 
     async def get_headers(self) -> Dict[str, str]:
-        """Return the header dict, computing it once and caching thereafter."""
+        """Return the header dict; cache when ``cache=True``, else re-read."""
+        if not self._cache:
+            logger.debug(
+                "StaticTokenAuthProvider: resolving secret (uncached)",
+                extra={"header": self._header_name},
+            )
+            return self._build_header()
         if self._cached_header is None:
             logger.debug(
                 "StaticTokenAuthProvider: resolving secret",

@@ -20,14 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wheel; `nw gen-all` builds runtime + bindings + connector.
 - **`node_wire_runtime.policies`**: added package `__init__.py` so Cython wheels include the
   nested `policies` package (was previously missing / misplaced in the wheel).
-- **`nw-connector-builder`**: connector-level `oauth2` auth is now derived for specs whose
-  security scheme declares a `clientCredentials` or `authorizationCode` flow, instead of being
-  soft-dropped outright. `clientCredentials` maps to `OAuth2AuthProvider(grant_method=
-  "client_secret_post")` (fully unattended). `authorizationCode` maps to `grant_method=
-  "refresh_token"`, scaffolding the token URL and declared scopes from the spec and flagging the
-  one-time out-of-band step (interactive consent) needed to obtain the initial refresh token —
-  Node Wire never performs that step itself (`nw-connector-builder-scope.md`,
-  `nw-connector-builder.md`). `implicit` and `password` flows remain unsupported, deliberately.
 - **`node-wire-runtime`**: `OAuth2AuthProvider` accepts an optional `on_refresh_token_rotated`
   callback (sync or async) for `grant_method="refresh_token"`, invoked when the IdP returns a
   refresh token that differs from the one just used, so a host app can persist the replacement.
@@ -38,11 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   automatically for every YAML-configured `oauth2`/`refresh_token` connector (Salesforce
   included), persisting into the existing process-wide secret overlay, scoped per tenant/config
   the same way the rest of that connector's secrets already are.
-- **`nw-connector-builder`**: the `authorizationCode` oauth2 scaffold now adds `offline_access`
-  to the derived scope list when the spec doesn't declare it — without it, Microsoft identity
-  platform (and most other OIDC providers) will not issue a refresh token during the interactive
-  consent, making the generated `grant_method: refresh_token` config inoperable regardless of
-  how correctly everything else is configured.
+- **`node-wire-runtime`**: `RestConnector.execute_rest` accepts `envelope_ok_field=` (default
+  off). APIs that answer `200 OK` with `{"ok": false, "error": ...}` instead of an HTTP error
+  status now raise `RestEnvelopeError` rather than returning a response that reads as successful.
+- **`nw-connector-builder`**: generated connectors detect that convention from the spec — when an
+  operation's success schema declares `ok` as a required boolean, codegen passes
+  `envelope_ok_field="ok"` and maps `RestEnvelopeError` to a `BUSINESS` failure
+  (`API_ENVELOPE_ERROR`). Optional or non-boolean `ok` fields are ignored, so specs without the
+  convention generate unchanged code.
+- **`node-wire-runtime`**: `StaticTokenAuthProvider` accepts `cache=` (default `True`). When
+  `auth.host_supplied: true` is set in `connectors.yaml`, the factory builds the provider with
+  `cache=False` so the secret is re-read per call and a rotated value is seen without an explicit
+  `refresh()`. This surfaces rotations for live-resolving secret providers (env, overlay); AWS /
+  GCP / Vault providers snapshot their bundle at init and still need recreating, and Azure Key
+  Vault resolves live but costs a blocking round-trip per request.
 - Connector logs now carry a structured ``connector_id`` on nested FHIR lines and
   agent tool-call lines (via a run-scoped logging filter and MCP tool-name
   mapping). Import ``grafana/connector-logs-status.json`` for the existing Loki
@@ -61,6 +62,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`nw-connector-builder`**: building with a connector id whose `src/node_wire_<id>/` exists and
+  was not written by the generator is now refused up front — before staging, because the build
+  gate imports generated code in-process and its `declare_secret_shape` call would replace a
+  hand-written connector's tenant-secret contract. `--force` does not override it: deleting
+  hand-written source should be deliberate, not a build side effect.
+- **`nw-connector-builder`**: generated packages now declare their own tenant-secret shape.
+  `logic.py` calls `declare_secret_shape()` at import time with the auth plan's secret keys
+  (connector-level scheme required, per-action scheme secrets format-checked but optional), so
+  the config store accepts a generated connector's credentials under
+  `NW_SECRET_SHAPE_POLICY=enforce` instead of rejecting it as unrecognised — previously only the
+  hand-written connectors hard-coded in `node_wire_runtime/tenant_persistence.py` could be
+  stored. Generated packages also ship a `README.md` recording the actions table and the
+  credential contract.
+- **`nw-connector-builder`**: every OpenAPI `oauth2` scheme (including `clientCredentials` and
+  `authorizationCode`) and `openIdConnect` now maps to a host-supplied `static_token` bearer
+  (`<ID>_ACCESS_TOKEN`). Generated connectors never call a token endpoint or refresh a grant —
+  the host obtains and rotates the credential. Hand-written `oauth2` connectors
+  (`fhir_epic`, `salesforce`, …) are unchanged (`nw-connector-builder-scope.md`,
+  `nw-connector-builder.md`).
+  **Migration** (only affects connectors generated from this unreleased branch — the previous
+  `oauth2` derivation was never in a tagged release): regenerating such a spec with `--wire`
+  replaces that connector's whole entry in `connectors.yaml`, so `provider: oauth2` plus
+  `<ID>_CLIENT_ID` / `<ID>_CLIENT_SECRET` / `<ID>_REFRESH_TOKEN` becomes `provider: static_token`
+  with `<ID>_ACCESS_TOKEN`. The old env vars are left in `sample.env` but are no longer read; the
+  host must supply an access token under the new key. Hand-written `oauth2` connectors are not
+  regenerated and keep working as-is.
 - **PyPI distribution rename**: the generic HTTP connector publishes as
   `node-wire-http` (was `node-wire-http-generic`, never published under that
   name). The import package (`node_wire_http_generic`), the connector key, and

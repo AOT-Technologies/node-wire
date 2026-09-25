@@ -17,6 +17,7 @@ from nw_connector_builder.derive.auth import (
     choose_connector_scheme,
     connector_fingerprint,
     evaluate_operation_security,
+    uniquify_extra_secret_keys,
 )
 from nw_connector_builder.derive.naming import (
     fallback_operation_name,
@@ -53,6 +54,8 @@ class ActionPlan:
     output_schema: dict[str, Any] | None
     use_rest_response_output: bool
     auth: bool  # False for anonymous
+    # Success-flag field the API sets false to report failure inside a 2xx body.
+    envelope_ok_field: str | None = None
     deprecated: bool = False
     examples: dict[str, Any] = field(default_factory=dict)
     # Non-default scheme for divergent ops; None = connector default.
@@ -209,6 +212,30 @@ def _success_response_schema(op: dict[str, Any]) -> tuple[dict[str, Any] | None,
 
     # no success JSON → envelope
     return None, True
+
+
+# Envelope-flag convention: a 2xx body carrying its own success boolean
+# (Slack, Telegram, and other "always 200" APIs). Only this exact shape counts —
+# a required boolean named `ok` — so a spec that happens to have an optional or
+# non-boolean `ok` field is untouched.
+_ENVELOPE_OK_FIELD = "ok"
+
+
+def _envelope_ok_field(schema: dict[str, Any] | None) -> str | None:
+    """Return the success-flag field name when the success schema declares one.
+
+    Requires the flag to be **required**: an optional one says nothing when the
+    API omits it, and treating its absence as failure would break every response
+    that legitimately leaves it out.
+    """
+    if not isinstance(schema, dict):
+        return None
+    if _ENVELOPE_OK_FIELD not in (schema.get("required") or []):
+        return None
+    prop = (schema.get("properties") or {}).get(_ENVELOPE_OK_FIELD)
+    if not isinstance(prop, dict) or prop.get("type") != "boolean":
+        return None
+    return _ENVELOPE_OK_FIELD
 
 
 def _schema_is_object(schema: dict[str, Any]) -> bool:
@@ -383,6 +410,7 @@ def derive_operations(
                 output_schema=out_schema,
                 use_rest_response_output=use_envelope,
                 auth=sec.mode != "anonymous",
+                envelope_ok_field=_envelope_ok_field(out_schema),
                 deprecated=bool(op.get("deprecated")),
                 examples=examples,
                 auth_scheme_name=sec.scheme_name if sec.mode == "divergent" else None,
@@ -393,13 +421,22 @@ def derive_operations(
         raise DeriveError("Zero usable operations after soft-drops; cannot build connector")
 
     coverage_warning = len(actions) < (total * 0.5)
+    enveloped = [a.name for a in actions if a.envelope_ok_field]
+    if enveloped:
+        notes.append(
+            f"Success-flag envelope: {len(enveloped)} action(s) treat a 2xx body with "
+            f"{_ENVELOPE_OK_FIELD}=false as a business error, because the success schema "
+            f"declares {_ENVELOPE_OK_FIELD} as a required boolean ({', '.join(enveloped)})"
+        )
     # Plans for every non-default scheme a generated action actually uses.
     extra_scheme_names = sorted(
         {a.auth_scheme_name for a in actions if a.auth_scheme_name is not None}
     )
-    extra_auth_plans = {
-        name: build_auth_plan(connector_id, schemes, name) for name in extra_scheme_names
-    }
+    extra_auth_plans = uniquify_extra_secret_keys(
+        connector_id,
+        auth_plan,
+        {name: build_auth_plan(connector_id, schemes, name) for name in extra_scheme_names},
+    )
     return DeriveResult(
         actions=actions,
         drops=drops,

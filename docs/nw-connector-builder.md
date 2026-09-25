@@ -223,22 +223,34 @@ The builder picks **one connector-level default** security scheme (document `sec
 | `apiKey` in `query` | `apikey_query` | `<ID>_API_KEY` |
 | `http` + `bearer` | `static_token` | `<ID>_TOKEN` |
 | `http` + `basic` | `static_token` (`prefix: Basic`, base64) | `<ID>_BASIC_AUTH` |
-| `oauth2` flow `clientCredentials` | `oauth2` (`grant_method: client_secret_post`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET` |
-| `oauth2` flow `authorizationCode` | `oauth2` (`grant_method: refresh_token`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET`, `<ID>_REFRESH_TOKEN` (manual one-time step) |
-| `oauth2` with no unattended flow (`implicit` / `password` / none declared), or `openIdConnect` | `static_token` (`prefix: Bearer`, `host_supplied: true`) | `<ID>_ACCESS_TOKEN` |
+| `oauth2` (any flow) or `openIdConnect` | `static_token` (`prefix: Bearer`, `host_supplied: true`) | `<ID>_ACCESS_TOKEN` |
 | None / unsupported only | `none` (anonymous) | — |
 
-`<ID>_TOKEN_URL` is also emitted for both `oauth2` rows, pre-filled in `sample.env` with the
-spec's `tokenUrl` (public API metadata, not a secret — kept as a reference like the rest of the
-block so a sandbox/prod override never needs a code change). `authorizationCode` additionally
-requires completing an interactive consent **outside** Node Wire before `<ID>_REFRESH_TOKEN` can
-be set — see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#oauth2-authorizationcode).
+Secret names come from the connector id and the credential kind, so a second scheme of the same
+kind would otherwise reuse the first one's secret. When that happens the extra scheme is emitted
+under `auth_schemes:` with its name folded in — `<ID>_<SCHEME>_ACCESS_TOKEN`,
+`<ID>_<SCHEME>_API_KEY`, and so on. The build report's
+`auth.notes` name the scheme and, when the OpenAPI document declares them, the
+`authorizationUrl` / `tokenUrl` for the host to call — those URLs are documentation only;
+the connector never POSTs to a token endpoint.
 
 ### Host-supplied tier
 
-`oauth2` flows Node Wire cannot run unattended (`implicit`, `password`, or no flow the generator recognizes) and `openIdConnect` are **not** soft-dropped — they map to a **host-supplied** bearer token: Node Wire presents whatever value sits in `<ID>_ACCESS_TOKEN` as a plain `Bearer` header but never obtains, refreshes, or detects the expiry of it. The operator's host application is responsible for acquiring and rotating that token out-of-band. This is presentation only, never described as "supports implicit/password" — the acquisition ban on those flows is unchanged, see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#out-of-scope). The build report's `auth.notes` spells out which scheme triggered it and the exact secret key to set.
+Every `oauth2` scheme and `openIdConnect` map to a **host-supplied** bearer token: Node Wire
+presents whatever value sits in `<ID>_ACCESS_TOKEN` as a plain `Bearer` header but never
+obtains, refreshes, or detects the expiry of it. The operator's host application is responsible
+for acquiring and rotating that token out-of-band. This is presentation only — the acquisition
+ban on all OAuth2 / OIDC flows for *generated* connectors is deliberate; see
+[nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier). The build
+report's `auth.notes` spell out which scheme triggered it and the exact secret key to set.
 
-**"Presents a bearer token" is not the same claim as "supports the flow."** At runtime this tier is the exact same `static_token` provider as a plain `http: bearer` scheme — Node Wire never calls a token endpoint or performs a grant exchange for it. It will happily present *any* bearer string, OAuth2-derived or not; that's a much weaker guarantee than the autonomous acquire-and-refresh behavior `clientCredentials`/`authorizationCode` actually get. See [nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier) for the full reasoning, including why `implicit` in particular carries a real operational cost (no refresh token by spec — the host must redo the full interactive consent every time the token expires).
+**"Presents a bearer token" is not the same claim as "supports the flow."** At runtime this tier
+is `StaticTokenAuthProvider` with `cache=False`, which re-reads the secret per call — a host that
+replaces the value is seen on the next call for live-resolving secret providers (env, overlay);
+backends that snapshot at init (AWS/GCP/Vault) need the provider recreated, and Azure Key Vault is
+better served by the cached path plus an explicit `refresh()`. Node Wire never calls a token
+endpoint or performs a grant exchange. Hand-written connectors that already use `OAuth2AuthProvider` (`fhir_epic`,
+`salesforce`, …) are unchanged. See [nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier).
 
 ### Per-action auth schemes
 
@@ -250,6 +262,27 @@ Operations that require a **different, still-presentable** scheme than the conne
 - Cookie API keys (`apiKey` `in: cookie`)
 - AND multi-scheme requirements (`security: [{ a: [], b: [] }]`)
 - Unrecognized scheme types
+
+---
+
+## Success-flag envelopes (`ok: false`)
+
+Some APIs never use HTTP error statuses for business failures — Slack answers `200 OK` with `{"ok": false, "error": "invalid_auth"}`. Nothing above the REST executor can tell that apart from a successful call, so the connector would report success for a failed request.
+
+When an operation's success schema declares **`ok` as a required boolean**, the builder passes `envelope_ok_field="ok"` to `execute_rest` and adds `RestEnvelopeError` to the connector's `error_map` as a `BUSINESS` failure (`API_ENVELOPE_ERROR`). At runtime a body whose `ok` came back `false` raises instead of returning; the exception message carries the payload's `error` string when there is one (truncated to 200 chars).
+
+The trigger is deliberately narrow so ordinary specs are unaffected:
+
+| Success schema | Checked? |
+|---|---|
+| `required: [ok]`, `ok: {type: boolean}` | yes |
+| `ok` present but **not** required | no — an omitted flag says nothing, and treating absence as failure would break valid responses |
+| `ok` required but not a boolean | no |
+| no `ok` property, or no documented success schema | no |
+
+A missing flag at runtime is never a failure either: only a flag the API actually sent as `false` raises. Specs without the convention generate byte-identical code to before — no import, no `error_map` entry, no kwarg. The build report names the actions that got the check.
+
+`envelope_ok_field` is off by default on `execute_rest`, so hand-written connectors are unaffected.
 
 ---
 
@@ -278,7 +311,8 @@ After promote:
 src/node_wire_<id>/
   __init__.py
   schema.py          # Pydantic input models + outputs (or RestResponseOutput)
-  logic.py           # RestConnector subclass with @nw_action methods (no error_map by default)
+  logic.py           # RestConnector subclass with @nw_action methods + declare_secret_shape()
+  README.md          # actions table + the credential contract for this connector
 
 packages/connectors/<id>/
   pyproject.toml     # entry point + deps
@@ -315,13 +349,16 @@ Promote is a two-phase commit across both trees (`src/node_wire_<id>` and `packa
 
 If either destination already exists, you must pass **`--force`**.
 
+`--force` only replaces output this tool wrote. If `src/node_wire_<id>/logic.py` exists without the `# Generated by nw-connector-builder` marker, the build is refused before staging — a hand-written connector sharing the id would otherwise be deleted, and the generated package's `declare_secret_shape()` call would replace that connector's tenant-secret contract, so stored credentials stop validating. Pick a different `--id`, or move the existing package aside first. The check runs before staging because the gate imports the generated module in-process.
+
 ---
 
 ## `--wire` behavior
 
 When `--wire` is set after a clean promote:
 
-**`config/connectors.yaml`** — upserts:
+**`config/connectors.yaml`** — upserts. The connector's entry is **replaced wholesale**, not merged: a previously derived `auth:` block (and any keys hand-added under that connector) is discarded and rewritten from the current auth plan. Regenerating a spec whose auth mapping changed therefore changes which secrets the connector reads.
+
 
 ```yaml
 connectors:
@@ -388,6 +425,20 @@ Generated `RestConnector`s honor the same egress controls as other REST adapters
 | `NW_REST_TRUST_ENV` | Set `true` to honor `HTTP(S)_PROXY` (default off) |
 
 Plus connector-specific secrets from the auth plan (`<ID>_API_KEY`, `<ID>_TOKEN`, …) when using `--wire` / `sample.env`.
+
+### Storing those secrets per tenant
+
+`sample.env` is the single-tenant path. For per-tenant/per-config credentials the values go through the config store, which keeps a registry of which logical secrets each connector owns — hand-written connectors are hard-coded in `node_wire_runtime/tenant_persistence.py`, and generated ones declare themselves. Each generated `logic.py` therefore ends with:
+
+```python
+declare_secret_shape(
+    "slack_web",
+    required=["SLACK_WEB_ACCESS_TOKEN"],
+    formats={"SLACK_WEB_ACCESS_TOKEN": "opaque_secret"},
+)
+```
+
+It runs at import time (the entry point imports `logic`), so the store accepts this connector's credentials even under `NW_SECRET_SHAPE_POLICY=enforce`, which otherwise rejects any connector it does not recognise. The connector-level scheme's secrets are `required`; per-action scheme secrets are format-checked but optional, so a host can store the default credential without provisioning every scheme. Connectors with no auth declare `declare_secret_shape("<id>")` — an explicit "no tenant secrets" rather than silence.
 
 ---
 

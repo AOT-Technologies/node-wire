@@ -181,6 +181,23 @@ async def test_static_token_refresh_clears_cache() -> None:
     assert len(calls) == 2  # resolved twice — once per cache population
 
 
+@pytest.mark.asyncio
+async def test_static_token_cache_false_rereads_secret_each_call() -> None:
+    """host_supplied path: cache=False re-reads so a rotated secret is seen immediately."""
+    store = {"k": "tok-old"}
+
+    class _Mutable(SecretProvider):
+        def get_secret(self, key: str) -> str:
+            return store[key]
+
+    provider = StaticTokenAuthProvider(secret_provider=_Mutable(), secret_key="k", cache=False)
+    h1 = await provider.get_headers()
+    assert h1 == {"Authorization": "Bearer tok-old"}
+    store["k"] = "tok-new"
+    h2 = await provider.get_headers()
+    assert h2 == {"Authorization": "Bearer tok-new"}
+
+
 # ---------------------------------------------------------------------------
 # OAuth2AuthProvider — token caching
 # ---------------------------------------------------------------------------
@@ -497,8 +514,42 @@ def test_factory_builds_extra_auth_providers_from_auth_schemes() -> None:
     default = factory._build_auth_provider("pet_store", cfg)
     extras = factory._build_extra_auth_providers("pet_store", cfg)
     assert isinstance(default, StaticTokenAuthProvider)
+    assert default._cache is True
     assert set(extras) == {"petstore_auth"}
     assert isinstance(extras["petstore_auth"], StaticTokenAuthProvider)
+    assert extras["petstore_auth"]._cache is False
+
+
+@pytest.mark.asyncio
+async def test_factory_host_supplied_static_token_picks_up_rotated_secret() -> None:
+    """auth.host_supplied → cache=False; a replaced secret is seen without refresh()."""
+    from bindings.factory import ConnectorFactory
+    from node_wire_runtime.auth import StaticTokenAuthProvider
+
+    store = {"SLACK_WEB_ACCESS_TOKEN": "xoxb-old"}
+
+    class _Mutable(SecretProvider):
+        def get_secret(self, key: str) -> str:
+            return store[key]
+
+    factory = ConnectorFactory.__new__(ConnectorFactory)
+    factory._secret_provider = _Mutable()
+    cfg = {
+        "auth": {
+            "provider": "static_token",
+            "secret_key": "SLACK_WEB_ACCESS_TOKEN",
+            "prefix": "Bearer",
+            "host_supplied": True,
+        }
+    }
+    provider = factory._build_auth_provider("slack_web", cfg)
+    assert isinstance(provider, StaticTokenAuthProvider)
+    assert provider._cache is False
+    h1 = await provider.get_headers()
+    assert h1 == {"Authorization": "Bearer xoxb-old"}
+    store["SLACK_WEB_ACCESS_TOKEN"] = "xoxb-new"
+    h2 = await provider.get_headers()
+    assert h2 == {"Authorization": "Bearer xoxb-new"}
 
 
 def test_factory_builds_no_extra_auth_providers_when_auth_schemes_absent() -> None:

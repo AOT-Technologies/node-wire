@@ -426,6 +426,11 @@ class ConnectorFactory:
                 header_name=auth_cfg.get("header_name", "Authorization"),
                 prefix=auth_cfg.get("prefix", "Bearer"),
                 encoding=auth_cfg.get("encoding"),
+                # host_supplied: re-read so a rotated value is seen without an
+                # explicit refresh(). Effective for live-resolving secret
+                # providers (env / overlay); backends that snapshot at init
+                # (AWS/GCP/Vault) still need the provider recreated.
+                cache=not bool(auth_cfg.get("host_supplied")),
             )
 
         if provider_type == "apikey_query":
