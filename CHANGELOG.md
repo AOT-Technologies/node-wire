@@ -62,6 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`nw-connector-builder`**: specs carrying JSON Schema draft-4 constructs that OpenAPI 3.0
+  forbids no longer fail the build. `type: [T, "null"]`, multi-type unions, a bare `type: "null"`,
+  and tuple-form `items: [A, B]` are rewritten to their OAS 3.0 equivalents (`nullable`, `anyOf`)
+  before validation, and Swagger 2.0 response-level `examples` are moved into
+  `content.<mime>.example` during conversion. Slack's published Web API spec hit all of these and
+  aborted at load; it now builds 174/174 operations with zero soft-drops.
 - **`nw-connector-builder`**: building with a connector id whose `src/node_wire_<id>/` exists and
   was not written by the generator is now refused up front — before staging, because the build
   gate imports generated code in-process and its `declare_secret_shape` call would replace a

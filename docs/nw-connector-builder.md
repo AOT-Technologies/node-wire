@@ -209,7 +209,24 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 | Sources | Local file path, or `http` / `https` URL |
 | Remote `$ref` | **Rejected** — absolute remote refs are not fetched; keep a self-contained document (local relative/`#/` refs OK) |
 | Validation | Resolved with `prance` + validated with `openapi-spec-validator` |
+| Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see below) |
 | Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
+
+### Draft-4 repair
+
+Real-world specs — Slack's published Web API spec among them — carry JSON Schema draft-4 constructs that OpenAPI 3.0's Schema Object does not allow. One of them anywhere in the document fails validation and takes the whole build with it, so the loader rewrites them into their OAS 3.0 equivalents (after `$ref` resolution, so inlined targets are covered) and logs a count of what it changed:
+
+| Found | Rewritten to |
+|---|---|
+| `type: ["string", "null"]` | `type: string` + `nullable: true` |
+| `type: ["string", "integer"]` | `anyOf: [{type: string}, {type: integer}]` |
+| `type: "null"` | `nullable: true` |
+| `items: [A, {type: null}]` | `items: A` + `nullable: true` |
+| `items: [A, B]` | `items: {anyOf: [A, B]}` |
+
+Tuple-form `items` means positional validation in draft-4, which no generated model can express; the specs that use it mean "A or B", so that is how it is read. Documents without these constructs are untouched.
+
+Swagger 2.0 input gets one more repair during conversion: response `examples` (keyed by mime type on the response object, which OAS 3 has no property for) moves to `content.<mime>.example`.
 
 ---
 

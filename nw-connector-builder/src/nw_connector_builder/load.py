@@ -15,7 +15,10 @@ from urllib.parse import urlparse
 import httpx
 import yaml
 
-from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
+from nw_connector_builder.normalize_v2 import (
+    normalize_swagger2_to_openapi3,
+    sanitize_draft4_schemas,
+)
 from nw_connector_builder.refs import collect_remote_refs
 
 logger = logging.getLogger(__name__)
@@ -129,6 +132,13 @@ def resolve_and_validate(
         resolved = resolver.specs
         if not isinstance(resolved, dict):
             raise SpecLoadError("ref resolver returned a non-object specification")
+        # After resolution so inlined $ref targets are covered too.
+        repaired = sanitize_draft4_schemas(resolved)
+        if repaired:
+            logger.warning(
+                "Repaired draft-4 schema constructs invalid in OpenAPI 3.0: %s",
+                ", ".join(f"{k}={v}" for k, v in sorted(repaired.items())),
+            )
         validate(resolved)
     except SpecLoadError:
         raise

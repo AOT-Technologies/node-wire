@@ -423,10 +423,14 @@ def derive_operations(
     coverage_warning = len(actions) < (total * 0.5)
     enveloped = [a.name for a in actions if a.envelope_ok_field]
     if enveloped:
+        # Slack's spec puts this on 170 of 174 operations; naming them all buries
+        # the rest of the report. Per-action detail stays in generated_actions.
+        shown = ", ".join(enveloped[:5])
+        more = f", +{len(enveloped) - 5} more" if len(enveloped) > 5 else ""
         notes.append(
-            f"Success-flag envelope: {len(enveloped)} action(s) treat a 2xx body with "
-            f"{_ENVELOPE_OK_FIELD}=false as a business error, because the success schema "
-            f"declares {_ENVELOPE_OK_FIELD} as a required boolean ({', '.join(enveloped)})"
+            f"Success-flag envelope: {len(enveloped)} of {len(actions)} action(s) treat a 2xx "
+            f"body with {_ENVELOPE_OK_FIELD}=false as a business error, because the success "
+            f"schema declares {_ENVELOPE_OK_FIELD} as a required boolean ({shown}{more})"
         )
     # Plans for every non-default scheme a generated action actually uses.
     extra_scheme_names = sorted(
