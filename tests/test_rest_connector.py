@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 from typing import Any, Literal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -470,6 +470,19 @@ def test_encode_request_body_json_form_multipart_and_raw() -> None:
     # base64 string for binary media
     b64 = base64.b64encode(b"hi").decode()
     assert _encode_request_body(b64, "application/octet-stream") == {"content": b"hi"}
+
+
+def test_encode_request_body_multipart_base64_decode_failure_falls_back_to_string() -> None:
+    """A base64-looking field that fails to decode falls back to a plain form field."""
+    from node_wire_runtime.rest import _encode_request_body
+
+    padded = ("ABCD" * 15) + "ab=="  # passes _looks_base64
+    with patch(
+        "node_wire_runtime.rest.base64.b64decode",
+        side_effect=ValueError("Invalid base64-encoded string"),
+    ):
+        multi = _encode_request_body({"file": padded}, "multipart/form-data")
+    assert multi == {"data": {"file": padded}}
 
 
 def test_encode_request_body_model_binary_and_fallback() -> None:

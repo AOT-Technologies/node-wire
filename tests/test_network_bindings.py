@@ -41,6 +41,11 @@ def test_is_public_bind_host() -> None:
     assert not is_public_bind_host("10.0.0.1")
 
 
+def test_is_public_bind_host_rejects_non_ip_strings() -> None:
+    assert not is_public_bind_host("localhost")
+    assert not is_public_bind_host("")
+
+
 @pytest.mark.asyncio
 async def test_mcp_public_bind_logs_warning(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -114,6 +119,11 @@ def test_grpc_is_public_bind_host() -> None:
     assert grpc_is_public_bind_host("0.0.0.0")
     assert grpc_is_public_bind_host("::")
     assert not grpc_is_public_bind_host("127.0.0.1")
+
+
+def test_grpc_is_public_bind_host_rejects_non_ip_strings() -> None:
+    assert not grpc_is_public_bind_host("localhost")
+    assert not grpc_is_public_bind_host("")
 
 
 def test_grpc_ipv6_host_is_bracketed(monkeypatch: pytest.MonkeyPatch) -> None:
