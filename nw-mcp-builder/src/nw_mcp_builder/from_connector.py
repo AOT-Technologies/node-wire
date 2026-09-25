@@ -19,7 +19,7 @@ import importlib
 import logging
 import os
 import re
-import subprocess
+import subprocess  # nosec B404  # local build tool; all calls below use arg lists, no shell=True
 import sys
 import textwrap
 from pathlib import Path
@@ -155,7 +155,7 @@ def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
         env["UV_PYTHON"] = python
     logger.info("Building wheel in %s", package_dir)
     try:
-        subprocess.run(
+        subprocess.run(  # nosec B603  # fixed arg list, no shell, local build command
             cmd,
             cwd=package_dir,
             check=True,
@@ -165,13 +165,13 @@ def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
         )
     except FileNotFoundError:
         py = python or "python"
-        subprocess.run(
+        subprocess.run(  # nosec B603  # fixed arg list, no shell, local build command
             [py, "-m", "pip", "install", "build", "cython", "wheel", "setuptools", "-q"],
             check=True,
             capture_output=True,
             text=True,
         )
-        subprocess.run(
+        subprocess.run(  # nosec B603  # fixed arg list, no shell, local build command
             [py, "-m", "build", "--wheel", "--outdir", "dist"],
             cwd=package_dir,
             check=True,

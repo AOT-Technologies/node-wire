@@ -59,6 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   personal data. The playground picker groups OpenRouter models behind one
   row that expands on hover or click.
 
+### Changed
+
+- **PyPI distribution rename**: the generic HTTP connector publishes as
+  `node-wire-http` (was `node-wire-http-generic`, never published under that
+  name). The import package (`node_wire_http_generic`), the connector key, and
+  the `node_wire.connectors` entry point (`http_generic`) are unchanged.
+
 ### Fixed
 
 - Google Drive, Slack, and SMTP log connector-scoped errors (with ``failed`` /

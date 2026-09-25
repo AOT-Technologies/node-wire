@@ -483,6 +483,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
     && {{ find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true; }} \\
     && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
 
+# --- runtime stage ---
 FROM {PYTHON_312_SLIM_IMAGE}
 
 LABEL org.opencontainers.image.title="{module_name}" \\
