@@ -19,6 +19,8 @@ dependencies = [
     "pytest>=8.0.0",
     "polyfactory>=2.16.0",
     "PyYAML>=6.0.1",
+    # Generated sources are ruff-formatted at staging time (codegen.format_generated_sources).
+    "ruff>=0.3.5",
 ]
 
 [project.scripts]

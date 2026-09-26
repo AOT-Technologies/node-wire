@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   automatically for every YAML-configured `oauth2`/`refresh_token` connector (Salesforce
   included), persisting into the existing process-wide secret overlay, scoped per tenant/config
   the same way the rest of that connector's secrets already are.
+- **`node-wire-runtime`**: form-encoded request bodies now render values as JSON rather than
+  Python text. Booleans were sent as `True`/`False` instead of `true`/`false`, nested
+  objects/arrays as a single-quoted Python repr instead of JSON (Slack rejects a `blocks` field
+  encoded that way with `invalid_arguments`), and `None` as the literal string `"None"` instead of
+  being omitted. Applies to `application/x-www-form-urlencoded` and multipart form fields.
 - **`node-wire-runtime`**: `RestConnector.execute_rest` accepts `envelope_ok_field=` (default
   off). APIs that answer `200 OK` with `{"ok": false, "error": ...}` instead of an HTTP error
   status now raise `RestEnvelopeError` rather than returning a response that reads as successful.
@@ -62,6 +67,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`nw-connector-builder`**: generated tools now carry the spec's descriptions. The operation's
+  `summary` (else `description`) — first paragraph, markdown links flattened, 300-character cap —
+  becomes the input model's docstring, which the manifest already publishes as the tool
+  description. Parameter descriptions (from the parameter or its schema) are emitted on each
+  field, first sentence, 90-character cap. Previously every generated tool reached MCP clients
+  with no description at all. Slack: 174/174 tools and 198/223 parameters now described. With the
+  flattened bodies below, Slack's advertised input schemas go from 68 KB (no descriptions) to 79 KB.
+- **`node-wire-bindings`**: MCP tool-call validation errors now name the offending path — e.g.
+  `Input validation error: $.body: 'channel' is a required property` instead of
+  `'channel' is a required property`. The SDK validates against `inputSchema` and reports only
+  `exc.message`, dropping the `json_path` it already computed, so a message could not say whether
+  a field was missing from the arguments or from an object nested inside them. One error is
+  reported per call (jsonschema's best match). Validation now runs in the server
+  (`validate_input=False` on the SDK handler) against the same advertised schema, after
+  authentication, keeping the `Input validation error:` prefix.
+- **`node-wire-bindings`**: advertised MCP tool schemas no longer carry Node Wire's internal
+  `nw_in` / `nw_wire_name` / `nw_style` / `nw_explode` / `nw_media_type` routing metadata. It is
+  read from the model fields at call time, not from the advertised copy, and was over a third of
+  a generated connector's advertised input schemas. Applies to every connector, hand-written included.
+- **`nw-connector-builder`** (**breaking** for generated tool shapes): object request bodies are
+  flattened into top-level arguments — one typed, described field per body property, marked
+  `nw_in="body_property"` — instead of a single `body` object. Callers send
+  `{"channel": "C1", "text": "hi"}`, not `{"body": {...}}`. The generated Pydantic model is now
+  the whole contract, so REST and gRPC enforce required body fields, types and string enums
+  (`Literal`) exactly as MCP does; previously body contents were an unchecked `dict` outside MCP.
+  A body property is required only when `requestBody.required` is true (it was ignored: `{}`
+  passed for 60 Slack operations). Top-level `allOf` is merged, `readOnly` properties are
+  skipped, a parameter sharing a body property's name becomes `<name>__<location>`, reserved
+  names (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get `_param`, Python keywords
+  a trailing `_`. Bodies that are not objects with declared properties keep one `body` argument,
+  now typed from the schema (`list` / `str` / `dict`) and required when the body is.
+- **`nw-connector-builder`**: parameters and body fields that duplicate the connector credential
+  (`token`, `api_key`, `authorization`, … in a header, query or request body) are no longer
+  emitted as call arguments on authenticated actions — the configured `AuthProvider` supplies
+  them. Slack's spec declares a `token` header on every operation and a required form-body
+  `token` on 11, which made the generated MCP tools demand an API token from their caller.
+  Exact-name matching only: `page_token` / `cursor` / path parameters and anonymous actions are
+  untouched, and drops are listed in the build report.
+- **`nw-connector-builder`**: action names are cut to fit the MCP tool-name limit
+  (`<connector_id>_<action>` ≤ 64 characters) at a word boundary, instead of at a fixed 40
+  characters mid-word (`…_restrict_access_remo`, `…_add_`).
+- **`nw-connector-builder`**: generated sources are `ruff format`ted at staging time with the
+  target root's `[tool.ruff]` settings, so they pass the repo's `ruff format --check`; source ruff
+  cannot parse fails the build. `ruff` is now a dependency of the builder.
+- **`nw-connector-builder`**: generated packages require `node-wire-runtime>=1.1.0` (was
+  `>=1.0.0`), the first runtime with the APIs generated code calls — a generated wheel could
+  install next to 1.0.0 and fail at import on `RestEnvelopeError`.
+- **`node-wire-runtime`** 1.1.0: `split_params_by_location` builds the request body from
+  `nw_in="body_property"` fields, keyed by `nw_wire_name`, sending `{}` when none is set. The
+  whole-body `nw_in="body"` field is unchanged; a model declaring both raises `ValueError`.
+- **`node-wire-runtime`**: `MCP_MANIFEST_CONTRACT_VERSION` 5 → 6 — published tool shapes changed
+  (flattened generated bodies, `nw_*` keys stripped, description moved out of `inputSchema`).
+- **`node-wire-bindings`**: the MCP server builds the tool manifest once per set of loaded
+  connectors instead of twice per tool call (name resolution and validation each rebuilt it,
+  ~40 ms each for a 174-action connector). `list_tools()` returns copies.
+- **`node-wire-bindings`**: the input model's docstring is published only as the tool
+  description, no longer repeated as `inputSchema.description`.
+- **`node-wire-bindings`**: an unexpected top-level argument that a nested object declares gets a
+  hint — `Additional properties are not allowed ('channel' was unexpected) ('channel' belongs
+  inside 'body')`.
 - **`nw-connector-builder`**: specs carrying JSON Schema draft-4 constructs that OpenAPI 3.0
   forbids no longer fail the build. `type: [T, "null"]`, multi-type unions, a bare `type: "null"`,
   and tuple-form `items: [A, B]` are rewritten to their OAS 3.0 equivalents (`nullable`, `anyOf`)
@@ -100,6 +165,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the `node_wire.connectors` entry point (`http_generic`) are unchanged.
 
 ### Fixed
+
+- **`nw-connector-builder`**: Swagger 2.0 `in: body` parameters no longer become a *required*
+  OpenAPI 3 request body unless they say `required: true` (the 2.0 default is optional).
+- **`nw-connector-builder`**: generated example tests emit spec examples as Python literals —
+  a boolean or null in an example was written as JSON `true`/`null` and failed the staging gate
+  with a `NameError`; YAML dates are rendered as strings.
+- **`nw-connector-builder`**: parameter and body field names that are Python keywords (`from`,
+  `class`) or `BaseModel` attributes (`json`, `copy`) are suffixed with `_` instead of producing
+  a generated module that does not import.
 
 - Google Drive, Slack, and SMTP log connector-scoped errors (with ``failed`` /
   ``error`` in the message and ``connector_id``) so Grafana's connector filter

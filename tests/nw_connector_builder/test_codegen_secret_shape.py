@@ -123,3 +123,10 @@ def test_generated_package_readme_states_the_credential_contract() -> None:
     assert "Host-supplied credential" in readme
     assert "declare_secret_shape()" in readme
     assert "| `ping` | GET | `/ping` |" in readme
+
+
+def test_format_entries_carry_a_bandit_marker() -> None:
+    """Generated packages land in src/; an unmarked B105 would fail the repo scan."""
+    src = generate_logic_module("slack_web", _result(_host_supplied_plan("SLACK_WEB_ACCESS_TOKEN")))
+    line = next(ln for ln in src.splitlines() if "'SLACK_WEB_ACCESS_TOKEN': 'opaque_secret'" in ln)
+    assert line.rstrip().endswith("# nosec B105")

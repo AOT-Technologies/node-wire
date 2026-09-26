@@ -450,7 +450,8 @@ def test_encode_request_body_json_form_multipart_and_raw() -> None:
     assert _encode_request_body({"a": 1}, "application/vnd.api+json") == {"json": {"a": 1}}
 
     form = _encode_request_body({"a": 1, "b": True}, "application/x-www-form-urlencoded")
-    assert form == {"data": {"a": "1", "b": "True"}}
+    # JSON literal, not Python's str(True) — see tests/test_rest_form_encoding.py.
+    assert form == {"data": {"a": "1", "b": "true"}}
     with pytest.raises(ValueError, match="form-urlencoded"):
         _encode_request_body("not-object", "application/x-www-form-urlencoded")
 

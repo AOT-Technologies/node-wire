@@ -219,7 +219,8 @@ def test_generated_connector_reports_ok_false_as_a_failure(tmp_path: Path) -> No
                 conn.run(
                     {
                         "action": "chat_post_message",
-                        "body": {"channel": "C1", "text": "hi"},
+                        "channel": "C1",
+                        "text": "hi",
                     }
                 )
             )

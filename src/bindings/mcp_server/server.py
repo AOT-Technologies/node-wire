@@ -12,7 +12,7 @@ import logging
 import os
 import uuid
 from contextvars import ContextVar
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
@@ -156,15 +156,94 @@ def _with_config_name_property(input_schema: Dict[str, Any]) -> Dict[str, Any]:
     return {**input_schema, "properties": new_properties}
 
 
+# Routing metadata that connectors attach to their fields via ``json_schema_extra``
+# so :func:`split_params_by_location` can place each value on the wire. Pydantic
+# copies it into the public JSON schema, where it is dead weight — over a third of a
+# generated connector's advertised schemas, and no caller can act on any of it.
+# Stripped from the advertised copy only; the model fields still carry it, which
+# is where the runtime reads it from.
+_INTERNAL_SCHEMA_KEYS = frozenset(
+    {"nw_in", "nw_wire_name", "nw_style", "nw_explode", "nw_media_type"}
+)
+
+
+def format_tool_validation_error(exc: Any) -> str:
+    """Render a ``jsonschema.ValidationError`` with the location of the value.
+
+    The MCP SDK reports only ``exc.message``, discarding the ``json_path`` the
+    validator already computed. Without it, ``'channel' is a required property``
+    does not say whether ``channel`` is missing from the arguments themselves or
+    from an object nested inside them.
+
+    Keeps the SDK's ``Input validation error:`` prefix so clients matching on it
+    keep working.
+    """
+    path = getattr(exc, "json_path", None) or "$"
+    return f"Input validation error: {path}: {exc.message}"
+
+
+def validate_tool_arguments(arguments: Any, input_schema: Any) -> str | None:
+    """Return a formatted error for one schema violation, else ``None``.
+
+    ``jsonschema.validate`` raises only the best-matching error, so a call with
+    several problems reports one of them per attempt.
+    """
+    import jsonschema
+
+    if not isinstance(input_schema, dict):
+        return None
+    try:
+        jsonschema.validate(instance=arguments, schema=input_schema)
+    except jsonschema.ValidationError as exc:
+        return format_tool_validation_error(exc) + _misplaced_key_hint(exc)
+    return None
+
+
+def _misplaced_key_hint(exc: Any) -> str:
+    """For an unexpected key that a nested object declares, say where it belongs.
+
+    ``Additional properties are not allowed ('channel' was unexpected)`` alone
+    tells a caller to drop ``channel``; when the schema declares ``channel``
+    inside ``body``, the useful instruction is to move it there instead.
+    """
+    if getattr(exc, "validator", None) != "additionalProperties":
+        return ""
+    schema = exc.schema if isinstance(exc.schema, dict) else {}
+    instance = exc.instance if isinstance(exc.instance, dict) else {}
+    props = schema.get("properties") or {}
+    hints = []
+    for key in instance:
+        if key in props:
+            continue
+        parents = [
+            parent
+            for parent, sub in props.items()
+            if isinstance(sub, dict) and key in (sub.get("properties") or {})
+        ]
+        if parents:
+            hints.append(f"'{key}' belongs inside '{parents[0]}'")
+    return f" ({'; '.join(hints)})" if hints else ""
+
+
 def mcp_llm_safe_input_schema(schema: Any) -> Any:
     """JSON Schema NVIDIA/OpenAI function calling will accept.
 
-    Drops ``null`` unions (``type: [T, null]`` / ``anyOf`` + null). Invoke already
-    treats JSON null as omitted, so advertised schemas can be plain types.
+    Drops ``null`` unions (``type: [T, null]`` / ``anyOf`` + null) — invoke already
+    treats JSON null as omitted, so advertised schemas can be plain types — and
+    removes Node Wire's internal ``nw_*`` wire-routing metadata.
     """
     if not isinstance(schema, dict):
         return schema
-    return _strip_json_schema_nulls(copy.deepcopy(schema))
+    return _strip_json_schema_nulls(_strip_internal_keys(copy.deepcopy(schema)))
+
+
+def _strip_internal_keys(node: Any) -> Any:
+    """Recursively drop :data:`_INTERNAL_SCHEMA_KEYS` from an advertised schema."""
+    if isinstance(node, list):
+        return [_strip_internal_keys(x) for x in node]
+    if not isinstance(node, dict):
+        return node
+    return {k: _strip_internal_keys(v) for k, v in node.items() if k not in _INTERNAL_SCHEMA_KEYS}
 
 
 def _strip_json_schema_nulls(node: Any) -> Any:
@@ -391,6 +470,10 @@ class McpServer:
         self._connector_ids: Optional[frozenset[str]] = (
             None if connector_ids is None else frozenset(connector_ids)
         )
+        # (connector key, manifest, tool name -> entries); see _manifest().
+        self._manifest_cache: Optional[
+            Tuple[Tuple[Any, ...], List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]
+        ] = None
         auto_register()
         if factory is not None:
             self._factory = factory
@@ -441,26 +524,97 @@ class McpServer:
 
     def list_tools(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
         identity = self._ensure_identity(identity=identity)
-        return self._list_tools_impl(identity=identity)
+        # Deep copy: entries share schema dicts with the cached manifest.
+        return copy.deepcopy(self._list_tools_impl(identity=identity))
+
+    def _manifest(self) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+        """The manifest for the loaded MCP connectors, and an index by advertised tool name.
+
+        Built once per set of loaded connectors instead of on every tool call —
+        each call both resolves the tool name and validates its arguments, and a
+        174-action generated connector takes ~40 ms per build. The manifest only
+        depends on each connector's id and class (its action metadata), so that is
+        the cache key; a factory that loads different connectors rebuilds it.
+        """
+        connectors = self._factory.list_for_protocol("mcp")
+        key = tuple((c.connector_id, type(c)) for c in connectors)
+        cached = self._manifest_cache
+        if cached is None or cached[0] != key:
+            manifest = build_manifest(connectors)
+            index: Dict[str, List[Dict[str, Any]]] = {}
+            for entry in manifest:
+                name = mcp_advertised_tool_name(str(entry["connector_id"]), str(entry["action"]))
+                index.setdefault(name, []).append(entry)
+            cached = (key, manifest, index)
+            self._manifest_cache = cached
+        return cached[1], cached[2]
+
+    def _tool_visible(
+        self,
+        entry: Mapping[str, Any],
+        identity: CallerIdentity | None,
+        *,
+        scope_map: Any,
+        default_mode: Any,
+    ) -> bool:
+        cid = entry["connector_id"]
+        if self._connector_ids is not None and cid not in self._connector_ids:
+            return False
+        return action_allowed_for_identity_scopes(
+            connector_id=cid,
+            action=str(entry["action"]),
+            principal=identity.principal if identity else None,
+            tenant_id=identity.tenant_id if identity else None,
+            scopes=identity.scopes if identity else None,
+            action_scope_map=scope_map,
+            default_mode=default_mode,
+        )
+
+    @staticmethod
+    def _tool_input_schema(entry: Mapping[str, Any]) -> Dict[str, Any]:
+        """``inputSchema`` for a manifest entry, before the LLM-safe rewrite.
+
+        The model docstring is published as the tool description, so it is not
+        repeated here; ``config_name`` is added when multitenancy is on.
+        """
+        input_schema = {k: v for k, v in entry["input_schema"].items() if k != "description"}
+        if is_multitenancy_enabled():
+            input_schema = _with_config_name_property(input_schema)
+        return input_schema
+
+    def _advertised_input_schema(
+        self, tool_name: str, *, identity: CallerIdentity | None = None
+    ) -> Dict[str, Any] | None:
+        """The exact schema this caller was shown for ``tool_name``, or ``None``.
+
+        Validation has to run against the advertised copy — the one that went
+        through :func:`mcp_llm_safe_input_schema` — or a caller could be rejected
+        for violating a constraint it was never told about. ``None`` for an
+        unknown, ambiguous or scope-hidden tool; dispatch then reports that itself.
+        """
+        _, index = self._manifest()
+        entries = index.get(tool_name) or []
+        if len(entries) != 1:
+            return None
+        entry = entries[0]
+        if not self._tool_visible(
+            entry,
+            identity,
+            scope_map=load_scope_map_from_env(),
+            default_mode=load_scope_policy_default_from_env(),
+        ):
+            return None
+        return cast(Dict[str, Any], mcp_llm_safe_input_schema(self._tool_input_schema(entry)))
 
     def _list_tools_impl(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
         scope_map = load_scope_map_from_env()
         default_mode = load_scope_policy_default_from_env()
-        connectors = self._factory.list_for_protocol("mcp")
-        manifest = build_manifest(connectors)
+        manifest, _ = self._manifest()
         tools: List[Dict[str, Any]] = []
         for entry in manifest:
             cid = entry["connector_id"]
-            if self._connector_ids is not None and cid not in self._connector_ids:
-                continue
-            if not action_allowed_for_identity_scopes(
-                connector_id=cid,
-                action=str(entry["action"]),
-                principal=identity.principal if identity else None,
-                tenant_id=identity.tenant_id if identity else None,
-                scopes=identity.scopes if identity else None,
-                action_scope_map=scope_map,
-                default_mode=default_mode,
+            if not self._tool_visible(
+                entry, identity, scope_map=scope_map, default_mode=default_mode
             ):
                 continue
             schema_desc = entry["input_schema"].get("description", "")
@@ -490,9 +644,7 @@ class McpServer:
                     f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
                 )
             )
-            input_schema = entry["input_schema"]
-            if is_multitenancy_enabled():
-                input_schema = _with_config_name_property(input_schema)
+            input_schema = self._tool_input_schema(entry)
 
             tools.append(
                 {
@@ -903,8 +1055,7 @@ class McpServer:
             connector_id, action = name.split(".", 1)
             return connector_id, action
 
-        connectors = self._factory.list_for_protocol("mcp")
-        manifest = build_manifest(connectors)
+        manifest, _ = self._manifest()
         matches: List[Tuple[str, str]] = []
         for entry in manifest:
             cid = str(entry["connector_id"])
@@ -1139,7 +1290,7 @@ class McpServer:
 
     def _setup_lowlevel_server(self) -> Any:
         from mcp.server import Server as LowLevelServer
-        from mcp.types import Tool
+        from mcp.types import CallToolResult, TextContent, Tool
 
         low = LowLevelServer(self._server_name)
 
@@ -1177,8 +1328,10 @@ class McpServer:
                 )
             return out
 
-        @low.call_tool()
-        async def handle_call_tool(tool_name: str, arguments: dict) -> dict:
+        # Validation is done here instead, so the error names the offending path;
+        # the SDK's own reporter drops it (see format_tool_validation_error).
+        @low.call_tool(validate_input=False)
+        async def handle_call_tool(tool_name: str, arguments: dict) -> Any:
             meta = self._request_meta_from_context()
             try:
                 identity = self._ensure_identity(identity=None, meta=meta)
@@ -1211,6 +1364,14 @@ class McpServer:
                         "auth_type": identity.auth_type,
                     },
                 )
+            # After auth, so an unauthenticated caller cannot probe tool shapes.
+            schema = self._advertised_input_schema(tool_name, identity=identity)
+            problem = validate_tool_arguments(arguments or {}, schema)
+            if problem:
+                return CallToolResult(
+                    content=[TextContent(type="text", text=problem)], isError=True
+                )
+
             return await self.invoke_tool(tool_name, arguments or {}, identity=identity)
 
         return low

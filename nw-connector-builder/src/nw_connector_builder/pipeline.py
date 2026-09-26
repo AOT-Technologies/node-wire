@@ -11,7 +11,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from nw_connector_builder.codegen import write_staging
+from nw_connector_builder.codegen import CodegenFormatError, ruff_config_for, write_staging
 from nw_connector_builder.derive import derive_operations
 from nw_connector_builder.derive.operations import DeriveError
 from nw_connector_builder.gate import run_gate
@@ -79,7 +79,21 @@ def run_build(
     exit_code = 0
     try:
         preliminary = build_report(connector_id=connector_id, meta=meta, result=result)
-        write_staging(staging_root, connector_id, result, preliminary)
+        try:
+            write_staging(
+                staging_root,
+                connector_id,
+                result,
+                preliminary,
+                ruff_config=ruff_config_for(node_wire_root),
+            )
+        except CodegenFormatError as exc:
+            report = build_report(
+                connector_id=connector_id, meta=meta, result=result, error=str(exc)
+            )
+            print_report(report)
+            write_report(report, abort_report_path)
+            raise BuildError(str(exc)) from exc
 
         gate = run_gate(staging_root, connector_id)
         gate_info = {

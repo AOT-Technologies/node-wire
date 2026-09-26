@@ -56,6 +56,10 @@ mcp_debug.log
 # nw-connector-builder abort report (written to cwd on hard failure)
 /report.json
 
+# slack_web: local codegen test build (nw gen-all), not a shipped connector
+/src/node_wire_slack_web/
+/packages/connectors/slack_web/
+
 # nw-mcp-builder
 nw-mcp-builder/fixtures/
 nw-mcp-builder/out/

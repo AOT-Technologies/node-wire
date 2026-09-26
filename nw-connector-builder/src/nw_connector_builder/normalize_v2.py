@@ -126,6 +126,7 @@ def _convert_parameters(
     """Split body/formData into requestBody; return remaining params + optional requestBody."""
     kept: list[dict[str, Any]] = []
     body_schema: dict[str, Any] | None = None
+    body_required = False
     form_props: dict[str, Any] = {}
     form_required: list[str] = []
     form_is_multipart = False
@@ -140,6 +141,7 @@ def _convert_parameters(
 
         if loc == "body":
             body_schema = _rewrite_refs(p.get("schema") or {"type": "object"})
+            body_required = bool(p.get("required"))
             continue
 
         if loc == "formData":
@@ -170,7 +172,8 @@ def _convert_parameters(
     request_body = None
     if body_schema is not None:
         media = consumes[0] if consumes else "application/json"
-        request_body = {"content": {media: {"schema": body_schema}}, "required": True}
+        # OAS 2 `in: body` is optional unless it says `required: true`.
+        request_body = {"content": {media: {"schema": body_schema}}, "required": body_required}
     elif form_props:
         media = "multipart/form-data" if form_is_multipart else "application/x-www-form-urlencoded"
         schema = {"type": "object", "properties": form_props}

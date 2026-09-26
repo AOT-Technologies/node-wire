@@ -81,3 +81,42 @@ def test_local_relative_ref_resolves() -> None:
     assert "$ref" not in schema
     assert schema.get("type") == "object"
     assert "id" in (schema.get("properties") or {})
+
+
+def test_uniquify_cuts_at_a_word_boundary() -> None:
+    assert uniquify_names(["alpha_beta_gamma"], max_len=12) == ["alpha_beta"]
+
+
+def test_uniquify_never_leaves_a_trailing_underscore() -> None:
+    (name,) = uniquify_names(["admin_conversations_restrict_access_add_group"], max_len=40)
+    assert name == "admin_conversations_restrict_access_add"
+
+
+def test_uniquify_cuts_a_single_long_word_hard() -> None:
+    assert uniquify_names(["a" * 45], max_len=40) == ["a" * 40]
+
+
+def test_uniquify_suffix_keeps_the_word_boundary() -> None:
+    names = uniquify_names(["alpha_beta_gamma", "alpha_beta_delta"], max_len=12)
+    assert names == ["alpha_beta", "alpha_beta_1"]
+
+
+def test_derived_action_names_use_the_mcp_tool_name_budget() -> None:
+    """MCP tool names are `<connector_id>_<action>`, at most 64 characters."""
+    from nw_connector_builder.derive.operations import derive_operations
+
+    long_id = "admin_conversations_restrictAccess_removeGroup"  # 48 chars as snake_case
+    doc = {
+        "openapi": "3.0.3",
+        "info": {"title": "t", "version": "1"},
+        "servers": [{"url": "https://api.example.com"}],
+        "paths": {
+            "/x": {"get": {"operationId": long_id, "responses": {"204": {"description": "ok"}}}}
+        },
+    }
+    (short_cid,) = [a.name for a in derive_operations(doc, connector_id="slack_web").actions]
+    assert short_cid == "admin_conversations_restrict_access_remove_group"
+    long_cid = "a_very_long_connector_identifier"
+    (name,) = [a.name for a in derive_operations(doc, connector_id=long_cid).actions]
+    assert len(f"{long_cid}_{name}") <= 64
+    assert not name.endswith("_")

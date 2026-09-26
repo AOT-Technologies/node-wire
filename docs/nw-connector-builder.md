@@ -282,6 +282,63 @@ Operations that require a **different, still-presentable** scheme than the conne
 
 ---
 
+## Tool and parameter descriptions
+
+Generated tools carry the spec's own text, so an MCP client can tell what a tool does and what each argument expects:
+
+- **tool description** — the operation's `summary`, else its `description`; first paragraph only, markdown links flattened to their text, capped at 300 characters. It becomes the input model's docstring, which the manifest publishes as the tool description.
+- **parameter description** — from the parameter, or its schema (OAS 3 allows either); first sentence, capped at 90 characters.
+
+Everything past the first paragraph (argument tables, error lists) repeats the input schema and is paid for in every tool listing, so it is left out. On Slack's spec no operation description reaches the cap.
+
+---
+
+## Action names and generated source
+
+- **Action names** come from `operationId` (or method + path), snake_cased. They are cut to fit the MCP tool-name limit — the tool name is `<connector_id>_<action>`, at most 64 characters — at a word boundary, never mid-word and never leaving a trailing `_`. Duplicates get a numeric suffix.
+- **Formatting** — generated `src/node_wire_<id>/` and its tests are run through `ruff format` at staging time, using the target root's `pyproject.toml` `[tool.ruff]` settings, so they pass the same `ruff format --check` as hand-written code. Source ruff cannot parse fails the build: it is a codegen bug.
+- **Runtime floor** — the generated package requires `node-wire-runtime>=1.1.0`, the first runtime with `body_property` routing and success-flag envelopes.
+
+---
+
+## Request body fields
+
+A generated tool takes **one flat set of arguments**. Each property of an object request body becomes its own typed, described argument next to the path, query and header parameters — there is no nested `body` object to fill in:
+
+```json
+{"channel": "C0123", "text": "hi"}
+```
+
+The tool contract (what a caller sends) is kept separate from the wire contract (where each value goes on the HTTP request). Every generated field carries its location in `nw_in`; body properties use `nw_in="body_property"`, and the runtime rebuilds the request body from them by wire name (`split_params_by_location` in `node_wire_runtime/rest.py`). The same Pydantic model is validated by every binding, so REST, gRPC and MCP all enforce the same required fields, types and enums.
+
+Rules:
+
+- **Required** — a body property is required only when the request body is required (`requestBody.required: true`) *and* the property is in the body schema's `required` list. An optional body may be omitted entirely.
+- **Always sent** — an operation that declares a body sends one, `{}` when no property is set.
+- **`allOf`** parts at the top of the body schema are merged; `readOnly` properties are left out (a client never sends them).
+- **Enums** on string fields become `Literal[...]` types, so they are enforced, not only advertised.
+- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (e.g. `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix, Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
+- **Whole bodies** — bodies that are not objects with declared properties keep a single `body` argument: arrays (`list`), binary/string bodies (`str`), free-form maps, `oneOf`/`anyOf`, and media types other than JSON, form and multipart. `body` is required when the request body is.
+
+---
+
+## Credential parameters
+
+Specs often declare the credential as an ordinary parameter — Slack's declares a `token` header on every operation. Generated verbatim, that becomes a required tool argument, so an MCP client asks its caller for the API token and pastes a secret into a tool call, while the connector is already attaching that credential itself from `<ID>_ACCESS_TOKEN`.
+
+For **authenticated** actions the builder drops header, query and request-body fields whose name is exactly one of `token`, `access_token`, `accesstoken`, `api_key`, `apikey`, `api-key`, `auth_token`, `authorization`, `password`, `secret`. The configured `AuthProvider` supplies the value; on a collision the runtime already gives auth precedence (`rest.py`).
+
+Matching is exact and scoped, so nothing else is affected:
+
+- `page_token`, `next_token`, `cursor`, `token_id` — kept (not credentials)
+- path parameters — kept, even when named `token`; they are part of the URL
+- **anonymous** actions — kept, since no provider would supply the value
+- a form-body `token` (Slack sends it that way on 11 operations) — dropped like a header one, including from the required list
+
+Dropped parameters are named in the build report's notes.
+
+---
+
 ## Success-flag envelopes (`ok: false`)
 
 Some APIs never use HTTP error statuses for business failures — Slack answers `200 OK` with `{"ok": false, "error": "invalid_auth"}`. Nothing above the REST executor can tell that apart from a successful call, so the connector would report success for a failed request.

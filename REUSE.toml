@@ -30,3 +30,11 @@ path = ".github/matchers/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"
+
+# nw-connector-builder provenance report, written beside every generated connector
+# package. JSON cannot carry an SPDX header.
+[[annotations]]
+path = "packages/connectors/*/report.json"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 AOT Technologies"
+SPDX-License-Identifier = "Apache-2.0"
