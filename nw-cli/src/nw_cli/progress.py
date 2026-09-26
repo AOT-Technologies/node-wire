@@ -11,6 +11,8 @@ through :meth:`GenerateProgress.log` — never written to the raw TTY.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
@@ -217,6 +219,19 @@ class GenerateProgress:
                 )
             s.task_id = tid
         return self
+
+    @contextmanager
+    def paused(self) -> Iterator[None]:
+        """Suspend the live bars (e.g. to ask a question), then resume them."""
+        live = self._progress
+        if live is None:
+            yield
+            return
+        live.stop()
+        try:
+            yield
+        finally:
+            live.start()
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         if self._progress is not None:

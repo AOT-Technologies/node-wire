@@ -19,8 +19,10 @@ def run_connector_pipeline(
     scope_yaml: Path,
     node_wire_root: Path,
     output_dir: Path,
+    *,
+    tool_mode: str = "list",
 ) -> Path:
-    """Generate a thin host project for a node-wire connector."""
+    """Generate a thin host project for a node-wire connector (``tool_mode``: list|search)."""
     logger.info("Loading connector scope from %s", scope_yaml)
     scope = load_scope(scope_yaml)
     if scope.runtime is None or scope.runtime.type != "node_wire":
@@ -34,6 +36,6 @@ def run_connector_pipeline(
         scope.server.name,
         scope.runtime.connector_id,
     )
-    project_dir = write_connector_project(scope, node_wire_root, output_dir)
+    project_dir = write_connector_project(scope, node_wire_root, output_dir, tool_mode=tool_mode)
     logger.info("Generated connector project at %s", project_dir)
     return project_dir

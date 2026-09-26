@@ -2590,6 +2590,27 @@ docs = [
 ]
 
 [[package]]
+name = "node-wire-bindings"
+version = "1.1.0"
+source = { editable = "packages/bindings" }
+dependencies = [
+    { name = "mcp" },
+    { name = "node-wire-runtime" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mcp", specifier = ">=1.6.0,<2" },
+    { name = "node-wire-runtime", specifier = ">=1.0.0" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
+]
+
+[[package]]
 name = "node-wire-runtime"
 version = "1.1.0"
 source = { editable = "packages/runtime" }
@@ -2672,6 +2693,7 @@ dependencies = [
     { name = "pytest" },
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -2687,6 +2709,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "ruamel-yaml", specifier = ">=0.18.0" },
+    { name = "ruff", specifier = ">=0.3.5" },
 ]
 
 [[package]]
@@ -2694,12 +2717,16 @@ name = "nw-mcp-builder"
 version = "0.1.0"
 source = { editable = "nw-mcp-builder" }
 dependencies = [
+    { name = "node-wire-bindings" },
+    { name = "node-wire-runtime" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "node-wire-bindings", editable = "packages/bindings" },
+    { name = "node-wire-runtime", editable = "packages/runtime" },
     { name = "pydantic", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
 ]

@@ -18,6 +18,7 @@ Verify no .py files leaked:
 
 import glob
 import os
+import sys
 
 from Cython.Build import cythonize
 from setuptools import setup
@@ -50,14 +51,24 @@ src_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src/no
 py_files = glob.glob(os.path.join(src_root, "**", "*.py"), recursive=True)
 
 # Guarded so Cython's process pool can re-import this file on macOS and Windows.
+# Editable installs (the nw-* tools depend on this package by path) must stay
+# pure Python: setuptools' editable_wheel runs build_ext in place, which writes
+# compiled .so files next to the sources in src/. Python then imports those
+# ahead of the .py files, so source edits silently stop taking effect.
+# setuptools' build backend passes the command in sys.argv.
+EDITABLE = "editable_wheel" in sys.argv
+
 if __name__ == "__main__":
-    setup(
-        cmdclass={"build_py": NoPyBuild, "build_ext": ParallelBuildExt},
-        ext_modules=cythonize(
-            py_files,
-            nthreads=os.cpu_count() or 1,
-            compiler_directives={"language_level": "3"},
-            build_dir="build",
-            annotate=False,
-        ),
-    )
+    if EDITABLE:
+        setup()
+    else:
+        setup(
+            cmdclass={"build_py": NoPyBuild, "build_ext": ParallelBuildExt},
+            ext_modules=cythonize(
+                py_files,
+                nthreads=os.cpu_count() or 1,
+                compiler_directives={"language_level": "3"},
+                build_dir="build",
+                annotate=False,
+            ),
+        )

@@ -54,6 +54,7 @@ copy sample.env .env
 | `NW_REST_AUTH_DISABLED` | Disable REST API authentication (local dev only) | `false` |
 | `NW_MCP_AUTH_DISABLED` | Disable MCP authentication (local dev only); default (unset) enforces auth. The legacy `NW_MCP_AUTH_ENABLED` flag is deprecated. | `false` |
 | `NW_MCP_API_KEY` | Shared secret for MCP API-key auth (set in production) | _(unset)_ |
+| `NW_MCP_TOOL_MODE` | `list` — every tool in `tools/list`; `search` — list only `nw_search_tools` + `nw_call_tool` and hand out tool schemas on demand (for large connectors). Unknown values fail at startup | `list` |
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | Scope policy when action map has no entry: `deny` (conventional `mcp:<connector>.<action>`) or `allow` (map-only) | `deny` |
 | `NW_MCP_SCOPE_POLICY_STRICT` | Fail startup if scope policy would be disabled (`allow` + empty map) | `false` |
 | `NW_GRPC_API_KEY` | Shared secret for gRPC metadata (`authorization` or `x-api-key`) | _(unset)_ |

@@ -28,6 +28,13 @@ import yaml
 
 from nw_mcp_builder.generate.connector_project import connector_dist_package_name
 from nw_mcp_builder.pipeline import run_connector_pipeline
+from nw_mcp_builder.schema.models import MCP_TOOL_NAME_LIMIT
+from nw_mcp_builder.tool_listing import (
+    DEFAULT_MAX_TOOL_LISTING_KB,
+    ChooseToolMode,
+    Notify,
+    resolve_tool_mode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +62,18 @@ def run_from_connector(
     force_fixture: bool = False,
     force_output: bool = False,
     python: str | None = None,
+    tool_mode: str | None = None,
+    max_tool_listing_kb: float = DEFAULT_MAX_TOOL_LISTING_KB,
+    choose_tool_mode: ChooseToolMode | None = None,
+    notify: Notify | None = None,
 ) -> Path:
     """Build wheels, ensure fixture, generate host under ``output_dir``.
+
+    The host's tool mode (``list`` or ``search``) is ``tool_mode`` when given;
+    otherwise the listing is measured and, over ``max_tool_listing_kb``,
+    ``choose_tool_mode`` is asked (or ``notify`` warned and ``list`` used). See
+    :mod:`nw_mcp_builder.tool_listing`. Decided before the wheel builds so the
+    user is not kept waiting for the question.
 
     Returns:
         Path to the generated project directory.
@@ -76,6 +93,16 @@ def run_from_connector(
     fixtures_dir = (fixtures_dir or (package_root / "fixtures")).resolve()
 
     _validate_node_wire_layout(node_wire_root, connector_id)
+
+    decision = resolve_tool_mode(
+        connector_id,
+        node_wire_root,
+        tool_mode=tool_mode,
+        max_tool_listing_kb=max_tool_listing_kb,
+        choose=choose_tool_mode,
+        notify=notify,
+    )
+    logger.info("Host tool mode for %s: %s", connector_id, decision.mode)
 
     if not skip_build_wheels:
         build_connector_wheels(node_wire_root, connector_id, python=python)
@@ -102,7 +129,9 @@ def run_from_connector(
                 "Pass --force-output to replace it."
             )
 
-    project_dir = run_connector_pipeline(fixture_path, node_wire_root, output_dir)
+    project_dir = run_connector_pipeline(
+        fixture_path, node_wire_root, output_dir, tool_mode=decision.mode
+    )
     env_example = write_env_example(project_dir, connector_id, node_wire_root)
     logger.info("Wrote %s", env_example)
     return project_dir
@@ -230,6 +259,24 @@ def discover_actions(logic_py: Path) -> list[str]:
     """
     package_dir = logic_py.parent
     connector_id = package_dir.name.removeprefix("node_wire_")
+    cls = load_connector_class(logic_py)
+    metas = getattr(cls, "nw_action_metas", None)
+    actions = (
+        list(metas().keys()) if callable(metas) else list(getattr(cls, "_action_registry", {}))
+    )
+    if not actions:
+        raise ValueError(f"Connector {connector_id!r} exposes zero actions (under {package_dir})")
+    return actions
+
+
+def load_connector_class(logic_py: Path) -> type:
+    """Import ``node_wire_<id>.logic`` from its own ``src`` tree and return the connector class.
+
+    The ``src`` directory is put at the front of ``sys.path`` only for the import
+    (see :func:`discover_actions` for why that is safe for ``node_wire_runtime``).
+    """
+    package_dir = logic_py.parent
+    connector_id = package_dir.name.removeprefix("node_wire_")
     src_root = str(package_dir.parent)
     mod_name = f"node_wire_{connector_id}"
 
@@ -258,38 +305,38 @@ def discover_actions(logic_py: Path) -> list[str]:
             f"No BaseConnector subclass with connector_id={connector_id!r} found under "
             f"{package_dir}"
         )
-
-    metas = getattr(cls, "nw_action_metas", None)
-    actions = (
-        list(metas().keys()) if callable(metas) else list(getattr(cls, "_action_registry", {}))
-    )
-    if not actions:
-        raise ValueError(f"Connector {connector_id!r} exposes zero actions (under {package_dir})")
-    return actions
+    return cls
 
 
 def action_to_tool_name(action: str) -> str:
-    """Map NW action (``files.create``) to scope tool_name (``files_create``)."""
+    """Map NW action (``files.create``) to scope tool_name (``files_create``).
+
+    Not shortened: the name must match what the MCP server lists, and
+    nw-connector-builder already sizes generated action names to the MCP limit.
+    """
     name = action.replace(".", "_").replace("-", "_").lower()
     if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
         raise ValueError(f"Cannot map action '{action}' to a valid tool_name")
-    if len(name) > 40:
-        name = name[:40]
+    if len(name) > MCP_TOOL_NAME_LIMIT:
+        raise ValueError(
+            f"Action '{action}' maps to a {len(name)}-character tool_name, over the "
+            f"{MCP_TOOL_NAME_LIMIT}-character MCP limit — rename the action."
+        )
     return name
 
 
 def actions_to_tool_names(actions: list[str]) -> dict[str, str]:
-    """Map each action to its tool_name, raising if the 40-char truncation collides two
-    different actions into the same tool_name (action_to_tool_name alone can't see this —
-    it only ever sees one action at a time)."""
+    """Map each action to its tool_name, raising if two different actions map to the same
+    tool_name (e.g. ``files.list`` and ``files_list``; action_to_tool_name alone can't see
+    this — it only ever sees one action at a time)."""
     by_tool_name: dict[str, str] = {}
     for action in actions:
         tool_name = action_to_tool_name(action)
         existing = by_tool_name.get(tool_name)
         if existing is not None and existing != action:
             raise ValueError(
-                f"Actions {existing!r} and {action!r} both truncate to the same "
-                f"tool_name {tool_name!r} (40-char MCP tool-name limit) — rename one."
+                f"Actions {existing!r} and {action!r} both map to the same "
+                f"tool_name {tool_name!r} — rename one."
             )
         by_tool_name[tool_name] = action
     return {action: tool_name for tool_name, action in by_tool_name.items()}

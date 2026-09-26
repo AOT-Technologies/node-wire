@@ -63,3 +63,5 @@ mcp_debug.log
 # nw-mcp-builder
 nw-mcp-builder/fixtures/
 nw-mcp-builder/out/
+/.scratch
+.scratch/codegen-tool-contract-plan.md

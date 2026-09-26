@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
+from bindings.mcp_server.tool_search import Bm25Index
 from bindings.mcp_server.auth import (
     McpAuthError,
     authenticate_mcp_request,
@@ -63,6 +64,14 @@ SELECT_TENANT_TOOL = "nw_select_tenant"
 SELECT_TENANT_TOOL_ALIASES = frozenset({SELECT_TENANT_TOOL, "nw.select_tenant"})
 SELECT_CONFIG_TOOL = "nw_select_config"
 SELECT_CONFIG_TOOL_ALIASES = frozenset({SELECT_CONFIG_TOOL, "nw.select_config"})
+
+# Tool-search mode (opt-in): tools/list returns these two instead of every
+# connector tool; see McpServer(tool_mode=...) and NW_MCP_TOOL_MODE.
+SEARCH_TOOLS_TOOL = "nw_search_tools"
+CALL_TOOL_TOOL = "nw_call_tool"
+TOOL_MODES = frozenset({"list", "search"})
+_SEARCH_DEFAULT_LIMIT = 5
+_SEARCH_MAX_LIMIT = 20
 
 # Pin-lock/allowlist env readers and the tenant/config selection state they
 # guard now live in node_wire_runtime.tenant_session.TenantSessionOverlay.
@@ -223,6 +232,88 @@ def _misplaced_key_hint(exc: Any) -> str:
         if parents:
             hints.append(f"'{key}' belongs inside '{parents[0]}'")
     return f" ({'; '.join(hints)})" if hints else ""
+
+
+def _tool_description(entry: Mapping[str, Any]) -> str:
+    """Tool description: the input model's docstring, plus notes a caller can act on.
+
+    Deprecation, required scopes and rate limits are kept. Nothing is appended
+    to every tool: ``Requires Auth`` changes nothing a caller does, ``action`` is
+    already absent from the schema, and the manifest contract version is
+    published once in the server instructions. On a 174-tool connector that
+    boilerplate was a quarter of ``tools/list``.
+    """
+    text = str(entry["input_schema"].get("description") or "")
+    notes = []
+    if entry.get("deprecated"):
+        notes.append("Deprecated.")
+    scopes = entry.get("scopes")
+    if scopes:
+        notes.append(f"Scopes: {', '.join(scopes)}.")
+    rate_limit = entry.get("rate_limit")
+    if rate_limit:
+        notes.append(f"Rate limit: {rate_limit}.")
+    return "\n\n".join(part for part in (text, " ".join(notes)) if part)
+
+
+def _tool_input_schema(entry: Mapping[str, Any], *, multitenancy: bool) -> Dict[str, Any]:
+    """``inputSchema`` for a manifest entry, before the LLM-safe rewrite.
+
+    The model docstring is published as the tool description, so it is not
+    repeated here; ``config_name`` is added when multitenancy is on.
+    """
+    input_schema = {k: v for k, v in entry["input_schema"].items() if k != "description"}
+    if multitenancy:
+        input_schema = _with_config_name_property(input_schema)
+    return input_schema
+
+
+def advertised_tool(
+    entry: Mapping[str, Any], *, multitenancy: Optional[bool] = None
+) -> Dict[str, Any]:
+    """The tool a client is shown for a manifest entry: ``name``, ``description``, ``inputSchema``.
+
+    The one definition of an advertised connector tool — ``tools/list``, tool
+    search results and listing-size measurement all use it. ``multitenancy``
+    defaults to ``NW_MULTITENANCY_ENABLED``.
+    """
+    if multitenancy is None:
+        multitenancy = is_multitenancy_enabled()
+    return {
+        "name": mcp_advertised_tool_name(str(entry["connector_id"]), str(entry["action"])),
+        "description": _tool_description(entry),
+        "inputSchema": mcp_llm_safe_input_schema(
+            _tool_input_schema(entry, multitenancy=multitenancy)
+        ),
+    }
+
+
+def advertised_tools_for_connectors(
+    connector_classes: Any, *, multitenancy: Optional[bool] = None
+) -> List[Dict[str, Any]]:
+    """Every tool a full listing would show for these connector classes, no server needed.
+
+    For build tooling that has to know a connector's listing before any server
+    runs (nw-mcp-builder's size check). Only class-level action metadata is read,
+    so the connectors are not configured or instantiated.
+    """
+    # build_manifest reads connector_id and type(...).sdk_action_metas() only;
+    # an uninitialised instance carries both without touching config or secrets.
+    stubs = [cls.__new__(cls) for cls in connector_classes]
+    return [advertised_tool(e, multitenancy=multitenancy) for e in build_manifest(stubs)]
+
+
+def tool_listing_bytes(tools: List[Dict[str, Any]]) -> int:
+    """Size of a ``tools/list`` result for ``tools``, serialized as the MCP SDK sends it."""
+    from mcp.types import ListToolsResult, Tool
+
+    result = ListToolsResult(
+        tools=[
+            Tool(name=t["name"], description=t.get("description"), inputSchema=t["inputSchema"])
+            for t in tools
+        ]
+    )
+    return len(result.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
 
 
 def mcp_llm_safe_input_schema(schema: Any) -> Any:
@@ -465,8 +556,20 @@ class McpServer:
         server_name: str = "node-wire",
         connector_ids: Optional[List[str]] = None,
         factory: ConnectorFactory | None = None,
+        tool_mode: Optional[str] = None,
     ) -> None:
         self._server_name = server_name
+        # "list" (every tool in tools/list) or "search" (nw_search_tools +
+        # nw_call_tool). Unknown values fail here rather than at the first call.
+        mode = (tool_mode or os.getenv("NW_MCP_TOOL_MODE") or "list").strip().lower()
+        if mode not in TOOL_MODES:
+            raise ValueError(
+                f"Unknown MCP tool mode {mode!r} (tool_mode / NW_MCP_TOOL_MODE): "
+                f"expected one of {sorted(TOOL_MODES)}"
+            )
+        self._tool_mode = mode
+        # (manifest identity, index); see _search_index().
+        self._search_index_cache: Optional[Tuple[int, Bm25Index]] = None
         self._connector_ids: Optional[frozenset[str]] = (
             None if connector_ids is None else frozenset(connector_ids)
         )
@@ -572,15 +675,7 @@ class McpServer:
 
     @staticmethod
     def _tool_input_schema(entry: Mapping[str, Any]) -> Dict[str, Any]:
-        """``inputSchema`` for a manifest entry, before the LLM-safe rewrite.
-
-        The model docstring is published as the tool description, so it is not
-        repeated here; ``config_name`` is added when multitenancy is on.
-        """
-        input_schema = {k: v for k, v in entry["input_schema"].items() if k != "description"}
-        if is_multitenancy_enabled():
-            input_schema = _with_config_name_property(input_schema)
-        return input_schema
+        return _tool_input_schema(entry, multitenancy=is_multitenancy_enabled())
 
     def _advertised_input_schema(
         self, tool_name: str, *, identity: CallerIdentity | None = None
@@ -617,33 +712,7 @@ class McpServer:
                 entry, identity, scope_map=scope_map, default_mode=default_mode
             ):
                 continue
-            schema_desc = entry["input_schema"].get("description", "")
-
-            security_lines = []
-            if entry.get("requires_auth"):
-                security_lines.append("- Requires Auth: Yes")
-            scopes = entry.get("scopes")
-            if scopes:
-                security_lines.append(f"- Scopes: {', '.join(scopes)}")
-            rate_limit = entry.get("rate_limit")
-            if rate_limit:
-                security_lines.append(f"- Rate Limit: {rate_limit}")
-            if entry.get("deprecated"):
-                security_lines.append("- DEPRECATED: True")
-
-            sec_block = "\n".join(security_lines)
-            if sec_block:
-                sec_block = f"\n\nSecurity & Limits:\n{sec_block}\n\n"
-
-            tool_desc = (
-                (f"{schema_desc}\n" if schema_desc else "")
-                + sec_block
-                + (
-                    f"Pass fields from inputSchema only; do not include an action field "
-                    f"(it is injected from the tool name). "
-                    f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
-                )
-            )
+            tool_desc = _tool_description(entry)
             input_schema = self._tool_input_schema(entry)
 
             tools.append(
@@ -654,6 +723,8 @@ class McpServer:
                     "output_schema": entry["output_schema"],
                 }
             )
+        if self._tool_mode == "search":
+            tools = self._search_mode_tools(len(tools))
         if is_multitenancy_enabled():
             tools.insert(
                 0,
@@ -1116,7 +1187,166 @@ class McpServer:
             return await self._invoke_select_tenant(arguments, identity=identity)
         if name in SELECT_CONFIG_TOOL_ALIASES:
             return await self._invoke_select_config(arguments, identity=identity)
+        if name in (SEARCH_TOOLS_TOOL, CALL_TOOL_TOOL):
+            if self._tool_mode != "search":
+                raise ValueError(
+                    f"Unknown tool {name!r}: tool search is off on this server "
+                    "(NW_MCP_TOOL_MODE=search enables it)."
+                )
+            if name == SEARCH_TOOLS_TOOL:
+                return self._invoke_search_tools(arguments, identity=identity)
+            return await self._invoke_call_tool(arguments, identity=identity)
 
+        return await self._run_connector_tool(name, arguments, identity=identity)
+
+    def _search_mode_tools(self, tool_count: int) -> List[Dict[str, Any]]:
+        """The two tools listed in search mode; ``tool_count`` is what search can reach."""
+        connectors = ", ".join(sorted(self._connector_ids)) if self._connector_ids else "all"
+        return [
+            {
+                "name": SEARCH_TOOLS_TOOL,
+                "description": (
+                    f"Search the {tool_count} tools on this server (connectors: {connectors}) "
+                    "by keywords describing the task, e.g. 'post message channel'. Returns the "
+                    "best matches with their arguments. Then run one with "
+                    f"{CALL_TOOL_TOOL}."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Keywords describing what you want to do.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": (
+                                f"Maximum tools to return (default {_SEARCH_DEFAULT_LIMIT}, "
+                                f"at most {_SEARCH_MAX_LIMIT})."
+                            ),
+                        },
+                    },
+                    "required": ["query"],
+                },
+                "output_schema": {"type": "object"},
+            },
+            {
+                "name": CALL_TOOL_TOOL,
+                "description": (
+                    f"Run a tool found with {SEARCH_TOOLS_TOOL}. Pass its exact name and "
+                    "arguments matching the inputSchema it returned."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Tool name from the search."},
+                        "arguments": {
+                            "type": "object",
+                            "description": "Arguments for that tool.",
+                        },
+                    },
+                    "required": ["name"],
+                },
+                "output_schema": {"type": "object"},
+            },
+        ]
+
+    def _search_index(self) -> Bm25Index:
+        """BM25 index over every connector tool, rebuilt when the manifest is."""
+        manifest, _ = self._manifest()
+        cached = self._search_index_cache
+        if cached is None or cached[0] != id(manifest):
+            documents: Dict[str, str] = {}
+            for entry in manifest:
+                tool = advertised_tool(entry, multitenancy=False)
+                parts = [tool["name"], tool["description"]]
+                for arg, spec in (tool["inputSchema"].get("properties") or {}).items():
+                    parts.append(str(arg))
+                    if isinstance(spec, dict) and spec.get("description"):
+                        parts.append(str(spec["description"]))
+                documents[tool["name"]] = " ".join(parts)
+            cached = (id(manifest), Bm25Index(documents))
+            self._search_index_cache = cached
+        return cached[1]
+
+    def _invoke_search_tools(
+        self, arguments: Dict[str, Any], *, identity: CallerIdentity | None
+    ) -> Dict[str, Any]:
+        query = arguments.get("query")
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError(f"{SEARCH_TOOLS_TOOL} requires a non-empty query")
+        try:
+            limit = int(arguments.get("limit", _SEARCH_DEFAULT_LIMIT))
+        except (TypeError, ValueError):
+            limit = _SEARCH_DEFAULT_LIMIT
+        limit = max(1, min(limit, _SEARCH_MAX_LIMIT))
+
+        _, index_by_name = self._manifest()
+        scope_map = load_scope_map_from_env()
+        default_mode = load_scope_policy_default_from_env()
+        found: List[Dict[str, Any]] = []
+        # Rank everything, then keep what this caller may see: a hidden tool must
+        # not be found, and filtering before truncating keeps `limit` results.
+        for name in self._search_index().search(query, limit=len(index_by_name)):
+            entries = index_by_name.get(name) or []
+            if len(entries) != 1 or not self._tool_visible(
+                entries[0], identity, scope_map=scope_map, default_mode=default_mode
+            ):
+                continue
+            found.append(advertised_tool(entries[0]))
+            if len(found) == limit:
+                break
+
+        logger.info(
+            "MCP tool search | query=%s | matches=%d",
+            query,
+            len(found),
+            extra={"tool_name": SEARCH_TOOLS_TOOL, "matches": len(found)},
+        )
+        if not found:
+            return {
+                "ok": True,
+                "query": query,
+                "tools": [],
+                "message": "No tools matched. Try other keywords, e.g. the object and the verb.",
+            }
+        return {
+            "ok": True,
+            "query": query,
+            "tools": found,
+            "message": f"Run one with {CALL_TOOL_TOOL}: pass its name and arguments.",
+        }
+
+    async def _invoke_call_tool(
+        self, arguments: Dict[str, Any], *, identity: CallerIdentity | None
+    ) -> Dict[str, Any]:
+        name = arguments.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"{CALL_TOOL_TOOL} requires the tool name")
+        tool_args = arguments.get("arguments") or {}
+        if not isinstance(tool_args, dict):
+            raise ValueError(f"{CALL_TOOL_TOOL}: arguments must be an object")
+        if name in (SEARCH_TOOLS_TOOL, CALL_TOOL_TOOL):
+            raise ValueError(f"{name!r} cannot be called through {CALL_TOOL_TOOL}")
+        # Same schema and validator a direct tools/call uses. None = unknown or
+        # hidden from this caller; both read as unknown, so nothing leaks.
+        schema = self._advertised_input_schema(name, identity=identity)
+        if schema is None:
+            raise ValueError(f"Unknown tool {name!r}. Use {SEARCH_TOOLS_TOOL} to find tools.")
+        problem = validate_tool_arguments(tool_args, schema)
+        if problem:
+            raise ValueError(problem)
+        tool_args = {k: v for k, v in tool_args.items() if v is not None}
+        return await self._run_connector_tool(name, tool_args, identity=identity)
+
+    async def _run_connector_tool(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        *,
+        identity: CallerIdentity | None,
+    ) -> Dict[str, Any]:
+        """Run a connector tool; callers have already rate-limited and dropped nulls."""
         connector_id, action = self._resolve_tool_name(name)
 
         if self._connector_ids is not None and connector_id not in self._connector_ids:
@@ -1292,7 +1522,14 @@ class McpServer:
         from mcp.server import Server as LowLevelServer
         from mcp.types import CallToolResult, TextContent, Tool
 
-        low = LowLevelServer(self._server_name)
+        # Published once here rather than in every tool description.
+        low = LowLevelServer(
+            self._server_name,
+            instructions=(
+                "Node Wire connector tools. Pass the fields in each tool's inputSchema. "
+                f"Manifest contract v{MCP_MANIFEST_CONTRACT_VERSION}."
+            ),
+        )
 
         @low.list_tools()
         async def handle_list_tools() -> list[Tool]:

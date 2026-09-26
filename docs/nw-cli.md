@@ -60,13 +60,17 @@ uv run nw gen-all \
 | `--no-mcp` | Skip MCP host build |
 | `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration |
 | `--force` | Overwrite existing connector / MCP output |
+| `--tool-search` | MCP host serves tools through `nw_search_tools` + `nw_call_tool` (no prompt) |
+| `--full-tool-list` | MCP host lists every tool, even over budget (no prompt, no warning) |
+| `--max-tool-listing-kb` | Tool listing budget in KB (default `25`) |
 
 Stages run in-process and in order, each skippable independently; the `mcp` stage additionally checks for wheels before building and can trigger a build-or-prompt sub-step of its own:
 
 ```mermaid
 flowchart TD
   start(["nw gen-all"]) --> connector["Connector codegen<br/>run_build(no_mcp=True)"]
-  connector --> wheelFlag{"--no-wheel?"}
+  connector --> toolMode["Tool mode (unless --no-mcp)<br/>measure listing; over budget:<br/>TTY: ask · non-TTY: full list + warning"]
+  toolMode --> wheelFlag{"--no-wheel?"}
   wheelFlag -- no --> wheel["Wheel build<br/>runtime + bindings, then connector"]
   wheelFlag -- yes --> mcpFlag
   wheel --> mcpFlag{"--no-mcp?"}
@@ -90,6 +94,8 @@ When wire is enabled:
 
 If MCP runs and wheels are missing, the same TTY / non-TTY prerequisite handling as `gen-mcp` applies (see below).
 
+**Tool mode.** Right after codegen (before the wheel builds), the connector's MCP tool listing is measured. Over the budget (`--max-tool-listing-kb`, default 25 KB) the progress bars pause and you are asked how the MCP host should expose its tools — the full tool list, or tool search (`nw_search_tools` + `nw_call_tool`, schemas on demand) — with an explanation of where tool search can fail. Without a terminal the full list is generated and a warning names the flags. `--tool-search` / `--full-tool-list` decide up front. The build never fails on size; the choice becomes the host's default `NW_MCP_TOOL_MODE`. Wording and logic live in nw-mcp-builder (`nw_mcp_builder/tool_listing.py`); see its README.
+
 ### `nw gen-whl`
 
 ```bash
@@ -106,7 +112,10 @@ Default mode passes **`--linux-only`** to `scripts/build-packages.sh` (not the s
 ```bash
 uv run nw gen-mcp --connector-id pet_store
 uv run nw gen-mcp --connector-id pet_store --force-output
+uv run nw gen-mcp --connector-id pet_store --tool-search
 ```
+
+Takes the same `--tool-search` / `--full-tool-list` / `--max-tool-listing-kb` flags as `gen-all`, and asks the same question before building the host.
 
 Always `skip_build_wheels=True`. If the runtime or connector wheel is missing:
 

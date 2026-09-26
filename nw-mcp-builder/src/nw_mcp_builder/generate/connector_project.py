@@ -49,8 +49,16 @@ def write_connector_project(
     scope: MCPScope,
     node_wire_root: Path,
     output_dir: Path,
+    *,
+    tool_mode: str = "list",
 ) -> Path:
-    """Create ``out/<server>-mcp/`` wrapping node-wire ``McpServer``."""
+    """Create ``out/<server>-mcp/`` wrapping node-wire ``McpServer``.
+
+    ``tool_mode`` becomes the host's default ``NW_MCP_TOOL_MODE`` (``list`` or
+    ``search``), in ``main.py`` and the Dockerfile; still overridable at runtime.
+    """
+    if tool_mode not in ("list", "search"):
+        raise ValueError(f"Unknown tool mode {tool_mode!r}: expected 'list' or 'search'")
     if scope.runtime is None or scope.runtime.type != "node_wire":
         raise ValueError("write_connector_project requires runtime.type=node_wire")
 
@@ -114,7 +122,7 @@ def write_connector_project(
         encoding="utf-8",
     )
     (module_dir / "__main__.py").write_text(
-        _main_py(connector_id=connector_id),
+        _main_py(connector_id=connector_id, tool_mode=tool_mode),
         encoding="utf-8",
     )
     (project_dir / "README.md").write_text(
@@ -127,6 +135,7 @@ def write_connector_project(
             runtime_wheel_name=runtime_dest.name,
             bindings_wheel_name=bindings_dest.name,
             connector_wheel_name=connector_dest.name,
+            tool_mode=tool_mode,
         ),
         encoding="utf-8",
     )
@@ -136,6 +145,7 @@ def write_connector_project(
             connector_id=connector_id,
             connector_pkg=connector_pkg,
             mcp_dep=mcp_dep,
+            tool_mode=tool_mode,
         ),
         encoding="utf-8",
     )
@@ -260,7 +270,7 @@ node-wire-runtime = {{ path = "wheels/{runtime_wheel_name}" }}
 '''
 
 
-def _main_py(*, connector_id: str) -> str:
+def _main_py(*, connector_id: str, tool_mode: str = "list") -> str:
     return f'''\
 # ponytail: thin host -- runtime + bindings + connector from wheels
 """Entry point: run node-wire McpServer for connector `{connector_id}`."""
@@ -317,6 +327,8 @@ def main() -> None:
     if not _running_in_container():
         os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")
         os.environ.setdefault("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+    # Chosen at generation time (nw-mcp-builder); override with NW_MCP_TOOL_MODE.
+    os.environ.setdefault("NW_MCP_TOOL_MODE", "{tool_mode}")
     root = _project_root()
     if root is not None:
         cfg = root / "config" / "connectors.yaml"
@@ -347,6 +359,7 @@ def _readme(
     runtime_wheel_name: str,
     bindings_wheel_name: str,
     connector_wheel_name: str,
+    tool_mode: str,
 ) -> str:
     return f"""\
 # {project_name}
@@ -384,6 +397,7 @@ Process env (ToolHive secrets, Docker `-e` / `--env-file`) is preferred. A proje
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `NW_MCP_TRANSPORT` | `streamable-http` | `stdio` or `streamable-http` |
+| `NW_MCP_TOOL_MODE` | `{tool_mode}` (chosen at generation) | `list` — every tool in `tools/list`; `search` — only `nw_search_tools` + `nw_call_tool`, schemas on demand |
 | `NW_MCP_PORT` | `8081` | HTTP port |
 | `NW_ALLOWED_CONNECTORS` | `{connector_id}` | Connector allowlist |
 | `NW_MCP_AUTH_DISABLED` | `true` locally; **unset in images** | Local/Inspector only — do not bake into Docker |
@@ -446,6 +460,7 @@ def _dockerfile(
     connector_id: str,
     connector_pkg: str,
     mcp_dep: str,
+    tool_mode: str = "list",
 ) -> str:
     return f'''\
 # syntax=docker/dockerfile:1
@@ -499,6 +514,7 @@ ENV PYTHONPATH=/app/src \\
     NW_MCP_TRANSPORT=streamable-http \\
     NW_CONFIG_PATH=/app/config/connectors.yaml \\
     NW_REST_LOAD_DOTENV=false \\
+    NW_MCP_TOOL_MODE={tool_mode} \\
     NW_MCP_CONTAINER=true
 
 WORKDIR /app

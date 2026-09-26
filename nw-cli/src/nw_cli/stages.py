@@ -131,8 +131,13 @@ def run_mcp_build(
     connector_id: str,
     *,
     force_output: bool = False,
+    tool_mode: str | None = None,
 ) -> Path:
-    """Call ``run_from_connector`` with ``skip_build_wheels=True``."""
+    """Call ``run_from_connector`` with ``skip_build_wheels=True``.
+
+    ``tool_mode`` is decided by the caller first (``tool_mode.decide_tool_mode``),
+    so nw-mcp-builder does not ask again.
+    """
     package_root = node_wire_root / "nw-mcp-builder"
     return run_from_connector(
         connector_id,
@@ -140,6 +145,7 @@ def run_mcp_build(
         package_root=package_root,
         skip_build_wheels=True,
         force_output=force_output,
+        tool_mode=tool_mode,
     )
 
 

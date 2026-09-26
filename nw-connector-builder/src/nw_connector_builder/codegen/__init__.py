@@ -139,6 +139,21 @@ def _example_placeholder(param) -> Any:  # noqa: ANN001
     return "example"
 
 
+# Emitted into every generated schema.py and hooked into each model's
+# json_schema_extra. Pydantic titles the model (its class name) and every field,
+# restating the field name (`channel` -> "Channel"); on a 174-tool connector that
+# was an eighth of tools/list. Dropping them at the source keeps the bindings a
+# pass-through and leaves hand-written connectors' schemas as they are.
+_DROP_TITLES_SOURCE = (
+    "def _drop_titles(schema: dict[str, Any]) -> None:",
+    '    """Remove the model and field titles Pydantic generates; names already say it."""',
+    '    schema.pop("title", None)',
+    '    for prop in (schema.get("properties") or {}).values():',
+    "        if isinstance(prop, dict):",
+    '            prop.pop("title", None)',
+)
+
+
 def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
     """Hand-roll input envelopes; use Any/dict for complex body/output when needed."""
     _validate_connector_id(connector_id)
@@ -155,6 +170,9 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         "from node_wire_runtime import RestResponseOutput",
         "",
         "",
+        *_DROP_TITLES_SOURCE,
+        "",
+        "",
     ]
 
     # Shared body/output placeholders as dict wrappers when schemas exist
@@ -167,7 +185,10 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         doc = _operation_description(action.operation)
         if doc:
             lines.append(f"    {doc!r}")
-        lines.append('    model_config = ConfigDict(populate_by_name=True, extra="forbid")')
+        lines.append(
+            '    model_config = ConfigDict(populate_by_name=True, extra="forbid", '
+            "json_schema_extra=_drop_titles)"
+        )
         lines.append(f"    action: Literal[{action.name!r}] = {action.name!r}")
         wire_counts: dict[str, int] = {}
         for p in action.params:
@@ -218,7 +239,9 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         else:
             # Object-shaped success schema only (see _success_response_schema).
             lines.append(f"class {out_name}(BaseModel):")
-            lines.append('    model_config = ConfigDict(extra="allow")')
+            lines.append(
+                '    model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)'
+            )
             lines.append("    # OpenAPI object success schema — permissive allow for nested props")
             lines.append("    pass")
         lines.append("")

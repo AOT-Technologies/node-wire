@@ -23,6 +23,8 @@ from nw_cli.names import mcp_project_dir
 from nw_cli.prerequisites import ensure
 from nw_cli.progress import GenerateProgress
 from nw_cli.root import RootError, resolve_node_wire_root
+from nw_cli.tool_mode import decide_tool_mode, describe_decision, tool_mode_from_flags
+from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
 from nw_cli.stages import (
     StageError,
     bindings_wheel_present,
@@ -96,6 +98,23 @@ def _main(
     """Node Wire CLI entry point."""
 
 
+_TOOL_SEARCH_HELP = (
+    "Serve the MCP host's tools through nw_search_tools + nw_call_tool (for large connectors)"
+)
+_FULL_TOOL_LIST_HELP = "List every tool, even over the size budget (no prompt, no warning)"
+_MAX_TOOL_LISTING_HELP = (
+    "Tool listing budget in KB; over it you are asked to choose full list or tool search"
+)
+
+
+def _tool_mode_or_exit(tool_search: bool, full_tool_list: bool) -> str | None:
+    try:
+        return tool_mode_from_flags(tool_search, full_tool_list)
+    except ValueError as exc:
+        err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")
+        raise typer.Exit(2) from exc
+
+
 def _root() -> Path:
     try:
         return resolve_node_wire_root()
@@ -114,10 +133,23 @@ def gen_all(
         False, "--no-wire", help="Skip connectors.yaml / sample.env / ALL_PACKAGES"
     ),
     force: bool = typer.Option(False, "--force", help="Overwrite existing connector / MCP output"),
+    tool_search: bool = typer.Option(
+        False, "--tool-search", help=_TOOL_SEARCH_HELP, rich_help_panel="Tool listing"
+    ),
+    full_tool_list: bool = typer.Option(
+        False, "--full-tool-list", help=_FULL_TOOL_LIST_HELP, rich_help_panel="Tool listing"
+    ),
+    max_tool_listing_kb: float = typer.Option(
+        DEFAULT_MAX_TOOL_LISTING_KB,
+        "--max-tool-listing-kb",
+        help=_MAX_TOOL_LISTING_HELP,
+        rich_help_panel="Tool listing",
+    ),
 ) -> None:
     """One-shot: connector codegen → wheel → MCP host → wire."""
     from nw_connector_builder.pipeline import BuildError, UsageError, run_build
 
+    tool_mode = _tool_mode_or_exit(tool_search, full_tool_list)
     node_wire_root = _root()
     progress = GenerateProgress()
     if no_wheel:
@@ -144,6 +176,22 @@ def gen_all(
                 return code
 
             progress.run_stage("connector", _connector)
+
+            chosen_mode = None
+            if not no_mcp:
+                # Needs the generated source, and comes before the slow wheel
+                # builds so an over-budget question is not kept waiting.
+                decision = decide_tool_mode(
+                    node_wire_root,
+                    id,
+                    tool_mode=tool_mode,
+                    max_tool_listing_kb=max_tool_listing_kb,
+                    console=progress.console,
+                    notify=lambda message: progress.log(f"warning: {message}"),
+                    pause=progress.paused,
+                )
+                chosen_mode = decision.mode
+                progress.log(describe_decision(decision))
 
             if not no_wheel:
 
@@ -184,7 +232,9 @@ def gen_all(
                             ),
                             build_fn=_build_missing,
                         )
-                    return run_mcp_build(node_wire_root, id, force_output=force)
+                    return run_mcp_build(
+                        node_wire_root, id, force_output=force, tool_mode=chosen_mode
+                    )
 
                 progress.run_stage("mcp", _mcp)
 
@@ -269,8 +319,21 @@ def gen_mcp(
     force_output: bool = typer.Option(
         False, "--force-output", help="Replace existing out/<server>-mcp/"
     ),
+    tool_search: bool = typer.Option(
+        False, "--tool-search", help=_TOOL_SEARCH_HELP, rich_help_panel="Tool listing"
+    ),
+    full_tool_list: bool = typer.Option(
+        False, "--full-tool-list", help=_FULL_TOOL_LIST_HELP, rich_help_panel="Tool listing"
+    ),
+    max_tool_listing_kb: float = typer.Option(
+        DEFAULT_MAX_TOOL_LISTING_KB,
+        "--max-tool-listing-kb",
+        help=_MAX_TOOL_LISTING_HELP,
+        rich_help_panel="Tool listing",
+    ),
 ) -> None:
     """Build MCP host from an existing connector (requires wheels)."""
+    tool_mode = _tool_mode_or_exit(tool_search, full_tool_list)
     node_wire_root = _root()
 
     if not runtime_wheel_present(node_wire_root):
@@ -298,8 +361,22 @@ def gen_mcp(
         )
 
     try:
+        # Before the spinner: the over-budget question needs the terminal.
+        decision = decide_tool_mode(
+            node_wire_root,
+            id,
+            tool_mode=tool_mode,
+            max_tool_listing_kb=max_tool_listing_kb,
+            console=console,
+            notify=lambda message: err_console.print(
+                f"[bold #ecb32e]warning:[/bold #ecb32e] {message}", highlight=False
+            ),
+        )
+        console.print(describe_decision(decision), highlight=False)
         with console.status("[bold]Building MCP host…[/bold]", spinner="dots"):
-            project = run_mcp_build(node_wire_root, id, force_output=force_output)
+            project = run_mcp_build(
+                node_wire_root, id, force_output=force_output, tool_mode=decision.mode
+            )
         console.print(f"[green]MCP host ready[/green]: {project}")
     except (StageError, FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
         err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")

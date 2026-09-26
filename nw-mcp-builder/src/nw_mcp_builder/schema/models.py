@@ -66,6 +66,11 @@ class ServerConfig(BaseModel):
         return v
 
 
+# MCP clients cap tool names at 64 characters. nw-connector-builder sizes action
+# names to fit `<connector_id>_<action>` within it (derive/naming.py).
+MCP_TOOL_NAME_LIMIT = 64
+
+
 class Tool(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -79,8 +84,10 @@ class Tool(BaseModel):
     @field_validator("tool_name")
     @classmethod
     def validate_tool_name(cls, v: str) -> str:
-        if len(v) > 40:
-            raise ValueError(f"Tool name '{v}' exceeds 40 characters ({len(v)} chars)")
+        if len(v) > MCP_TOOL_NAME_LIMIT:
+            raise ValueError(
+                f"Tool name '{v}' exceeds {MCP_TOOL_NAME_LIMIT} characters ({len(v)} chars)"
+            )
         if not re.fullmatch(r"[a-z][a-z0-9_]*", v):
             raise ValueError(
                 f"Tool name '{v}' must be snake_case: lowercase letters, digits, "

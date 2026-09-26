@@ -13,6 +13,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`nw-cli`**: `nw gen-all` and `nw gen-mcp` take `--tool-search` / `--full-tool-list` /
+  `--max-tool-listing-kb` and pass the host's tool mode to nw-mcp-builder. `gen-all` decides
+  right after codegen, before the wheel builds; over budget on a terminal it pauses the progress
+  bars and asks with a Rich prompt (the explanation and options come from nw-mcp-builder).
+  Without a terminal: full list plus a warning. Using both mode flags is an error.
+
+- **`nw-mcp-builder`**: tool-listing size check. Before building wheels, the connector's MCP
+  tool listing is measured with the bindings' listing code. Over the budget (25 KB default,
+  `--max-tool-listing-kb`) the build asks — on a terminal, with descriptive options and an
+  explanation of where tool search can fail — whether to generate the full tool list or use
+  tool search; without a terminal it generates the full list and warns. It never fails the
+  build. `--tool-search` / `--full-tool-list` choose up front. The choice is baked into the
+  generated host as its default `NW_MCP_TOOL_MODE` (`__main__.py` and Dockerfile `ENV`, still
+  overridable at runtime) and documented in its README. Slack's generated connector measures
+  77.2 KB for 174 tools. nw-mcp-builder now depends on `node-wire-bindings>=1.1.0` and
+  `node-wire-runtime>=1.1.0` (path dependencies), which it already imported or now measures with.
+
+- **`node-wire-bindings`** 1.1.0: opt-in **tool-search mode** for the MCP server —
+  `McpServer(tool_mode="search")` or `NW_MCP_TOOL_MODE=search` (default `list`, unchanged).
+  `tools/list` returns `nw_search_tools` (BM25 over tool names, descriptions and arguments;
+  results carry full input schemas) and `nw_call_tool` (validates against the tool's schema,
+  then runs it) instead of every tool, so the listing stays ~1–2 KB however large the connector.
+  Scope policy applies to both; hidden tools are neither found nor callable; direct calls by
+  name keep working. Modelled on FastMCP's search transform. On Slack's 174-tool connector the
+  right tool is in the top 5 for 13 of 15 sample requests; misses are wording mismatches ("DM
+  someone" vs `conversations_open`).
+- **`node-wire-bindings`**: `advertised_tool`, `advertised_tools_for_connectors` and
+  `tool_listing_bytes` in `bindings.mcp_server.server` — the one definition of an advertised
+  tool, and its size as the MCP SDK serializes it, usable without a running server (for build
+  tooling's listing-size check).
+
 - **`nw-mcp-builder` / MCP Docker images**: generated hosts are **wheels-only** — install
   `node-wire-runtime`, new `node-wire-bindings` (`packages/bindings`), and the connector
   wheel. The previous `vendor/node_wire_src` + `PYTHONPATH=/nw_src` dual layout is gone.
@@ -124,6 +155,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ~40 ms each for a 174-action connector). `list_tools()` returns copies.
 - **`node-wire-bindings`**: the input model's docstring is published only as the tool
   description, no longer repeated as `inputSchema.description`.
+- **`node-wire-bindings`**: tool descriptions no longer end with `Security & Limits: Requires
+  Auth: Yes` and `Pass fields from inputSchema only; … Manifest contract vN.` on every tool —
+  a quarter of a 174-tool connector's `tools/list`. Deprecation, scopes and rate limits are
+  still noted when set; the contract version is published once in the server's `instructions`.
+  Applies to every connector.
+- **`nw-connector-builder`**: generated models publish schemas without `title`s — the model
+  class name and the per-field titles Pydantic generates, which restate the field name
+  (`channel` → `"Channel"`). Emitted as a `_drop_titles` `json_schema_extra` hook in
+  `schema.py`; hand-written connectors are unaffected. With the description change above,
+  Slack's `tools/list` goes from 124 KB to 79 KB as serialized by the MCP SDK (−37%).
 - **`node-wire-bindings`**: an unexpected top-level argument that a nested object declares gets a
   hint — `Additional properties are not allowed ('channel' was unexpected) ('channel' belongs
   inside 'body')`.
@@ -165,6 +206,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the `node_wire.connectors` entry point (`http_generic`) are unchanged.
 
 ### Fixed
+
+- **`node-wire-runtime`** / **`node-wire-bindings`** packaging: editable installs no longer
+  compile the sources in place. The nw-* tools depend on both packages by path (editable);
+  setuptools' `editable_wheel` ran the Cython `build_ext` in place and wrote `.so` files into
+  `src/`, which Python imports ahead of the `.py` files — source edits silently stopped taking
+  effect for everything using that checkout. `setup.py` now builds editable installs as pure
+  Python; published wheels are compiled as before.
+
+- **`nw-mcp-builder`**: scope-fixture tool names are no longer cut at 40 characters (and the
+  fixture schema no longer rejects longer ones). They now follow the 64-character MCP limit
+  nw-connector-builder sizes action names to, so the fixture names match what the server lists
+  (`admin_conversations_restrict_access_remove_group`, not `…_remo`).
 
 - **`nw-connector-builder`**: Swagger 2.0 `in: body` parameters no longer become a *required*
   OpenAPI 3 request body unless they say `required: true` (the 2.0 default is optional).

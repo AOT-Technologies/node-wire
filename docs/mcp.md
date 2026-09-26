@@ -105,6 +105,24 @@ Each connector runs as its own independent MCP server (often in a dedicated Dock
 
 ---
 
+## Tool search mode
+
+For connectors with many tools (e.g. a large generated OpenAPI connector), listing every tool costs model context on every request. Set `NW_MCP_TOOL_MODE=search` (or `McpServer(tool_mode="search")`) and `tools/list` returns two tools instead:
+
+- **`nw_search_tools`** `{query, limit?}` — BM25 keyword search over tool names, descriptions and argument names/descriptions. Returns up to `limit` (default 5, max 20) matching tools, each with its full `inputSchema`, so the model can call one straight away.
+- **`nw_call_tool`** `{name, arguments}` — validates `arguments` against that tool's schema (same validator and messages as a direct `tools/call`) and runs it.
+
+The listing stays around 1–2 KB whatever the connector size. Behaviour to know:
+
+- Scope policy applies: a tool hidden from a caller is neither returned by search nor callable through `nw_call_tool` (it reads as unknown).
+- Direct `tools/call` by tool name still works in this mode, for clients that already know the names.
+- The multitenancy tools (`nw_select_tenant`, …) are listed as usual.
+- Search is lexical: a request worded differently from the tool ("DM someone" vs `conversations_open`) can miss. Clients that show, approve or filter tools one by one see only `nw_call_tool`.
+
+Default is `list` (unchanged). Modelled on FastMCP's search transform.
+
+---
+
 ## Multi-tenancy
 
 When `NW_MULTITENANCY_ENABLED=true`, MCP loads tenants/configs and exposes

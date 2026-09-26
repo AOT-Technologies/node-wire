@@ -297,6 +297,7 @@ Everything past the first paragraph (argument tables, error lists) repeats the i
 
 - **Action names** come from `operationId` (or method + path), snake_cased. They are cut to fit the MCP tool-name limit — the tool name is `<connector_id>_<action>`, at most 64 characters — at a word boundary, never mid-word and never leaving a trailing `_`. Duplicates get a numeric suffix.
 - **Formatting** — generated `src/node_wire_<id>/` and its tests are run through `ruff format` at staging time, using the target root's `pyproject.toml` `[tool.ruff]` settings, so they pass the same `ruff format --check` as hand-written code. Source ruff cannot parse fails the build: it is a codegen bug.
+- **No schema titles** — generated models carry a `_drop_titles` `json_schema_extra` hook, so their JSON schemas have no `title` on the model or its fields (Pydantic's defaults only restate the names). Descriptions carry each field's meaning.
 - **Runtime floor** — the generated package requires `node-wire-runtime>=1.1.0`, the first runtime with `body_property` routing and success-flag envelopes.
 
 ---

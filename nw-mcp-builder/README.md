@@ -33,7 +33,21 @@ uv run --directory ../nw-connector-builder nw-connector-builder mcp -c <connecto
 uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
 uv run nw-mcp-builder -c <connector_id> --force-output
 uv run nw-mcp-builder -c <connector_id> --force-fixture
+
+# Tool listing mode (see below)
+uv run nw-mcp-builder -c <connector_id> --tool-search
+uv run nw-mcp-builder -c <connector_id> --full-tool-list
+uv run nw-mcp-builder -c <connector_id> --max-tool-listing-kb 40
 ```
+
+### Tool listing size and tool search
+
+Before building wheels, the connector's MCP tool listing is measured with the bindings' own listing code. MCP clients send the whole listing to the model on every request, so when it is over the budget (**25 KB** by default, `--max-tool-listing-kb`) you are asked how the host should expose its tools:
+
+1. **Full tool list** — every tool listed individually.
+2. **Tool search** — only `nw_search_tools` + `nw_call_tool` are listed (~2 KB); the model searches by keywords and gets tool schemas on demand. The prompt explains where this can fail (a model that guesses names instead of searching, wording that doesn't match the tool, clients that approve tools one by one, an extra round trip per task).
+
+The build never fails over the budget. Without a terminal (CI, piped output) the full list is generated and a warning names the flags. `--tool-search` / `--full-tool-list` choose up front with no prompt. The choice becomes the host's default `NW_MCP_TOOL_MODE` (in `__main__.py` and the Dockerfile `ENV`), still overridable at runtime. If the listing cannot be measured (e.g. the connector's own dependencies are not installed in this environment), the full list is used with a warning.
 
 ### Tests
 
