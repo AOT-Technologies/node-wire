@@ -73,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install package and audit tool
         run: |
@@ -113,7 +113,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       # Connector packages declare node-wire-runtime>=1.0.0 as a PyPI-style dep; install
       # packages/runtime from the repo so pip resolves it without requiring a published wheel.

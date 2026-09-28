@@ -34,7 +34,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
@@ -49,7 +49,7 @@ jobs:
       - name: Generate Bandit JSON report
         run: >
           uv run bandit -c pyproject.toml
-          -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src
+          -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src nw-stacklok-builder/src
           -f json -o bandit-report.json --exit-zero
       - name: Bandit findings summary (log)
         run: uv run python scripts/bandit_report_summary.py bandit-report.json --sarif-out bandit.sarif

@@ -20,7 +20,7 @@ Node Wire is a three-layer Python platform that runs connector adapters (Google 
 
 ## Prerequisites
 
-Before getting started, see the [Installation guide](installation.md) for full setup. You will need Python 3.11+, `uv` (recommended) or `pip`, Git, and optionally Docker (MCP server images) and Node.js (MCP Inspector).
+Before getting started, see the [Installation guide](installation.md) for full setup. You will need Python 3.13+, `uv` (recommended) or `pip`, Git, and optionally Docker (MCP server images) and Node.js (MCP Inspector).
 
 ## Quick Start
 

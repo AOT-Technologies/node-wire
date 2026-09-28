@@ -135,6 +135,20 @@ Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/o
 
 If the MCP project directory is missing, the same TTY / non-TTY prompt offers to run `nw gen-mcp` first.
 
+### `nw gen-stacklok`
+
+```bash
+uv run nw gen-stacklok --scope mcp-scope.yaml --connector-id pet_store
+uv run nw gen-stacklok --scope mcp-scope.yaml --force --no-wheel --no-lock --output-dir out/
+```
+
+Builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder) server on the node-wire
+runtime from a stacklok `mcp-scope.yaml`: connector codegen from the scope's `spec.source` →
+cp313 musllinux wheels (`scripts/build-packages.sh --musllinux`, Docker) → the vendored stacklok
+generator (`nw-stacklok-builder/out/<server>-mcp/`, then `uv lock`). `--connector-id` may be
+omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` block. See
+[stacklok MCP servers](stacklok-mcp-servers.md).
+
 ---
 
 ## Output
@@ -160,6 +174,7 @@ If the MCP project directory is missing, the same TTY / non-TTY prompt offers to
 | `nw` | Orchestrator for the happy path |
 | `nw-connector-builder` | Still available for low-level OpenAPI codegen |
 | `nw-mcp-builder` | Still available for MCP-only generation |
+| `nw-stacklok-builder` | Vendored stacklok generator driven by `nw gen-stacklok` (no CLI of its own) |
 
 Deprecating the standalone builder entry points is **not** part of this CLI.
 
@@ -179,6 +194,7 @@ Coverage is unit/mocked only (no live Docker or network spec fetch).
 
 | Doc | When to read it |
 |-----|-----------------|
+| [nw-cli-runbook.md](nw-cli-runbook.md) | Step-by-step: Petstore and Slack to ToolHive, with both builders |
 | [nw-connector-builder.md](nw-connector-builder.md) | OpenAPI → connector codegen details |
 | [mcp-servers.md](mcp-servers.md) | Generated MCP host layout, ToolHive, Inspector |
 | [packaging.md](packaging.md) | `build-packages.sh`, wheels, PyPI |

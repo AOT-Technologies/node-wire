@@ -28,8 +28,8 @@ _MCP_DEP_FALLBACK = "mcp>=1.6.0,<2"
 # Digest-pinned base. Keep in sync with Dockerfile and docker/*/Dockerfile
 # (enforced by tests/nw_mcp_builder/test_generated_dockerfile.py and
 # .github/workflows/docker-policy.yml).
-PYTHON_312_SLIM_IMAGE = (
-    "python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4"
+PYTHON_313_SLIM_IMAGE = (
+    "python:3.13-slim@sha256:7c61056e61ac89e852de05f3dc6fa51a6dd2181797bceed46aa725dd7cb2cd3b"
 )
 
 BINDINGS_DIST_PACKAGE = "node-wire-bindings"
@@ -243,7 +243,7 @@ def _pyproject_toml(
 name = "{project_name}"
 version = "0.1.0"
 description = "{_escape_toml(description)}"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "node-wire-runtime",
     "{BINDINGS_DIST_PACKAGE}",
@@ -474,7 +474,7 @@ def _dockerfile(
 # - runtime: copy /usr/local from deps, then thin host src + config last
 #   so source edits do not invalidate the expensive install layer.
 
-FROM {PYTHON_312_SLIM_IMAGE} AS deps
+FROM {PYTHON_313_SLIM_IMAGE} AS deps
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \\
     PYTHONDONTWRITEBYTECODE=1
@@ -499,7 +499,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
     && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
 
 # --- runtime stage ---
-FROM {PYTHON_312_SLIM_IMAGE}
+FROM {PYTHON_313_SLIM_IMAGE}
 
 LABEL org.opencontainers.image.title="{module_name}" \\
       org.opencontainers.image.description="Node Wire — {connector_id} MCP server (nw-mcp-builder)" \\

@@ -6,7 +6,7 @@
 name = "node-wire-bindings"
 version = "1.1.0"
 description = "Node Wire bindings — MCP host surface (factory, invoke, mcp_server)"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 license = "Apache-2.0"
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 readme = "README.md"

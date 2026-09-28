@@ -1,0 +1,32 @@
+# MCPOIDCConfig — OIDC issuer configuration for {{ server_name }}.
+#
+# Referenced by the MCPServer via spec.oidcConfigRef. Split into its own
+# resource because this operator version does not accept an inline
+# spec.oidcConfig on MCPServer.
+#
+# REQUIRED — fill in before applying:
+#   The `spec.inline.issuer` below MUST match `embeddedAuthServer.issuer`
+#   in mcpexternalauthconfig.yaml — it is the external URL where the
+#   ToolHive-issued auth endpoint is reachable from OAuth clients. The URL
+#   SHAPE is cluster-specific; clusters in the wild use patterns like:
+#      https://mcp.<domain>/<server_name>
+#      https://<domain>/<server_name>/mcp
+#      https://<server_name>.<domain>/mcp
+#   The emitted default here is only one such shape and cannot be made
+#   correct by domain substitution alone. Run the `deploy-assist` skill to
+#   infer the shape from your cluster repo's sibling manifests and rewrite
+#   all occurrences, or rewrite them by hand.
+#
+# Namespace must match the MCPServer that references this config.
+#
+# Docs: https://docs.stacklok.com/toolhive/reference/crd-spec
+---
+apiVersion: {{ api_version }}
+kind: MCPOIDCConfig
+metadata:
+  name: {{ server_name }}-oidc
+  namespace: {{ namespace }}
+spec:
+  type: inline
+  inline:
+    issuer: https://mcp.REPLACE_ME_DOMAIN/{{ server_name }}

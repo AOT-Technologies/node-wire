@@ -7,7 +7,7 @@ name = "node-wire"
 version = "1.0.0"
 description = "Node Wire — runtime, connectors, and bindings"
 license = "Apache-2.0"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 authors = [
   { name = "AOT Technologies", email = "opensource@aot-technologies.com" },
 ]
@@ -17,8 +17,7 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
   "Topic :: System :: Networking",
@@ -135,6 +134,7 @@ override-dependencies = [
 nw-cli = { path = "nw-cli", editable = true }
 nw-connector-builder = { path = "nw-connector-builder", editable = true }
 nw-mcp-builder = { path = "nw-mcp-builder", editable = true }
+nw-stacklok-builder = { path = "nw-stacklok-builder", editable = true }
 
 [tool.pytest.ini_options]
 pythonpath = ["src", ".", "src/bindings/grpc_server"]
@@ -167,15 +167,18 @@ omit = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 line-length = 100
 extend-exclude = [
   "*_pb2.py",
   "*_pb2_grpc.py",
+  # Vendored stacklok code keeps upstream style so its diff stays minimal (UPSTREAM.md).
+  "nw-stacklok-builder/src/mcp_builder",
+  "nw-stacklok-builder/template",
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 strict = false
 ignore_missing_imports = true
 # Default targets when invoking `mypy` with no paths (CI/pre-commit). Avoids repo-root `mypy .`

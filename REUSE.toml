@@ -38,3 +38,21 @@ path = "packages/connectors/*/report.json"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Vendored from stacklok/mcp-builder @ 7c03c38 and stacklok/mcp-template-py @ 2bd79dc (Apache-2.0;
+# upstream files carry no SPDX headers). See nw-stacklok-builder/UPSTREAM.md. node-wire's own
+# code in nw-stacklok-builder/src/nw_stacklok/ carries normal SPDX headers.
+[[annotations]]
+path = ["nw-stacklok-builder/src/mcp_builder/**", "nw-stacklok-builder/template/**"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2025 Stacklok, Inc.", "2026 AOT Technologies"]
+SPDX-License-Identifier = "Apache-2.0"
+
+# Test fixtures copied from stacklok/mcp-builder @ 7c03c38 (e2e/fixtures/synthetic, e2e/fixtures/real)
+# (petstore, slack scopes) plus the Swagger Petstore v3 OpenAPI document (Apache-2.0,
+# petstore3.swagger.io).
+[[annotations]]
+path = "tests/nw_stacklok_builder/fixtures/stacklok/**"
+precedence = "override"
+SPDX-FileCopyrightText = ["2025 Stacklok, Inc.", "Swagger Petstore contributors"]
+SPDX-License-Identifier = "Apache-2.0"

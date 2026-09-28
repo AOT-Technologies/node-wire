@@ -1,0 +1,39 @@
+openapi: "3.0.3"
+info:
+  title: Weather API (subset)
+  version: v1
+paths:
+  /forecast/{location}:
+    parameters:
+      - name: location
+        in: path
+        required: true
+        schema:
+          type: string
+        description: City name or postal code.
+    get:
+      operationId: getForecast
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastResponse"
+components:
+  schemas:
+    ForecastResponse:
+      type: object
+      properties:
+        location:
+          type: string
+        temperature:
+          type: number
+        conditions:
+          type: string
+        humidity:
+          type: integer
+      required:
+        - location
+        - temperature
+        - conditions

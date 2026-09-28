@@ -16,6 +16,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 |---|---|---|
 | `node-wire-runtime` | `src/node_wire_runtime/` | — (no entry point; this is the runtime) |
 | `node-wire-bindings` **(not published)** | `src/bindings/` (MCP surface) | — (factory / invoke / mcp_server for MCP images) |
+| `node-wire-toolhive` **(not published)** | `src/node_wire_toolhive/` | — (credential relay, tenant header, config tools for `nw gen-stacklok` servers) |
 | `node-wire-fhir-cerner` | `src/node_wire_fhir_cerner/` | `fhir_cerner` |
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
@@ -30,7 +31,8 @@ Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject
 **Only the runtime and connectors ship to PyPI.** `node-wire-bindings` is built as a
 local wheel (`scripts/build-packages.sh`, `nw gen-whl --bindings`) for MCP Docker
 images and is deliberately absent from the package lists in `publish.yml`,
-`github-release.yml`, and `security-pr.yml`. Do not add it to them.
+`github-release.yml`, and `security-pr.yml`. Do not add it to them. The same applies to
+`node-wire-toolhive`, built only for `nw gen-stacklok` images (`packages/toolhive/`).
 
 **Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) (which also builds the unpublished bindings wheel). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
 
@@ -76,7 +78,7 @@ After implementing the connector runtime (see [connectors.md](connectors.md), or
 name = "node-wire-<name>"
 version = "1.0.0"
 description = "Node Wire connector — <short description>"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 license = "Apache-2.0"
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 
@@ -292,7 +294,22 @@ bash scripts/build-packages.sh --all
 bash scripts/build-packages.sh --all packages/runtime
 ```
 
-Local `--all` builds CPython 3.11 and 3.12 (`CIBW_BUILD=cp311-* cp312-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds the same interpreters with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
+Local `--all` builds CPython 3.13 (`CIBW_BUILD=cp313-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds the same interpreters with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
+
+### musllinux wheels for stacklok-built servers (`--musllinux`)
+
+`nw gen-stacklok` servers run stacklok's DHI Alpine image, which needs **musl** wheels (the
+default `--linux-only` builder is Debian/glibc, and the DHI image has no Python headers to
+compile in). `--musllinux` builds cp313 musllinux wheels with cibuildwheel in Docker, bind-mounting
+`src/` exactly like `publish.yml`, and leaves other wheels in `dist/` untouched:
+
+```bash
+python -m pip install 'cibuildwheel==4.2.1'
+bash scripts/build-packages.sh --musllinux packages/runtime packages/bindings packages/toolhive
+NW_MUSLLINUX_ARCHS="x86_64 aarch64" bash scripts/build-packages.sh --musllinux packages/runtime
+```
+
+The arch defaults to the host (`native`); other arches run under emulation and are slow.
 
 ### Inspect wheel contents
 
@@ -464,7 +481,7 @@ from the release tag via the **Use workflow from** dropdown.
 
 **Pipeline steps:**
 
-1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (Python 3.11, 3.12)
+1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (Python 3.13)
 2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
 3. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
 4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations
@@ -523,8 +540,8 @@ end-to-end flow (stable and beta). The package publish workflow is
 
 The `docker/*/Dockerfile` images are **demonstration templates** for packaging a single connector as a standalone MCP server. They are not production orchestration artefacts.
 
-Generated MCP host images expect **Linux** wheels built for **Python 3.12**
-(`python:3.12-slim` in the generated Dockerfile). See
+Generated MCP host images expect **Linux** wheels built for **Python 3.13**
+(`python:3.13-slim` in the generated Dockerfile). See
 [mcp-servers.md](mcp-servers.md#platform-and-toolhive-read-this-first) and
 [local-packages-to-images.md](local-packages-to-images.md) for the wheel → image
 walkthrough.

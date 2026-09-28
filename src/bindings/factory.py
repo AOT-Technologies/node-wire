@@ -12,11 +12,11 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import yaml
 
-from node_wire_runtime import BaseConnector, SecretProvider, get_connector_registry
+from node_wire_runtime import AuthProvider, BaseConnector, SecretProvider, get_connector_registry
 from node_wire_runtime.config_store import (
     DEFAULT_TENANT,
     ConfigNotFoundError,
@@ -47,6 +47,10 @@ _GOOGLE_DRIVE_AUTH_PROVIDER_ENV = "GOOGLE_DRIVE_AUTH_PROVIDER"
 _GOOGLE_DRIVE_AUTH_PROVIDERS = frozenset({"service_account", "upstream_bearer"})
 
 _UPSTREAM_BEARER_ALLOWLIST_ENV = "NW_UPSTREAM_BEARER_CONNECTORS"
+
+# Embedders may take over auth-provider construction: ``hook(connector_id, auth_cfg)``
+# returns the provider for one resolved auth block, or ``None`` for the default.
+AuthProviderHook = Callable[[str, Dict[str, Any]], Optional[AuthProvider]]
 
 
 def _upstream_bearer_allowlist() -> frozenset[str]:
@@ -233,8 +237,19 @@ class ConnectorFactory:
     Loads connectors.yaml and instantiates connectors from the connector registry.
     """
 
-    def __init__(self, config_path: str | Path | None = None) -> None:
+    _auth_provider_hook: AuthProviderHook | None = None
+
+    def __init__(
+        self,
+        config_path: str | Path | None = None,
+        *,
+        auth_provider_hook: AuthProviderHook | None = None,
+    ) -> None:
+        """``auth_provider_hook`` (optional) is consulted first for every auth block —
+        the default scheme and each named extra scheme; returning ``None`` falls back to
+        the built-in providers below. Without it, behaviour is unchanged."""
         self._config_path = _resolve_config_path(config_path)
+        self._auth_provider_hook = auth_provider_hook
         self._secret_provider: SecretProvider = _build_secret_provider()
         # Runtime config store + per-(tenant, connector, config_name) invoke cache.
         self._store = ConnectorConfigStore()
@@ -416,6 +431,11 @@ class ConnectorFactory:
         sp = secret_provider
         provider_type = auth_cfg.get("provider", "none")
 
+        if self._auth_provider_hook is not None:
+            hooked = self._auth_provider_hook(connector_id, auth_cfg)
+            if hooked is not None:
+                return hooked
+
         if provider_type in ("none", ""):
             return NoAuthProvider()
 
@@ -435,7 +455,7 @@ class ConnectorFactory:
 
         if provider_type == "apikey_query":
             return ApiKeyQueryAuthProvider(
-                secret_provider=self._secret_provider,
+                secret_provider=sp,
                 secret_key=auth_cfg["secret_key"],
                 name=auth_cfg["name"],
             )
@@ -602,8 +622,11 @@ class ConnectorFactory:
         }
         if auth_providers:
             kwargs["auth_providers"] = auth_providers
-        if issubclass(connector_cls, RestConnector) and record.raw.get("base_url"):
-            kwargs["base_url"] = record.raw["base_url"]
+        # connectors.yaml bootstraps `base_url` into the doc's `config` block; documents
+        # pushed at runtime may carry it top-level. Top-level wins when both are set.
+        base_url = record.raw.get("base_url") or (record.raw.get("config") or {}).get("base_url")
+        if issubclass(connector_cls, RestConnector) and base_url:
+            kwargs["base_url"] = base_url
         return connector_cls(**kwargs)
 
     async def get(

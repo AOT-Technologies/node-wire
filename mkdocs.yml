@@ -114,6 +114,8 @@ nav:
   - MCP:
     - Overview: mcp.md
     - MCP Host Builder (nw-mcp-builder): mcp-servers.md
+    - stacklok MCP servers (nw gen-stacklok): stacklok-mcp-servers.md
+    - stacklok builder decisions: stacklok-mcp-builder-requirements.md
     - Client OAuth: mcp-client-oauth.md
     - Agent Scenario: toolhive_agent_scenario.md
   - Development:
@@ -124,6 +126,7 @@ nav:
     - Packaging: packaging.md
     - Public API: public-api.md
   - Operations:
+    - "Runbook: nw CLI → ToolHive": nw-cli-runbook.md
     - Troubleshooting: troubleshooting.md
     - Release & Rollback: release-rollback.md
     - Local Images: local-packages-to-images.md

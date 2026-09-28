@@ -1,0 +1,77 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies
+    cmds:
+      - uv sync --dev --all-packages --group security
+
+  lint:
+    desc: Run linting with ruff
+    cmds:
+      - uv run ruff check . --fix
+    deps:
+      - install
+
+  format:
+    desc: Fix linting issues and format code
+    cmds:
+      - uv run ruff format .
+      - uv run ruff check --fix .
+    deps:
+      - install
+
+  typecheck:
+    desc: Run type checking with ty
+    cmds:
+      - uv run ty check .
+    deps:
+      - install
+
+  test:
+    desc: Run unit tests with pytest
+    cmds:
+      - uv run pytest -v
+    deps:
+      - install
+
+  check:
+    desc: Run all checks (lint, typecheck, tests, and security)
+    deps:
+      - lint
+      - format
+      - typecheck
+      - test
+      - security
+
+  security:
+    desc: Run security scanning (fails on findings)
+    cmds:
+      - uv run bandit -c pyproject.toml -r src/
+      # CVE-2026-4539: ReDoS in pygments AdlLexer (dev-only transitive dep, no fix released yet)
+      - uv run pip-audit --ignore-vuln CVE-2026-4539
+      # JSON reports for CI artifact upload (tools don't support dual output)
+      - uv run bandit -c pyproject.toml -r src/ -f json -o bandit-report.json
+      - uv run pip-audit --ignore-vuln CVE-2026-4539 --format=json --output=pip-audit-report.json
+    deps:
+      - install
+
+  sbom:
+    desc: Generate Software Bill of Materials (SBOM)
+    cmds:
+      - uv run cyclonedx-py environment --output-format json --output-file sbom.json
+    deps:
+      - install
+
+  run:
+    desc: Run the MCP server locally
+    cmds:
+      - uv run python -m mcp_template_py
+    deps:
+      - install
+
+  compose:
+    desc: Docker compose up
+    cmds:
+      - docker-compose down
+      - docker-compose -f docker-compose.yml --env-file .env up --build -d

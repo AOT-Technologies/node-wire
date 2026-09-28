@@ -1,0 +1,21 @@
+# MCPExternalAuthConfig — bearer token auth for {{ server_name }}.
+#
+# Injects an API key from a K8s Secret into upstream requests.
+# The Secret must be applied before this config. See secret.yaml.
+#
+# Namespace must match the MCPServer and Secret.
+#
+# Docs: https://docs.stacklok.com/toolhive/reference/crd-spec
+# Examples: https://github.com/stacklok/toolhive/tree/main/examples/operator/external-auth
+---
+apiVersion: {{ api_version }}
+kind: MCPExternalAuthConfig
+metadata:
+  name: {{ server_name }}-auth
+  namespace: {{ namespace }}
+spec:
+  type: bearerToken
+  bearerToken:
+    tokenSecretRef:
+      name: {{ server_name }}-secret
+      key: token

@@ -30,12 +30,12 @@ Wheels for runtime and connectors are **Cython / platform-specific**. What you b
 
 | Goal | Wheel platform | How to build wheels |
 |------|----------------|---------------------|
-| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`*linux_x86_64*` / manylinux), Python **3.12** (matches `python:3.12-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see below) |
+| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`*linux_x86_64*` / manylinux), Python **3.13** (matches `python:3.13-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see below) |
 | **Local run / MCP Inspector / ToolHive remote MCP** on the same OS as your machine | Host OS (e.g. Windows → `*win_amd64*`) | Built automatically by `uv run nw-mcp-builder -c <connector_id>` |
 
 ### Linux wheels for ToolHive Docker (local MCP server)
 
-From the **node-wire** repository root (requires Docker; uses `python:3.12-slim` for the Linux build):
+From the **node-wire** repository root (requires Docker; uses `python:3.13-slim` for the Linux build):
 
 ```bash
 # Generic — runtime + one connector
@@ -123,7 +123,7 @@ Server name in the fixture is always `{connector_id with _ → -}-nw` (e.g. `goo
 ## Requirements
 
 - **[uv](https://docs.astral.sh/uv/)** — package manager and runner
-- **Python 3.11+** for `nw-mcp-builder` itself
+- **Python 3.13+** for `nw-mcp-builder` itself
 - **Python version matching wheels** for generated hosts — on Windows, wheels are often built as **cp314**, so use:
 
   ```bash
@@ -376,7 +376,7 @@ docker build -t salesforce-nw-mcp .
 docker run --rm --env-file .env -p 8081:8081 salesforce-nw-mcp
 ```
 
-The generated Dockerfile is multi-stage and digest-pinned (`python:3.12-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host — no vendored `src/` on `PYTHONPATH`. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use.
+The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host — no vendored `src/` on `PYTHONPATH`. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use.
 
 `--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
 
@@ -389,7 +389,7 @@ The generated Dockerfile is multi-stage and digest-pinned (`python:3.12-slim@sha
 | Problem | What to try |
 |---------|-------------|
 | `No node-wire-runtime wheel in .../dist` | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
-| Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.12-slim`) |
+| Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.13-slim`) |
 | `Output project already exists` | Pass `--force-output` |
 | `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
 | `No module named bindings` / `No node-wire-bindings wheel` | Build bindings: `nw gen-whl --bindings` |

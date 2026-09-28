@@ -1,0 +1,72 @@
+# MCPExternalAuthConfig — embedded auth server (OAuth2 upstream) for {{ server_name }}.
+#
+# This configures an embedded OAuth2 authorization server that delegates
+# authentication to an upstream OAuth2 identity provider. Endpoints are
+# declared inline — the upstream is OAuth2 only (no OIDC discovery doc).
+#
+# REQUIRED — fill in before applying:
+#   1. Determine the external URL under which this ToolHive-issued auth
+#      endpoint will be reachable from OAuth clients, and set both
+#      `embeddedAuthServer.issuer` and `upstreamProviders[0].redirectUri`
+#      below accordingly. The URL SHAPE is cluster-specific — clusters in
+#      the wild use patterns like:
+#         https://mcp.<domain>/<server_name>
+#         https://<domain>/<server_name>/mcp
+#         https://<server_name>.<domain>/mcp
+#      The emitted default here is only one such shape and cannot be made
+#      correct by domain substitution alone. The issuer and redirectUri
+#      in this file MUST agree with ingress.yaml (host + path) and with
+#      `audience` + `resourceUrl` in mcpserver.yaml. Run the
+#      `deploy-assist` skill to infer the shape from your cluster repo's
+#      sibling manifests and rewrite all occurrences, or rewrite them by
+#      hand.
+#   2. Set `upstreamProviders[0].oauth2Config.clientId` to the OAuth client
+#      ID registered with the upstream identity provider.
+#
+# OPTIONAL:
+#   - clientSecretRef: uncomment and add a Secret reference if your OAuth
+#     app is a confidential client (not using PKCE). Example:
+#       clientSecretRef:
+#         name: {{ server_name }}-oauth-secret
+#         key: client-secret
+#   - signingKeySecretRefs / hmacSecretRefs: omitted here, so ToolHive will
+#     auto-generate ephemeral keys at runtime. This works for development
+#     and demos but tokens are lost on restart. For production, create
+#     persistent K8s Secrets (ECDSA P-256 for signing, 32-byte random for
+#     HMAC) and reference them here.
+#
+# Namespace must match the MCPServer that references this config.
+#
+# Docs: https://docs.stacklok.com/toolhive/reference/crd-spec
+# Examples: https://github.com/stacklok/toolhive/tree/main/examples/operator/external-auth
+---
+apiVersion: {{ api_version }}
+kind: MCPExternalAuthConfig
+metadata:
+  name: {{ server_name }}-auth
+  namespace: {{ namespace }}
+spec:
+  type: embeddedAuthServer
+  embeddedAuthServer:
+    issuer: https://mcp.REPLACE_ME_DOMAIN/{{ server_name }}
+    upstreamProviders:
+    - name: {{ provider_name }}
+      type: oauth2
+      oauth2Config:
+        authorizationEndpoint: "{{ authorization_url }}"
+        tokenEndpoint: "{{ token_url }}"
+{% if userinfo_url %}
+        userInfo: "{{ userinfo_url }}"
+{% endif %}
+        clientId: REPLACE_ME
+        redirectUri: https://mcp.REPLACE_ME_DOMAIN/{{ server_name }}/oauth/callback
+{% if scopes %}
+        scopes:
+{% for scope in scopes %}
+        - "{{ scope }}"
+{% endfor %}
+{% endif %}
+    tokenLifespans:
+      accessTokenLifespan: 1h
+      refreshTokenLifespan: 168h
+      authCodeLifespan: 10m

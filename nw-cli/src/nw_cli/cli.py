@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import Optional
@@ -21,7 +22,7 @@ except PackageNotFoundError:  # running from a source tree without install
 
 from nw_cli.names import mcp_project_dir
 from nw_cli.prerequisites import ensure
-from nw_cli.progress import GenerateProgress
+from nw_cli.progress import GenerateProgress, Stage
 from nw_cli.root import RootError, resolve_node_wire_root
 from nw_cli.tool_mode import decide_tool_mode, describe_decision, tool_mode_from_flags
 from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
@@ -51,6 +52,9 @@ Turn an OpenAPI/Swagger spec into a runnable MCP server.
 The pipeline runs in four stages, each also available on its own:
 [bold]gen-all[/bold] (codegen → wheel → mcp → wire), then [bold]gen-whl[/bold],
 [bold]gen-mcp[/bold], and [bold]docker-build[/bold].
+
+[bold]gen-stacklok[/bold] builds a stacklok mcp-builder server (ToolHive-ready) on the
+node-wire runtime from a stacklok [cyan]mcp-scope.yaml[/cyan].
 
 Run [cyan]nw COMMAND --help[/cyan] for a command's options.
 """
@@ -404,6 +408,100 @@ def docker_build(
             image = run_docker_build(node_wire_root, id, tag=tag)
         console.print(f"[green]Image ready[/green]: {image}")
     except StageError as exc:
+        err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")
+        raise typer.Exit(1) from exc
+
+
+@app.command("gen-stacklok")
+def gen_stacklok(
+    scope: Path = typer.Option(
+        ..., "--scope", help="stacklok mcp-scope.yaml (its spec.source is the OpenAPI spec)"
+    ),
+    id: Optional[str] = typer.Option(
+        None,
+        "--connector-id",
+        help="node-wire connector id (default: the scope's runtime.connector_id)",
+    ),
+    output_dir: Optional[Path] = typer.Option(
+        None, "--output-dir", help="Where to write <server>-mcp/ (default nw-stacklok-builder/out)"
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Regenerate an existing connector and replace the output project"
+    ),
+    no_wheel: bool = typer.Option(
+        False, "--no-wheel", help="Skip the wheel build and bundle the wheels already in dist/"
+    ),
+    no_lock: bool = typer.Option(
+        False, "--no-lock", help="Do not run `uv lock` in the generated project"
+    ),
+) -> None:
+    """stacklok mcp-builder on node-wire: scope → connector → wheels → MCP server."""
+    from nw_connector_builder.pipeline import BuildError, UsageError, run_build
+
+    from nw_cli.stacklok import (
+        default_output_dir,
+        read_scope,
+        run_stacklok_generate,
+        run_stacklok_wheel_build,
+    )
+
+    node_wire_root = _root()
+    progress = GenerateProgress(
+        stages=[
+            Stage("connector", "Connector codegen"),
+            Stage("wheel", "musllinux wheels (cp313)"),
+            Stage("stacklok", "stacklok MCP server"),
+        ]
+    )
+    if no_wheel:
+        progress.mark_skipped("wheel")
+
+    try:
+        scoped = read_scope(scope, id)
+        with progress, tempfile.TemporaryDirectory(prefix="nw-stacklok-") as work:
+
+            def _connector() -> None:
+                code = run_build(
+                    spec=scoped.spec_source,
+                    connector_id=scoped.connector_id,
+                    node_wire_root=node_wire_root,
+                    wire=True,
+                    force=force,
+                    no_mcp=True,
+                    base_url=scoped.base_url,
+                )
+                if code != 0:
+                    raise StageError(f"Connector build returned exit code {code}")
+
+            progress.run_stage("connector", _connector)
+            progress.run_stage(
+                "wheel",
+                lambda: run_stacklok_wheel_build(
+                    node_wire_root, scoped.connector_id, log=progress.log
+                ),
+            )
+            project = progress.run_stage(
+                "stacklok",
+                lambda: run_stacklok_generate(
+                    node_wire_root,
+                    scoped,
+                    output_dir=output_dir or default_output_dir(node_wire_root),
+                    work_dir=Path(work),
+                    force_output=force,
+                    lock=not no_lock,
+                    log=progress.log,
+                ),
+            )
+        console.print(f"[green]MCP server ready[/green]: {project}")
+    except (
+        BuildError,
+        UsageError,
+        StageError,
+        FileNotFoundError,
+        FileExistsError,
+        ValueError,
+        RuntimeError,
+    ) as exc:
         err_console.print(f"[bold #e01d5a]error:[/bold #e01d5a] {exc}")
         raise typer.Exit(1) from exc
 

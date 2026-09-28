@@ -473,7 +473,7 @@ def generate_package_pyproject(connector_id: str) -> str:
         name = "node-wire-{dist}"
         version = "1.0.0"
         description = "Node Wire connector — {connector_id} (OpenAPI-generated)"
-        requires-python = ">=3.11"
+        requires-python = ">=3.13"
         license = "Apache-2.0"
         authors = [{{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }}]
 

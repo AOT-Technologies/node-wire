@@ -25,8 +25,12 @@
 # Prerequisites (--host-only):
 #   python3 or python on PATH; pip install build cython wheel
 #
-# Prerequisites (--all mode):
-#   python -m pip install 'cibuildwheel==4.2.1'
+# musllinux cp313 wheels for stacklok-built MCP images (Alpine), via cibuildwheel + Docker:
+#   scripts/build-packages.sh --musllinux packages/runtime
+#   (arch: NW_MUSLLINUX_ARCHS, default native; e.g. NW_MUSLLINUX_ARCHS="x86_64 aarch64")
+#
+# Prerequisites (--all / --musllinux mode):
+#   python -m pip install 'cibuildwheel==4.2.1'; docker for --musllinux
 #
 # Security guarantee:
 #   Each wheel is verified to contain zero .py source files and at least one
@@ -43,6 +47,7 @@ WHEEL_BUILDER_CONTEXT="$ROOT_DIR/docker/wheel-builder"
 ALL_PACKAGES=(
   packages/runtime
   packages/bindings
+  packages/toolhive
   packages/connectors/google_drive
   packages/connectors/fhir_epic
   packages/connectors/fhir_cerner
@@ -60,11 +65,14 @@ Usage:
   scripts/build-packages.sh [--help]
   scripts/build-packages.sh [--host-only|--linux-only] [packages/...]
   scripts/build-packages.sh --all [packages/...]
+  scripts/build-packages.sh --musllinux [packages/...]
 
   Default:     build each package on the host and again in Docker (Linux wheels).
   --host-only: build host wheels only (no Docker).
   --linux-only: build Linux wheels only (via local nw-wheel-builder image).
   --all:       build with cibuildwheel (targets depend on host; for full OS matrix use CI publish.yml).
+  --musllinux: build cp313 musllinux wheels with cibuildwheel (Docker) for stacklok-built MCP
+               images on Alpine; keeps other wheels in dist/. Arch: NW_MUSLLINUX_ARCHS (default native).
 
   --host-only and --linux-only cannot be combined with each other or with --all.
 
@@ -83,6 +91,7 @@ USAGE
 }
 
 ALL_MODE=0
+MUSL_MODE=0
 HOST_ONLY=0
 LINUX_ONLY=0
 PACKAGES=()
@@ -90,6 +99,11 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --all)
       ALL_MODE=1
+      shift
+      ;;
+    --musllinux)
+      ALL_MODE=1
+      MUSL_MODE=1
       shift
       ;;
     --host-only)
@@ -167,7 +181,18 @@ PYCHECK
 
 # ─── All-platform mode (cibuildwheel) ───────────────────────────────────────
 if [[ "$ALL_MODE" -eq 1 ]]; then
-  export CIBW_BUILD="${CIBW_BUILD:-cp311-* cp312-*}"
+  CIBW_ARGS=(--output-dir dist)
+  WHEEL_GLOB="*.whl"
+  if [[ "$MUSL_MODE" -eq 1 ]]; then
+    # Each package's setup.py compiles ../../src; the build container only gets a copy of the
+    # package directory, so bind-mount the shared src/ tree at /src (as publish.yml does).
+    export CIBW_BUILD="${CIBW_BUILD:-cp313-musllinux_*}"
+    export CIBW_ARCHS="${NW_MUSLLINUX_ARCHS:-native}"
+    export CIBW_CONTAINER_ENGINE="${CIBW_CONTAINER_ENGINE:-docker; create_args: --volume=$ROOT_DIR/src:/src}"
+    CIBW_ARGS+=(--platform linux)
+    WHEEL_GLOB="*-cp313-cp313-musllinux_*.whl"
+  fi
+  export CIBW_BUILD="${CIBW_BUILD:-cp313-*}"
   export CIBW_SKIP="${CIBW_SKIP:-*-win32 *-manylinux_i686 pp*}"
 
   echo "=== Node Wire — cibuildwheel build for ${#PACKAGES[@]} package(s) ==="
@@ -209,11 +234,12 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
     fi
 
     mkdir -p "$PKG/dist"
-    rm -f "$PKG"/dist/*.whl
+    # shellcheck disable=SC2086 # WHEEL_GLOB is a glob pattern
+    rm -f "$PKG"/dist/$WHEEL_GLOB
 
     if ! (
       cd "$PKG"
-      "$PYTHON" -m cibuildwheel --output-dir dist
+      "$PYTHON" -m cibuildwheel "${CIBW_ARGS[@]}"
     ); then
       echo "ERROR: cibuildwheel build failed for $PKG" >&2
       FAILED+=("$PKG (build failed)")

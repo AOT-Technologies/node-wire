@@ -22,7 +22,7 @@ Before getting started, make sure you have:
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Python | 3.11+ | Required to run the platform |
+| Python | 3.13+ | Required to run the platform |
 | `uv` or `pip` | Latest | `uv` is recommended for local development |
 | Git | Any recent version | Required to clone the repository |
 | Docker | Latest | Required for MCP server image builds and `docker-compose.mcp.yml` |

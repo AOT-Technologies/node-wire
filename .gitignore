@@ -63,5 +63,9 @@ mcp_debug.log
 # nw-mcp-builder
 nw-mcp-builder/fixtures/
 nw-mcp-builder/out/
+
+# nw-stacklok-builder (nw gen-stacklok output)
+nw-stacklok-builder/out/
+
 /.scratch
 .scratch/codegen-tool-contract-plan.md

@@ -174,7 +174,7 @@ Option A — Recommended: ToolHive UI (no code)
 
 Option B — Local quick run (Windows PowerShell)
 
-Prerequisite: Install Python 3.11+ and Git. If you cannot install, ask an administrator to run Option A.
+Prerequisite: Install Python 3.13+ and Git. If you cannot install, ask an administrator to run Option A.
 
 1. Open PowerShell and clone or navigate to the project folder.
 2. Create a simple `.env` file in the project root (replace placeholder values):

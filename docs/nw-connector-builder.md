@@ -72,7 +72,7 @@ Promote never runs if the gate fails. MCP or `--wire` failures after a clean pro
 
 ## Requirements
 
-- **Python 3.11+**
+- **Python 3.13+**
 - **[uv](https://docs.astral.sh/uv/)** (recommended) or an editable install of the package
 - Run from / against a **node-wire** checkout (default `--node-wire-root` is the parent of `nw-connector-builder/`)
 - For URL specs: network access; fetches use Node Wire’s HTTP safety checks (`assert_safe_destination`) and do not follow redirects
