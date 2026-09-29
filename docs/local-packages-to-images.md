@@ -22,9 +22,7 @@ The Dockerfiles in this repo install local wheel artifacts from `packages/**/dis
 python -m pip install --upgrade build cython wheel
 ```
 
-Run all commands from the repository root:
-
-
+Run all commands from the repository root. The build context must be the repository root (`.`) so the Dockerfiles' `COPY src/` and `COPY config/` resolve.
 
 ---
 
@@ -76,20 +74,21 @@ If `ls` fails, rebuild that package before continuing.
 ./scripts/build-mcp-images.sh
 ```
 
-With explicit version tag:
+Each image is tagged `latest` and the version, which defaults to the one in `pyproject.toml`. Pass `--version` to override it:
 
 ```bash
-./scripts/build-mcp-images.sh --version 0.1.0
+./scripts/build-mcp-images.sh --version 1.0.0
 ```
 
-This builds:
-- `nw-google-drive`
-- `nw-smartonfhir-epic`
-- `nw-smartonfhir-cerner`
-- `nw-smtp`
-- `nw-stripe`
-- `nw-salesforce`
-- `nw-slack`
+| Image | Dockerfile |
+|---|---|
+| `nw-google-drive` | `docker/google-drive/Dockerfile` |
+| `nw-smartonfhir-epic` | `docker/fhir-epic/Dockerfile` |
+| `nw-smartonfhir-cerner` | `docker/fhir-cerner/Dockerfile` |
+| `nw-smtp` | `docker/smtp/Dockerfile` |
+| `nw-stripe` | `docker/stripe/Dockerfile` |
+| `nw-salesforce` | `docker/salesforce/Dockerfile` |
+| `nw-slack` | `docker/slack/Dockerfile` |
 
 ### Build one image manually
 
@@ -99,9 +98,26 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 
 ---
 
+## 4) Run them with Docker Compose
+
+`docker-compose.mcp.yml` starts every MCP server as a stdio container, which is useful for local
+validation before configuring ToolHive. It needs the images built and your `.env` populated with
+the credentials of the connectors you run. Each service pins `NW_ALLOWED_CONNECTORS` to its own
+connector, so a broad value in `.env` does not make a per-connector image import optional
+dependencies it does not contain.
+
+```bash
+docker compose -f docker-compose.mcp.yml up --build
+docker compose -f docker-compose.mcp.yml up --build nw-smartonfhir-epic   # one server only
+```
+
+To register these images in ToolHive, see the [ToolHive agent scenario](toolhive_agent_scenario.md).
+
+---
+
 ## Wheel requirements by image
 
-Each Dockerfile expects specific wheel files to exist in `dist/`. Keep this table in sync with the Dockerfiles in `docker/` — add a row here whenever you add a Tier 3 standalone MCP image (see the [new-connector checklist](connectors-build.md#adding-a-new-connector-checklist)).
+Each Dockerfile expects specific wheel files to exist in `dist/`. Keep this table in sync with the Dockerfiles in `docker/` — add a row here whenever you add a Tier 3 standalone MCP image (see the [ship checklist](packaging.md#tier-3-standalone-mcp-server-optional)).
 
 | Image | Required wheels |
 |---|---|

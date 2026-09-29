@@ -142,7 +142,7 @@ python -m agents.toolhive \
     --tenant-id acme \
     --config-name test-drive
 ```
-`--tenant-id` sets `X-Tenant-ID` over HTTP (or `NW_TENANT_ID` for `--local` stdio); `--config-name` runs `nw_select_config` at startup so every connector tool defaults to that config. See [docs/mcp-servers.md — Multi-tenancy (MCP)](../../docs/mcp-servers.md#multi-tenancy-mcp).
+`--tenant-id` sets `X-Tenant-ID` over HTTP (or `NW_TENANT_ID` for `--local` stdio); `--config-name` runs `nw_select_config` at startup so every connector tool defaults to that config. See [docs/architecture/tenancy.md](../../docs/architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ---
 

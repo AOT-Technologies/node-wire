@@ -108,29 +108,33 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Reading Map: reading.md
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
-  - Architecture: architecture.md
+  - Architecture:
+    - Overview: architecture.md
+    - Domain: architecture/domain.md
+    - Seams: architecture/seams.md
+    - Tenancy: architecture/tenancy.md
+    - REST / MCP / gRPC Bindings: connector-bindings.md
   - Connectors:
     - Use a Connector: connectors.md
+    - Connector Reference: connector-reference.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md
     - Slack: slack_connector.md
     - Build a Connector: connectors-build.md
-    - Connector Reference: connector-reference.md
-    - REST / MCP / gRPC Exposure: connector-bindings.md
   - CLI:
     - Overview: cli/index.md
     - nw CLI: cli/nw-cli.md
     - nw-connector-builder: cli/nw-connector-builder.md
-    - Scope: cli/nw-connector-builder-scope.md
+    - Generator Contract: cli/nw-connector-builder-scope.md
     - Codegen Behaviour: cli/nw-connector-builder-codegen.md
     - nw-mcp-builder: cli/nw-mcp-builder.md
   - MCP:
     - Overview: mcp.md
     - stacklok MCP servers (nw gen-stacklok): stacklok-mcp-servers.md
-    - stacklok builder decisions: stacklok-mcp-builder-requirements.md
     - Client OAuth: mcp-client-oauth.md
     - Agent Scenario: toolhive_agent_scenario.md
   - Development:
@@ -147,6 +151,10 @@ nav:
   - Compliance:
     - Privacy: privacy.md
     - HIPAA Considerations: compliance/hipaa-considerations.md
+  - Decisions:
+    - ADR Index: adr/index.md
+    - "0001 stacklok MCP builder": adr/0001-stacklok-mcp-builder-on-node-wire.md
+    - "0002 Documentation lifecycle": adr/0002-documentation-lifecycle.md
   - Project:
     - Code of Conduct: https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md
     - Governance: https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md

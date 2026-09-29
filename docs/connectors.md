@@ -8,12 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Call a connector that already ships — in-process from Python or over REST — and control which tenants may use it through the runtime config store. Every connector works the same way; only the payload and the `config` / `auth` blocks change.
 
-| Connector | Setup guide |
-|---|---|
-| Google Drive | [Google Drive](google_drive_connector.md) |
-| Salesforce | [Salesforce](salesforce_connector.md) |
-| Slack | [Slack](slack_connector.md) |
-| SMTP, Stripe, FHIR Epic, FHIR Cerner, HTTP Generic | [Connector inventory](connector-reference.md#connector-inventory) · each package's `README.md` under `src/node_wire_*/` |
+Actions, auth, secrets and setup guides for every shipped connector are in the [connector catalog](connector-reference.md#connector-catalog).
 
 Writing your own connector? See [Build a connector](connectors-build.md).
 
@@ -98,9 +93,9 @@ What each step relies on:
 
 The store is in-process memory. Anything you add with `store.create()` is gone on restart unless you persist it. The REST config API below writes to `NW_TENANTS_PATH` for you.
 
-**Scope policy.** `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is only for local scripts. With the default `deny`, a `run()` without caller scopes fails with `POLICY_DENIED`. In a real host, pass `scopes=("mcp:http_generic.request",)` (or `principal`) to `run()`. See [Security](connectors-build.md#security-rest-plugins-secrets).
+**Scope policy.** `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is only for local scripts. In a real host, pass `scopes=("mcp:http_generic.request",)` (or `principal`) to `run()`. See [Security](connectors-build.md#security-rest-plugins-secrets).
 
-**Connectors that read their config.** For connectors such as `stripe` or `fhir_epic`, the same calls apply. Put per-tenant settings in the doc's `config` block and the credentials setup in its `auth` block (see [Auth blocks](connectors-build.md#auth-blocks-in-connectorsyaml)). Per-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` — see [Multi-tenancy](configuration.md#multi-tenancy). A tenant can hold several named configs (for example `sandbox` and `live`); select one with `factory.get(..., config_name="live")`.
+**Connectors that read their config.** For connectors such as `stripe` or `fhir_epic`, the same calls apply. Put per-tenant settings in the doc's `config` block and the credentials setup in its `auth` block (see [Auth blocks](connectors-build.md#auth-blocks-in-connectorsyaml)). Per-tenant secret naming is in [Tenancy — Tenant secrets](architecture/tenancy.md#tenant-secrets). A tenant can hold several named configs (for example `sandbox` and `live`); select one with `factory.get(..., config_name="live")`.
 
 ## Over REST
 
@@ -134,7 +129,7 @@ curl -X POST localhost:8000/connectors/http_generic/request \
 # → 403
 ```
 
-Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_name": "<name>"` to the request body to pick a named config. The rest of the config API is `GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs/{name}` and `PUT …/{name}/default`. For MCP, the same store sits behind the `nw_list_tenants` / `nw_select_tenant` / `nw_select_config` tools — see [nw-mcp-builder — Multi-tenancy](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_name": "<name>"` to the request body to pick a named config. The rest of the config API is `GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs/{name}` and `PUT …/{name}/default`. For MCP, the same store sits behind the `nw_list_tenants` / `nw_select_tenant` / `nw_select_config` tools. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ---
 
@@ -142,7 +137,7 @@ Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_
 
 | Doc | When to read it |
 |-----|-----------------|
-| [connector-reference.md](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector inventory |
+| [connector-reference.md](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector catalog |
 | [connector-bindings.md](connector-bindings.md) | How actions map to REST routes, MCP tools and gRPC methods |
-| [configuration.md](configuration.md#multi-tenancy) | Multi-tenancy variables and tenant secrets |
+| [Tenancy](architecture/tenancy.md) | Tenant resolution, entitlement and tenant secrets |
 | [Build a connector](connectors-build.md) | Writing a new connector by hand |

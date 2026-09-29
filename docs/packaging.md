@@ -40,16 +40,17 @@ images and is deliberately absent from the package lists in `publish.yml`,
 
 ## Adding a new publishable connector
 
-After implementing the connector runtime (see [Build a connector](connectors-build.md), or generate a REST skeleton with [nw-connector-builder](cli/nw-connector-builder.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
+This is the one checklist for shipping a connector. Write it first ([Build a connector](connectors-build.md)), or generate it ([`nw gen-all`](cli/nw-cli.md), which already does the Tier 1 wiring and the `ALL_PACKAGES` entry unless you pass `--no-wire`). Then update these files to ship it on PyPI and, optionally, as a standalone MCP server.
 
 ### Tier 1 — Runtime (dev, always required)
 
 | File / area | Purpose |
 |---|---|
-| `src/node_wire_<name>/` | `schema.py`, `logic.py` (with optional `error_map`), `action_spec.py`, `README.md` |
+| `src/node_wire_<name>/` | `__init__.py` (required, may be empty), `schema.py`, `logic.py` (with optional `error_map`), optional `action_spec.py`, `README.md` |
 | Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
-| [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets |
+| [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets, and the connector id added to the `NW_ALLOWED_CONNECTORS` line |
+| [Connector catalog](connector-reference.md#connector-catalog) | Add an entry with the same fields as the others |
 | Tests | e.g. `tests/test_connectors_basic.py`, registry tests |
 
 `auto_register()` discovers the connector via the entry point — no factory branch required.
@@ -154,68 +155,16 @@ Replace `<name>` with the connector's snake_case name (e.g. `my_service`) and `<
 
 ### CI allowlist updates
 
-Three workflow files each maintain a hardcoded list of publishable packages. Add one entry to each when shipping a new connector.
+Three workflows each hold a hard-coded list of publishable packages. Each workflow file is the
+source of truth for its list. Add `packages/connectors/<name>` to each:
 
-#### `.github/workflows/publish.yml` — `package` dropdown + `allowed` set
+| Workflow | Where the list is | Rule |
+|---|---|---|
+| [`publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | `on.workflow_dispatch.inputs.package.options` **and** the `allowed` set in the validate step | Both must agree. A path missing from `allowed` fails at validate; a path missing from the dropdown is unreachable. |
+| [`github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | `package_paths` in the release-manifest step | Lists what the release manifest covers. |
+| [`security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | `strategy.matrix.package_path` | Each entry gets a `pip-audit` job. |
 
-Two places, and they must agree. First, the dispatch dropdown under
-`on.workflow_dispatch.inputs.package.options`:
-
-```yaml
-# .github/workflows/publish.yml
-      package:
-        type: choice
-        options:
-          - packages/runtime
-          - packages/connectors/http_generic
-          # ... existing entries ...
-          - packages/connectors/<name>   # ← add this line
-```
-
-Then the server-side allowlist inside the `validate` step, which re-checks the
-value the dropdown supplied:
-
-```python
-# .github/workflows/publish.yml  (inside the inline Python script)
-allowed = {
-    "packages/runtime",
-    "packages/connectors/http_generic",
-    "packages/connectors/stripe",
-    # ... existing entries ...
-    "packages/connectors/<name>",   # ← add this line
-}
-```
-
-A path in the dropdown but missing from `allowed` fails the run at the validate
-step; a path in `allowed` but missing from the dropdown is simply unreachable.
-
-#### `.github/workflows/github-release.yml` — `package_paths` list
-
-Inside the release-manifest step, add your path to the `package_paths` Python list:
-
-```python
-# .github/workflows/github-release.yml  (inside the inline Python script)
-package_paths = [
-    "packages/runtime",
-    "packages/connectors/http_generic",
-    # ... existing entries ...
-    "packages/connectors/<name>",   # ← add this line
-]
-```
-
-#### `.github/workflows/security-pr.yml` — matrix `package_path`
-
-Add a new YAML list item under `jobs.<job>.strategy.matrix.package_path`:
-
-```yaml
-# .github/workflows/security-pr.yml
-matrix:
-  package_path:
-    - packages/runtime
-    - packages/connectors/http_generic
-    # ... existing entries ...
-    - packages/connectors/<name>   # ← add this line
-```
+Never add `packages/bindings` or `packages/toolhive` to them. Those are local-only wheels.
 
 ### Tier 3 — Standalone MCP server (optional)
 
@@ -230,7 +179,8 @@ Use when you need a dedicated Docker/ToolHive image for a single connector (not 
 | `docker/<name>/Dockerfile` | Demo MCP image |
 | [`scripts/build-mcp-images.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-mcp-images.sh) | `docker build` block |
 | [`docker-compose.mcp.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
-| [local-packages-to-images.md](local-packages-to-images.md) | Wheel → image mapping |
+| [local-packages-to-images.md](local-packages-to-images.md) | Add a row to the wheel → image table |
+| [nw-mcp-builder](cli/nw-mcp-builder.md#supported-connectors) | Add to "Supported connectors" if it also gets a generated host |
 
 ---
 
@@ -380,28 +330,11 @@ still set `NW_ALLOWED_CONNECTORS` and may set `NW_CONNECTOR_MODULE_PREFIX`
 
 ## `connectors.yaml` and secrets
 
-### Minimal `connectors.yaml`
-
-```yaml
-connectors:
-  stripe:
-    enabled: true
-    exposed_via: ["mcp"]
-  fhir_epic:
-    enabled: false
-    exposed_via: []
-```
-
-`enabled` gates whether the connector is instantiated. `exposed_via` controls which protocols (`rest`, `grpc`, `mcp`) surface it. A connector that is installed but `enabled: false` will not run.
-
-See `config/connectors.yaml` for the full working example and `src/node_wire_runtime/connectors.yaml.sample` for a commented template with all supported fields.
-
-For per-connector detail (operations, env vars, request/response shapes) see
-[connectors.md](connectors.md) and each connector's `README.md` under
-`src/node_wire_<name>/`.
-
-Secret backends (`NW_SECRET_BACKEND`, `aws_env`, optional vault/azure/gcp extras)
-are documented in [configuration.md — Secrets Management](configuration.md#secrets-management).
+An installed connector runs only if it is `enabled` in `connectors.yaml` and named in
+`NW_ALLOWED_CONNECTORS`. Keys: [Connector reference](connector-reference.md#configconnectorsyaml).
+Per-connector secrets: [catalog](connector-reference.md#connector-catalog). Secret backends:
+[Configuration — Secrets Management](configuration.md#secrets-management).
+`src/node_wire_runtime/connectors.yaml.sample` is a commented template with every supported field.
 
 ---
 
@@ -550,25 +483,9 @@ end-to-end flow (stable and beta). The package publish workflow is
 
 ## Docker demo images
 
-The `docker/*/Dockerfile` images are **demonstration templates** for packaging a single connector as a standalone MCP server. They are not production orchestration artefacts.
-
-Generated MCP host images expect **Linux** wheels built for **Python 3.13**
-(`python:3.13-slim` in the generated Dockerfile). See
-[nw-mcp-builder](cli/nw-mcp-builder.md#platform-and-toolhive-read-this-first) and
-[local-packages-to-images.md](local-packages-to-images.md) for the wheel → image
-walkthrough.
-
-```bash
-docker build -f docker/smtp/Dockerfile -t nw-smtp .
-docker build -f docker/google-drive/Dockerfile -t nw-google-drive .
-docker build -f docker/fhir-epic/Dockerfile -t nw-smartonfhir-epic .
-docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner .
-docker build -f docker/stripe/Dockerfile -t nw-stripe .
-docker build -f docker/salesforce/Dockerfile -t nw-salesforce .
-docker build -f docker/slack/Dockerfile -t nw-slack .
-```
-
-For compose config see `docker-compose.mcp.yml`; for ToolHive registration of these pre-built images see [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+The `docker/*/Dockerfile` images are demonstration templates for running one connector as a
+standalone MCP server. They are not production orchestration artefacts. Building them, the wheels
+each one needs, and `docker-compose.mcp.yml`: [Local wheels → images](local-packages-to-images.md).
 
 ---
 

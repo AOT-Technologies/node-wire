@@ -98,7 +98,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 
 ## Optional: MCP under `src/agents/` (ToolHive / stdio)
 
-The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`; see **[packaging.md](packaging.md)** for the pre-built per-connector Docker images, env, and ToolHive registration. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image — follow **packaging.md** when you need a dedicated MCP deployment.
+The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image. Which deployment to use: [MCP overview](mcp.md#which-mcp-path). What a dedicated image needs: [Packaging — Tier 3](packaging.md#tier-3-standalone-mcp-server-optional).
 
 ---
 

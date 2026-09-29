@@ -4,17 +4,17 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# nw-connector-builder — scope
+# nw-connector-builder — generator contract
 
 Companion pages: [running the generator](nw-connector-builder.md) ·
 [codegen behaviour](nw-connector-builder-codegen.md).
 
 `nw-connector-builder` targets a specific, common shape of REST API (single connector-level
 auth scheme, JSON-first bodies, no pagination) and **soft-drops** anything outside that shape
-rather than trying to support every corner of OpenAPI/Swagger. This page is the scope
-reference: what the generator handles today, what it deliberately does not, and what's
-skipped-but-flagged per build. For usage, flags, and the codegen pipeline itself, see
-[nw-connector-builder.md](nw-connector-builder.md).
+rather than trying to support every corner of OpenAPI/Swagger. This page is the **contract**: what
+the generator handles today, what it deliberately does not, and what is skipped but flagged per
+build. It is the owner of those rules; other pages link here. For running the generator (flags,
+the pipeline, the build report), see the how-to, [nw-connector-builder](nw-connector-builder.md).
 
 ---
 

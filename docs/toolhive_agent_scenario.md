@@ -99,7 +99,7 @@ For modular deployments, each connector can be run as an independent MCP server 
 
 When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS`** (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.
 
-**Full guide (pre-built per-connector Docker images):** [packaging.md](packaging.md)
+**Full guide (pre-built per-connector Docker images):** [Local wheels → images](local-packages-to-images.md)
 
 ---
 
@@ -344,7 +344,7 @@ ToolHive will start the container and set up a stdio-to-HTTP proxy on a local po
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` |
 | `NW_MCP_TENANT_PIN_LOCKED` | `false` |
 
-Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [nw-mcp-builder — Multi-tenancy](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ### Option B: ToolHive CLI (single-tenant secrets)
 
@@ -426,7 +426,7 @@ python -m agents.toolhive \
 | `--tenant-id` | No | Pin MCP tenant (`X-Tenant-ID` on HTTP; `NW_TENANT_ID` for `--local`). Defaults from `NW_TENANT_ID` env. |
 | `--config-name` | No | Calls `nw_select_config` at start so every connector uses that name |
 
-With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to every connector on that server by default. Tenant pin precedence differs by transport: on stdio, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin; on streamable-http, the live per-request `X-Tenant-ID` header always wins and is never shadowed by a prior select. See [nw-mcp-builder — Multi-tenancy (MCP)](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises the `nw_*` tenant/config tools. How they behave on each transport: [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ### Switching LLM providers
 

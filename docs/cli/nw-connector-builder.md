@@ -249,34 +249,13 @@ under `auth_schemes:` with its name folded in — `<ID>_<SCHEME>_ACCESS_TOKEN`,
 `authorizationUrl` / `tokenUrl` for the host to call — those URLs are documentation only;
 the connector never POSTs to a token endpoint.
 
-### Host-supplied tier
-
-Every `oauth2` scheme and `openIdConnect` map to a **host-supplied** bearer token: Node Wire
-presents whatever value sits in `<ID>_ACCESS_TOKEN` as a plain `Bearer` header but never
-obtains, refreshes, or detects the expiry of it. The operator's host application is responsible
-for acquiring and rotating that token out-of-band. This is presentation only — the acquisition
-ban on all OAuth2 / OIDC flows for *generated* connectors is deliberate; see
-[nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier). The build
-report's `auth.notes` spell out which scheme triggered it and the exact secret key to set.
-
-**"Presents a bearer token" is not the same claim as "supports the flow."** At runtime this tier
-is `StaticTokenAuthProvider` with `cache=False`, which re-reads the secret per call — a host that
-replaces the value is seen on the next call for live-resolving secret providers (env, overlay);
-backends that snapshot at init (AWS/GCP/Vault) need the provider recreated, and Azure Key Vault is
-better served by the cached path plus an explicit `refresh()`. Node Wire never calls a token
-endpoint or performs a grant exchange. Hand-written connectors that already use `OAuth2AuthProvider` (`fhir_epic`,
-`salesforce`, …) are unchanged. See [nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier).
-
-### Per-action auth schemes
-
-Operations that require a **different, still-presentable** scheme than the connector-level default (self-managed or host-supplied — anything except `mutualTLS`, cookie `apiKey`, AND-multi, or an unrecognized type) are no longer soft-dropped as divergent. Instead the builder emits an **additional, named** scheme in `auth_schemes:` (alongside the default `auth:` block) and routes just those actions to it via `auth_scheme=<scheme_name>` on the generated `@nw_action` call — the runtime resolves it with `resolve_auth_provider(auth_scheme)`, which fails closed on an unknown name. This is what lets one connector serve multiple OpenAPI security schemes from a single instance — e.g. `petstore.swagger.io`, where most operations use an `apiKey` default but a handful require an `oauth2` (`implicit`) scheme that's now generated as a host-supplied `auth_schemes` entry instead of being dropped.
-
-**Still soft-dropped** as unsupported (operations that require only these are skipped):
-
-- `mutualTLS`
-- Cookie API keys (`apiKey` `in: cookie`)
-- AND multi-scheme requirements (`security: [{ a: [], b: [] }]`)
-- Unrecognized scheme types
+`oauth2` and `openIdConnect` become a **host-supplied** bearer: Node Wire presents
+`<ID>_ACCESS_TOKEN` but never obtains, refreshes or detects the expiry of it. Operations that need a
+different but still-presentable scheme get a named entry under `auth_schemes:` instead of being
+dropped. `mutualTLS`, cookie API keys, AND-combined requirements and unrecognized types are
+soft-dropped. What each of these means, and why: the generator contract's
+[host-supplied tier](nw-connector-builder-scope.md#host-supplied-auth-tier) and
+[per-action auth schemes](nw-connector-builder-scope.md#per-action-auth-schemes).
 
 ---
 
@@ -290,18 +269,11 @@ credential parameters and success-flag (`ok: false`) envelopes are covered in
 
 ## Soft-drop rules
 
-Unsupported operations are **skipped** (listed in the report) rather than aborting the build — unless **zero** operations remain (hard failure).
-
-Common soft-drop reasons:
-
-- Unsupported / divergent / AND-multi security
-- `in: cookie` parameters
-- Unsupported serialization styles (e.g. query `deepObject`, non-`simple` path/header styles)
-- Unresolved parameter `$ref`s after the load step
-
-A **coverage warning** is printed when fewer than 50% of document operations were generated.
-
-Path/operation-level `servers` are ignored in v1 (noted in the report).
+Unsupported operations are skipped and listed in the report. The build aborts only if **zero**
+operations remain, and it warns when fewer than 50% of document operations were generated. The
+full list of what is soft-dropped, and why, is the generator contract's
+[Out of scope](nw-connector-builder-scope.md#out-of-scope) and
+[Soft-drop vs. hard failure](nw-connector-builder-scope.md#soft-drop-vs-hard-failure).
 
 ---
 
@@ -446,13 +418,11 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 
 ## After generation — publishing checklist
 
-`nw-connector-builder` creates the **runtime + package skeleton**. To ship on PyPI or as a standalone MCP Docker image, still complete the Tier 2 / Tier 3 steps in [packaging.md](../packaging.md):
-
-- [ ] Add `packages/connectors/<id>/setup.py` (Cython build glue) if publishing binary wheels
-- [ ] Register the entry point in the **root** `pyproject.toml` for editable monorepo installs (if not already covered by your workflow)
-- [ ] Add the path to `scripts/build-packages.sh` (`ALL_PACKAGES`) and CI allowlists (`nw gen-all` without `--no-wire` inserts the `ALL_PACKAGES` entry; CI allowlists stay manual)
-- [ ] Update the package inventory in [packaging.md](../packaging.md)
-- [ ] Optional standalone MCP image rows in [nw-mcp-builder](nw-mcp-builder.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
+`nw-connector-builder` creates the runtime and package skeleton, and `--wire` covers the Tier 1
+wiring. `nw gen-all` also inserts the `ALL_PACKAGES` entry unless you pass `--no-wire`. The rest
+(`setup.py` for binary wheels, the CI allowlists, and an optional MCP image) is the Tier 2 / Tier 3
+checklist in [Packaging](../packaging.md#adding-a-new-publishable-connector). The CI allowlists are
+always manual.
 
 ---
 

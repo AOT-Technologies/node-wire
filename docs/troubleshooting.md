@@ -20,7 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 | **`tenant secret not found: <tenant>/<connector>/...`** | No secret set for that tenant/connector (and config, if named) combination. | Add `NW_{TENANT}_{CONNECTOR}_{KEY}` (or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config) as an env var, or add it under `secrets:` in `tenants.yaml`. |
 | **`Config 'X' is not defined for connector 'Y'`** | `nw_select_config` (or a per-call `config_name`) named a config that doesn't exist for that connector on the selected tenant. | Use a config name that exists on every connector you call, or add it via `tenants.yaml` / REST. |
 
-Multi-tenancy reference: [Configuration — Multi-tenancy](configuration.md#multi-tenancy), [MCP — Multi-tenancy](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+Multi-tenancy reference: [Tenancy](architecture/tenancy.md) (behaviour), [Configuration — Multi-tenancy](configuration.md#multi-tenancy) (variables).
 
 ---
 

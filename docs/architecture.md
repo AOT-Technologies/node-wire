@@ -8,6 +8,17 @@ SPDX-License-Identifier: Apache-2.0
 
 The Node Wire platform is designed as a three-layer Python platform that runs connector adapters over REST, gRPC, or MCP. Each connector talks to an external system (e.g., Google Drive, SMTP, Stripe); the runtime provides a consistent execution contract, error handling, and resilience.
 
+This page is the overview. The detail lives on the topic pages. Read them in this order (the [reading map](reading.md) has the whole path):
+
+| Page | Answers |
+|---|---|
+| This page | What the three layers are, and how a request moves through them |
+| [Domain](architecture/domain.md) | What *connector*, *action*, `ConnectorResponse`, `ErrorCategory`, *tenant pin* and *named config* mean |
+| [Seams](architecture/seams.md) | Where the layers hand off: `ConnectorFactory`, `invoke.py`, `PolicyHook`, `SecretProvider`, `AuthProvider`, `ErrorMapper` |
+| [The `run()` pipeline](#the-run-pipeline) | What happens to every action, in order |
+| [Tenancy](architecture/tenancy.md) | Tenant resolution, entitlement, tenant secrets, MCP tenant tools |
+| [Bindings](connector-bindings.md) | How an action becomes a REST route, an MCP tool and a gRPC method |
+
 ## High-Level Architecture
 
 The platform is split into three layers:
@@ -116,13 +127,11 @@ or an MCP tool error, but the connector contract is identical on all three.
 
 ### Main Components
 
-- **BaseConnector**: Abstract base class for all connectors. It handles the `run()` method pipeline.
-- **ConnectorResponse / ErrorCategory**: Unified response shape and error categorization (`RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`).
-- **ErrorMapper**: Maps exception types to stable error codes and categories.
-- **Resilience**: Decorators for retries (Tenacity) and circuit breaking (PyBreaker).
-- **SecretProvider**: Abstraction for fetching secrets (API keys, credentials).
-- **PolicyHook**: Allow/deny check before execution, based on principal, scopes, or tenant. The hook type is pluggable. `BaseConnector` accepts `policy_hook=None`, but `ConnectorFactory` always attaches one: `ScopePolicyHook` when an MCP scope map or `NW_MCP_SCOPE_POLICY_DEFAULT=deny` is configured, otherwise `TenantConfigHook` (a tenant must have a config for the connector).
-- **Tenant pinning**: Factory-built instances carry `_tenant_id`; `run()` uses that pin when `tenant_id` is omitted and rejects mismatched caller ids with `TENANT_MISMATCH`.
+- **BaseConnector**: Abstract base class for all connectors. It owns the `run()` pipeline below.
+- **ConnectorResponse / ErrorCategory / ErrorMapper**: the response envelope, the error taxonomy (`RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`), and the per-connector exception mapping. See [Domain](architecture/domain.md#results-and-errors).
+- **Resilience**: retries (Tenacity) and circuit breaking (PyBreaker).
+- **PolicyHook, SecretProvider, AuthProvider**: pluggable seams the factory injects. See [Seams](architecture/seams.md).
+- **ConnectorConfigStore and tenant pinning**: per-tenant named configs, and instances bound to one tenant. See [Tenancy](architecture/tenancy.md).
 - **Telemetry**: OpenTelemetry integration for tracing.
 
 ### The `run()` pipeline
@@ -182,10 +191,12 @@ flowchart TB
 
 ### Binding invoke
 
-REST, MCP, and gRPC share one invoke seam in `src/bindings/invoke.py`. Each binding adapter resolves transport-specific tenant and caller identity, then delegates exposure, factory resolution, ingress normalization, and `run()` to that module. Transport-only concerns (HTTP status mapping, MCP pagination guardrails, protobuf encoding) stay in the respective binding.
+REST, MCP, and gRPC share one invoke seam in `src/bindings/invoke.py` ([Seams — `invoke.py`](architecture/seams.md#invokepy)). Transport-only concerns stay in each binding.
 
 ### Bindings Offered
 
 - **REST API (FastAPI)**: Dynamic routes at `POST /connectors/{connector_id}/{action}`.
 - **gRPC Server**: Protocol buffers based interface on port 50051.
 - **MCP Server**: Model Context Protocol implementation for AI agents.
+
+What each binding does to arguments and errors: [Connectors on REST, MCP and gRPC](connector-bindings.md).

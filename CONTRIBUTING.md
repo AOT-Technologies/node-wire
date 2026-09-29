@@ -154,7 +154,8 @@ By signing off, you certify the following:
 1. Fork the repository and create a feature branch from `main`
    (e.g. `feature/short-description` or `fix/short-description`).
 2. Make your change, including tests and documentation updates where relevant.
-   Sign off every commit with `git commit -s` (see
+   For docs, edit the page that owns the fact and delete any copy you find — see
+   [Changing the docs](docs/reading.md#changing-the-docs). Sign off every commit with `git commit -s` (see
    [DCO](#developer-certificate-of-origin-dco)).
 3. Ensure all quality checks above pass locally.
 4. Open a pull request against `main` with a clear description of the change and

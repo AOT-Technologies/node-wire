@@ -12,7 +12,7 @@ generated output surprises you: an argument you expected is missing, a descripti
 truncated, a field was renamed, or a `200 OK` came back as an error.
 
 For what the generator supports at all, see
-[nw-connector-builder — scope](nw-connector-builder-scope.md).
+[generator contract](nw-connector-builder-scope.md).
 
 ---
 

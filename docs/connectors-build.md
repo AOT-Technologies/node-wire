@@ -23,14 +23,7 @@ Only need to call a connector that already ships? Start at [Use a connector](con
 
 ## How connectors work
 
-### How connectors fit into the platform
-
-- **Layer B — Connectors** (`src/node_wire_<connector_id>/`): adapter packages (schemas, logic, optional `error_map`).
-- **Layer C — Bindings** (`src/bindings/`): REST, gRPC, and MCP servers plus `ConnectorFactory`. The factory reads `config/connectors.yaml` (an external input at the repo root, or `NW_CONFIG_PATH`) and bootstraps it into the runtime `ConnectorConfigStore`.
-
-At startup, bindings call **`node_wire_runtime.connector_registry.auto_register()`**, which loads connector entry points and imports each connector's `logic` module — this triggers `BaseConnector.__init_subclass__`, which both registers the class and, via the connector's declarative `error_map`, registers its exception mappings with `ErrorMapper` under that connector's own `connector_id`. **`ConnectorFactory`** resolves connectors from the registry — **do not add per-connector branches in `src/bindings/factory.py`.**
-
----
+A connector is a Layer B package; the layers are described in [Architecture](architecture.md), and the vocabulary in [Domain](architecture/domain.md).
 
 ### Package layout and registration
 
@@ -441,7 +434,7 @@ connectors:
         prefix: Bearer
 ```
 
-Select a named scheme per call with `await self.get_auth_headers(auth_scheme="legacy_bearer")` (or the lower-level `self.resolve_auth_provider("legacy_bearer")`) instead of the connector default. **`resolve_auth_provider`** fails closed with `ValueError` on an unknown scheme name — there's no silent fallback to the default provider. This is the same mechanism `nw-connector-builder` uses to generate `auth_scheme=` on divergent per-action calls (see [nw-connector-builder.md](cli/nw-connector-builder.md#per-action-auth-schemes)); hand-written connectors can use it directly for the same reason — an upstream API that requires more than one security scheme across its operations.
+Select a named scheme per call with `await self.get_auth_headers(auth_scheme="legacy_bearer")` (or the lower-level `self.resolve_auth_provider("legacy_bearer")`) instead of the connector default. **`resolve_auth_provider`** fails closed with `ValueError` on an unknown scheme name — there's no silent fallback to the default provider. This is the same mechanism `nw-connector-builder` uses to generate `auth_scheme=` on divergent per-action calls (see the [generator contract](cli/nw-connector-builder-scope.md#per-action-auth-schemes)); hand-written connectors can use it directly for the same reason — an upstream API that requires more than one security scheme across its operations.
 
 ### Auth blocks in `connectors.yaml`
 
@@ -488,33 +481,17 @@ connectors:
 
 ### Adding a new connector (checklist)
 
-> **OpenAPI / Swagger APIs:** Prefer [nw-connector-builder](cli/nw-connector-builder.md) (or the full [`nw gen-all`](cli/nw-cli.md) pipeline) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the hand-written steps below for SDK-style or non-REST connectors.
+> **OpenAPI / Swagger APIs:** Prefer [nw-connector-builder](cli/nw-connector-builder.md) (or the full [`nw gen-all`](cli/nw-cli.md) pipeline) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the hand-written steps above for SDK-style or non-REST connectors.
 
-#### Runtime (dev)
+Rules to follow while writing it:
 
-1. Create the package directory `src/node_wire_<name>/`. The directory **must contain `__init__.py`** (empty is fine) to be importable as a Python package. Add `schema.py` with Pydantic input/output models and register the entry point under `[project.entry-points."node_wire.connectors"]` in the root `pyproject.toml`.
-2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`. For HTTP-based connectors use an inline `async with httpx.AsyncClient() as client:` inside each `@nw_action` method (see [Using Auth in a Connector](#using-auth-in-a-connector)); only override `build_client()` / `get_client()` when wrapping a vendor SDK that requires a long-lived client object (e.g. `google_drive`).
-3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
-4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
-5. Optionally add `error_map` for custom exception handling (see [error_map example](#optional-error_map-for-errormapper) below).
-6. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
-7. **Environment template:** Add required secrets and connector-specific vars to [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) (referenced by [configuration.md](configuration.md) and [installation.md](installation.md)). Use commented placeholders with the env var names your connector reads via `SecretProvider`. Also add the new connector's entry-point name to the `NW_ALLOWED_CONNECTORS` line so the template stays current.
-8. `auto_register()` handles runtime registration — **no factory branch required**.
+- Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes, and keep credential fields out of your input schema.
+- For HTTP connectors, open an `httpx.AsyncClient` inside each `@nw_action` ([pattern](#using-auth-in-a-connector)). Override `build_client()` only for a vendor SDK that needs a long-lived client.
+- Declare the HTTP client or vendor SDK as a dependency of `packages/connectors/<name>/pyproject.toml`.
+- `auto_register()` handles registration. **No factory branch.**
 
-#### Publishable PyPI package (when shipping on PyPI)
-
-9. Create `packages/connectors/<name>/pyproject.toml` and `packages/connectors/<name>/setup.py`. See [packaging.md — Tier 2 templates](packaging.md#tier-2-templates) for copy-paste starting points for both files.
-10. Add the package path to **`scripts/build-packages.sh`** (`ALL_PACKAGES`) and to the three CI workflow allowlists — see [packaging.md — CI allowlist updates](packaging.md#ci-allowlist-updates) for the exact lines to add in each file.
-11. Update the inventory table in **[packaging.md](packaging.md)**.
-
-#### Standalone MCP server (optional — dedicated Docker/ToolHive image)
-
-> **Prerequisite:** Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
-
-12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
-13. Add the new connector to the "Supported connectors" list in **[nw-mcp-builder](cli/nw-mcp-builder.md#supported-connectors)** if it's also getting a generated `nw-mcp-builder` host.
-
-For full file lists see [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
+The files to add or update (runtime wiring, the PyPI package, CI allowlists and an optional MCP
+image) are in one checklist: [Packaging — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
 
 ---
 
@@ -528,13 +505,11 @@ For full file lists see [packaging.md — Adding a new publishable connector](pa
 
 **REST API (`bindings.rest_api`)** — `GET /health`, `/docs`, `/redoc`, `/openapi.json`, `/playground/*`, and `/scenarios/*` are unauthenticated. Auth is required only for `/connectors/*` and `/ready`, via **`NW_REST_API_KEY`** (`Authorization: Bearer <key>` or `X-API-Key: <key>`) or optional **`NW_REST_JWT_SECRET`** for HS256 JWTs (with **`NW_JWT_AUDIENCE`** / **`NW_JWT_ISSUER`** and required `exp`/`iat`/`aud`/`iss` claims). API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
 
-**HTTP Generic outbound policy** — `http_generic.request` allows only `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and input methods are normalized to uppercase before validation. URLs targeting internal destinations are rejected (`localhost`, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments so only scheme/host/path are retained.
-
-**SMTP outbound policy** — `smtp.send_email` accepts only message fields (`to`, `subject`, `body`, optional `from_email`). SMTP relay settings (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`) are server-side only and cannot be set in the request payload. Credentials are never sent to a caller-chosen host. For production, optionally set **`NW_SMTP_ALLOWED_HOSTS`** to a comma-separated list of permitted relay hostnames. The `subject` field must not contain newline or ASCII control characters (header-injection defense); `body` may be multiline.
+**Connector egress policies** — the `http_generic` and `smtp` outbound rules are listed with each connector in the [catalog](connector-reference.md#connector-catalog).
 
 **Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
 
-**Secrets** — `EnvSecretProvider` looks up the key **as given**, then **`key.upper()`** (e.g. `my_key` then `MY_KEY`). It raises **`SecretNotFoundError`** when a variable is missing (fail-closed). Set **`NW_ENV_SECRET_LEGACY_EMPTY=true`** only if you need legacy empty-string behaviour. **`NW_SECRET_BACKEND=aws_env`** with **`NW_AWS_SECRETS_MANAGER_SECRET_ID`** composes AWS Secrets Manager JSON + env fallback via `ChainedSecretProvider` (see `bindings.factory._build_secret_provider`).
+**Secrets** — lookups are fail-closed (`SecretNotFoundError`). Backends and lookup rules: [Configuration — Secrets Management](configuration.md#secrets-management).
 
 ---
 

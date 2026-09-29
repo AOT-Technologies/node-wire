@@ -247,4 +247,4 @@ Some OpenAPI specs contain non-ASCII content. The script sets `PYTHONUTF8=1` aut
 - [e2e/download_openapi_specs.sh](../e2e/download_openapi_specs.sh)
 - [mcp-builder on GitHub](https://github.com/stacklok/mcp-builder) — upstream repo for `e2e/fixtures/` and `out/<server>-mcp/deploy/`
 - [Google Drive connector (OIDC / ToolHive manifests)](../docs/google_drive_connector.md#user-oauth-oidc--upstream-bearer)
-- [Node Wire MCP servers](../docs/mcp-servers.md)
+- [nw-mcp-builder](../docs/cli/nw-mcp-builder.md)

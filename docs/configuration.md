@@ -44,7 +44,7 @@ copy sample.env .env
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `MODE` | Execution mode (`API` or `GRPC`). There is no working `MODE=MCP` — that value starts a stub process (`McpServer()` then an infinite sleep loop, no JSON-RPC handling) left over from an early proof of concept. Run MCP via `python -m agents.mcp_entrypoint` instead (see [mcp.md](mcp.md)). | `API` |
+| `MODE` | Execution mode (`API` or `GRPC`). There is no working `MODE=MCP` — that value starts a stub process (`McpServer()` then an infinite sleep loop, no JSON-RPC handling) left over from an early proof of concept. Run MCP via `python -m agents.mcp_entrypoint` instead (see [MCP overview](mcp.md#which-mcp-path)). | `API` |
 | `PORT` | Port for the REST API | `8000` |
 | `NW_REST_HOST` | REST API bind address | `127.0.0.1` |
 | `NW_REST_PLAYGROUND_ENABLED` | Mount the interactive playground at `/playground/` when `true`; when unset, enabled only if a `playground/` directory exists at the repo root | _(auto)_ |
@@ -128,30 +128,9 @@ The REST-only `NW_REST_RATE_LIMIT_ENABLED` family (`_MAX_REQUESTS`, `_WINDOW_SEC
 | `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
 | `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
 
-Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [nw-mcp-builder](cli/nw-mcp-builder.md#multi-tenancy-mcp).
-
-When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns
-configs), `nw_list_configs`, and `nw_select_config`. Provision configs via playground REST or
-YAML — not via MCP.
-
-**Tenant precedence** differs by transport. Highest wins:
-
-| Transport | 1st | 2nd | 3rd |
-|---|---|---|---|
-| REST / gRPC | `X-Tenant-ID` header or JWT `tenant` claim (per request) | — | — |
-| MCP streamable-http | `X-Tenant-ID` header or JWT claim (per request) | `nw_select_tenant` selection | `NW_TENANT_ID` pin |
-| MCP stdio | `nw_select_tenant` selection, unless `NW_MCP_TENANT_PIN_LOCKED=true` | `NW_TENANT_ID` pin | — |
-
-On streamable-http the live per-request header always wins, so a prior `nw_select_tenant`
-call can never shadow another concurrent session's request-level tenant. A JWT `tenant` claim
-that disagrees with a caller-supplied header or session tenant is rejected with
-`TENANT_IDENTITY_MISMATCH` — never silently overridden.
-
-**Config selection:** `nw_select_config` applies to **every connector** on that MCP process
-(stdio and streamable-http). A per-call `config_name` tool argument overrides it for a single
-call.
-
-**Host / factory contract:** Resolve the request tenant once (`resolve_tenant_id` in bindings, or your own auth in an embedded app), then pass that id to `ConnectorFactory.get(tenant_id=...)`. Omitting `tenant_id` on `get` always resolves `__default__` — never the current HTTP/MCP tenant. After `get`, the connector instance is pinned: `run()` may omit `tenant_id` (uses the pin); a conflicting `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without executing the action.
+How these combine (tenant precedence per transport, entitlement, tenant secret naming, the MCP
+tenant/config tools, the pin contract for embedded hosts) is described once, in
+[Tenancy](architecture/tenancy.md).
 
 ---
 

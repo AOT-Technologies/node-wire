@@ -271,6 +271,7 @@ Help:
 
 ```bash
 uv run nw-mcp-builder --help
+uv run nw-mcp-builder -c <connector_id> -v   # verbose logging during generation
 ```
 
 ---
@@ -415,64 +416,12 @@ The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha
 
 ## Multi-tenancy (MCP)
 
-Node-wire MCP reuses the same runtime config store as REST (`NW_TENANTS_PATH` / `config/tenants.yaml`). Standalone MCP (`python -m agents.mcp_entrypoint`, ToolHive images) calls `load_tenants` on startup so named tenants/configs are available without going through the playground process.
-
-**Enable:** `NW_MULTITENANCY_ENABLED=true`.
-
-**Pin tenant (default):**
-
-| Transport | How |
-|-----------|-----|
-| streamable-http | Client sends `X-Tenant-ID` on each request. If missing and `__default__` exists in the store, initialize uses `__default__` instead of `400 MISSING_TENANT`. |
-| stdio / ToolHive container | Set `NW_TENANT_ID` for that process |
-
-**Discover tenants:** call MCP tool `nw_list_tenants` (optional `connector_id`; legacy alias `nw.list_tenants`). Response includes `tenants`, `current_tenant_id` / `pinned_tenant_id`, and `summary`.
-
-**Switch tenant:** call `nw_select_tenant` `{ "tenant_id": "<id>" }` (alias `nw.select_tenant`). Sets the session overlay for **every connector** on this process (stdio and streamable-http). Returns named configs. Set `NW_MCP_TENANT_PIN_LOCKED=true` to reject switch. Optional `NW_MCP_ALLOWED_TENANTS` allowlist. Unknown tenants fail closed.
-
-Soft-pin precedence differs by transport: on **stdio**, this selection overrides the `NW_TENANT_ID` env pin for later calls in the same process. On **streamable-http**, it does *not* override `X-Tenant-ID` — the live per-request header (or JWT tenant claim) always wins on every request, so one session's `nw_select_tenant` can never shadow another concurrent HTTP session's request-level tenant. A JWT tenant claim that disagrees with the caller-supplied header/session tenant fails closed with a `TenantIdentityMismatchError` (403 `TENANT_IDENTITY_MISMATCH`) rather than being silently overridden either way.
-
-**Discover configs:** `nw_list_configs` (optional `connector_id` and `tenant_id`; alias `nw.list_configs`). Omit `tenant_id` to use the selected or pinned tenant. MCP does **not** create, update, or delete configs — provision those via playground Add config, REST `/v1/connectors/{cid}/configs`, or by editing `tenants.yaml`.
-
-**Select a config:** call `nw_select_config` `{ "config_name": "<name>" }`. That name becomes the *default* for every connector on this process. Response includes `connectors_with_config` and `connectors_missing_config`. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI `--config-name` runs `nw_select_config` at start. `tenant_id` is never accepted as a connector-tool argument, but every connector tool *does* accept an optional per-call `config_name` argument, which outranks the shared `nw_select_config` selection for that one call only.
-
-**Instance pin (runtime):** After `factory.get`, the connector instance is bound to that tenant's config and secrets (`_tenant_id`). Bindings still pass the resolved tenant into `run()`; omitting it on `run` also works. A conflicting `run(tenant_id=...)` fails closed with `TENANT_MISMATCH` — distinct from the MCP session `pinned_tenant_id` in `nw_list_tenants` responses.
-
-Two ToolHive images (Drive + Epic) are two processes: select on one does not update the other. Use one MCP with both connectors (`python -m agents.mcp_entrypoint`) so one overlay covers every connector.
-
-**Recommended ToolHive env (unified `node-wire:latest`, stdio + MT):**
-
-| Name | Value |
-|------|--------|
-| `NW_MCP_TRANSPORT` | `stdio` |
-| `NW_ALLOWED_CONNECTORS` | e.g. `google_drive,fhir_epic` |
-| `NW_MULTITENANCY_ENABLED` | `true` |
-| `NW_TENANTS_PATH` | `/app/config/tenants.yaml` |
-| `NW_MCP_AUTH_DISABLED` | `true` |
-| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` |
-| `NW_MCP_TENANT_PIN_LOCKED` | `false` |
-
-Mount host `config/tenants.yaml` → `/app/config/tenants.yaml` (read-only). Connector credentials live in that file’s `secrets:` blocks (or per-tenant env vars); flat ToolHive secrets are optional when YAML holds them.
-
-**Cross-connector config names:** `nw_select_config` sets one name globally. If tenant `acme` has Drive config `test-drive` but Epic only `test`, Epic calls fail until you select a name that exists on **every** connector you use, or add the missing config in YAML/REST.
-
-```text
-1. Enable NW_MULTITENANCY_ENABLED=true; ensure tenants.yaml is mounted/present
-2. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
-3. tools/call nw_select_tenant { "tenant_id": "<id from step 2>" }  # returns configs
-4. tools/call nw_select_config { "config_name": "<name from step 3>" }
-5. tools/call google_drive_files_list  { ... }
-```
-
-Rebuild generated ToolHive MCP images after this change so vendored `server.py` picks up the new tools.
-
-Verbose logging during generation:
-
-```bash
-uv run nw-mcp-builder -c <connector_id> -v
-# Example
-uv run nw-mcp-builder -c google_drive -v
-```
+A generated host is a thin wrapper around the same `McpServer`, so it has the same multi-tenancy:
+set `NW_MULTITENANCY_ENABLED=true` and provide `NW_TENANTS_PATH` (see the
+[environment table](#environment-variables-generated-host)). Tenant resolution per transport, the
+`nw_*` tenant/config tools and the ToolHive recipe are in [Tenancy](../architecture/tenancy.md).
+After upgrading node-wire, regenerate and rebuild the host so its vendored bindings pick up the
+current tools.
 
 ---
 
@@ -506,6 +455,9 @@ uv run pytest tests/nw_mcp_builder -v --no-cov
 
 ## Relationship to mcp-builder
 
-The same connector-mode logic originated in the **mcp-builder** repo (`mcp-builder from-connector`). **nw-mcp-builder** is a minimal copy that lives inside node-wire so you can generate and run MCP hosts without checking out mcp-builder.
-
-OpenAPI-based generation (from REST specs → custom Python MCP servers) remains in mcp-builder only.
+The connector-mode logic originated in stacklok's **mcp-builder** (`mcp-builder from-connector`).
+**nw-mcp-builder** is a minimal copy that lives inside node-wire, so it has no dependency on that
+project. It generates a host for a connector that already exists. To generate the connector from an
+OpenAPI spec, use [nw-connector-builder](nw-connector-builder.md) or [`nw gen-all`](nw-cli.md). For
+a stacklok-generated server with AI-curated tools, use
+[`nw gen-stacklok`](../stacklok-mcp-servers.md), which vendors stacklok's generator separately.

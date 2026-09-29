@@ -61,9 +61,10 @@ For **shared-folder automation** (single service identity), keep the [service ac
 
 ## Multi-tenancy
 
-With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Google Drive credentials and folder via a named config in `tenants.yaml`, instead of sharing the single `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID` env vars above. Tenant-scoped secrets use `NW_{TENANT}_GOOGLE_DRIVE_{KEY}` for the default config, or `NW_{TENANT}_GOOGLE_DRIVE_{CONFIG}_{KEY}` for a named config (e.g. `NW_ACME_GOOGLE_DRIVE_SA_JSON`, or `NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON` for config `test-drive` — non-alphanumeric characters are uppercased/underscored) — or the equivalent `secrets:` block in `tenants.yaml`.
-
-On MCP, select the tenant/config once per session with `nw_select_tenant` / `nw_select_config` (or pass a per-call `config_name` to a `google_drive_*` tool); `tenant_id` is never a tool argument. See [Configuration — Multi-tenancy](configuration.md#multi-tenancy) and [MCP — Multi-tenancy](cli/nw-mcp-builder.md#multi-tenancy-mcp) for the full reference.
+With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Drive credentials and folder
+in a named config, instead of the shared `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID`. For
+example, tenant `acme` reads `NW_ACME_GOOGLE_DRIVE_SA_JSON`. How tenant secrets are named, and how
+MCP sessions select a tenant and config, is in [Tenancy](architecture/tenancy.md).
 
 ---
 
@@ -204,8 +205,9 @@ GOOGLE_DRIVE_FOLDER_ID=1ABCdef_GHIjklMNOpqrSTUvwxYZ
 Start the platform and test the connection with a quick file list:
 
 ```bash
-# Start the REST API
-python -m bindings_entrypoint
+# Start the REST API (local only: auth and scope policy relaxed)
+NW_ALLOWED_CONNECTORS=google_drive NW_REST_AUTH_DISABLED=true \
+NW_MCP_SCOPE_POLICY_DEFAULT=allow MODE=API uv run node-wire
 
 # In another terminal, list files visible to the service account
 curl -X POST http://localhost:8000/connectors/google_drive/files.list \
