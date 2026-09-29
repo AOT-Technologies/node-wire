@@ -61,13 +61,13 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
     Generate a REST connector (and optional MCP host) from a Swagger/OpenAPI spec.
 
-    [:octicons-arrow-right-24: nw-connector-builder](nw-connector-builder.md)
+    [:octicons-arrow-right-24: nw-connector-builder](cli/nw-connector-builder.md)
 
 -   **nw CLI**
 
     One-shot OpenAPI → connector → wheels → MCP host → Docker image pipeline.
 
-    [:octicons-arrow-right-24: nw CLI](nw-cli.md)
+    [:octicons-arrow-right-24: CLI](cli/index.md)
 
 -   **MCP Integration**
 
@@ -96,15 +96,36 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 | FHIR Cerner | SMART on FHIR | [Connectors](connectors.md) |
 | HTTP Generic | REST bridge | [Connectors](connectors.md) |
 
+## Which tool do I use?
+
+Four CLIs exist, but `nw` orchestrates the other three — start at the [CLI module](cli/index.md).
+Reach for a standalone builder only when you need a stage on its own.
+
+| I want to… | Use | Page |
+|---|---|---|
+| Turn an OpenAPI/Swagger spec into a connector, wheels, MCP host and Docker image | **`nw gen-all`** | [nw CLI](cli/nw-cli.md) |
+| Build an MCP server whose tools are curated by AI scoping | **`nw gen-stacklok`** | [stacklok MCP servers](stacklok-mcp-servers.md) |
+| Write a connector by hand (SDK-style or non-REST) | *no CLI* — author `schema.py` + `logic.py` | [Connectors guide](connectors.md) |
+| Regenerate just the MCP host for an existing connector | `nw gen-mcp` | [nw CLI](cli/nw-cli.md) |
+| Build just the wheels | `nw gen-whl` | [Packaging](packaging.md) |
+| Deploy an MCP server to ToolHive and drive it with an agent | *no CLI* — `thv` + the bundled agent | [ToolHive scenario](toolhive_agent_scenario.md) |
+
+**Advanced / direct access.** `nw-connector-builder` and `nw-mcp-builder` remain supported
+as standalone entry points and expose the full flag surface, but `nw` calls both for you.
+Read [nw-connector-builder](cli/nw-connector-builder.md) or [nw-mcp-builder](cli/nw-mcp-builder.md)
+when you need a flag `nw` does not pass through, or are debugging a single stage.
+
 ## Docs map
 
 | Area | Pages |
 |---|---|
-| MCP | [Overview](mcp.md) · [MCP host builder](mcp-servers.md) · [Client OAuth](mcp-client-oauth.md) · [ToolHive scenario](toolhive_agent_scenario.md) |
+| MCP | [Overview](mcp.md) · [Client OAuth](mcp-client-oauth.md) · [ToolHive scenario](toolhive_agent_scenario.md) |
 | Packaging & release | [Packaging](packaging.md) · [Versioning](versioning.md) · [Release rollback](release-rollback.md) · [Local wheels → images](local-packages-to-images.md) |
 | Development | [Contributing](contributing.md) · [Code quality](code-quality-compliance.md) · [Quality & security gates](quality-security-gates.md) · [Public API](public-api.md) · [Troubleshooting](troubleshooting.md) |
 | Compliance | [Privacy](privacy.md) · [HIPAA considerations](compliance/hipaa-considerations.md) |
-| Builder scope | [What OpenAPI codegen supports](nw-connector-builder-scope.md) |
+| Connectors | [Guide](connectors.md) · [Reference](connector-reference.md) · [REST/MCP/gRPC exposure](connector-bindings.md) |
+| CLI | [Overview](cli/index.md) · [nw CLI](cli/nw-cli.md) · [nw-connector-builder](cli/nw-connector-builder.md) · [Scope](cli/nw-connector-builder-scope.md) · [Codegen behaviour](cli/nw-connector-builder-codegen.md) · [nw-mcp-builder](cli/nw-mcp-builder.md) |
+| Project | [Code of Conduct](https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md) · [Governance](https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md) · [Support](https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md) · [Security](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) · [Changelog](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) |
 
 ## Contributing
 

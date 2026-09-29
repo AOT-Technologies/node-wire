@@ -66,12 +66,10 @@ Connector authors depend on these stable modules:
 - `node_wire_runtime.auth.base` — `AuthProvider` interface.
 - `node_wire_runtime.secrets.base` — `SecretProvider` interface.
 
-`node_wire_runtime.mcp_contract` was removed (was never actually generic: it held
-exactly one Google Drive-specific legacy-alias flag, mis-listed here as a stable
-extensibility point). Its contents moved to `node_wire_google_drive.normalizers` —
-connector-specific logic stays in the connector. Connector-specific argument
-normalizers were never part of the stable surface for any other connector either;
-this corrects the one place that had accidentally been documented as if it were.
+Connector-specific argument normalizers are **not** part of the stable surface. They live in
+the connector that owns them (for example `node_wire_google_drive.normalizers`). The removal of
+`node_wire_runtime.mcp_contract` is recorded in
+[CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md).
 
 Connectors register via the `node_wire.connectors` entry-point group.
 

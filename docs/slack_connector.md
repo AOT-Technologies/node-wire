@@ -59,7 +59,7 @@ SLACK_BOT_TOKEN=xoxb-your-token-here
 
 ### Step 5: Invite the Bot (Important)
 
-Slack bots cannot "see" private channels unless they are explicitly invited. 
+Slack bots cannot "see" private channels unless they are explicitly invited.
 
 1. Go to the Slack channel you want the bot to use.
 2. Type `/invite @YourAppName` and press Enter.
@@ -77,69 +77,36 @@ The connector exposes actions as standard REST endpoints. Channel identifiers ar
 
 ### Actions
 
+Request and response schemas come from the connector's Pydantic models and are published
+live at `http://localhost:8000/docs` (Swagger UI) and `/openapi.json`; the same models
+drive the MCP tool schemas. The connector-specific behaviour those schemas do **not**
+capture is below.
+
 #### `post_message`
 
-Send a message to a channel, group, or user.
+Send a message to a channel, group, or user. Supports Slack `blocks`.
 
-**Request body:**
+**Channel resolution** — the `channel` field accepts three forms:
 
-```json
-{
-  "channel": "#general",
-  "message": "Clinical alert: Patient summary available.",
-  "blocks": [
-    {
-      "type": "section",
-      "text": { "type": "mrkdwn", "text": "*Emergency Update*: BP 180/110" }
-    }
-  ]
-}
-```
-
-**Channel Resolution:**
-- **Channel Name**: Starts with `#` (e.g., `#general`).
-- **Channel ID**: Starts with `C`, `G`, `D`, or `Z` (e.g., `C12345`).
-- **User ID**: Starts with `U` or `W` (e.g., `U12345`). Automatically resolved to a DM channel.
+| Form | Example | Behaviour |
+|---|---|---|
+| Channel name | `#general` | Resolved by name |
+| Channel ID | `C…`, `G…`, `D…`, `Z…` | Used directly |
+| User ID | `U…`, `W…` | Automatically resolved to a DM channel |
 
 #### `send_direct_message`
 
-A specialized action for DMs. If targeted at a User ID, the connector ensures the DM channel is open before posting.
-
-**Request body:**
-
-```json
-{
-  "channel": "U12345678",
-  "message": "You have a new lab result to review."
-}
-```
+A specialized action for DMs. If targeted at a User ID, the connector ensures the DM
+channel is open before posting.
 
 #### `upload_file`
 
-Uploads a file to a Slack channel or DM.
+Uploads a file to a Slack channel or DM. The content may be supplied two ways:
 
-**Request body (Base64):**
-
-```json
-{
-  "channel": "C12345678",
-  "filename": "labs.pdf",
-  "content_base64": "JVBER...",
-  "initial_comment": "Here is the PDF summary."
-}
-```
-
-**Request body (Filesystem):**
-
-```json
-{
-  "channel": "U12345678",
-  "filename": "summary.pdf",
-  "filepath": "/slack_attachments/p_123.pdf"
-}
-```
-
-> **Note:** `filepath` must be within the directory defined by `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`).
+| Field | Use |
+|---|---|
+| `content_base64` | Inline, base64-encoded file bytes |
+| `filepath` | Path on disk — **must** sit inside `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`) |
 
 ### Error Taxonomy
 

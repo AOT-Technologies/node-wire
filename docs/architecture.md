@@ -14,155 +14,93 @@ The platform is split into three layers:
 
 - **Layer A – Runtime** (`src/node_wire_runtime/`): The engine that every connector runs inside. It defines the execution contract, a standard error taxonomy, retries and circuit breaking, and telemetry.
 - **Layer B – Connectors** (`src/node_wire_<connector>/`): Adapters that implement that contract and call external systems (HTTP Generic, SMTP, Stripe, Google Drive, FHIR Epic, FHIR Cerner, Salesforce, Slack). Each connector has its own input/output schema and business logic.
-- **Layer C – Bindings** (`src/bindings/`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and how connectors are loaded from configuration (ConnectorFactory + `config/connectors.yaml`).
+- **Layer C – Bindings** (`src/bindings/`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and `ConnectorFactory`, which builds tenant-pinned connector instances. The factory reads `config/connectors.yaml` at startup (an external input, not part of the layer) and bootstraps it into the runtime `ConnectorConfigStore` (Layer A).
 
-<div class="nw-diagram-stack" markdown="1">
-
-<div class="nw-diagram nw-diagram--row" markdown="1">
-
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "16px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 36, "rankSpacing": 40, "padding": 16}}}%%
-flowchart LR
-    subgraph clients ["External Clients"]
-        direction LR
-        REST["REST clients"]
-        GRPC["gRPC clients"]
-        MCP["MCP / AI agents"]
-    end
-
-    classDef client fill:#1a3a4a,stroke:#37c4f0,stroke-width:2px,color:#E8EDF5
-    class REST,GRPC,MCP client
-    style clients fill:#151920,stroke:#37c4f0,stroke-width:2px,color:#37c4f0
-```
-
-</div>
-
-<div class="nw-flow-connector nw-flow-down"><span>requests ↓</span></div>
-
-<div class="nw-diagram nw-diagram--row" markdown="1">
+External callers reach the platform over REST, gRPC, or MCP. Each binding adapter resolves
+transport-specific tenant and caller identity, then hands off to the shared invoke seam.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "16px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 36, "rankSpacing": 40, "padding": 16}}}%%
-flowchart LR
-    subgraph layerC ["Layer C · Bindings · src/bindings/"]
-        direction LR
-        RestAPI["REST API<br/>FastAPI :8000"]
-        GrpcSrv["gRPC Server<br/>:50051"]
-        McpSrv["MCP Server"]
-        Factory["ConnectorFactory"]
-        Config["connectors.yaml"]
-    end
-
-    RestAPI --> Factory
-    GrpcSrv --> Factory
-    McpSrv --> Factory
-    Config -. "loads" .-> Factory
-
-    classDef bindings fill:#243044,stroke:#37c4f0,stroke-width:2px,color:#E8EDF5
-    classDef config fill:#242930,stroke:#8A9BAC,stroke-width:2px,color:#E8EDF5
-    class RestAPI,GrpcSrv,McpSrv,Factory bindings
-    class Config config
-    style layerC fill:#151920,stroke:#37c4f0,stroke-width:2px,color:#37c4f0
-```
-
-</div>
-
-<div class="nw-flow-connector nw-flow-down"><span>ConnectorFactory ↓</span></div>
-
-<div class="nw-diagram nw-diagram--row nw-diagram--runtime" markdown="1">
-
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "40px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 156, "rankSpacing": 40, "padding": 16}}}%%
-flowchart LR
-    subgraph layerA ["Layer A · Runtime · src/node_wire_runtime/"]
-        direction LR
-        Validate["Pydantic validation"]
-        Policy["PolicyHook"]
-        Resilience["Retries & circuit breaker"]
-        Errors["ErrorMapper"]
-        Otel["OpenTelemetry"]
-    end
-
-    Validate --> Policy
-    Policy --> Resilience
-    Resilience --> Errors
-    Otel -. "traces" .-> Resilience
-
-    classDef runtime fill:#3a3420,stroke:#ecb32e,stroke-width:2px,color:#E8EDF5
-    classDef telemetry fill:#242930,stroke:#8A9BAC,stroke-width:2px,color:#E8EDF5
-    class Validate,Policy,Resilience,Errors runtime
-    class Otel telemetry
-    style layerA fill:#151920,stroke:#ecb32e,stroke-width:2px,color:#ecb32e
-```
-
-</div>
-
-<div class="nw-flow-connector nw-flow-down"><span>BaseConnector.run ↓</span></div>
-
-<div class="nw-diagram nw-diagram--row" markdown="1">
-
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "16px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 32, "rankSpacing": 36, "padding": 16}}}%%
 flowchart TB
-    subgraph layerB ["Layer B · Connectors · src/node_wire_*/"]
-        direction TB
-        subgraph bRow1 [" "]
-            direction LR
-            GDrive["Google Drive"]
-            SMTP["SMTP"]
-            Stripe["Stripe"]
-            FHIR["FHIR Epic/Cerner"]
-        end
-        subgraph bRow2 [" "]
-            direction LR
-            SFDC["Salesforce"]
-            Slack["Slack"]
-            HTTP["HTTP Generic"]
-        end
+    subgraph input["Deployment input · outside the layers"]
+        Config[/"config/connectors.yaml<br/>or NW_CONFIG_PATH"/]
     end
 
-    classDef connector fill:#3a2430,stroke:#e01d5a,stroke-width:2px,color:#E8EDF5
-    class GDrive,SMTP,Stripe,FHIR,SFDC,Slack,HTTP connector
-    style layerB fill:#151920,stroke:#e01d5a,stroke-width:2px,color:#e01d5a
-    style bRow1 fill:transparent,stroke:transparent,color:transparent
-    style bRow2 fill:transparent,stroke:transparent,color:transparent
+    subgraph layerC["Layer C · Bindings · src/bindings/"]
+        RestAPI["REST API<br/>FastAPI :8000"]
+        GrpcSrv["gRPC server<br/>:50051"]
+        McpSrv["MCP server<br/>stdio · HTTP"]
+        Invoke["invoke.py · shared seam<br/>exposure → factory.get → normalize"]
+        Factory["ConnectorFactory"]
+    end
+
+    subgraph layerA["Layer A · Runtime · src/node_wire_runtime/"]
+        Store[("ConnectorConfigStore<br/>per-tenant configs")]
+        Run["BaseConnector.run<br/>validate → policy → resilience → error mapping"]
+    end
+
+    subgraph layerB["Layer B · Connectors · src/node_wire_*/"]
+        Conns["internal_execute · @nw_action / action_specs<br/>google_drive · smtp · stripe · http_generic<br/>salesforce · slack · fhir_epic · fhir_cerner"]
+    end
+
+    Ext[["External systems · third-party APIs"]]
+
+    RestAPI -- "tenant: header / JWT" --> Invoke
+    GrpcSrv -- "tenant: metadata" --> Invoke
+    McpSrv -- "tenant: session / pin" --> Invoke
+    Invoke -- "1 · get(tenant, config)" --> Factory
+    Invoke -- "2 · run() → ConnectorResponse" --> Run
+    Config -. "read by load()" .-> Factory
+    Factory -- "load(): bootstrap __default__<br/>get(): resolve config" --> Store
+    Factory -. "builds tenant-pinned instance<br/>secrets bound" .-> Run
+    Run --> Conns
+    Conns --> Ext
+
+    classDef binding fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef store fill:#f2f4f7,stroke:#8a9bac,stroke-width:1px,color:#1c2733
+    classDef runtime fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    classDef connector fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    classDef ext fill:#ddf5f0,stroke:#12867a,stroke-width:1px,color:#0b2f2a
+    class RestAPI,GrpcSrv,McpSrv,Invoke,Factory binding
+    class Config store
+    class Store,Run runtime
+    class Conns connector
+    class Ext ext
+    style input fill:#f7f8fa,stroke:#8a9bac,stroke-width:1px,stroke-dasharray:4 3,color:#1c2733
+    style layerC fill:#f4fbfe,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    style layerA fill:#fffaf0,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    style layerB fill:#fff5f8,stroke:#b81548,stroke-width:1px,color:#3d0a1d
 ```
 
-</div>
-
-<div class="nw-flow-connector nw-flow-down"><span>outbound calls ↓</span></div>
-
-<div class="nw-diagram nw-diagram--row" markdown="1">
+### Request lifecycle
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "16px", "fontFamily": "Inter, system-ui, sans-serif", "primaryTextColor": "#E8EDF5", "lineColor": "#62d2f5"}, "flowchart": {"nodeSpacing": 36, "rankSpacing": 40, "padding": 16}}}%%
-flowchart LR
-    subgraph external ["External Systems"]
-        ThirdParty["Third-party APIs & services"]
-    end
+%%{init: {"sequence": {"actorMargin": 28, "width": 110, "boxMargin": 6, "noteMargin": 6, "messageMargin": 28}}}%%
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant B as Binding
+    participant I as invoke.py
+    participant R as run()
+    participant X as Connector
 
-    classDef ext fill:#1a3338,stroke:#62d2f5,stroke-width:2px,color:#E8EDF5
-    class ThirdParty ext
-    style external fill:#151920,stroke:#62d2f5,stroke-width:2px,color:#62d2f5
+    C->>B: request
+    Note over B: resolve tenant<br/>+ config
+    B->>I: invoke(id, action, payload)
+    Note over I: exposure check<br/>factory.get<br/>normalize args
+    I->>R: run(payload, scopes)
+    Note over R: validate → policy<br/>→ resilience
+    R->>X: internal_execute
+    X->>X: outbound call
+    X-->>R: result / exception
+    Note over R: ErrorMapper
+    R-->>I: ConnectorResponse
+    I-->>B: ConnectorResponse
+    B-->>C: encoded response
 ```
 
-</div>
-
-<div class="nw-flow-connector nw-flow-up"><span>↑ ConnectorResponse returns through Layer C to clients</span></div>
-
-</div>
-
-### Data Flow (Simplified)
-
-1. A request arrives via REST, gRPC, or MCP.
-2. The Binding resolves the tenant (header, MCP overlay, or gRPC metadata), then calls the shared **Binding invoke** path (`src/bindings/invoke.py`): exposure check → `ConnectorFactory.get` (config + secrets bound at `get` time) → ingress normalize/enforce → `connector.run`.
-3. The runtime runs the connector:
-   - Validate input via Pydantic.
-   - Optional policy check.
-   - Retry/circuit-breaker wrapper (resilience).
-   - Execute internal logic.
-   - Map any exceptions to the standard error taxonomy.
-4. The response is returned in a standard shape (`ConnectorResponse`).
+A failure anywhere in `run` is mapped by `ErrorMapper` into the same `ConnectorResponse`
+envelope with an `ErrorCategory` — bindings translate that to an HTTP status, a gRPC code,
+or an MCP tool error, but the connector contract is identical on all three.
 
 ---
 
@@ -183,6 +121,39 @@ flowchart LR
 - **Tenant pinning**: Factory-built instances carry `_tenant_id`; `run()` uses that pin when `tenant_id` is omitted and rejects mismatched caller ids with `TENANT_MISMATCH`.
 - **Telemetry**: OpenTelemetry integration for tracing.
 
+### The `run()` pipeline
+
+Every action goes through the same sequence. The tenant pin is checked before the
+trace span opens; everything after it runs inside the span.
+
+```mermaid
+flowchart TB
+    In(["run(payload)"]) --> Pin["tenant pin check"]
+    Pin --> Val
+    Pin -. "TENANT_MISMATCH" .-> Err
+
+    Val["Pydantic validation<br/>discriminated union on action"]
+    Pol["PolicyHook · optional allow / deny"]
+    Res["Retries + circuit breaker<br/>Tenacity · PyBreaker"]
+    Exec["internal_execute<br/>dispatch to Layer B"]
+    Val --> Pol --> Res --> Exec
+    Otel(["OpenTelemetry span"]) -. "wraps validate → error mapping" .-> Val
+
+    Err["ErrorMapper<br/>stable code + ErrorCategory"]
+    Pol -. "PolicyDenied" .-> Err
+    Res -. "exception" .-> Err
+    Exec --> Out(["ConnectorResponse"])
+    Err --> Out
+
+    classDef step fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    classDef term fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef err fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    class Pin,Val,Pol,Res,Exec step
+    class In,Out term
+    class Err err
+    class Otel term
+```
+
 ---
 
 ## Layer B – `connectors`
@@ -200,7 +171,7 @@ flowchart LR
 
 ## Layer C – `bindings`
 
-**Purpose:** Expose connectors over different protocols and load them from configuration.
+**Purpose:** Expose connectors over different protocols and build tenant-pinned connector instances from configuration (read from `config/connectors.yaml`, held in the runtime config store).
 
 **Location:** `src/bindings/`
 

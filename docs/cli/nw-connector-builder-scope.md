@@ -6,6 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-connector-builder — scope
 
+Companion pages: [running the generator](nw-connector-builder.md) ·
+[codegen behaviour](nw-connector-builder-codegen.md).
+
 `nw-connector-builder` targets a specific, common shape of REST API (single connector-level
 auth scheme, JSON-first bodies, no pagination) and **soft-drops** anything outside that shape
 rather than trying to support every corner of OpenAPI/Swagger. This page is the scope
@@ -74,8 +77,8 @@ identity. That is the right shape for a service credential the host owns and rot
 per-user auth: if each caller must reach the vendor API as themselves, the mechanism is the
 runtime's `provider: upstream_bearer` relay, which forwards the inbound request's own bearer token
 per call and fails closed unless the connector is also listed in `NW_UPSTREAM_BEARER_CONNECTORS`
-(see [`connectors.md`](connectors.md#supported-provider-types) and
-[`google_drive_connector.md`](google_drive_connector.md#upstream_bearer)). The generator never
+(see [`connectors.md`](../connectors.md#supported-provider-types) and
+[`google_drive_connector.md`](../google_drive_connector.md#upstream_bearer)). The generator never
 emits `upstream_bearer`: nothing in an OpenAPI document says the caller's own token is the right
 credential to relay downstream, and relaying one to the wrong audience leaks it — so that stays a
 deliberate hand-wiring step.
@@ -184,10 +187,10 @@ name.
   registration for editable monorepo installs is a manual follow-up step
 - Publishing (PyPI wheel `setup.py`/Cython glue, `scripts/build-packages.sh` allowlist entries,
   CI allowlists, standalone MCP Docker image rows) is a manual **Tier 2/3** checklist in
-  [packaging.md](packaging.md) — the builder produces the runtime + package skeleton only
+  [packaging.md](../packaging.md) — the builder produces the runtime + package skeleton only
 - No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
-  `thv`/ToolHive deploy or verify is manual — see [mcp-servers.md](mcp-servers.md#platform-and-toolhive-read-this-first)
-  and [toolhive_agent_scenario.md](toolhive_agent_scenario.md). This was explicitly dropped from
+  `thv`/ToolHive deploy or verify is manual — see [mcp-servers.md](nw-mcp-builder.md#platform-and-toolhive-read-this-first)
+  and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md). This was explicitly dropped from
   the companion `nw-cli` orchestrator's scope too; see [nw-cli.md](nw-cli.md).
 
 ### Editing generated output

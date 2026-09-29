@@ -70,6 +70,53 @@ copy sample.env .env
 | `NW_REST_ALLOWED_HOSTS` | Optional egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. | _(unset)_ |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
 
+### Authentication & Request Limits
+
+Defaults below are the values in code, not recommendations — see
+[Security Best Practices](#security-best-practices) for what to set in production.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_REST_API_KEY` | Shared secret for REST API-key auth. Send as `Authorization: Bearer <key>` or `X-API-Key: <key>` | _(unset)_ |
+| `NW_REST_API_KEY_SCOPES` | Scopes granted to `NW_REST_API_KEY` (JSON array, or comma/space-separated) | _(empty)_ |
+| `NW_MCP_API_KEY_SCOPES` | Scopes granted to `NW_MCP_API_KEY` (same format) | _(empty)_ |
+| `NW_REST_JWT_SECRET` | HS256 secret for REST JWT ingress auth. Requires `NW_JWT_AUDIENCE` + `NW_JWT_ISSUER` | _(unset)_ |
+| `NW_MCP_JWT_SECRET` | HS256 secret for MCP JWT ingress auth | _(unset)_ |
+| `NW_GRPC_JWT_SECRET` | HS256 secret for gRPC JWT ingress auth | _(unset)_ |
+| `NW_REST_LOAD_DOTENV` | Load `.env` from disk at startup. Set `false` in production | `true` |
+| `NW_REST_MAX_BODY_BYTES` | Max JSON body on `/connectors/*` and `/scenarios/*`, rejected before parsing | `10485760` (10 MiB) |
+| `NW_REST_TRUSTED_PROXY_HOPS` | Number of reverse proxies in front of the app, so REST's client-IP fallback cannot be spoofed via `X-Forwarded-For`. `0` ignores the header | `0` |
+
+### Rate Limiting
+
+Two independent limiters. The **global token bucket** is always on (unless disabled) and is
+shared by every caller, so one noisy identity can still exhaust it for everyone. The
+**per-identity sliding window** is opt-in and isolates callers from each other. Both are
+`node_wire_runtime` facilities shared by REST, MCP, and gRPC.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_RATE_LIMIT_DISABLED` | Disable the global token bucket entirely | `false` |
+| `NW_RATE_LIMIT_BURST` | Global bucket capacity | `50` |
+| `NW_RATE_LIMIT_REFILL_RATE` | Global bucket refill, tokens per second | `10.0` |
+| `NW_RATE_LIMIT_PER_IDENTITY_ENABLED` | Enable the per-identity sliding-window limiter | `false` |
+| `NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS` | Requests allowed per window, per identity | `120` |
+| `NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS` | Window size in seconds | `60` |
+| `NW_RATE_LIMIT_PER_IDENTITY_MAX_TRACKED_KEYS` | LRU cap on tracked identities (bounds memory) | `10000` |
+| `NW_RATE_LIMIT_PER_IDENTITY_KEY_TTL_SECONDS` | Idle eviction for a tracked identity (bounds memory) | `3600` |
+
+How callers are keyed:
+
+| Transport | Bucket key | Fallback |
+|---|---|---|
+| REST | API-key / JWT fingerprint when auth is enabled | client IP (honours `NW_REST_TRUSTED_PROXY_HOPS`) |
+| MCP | authenticated principal | one shared per-transport bucket |
+| gRPC | authenticated principal | one shared per-transport bucket |
+
+The REST-only `NW_REST_RATE_LIMIT_ENABLED` family (`_MAX_REQUESTS`, `_WINDOW_SECONDS`,
+`_MAX_TRACKED_KEYS`, `_KEY_TTL_SECONDS`) still works as a **deprecated alias**; the canonical
+`NW_RATE_LIMIT_PER_IDENTITY_*` names take precedence when both are set.
+
 ### Multi-tenancy
 
 | Variable | Description | Default |
@@ -81,9 +128,28 @@ copy sample.env .env
 | `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
 | `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
 
-Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [mcp-servers.md](mcp-servers.md#multi-tenancy-mcp).
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [mcp-servers.md](cli/nw-mcp-builder.md#multi-tenancy-mcp).
 
-When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns configs), `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to **every connector** on that MCP process (stdio and streamable-http) by default, though a per-call `config_name` tool argument can override it for a single call. Tenant pin precedence differs by transport: on **stdio**, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin for later calls, unless `NW_MCP_TENANT_PIN_LOCKED=true`. On **streamable-http**, the live per-request `X-Tenant-ID` header (or JWT tenant claim) always wins on every request — a prior `nw_select_tenant` call can never shadow another concurrent session's request-level tenant. Provision configs via playground REST / YAML — not via MCP.
+When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns
+configs), `nw_list_configs`, and `nw_select_config`. Provision configs via playground REST or
+YAML — not via MCP.
+
+**Tenant precedence** differs by transport. Highest wins:
+
+| Transport | 1st | 2nd | 3rd |
+|---|---|---|---|
+| REST / gRPC | `X-Tenant-ID` header or JWT `tenant` claim (per request) | — | — |
+| MCP streamable-http | `X-Tenant-ID` header or JWT claim (per request) | `nw_select_tenant` selection | `NW_TENANT_ID` pin |
+| MCP stdio | `nw_select_tenant` selection, unless `NW_MCP_TENANT_PIN_LOCKED=true` | `NW_TENANT_ID` pin | — |
+
+On streamable-http the live per-request header always wins, so a prior `nw_select_tenant`
+call can never shadow another concurrent session's request-level tenant. A JWT `tenant` claim
+that disagrees with a caller-supplied header or session tenant is rejected with
+`TENANT_IDENTITY_MISMATCH` — never silently overridden.
+
+**Config selection:** `nw_select_config` applies to **every connector** on that MCP process
+(stdio and streamable-http). A per-call `config_name` tool argument overrides it for a single
+call.
 
 **Host / factory contract:** Resolve the request tenant once (`resolve_tenant_id` in bindings, or your own auth in an embedded app), then pass that id to `ConnectorFactory.get(tenant_id=...)`. Omitting `tenant_id` on `get` always resolves `__default__` — never the current HTTP/MCP tenant. After `get`, the connector instance is pinned: `run()` may omit `tenant_id` (uses the pin); a conflicting `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without executing the action.
 
@@ -110,11 +176,17 @@ connectors:
 
 ## Secrets Management
 
-The factory selects a secret provider from `NW_SECRET_BACKEND` (default `env` →
-`EnvSecretProvider`). Env lookups use the key as given, then `key.upper()` (e.g.
-`my_key` then `MY_KEY`). Missing keys raise `SecretNotFoundError` (fail-closed)
-unless `NW_ENV_SECRET_LEGACY_EMPTY=true` (legacy empty-string behaviour — do not
-use in production).
+The factory selects a secret provider from `NW_SECRET_BACKEND`. Env lookups use the key as
+given, then `key.upper()` (e.g. `my_key` then `MY_KEY`).
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_SECRET_BACKEND` | Secret provider to use: `env` or `aws_env` (see below) | `env` |
+| `NW_ENV_SECRET_LEGACY_EMPTY` | Return `""` instead of raising for a missing key. Legacy behaviour — do not use in production | `false` |
+| `NW_AWS_SECRETS_MANAGER_SECRET_ID` | Secret name or ARN. **Required** when `NW_SECRET_BACKEND=aws_env` | _(unset)_ |
+| `AWS_REGION` | AWS region for `aws_env` | `us-east-1` |
+
+Missing keys raise `SecretNotFoundError` (fail-closed) unless `NW_ENV_SECRET_LEGACY_EMPTY=true`.
 
 ### Secret backend (`NW_SECRET_BACKEND`)
 
@@ -122,11 +194,6 @@ use in production).
 |---|---|
 | `env` _(default)_ | Reads from process environment. Raises `SecretNotFoundError` for absent keys (fail-closed). |
 | `aws_env` | Tries AWS Secrets Manager JSON bundle first; falls back to env on `SecretNotFoundError`. Propagates `SecretProviderError` immediately (broken provider is never silently swallowed). |
-
-Required env vars for `aws_env`:
-
-- `NW_AWS_SECRETS_MANAGER_SECRET_ID` — secret name or ARN (required)
-- `AWS_REGION` — defaults to `us-east-1`
 
 Additional cloud backends (`vault`, `azure`, `gcp`) ship as optional extras in
 `node-wire-runtime` but are **not** currently wired into the factory — using them
@@ -164,6 +231,6 @@ export GOOGLE_DRIVE_SA_JSON=$(cat /path/to/service_account.json)
 - **Scope policy:** Unset `NW_MCP_SCOPE_POLICY_DEFAULT` defaults to **deny** in code. Configure `NW_MCP_API_KEY_SCOPES`, `NW_REST_API_KEY_SCOPES`, and `NW_GRPC_API_KEY_SCOPES` (or JWT claims) for each transport. Use `NW_MCP_SCOPE_POLICY_DEFAULT=allow` only for intentional local fail-open.
 - **JWT ingress auth:** When using `NW_MCP_JWT_SECRET`, `NW_REST_JWT_SECRET`, or `NW_GRPC_JWT_SECRET`, set `NW_JWT_AUDIENCE` and `NW_JWT_ISSUER`. Minted tokens must include `exp`, `iat`, `aud`, and `iss` (HS256; asymmetric RS256 is not yet supported for bindings).
 - **Log redaction:** A platform-wide logging filter redacts PHI-like field names and values (for example `search_params`, `body`, patient identifiers). FHIR connectors log operation mode, HTTP status, and counts only—not request parameters or raw FHIR response bodies.
-- **Per-identity rate limiting (REST, MCP, gRPC):** Off by default; a single global token bucket (`NW_RATE_LIMIT_BURST` / `NW_RATE_LIMIT_REFILL_RATE`, disable via `NW_RATE_LIMIT_DISABLED=true`) always applies on top of it for coarse DoS protection, but that bucket is shared by every caller — one noisy/malicious identity can still exhaust it for everyone else. Enable the opt-in per-identity sliding-window limiter with `NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true` to isolate callers from each other; it's a `node_wire_runtime` facility shared by all three transports; tune it with `NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS`, `NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS`, `NW_RATE_LIMIT_PER_IDENTITY_MAX_TRACKED_KEYS`, and `NW_RATE_LIMIT_PER_IDENTITY_KEY_TTL_SECONDS` (the last two bound memory). REST keys buckets by API key/JWT fingerprint when auth is enabled, falling back to client IP for unauthenticated traffic; MCP and gRPC key by the authenticated principal, falling back to a shared per-transport bucket when no identity is available. Set `NW_REST_TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the app (e.g. `1` behind nginx/ALB) so REST's IP fallback isn't spoofable via `X-Forwarded-For`; leave at `0` to ignore it. The legacy `NW_REST_RATE_LIMIT_ENABLED` (and its `_MAX_REQUESTS`/`_WINDOW_SECONDS`/`_MAX_TRACKED_KEYS`/`_KEY_TTL_SECONDS` siblings) still work as a deprecated, REST-only alias for backward compatibility; the canonical `NW_RATE_LIMIT_PER_IDENTITY_*` names take precedence when set.
+- **Rate limiting:** The always-on global bucket is shared by every caller, so it only gives coarse DoS protection. Set `NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true` to isolate callers from each other, and set `NW_REST_TRUSTED_PROXY_HOPS` to your reverse-proxy depth so the REST IP fallback is not spoofable. Full reference: [Rate Limiting](#rate-limiting).
 - **REST body size:** Set `NW_REST_MAX_BODY_BYTES` (default 10 MiB) to cap JSON bodies on `/connectors/*` and `/scenarios/*` before handlers parse them. Also set `client_max_body_size` (or equivalent) on your reverse proxy for defense in depth.
 - **Network bindings:** MCP streamable-http defaults to `NW_MCP_HOST=127.0.0.1`; set `0.0.0.0` only when intentionally exposing beyond localhost. For gRPC, set `NW_GRPC_TLS_CERT_PATH` and `NW_GRPC_TLS_KEY_PATH`, or enable `NW_GRPC_REQUIRE_TLS=true` in production to refuse plaintext startup. Terminate TLS at a reverse proxy if not terminating in-process.

@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-mcp-builder
 
+!!! note "Advanced — most users want the `nw` CLI"
+    `nw-mcp-builder` is the standalone entry point and exposes the full flag surface.
+    For the normal path (spec → connector → wheels → MCP host → image) use
+    [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a
+    flag `nw` does not pass through, or are debugging this stage on its own.
+
 Self-contained tool inside the **node-wire** repo that turns a node-wire connector into a standalone MCP server project.
 
 It does **not** depend on any separate external `mcp-builder` project. Everything needed to generate connector-mode MCP hosts lives in this folder.
@@ -98,8 +104,8 @@ For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
    - `packages/runtime/dist/node_wire_runtime-*.whl`
    - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
    - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-read-this-first))
-3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`  
-   - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source  
+3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
+   - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source
    - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
 4. **Generates** `out/<server-name>-mcp/` containing:
    - Copied wheels under `wheels/`
@@ -124,10 +130,13 @@ Server name in the fixture is always `{connector_id with _ → -}-nw` (e.g. `goo
 
 - **[uv](https://docs.astral.sh/uv/)** — package manager and runner
 - **Python 3.13+** for `nw-mcp-builder` itself
-- **Python version matching wheels** for generated hosts — on Windows, wheels are often built as **cp314**, so use:
+- **Python version matching wheels** for generated hosts — the generated host must run the same
+  Python minor version the wheels were built for. The repo standardises on **3.13** (the
+  generated Dockerfile uses `python:3.13-slim`). If your host wheels were built by a different
+  interpreter, pin it explicitly:
 
   ```bash
-  uv sync --python 3.14
+  uv sync --python 3.13
   ```
 
 - **Docker** — required for Linux wheels via `scripts/build-packages.sh` and for ToolHive local MCP images
@@ -182,7 +191,7 @@ cd out/<name>-mcp
 # Example
 cd out/google-drive-nw-mcp
 cp .env.example .env    # optional locally; or inject secrets via env (ToolHive)
-uv sync --python 3.14   # match wheel ABI (cp314 on many Windows builds)
+uv sync --python 3.13   # must match the ABI your wheels were built for
 uv run python -m <module_name>
 # Example
 uv run python -m google_drive_nw_mcp
@@ -393,7 +402,7 @@ The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha
 | `Output project already exists` | Pass `--force-output` |
 | `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
 | `No module named bindings` / `No node-wire-bindings wheel` | Build bindings: `nw gen-whl --bindings` |
-| `uv sync` / import errors on generated host | Use `--python 3.14` (or whatever ABI your `.whl` files were built with) |
+| `uv sync` / import errors on generated host | Pin `--python` to the ABI your `.whl` files were built for (`cp313` for the standard 3.13 build) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
 | Connector secrets missing in Docker/ToolHive | Set secrets via `docker run -e` / `--env-file` or the orchestrator. Do not COPY or bind-mount `.env` into the image. |

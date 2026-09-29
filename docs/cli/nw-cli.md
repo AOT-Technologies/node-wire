@@ -6,9 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw CLI
 
-`nw` is the unified CLI for the OpenAPI → connector → wheel → MCP host → Docker image pipeline. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](packaging.md), and [`nw-mcp-builder`](mcp-servers.md) without replacing those tools.
+`nw` is the unified CLI for the OpenAPI → connector → wheel → MCP host → Docker image pipeline. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](../packaging.md), and [`nw-mcp-builder`](nw-mcp-builder.md) without replacing those tools.
 
-ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. For manual ToolHive registration and the end-to-end agent path, see [mcp-servers.md](mcp-servers.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. For manual ToolHive registration and the end-to-end agent path, see [mcp-servers.md](nw-mcp-builder.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
 
 ---
 
@@ -32,17 +32,7 @@ uv run nw --version   # or -V
 | `nw gen-whl` | Standalone wheel build via `scripts/build-packages.sh` |
 | `nw gen-mcp` | Standalone MCP host (requires existing wheels) |
 | `nw docker-build` | `docker build` inside `nw-mcp-builder/out/<server>-mcp/` |
-
-```mermaid
-flowchart LR
-  generate["nw gen-all"] --> runBuild["run_build no_mcp=True"]
-  generate --> wheelStage["build-packages.sh"]
-  generate --> mcpStage["run_from_connector"]
-  generate --> allPkgs["ALL_PACKAGES"]
-  wheelCmd["nw gen-whl"] --> wheelStage
-  mcpCmd["nw gen-mcp"] --> mcpStage
-  dockerCmd["nw docker-build"] --> dockerBuild["docker build"]
-```
+| `nw gen-stacklok` | Scope an OpenAPI spec with stacklok's `/ai-scoping`, then build a stacklok MCP server on the node-wire runtime |
 
 ### `nw gen-all`
 
@@ -68,21 +58,37 @@ Stages run in-process and in order, each skippable independently; the `mcp` stag
 
 ```mermaid
 flowchart TD
-  start(["nw gen-all"]) --> connector["Connector codegen<br/>run_build(no_mcp=True)"]
-  connector --> toolMode["Tool mode (unless --no-mcp)<br/>measure listing; over budget:<br/>TTY: ask · non-TTY: full list + warning"]
-  toolMode --> wheelFlag{"--no-wheel?"}
-  wheelFlag -- no --> wheel["Wheel build<br/>runtime + bindings, then connector"]
-  wheelFlag -- yes --> mcpFlag
-  wheel --> mcpFlag{"--no-mcp?"}
-  mcpFlag -- no --> wheelsCheck{"Wheels already<br/>present for id?"}
-  wheelsCheck -- no --> ensureBuild["TTY: prompt to build<br/>Non-TTY: exit 1 with fix command"]
-  ensureBuild --> mcpBuild
-  wheelsCheck -- yes --> mcpBuild["MCP host build<br/>run_mcp_build"]
-  mcpFlag -- yes --> wireFlag
-  mcpBuild --> wireFlag{"--no-wire?"}
-  wireFlag -- no --> wire["Wire<br/>connectors.yaml + sample.env + ALL_PACKAGES"]
-  wireFlag -- yes --> done(["Done"])
-  wire --> done
+    Start(["nw gen-all"]) --> Connector["Connector codegen<br/>run_build(no_mcp=True)"]
+    Connector --> McpWanted{"Build an<br/>MCP host?"}
+
+    McpWanted -- "yes" --> ToolMode["Decide tool mode<br/>measure listing against --max-tool-listing-kb<br/>TTY: ask · non-TTY: full list + warning"]
+    McpWanted -- "no (--no-mcp)" --> WheelGate
+    ToolMode --> WheelGate{"Build<br/>wheels?"}
+
+    WheelGate -- "yes" --> Wheel["Wheel build<br/>runtime + bindings, then connector"]
+    WheelGate -- "no (--no-wheel)" --> McpGate
+    Wheel --> McpGate{"MCP host<br/>requested?"}
+
+    McpGate -- "yes" --> WheelsPresent{"Wheels present<br/>for this id?"}
+    McpGate -- "no (--no-mcp)" --> WireGate
+    WheelsPresent -- "yes" --> McpBuild["MCP host build<br/>run_mcp_build"]
+    WheelsPresent -- "no, TTY" --> Prompt["Prompt to build<br/>the missing wheel"]
+    WheelsPresent -- "no, non-TTY" --> Fail(["exit 1<br/>prints the fix command"])
+    Prompt --> McpBuild
+    McpBuild --> WireGate{"Wire the<br/>connector in?"}
+
+    WireGate -- "yes" --> Wire["Wire<br/>connectors.yaml + sample.env + ALL_PACKAGES"]
+    WireGate -- "no (--no-wire)" --> Done(["Done"])
+    Wire --> Done
+
+    classDef stage fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef gate fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    classDef term fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef bad fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    class Connector,ToolMode,Wheel,McpBuild,Prompt,Wire stage
+    class McpWanted,WheelGate,McpGate,WheelsPresent,WireGate gate
+    class Start,Done term
+    class Fail bad
 ```
 
 Stages are **in-process** function calls (never re-invokes `nw`). Connector codegen always passes `no_mcp=True` to `run_build` so the builder’s host-only MCP hand-off is skipped; MCP uses `skip_build_wheels=True` against wheels from `build-packages.sh`.
@@ -164,7 +170,7 @@ wheels for the image (cp313 musllinux for stacklok's Alpine base, via `scripts/b
 --cibw-linux` in Docker; unchanged packages are reused) → the vendored stacklok
 generator (`nw-stacklok-builder/out/<server>-mcp/`, then `uv lock`). `--connector-id` may be
 omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` block. See
-[stacklok MCP servers](stacklok-mcp-servers.md).
+[stacklok MCP servers](../stacklok-mcp-servers.md).
 
 ---
 
@@ -211,8 +217,7 @@ Coverage is unit/mocked only (no live Docker or network spec fetch).
 
 | Doc | When to read it |
 |-----|-----------------|
-| [nw-cli-runbook.md](nw-cli-runbook.md) | Step-by-step: Petstore and Slack to ToolHive, with both builders |
 | [nw-connector-builder.md](nw-connector-builder.md) | OpenAPI → connector codegen details |
-| [mcp-servers.md](mcp-servers.md) | Generated MCP host layout, ToolHive, Inspector |
-| [packaging.md](packaging.md) | `build-packages.sh`, wheels, PyPI |
-| [configuration.md](configuration.md) | `connectors.yaml` and env vars |
+| [mcp-servers.md](nw-mcp-builder.md) | Generated MCP host layout, ToolHive, Inspector |
+| [packaging.md](../packaging.md) | `build-packages.sh`, wheels, PyPI |
+| [configuration.md](../configuration.md) | `connectors.yaml` and env vars |

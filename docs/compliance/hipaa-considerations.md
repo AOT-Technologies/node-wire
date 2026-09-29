@@ -8,8 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 
 Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).
 
-> [!WARNING]
-> Node Wire is a software framework, not a managed service. You are solely responsible for ensuring that your deployment, configuration, and infrastructure meet all applicable HIPAA requirements.
+!!! warning
+    Node Wire is a software framework, not a managed service. You are solely responsible
+    for ensuring that your deployment, configuration, and infrastructure meet all
+    applicable HIPAA requirements.
 
 ## 1. Business Associate Agreements (BAAs)
 

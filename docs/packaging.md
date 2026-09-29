@@ -40,7 +40,7 @@ images and is deliberately absent from the package lists in `publish.yml`,
 
 ## Adding a new publishable connector
 
-After implementing the connector runtime (see [connectors.md](connectors.md), or generate a REST skeleton with [nw-connector-builder](nw-connector-builder.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
+After implementing the connector runtime (see [connectors.md](connectors.md), or generate a REST skeleton with [nw-connector-builder](cli/nw-connector-builder.md)), update these files to ship it on PyPI and optionally as a standalone MCP server.
 
 ### Tier 1 — Runtime (dev, always required)
 
@@ -240,7 +240,7 @@ Prerequisites: `pip install build cython wheel` (and a usable `python` on the ho
 
 ### Build all packages (default)
 
-For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](nw-cli.md) — it wraps this script with Linux-only as the default.
+For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](cli/nw-cli.md) — it wraps this script with Linux-only as the default.
 
 ```bash
 bash scripts/build-packages.sh
@@ -554,7 +554,7 @@ The `docker/*/Dockerfile` images are **demonstration templates** for packaging a
 
 Generated MCP host images expect **Linux** wheels built for **Python 3.13**
 (`python:3.13-slim` in the generated Dockerfile). See
-[mcp-servers.md](mcp-servers.md#platform-and-toolhive-read-this-first) and
+[mcp-servers.md](cli/nw-mcp-builder.md#platform-and-toolhive-read-this-first) and
 [local-packages-to-images.md](local-packages-to-images.md) for the wheel → image
 walkthrough.
 

@@ -9,6 +9,16 @@ repo_url: https://github.com/AOT-Technologies/node-wire
 repo_name: AOT-Technologies/node-wire
 docs_dir: docs
 
+# Surfaced as warnings locally; `mkdocs build --strict` in CI turns them into failures.
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+
 theme:
   name: material
   logo: images/nw-favicon-black.png
@@ -101,19 +111,23 @@ nav:
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
-    - Multi-tenancy: configuration.md#multi-tenancy
   - Architecture: architecture.md
   - Connectors:
     - Overview: connectors.md
-    - OpenAPI Builder: nw-connector-builder.md
-    - OpenAPI Builder Scope: nw-connector-builder-scope.md
-    - nw CLI: nw-cli.md
+    - Connector Reference: connector-reference.md
+    - REST / MCP / gRPC Exposure: connector-bindings.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md
     - Slack: slack_connector.md
+  - CLI:
+    - Overview: cli/index.md
+    - nw CLI: cli/nw-cli.md
+    - nw-connector-builder: cli/nw-connector-builder.md
+    - Scope: cli/nw-connector-builder-scope.md
+    - Codegen Behaviour: cli/nw-connector-builder-codegen.md
+    - nw-mcp-builder: cli/nw-mcp-builder.md
   - MCP:
     - Overview: mcp.md
-    - MCP Host Builder (nw-mcp-builder): mcp-servers.md
     - stacklok MCP servers (nw gen-stacklok): stacklok-mcp-servers.md
     - stacklok builder decisions: stacklok-mcp-builder-requirements.md
     - Client OAuth: mcp-client-oauth.md
@@ -126,10 +140,16 @@ nav:
     - Packaging: packaging.md
     - Public API: public-api.md
   - Operations:
-    - "Runbook: nw CLI → ToolHive": nw-cli-runbook.md
     - Troubleshooting: troubleshooting.md
     - Release & Rollback: release-rollback.md
     - Local Images: local-packages-to-images.md
   - Compliance:
     - Privacy: privacy.md
     - HIPAA Considerations: compliance/hipaa-considerations.md
+  - Project:
+    - Contributing: contributing.md
+    - Code of Conduct: https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md
+    - Governance: https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md
+    - Support: https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md
+    - Security Policy: https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md
+    - Changelog: https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md

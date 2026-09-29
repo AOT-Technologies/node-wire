@@ -152,5 +152,5 @@ on the Petstore scope.
 - The Kubernetes manifests are templates: the operator's handling of `podTemplateSpec` labels
   (used by the NetworkPolicy) should be checked in your cluster (`deploy/README.md`).
 
-See also: [runbook](nw-cli-runbook.md), [decisions](stacklok-mcp-builder-requirements.md), [nw CLI](nw-cli.md),
-[MCP host builder](mcp-servers.md).
+See also: [decisions](stacklok-mcp-builder-requirements.md), [nw CLI](cli/nw-cli.md),
+[MCP host builder](cli/nw-mcp-builder.md).

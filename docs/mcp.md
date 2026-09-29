@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Node Wire integrates with the Model Context Protocol to allow AI agents (like Claude or custom LLM orchestrators) to discover and use connectors as tools.
 
-For **pre-built per-connector Docker images and ToolHive registration**, see [packaging.md](packaging.md). For **generating a custom standalone MCP host** for a connector with `nw-mcp-builder`, see [mcp-servers.md](mcp-servers.md).
+For **pre-built per-connector Docker images and ToolHive registration**, see [packaging.md](packaging.md). For **generating a custom standalone MCP host** for a connector with `nw-mcp-builder`, see [mcp-servers.md](cli/nw-mcp-builder.md).
 
 For **outbound OAuth** when connecting to remote authorized MCP servers over HTTP, see [mcp-client-oauth.md](mcp-client-oauth.md).
 
@@ -17,43 +17,38 @@ For **outbound OAuth** when connecting to remote authorized MCP servers over HTT
 Switch between transports using the `NW_MCP_TRANSPORT` environment variable.
 
 ### 1. `stdio` (Default)
+
 Communicates via standard I/O. Best for local development and subprocess-based clients.
-**Bash (Linux/macOS):**
+
 ```bash
-# Using uv
+# Bash (Linux/macOS)
 NW_MCP_TRANSPORT=stdio uv run python -m agents.mcp_entrypoint
-
-# Using python
-NW_MCP_TRANSPORT=stdio python -m agents.mcp_entrypoint
 ```
 
-**PowerShell (Windows):**
 ```powershell
-# Using uv
+# PowerShell (Windows)
 $env:NW_MCP_TRANSPORT="stdio"; uv run python -m agents.mcp_entrypoint
-
-# Using python
-$env:NW_MCP_TRANSPORT="stdio"; python -m agents.mcp_entrypoint
 ```
+
+Drop `uv run` to use an already-activated environment's `python` directly.
 
 ### 2. `streamable-http`
-Native HTTP MCP server using SSE (Server-Sent Events).
-**Bash (Linux/macOS):**
-```bash
-# Using uv
-NW_MCP_TRANSPORT=streamable-http NW_MCP_HOST=127.0.0.1 NW_MCP_PORT=8081 NW_MCP_PATH=/mcp uv run python -m agents.mcp_entrypoint
 
-# Using python
-NW_MCP_TRANSPORT=streamable-http NW_MCP_HOST=127.0.0.1 NW_MCP_PORT=8081 NW_MCP_PATH=/mcp python -m agents.mcp_entrypoint
+The MCP Streamable HTTP transport: a single HTTP endpoint that upgrades to an SSE stream when a
+response is streamed. This is the successor to the deprecated standalone `sse` transport, not
+the same thing.
+
+```bash
+# Bash (Linux/macOS)
+NW_MCP_TRANSPORT=streamable-http NW_MCP_HOST=127.0.0.1 NW_MCP_PORT=8081 NW_MCP_PATH=/mcp \
+  uv run python -m agents.mcp_entrypoint
 ```
 
-**PowerShell (Windows):**
 ```powershell
-# Using uv
-$env:NW_MCP_TRANSPORT="streamable-http"; $env:NW_MCP_HOST="127.0.0.1"; $env:NW_MCP_PORT="8081"; $env:NW_MCP_PATH="/mcp"; uv run python -m agents.mcp_entrypoint
-
-# Using python
-$env:NW_MCP_TRANSPORT="streamable-http"; $env:NW_MCP_HOST="127.0.0.1"; $env:NW_MCP_PORT="8081"; $env:NW_MCP_PATH="/mcp"; python -m agents.mcp_entrypoint
+# PowerShell (Windows)
+$env:NW_MCP_TRANSPORT="streamable-http"; $env:NW_MCP_HOST="127.0.0.1"
+$env:NW_MCP_PORT="8081"; $env:NW_MCP_PATH="/mcp"
+uv run python -m agents.mcp_entrypoint
 ```
 
 ### Streaming Features
@@ -69,9 +64,6 @@ The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is the be
 ### Testing stdio
 ```bash
 npx @modelcontextprotocol/inspector uv run python -m agents.mcp_entrypoint
-
-# Using python
-npx @modelcontextprotocol/inspector python -m agents.mcp_entrypoint
 ```
 
 ### Testing streamable-http
@@ -88,20 +80,45 @@ npx @modelcontextprotocol/inspector
 
 Node Wire supports two ways to expose tools via MCP:
 
+```mermaid
+flowchart TB
+    subgraph combined["Combined — one process"]
+        direction TB
+        A1["AI agent"] --> P1["agents.mcp_entrypoint"]
+        P1 --> C1["google_drive"]
+        P1 --> C2["slack"]
+        P1 --> C3["fhir_epic"]
+    end
+
+    subgraph individual["Individual — one container each"]
+        direction TB
+        A2["AI agent"] --> S1["nw-google-drive"]
+        A2 --> S2["nw-slack"]
+        A2 --> S3["nw-smartonfhir-epic"]
+    end
+
+    combined ~~~ individual
+
+    classDef agent fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef proc fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef conn fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    class A1,A2 agent
+    class P1,S1,S2,S3 proc
+    class C1,C2,C3 conn
+    style combined fill:#f7f8fa,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    style individual fill:#f7f8fa,stroke:#5b7387,stroke-width:1px,color:#1c2733
+```
+
 ### 1. Combined MCP Server
 All connectors enabled for MCP in `config/connectors.yaml` are exposed from a single process.
 ```bash
-# Using uv
 uv run python -m agents.mcp_entrypoint
-
-# Using python
-python -m agents.mcp_entrypoint
 ```
 
 ### 2. Individual MCP Servers
 Each connector runs as its own independent MCP server (often in a dedicated Docker container). This is preferred for modular, scalable deployments.
 - **Pre-built per-connector Docker images:** [packaging.md](packaging.md)
-- **Generate a custom standalone MCP host with `nw-mcp-builder`:** [mcp-servers.md](mcp-servers.md)
+- **Generate a custom standalone MCP host with `nw-mcp-builder`:** [mcp-servers.md](cli/nw-mcp-builder.md)
 
 ---
 
@@ -132,7 +149,7 @@ Tenant is never a connector-tool argument.
 Full variable reference and host/factory contract:
 [Configuration — Multi-tenancy](configuration.md#multi-tenancy).
 MCP transport pin rules and ToolHive notes:
-[Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp).
+[Multi-tenancy (MCP)](cli/nw-mcp-builder.md#multi-tenancy-mcp).
 
 ---
 
@@ -156,5 +173,5 @@ Each connector defines a manifest that MCP uses to understand available tools.
 
 ## Related Docs
 - [Pre-built per-connector Docker images](packaging.md)
-- [Generate a custom MCP host (`nw-mcp-builder`)](mcp-servers.md)
+- [Generate a custom MCP host (`nw-mcp-builder`)](cli/nw-mcp-builder.md)
 - [ToolHive Agent Scenario](toolhive_agent_scenario.md)

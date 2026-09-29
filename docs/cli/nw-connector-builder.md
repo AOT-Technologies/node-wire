@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-connector-builder
 
+!!! note "Advanced — most users want the `nw` CLI"
+    `nw-connector-builder` is the standalone entry point and exposes the full flag surface.
+    For the normal path (spec → connector → wheels → MCP host → image) use
+    [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a
+    flag `nw` does not pass through, or are debugging this stage on its own.
+
 Self-contained tool inside the **node-wire** repo with two subcommands:
 
 | Command | Purpose |
@@ -13,7 +19,7 @@ Self-contained tool inside the **node-wire** repo with two subcommands:
 | `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
 | `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
 
-Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](mcp-servers.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](connectors.md).
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](../connectors.md).
 
 ---
 
@@ -38,20 +44,26 @@ Generated output lands in the monorepo (not under `nw-connector-builder/`):
 ## What it does (end to end)
 
 ```mermaid
-flowchart LR
-  spec[OpenAPI / Swagger]
-  load["Load spec<br/>(file or URL)"]
-  normalize["Normalize<br/>Swagger 2.0 → 3.x"]
-  validate["Resolve refs<br/>+ validate"]
-  derive[Derive actions]
-  stage[Stage codegen]
-  gate[Import + pytest gate]
-  promote[Promote to repo]
-  mcp[MCP hand-off]
-  wire["--wire config"]
-  spec --> load --> normalize --> validate --> derive --> stage --> gate --> promote
-  promote --> mcp
-  promote --> wire
+flowchart TB
+    spec[/"OpenAPI / Swagger spec"/] --> load["1 · Load<br/>file or URL"]
+    load --> normalize["2 · Normalize<br/>Swagger 2.0 → OpenAPI 3.x"]
+    normalize --> validate["3 · Validate<br/>resolve refs, reject remote $ref"]
+    validate --> derive["4 · Derive<br/>auth plan + actions"]
+    derive --> codegen["5 · Codegen<br/>stage schema.py + logic.py"]
+    codegen --> gate{"6 · Gate<br/>import smoke + pytest"}
+    gate -- "fail" --> abort(["exit 1 · report.json<br/>repo left untouched"])
+    gate -- "pass" --> promote["7 · Promote<br/>atomic, two-phase"]
+    promote --> mcp["8 · MCP hand-off"]
+    promote --> wire["9 · Wire (--wire)"]
+
+    classDef step fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef gateC fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    classDef term fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef bad fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    class load,normalize,validate,derive,codegen,promote,mcp,wire step
+    class gate gateC
+    class spec term
+    class abort bad
 ```
 
 For a connector id like `pet_store`:
@@ -143,7 +155,7 @@ uv sync
 uv run python -m pet_store_nw_mcp
 ```
 
-See [mcp-servers.md](mcp-servers.md) for ToolHive, Linux wheels, and Inspector.
+See [mcp-servers.md](nw-mcp-builder.md) for ToolHive, Linux wheels, and Inspector.
 
 ### 4. Tests for the builder itself
 
@@ -180,7 +192,7 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 
 ### `mcp`
 
-Same flags as standalone `nw-mcp-builder` (see [mcp-servers.md](mcp-servers.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
+Same flags as standalone `nw-mcp-builder` (see [mcp-servers.md](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
 
 Help:
 
@@ -212,23 +224,9 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 | Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see below) |
 | Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
 
-### Draft-4 repair
+Draft-4 constructs that OpenAPI 3.0 forbids (and the Swagger 2.0 `examples` move) are
+rewritten rather than rejected — see [codegen behaviour](nw-connector-builder-codegen.md#spec-repair).
 
-Real-world specs — Slack's published Web API spec among them — carry JSON Schema draft-4 constructs that OpenAPI 3.0's Schema Object does not allow. One of them anywhere in the document fails validation and takes the whole build with it, so the loader rewrites them into their OAS 3.0 equivalents (after `$ref` resolution, so inlined targets are covered) and logs a count of what it changed:
-
-| Found | Rewritten to |
-|---|---|
-| `type: ["string", "null"]` | `type: string` + `nullable: true` |
-| `type: ["string", "integer"]` | `anyOf: [{type: string}, {type: integer}]` |
-| `type: "null"` | `nullable: true` |
-| `items: [A, {type: null}]` | `items: A` + `nullable: true` |
-| `items: [A, B]` | `items: {anyOf: [A, B]}` |
-
-Tuple-form `items` means positional validation in draft-4, which no generated model can express; the specs that use it mean "A or B", so that is how it is read. Documents without these constructs are untouched.
-
-Swagger 2.0 input gets one more repair during conversion: response `examples` (keyed by mime type on the response object, which OAS 3 has no property for) moves to `content.<mime>.example`.
-
----
 
 ## Auth mapping
 
@@ -282,82 +280,11 @@ Operations that require a **different, still-presentable** scheme than the conne
 
 ---
 
-## Tool and parameter descriptions
+## How generated code is shaped
 
-Generated tools carry the spec's own text, so an MCP client can tell what a tool does and what each argument expects:
-
-- **tool description** — the operation's `summary`, else its `description`; first paragraph only, markdown links flattened to their text, capped at 300 characters. It becomes the input model's docstring, which the manifest publishes as the tool description.
-- **parameter description** — from the parameter, or its schema (OAS 3 allows either); first sentence, capped at 90 characters.
-
-Everything past the first paragraph (argument tables, error lists) repeats the input schema and is paid for in every tool listing, so it is left out. On Slack's spec no operation description reaches the cap.
-
----
-
-## Action names and generated source
-
-- **Action names** come from `operationId` (or method + path), snake_cased. They are cut to fit the MCP tool-name limit — the tool name is `<connector_id>_<action>`, at most 64 characters — at a word boundary, never mid-word and never leaving a trailing `_`. Duplicates get a numeric suffix.
-- **Formatting** — generated `src/node_wire_<id>/` and its tests are run through `ruff format` at staging time, using the target root's `pyproject.toml` `[tool.ruff]` settings, so they pass the same `ruff format --check` as hand-written code. Source ruff cannot parse fails the build: it is a codegen bug.
-- **No schema titles** — generated models carry a `_drop_titles` `json_schema_extra` hook, so their JSON schemas have no `title` on the model or its fields (Pydantic's defaults only restate the names). Descriptions carry each field's meaning.
-- **Runtime floor** — the generated package requires `node-wire-runtime>=1.1.0`, the first runtime with `body_property` routing and success-flag envelopes.
-
----
-
-## Request body fields
-
-A generated tool takes **one flat set of arguments**. Each property of an object request body becomes its own typed, described argument next to the path, query and header parameters — there is no nested `body` object to fill in:
-
-```json
-{"channel": "C0123", "text": "hi"}
-```
-
-The tool contract (what a caller sends) is kept separate from the wire contract (where each value goes on the HTTP request). Every generated field carries its location in `nw_in`; body properties use `nw_in="body_property"`, and the runtime rebuilds the request body from them by wire name (`split_params_by_location` in `node_wire_runtime/rest.py`). The same Pydantic model is validated by every binding, so REST, gRPC and MCP all enforce the same required fields, types and enums.
-
-Rules:
-
-- **Required** — a body property is required only when the request body is required (`requestBody.required: true`) *and* the property is in the body schema's `required` list. An optional body may be omitted entirely.
-- **Always sent** — an operation that declares a body sends one, `{}` when no property is set.
-- **`allOf`** parts at the top of the body schema are merged; `readOnly` properties are left out (a client never sends them).
-- **Enums** on string fields become `Literal[...]` types, so they are enforced, not only advertised.
-- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (e.g. `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix, Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
-- **Whole bodies** — bodies that are not objects with declared properties keep a single `body` argument: arrays (`list`), binary/string bodies (`str`), free-form maps, `oneOf`/`anyOf`, and media types other than JSON, form and multipart. `body` is required when the request body is.
-
----
-
-## Credential parameters
-
-Specs often declare the credential as an ordinary parameter — Slack's declares a `token` header on every operation. Generated verbatim, that becomes a required tool argument, so an MCP client asks its caller for the API token and pastes a secret into a tool call, while the connector is already attaching that credential itself from `<ID>_ACCESS_TOKEN`.
-
-For **authenticated** actions the builder drops header, query and request-body fields whose name is exactly one of `token`, `access_token`, `accesstoken`, `api_key`, `apikey`, `api-key`, `auth_token`, `authorization`, `password`, `secret`. The configured `AuthProvider` supplies the value; on a collision the runtime already gives auth precedence (`rest.py`).
-
-Matching is exact and scoped, so nothing else is affected:
-
-- `page_token`, `next_token`, `cursor`, `token_id` — kept (not credentials)
-- path parameters — kept, even when named `token`; they are part of the URL
-- **anonymous** actions — kept, since no provider would supply the value
-- a form-body `token` (Slack sends it that way on 11 operations) — dropped like a header one, including from the required list
-
-Dropped parameters are named in the build report's notes.
-
----
-
-## Success-flag envelopes (`ok: false`)
-
-Some APIs never use HTTP error statuses for business failures — Slack answers `200 OK` with `{"ok": false, "error": "invalid_auth"}`. Nothing above the REST executor can tell that apart from a successful call, so the connector would report success for a failed request.
-
-When an operation's success schema declares **`ok` as a required boolean**, the builder passes `envelope_ok_field="ok"` to `execute_rest` and adds `RestEnvelopeError` to the connector's `error_map` as a `BUSINESS` failure (`API_ENVELOPE_ERROR`). At runtime a body whose `ok` came back `false` raises instead of returning; the exception message carries the payload's `error` string when there is one (truncated to 200 chars).
-
-The trigger is deliberately narrow so ordinary specs are unaffected:
-
-| Success schema | Checked? |
-|---|---|
-| `required: [ok]`, `ok: {type: boolean}` | yes |
-| `ok` present but **not** required | no — an omitted flag says nothing, and treating absence as failure would break valid responses |
-| `ok` required but not a boolean | no |
-| no `ok` property, or no documented success schema | no |
-
-A missing flag at runtime is never a failure either: only a flag the API actually sent as `false` raises. Specs without the convention generate byte-identical code to before — no import, no `error_map` entry, no kwarg. The build report names the actions that got the check.
-
-`envelope_ok_field` is off by default on `execute_rest`, so hand-written connectors are unaffected.
+Tool and parameter descriptions, action naming, the flat request-body contract, dropped
+credential parameters and success-flag (`ok: false`) envelopes are covered in
+[codegen behaviour](nw-connector-builder-codegen.md).
 
 ---
 
@@ -463,7 +390,7 @@ Unless `--no-mcp` is set, the builder calls `nw-mcp-builder` with:
 - `force_fixture=True` (fixture must track the newly promoted connector)
 - `force_output=<value of --force>`
 
-MCP details (wheels, ToolHive, Inspector) live in [mcp-servers.md](mcp-servers.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
+MCP details (wheels, ToolHive, Inspector) live in [mcp-servers.md](nw-mcp-builder.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
 
 ```bash
 uv run --directory nw-connector-builder nw-connector-builder mcp -c <id> --force-output
@@ -485,7 +412,7 @@ Stdout summary plus JSON:
 | `auth` | chosen provider / secret key / yaml block |
 | `gate` / `mcp` / `wire` | stage outcomes when run |
 
-On success: `packages/connectors/<id>/report.json`  
+On success: `packages/connectors/<id>/report.json`
 On abort: `--report-path` or `./report.json`
 
 ---
@@ -519,13 +446,13 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 
 ## After generation — publishing checklist
 
-`nw-connector-builder` creates the **runtime + package skeleton**. To ship on PyPI or as a standalone MCP Docker image, still complete the Tier 2 / Tier 3 steps in [packaging.md](packaging.md):
+`nw-connector-builder` creates the **runtime + package skeleton**. To ship on PyPI or as a standalone MCP Docker image, still complete the Tier 2 / Tier 3 steps in [packaging.md](../packaging.md):
 
 - [ ] Add `packages/connectors/<id>/setup.py` (Cython build glue) if publishing binary wheels
 - [ ] Register the entry point in the **root** `pyproject.toml` for editable monorepo installs (if not already covered by your workflow)
 - [ ] Add the path to `scripts/build-packages.sh` (`ALL_PACKAGES`) and CI allowlists (`nw gen-all` without `--no-wire` inserts the `ALL_PACKAGES` entry; CI allowlists stay manual)
-- [ ] Update the package inventory in [packaging.md](packaging.md)
-- [ ] Optional standalone MCP image rows in [mcp-servers.md](mcp-servers.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
+- [ ] Update the package inventory in [packaging.md](../packaging.md)
+- [ ] Optional standalone MCP image rows in [mcp-servers.md](nw-mcp-builder.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
 
 ---
 
@@ -534,8 +461,8 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 | Doc | When to read it |
 |-----|-----------------|
 | [nw-cli.md](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
-| [connectors.md](connectors.md) | Hand-written connectors, `BaseConnector`, auth patterns |
-| [mcp-servers.md](mcp-servers.md) | Running / packaging the generated MCP host |
-| [packaging.md](packaging.md) | Wheels, PyPI, CI allowlists |
-| [configuration.md](configuration.md) | `connectors.yaml` and env vars |
-| [local-packages-to-images.md](local-packages-to-images.md) | Wheel → Docker image workflow |
+| [connectors.md](../connectors.md) | Hand-written connectors, `BaseConnector`, auth patterns |
+| [mcp-servers.md](nw-mcp-builder.md) | Running / packaging the generated MCP host |
+| [packaging.md](../packaging.md) | Wheels, PyPI, CI allowlists |
+| [configuration.md](../configuration.md) | `connectors.yaml` and env vars |
+| [local-packages-to-images.md](../local-packages-to-images.md) | Wheel → Docker image workflow |
