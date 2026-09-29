@@ -6,20 +6,22 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import platform
 import re
 import shutil
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
 
 import yaml
 
+from nw_cli.prerequisites import require_docker
 from nw_cli.stages import LogFn, StageError, run_logged_command
+from nw_cli.wheel_cache import package_source_hash, stamp_path
+
+__all__ = ["package_source_hash"]  # re-exported: tests and callers import it from here
 
 if TYPE_CHECKING:
     from nw_stacklok.wheels import WheelTarget
@@ -187,8 +189,10 @@ def prepare_spec(spec_source: str, target: Path) -> Path:
 def materialize_spec(spec_source: str, work_dir: Path) -> Path:
     """A local, strict OpenAPI 3.0 file for stacklok's loader (see :func:`_load_strict`).
 
-    An unchanged local file is used as-is.
+    An unchanged local file is used as-is, and so is one :func:`prepare_spec` wrote.
     """
+    if _prepared_origin(spec_source) is not None:
+        return Path(spec_source)
     doc, _origin, from_url, changed = _load_strict(spec_source)
     if not from_url and not changed:
         return Path(spec_source)
@@ -243,7 +247,6 @@ _WHEEL_ARCH_ALIASES = {
     "x86_64": "x86_64",
     "amd64": "x86_64",
 }
-_HASH_SKIP_DIRS = {"__pycache__", "build", "dist"}
 
 
 def image_wheel_target(node_wire_root: Path) -> WheelTarget:
@@ -260,54 +263,23 @@ def wheel_arches() -> list[str]:
     return sorted(raw) if raw else [_WHEEL_ARCH_ALIASES.get(machine, machine)]
 
 
-def package_source_hash(node_wire_root: Path, package: str) -> str:
-    """Hash of everything a package's wheel is compiled from.
-
-    That is the package folder (pyproject, setup.py, README) and the ``src/`` packages its
-    ``[tool.setuptools.packages.find]`` includes.
-    """
-    pkg_dir = node_wire_root / package
-    find = (
-        tomllib.loads((pkg_dir / "pyproject.toml").read_text(encoding="utf-8"))
-        .get("tool", {})
-        .get("setuptools", {})
-        .get("packages", {})
-        .get("find", {})
-    )
-    roots = [pkg_dir]
-    for where in find.get("where", []):
-        for include in find.get("include", []):
-            top = include.split(".", 1)[0].rstrip("*")
-            roots.append((pkg_dir / where / top).resolve())
-    digest = hashlib.sha256()
-    for root in roots:
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob("*")):
-            rel = path.relative_to(root)
-            if not path.is_file() or _HASH_SKIP_DIRS & set(rel.parts):
-                continue
-            if path.suffix in {".so", ".pyd", ".c", ".pyc"} or ".egg-info" in str(rel):
-                continue
-            if path.name == "report.json":  # build report; varies per run, not in the wheel
-                continue
-            digest.update(f"{root.name}/{rel.as_posix()}\0".encode())
-            digest.update(path.read_bytes())
-    return digest.hexdigest()
-
-
 def _stamp(node_wire_root: Path, package: str, target: WheelTarget) -> Path:
-    return node_wire_root / package / "dist" / f".nw-source-{target.python}-{target.libc}.sha256"
+    return stamp_path(node_wire_root, package, f"{target.python}-{target.libc}")
 
 
 def run_stacklok_wheel_build(
-    node_wire_root: Path, connector_id: str, *, log: LogFn | None = None
+    node_wire_root: Path,
+    connector_id: str,
+    *,
+    log: LogFn | None = None,
+    output: LogFn | None = None,
 ) -> list[str]:
     """Wheels for the generated server's image; returns the packages it had to (re)build.
 
     The flavour (Python ABI + libc) comes from the image, e.g. cp313 musllinux for stacklok's
     Alpine base. A package whose sources are unchanged since its last build, and whose wheels
     for every requested architecture are present, is reused rather than recompiled.
+    ``log`` gets these decisions; ``output`` (default ``log``) the build tool's output.
     """
     say = log or print
     target = image_wheel_target(node_wire_root)
@@ -326,10 +298,11 @@ def run_stacklok_wheel_build(
         say("Up to date, reused: " + ", ".join(reused))
     if not stale:
         return []
+    require_docker("the image wheel build (cibuildwheel)")
     say("Building: " + ", ".join(stale))
     cmd = ["bash", "scripts/build-packages.sh", "--cibw-linux", *stale]
     env = {**os.environ, "CIBW_BUILD": target.cibw_build, "NW_WHEEL_ARCHS": " ".join(arches)}
-    code = run_logged_command(cmd, cwd=node_wire_root, log=log, env=env)
+    code = run_logged_command(cmd, cwd=node_wire_root, log=output or log, env=env)
     if code != 0:
         raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
     for package in stale:

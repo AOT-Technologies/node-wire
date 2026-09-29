@@ -91,14 +91,14 @@ def test_stages_run_in_order_with_exact_arguments(fake_root: Path, tmp_path: Pat
     }
     wheel_args, wheel_kwargs = calls[1][1]
     assert wheel_args == (fake_root, "pet_store")
-    assert set(wheel_kwargs) == {"log"}
+    assert set(wheel_kwargs) == {"log", "output"}
     gen_args, gen_kwargs = calls[2][1]
     assert gen_args[0] == fake_root
     assert isinstance(gen_args[1], StacklokScope) and gen_args[1].connector_id == "pet_store"
     assert gen_kwargs["output_dir"] == fake_root / "nw-stacklok-builder" / "out"
     assert gen_kwargs["force_output"] is False
     assert gen_kwargs["lock"] is True
-    assert "MCP server ready" in result.output
+    assert "MCP server" in result.output and "Next, run it locally" in result.output
 
 
 def test_flags_reach_the_stages(fake_root: Path, tmp_path: Path) -> None:
@@ -380,7 +380,7 @@ def test_path_runs_phases_1_to_3_in_one_command(fake_root: Path, tmp_path: Path)
     assert request.auth_hint == "api key in the api_key header"
     assert request.notes == "read-only first"
     assert calls[1][1] == fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
-    assert "MCP server ready" in result.output
+    assert "MCP server" in result.output and "Next, run it locally" in result.output
 
 
 def test_without_a_terminal_it_stops_for_review(fake_root: Path, tmp_path: Path) -> None:
@@ -465,7 +465,7 @@ def test_path_mode_usage_errors(fake_root: Path, tmp_path: Path) -> None:
         neither = runner.invoke(app, ["gen-stacklok"])
     assert no_id.exit_code == 2 and "--connector-id" in no_id.output
     assert both.exit_code == 2 and neither.exit_code == 2
-    assert "exactly one of --path or --scope" in both.output
+    assert "--path / --scope" in both.output and "exactly one of them" in both.output
 
 
 def test_prepared_spec_builds_the_connector_from_its_origin(

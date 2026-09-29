@@ -11,7 +11,7 @@ Unified CLI (`nw`) for the OpenAPI → connector → wheel → MCP → Docker pi
 | Path | Purpose |
 |------|---------|
 | `src/nw_cli/` | Typer app and stage helpers |
-| `../docs/nw-cli.md` | Full reference |
+| [`../docs/cli/nw-cli.md`](../docs/cli/nw-cli.md) | Full reference |
 
 Installed with the monorepo `dev` group — after `uv sync` at the **node-wire** repo root, `nw` is on PATH via `uv run`.
 

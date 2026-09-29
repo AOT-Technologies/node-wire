@@ -66,6 +66,7 @@ def test_run_wheel_build_nonzero_exit(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "build-packages.sh"
     script.parent.mkdir(parents=True)
     script.write_text("#!/bin/bash\n", encoding="utf-8")
+    (tmp_path / "packages" / "connectors" / "pet_store").mkdir(parents=True)
     with patch("nw_cli.stages.run_logged_command", return_value=7):
         with pytest.raises(StageError, match="exit 7"):
             run_wheel_build(tmp_path, connector_id="pet_store")
@@ -76,6 +77,7 @@ def test_run_wheel_build_uses_posix_relative_script(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "build-packages.sh"
     script.parent.mkdir(parents=True)
     script.write_text("#!/bin/bash\n", encoding="utf-8")
+    (tmp_path / "packages" / "connectors" / "pet_store").mkdir(parents=True)
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         run_wheel_build(tmp_path, connector_id="pet_store")
     cmd = run.call_args.args[0]

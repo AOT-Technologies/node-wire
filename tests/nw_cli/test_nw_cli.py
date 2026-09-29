@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -46,9 +46,10 @@ def test_wheel_invokes_build_packages_linux_only(fake_root: Path) -> None:
     assert result.exit_code == 0, result.output
     wheel.assert_called_once_with(
         fake_root,
-        connector_id="pet_store",
+        packages=["packages/connectors/pet_store"],
         host=False,
         all_=False,
+        log=ANY,
     )
 
 
@@ -60,11 +61,23 @@ def test_wheel_runtime_and_host_flags(fake_root: Path) -> None:
         result = runner.invoke(app, ["gen-whl", "--runtime", "--host"])
     assert result.exit_code == 0, result.output
     wheel.assert_called_once_with(
+        fake_root, packages=["packages/runtime"], host=True, all_=False, log=ANY
+    )
+
+
+def test_wheel_runtime_and_connector_build_in_one_run(fake_root: Path) -> None:
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.cli.run_wheel_build") as wheel,
+    ):
+        result = runner.invoke(app, ["gen-whl", "--runtime", "--connector-id", "pet_store"])
+    assert result.exit_code == 0, result.output
+    wheel.assert_called_once_with(
         fake_root,
-        runtime=True,
-        bindings=False,
-        host=True,
+        packages=["packages/runtime", "packages/connectors/pet_store"],
+        host=False,
         all_=False,
+        log=ANY,
     )
 
 
@@ -76,11 +89,7 @@ def test_wheel_bindings_flag(fake_root: Path) -> None:
         result = runner.invoke(app, ["gen-whl", "--bindings"])
     assert result.exit_code == 0, result.output
     wheel.assert_called_once_with(
-        fake_root,
-        runtime=False,
-        bindings=True,
-        host=False,
-        all_=False,
+        fake_root, packages=["packages/bindings"], host=False, all_=False, log=ANY
     )
 
 
@@ -88,6 +97,18 @@ def test_wheel_host_and_all_conflict(fake_root: Path) -> None:
     with patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root):
         result = runner.invoke(app, ["gen-whl", "--connector-id", "pet_store", "--host", "--all"])
     assert result.exit_code == 2
+    assert "mutually exclusive" in result.output
+
+
+def test_invalid_connector_id_is_a_usage_error(fake_root: Path) -> None:
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_connector_builder.pipeline.run_build") as rb,
+    ):
+        result = runner.invoke(app, ["gen-all", "--connector-id", "Pet-Store", "--path", "s.yaml"])
+    assert result.exit_code == 2
+    assert "not a valid connector id" in result.output
+    rb.assert_not_called()
 
 
 def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
@@ -109,6 +130,7 @@ def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
         result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store", "--force-output"])
     assert result.exit_code == 0, result.output
     mcp.assert_called_once_with(fake_root, "pet_store", force_output=True, tool_mode="list")
+    assert "Wheel build" not in result.output  # wheels exist: no wheel stage listed
 
 
 def test_docker_build_subprocess(fake_root: Path) -> None:
@@ -121,7 +143,32 @@ def test_docker_build_subprocess(fake_root: Path) -> None:
     ):
         result = runner.invoke(app, ["docker-build", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
-    docker.assert_called_once_with(fake_root, "pet_store", tag="latest")
+    docker.assert_called_once_with(fake_root, "pet_store", tag="latest", log=ANY)
+    assert "pet-store-nw-mcp:latest" in result.output
+    # The MCP host already exists (gen-all built it): its stages are not listed at all.
+    assert "Wheel build" not in result.output
+    assert "MCP host build" not in result.output
+
+
+def test_docker_build_without_a_project_lists_the_stages_it_runs(fake_root: Path) -> None:
+    for rel in ("packages/runtime/dist/r.whl", "packages/bindings/dist/b.whl"):
+        (fake_root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (fake_root / rel).write_bytes(b"x")
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.prerequisites.is_interactive", return_value=True),
+        patch("nw_cli.prerequisites.Confirm.ask", return_value=True),
+        patch("nw_cli.cli.decide_tool_mode", return_value=MagicMock(mode="list", listing=None)),
+        patch("nw_cli.cli.run_wheel_build") as wheel,
+        patch("nw_cli.cli.run_mcp_build") as mcp,
+        patch("nw_cli.cli.run_docker_build", return_value="pet-store-nw-mcp:latest"),
+    ):
+        result = runner.invoke(app, ["docker-build", "--connector-id", "pet_store"])
+    assert result.exit_code == 0, result.output
+    assert wheel.call_args.kwargs["packages"] == ["packages/connectors/pet_store"]
+    mcp.assert_called_once()
+    assert "Wheel build" in result.output and "MCP host build" in result.output
+    assert "(skipped)" not in result.output
 
 
 def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
@@ -174,10 +221,15 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         )
 
     assert result.exit_code == 0, result.output
-    assert order == ["connector", "wheel", "wheel", "mcp", "wire"]
+    assert order == ["connector", "wheel", "mcp", "wire"]
     rb.assert_called_once()
     assert rb.call_args.kwargs["no_mcp"] is True
-    assert wh.call_count == 2
+    wh.assert_called_once()
+    assert wh.call_args.kwargs["packages"] == [
+        "packages/runtime",
+        "packages/bindings",
+        "packages/connectors/pet_store",
+    ]
     mp.assert_called_once()
     reg.assert_called_once_with(fake_root, "pet_store")
     # No subprocess re-invocation of the nw CLI itself
@@ -254,24 +306,27 @@ def test_prerequisite_interactive_builds_then_continues(fake_root: Path) -> None
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"x")
 
-    def fake_wheel_build(root, **kw):
-        if kw.get("runtime") or kw.get("bindings"):
-            if kw.get("runtime"):
-                build_runtime()
-            if kw.get("bindings"):
-                build_bindings()
-            return
-        build_connector()
+    builders = {
+        "packages/runtime": build_runtime,
+        "packages/bindings": build_bindings,
+        "packages/connectors/pet_store": build_connector,
+    }
+
+    def fake_wheel_build(root, *, packages, **kw):
+        for package in packages:
+            builders[package]()
 
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.prerequisites.is_interactive", return_value=True),
-        patch("nw_cli.prerequisites.Confirm.ask", return_value=True),
-        patch("nw_cli.cli.run_wheel_build", side_effect=fake_wheel_build),
+        patch("nw_cli.prerequisites.Confirm.ask", return_value=True) as ask,
+        patch("nw_cli.cli.run_wheel_build", side_effect=fake_wheel_build) as wheel,
         patch("nw_cli.cli.run_mcp_build", return_value=project) as mcp,
     ):
         result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
+    ask.assert_called_once()  # one question for every missing wheel
+    wheel.assert_called_once()
     assert "runtime" in built
     assert "bindings" in built
     assert "connector" in built
