@@ -21,6 +21,7 @@ from typing import Dict, List
 import yaml
 
 from mcp_builder.generate.plan import ServerPlan
+from nw_stacklok.wheels import WheelTarget
 
 RUNTIME_ENV: Dict[str, str] = {
     "NW_MULTITENANCY_ENABLED": "true",
@@ -31,11 +32,9 @@ RUNTIME_ENV: Dict[str, str] = {
     "NW_TENANTS_PATH": "/app/tenants/tenants.yaml",
 }
 
-_WHEEL_ARCH = re.compile(r"-cp313-cp313-musllinux_\d+_\d+_(?P<arch>[a-z0-9_]+)\.whl$")
-
 
 class WheelsMissingError(FileNotFoundError):
-    """No cp313 musllinux wheel for a package the generated server needs."""
+    """No wheel matching the image (see :class:`~nw_stacklok.wheels.WheelTarget`) for a package."""
 
 
 @dataclass(frozen=True)
@@ -56,16 +55,6 @@ def distributions(node_wire_root: Path, connector_id: str) -> List[Distribution]
             packages / "connectors" / connector_id / "dist",
         ),
     ]
-
-
-def musllinux_wheels(dist_dir: Path) -> Dict[str, Path]:
-    """Newest cp313 musllinux wheel per architecture in ``dist_dir``."""
-    by_arch: Dict[str, Path] = {}
-    for wheel in sorted(dist_dir.glob("*.whl"), key=lambda p: p.stat().st_mtime):
-        match = _WHEEL_ARCH.search(wheel.name)
-        if match:
-            by_arch[match.group("arch")] = wheel
-    return by_arch
 
 
 def finish_project(project_dir: Path, plan: ServerPlan, *, wheels: bool, lock: bool) -> None:
@@ -98,12 +87,13 @@ def _lock(project_dir: Path) -> None:
 def _copy_wheels(
     project_dir: Path, node_wire_root: Path, connector_id: str
 ) -> Dict[str, Dict[str, str]]:
+    wheel_target = WheelTarget.from_dockerfile(project_dir / "Dockerfile")
     target = project_dir / "wheels"
     target.mkdir(exist_ok=True)
     found: Dict[str, Dict[str, str]] = {}
     missing: List[str] = []
     for dist in distributions(node_wire_root, connector_id):
-        wheels = musllinux_wheels(dist.dist_dir)
+        wheels = wheel_target.wheels_by_arch(dist.dist_dir)
         if not wheels:
             missing.append(f"{dist.name} (in {dist.dist_dir})")
             continue
@@ -113,9 +103,11 @@ def _copy_wheels(
             found[dist.name][arch] = f"wheels/{wheel.name}"
     if missing:
         raise WheelsMissingError(
-            "No cp313 musllinux wheel for: "
+            f"No {wheel_target.description} wheel for: "
             + ", ".join(missing)
-            + ". Build them with scripts/build-packages.sh --musllinux (nw gen-stacklok does this)."
+            + ". nw gen-stacklok builds them (or: CIBW_BUILD='"
+            + wheel_target.cibw_build
+            + "' scripts/build-packages.sh --cibw-linux <packages>)."
         )
     common = set.intersection(*(set(arches) for arches in found.values()))
     if not common:

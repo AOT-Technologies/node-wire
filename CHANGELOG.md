@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`nw gen-stacklok`**: builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder)
   server from a stacklok `mcp-scope.yaml` on the node-wire runtime. It runs three stages:
   1. connector codegen from `spec.source`;
-  2. cp313 musllinux wheels;
+  2. wheels for the MCP image (cp313 musllinux for stacklok's Alpine base, read from the image;
+     packages with unchanged sources are reused, not recompiled);
   3. the vendored stacklok generator.
 
   Tools keep the scope's names and descriptions and run through the node-wire connector. Auth
@@ -54,8 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `nw_list_configs` / `nw_select_config`.
 - **`node-wire-bindings`**: `ConnectorFactory(auth_provider_hook=...)`, an optional hook consulted
   for every auth block (default and named schemes). With no hook, behaviour is unchanged.
-- **`scripts/build-packages.sh --musllinux`**: cp313 musllinux wheels via cibuildwheel. The arch
-  is set with `NW_MUSLLINUX_ARCHS`; other wheels in `dist/` are kept.
+- **`scripts/build-packages.sh --cibw-linux`**: Linux wheels via cibuildwheel (Docker) for any
+  `CIBW_BUILD` selector, replacing only matching wheels in `dist/`. `--musllinux` is shorthand for
+  `cp313-musllinux_*`. The arch is set with `NW_WHEEL_ARCHS`. These builds compile at `-O1 -g0`
+  (overridable with `NW_WHEEL_CFLAGS`): about 4× faster on large generated connectors, and
+  roughly half the wheel size.
   cibuildwheel 4.2.1 is now a dev dependency, so it works under `uv run`. The script also falls back
   to a `cibuildwheel` on `PATH`, then `uvx`.
 - **`scripts/verify_stacklok_server.py`** and the opt-in workflow `stacklok-e2e.yml`: a generated

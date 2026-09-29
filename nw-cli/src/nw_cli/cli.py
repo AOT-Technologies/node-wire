@@ -517,7 +517,7 @@ def gen_stacklok(
         ),
         Stage(
             "wheel",
-            "musllinux wheels (cp313)",
+            "Wheels for the MCP image",
             hint="Needs Docker running and cibuildwheel (uv sync --all-extras --dev). "
             "Rerun: " + resume,
         ),

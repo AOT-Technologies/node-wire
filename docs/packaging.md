@@ -296,17 +296,29 @@ bash scripts/build-packages.sh --all packages/runtime
 
 Local `--all` builds CPython 3.13 (`CIBW_BUILD=cp313-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds the same interpreters with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
 
-### musllinux wheels for stacklok-built servers (`--musllinux`)
+### Wheels for a specific image (`--cibw-linux`, `--musllinux`)
 
-`nw gen-stacklok` servers run stacklok's DHI Alpine image, which needs **musl** wheels (the
-default `--linux-only` builder is Debian/glibc, and the DHI image has no Python headers to
-compile in). `--musllinux` builds cp313 musllinux wheels with cibuildwheel in Docker, bind-mounting
-`src/` exactly like `publish.yml`, and leaves other wheels in `dist/` untouched:
+`nw gen-stacklok` servers run stacklok's DHI Alpine image, which needs **musl** wheels. The default
+`--linux-only` builder is Debian/glibc, and the DHI image has no Python headers to compile in.
+
+`--cibw-linux` builds Linux wheels with cibuildwheel in Docker for the `CIBW_BUILD` selector. It
+bind-mounts `src/` exactly like `publish.yml`, and replaces only the matching wheels in `dist/`.
+`nw gen-stacklok` sets the selector from the generated server's base image, and skips packages
+whose sources are unchanged (`dist/.nw-source-<target>.sha256`). `--musllinux` is shorthand for
+`CIBW_BUILD='cp313-musllinux_*'`.
+
+These builds compile at `-O1 -g0`, and keep `-fno-strict-overflow -DNDEBUG` from CPython's defaults.
+Python's own default is `-O3 -g`. Generated connector modules contain one very large module-init
+function, and gcc's higher optimisation levels take minutes on it: slack_web's `schema.c` took
+173s at `-O3` and 37s at `-O1`. The compiled code is almost entirely Python C-API calls, so the
+lower level costs little at run time, and dropping debug info roughly halves wheel size. Override
+the flags with `NW_WHEEL_CFLAGS`.
 
 ```bash
 uv sync --all-extras --dev
 bash scripts/build-packages.sh --musllinux packages/runtime packages/bindings packages/toolhive
-NW_MUSLLINUX_ARCHS="x86_64 aarch64" bash scripts/build-packages.sh --musllinux packages/runtime
+CIBW_BUILD='cp313-manylinux_*' bash scripts/build-packages.sh --cibw-linux packages/runtime
+NW_WHEEL_ARCHS="x86_64 aarch64" bash scripts/build-packages.sh --musllinux packages/runtime
 ```
 
 The arch defaults to the host (`native`); other arches run under emulation and are slow.

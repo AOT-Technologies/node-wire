@@ -99,7 +99,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --extra agents --dev   # includes cibuildwheel
 
-      - name: nw gen-stacklok (connector -> musllinux wheels -> stacklok server)
+      - name: nw gen-stacklok (connector -> image wheels -> stacklok server)
         run: uv run nw gen-stacklok --scope "${SCOPE}" --connector-id "${CONNECTOR_ID}" --force
 
       - name: Build the generated server image

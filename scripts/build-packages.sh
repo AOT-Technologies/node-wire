@@ -25,12 +25,16 @@
 # Prerequisites (--host-only):
 #   python3 or python on PATH; pip install build cython wheel
 #
-# musllinux cp313 wheels for stacklok-built MCP images (Alpine), via cibuildwheel + Docker:
-#   scripts/build-packages.sh --musllinux packages/runtime
-#   (arch: NW_MUSLLINUX_ARCHS, default native; e.g. NW_MUSLLINUX_ARCHS="x86_64 aarch64")
+# Linux wheels for a specific image, via cibuildwheel + Docker (nw gen-stacklok uses this with the
+# selector read from the generated server's base image):
+#   CIBW_BUILD='cp313-musllinux_*' scripts/build-packages.sh --cibw-linux packages/runtime
+#   scripts/build-packages.sh --musllinux packages/runtime      # shorthand for cp313-musllinux_*
+#   (arch: NW_WHEEL_ARCHS, default native; e.g. NW_WHEEL_ARCHS="x86_64 aarch64")
+#   (C flags: NW_WHEEL_CFLAGS, default "-fno-strict-overflow -DNDEBUG -O1 -g0"; see the note in
+#   the cibuildwheel section)
 #
-# Prerequisites (--all / --musllinux mode):
-#   python -m pip install 'cibuildwheel==4.2.1'; docker for --musllinux
+# Prerequisites (--all / --cibw-linux / --musllinux):
+#   cibuildwheel (a dev dependency: uv sync --all-extras --dev); Docker for the Linux modes
 #
 # Security guarantee:
 #   Each wheel is verified to contain zero .py source files and at least one
@@ -65,14 +69,17 @@ Usage:
   scripts/build-packages.sh [--help]
   scripts/build-packages.sh [--host-only|--linux-only] [packages/...]
   scripts/build-packages.sh --all [packages/...]
+  scripts/build-packages.sh --cibw-linux [packages/...]   (CIBW_BUILD selects the target)
   scripts/build-packages.sh --musllinux [packages/...]
 
   Default:     build each package on the host and again in Docker (Linux wheels).
   --host-only: build host wheels only (no Docker).
   --linux-only: build Linux wheels only (via local nw-wheel-builder image).
   --all:       build with cibuildwheel (targets depend on host; for full OS matrix use CI publish.yml).
-  --musllinux: build cp313 musllinux wheels with cibuildwheel (Docker) for stacklok-built MCP
-               images on Alpine; keeps other wheels in dist/. Arch: NW_MUSLLINUX_ARCHS (default native).
+  --cibw-linux: build Linux wheels with cibuildwheel (Docker) for the CIBW_BUILD selector
+               (default cp313-musllinux_*); replaces only matching wheels in dist/.
+               Arch: NW_WHEEL_ARCHS (default native).
+  --musllinux: --cibw-linux with CIBW_BUILD=cp313-musllinux_* (Alpine images).
 
   --host-only and --linux-only cannot be combined with each other or with --all.
 
@@ -102,6 +109,12 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --musllinux)
+      ALL_MODE=1
+      MUSL_MODE=1
+      export CIBW_BUILD="cp313-musllinux_*"
+      shift
+      ;;
+    --cibw-linux)
       ALL_MODE=1
       MUSL_MODE=1
       shift
@@ -187,10 +200,19 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
     # Each package's setup.py compiles ../../src; the build container only gets a copy of the
     # package directory, so bind-mount the shared src/ tree at /src (as publish.yml does).
     export CIBW_BUILD="${CIBW_BUILD:-cp313-musllinux_*}"
-    export CIBW_ARCHS="${NW_MUSLLINUX_ARCHS:-native}"
+    export CIBW_ARCHS="${NW_WHEEL_ARCHS:-native}"
     export CIBW_CONTAINER_ENGINE="${CIBW_CONTAINER_ENGINE:-docker; create_args: --volume=$ROOT_DIR/src:/src}"
+    # CFLAGS replaces Python's default "-fno-strict-overflow -DNDEBUG -g -O3 ...", so the flags
+    # CPython builds extensions with are kept and only the level changes. Generated connector
+    # modules hold one huge module-init function that gcc's -O2/-O3 passes take minutes on
+    # (slack_web schema.c: 173s at -O3, 37s at -O1). The code is almost all Python C-API calls,
+    # so -O1 costs little at run time; -g0 drops debug info, roughly halving wheel size.
+    export CIBW_ENVIRONMENT="${CIBW_ENVIRONMENT:+$CIBW_ENVIRONMENT }CFLAGS='${NW_WHEEL_CFLAGS:--fno-strict-overflow -DNDEBUG -O1 -g0}'"
     CIBW_ARGS+=(--platform linux)
-    WHEEL_GLOB="*-cp313-cp313-musllinux_*.whl"
+    # Replace only the wheels this selector produces (cp313-musllinux_* → *-cp313-cp313-musllinux_*).
+    _py="${CIBW_BUILD%%-*}"
+    _platform="${CIBW_BUILD#*-}"
+    WHEEL_GLOB="*-${_py}-${_py}-${_platform%%\*}*.whl"
   fi
   export CIBW_BUILD="${CIBW_BUILD:-cp313-*}"
   export CIBW_SKIP="${CIBW_SKIP:-*-win32 *-manylinux_i686 pp*}"

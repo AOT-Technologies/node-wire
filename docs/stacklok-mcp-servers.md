@@ -74,10 +74,18 @@ runtime:
    (`spec.base_url` is the connector's base URL). The connector covers every operation; the scope
    decides which ones become tools. The connector is always regenerated from the scope's spec, so
    endpoints map onto it; a hand-written connector with the same id is never overwritten.
-2. **Wheels** — `scripts/build-packages.sh --musllinux` builds cp313 musllinux wheels for
-   `node-wire-runtime`, `node-wire-bindings`, `node-wire-toolhive` and the connector (the
-   generated image runs stacklok's DHI Alpine base). Arch defaults to the host;
-   `NW_MUSLLINUX_ARCHS="x86_64 aarch64"` builds both. `--no-wheel` reuses wheels already in `dist/`.
+2. **Wheels for the MCP image**: compiled wheels for `node-wire-runtime`, `node-wire-bindings`,
+   `node-wire-toolhive` and the connector.
+   - They must match the image's Python ABI and C library, because node-wire wheels are
+     binary-only. The target is read from the template's base image: stacklok's
+     `dhi.io/python:3.13-alpine` gives **cp313 musllinux**.
+   - Built with cibuildwheel in Docker (`scripts/build-packages.sh --cibw-linux`).
+   - A package whose sources haven't changed since its last build, and that has wheels for every
+     requested architecture, is reused rather than recompiled. The source hash is kept in
+     `dist/.nw-source-<target>.sha256`. In practice, repeat runs rebuild only what changed, often
+     nothing.
+   - The architecture defaults to the host; `NW_WHEEL_ARCHS="x86_64 aarch64"` builds both.
+   - `--no-wheel` skips the stage and uses whatever is in `dist/`.
 3. **Server** — stacklok's own scope validator checks the scope against the spec, then the
    vendored stacklok generator writes `nw-stacklok-builder/out/<server>-mcp/`
    and runs `uv lock` there (`--no-lock` skips it). Every scoped `METHOD /path` must map to a

@@ -38,7 +38,7 @@ Build MCP servers with **stacklok's mcp-builder**, modified so every tool runs o
 | **Multitenancy:** one backend serves all tenants. Each tenant has its own ToolHive `MCPRemoteProxy`, whose `headerForward` sets `X-Tenant-ID`. | ToolHive has no claim-to-header mapping, and its header injection is static per proxy. Its `header-forward` middleware uses `Header.Set`, which overrides a client-supplied header (verified at toolhive `dfb0713`). A NetworkPolicy admits only the proxies. |
 | Tenant choice is fixed by the proxy. Only `nw_list_configs` / `nw_select_config` are exposed. | Per-session selection only picks a named config within the tenant. |
 | **Python 3.13** for the whole repo | stacklok requires it, and nw-cli calls the vendored generator in-process. Package versions are unchanged for now (versioning deferred). |
-| stacklok's image defaults (DHI Alpine) are kept, so wheels are cp313 **musllinux** | The user chose stacklok defaults. The DHI image has no Python headers, so the wheels come from cibuildwheel (`build-packages.sh --musllinux`). |
+| stacklok's image defaults (DHI Alpine) are kept. The wheel target is read from the image's base (cp313 **musllinux** for DHI Alpine), and packages with unchanged sources are reused | The user chose stacklok defaults. The DHI image has no Python headers, so the wheels come from cibuildwheel (`build-packages.sh --cibw-linux`). Reuse keeps reruns from recompiling the runtime every time. |
 
 ## Not carried over
 

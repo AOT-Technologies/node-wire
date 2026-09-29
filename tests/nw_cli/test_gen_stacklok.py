@@ -194,16 +194,16 @@ def test_materialize_spec_converts_swagger2(tmp_path: Path) -> None:
     )
 
 
-def test_wheel_build_targets_the_stacklok_packages(tmp_path: Path) -> None:
+def test_wheel_build_targets_the_stacklok_packages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _wheel_root(tmp_path)
+    monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
     with patch("nw_cli.stacklok.run_logged_command", return_value=0) as run:
-        run_stacklok_wheel_build(tmp_path, "pet_store")
+        run_stacklok_wheel_build(root, "demo", log=lambda _: None)
     cmd = run.call_args.args[0]
-    assert cmd == [
-        "bash",
-        "scripts/build-packages.sh",
-        "--musllinux",
-        *stacklok_packages("pet_store"),
-    ]
+    assert cmd == ["bash", "scripts/build-packages.sh", "--cibw-linux", *stacklok_packages("demo")]
+    assert run.call_args.kwargs["env"]["CIBW_BUILD"] == "cp313-musllinux_*"
     assert "packages/toolhive" in cmd
 
 
@@ -495,3 +495,76 @@ def test_success_prints_run_commands_with_the_real_names(fake_root: Path, tmp_pa
         "--name petstore-mcp" in result.output
         and "thv run http://127.0.0.1:8200/mcp" in result.output
     )
+
+
+def _wheel_root(tmp_path: Path) -> Path:
+    """A node-wire root with an Alpine template and four tiny packages (runtime, bindings,
+    toolhive, connectors/demo), each compiling one src/ package."""
+    root = tmp_path / "nw"
+    (root / "nw-stacklok-builder" / "template").mkdir(parents=True)
+    (root / "nw-stacklok-builder" / "template" / "Dockerfile").write_text(
+        "FROM dhi.io/python:3.13-alpine3.23-dev AS builder\nFROM dhi.io/python:3.13-alpine3.23\n",
+        encoding="utf-8",
+    )
+    for package, module, where in (
+        ("packages/runtime", "node_wire_runtime", "../../src"),
+        ("packages/bindings", "bindings", "../../src"),
+        ("packages/toolhive", "node_wire_toolhive", "../../src"),
+        ("packages/connectors/demo", "node_wire_demo", "../../../src"),
+    ):
+        pkg = root / package
+        pkg.mkdir(parents=True)
+        (pkg / "pyproject.toml").write_text(
+            f'[tool.setuptools.packages.find]\nwhere = ["{where}"]\ninclude = ["{module}*"]\n',
+            encoding="utf-8",
+        )
+        (root / "src" / module).mkdir(parents=True)
+        (root / "src" / module / "__init__.py").write_text("x = 1\n", encoding="utf-8")
+    return root
+
+
+def _fake_builder(root: Path, built: list[list[str]]) -> Any:
+    def run(cmd: list[str], *, cwd: Path, log: Any = None, env: Any = None) -> int:
+        packages = cmd[3:]
+        built.append(packages)
+        assert cmd[2] == "--cibw-linux" and env["CIBW_BUILD"] == "cp313-musllinux_*"
+        for package in packages:
+            dist = root / package / "dist"
+            dist.mkdir(exist_ok=True)
+            stem = Path(package).name
+            (dist / f"{stem}-1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
+        return 0
+
+    return run
+
+
+def test_unchanged_wheels_are_reused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = _wheel_root(tmp_path)
+    monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
+    built: list[list[str]] = []
+    lines: list[str] = []
+    with patch("nw_cli.stacklok.run_logged_command", side_effect=_fake_builder(root, built)):
+        first = run_stacklok_wheel_build(root, "demo", log=lines.append)
+        second = run_stacklok_wheel_build(root, "demo", log=lines.append)
+        (root / "src" / "node_wire_demo" / "__init__.py").write_text("x = 2\n", encoding="utf-8")
+        third = run_stacklok_wheel_build(root, "demo", log=lines.append)
+
+    assert first == stacklok_packages("demo")
+    assert second == []  # nothing changed: no compile at all
+    assert third == ["packages/connectors/demo"]  # only the changed package
+    assert built == [stacklok_packages("demo"), ["packages/connectors/demo"]]
+    assert any("Target: cp313 musllinux" in line for line in lines)
+    assert any(line.startswith("Up to date, reused:") for line in lines)
+
+
+def test_a_missing_architecture_forces_a_rebuild(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _wheel_root(tmp_path)
+    built: list[list[str]] = []
+    with patch("nw_cli.stacklok.run_logged_command", side_effect=_fake_builder(root, built)):
+        monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
+        run_stacklok_wheel_build(root, "demo", log=lambda _: None)
+        monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64 x86_64")
+        again = run_stacklok_wheel_build(root, "demo", log=lambda _: None)
+    assert again == stacklok_packages("demo")  # no x86_64 wheels yet

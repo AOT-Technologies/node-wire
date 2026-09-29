@@ -2,19 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stages of ``nw gen-stacklok``: scope → connector → musllinux wheels → stacklok server."""
+"""Stages of ``nw gen-stacklok``: scope → connector → image wheels → stacklok server."""
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import platform
 import shutil
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
 import yaml
 
 from nw_cli.stages import LogFn, StageError, run_logged_command
+
+if TYPE_CHECKING:
+    from nw_stacklok.wheels import WheelTarget
 
 STACKLOK_BUILDER_DIR = "nw-stacklok-builder"
 # Set on specs prepared by `nw gen-stacklok --path`: the original spec the file was made from.
@@ -214,14 +221,106 @@ def strict_openapi30(node: Any) -> bool:
     return changed
 
 
+_WHEEL_ARCH_ALIASES = {
+    "arm64": "aarch64",
+    "aarch64": "aarch64",
+    "x86_64": "x86_64",
+    "amd64": "x86_64",
+}
+_HASH_SKIP_DIRS = {"__pycache__", "build", "dist"}
+
+
+def image_wheel_target(node_wire_root: Path) -> WheelTarget:
+    """The wheel flavour the generated server's image needs (from the template's base image)."""
+    from nw_stacklok.wheels import WheelTarget
+
+    return WheelTarget.from_dockerfile(template_dir(node_wire_root) / "Dockerfile")
+
+
+def wheel_arches() -> list[str]:
+    """``NW_WHEEL_ARCHS`` (e.g. ``"x86_64 aarch64"``), else the host's architecture."""
+    raw = os.environ.get("NW_WHEEL_ARCHS", "").split()
+    machine = platform.machine().lower()
+    return sorted(raw) if raw else [_WHEEL_ARCH_ALIASES.get(machine, machine)]
+
+
+def package_source_hash(node_wire_root: Path, package: str) -> str:
+    """Hash of everything a package's wheel is compiled from.
+
+    That is the package folder (pyproject, setup.py, README) and the ``src/`` packages its
+    ``[tool.setuptools.packages.find]`` includes.
+    """
+    pkg_dir = node_wire_root / package
+    find = (
+        tomllib.loads((pkg_dir / "pyproject.toml").read_text(encoding="utf-8"))
+        .get("tool", {})
+        .get("setuptools", {})
+        .get("packages", {})
+        .get("find", {})
+    )
+    roots = [pkg_dir]
+    for where in find.get("where", []):
+        for include in find.get("include", []):
+            top = include.split(".", 1)[0].rstrip("*")
+            roots.append((pkg_dir / where / top).resolve())
+    digest = hashlib.sha256()
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*")):
+            rel = path.relative_to(root)
+            if not path.is_file() or _HASH_SKIP_DIRS & set(rel.parts):
+                continue
+            if path.suffix in {".so", ".pyd", ".c", ".pyc"} or ".egg-info" in str(rel):
+                continue
+            if path.name == "report.json":  # build report; varies per run, not in the wheel
+                continue
+            digest.update(f"{root.name}/{rel.as_posix()}\0".encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def _stamp(node_wire_root: Path, package: str, target: WheelTarget) -> Path:
+    return node_wire_root / package / "dist" / f".nw-source-{target.python}-{target.libc}.sha256"
+
+
 def run_stacklok_wheel_build(
     node_wire_root: Path, connector_id: str, *, log: LogFn | None = None
-) -> None:
-    """cp313 musllinux wheels (stacklok's Alpine image) for runtime, bindings, toolhive, connector."""
-    cmd = ["bash", "scripts/build-packages.sh", "--musllinux", *stacklok_packages(connector_id)]
-    code = run_logged_command(cmd, cwd=node_wire_root, log=log)
+) -> list[str]:
+    """Wheels for the generated server's image; returns the packages it had to (re)build.
+
+    The flavour (Python ABI + libc) comes from the image, e.g. cp313 musllinux for stacklok's
+    Alpine base. A package whose sources are unchanged since its last build, and whose wheels
+    for every requested architecture are present, is reused rather than recompiled.
+    """
+    say = log or print
+    target = image_wheel_target(node_wire_root)
+    arches = wheel_arches()
+    say(f"Target: {target.description}, arch {' '.join(arches)}")
+    hashes = {p: package_source_hash(node_wire_root, p) for p in stacklok_packages(connector_id)}
+    stale: list[str] = []
+    for package, digest in hashes.items():
+        stamp = _stamp(node_wire_root, package, target)
+        present = set(target.wheels_by_arch(node_wire_root / package / "dist"))
+        fresh = stamp.is_file() and stamp.read_text().strip() == digest
+        if not (fresh and set(arches) <= present):
+            stale.append(package)
+    reused = [p for p in hashes if p not in stale]
+    if reused:
+        say("Up to date, reused: " + ", ".join(reused))
+    if not stale:
+        return []
+    say("Building: " + ", ".join(stale))
+    cmd = ["bash", "scripts/build-packages.sh", "--cibw-linux", *stale]
+    env = {**os.environ, "CIBW_BUILD": target.cibw_build, "NW_WHEEL_ARCHS": " ".join(arches)}
+    code = run_logged_command(cmd, cwd=node_wire_root, log=log, env=env)
     if code != 0:
         raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
+    for package in stale:
+        stamp = _stamp(node_wire_root, package, target)
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(hashes[package] + "\n", encoding="utf-8")
+    return stale
 
 
 def run_stacklok_generate(

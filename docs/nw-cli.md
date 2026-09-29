@@ -160,7 +160,8 @@ anything is built: you're asked whether to replace it, and `--force` replaces it
 
 Builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder) server on the node-wire
 runtime from a stacklok `mcp-scope.yaml`: connector codegen from the scope's `spec.source` →
-cp313 musllinux wheels (`scripts/build-packages.sh --musllinux`, Docker) → the vendored stacklok
+wheels for the image (cp313 musllinux for stacklok's Alpine base, via `scripts/build-packages.sh
+--cibw-linux` in Docker; unchanged packages are reused) → the vendored stacklok
 generator (`nw-stacklok-builder/out/<server>-mcp/`, then `uv lock`). `--connector-id` may be
 omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` block. See
 [stacklok MCP servers](stacklok-mcp-servers.md).

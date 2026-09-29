@@ -224,5 +224,5 @@ def test_missing_wheels_are_reported(node_wire_checkout: NodeWireCheckout, tmp_p
     checkout = _checkout_copy(node_wire_checkout, tmp_path)
     for dist in (checkout.root / "packages").rglob("dist"):
         shutil.rmtree(dist)
-    with pytest.raises(WheelsMissingError, match="--musllinux"):
+    with pytest.raises(WheelsMissingError, match="No cp313 musllinux .* wheel for"):
         _generate(checkout, tmp_path, wheels=True)
