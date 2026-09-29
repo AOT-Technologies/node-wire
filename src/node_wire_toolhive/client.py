@@ -81,6 +81,10 @@ class NodeWireClient:
 
     def tenant_id(self) -> str:
         """Tenant for the current request (``__default__`` when multitenancy is off)."""
+        if not _request.from_tenant_proxy():
+            raise NodeWireToolError(
+                "Request did not come through a tenant proxy", error_code="PROXY_AUTH_FAILED"
+            )
         try:
             return resolve_tenant_id(headers=_request.request_headers())
         except ValueError as exc:

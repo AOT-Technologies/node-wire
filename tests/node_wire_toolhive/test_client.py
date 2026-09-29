@@ -136,3 +136,32 @@ async def test_config_names_lists_the_tenants_configs(node_wire_env: Path) -> No
         {"name": "default", "default": True},
         {"name": "eu", "default": False},
     ]
+
+
+@pytest.mark.parametrize("sent", [None, "wrong"])
+async def test_tenant_header_needs_the_proxy_secret_when_one_is_set(
+    node_wire_env: Path,
+    upstream: List[httpx.Request],
+    monkeypatch: pytest.MonkeyPatch,
+    sent: str | None,
+) -> None:
+    """A pod that reaches the backend without going through a tenant proxy cannot pick a tenant."""
+    monkeypatch.setenv("NW_PROXY_SECRET", "s3cret")
+    headers = _headers("acme", "tok-1")
+    if sent is not None:
+        headers["x-nw-proxy-secret"] = sent
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    with mcp_request(headers), pytest.raises(NodeWireToolError, match="PROXY_AUTH_FAILED"):
+        await client.run("get_pet", {"petid": "p1"})
+    assert upstream == []
+
+
+async def test_matching_proxy_secret_is_accepted(
+    node_wire_env: Path, upstream: List[httpx.Request], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NW_PROXY_SECRET", "s3cret")
+    headers = {**_headers("acme", "tok-1"), "x-nw-proxy-secret": "s3cret"}
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    with mcp_request(headers):
+        await client.run("get_pet", {"petid": "p1"})
+    assert upstream[-1].url.host == "acme.example.test"

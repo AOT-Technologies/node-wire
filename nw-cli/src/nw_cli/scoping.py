@@ -12,12 +12,14 @@ Headless (``--headless``, or no terminal): Claude Code print mode. The command-l
 final, and the gates take the skill's own recommendation, recorded in ``scoping-summary.md`` for
 the Phase 2 review.
 
-Either way Claude Code is pre-approved only for file edits and stacklok's CLI.
+Either way Claude Code is pre-approved only for file edits inside the scoping work directory and
+stacklok's CLI.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess  # nosec B404  # fixed claude argv, no shell
 from dataclasses import dataclass, field
@@ -31,11 +33,11 @@ AGENTS = ("spec-analyzer", "endpoint-scoper")
 FAILURE_MARKER = "NW_SCOPING_FAILED"
 
 # The skill needs: file tools in its working directory, its sub-agents, and stacklok's CLI.
-# Nothing else. The spec is untrusted input the model reads.
+# Nothing else. The spec is untrusted input the model reads, so edits are allowed only inside
+# the work directory (see allowed_tools): a prompt-injected spec must not be able to rewrite
+# .claude/ or the vendored skill it links to.
 ALLOWED_TOOLS = (
     "Read",
-    "Write",
-    "Edit",
     "Glob",
     "Grep",
     "Skill",
@@ -46,6 +48,19 @@ ALLOWED_TOOLS = (
     "Bash(mkdir:*)",
     "Bash(ls:*)",
 )
+
+
+def allowed_tools(work_dir: Path) -> list[str]:
+    """``ALLOWED_TOOLS`` plus file edits confined to ``work_dir``.
+
+    ``Edit(...)`` rules cover every file-editing tool (Write included). ``//`` marks an absolute
+    path; Claude Code matches Windows paths in POSIX form (``C:\\x`` -> ``/c/x``).
+    """
+    path = work_dir.resolve().as_posix()
+    drive = re.match(r"([A-Za-z]):(.*)", path)
+    if drive:
+        path = f"/{drive.group(1).lower()}{drive.group(2)}"
+    return [*ALLOWED_TOOLS, f"Edit(/{path}/**)"]
 
 
 def scoping_dir(node_wire_root: Path, connector_id: str) -> Path:
@@ -181,7 +196,7 @@ def run_ai_scoping_interactive(
         *claude,
         interactive_prompt(request, work_dir),
         "--allowedTools",
-        *ALLOWED_TOOLS,
+        *allowed_tools(work_dir),
         "--add-dir",
         str(work_dir),
     ]
@@ -213,10 +228,12 @@ def run_ai_scoping(
         *claude,
         "-p",
         scoping_prompt(request, work_dir),
+        # dontAsk: anything not pre-approved is refused (acceptEdits would approve edits
+        # anywhere under the repo root, the process cwd).
         "--permission-mode",
-        "acceptEdits",
+        "dontAsk",
         "--allowedTools",
-        *ALLOWED_TOOLS,
+        *allowed_tools(work_dir),
         "--add-dir",
         str(work_dir),
     ]

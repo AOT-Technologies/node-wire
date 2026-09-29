@@ -12,12 +12,16 @@ session (a refreshed token or a later header would never be seen).
 
 from __future__ import annotations
 
+import hmac
+import os
 from typing import Mapping, Optional
 
 from mcp.server.lowlevel.server import request_ctx
 
 _SESSION_HEADER = "mcp-session-id"
 _STDIO_SESSION = "stdio"
+PROXY_SECRET_ENV = "NW_PROXY_SECRET"
+PROXY_SECRET_HEADER = "x-nw-proxy-secret"
 
 
 def request_headers() -> Optional[Mapping[str, str]]:
@@ -41,6 +45,21 @@ def bearer_token() -> Optional[str]:
         return None
     token = token.strip()
     return token or None
+
+
+def from_tenant_proxy() -> bool:
+    """Whether the request carries the shared secret the ToolHive tenant proxies send.
+
+    Always true when ``NW_PROXY_SECRET`` is unset (local runs). When set, the tenant header is
+    only trusted if the request also has a matching ``X-NW-Proxy-Secret``, so a pod that reaches
+    the backend directly (no NetworkPolicy enforcement) cannot claim a tenant.
+    """
+    expected = os.environ.get(PROXY_SECRET_ENV, "")
+    if not expected:
+        return True
+    headers = request_headers()
+    sent = (headers.get(PROXY_SECRET_HEADER) or "") if headers else ""
+    return hmac.compare_digest(sent.encode(), expected.encode())
 
 
 def session_key() -> str:

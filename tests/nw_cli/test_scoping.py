@@ -16,6 +16,7 @@ import pytest
 from nw_cli import scoping
 from nw_cli.scoping import (
     ALLOWED_TOOLS,
+    allowed_tools,
     ScopingRequest,
     interactive_prompt,
     link_skill,
@@ -112,8 +113,11 @@ def test_runs_claude_headless_and_returns_the_scope(
     assert scope == work / "mcp-scope.yaml" and scope.is_file()
     args = json.loads(args_file.read_text())
     assert args[0] == "-p" and args[1].startswith("/ai-scoping ")
-    assert args[args.index("--permission-mode") + 1] == "acceptEdits"
+    assert args[args.index("--permission-mode") + 1] == "dontAsk"
     assert "Bash(uv run mcp-builder:*)" in args and set(ALLOWED_TOOLS) <= set(args)
+    # Edits only inside the work dir: the spec is untrusted and must not reach .claude/.
+    assert "Write" not in args and "Edit" not in args
+    assert [a for a in args if a.startswith("Edit(")] == [f"Edit(/{work.resolve().as_posix()}/**)"]
     assert args[args.index("--model") + 1] == "claude-opus-5-5"
     assert (root / ".claude" / "skills" / "ai-scoping").is_symlink()
 
@@ -175,3 +179,15 @@ def test_interactive_session_without_a_scope_is_an_error(
     fake_claude("sys.exit(0)\n")
     with pytest.raises(StageError, match="without writing"):
         run_ai_scoping_interactive(root, _request(tmp_path), work_dir=tmp_path / "w")
+
+
+def test_allowed_tools_write_windows_paths_in_posix_form() -> None:
+    class _WindowsPath:
+        def resolve(self) -> "_WindowsPath":
+            return self
+
+        def as_posix(self) -> str:
+            return "C:/Users/dev/node-wire/scoping/demo"
+
+    rules = allowed_tools(_WindowsPath())  # type: ignore[arg-type]
+    assert rules[-1] == "Edit(//c/Users/dev/node-wire/scoping/demo/**)"

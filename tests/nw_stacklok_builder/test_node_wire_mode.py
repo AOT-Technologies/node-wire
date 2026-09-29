@@ -17,7 +17,7 @@ import yaml
 
 from mcp_builder.pipeline import run_pipeline
 from nw_stacklok.hooks import NodeWireOptions
-from nw_stacklok.project import WheelsMissingError
+from nw_stacklok.project import TemplateChangedError, WheelsMissingError, finish_project
 from nw_stacklok.resolve import NodeWireResolveError
 
 from .conftest import CONNECTOR_ID, FIXTURES, PETSTORE_SPEC, TEMPLATE, NodeWireCheckout
@@ -89,7 +89,40 @@ def test_project_packaging(node_wire_checkout: NodeWireCheckout, tmp_path: Path)
     assert "COPY config/ /app/config/" in dockerfile
     assert f"NW_UPSTREAM_BEARER_CONNECTORS={CONNECTOR_ID}" in dockerfile
     assert "NW_MULTITENANCY_ENABLED=true" in dockerfile
-    assert "config/tenants.yaml" in (project / ".dockerignore").read_text()
+    ignored = (project / ".dockerignore").read_text().splitlines()
+    # Allow-list, so a tenants file under any name (tenants.prod.yaml) stays out of the image.
+    assert ignored[-2:] == ["config/*", "!config/connectors.yaml"]
+    assert 'extra="ignore"' in (project / "src" / "petstore_mcp" / "settings.py").read_text()
+
+
+@pytest.mark.parametrize(
+    ("relative", "old"),
+    [
+        ("Dockerfile", "COPY --from=builder /app/src /app/src\n"),
+        ("src/petstore_mcp/api/mcp_builder.py", "return mcp"),
+        ("src/petstore_mcp/settings.py", 'env_file_encoding="utf-8",'),
+        ("src/petstore_mcp/__main__.py", 'if __name__ == "__main__":'),
+    ],
+)
+def test_a_changed_stacklok_template_fails_the_build(
+    node_wire_checkout: NodeWireCheckout,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    relative: str,
+    old: str,
+) -> None:
+    """Every patch must match; a silent no-op would ship an image missing node-wire wiring."""
+    captured = {}
+    monkeypatch.setattr(
+        "nw_stacklok.project.finish_project",
+        lambda project_dir, plan, **kwargs: captured.update(plan=plan),
+    )
+    project = _generate(node_wire_checkout, tmp_path)  # stacklok's output, not yet finished
+    target = project / relative
+    target.write_text(target.read_text().replace(old, "# changed upstream"))
+
+    with pytest.raises(TemplateChangedError, match=target.name):
+        finish_project(project, captured["plan"], wheels=False, lock=False)
 
 
 def test_manifests_one_backend_and_a_proxy_per_tenant(
@@ -103,6 +136,7 @@ def test_manifests_one_backend_and_a_proxy_per_tenant(
     assert {
         "backend.yaml",
         "networkpolicy.yaml",
+        "proxy-secret.yaml",
         "tenant-proxy.yaml",
         "tenants-secret.yaml",
     } <= names
@@ -120,6 +154,15 @@ def test_manifests_one_backend_and_a_proxy_per_tenant(
     assert proxy["kind"] == "MCPRemoteProxy"
     spec = proxy["spec"]
     assert spec["headerForward"]["addPlaintextHeaders"] == {"X-Tenant-ID": "REPLACE_ME_TENANT"}
+
+    # Second layer behind the NetworkPolicy: the proxy sends the secret the backend checks.
+    (secret,) = yaml.safe_load_all((deploy / "proxy-secret.yaml").read_text())
+    ref = {"name": secret["metadata"]["name"], "key": "token"}
+    assert spec["headerForward"]["addHeadersFromSecret"] == [
+        {"headerName": "X-NW-Proxy-Secret", "valueSecretRef": ref}
+    ]
+    env = {e["name"]: e for e in deployment["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert env["NW_PROXY_SECRET"]["valueFrom"]["secretKeyRef"] == ref
     assert spec["remoteUrl"].startswith("http://petstore-backend.")
     assert spec["allowPrivateEndpoint"] is True
     assert spec["externalAuthConfigRef"] == {"name": "petstore-auth"}

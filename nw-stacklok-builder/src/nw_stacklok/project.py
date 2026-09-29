@@ -33,6 +33,23 @@ RUNTIME_ENV: Dict[str, str] = {
 }
 
 
+class TemplateChangedError(RuntimeError):
+    """A patch to the stacklok-generated project found nothing to change."""
+
+
+def _replace_once(text: str, old: str, new: str, *, where: str) -> str:
+    if old not in text:
+        raise TemplateChangedError(f"stacklok template changed: {old!r} not found in {where}")
+    return text.replace(old, new, 1)
+
+
+def _sub_once(text: str, pattern: str, repl: str, *, where: str) -> str:
+    result, count = re.subn(pattern, repl, text, count=1, flags=re.MULTILINE)
+    if not count:
+        raise TemplateChangedError(f"stacklok template changed: /{pattern}/ not found in {where}")
+    return result
+
+
 class WheelsMissingError(FileNotFoundError):
     """No wheel matching the image (see :class:`~nw_stacklok.wheels.WheelTarget`) for a package."""
 
@@ -129,10 +146,10 @@ def _update_pyproject(
     text = path.read_text(encoding="utf-8")
     # Stacklok adds httpx>=0.28 for its generated client; node-wire's runtime pins httpx<0.28
     # and there is no httpx client in node-wire mode.
-    text = re.sub(r'\n    "httpx>=0\.28",', "", text, count=1)
+    text = _sub_once(text, r'^[ \t]*"httpx>=0\.28[^"]*",?[ \t]*\n', "", where=path.name)
     names = [d.name for d in distributions(node_wire_root, connector_id)]
     deps = "".join(f'\n    "{name}",' for name in names)
-    text = re.sub(r"(dependencies\s*=\s*\[)", lambda m: m.group(1) + deps, text, count=1)
+    text = _sub_once(text, r"^(dependencies\s*=\s*\[)", rf"\g<1>{deps}", where=path.name)
     if sources:
         arches = sorted(next(iter(sources.values())))
         lines = ["", "[tool.uv]", "environments = ["]
@@ -191,10 +208,11 @@ def _write_config(project_dir: Path, node_wire_root: Path, connector_id: str) ->
 def _update_dockerfile(path: Path, connector_id: str, *, wheels: bool) -> None:
     text = path.read_text(encoding="utf-8")
     if wheels:
-        text = text.replace(
+        text = _replace_once(
+            text,
             "COPY pyproject.toml uv.lock* README.md ./\n",
             "COPY wheels/ ./wheels/\nCOPY pyproject.toml uv.lock* README.md ./\n",
-            1,
+            where=path.name,
         )
     env = {
         **RUNTIME_ENV,
@@ -202,18 +220,23 @@ def _update_dockerfile(path: Path, connector_id: str, *, wheels: bool) -> None:
         "NW_UPSTREAM_BEARER_CONNECTORS": connector_id,
     }
     env_lines = " \\\n    ".join(f"{k}={v}" for k, v in env.items())
-    text = text.replace(
+    text = _replace_once(
+        text,
         "COPY --from=builder /app/src /app/src\n",
         "COPY --from=builder /app/src /app/src\nCOPY config/ /app/config/\n\n"
         f"# node-wire runtime (tenant configs are mounted at NW_TENANTS_PATH)\nENV {env_lines}\n",
-        1,
+        where=path.name,
     )
     path.write_text(text, encoding="utf-8")
 
 
 def _update_dockerignore(path: Path) -> None:
     text = path.read_text(encoding="utf-8").rstrip("\n")
-    text += "\n\n# node-wire: tenant configs are mounted at runtime, never baked in\nconfig/tenants.yaml\n"
+    # Allow-list: a tenants file saved under another name (tenants.prod.yaml) stays out too.
+    text += (
+        "\n\n# node-wire: only connectors.yaml goes into the image; tenant configs are mounted\n"
+        "# at runtime, never baked in\nconfig/*\n!config/connectors.yaml\n"
+    )
     path.write_text(text, encoding="utf-8")
 
 
@@ -233,15 +256,17 @@ def _update_env_example(path: Path, connector_id: str) -> None:
 def _patch_sources(module_dir: Path) -> None:
     mcp_builder = module_dir / "api" / "mcp_builder.py"
     text = mcp_builder.read_text(encoding="utf-8")
-    text = text.replace(
+    text = _replace_once(
+        text,
         "from mcp.server.fastmcp import FastMCP\n",
         "from mcp.server.fastmcp import FastMCP\nfrom node_wire_toolhive import register_config_tools\n",
-        1,
+        where=mcp_builder.name,
     )
-    text = text.replace(
-        "        return mcp",
-        "        register_config_tools(mcp, tools._client.node_wire)\n\n        return mcp",
-        1,
+    text = _sub_once(
+        text,
+        r"^([ \t]*)return mcp$",
+        r"\1register_config_tools(mcp, tools._client.node_wire)\n\n\1return mcp",
+        where=mcp_builder.name,
     )
     mcp_builder.write_text(text, encoding="utf-8")
 
@@ -250,21 +275,23 @@ def _patch_sources(module_dir: Path) -> None:
     # environment for local runs (containers get ENV / orchestrator values instead).
     settings = module_dir / "settings.py"
     text = settings.read_text(encoding="utf-8")
-    text = text.replace(
-        '        env_file_encoding="utf-8",\n',
-        '        env_file_encoding="utf-8",\n        extra="ignore",\n',
-        1,
+    text = _sub_once(
+        text,
+        r'^([ \t]*)env_file_encoding="utf-8",\n',
+        r'\g<0>\1extra="ignore",\n',
+        where=settings.name,
     )
     settings.write_text(text, encoding="utf-8")
 
     main = module_dir / "__main__.py"
     text = main.read_text(encoding="utf-8")
-    text = text.replace(
+    text = _replace_once(
+        text,
         'if __name__ == "__main__":\n',
         'if __name__ == "__main__":\n'
         "    from dotenv import load_dotenv\n\n"
         "    load_dotenv(override=False)\n",
-        1,
+        where=main.name,
     )
     main.write_text(text, encoding="utf-8")
 

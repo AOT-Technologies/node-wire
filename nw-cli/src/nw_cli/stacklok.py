@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import tomllib
 from dataclasses import dataclass
@@ -71,6 +72,10 @@ class StacklokScope:
         return target
 
 
+# RFC 1123 label, the same rule as stacklok's ServerConfig.validate_dns_label.
+_DNS_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+
+
 def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
     """Load a stacklok scope and bind it to ``connector_id``.
 
@@ -101,6 +106,13 @@ def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
     server = str((document.get("server") or {}).get("name") or "").strip()
     if not server:
         raise StageError(f"Scope {scope_path} has no server.name")
+    # Checked here, not only by stacklok's validator later: the name becomes the output
+    # directory (replaced under --force), image name and Kubernetes names.
+    if not _DNS_LABEL.fullmatch(server):
+        raise StageError(
+            f"Scope {scope_path} has an invalid server.name {server!r}: use lowercase letters, "
+            "digits and hyphens, starting and ending with a letter or digit (max 63)"
+        )
     spec_source = _resolve_source(source, scope_path.parent)
     return StacklokScope(
         path=scope_path,
@@ -141,19 +153,31 @@ def _prepared_origin(spec_source: str) -> str | None:
     return str(origin) if origin else None
 
 
-def prepare_spec(spec_source: str, target: Path) -> Path:
-    """Write the local OpenAPI 3.0 file stacklok's Phase 1 (ai-scoping) and Phase 3 read.
+def _load_strict(spec_source: str) -> tuple[Dict[str, Any], str, bool, bool]:
+    """Load ``spec_source`` as a strict OpenAPI 3.0 document for stacklok's parser.
 
-    Downloads URLs, converts Swagger 2.0 and applies :func:`strict_openapi30`; records the
-    original under ``x-nw-source`` so the connector is still built from it.
+    Converts Swagger 2.0 and applies :func:`strict_openapi30` to 3.0.x documents (3.1 allows
+    those JSON-Schema forms). Returns ``(doc, origin, from_url, changed)``.
     """
     from nw_connector_builder.load import detect_version, load_raw_document
     from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
 
     doc, origin, from_url = load_raw_document(spec_source)
-    if detect_version(doc) == "2.0":
+    changed = detect_version(doc) == "2.0"
+    if changed:
         doc = normalize_swagger2_to_openapi3(doc)
-    strict_openapi30(doc)
+    if str(doc.get("openapi", "")).startswith("3.0"):
+        changed = strict_openapi30(doc) or changed
+    return doc, origin, from_url, changed
+
+
+def prepare_spec(spec_source: str, target: Path) -> Path:
+    """Write the local OpenAPI 3.0 file stacklok's Phase 1 (ai-scoping) and Phase 3 read.
+
+    Always written (see :func:`_load_strict`); records the original under ``x-nw-source`` so the
+    connector is still built from it.
+    """
+    doc, origin, from_url, _changed = _load_strict(spec_source)
     doc[PREPARED_SOURCE_KEY] = origin if from_url else str(Path(origin).resolve())
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(doc, indent=1, default=str), encoding="utf-8")
@@ -161,20 +185,12 @@ def prepare_spec(spec_source: str, target: Path) -> Path:
 
 
 def materialize_spec(spec_source: str, work_dir: Path) -> Path:
-    """A local, strict OpenAPI 3.0 file for stacklok's loader.
+    """A local, strict OpenAPI 3.0 file for stacklok's loader (see :func:`_load_strict`).
 
-    Downloads URLs, converts Swagger 2.0, and rewrites JSON-Schema forms OpenAPI 3.0 rejects
-    (see :func:`strict_openapi30`). An unchanged local file is used as-is.
+    An unchanged local file is used as-is.
     """
-    from nw_connector_builder.load import detect_version, load_raw_document
-    from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
-
-    doc, _origin, from_url = load_raw_document(spec_source)
-    version = detect_version(doc)
-    if version == "2.0":
-        doc = normalize_swagger2_to_openapi3(doc)
-    changed = strict_openapi30(doc) if str(doc.get("openapi", "")).startswith("3.0") else False
-    if not from_url and version != "2.0" and not changed:
+    doc, _origin, from_url, changed = _load_strict(spec_source)
+    if not from_url and not changed:
         return Path(spec_source)
     work_dir.mkdir(parents=True, exist_ok=True)
     target = work_dir / "openapi.json"
@@ -359,6 +375,8 @@ def run_stacklok_generate(
     if project.exists():
         if not force_output:
             raise StageError(f"Output project already exists: {project} (pass --force)")
+        if output_dir.resolve() not in project.resolve().parents:
+            raise StageError(f"Refusing to replace {project}: it is outside {output_dir}")
         shutil.rmtree(project)
     output_dir.mkdir(parents=True, exist_ok=True)
     return run_pipeline(

@@ -7,8 +7,10 @@
 Stacklok emits a single ``MCPServer``. A node-wire server is multi-tenant: one backend
 Deployment serves every tenant, and each tenant reaches it through its own ``MCPRemoteProxy``
 whose ``headerForward`` sets ``X-Tenant-ID``. ToolHive's header-forward middleware sets that
-header with ``Header.Set`` on every request, overriding anything the client sent; a
-NetworkPolicy keeps the backend reachable only from those proxies. Stacklok's own auth
+header with ``Header.Set`` on every request, overriding anything the client sent. Two layers
+keep other pods from claiming a tenant: a NetworkPolicy admits only the proxies, and each proxy
+also sends a shared secret (``X-NW-Proxy-Secret``) that the backend checks against
+``NW_PROXY_SECRET``, which still holds on a cluster whose CNI ignores NetworkPolicy. Stacklok's own auth
 manifests (external auth config, OIDC config, secret) are kept as rendered by stacklok.
 """
 
@@ -30,6 +32,9 @@ BACKEND_PORT = 8080
 TENANT_PLACEHOLDER = "REPLACE_ME_TENANT"
 PROXY_LABEL = "node-wire.aot-technologies.com/proxy-for"
 TENANT_HEADER = "X-Tenant-ID"
+PROXY_SECRET_HEADER = "X-NW-Proxy-Secret"
+PROXY_SECRET_ENV = "NW_PROXY_SECRET"
+PROXY_SECRET_KEY = "token"
 # The container listens on all interfaces inside its pod; the NetworkPolicy limits who reaches it.
 _BIND_ALL = "0.0.0.0"  # nosec B104
 # emptyDir scratch space for the read-only root filesystem.
@@ -49,6 +54,7 @@ def render(plan: ServerPlan) -> Dict[str, str]:
     manifests = {
         "backend.yaml": _backend(server),
         "networkpolicy.yaml": _network_policy(server),
+        "proxy-secret.yaml": _proxy_secret(server),
         "tenant-proxy.yaml": _tenant_proxy(plan),
         "tenants-secret.yaml": _tenants_secret(server),
         **stacklok,
@@ -83,6 +89,15 @@ def _backend(server: str) -> str:
                                 {"name": "MCP_HOST", "value": _BIND_ALL},
                                 {"name": "MCP_PORT", "value": str(BACKEND_PORT)},
                                 {"name": "REQUIRE_BEARER_TOKEN", "value": "true"},
+                                {
+                                    "name": PROXY_SECRET_ENV,
+                                    "valueFrom": {
+                                        "secretKeyRef": {
+                                            "name": _proxy_secret_name(server),
+                                            "key": PROXY_SECRET_KEY,
+                                        }
+                                    },
+                                },
                             ],
                             # node-wire runtime + OTel need more than stacklok's 128Mi default.
                             "resources": {
@@ -121,8 +136,8 @@ def _backend(server: str) -> str:
     return (
         "# node-wire backend for "
         f"{server}: one Deployment serving every tenant. Reachable only through the\n"
-        "# per-tenant ToolHive proxies (networkpolicy.yaml); never expose this Service directly.\n"
-        + _dump(deployment, service)
+        "# per-tenant ToolHive proxies (networkpolicy.yaml, proxy-secret.yaml); never expose this\n"
+        "# Service directly.\n" + _dump(deployment, service)
     )
 
 
@@ -143,8 +158,28 @@ def _network_policy(server: str) -> str:
         },
     }
     return (
-        "# Only ToolHive tenant proxies may reach the backend. X-Tenant-ID is trusted because it\n"
-        "# can only arrive through a proxy, which overrides it on every request.\n" + _dump(policy)
+        "# Only ToolHive tenant proxies may reach the backend. Needs a CNI that enforces\n"
+        "# NetworkPolicy; the proxy secret (proxy-secret.yaml) is the second layer.\n"
+        + _dump(policy)
+    )
+
+
+def _proxy_secret_name(server: str) -> str:
+    return f"{server}-proxy-secret"
+
+
+def _proxy_secret(server: str) -> str:
+    secret = {
+        "apiVersion": "v1",
+        "kind": "Secret",
+        "metadata": {"name": _proxy_secret_name(server), "namespace": DEFAULT_NAMESPACE},
+        "type": "Opaque",
+        "stringData": {PROXY_SECRET_KEY: "REPLACE_ME_PROXY_SECRET"},
+    }
+    return (
+        f"# Shared by every tenant proxy ({PROXY_SECRET_HEADER}) and the backend ({PROXY_SECRET_ENV}).\n"
+        f"# The backend rejects {TENANT_HEADER} without it. Use a long random value, e.g.\n"
+        "# `openssl rand -hex 32`.\n" + _dump(secret)
     )
 
 
@@ -157,7 +192,18 @@ def _tenant_proxy(plan: ServerPlan) -> str:
         "allowPrivateEndpoint": True,
         "transport": "streamable-http",
         "proxyPort": 8080,
-        "headerForward": {"addPlaintextHeaders": {TENANT_HEADER: TENANT_PLACEHOLDER}},
+        "headerForward": {
+            "addPlaintextHeaders": {TENANT_HEADER: TENANT_PLACEHOLDER},
+            "addHeadersFromSecret": [
+                {
+                    "headerName": PROXY_SECRET_HEADER,
+                    "valueSecretRef": {
+                        "name": _proxy_secret_name(server),
+                        "key": PROXY_SECRET_KEY,
+                    },
+                }
+            ],
+        },
     }
     if isinstance(plan.auth, (OAuth2Auth, OIDCAuth)):
         spec["authServerRef"] = {"kind": "MCPExternalAuthConfig", "name": f"{server}-auth"}
@@ -205,6 +251,7 @@ def _readme(plan: ServerPlan, files: list[str]) -> str:
     rows = {
         "backend.yaml": "Deployment + ClusterIP Service running the node-wire MCP server",
         "networkpolicy.yaml": "Lets only the tenant proxies reach the backend",
+        "proxy-secret.yaml": f"Shared secret the proxies send as `{PROXY_SECRET_HEADER}`",
         "tenant-proxy.yaml": f"`MCPRemoteProxy` template, one per tenant (sets `{TENANT_HEADER}`)",
         "tenants-secret.yaml": "Tenant configs mounted at `NW_TENANTS_PATH`",
         "mcpexternalauthconfig.yaml": "Upstream API authentication (stacklok)",
@@ -216,11 +263,17 @@ def _readme(plan: ServerPlan, files: list[str]) -> str:
     return f"""# Deployment manifests for `{server}` (node-wire runtime)
 
 Generated by `nw gen-stacklok`. Requires the
-[ToolHive operator](https://docs.stacklok.com/toolhive/guides-k8s/deploy-operator).
+[ToolHive operator](https://docs.stacklok.com/toolhive/guides-k8s/deploy-operator) and a CNI
+that enforces NetworkPolicy (Calico, Cilium, ...).
 
 One backend serves every tenant; each tenant gets its own ToolHive `MCPRemoteProxy`, which
 authenticates the MCP client, forwards the upstream credential as `Authorization: Bearer`,
 and sets `{TENANT_HEADER}` to that tenant.
+
+The backend trusts `{TENANT_HEADER}`, so only the proxies may reach it. `networkpolicy.yaml`
+admits only the proxy pods, and every proxy also sends `{PROXY_SECRET_HEADER}`
+(`proxy-secret.yaml`), which the backend checks against `{PROXY_SECRET_ENV}`. The secret still
+protects the backend if the NetworkPolicy isn't enforced, but keep both.
 
 | File | Purpose |
 | --- | --- |
@@ -230,8 +283,9 @@ and sets `{TENANT_HEADER}` to that tenant.
 
 1. Build and push the image (`docker build -t <registry>/{server}-mcp:<tag> .` from the
    project root), then set `image:` in `backend.yaml`.
-2. Fill `tenants-secret.yaml` with your tenants (format: `config/tenants.example.yaml`) and
-   apply it together with `backend.yaml` and `networkpolicy.yaml`.
+2. Fill `tenants-secret.yaml` with your tenants (format: `config/tenants.example.yaml`), set
+   `proxy-secret.yaml` to a long random value (`openssl rand -hex 32`), and apply both
+   together with `backend.yaml` and `networkpolicy.yaml`.
 3. For each tenant, copy `tenant-proxy.yaml`, replace `{TENANT_PLACEHOLDER}`, and apply it
    with that tenant's auth manifests. Replace the other `REPLACE_ME_*` placeholders as in
    stacklok's flow (external domain, OAuth client id, API key).

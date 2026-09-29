@@ -48,7 +48,9 @@ docker build -t petstore-mcp nw-stacklok-builder/out/petstore-mcp
    - **`--headless`, or no terminal:** `claude -p` runs unattended. The flags are the final
      answers; without `--workflow` the AI proposes workflows. The gates take the AI's own
      recommendation, and each one is recorded in `scoping-summary.md`.
-   - Claude Code is pre-approved only for file edits and stacklok's CLI.
+   - Claude Code is pre-approved only for file edits inside the scoping work directory and stacklok's
+     CLI; headless runs refuse anything else (`--permission-mode dontAsk`), since the spec is
+     untrusted input.
    - Output goes to `nw-stacklok-builder/scoping/<id>/`. A second run reuses it; `--rescope` redoes it.
 2. **Phase 2, human review.** The command pauses and shows the scope and summary. `y` continues;
    `n` stops so you can edit, and prints the `--scope` command to resume with. Without a terminal
@@ -107,7 +109,9 @@ runtime:
   ToolHive tenant proxy sets. Tenant configs (base URL, auth placement, named configs) are read
   from `NW_TENANTS_PATH` (`/app/tenants/tenants.yaml`; format in
   `config/tenants.example.yaml`). `nw_list_configs` / `nw_select_config` choose a named config
-  for the MCP session. No upstream credentials go in the tenants file.
+  for the MCP session. No upstream credentials go in the tenants file. When `NW_PROXY_SECRET` is
+  set (the generated `backend.yaml` sets it), the tenant header is only accepted from requests
+  that also carry a matching `X-NW-Proxy-Secret`; others fail with `PROXY_AUTH_FAILED`.
 - Headers, the bearer token and the session id are read from the MCP SDK's per-message request
   context — not from middleware contextvars, which under stateful streamable HTTP keep the
   session's *first* request (a refreshed token would never be seen).
@@ -120,15 +124,22 @@ runtime:
 | --- | --- |
 | `backend.yaml` | Deployment + ClusterIP Service for the server (one for all tenants) |
 | `networkpolicy.yaml` | Only the tenant proxies may reach the backend |
+| `proxy-secret.yaml` | Shared secret every proxy sends as `X-NW-Proxy-Secret`; the backend reads it as `NW_PROXY_SECRET` |
 | `tenant-proxy.yaml` | `MCPRemoteProxy` template — one per tenant; `headerForward` sets `X-Tenant-ID` |
 | `tenants-secret.yaml` | Tenant configs mounted at `NW_TENANTS_PATH` |
 | `mcpexternalauthconfig.yaml`, `mcpoidcconfig.yaml`, `secret.yaml` | stacklok's auth manifests, per the scope's `auth.type` |
 
 Why this is safe: ToolHive's `header-forward` middleware sets each configured header with
 `Header.Set` on every request, overriding a client-supplied `X-Tenant-ID` (verified in
-`stacklok/toolhive` `pkg/transport/middleware/header_forward.go`), and the NetworkPolicy keeps the
-backend reachable only through those proxies. Never add the tenant header to a vMCP
-`passthroughHeaders` allowlist.
+`stacklok/toolhive` `pkg/transport/middleware/header_forward.go`). Two layers keep other pods from
+claiming a tenant:
+
+- the NetworkPolicy admits only the proxy pods. This needs a CNI that enforces NetworkPolicy
+  (Calico, Cilium, ...); on one that doesn't, the policy does nothing;
+- every proxy sends the shared secret from `proxy-secret.yaml` (`headerForward.addHeadersFromSecret`),
+  and the backend rejects the tenant header without it.
+
+Never add the tenant header or `X-NW-Proxy-Secret` to a vMCP `passthroughHeaders` allowlist.
 
 ## Verifying a running server
 

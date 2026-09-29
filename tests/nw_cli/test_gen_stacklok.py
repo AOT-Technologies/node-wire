@@ -170,6 +170,15 @@ def test_read_scope_binds_the_runtime_block(tmp_path: Path) -> None:
     assert written["runtime"]["connector_id"] == "pet_store"
 
 
+@pytest.mark.parametrize("name", ["../../x", "Pet_Store", "-pets", "a/b", "x" * 64])
+def test_read_scope_rejects_a_server_name_that_is_not_a_dns_label(
+    tmp_path: Path, name: str
+) -> None:
+    """server.name becomes the output directory that --force replaces."""
+    with pytest.raises(StageError, match="invalid server.name"):
+        read_scope(_scope(tmp_path, server={"name": name, "description": "d"}), "pet_store")
+
+
 def test_materialize_spec_converts_swagger2(tmp_path: Path) -> None:
     swagger = tmp_path / "swagger.json"
     swagger.write_text(
@@ -192,6 +201,28 @@ def test_materialize_spec_converts_swagger2(tmp_path: Path) -> None:
     assert materialize_spec(str(FIXTURES / "petstore_openapi.json"), tmp_path) == (
         FIXTURES / "petstore_openapi.json"
     )
+
+
+def test_spec_preparation_keeps_openapi31_json_schema_forms(tmp_path: Path) -> None:
+    """3.1 allows ``type: [x, "null"]``; only 3.0 documents are rewritten, by both entry points."""
+    from nw_cli.stacklok import prepare_spec
+
+    spec = tmp_path / "v31.json"
+    schema = {"type": ["string", "null"]}
+    spec.write_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "t", "version": "1"},
+                "paths": {},
+                "components": {"schemas": {"Name": schema}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    prepared = json.loads(prepare_spec(str(spec), tmp_path / "out.json").read_text())
+    assert prepared["components"]["schemas"]["Name"] == schema
+    assert materialize_spec(str(spec), tmp_path / "work") == spec
 
 
 def test_wheel_build_targets_the_stacklok_packages(

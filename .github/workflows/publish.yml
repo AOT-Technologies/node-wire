@@ -265,14 +265,16 @@ jobs:
             --jq '.tagName'
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Build a binary cp313 wheel for each platform (Linux / macOS / Windows).
-  # cibuildwheel compiles Cython extensions and produces manylinux / musllinux /
-  # macosx / win_amd64 wheels. The NoPyBuild override in setup.py keeps .py
-  # source files out of every wheel.
+  # Build a binary wheel for each platform (Linux / macOS / Windows) and
+  # CPython version. cibuildwheel compiles Cython extensions and produces
+  # manylinux / musllinux / macosx / win_amd64 wheels. The NoPyBuild override
+  # in setup.py keeps .py source files out of every wheel.
   #
   # cibuildwheel builds identifiers one at a time, and an ubuntu runner would
   # also build manylinux then musllinux in that same process. One job per
-  # platform overlaps those compiles.
+  # platform and interpreter overlaps those compiles. The wheel set is cp311,
+  # cp312, and cp313 for manylinux, musllinux, macOS, and Windows (cp313 is what
+  # the stacklok Alpine host image installs).
   # ─────────────────────────────────────────────────────────────────────────────
   build-wheels:
     name: Build (${{ matrix.platform }} ${{ matrix.python }})
@@ -283,15 +285,47 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: manylinux
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
+          - os: ubuntu-latest
+            platform: manylinux
+            python: cp312
+            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
+          - os: ubuntu-latest
+            platform: manylinux
             python: cp313
             cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
+          - os: ubuntu-latest
+            platform: musllinux
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux* pp*"
+          - os: ubuntu-latest
+            platform: musllinux
+            python: cp312
+            cibw_skip: "*-win32 *-manylinux* pp*"
           - os: ubuntu-latest
             platform: musllinux
             python: cp313
             cibw_skip: "*-win32 *-manylinux* pp*"
           - os: macos-latest
             platform: macos
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux_i686 pp*"
+          - os: macos-latest
+            platform: macos
+            python: cp312
+            cibw_skip: "*-win32 *-manylinux_i686 pp*"
+          - os: macos-latest
+            platform: macos
             python: cp313
+            cibw_skip: "*-win32 *-manylinux_i686 pp*"
+          - os: windows-latest
+            platform: windows
+            python: cp311
+            cibw_skip: "*-win32 *-manylinux_i686 pp*"
+          - os: windows-latest
+            platform: windows
+            python: cp312
             cibw_skip: "*-win32 *-manylinux_i686 pp*"
           - os: windows-latest
             platform: windows
