@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/architecture/tenancy/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../seams/">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../../connector-bindings/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>Tenancy - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#tenancy" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              Tenancy
             
           </span>
         </div>
@@ -283,11 +283,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../architecture/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -403,12 +405,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../privacy/" class="md-tabs__link">
           
   
@@ -686,28 +686,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -725,7 +728,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -743,7 +746,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -771,7 +774,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/domain/" class="md-nav__link">
+      <a href="../domain/" class="md-nav__link">
         
   
   
@@ -799,7 +802,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/seams/" class="md-nav__link">
+      <a href="../seams/" class="md-nav__link">
         
   
   
@@ -824,10 +827,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../architecture/tenancy/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -843,6 +873,109 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#single-tenant-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-tenant by default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entitlement-and-named-configs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entitlement and named configs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-tenant-is-resolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the tenant is resolved
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pin-contract-hosts-embedding-the-factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pin contract (hosts embedding the factory)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenant-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenant secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcp-tenant-and-config-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP tenant and config tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP tenant and config tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-one-multi-tenant-mcp-container-under-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running one multi-tenant MCP container under ToolHive
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1892,31 +2025,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2064,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1977,37 +2107,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2126,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2483,10 +2511,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#single-tenant-by-default" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Single-tenant by default
       
     </span>
   </a>
@@ -2494,10 +2522,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#entitlement-and-named-configs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Entitlement and named configs
       
     </span>
   </a>
@@ -2505,10 +2533,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#how-the-tenant-is-resolved" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        How the tenant is resolved
       
     </span>
   </a>
@@ -2516,10 +2544,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#the-pin-contract-hosts-embedding-the-factory" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
+        The pin contract (hosts embedding the factory)
       
     </span>
   </a>
@@ -2527,13 +2555,41 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
+  <a href="#tenant-secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Safe Secret Management
+        Tenant secrets
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mcp-tenant-and-config-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP tenant and config tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MCP tenant and config tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#running-one-multi-tenant-mcp-container-under-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running one multi-tenant MCP container under ToolHive
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2580,10 +2636,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    Architecture
   </span>
 
         </a>
@@ -2611,36 +2667,180 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h1 id="tenancy">Tenancy<a class="headerlink" href="#tenancy" title="Anchor link to this section">&para;</a></h1>
+<p>How Node Wire isolates callers by tenant: where the tenant comes from, how named configs entitle
+it, where its secrets live, and how MCP sessions select them. This page owns that behaviour.
+Environment variables are listed in <a href="../../configuration/#multi-tenancy">Configuration — Multi-tenancy</a>.
+A runnable walkthrough is in <a href="../../connectors/">Use a connector</a>.</p>
+<p>Read <a href="../domain/#tenancy">Domain</a> and <a href="../seams/">Seams</a> first.</p>
+<h2 id="single-tenant-by-default">Single-tenant by default<a class="headerlink" href="#single-tenant-by-default" title="Anchor link to this section">&para;</a></h2>
+<p>With <code>NW_MULTITENANCY_ENABLED</code> unset or <code>false</code>, every call resolves to <code>__default__</code>, and the
+connectors enabled in <code>config/connectors.yaml</code> are that tenant's configs. Set it to <code>true</code> to
+resolve a tenant per request. <code>NW_TENANTS_PATH</code> (default <code>config/tenants.yaml</code>, gitignored) holds
+the named configs and per-tenant secret overlays. REST, gRPC and standalone MCP
+(<code>agents.mcp_entrypoint</code>, generated hosts, ToolHive images) all load it at startup.
+<code>config/tenants.example.yaml</code> shows the format.</p>
+<h2 id="entitlement-and-named-configs">Entitlement and named configs<a class="headerlink" href="#entitlement-and-named-configs" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li><strong>A config existing is what entitles a tenant</strong> to a connector. A tenant with no config gets
+  <code>ConfigNotFoundError</code> from the factory, which is <code>403</code> on REST.</li>
+<li>The first config created for a <code>(tenant, connector)</code> pair becomes its default. Pick another with
+  <code>config_name</code> (the <code>factory.get</code> argument, the REST body field or the MCP tool argument).</li>
+<li>Configs are created, changed and deleted through the store: the REST API
+  (<code>POST</code>/<code>GET</code>/<code>PUT</code>/<code>DELETE /v1/connectors/{cid}/configs[/{name}]</code>, <code>PUT …/{name}/default</code>), the
+  playground, or by editing <code>tenants.yaml</code>. <strong>MCP never writes configs.</strong></li>
+<li>A store write takes effect on the next <code>get()</code>, because the cached instance for that config is
+  dropped at once.</li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<h2 id="how-the-tenant-is-resolved">How the tenant is resolved<a class="headerlink" href="#how-the-tenant-is-resolved" title="Anchor link to this section">&para;</a></h2>
+<p>The highest source wins:</p>
+<table>
+<thead>
+<tr>
+<th>Transport</th>
+<th>1st</th>
+<th>2nd</th>
+<th>3rd</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REST / gRPC</td>
+<td><code>X-Tenant-ID</code> header or JWT <code>tenant</code> claim (per request)</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MCP streamable-http</td>
+<td><code>X-Tenant-ID</code> header or JWT claim (per request)</td>
+<td><code>nw_select_tenant</code> selection</td>
+<td><code>NW_TENANT_ID</code> pin</td>
+</tr>
+<tr>
+<td>MCP stdio</td>
+<td><code>nw_select_tenant</code> selection, unless <code>NW_MCP_TENANT_PIN_LOCKED=true</code></td>
+<td><code>NW_TENANT_ID</code> pin</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li><code>NW_TENANT_ID_HEADER</code> renames the header. The tenant never comes from the URL, and it is never a
+  connector-tool argument.</li>
+<li>With multi-tenancy on, a request with no tenant fails with <code>400 MISSING_TENANT</code>. On
+  streamable-http, <code>initialize</code> falls back to <code>__default__</code> if that tenant exists in the store.</li>
+<li>On streamable-http the per-request header always wins, so one session's <code>nw_select_tenant</code> can
+  never shadow another concurrent session's tenant.</li>
+<li>A JWT <code>tenant</code> claim that disagrees with the header or session tenant fails closed with
+  <code>403 TENANT_IDENTITY_MISMATCH</code>. It is never silently overridden.</li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<h2 id="the-pin-contract-hosts-embedding-the-factory">The pin contract (hosts embedding the factory)<a class="headerlink" href="#the-pin-contract-hosts-embedding-the-factory" title="Anchor link to this section">&para;</a></h2>
+<p>Resolve the request tenant once, with <code>resolve_tenant_id</code> in bindings or your own auth, then call
+<code>ConnectorFactory.get(tenant_id=...)</code>. <strong>Omitting <code>tenant_id</code> on <code>get</code> always resolves
+<code>__default__</code>, never "the current request".</strong> The returned instance is pinned. <code>run()</code> may omit
+<code>tenant_id</code>, and a conflicting <code>run(tenant_id=...)</code> returns <code>TENANT_MISMATCH</code> (<code>ErrorCategory.AUTH</code>)
+without running the action. Nested <code>call_action</code> calls inherit the pin.</p>
+<h2 id="tenant-secrets">Tenant secrets<a class="headerlink" href="#tenant-secrets" title="Anchor link to this section">&para;</a></h2>
+<p>A named tenant's secret is looked up under one scoped key:</p>
+<ul>
+<li><code>NW_{TENANT}_{CONNECTOR}_{KEY}</code> for the default config;</li>
+<li><code>NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}</code> for a named config (one credential vault per named config).</li>
+</ul>
+<p>The value comes from the config's <code>secrets:</code> block in <code>tenants.yaml</code> (loaded into an in-memory
+overlay that is checked first), then from the environment. Non-alphanumeric characters become <code>_</code> and the name is upper-cased: config <code>test-drive</code> for tenant
+<code>acme</code> on Google Drive reads <code>NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON</code>. A missing secret fails
+with <code>tenant secret not found: &lt;tenant&gt;/&lt;connector&gt;/...</code>.</p>
+<h2 id="mcp-tenant-and-config-tools">MCP tenant and config tools<a class="headerlink" href="#mcp-tenant-and-config-tools" title="Anchor link to this section">&para;</a></h2>
+<p>With multi-tenancy on, every Node Wire MCP server (<code>agents.mcp_entrypoint</code>, per-connector images
+and <code>nw-mcp-builder</code> hosts) adds these tools:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nw_list_tenants</code> <code>{connector_id?}</code></td>
+<td>Lists tenants with configs, plus <code>current_tenant_id</code> / <code>pinned_tenant_id</code>. <code>NW_MCP_ALLOWED_TENANTS</code> limits the list.</td>
+</tr>
+<tr>
+<td><code>nw_select_tenant</code> <code>{tenant_id}</code></td>
+<td>Sets the session tenant for <strong>every connector</strong> on this process and returns its configs. Rejected when <code>NW_MCP_TENANT_PIN_LOCKED=true</code>. Unknown tenants fail closed.</td>
+</tr>
+<tr>
+<td><code>nw_list_configs</code> <code>{connector_id?, tenant_id?}</code></td>
+<td>Lists named configs for the selected or pinned tenant.</td>
+</tr>
+<tr>
+<td><code>nw_select_config</code> <code>{config_name}</code></td>
+<td>Makes that name the default for <strong>every connector</strong> on this process. It returns <code>connectors_with_config</code> / <code>connectors_missing_config</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The dotted aliases (<code>nw.list_tenants</code>, …) still work. Every connector tool also accepts an optional
+per-call <code>config_name</code>, which overrides <code>nw_select_config</code> for that call only.</p>
+<p>Things that surprise people:</p>
+<ul>
+<li><strong>One config name for all connectors.</strong> If tenant <code>acme</code> has Drive config <code>test-drive</code> but Epic
+  only <code>test</code>, Epic calls fail until you select a name that exists on every connector you call, or
+  add the missing config.</li>
+<li><strong>Selections are per process.</strong> Two images (Drive, Epic) are two processes, and selecting on one
+  does not change the other. Run one MCP server with both connectors (<code>agents.mcp_entrypoint</code>) when
+  one selection should cover both.</li>
+<li><code>nw gen-stacklok</code> servers fix the tenant at the ToolHive proxy and expose only the config tools
+  (<a href="../../stacklok-mcp-servers/#what-the-generated-server-does">stacklok MCP servers</a>).</li>
+</ul>
+<p>A typical session:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>1. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>2. tools/call nw_select_tenant { "tenant_id": "&lt;id from step 1&gt;" }  # returns configs
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>3. tools/call nw_select_config { "config_name": "&lt;name from step 2&gt;" }
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>4. tools/call google_drive_files_list  { ... }
+</span></code></pre></div>
+<h3 id="running-one-multi-tenant-mcp-container-under-toolhive">Running one multi-tenant MCP container under ToolHive<a class="headerlink" href="#running-one-multi-tenant-mcp-container-under-toolhive" title="Anchor link to this section">&para;</a></h3>
+<p>For the unified image over stdio, mount host <code>config/tenants.yaml</code> read-only at
+<code>/app/config/tenants.yaml</code> and set:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NW_MCP_TRANSPORT</code></td>
+<td><code>stdio</code></td>
+</tr>
+<tr>
+<td><code>NW_ALLOWED_CONNECTORS</code></td>
+<td>e.g. <code>google_drive,fhir_epic</code></td>
+</tr>
+<tr>
+<td><code>NW_MULTITENANCY_ENABLED</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NW_TENANTS_PATH</code></td>
+<td><code>/app/config/tenants.yaml</code></td>
+</tr>
+<tr>
+<td><code>NW_MCP_AUTH_DISABLED</code></td>
+<td><code>true</code> (local only)</td>
+</tr>
+<tr>
+<td><code>NW_MCP_SCOPE_POLICY_DEFAULT</code></td>
+<td><code>allow</code> (local only)</td>
+</tr>
+<tr>
+<td><code>NW_MCP_TENANT_PIN_LOCKED</code></td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table>
+<p>Connector credentials can live in the file's <code>secrets:</code> blocks or in per-tenant env vars, so flat
+ToolHive secrets are optional.</p>
 
 
 
@@ -2678,7 +2878,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../seams/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Seams">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +2888,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Seams
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../../connector-bindings/" class="md-footer__link md-footer__link--next" aria-label="Next: REST / MCP / gRPC Bindings">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                REST / MCP / gRPC Bindings
               </div>
             </div>
             <div class="md-footer__button md-icon">

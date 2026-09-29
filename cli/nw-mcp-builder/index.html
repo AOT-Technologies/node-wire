@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/mcp-servers/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/cli/nw-mcp-builder/">
       
       
-        <link rel="prev" href="../mcp/">
+        <link rel="prev" href="../nw-connector-builder-codegen/">
       
       
-        <link rel="next" href="../mcp-client-oauth/">
+        <link rel="next" href="../../mcp/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>MCP Host Builder (nw-mcp-builder) - Node Wire</title>
+        <title>nw-mcp-builder - Node Wire</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -96,9 +96,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href="../.." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../images/nw-favicon-black.png" alt="logo">
+  <img src="../../images/nw-favicon-black.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MCP Host Builder (nw-mcp-builder)
+              nw-mcp-builder
             
           </span>
         </div>
@@ -227,7 +227,7 @@
   
   
     <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -245,10 +245,29 @@
   
   
   
+    <li class="md-tabs__item">
+      <a href="../../reading/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Reading Map
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
     
     
       <li class="md-tabs__item">
-        <a href="../installation/" class="md-tabs__link">
+        <a href="../../installation/" class="md-tabs__link">
           
   
   
@@ -265,17 +284,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../architecture/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
   
   Architecture
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -287,7 +307,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../connectors/" class="md-tabs__link">
+        <a href="../../connectors/" class="md-tabs__link">
           
   
   
@@ -309,7 +329,27 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../mcp/" class="md-tabs__link">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  CLI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../mcp/" class="md-tabs__link">
           
   
   
@@ -329,7 +369,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../contributing/" class="md-tabs__link">
+        <a href="../../contributing/" class="md-tabs__link">
           
   
   
@@ -349,7 +389,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
+        <a href="../../troubleshooting/" class="md-tabs__link">
           
   
   
@@ -369,11 +409,51 @@
     
     
       <li class="md-tabs__item">
-        <a href="../privacy/" class="md-tabs__link">
+        <a href="../../privacy/" class="md-tabs__link">
           
   
   
   Compliance
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../adr/" class="md-tabs__link">
+          
+  
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md" class="md-tabs__link">
+          
+  
+  
+  Project
 
         </a>
       </li>
@@ -409,9 +489,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href="../.." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../images/nw-favicon-black.png" alt="logo">
+  <img src="../../images/nw-favicon-black.png" alt="logo">
 
     </a>
     Node Wire
@@ -438,7 +518,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -446,6 +526,33 @@
     
   
     Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading Map
   
 
     
@@ -480,10 +587,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -501,8 +608,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -519,7 +626,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../installation/" class="md-nav__link">
         
   
   
@@ -547,7 +654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
+      <a href="../../configuration/" class="md-nav__link">
         
   
   
@@ -568,64 +675,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multi-tenancy
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -662,7 +714,7 @@
   <span class="md-ellipsis">
     
   
-    Connectors
+    Architecture
   
 
     
@@ -678,7 +730,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Connectors
+    Architecture
   
 
           </label>
@@ -691,7 +743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../connectors/" class="md-nav__link">
+      <a href="../../architecture/" class="md-nav__link">
         
   
   
@@ -719,14 +771,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../nw-connector-builder/" class="md-nav__link">
+      <a href="../../architecture/domain/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    OpenAPI Builder
+    Domain
   
 
     
@@ -747,14 +799,391 @@
   
   
     <li class="md-nav__item">
-      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../../architecture/seams/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    OpenAPI Builder Scope
+    Seams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/tenancy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connector-bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST / MCP / gRPC Bindings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connectors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Connectors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connector-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connector Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../google_drive_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Drive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../salesforce_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Salesforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slack_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
   
 
     
@@ -803,14 +1232,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../google_drive_connector/" class="md-nav__link">
+      <a href="../nw-connector-builder/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Google Drive
+    nw-connector-builder
   
 
     
@@ -831,14 +1260,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../salesforce_connector/" class="md-nav__link">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Salesforce
+    Generator Contract
   
 
     
@@ -859,106 +1288,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../slack_connector/" class="md-nav__link">
+      <a href="../nw-connector-builder-codegen/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Slack
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MCP
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    MCP
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../mcp/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
+    Codegen Behaviour
   
 
     
@@ -995,7 +1332,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Host Builder (nw-mcp-builder)
+    nw-mcp-builder
   
 
     
@@ -1013,7 +1350,7 @@
   <span class="md-ellipsis">
     
   
-    MCP Host Builder (nw-mcp-builder)
+    nw-mcp-builder
   
 
     
@@ -1285,291 +1622,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../mcp-client-oauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Client OAuth
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../toolhive_agent_scenario/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Agent Scenario
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Development
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Development
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Contributing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../code-quality-compliance/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Code Quality
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../quality-security-gates/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Quality & Security Gates
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Versioning
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../packaging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Packaging
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../public-api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Public API
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1609,7 +1661,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    MCP
   
 
     
@@ -1625,7 +1677,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Operations
+    MCP
   
 
           </label>
@@ -1638,14 +1690,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../../mcp/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshooting
+    Overview
   
 
     
@@ -1666,14 +1718,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../release-rollback/" class="md-nav__link">
+      <a href="../../stacklok-mcp-servers/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Release & Rollback
+    stacklok MCP servers (nw gen-stacklok)
   
 
     
@@ -1694,14 +1746,42 @@
   
   
     <li class="md-nav__item">
-      <a href="../local-packages-to-images/" class="md-nav__link">
+      <a href="../../mcp-client-oauth/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Local Images
+    Client OAuth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../toolhive_agent_scenario/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Scenario
   
 
     
@@ -1754,7 +1834,7 @@
   <span class="md-ellipsis">
     
   
-    Compliance
+    Development
   
 
     
@@ -1767,6 +1847,380 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code-quality-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quality-security-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quality & Security Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../public-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../local-packages-to-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1783,7 +2237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../privacy/" class="md-nav__link">
+      <a href="../../privacy/" class="md-nav__link">
         
   
   
@@ -1811,7 +2265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../compliance/hipaa-considerations/" class="md-nav__link">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -1819,6 +2273,352 @@
     
   
     HIPAA Considerations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 stacklok MCP builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-documentation-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Documentation lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code of Conduct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Governance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
   
 
     
@@ -2128,7 +2928,7 @@
   
   
     <li class="md-path__item">
-      <a href=".." class="md-path__link">
+      <a href="../.." class="md-path__link">
         
   <span class="md-ellipsis">
     Home
@@ -2146,10 +2946,10 @@
     
     
       <li class="md-path__item">
-        <a href="../mcp/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    MCP
+    CLI
   </span>
 
         </a>
@@ -2178,6 +2978,13 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 <h1 id="nw-mcp-builder">nw-mcp-builder<a class="headerlink" href="#nw-mcp-builder" title="Anchor link to this section">&para;</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Advanced — most users want the <code>nw</code> CLI</p>
+<p><code>nw-mcp-builder</code> is the standalone entry point and exposes the full flag surface.
+For the normal path (spec → connector → wheels → MCP host → image) use
+<a href="../nw-cli/"><code>nw gen-all</code></a>, which calls this tool for you. Read on when you need a
+flag <code>nw</code> does not pass through, or are debugging this stage on its own.</p>
+</div>
 <p>Self-contained tool inside the <strong>node-wire</strong> repo that turns a node-wire connector into a standalone MCP server project.</p>
 <p>It does <strong>not</strong> depend on any separate external <code>mcp-builder</code> project. Everything needed to generate connector-mode MCP hosts lives in this folder.</p>
 <p>To <strong>create</strong> a connector from OpenAPI/Swagger first, use <a href="../nw-connector-builder/">nw-connector-builder</a> (it can hand off to this tool automatically unless you pass <code>--no-mcp</code>), or the full pipeline via <a href="../nw-cli/"><code>nw gen-all</code></a>.</p>
@@ -2201,7 +3008,7 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td><strong>ToolHive local MCP</strong> (Docker image from <code>out/&lt;name&gt;-mcp</code>)</td>
-<td><strong>Linux</strong> (<code>*linux_x86_64*</code> / manylinux), Python <strong>3.12</strong> (matches <code>python:3.12-slim</code> in the generated Dockerfile)</td>
+<td><strong>Linux</strong> (<code>*linux_x86_64*</code> / manylinux), Python <strong>3.13</strong> (matches <code>python:3.13-slim</code> in the generated Dockerfile)</td>
 <td>From the <strong>node-wire</strong> repo root, use <code>scripts/build-packages.sh</code> (see below)</td>
 </tr>
 <tr>
@@ -2212,7 +3019,7 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <h3 id="linux-wheels-for-toolhive-docker-local-mcp-server">Linux wheels for ToolHive Docker (local MCP server)<a class="headerlink" href="#linux-wheels-for-toolhive-docker-local-mcp-server" title="Anchor link to this section">&para;</a></h3>
-<p>From the <strong>node-wire</strong> repository root (requires Docker; uses <code>python:3.12-slim</code> for the Linux build):</p>
+<p>From the <strong>node-wire</strong> repository root (requires Docker; uses <code>python:3.13-slim</code> for the Linux build):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Generic — runtime + one connector</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/runtime<span class="w"> </span>packages/connectors/&lt;connector_id&gt;
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
@@ -2276,8 +3083,8 @@ SPDX-License-Identifier: Apache-2.0
 <li><code>packages/runtime/dist/node_wire_runtime-*.whl</code></li>
 <li><code>packages/connectors/&lt;id&gt;/dist/node_wire_&lt;id&gt;-*.whl</code></li>
 <li>Platform matches the machine running the CLI (see <a href="#platform-and-toolhive-read-this-first">Platform and ToolHive</a>)</li>
-<li><strong>Ensures a scope fixture</strong> at <code>fixtures/&lt;id&gt;_nw.yaml</code>  </li>
-<li>Auto-generated from <code>@nw_action</code> / <code>@sdk_action</code> / <code>SdkActionSpec</code> in connector source  </li>
+<li><strong>Ensures a scope fixture</strong> at <code>fixtures/&lt;id&gt;_nw.yaml</code></li>
+<li>Auto-generated from <code>@nw_action</code> / <code>@sdk_action</code> / <code>SdkActionSpec</code> in connector source</li>
 <li>Skips overwrite if the file already exists (use <code>--force-fixture</code> to regenerate)</li>
 <li><strong>Generates</strong> <code>out/&lt;server-name&gt;-mcp/</code> containing:</li>
 <li>Copied wheels under <code>wheels/</code></li>
@@ -2318,10 +3125,13 @@ SPDX-License-Identifier: Apache-2.0
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Anchor link to this section">&para;</a></h2>
 <ul>
 <li><strong><a href="https://docs.astral.sh/uv/">uv</a></strong> — package manager and runner</li>
-<li><strong>Python 3.11+</strong> for <code>nw-mcp-builder</code> itself</li>
-<li><strong>Python version matching wheels</strong> for generated hosts — on Windows, wheels are often built as <strong>cp314</strong>, so use:</li>
+<li><strong>Python 3.13+</strong> for <code>nw-mcp-builder</code> itself</li>
+<li><strong>Python version matching wheels</strong> for generated hosts — the generated host must run the same
+  Python minor version the wheels were built for. The repo standardises on <strong>3.13</strong> (the
+  generated Dockerfile uses <code>python:3.13-slim</code>). If your host wheels were built by a different
+  interpreter, pin it explicitly:</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.14
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.13
 </span></code></pre></div>
 <ul>
 <li><strong>Docker</strong> — required for Linux wheels via <code>scripts/build-packages.sh</code> and for ToolHive local MCP images</li>
@@ -2337,8 +3147,8 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <h3 id="2-generate-an-mcp-host">2. Generate an MCP host<a class="headerlink" href="#2-generate-an-mcp-host" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Full run: build host-OS wheels + use/create fixture + generate project</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># For Toolhive testing proceed with the second command if you alread have linux based wheel files.</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># This command will be generating platform depended wheels files</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># For ToolHive testing, use the second command if you already have Linux wheel files.</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># This command builds platform-dependent wheel files</span>
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># Example</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive
@@ -2363,7 +3173,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># Example</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">cd</span><span class="w"> </span>out/google-drive-nw-mcp
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">    </span><span class="c1"># optional locally; or inject secrets via env (ToolHive)</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.14<span class="w">   </span><span class="c1"># match wheel ABI (cp314 on many Windows builds)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>uv<span class="w"> </span>sync<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.13<span class="w">   </span><span class="c1"># must match the ABI your wheels were built for</span>
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>&lt;module_name&gt;
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Example</span>
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>google_drive_nw_mcp
@@ -2506,6 +3316,7 @@ SPDX-License-Identifier: Apache-2.0
 </table>
 <p>Help:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>--help
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>-v<span class="w">   </span><span class="c1"># verbose logging during generation</span>
 </span></code></pre></div>
 <hr />
 <h2 id="supported-connectors">Supported connectors<a class="headerlink" href="#supported-connectors" title="Anchor link to this section">&para;</a></h2>
@@ -2642,7 +3453,7 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
 </span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>salesforce-nw-mcp
 </span></code></pre></div>
-<p>The generated Dockerfile is multi-stage and digest-pinned (<code>python:3.12-slim@sha256:…</code>): wheels install in a <code>deps</code> stage (BuildKit pip cache), then <code>/usr/local</code> is copied into the runtime stage with app sources last for layer caching. It runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels (<code>node-wire-runtime</code>, <code>node-wire-bindings</code>, connector), <code>config/connectors.yaml</code>, and the thin host — no vendored <code>src/</code> on <code>PYTHONPATH</code>. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. <code>PYTHONPATH=/app/src</code> and <code>python -m &lt;module&gt;</code> are the entrypoint. MCP auth is <strong>not</strong> disabled in the image, and the scope policy defaults <strong>fail-closed</strong> (<code>deny</code>) there too — unlike local <code>uv run</code>, which sets <code>NW_MCP_AUTH_DISABLED=true</code> and <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> automatically for Inspector convenience. A container started without both set accepts connections but <code>tools/list</code> comes back empty. Set <code>NW_MCP_AUTH_DISABLED=true</code> / <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> at run time for local Inspector/ToolHive use.</p>
+<p>The generated Dockerfile is multi-stage and digest-pinned (<code>python:3.13-slim@sha256:…</code>): wheels install in a <code>deps</code> stage (BuildKit pip cache), then <code>/usr/local</code> is copied into the runtime stage with app sources last for layer caching. It runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels (<code>node-wire-runtime</code>, <code>node-wire-bindings</code>, connector), <code>config/connectors.yaml</code>, and the thin host — no vendored <code>src/</code> on <code>PYTHONPATH</code>. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. <code>PYTHONPATH=/app/src</code> and <code>python -m &lt;module&gt;</code> are the entrypoint. MCP auth is <strong>not</strong> disabled in the image, and the scope policy defaults <strong>fail-closed</strong> (<code>deny</code>) there too — unlike local <code>uv run</code>, which sets <code>NW_MCP_AUTH_DISABLED=true</code> and <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> automatically for Inspector convenience. A container started without both set accepts connections but <code>tools/list</code> comes back empty. Set <code>NW_MCP_AUTH_DISABLED=true</code> / <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> at run time for local Inspector/ToolHive use.</p>
 <p><code>--env-file</code> injects process environment. Do not bind-mount <code>.env</code> into the container filesystem.</p>
 <p><strong>MCP SDK:</strong> Pin <code>mcp&gt;=1.6.0,&lt;2</code>. MCP SDK 2.x breaks <code>@server.list_tools()</code> on the current server binding.</p>
 <hr />
@@ -2661,7 +3472,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td>Docker / ToolHive image cannot install <code>.whl</code></td>
-<td>Ensure Linux (<code>*linux*</code>) wheels are in <code>dist/</code> and regenerate with <code>--skip-build-wheels</code> (Windows <code>win_amd64</code> wheels will not install in <code>python:3.12-slim</code>)</td>
+<td>Ensure Linux (<code>*linux*</code>) wheels are in <code>dist/</code> and regenerate with <code>--skip-build-wheels</code> (Windows <code>win_amd64</code> wheels will not install in <code>python:3.13-slim</code>)</td>
 </tr>
 <tr>
 <td><code>Output project already exists</code></td>
@@ -2677,7 +3488,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>uv sync</code> / import errors on generated host</td>
-<td>Use <code>--python 3.14</code> (or whatever ABI your <code>.whl</code> files were built with)</td>
+<td>Pin <code>--python</code> to the ABI your <code>.whl</code> files were built for (<code>cp313</code> for the standard 3.13 build)</td>
 </tr>
 <tr>
 <td>Empty or wrong tools in fixture</td>
@@ -2711,111 +3522,40 @@ SPDX-License-Identifier: Apache-2.0
 </table>
 <hr />
 <h2 id="multi-tenancy-mcp">Multi-tenancy (MCP)<a class="headerlink" href="#multi-tenancy-mcp" title="Anchor link to this section">&para;</a></h2>
-<p>Node-wire MCP reuses the same runtime config store as REST (<code>NW_TENANTS_PATH</code> / <code>config/tenants.yaml</code>). Standalone MCP (<code>python -m agents.mcp_entrypoint</code>, ToolHive images) calls <code>load_tenants</code> on startup so named tenants/configs are available without going through the playground process.</p>
-<p><strong>Enable:</strong> <code>NW_MULTITENANCY_ENABLED=true</code>.</p>
-<p><strong>Pin tenant (default):</strong></p>
-<table>
-<thead>
-<tr>
-<th>Transport</th>
-<th>How</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>streamable-http</td>
-<td>Client sends <code>X-Tenant-ID</code> on each request. If missing and <code>__default__</code> exists in the store, initialize uses <code>__default__</code> instead of <code>400 MISSING_TENANT</code>.</td>
-</tr>
-<tr>
-<td>stdio / ToolHive container</td>
-<td>Set <code>NW_TENANT_ID</code> for that process</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Discover tenants:</strong> call MCP tool <code>nw_list_tenants</code> (optional <code>connector_id</code>; legacy alias <code>nw.list_tenants</code>). Response includes <code>tenants</code>, <code>current_tenant_id</code> / <code>pinned_tenant_id</code>, and <code>summary</code>.</p>
-<p><strong>Switch tenant:</strong> call <code>nw_select_tenant</code> <code>{ "tenant_id": "&lt;id&gt;" }</code> (alias <code>nw.select_tenant</code>). Sets the session overlay for <strong>every connector</strong> on this process (stdio and streamable-http). Returns named configs. Set <code>NW_MCP_TENANT_PIN_LOCKED=true</code> to reject switch. Optional <code>NW_MCP_ALLOWED_TENANTS</code> allowlist. Unknown tenants fail closed.</p>
-<p>Soft-pin precedence differs by transport: on <strong>stdio</strong>, this selection overrides the <code>NW_TENANT_ID</code> env pin for later calls in the same process. On <strong>streamable-http</strong>, it does <em>not</em> override <code>X-Tenant-ID</code> — the live per-request header (or JWT tenant claim) always wins on every request, so one session's <code>nw_select_tenant</code> can never shadow another concurrent HTTP session's request-level tenant. A JWT tenant claim that disagrees with the caller-supplied header/session tenant fails closed with a <code>TenantIdentityMismatchError</code> (403 <code>TENANT_IDENTITY_MISMATCH</code>) rather than being silently overridden either way.</p>
-<p><strong>Discover configs:</strong> <code>nw_list_configs</code> (optional <code>connector_id</code> and <code>tenant_id</code>; alias <code>nw.list_configs</code>). Omit <code>tenant_id</code> to use the selected or pinned tenant. MCP does <strong>not</strong> create, update, or delete configs — provision those via playground Add config, REST <code>/v1/connectors/{cid}/configs</code>, or by editing <code>tenants.yaml</code>.</p>
-<p><strong>Select a config:</strong> call <code>nw_select_config</code> <code>{ "config_name": "&lt;name&gt;" }</code>. That name becomes the <em>default</em> for every connector on this process. Response includes <code>connectors_with_config</code> and <code>connectors_missing_config</code>. Calling a connector that lacks that name on the selected tenant returns an error. The ToolHive agent CLI <code>--config-name</code> runs <code>nw_select_config</code> at start. <code>tenant_id</code> is never accepted as a connector-tool argument, but every connector tool <em>does</em> accept an optional per-call <code>config_name</code> argument, which outranks the shared <code>nw_select_config</code> selection for that one call only.</p>
-<p><strong>Instance pin (runtime):</strong> After <code>factory.get</code>, the connector instance is bound to that tenant's config and secrets (<code>_tenant_id</code>). Bindings still pass the resolved tenant into <code>run()</code>; omitting it on <code>run</code> also works. A conflicting <code>run(tenant_id=...)</code> fails closed with <code>TENANT_MISMATCH</code> — distinct from the MCP session <code>pinned_tenant_id</code> in <code>nw_list_tenants</code> responses.</p>
-<p>Two ToolHive images (Drive + Epic) are two processes: select on one does not update the other. Use one MCP with both connectors (<code>python -m agents.mcp_entrypoint</code>) so one overlay covers every connector.</p>
-<p><strong>Recommended ToolHive env (unified <code>node-wire:latest</code>, stdio + MT):</strong></p>
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NW_MCP_TRANSPORT</code></td>
-<td><code>stdio</code></td>
-</tr>
-<tr>
-<td><code>NW_ALLOWED_CONNECTORS</code></td>
-<td>e.g. <code>google_drive,fhir_epic</code></td>
-</tr>
-<tr>
-<td><code>NW_MULTITENANCY_ENABLED</code></td>
-<td><code>true</code></td>
-</tr>
-<tr>
-<td><code>NW_TENANTS_PATH</code></td>
-<td><code>/app/config/tenants.yaml</code></td>
-</tr>
-<tr>
-<td><code>NW_MCP_AUTH_DISABLED</code></td>
-<td><code>true</code></td>
-</tr>
-<tr>
-<td><code>NW_MCP_SCOPE_POLICY_DEFAULT</code></td>
-<td><code>allow</code></td>
-</tr>
-<tr>
-<td><code>NW_MCP_TENANT_PIN_LOCKED</code></td>
-<td><code>false</code></td>
-</tr>
-</tbody>
-</table>
-<p>Mount host <code>config/tenants.yaml</code> → <code>/app/config/tenants.yaml</code> (read-only). Connector credentials live in that file’s <code>secrets:</code> blocks (or per-tenant env vars); flat ToolHive secrets are optional when YAML holds them.</p>
-<p><strong>Cross-connector config names:</strong> <code>nw_select_config</code> sets one name globally. If tenant <code>acme</code> has Drive config <code>test-drive</code> but Epic only <code>test</code>, Epic calls fail until you select a name that exists on <strong>every</strong> connector you use, or add the missing config in YAML/REST.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>1. Enable NW_MULTITENANCY_ENABLED=true; ensure tenants.yaml is mounted/present
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>2. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>3. tools/call nw_select_tenant { "tenant_id": "&lt;id from step 2&gt;" }  # returns configs
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>4. tools/call nw_select_config { "config_name": "&lt;name from step 3&gt;" }
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>5. tools/call google_drive_files_list  { ... }
-</span></code></pre></div>
-<p>Rebuild generated ToolHive MCP images after this change so vendored <code>server.py</code> picks up the new tools.</p>
-<p>Verbose logging during generation:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>&lt;connector_id&gt;<span class="w"> </span>-v
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="c1"># Example</span>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw-mcp-builder<span class="w"> </span>-c<span class="w"> </span>google_drive<span class="w"> </span>-v
-</span></code></pre></div>
+<p>A generated host is a thin wrapper around the same <code>McpServer</code>, so it has the same multi-tenancy:
+set <code>NW_MULTITENANCY_ENABLED=true</code> and provide <code>NW_TENANTS_PATH</code> (see the
+<a href="#environment-variables-generated-host">environment table</a>). Tenant resolution per transport, the
+<code>nw_*</code> tenant/config tools and the ToolHive recipe are in <a href="../../architecture/tenancy/">Tenancy</a>.
+After upgrading node-wire, regenerate and rebuild the host so its vendored bindings pick up the
+current tools.</p>
 <hr />
 <h2 id="package-layout-source">Package layout (source)<a class="headerlink" href="#package-layout-source" title="Anchor link to this section">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>nw-mcp-builder/
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>  pyproject.toml
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>  README.md
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  fixtures/                 # *_nw.yaml scope files
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>  src/nw_mcp_builder/
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
-</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>    pipeline.py             # run_connector_pipeline
-</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>    generate/
-</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
-</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    schema/
-</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>      models.py             # MCPScope validation for fixtures
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>nw-mcp-builder/
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  pyproject.toml
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  README.md
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  fixtures/                 # *_nw.yaml scope files
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  src/nw_mcp_builder/
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    pipeline.py             # run_connector_pipeline
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    generate/
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    schema/
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>      models.py             # MCPScope validation for fixtures
 </span></code></pre></div>
 <p>Dependencies: <code>pydantic</code>, <code>pyyaml</code> only (no mcp-builder dependency).</p>
 <p>Unit tests live under <code>tests/nw_mcp_builder/</code> (run from the node-wire repo root):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </span></code></pre></div>
 <hr />
 <h2 id="relationship-to-mcp-builder">Relationship to mcp-builder<a class="headerlink" href="#relationship-to-mcp-builder" title="Anchor link to this section">&para;</a></h2>
-<p>The same connector-mode logic originated in the <strong>mcp-builder</strong> repo (<code>mcp-builder from-connector</code>). <strong>nw-mcp-builder</strong> is a minimal copy that lives inside node-wire so you can generate and run MCP hosts without checking out mcp-builder.</p>
-<p>OpenAPI-based generation (from REST specs → custom Python MCP servers) remains in mcp-builder only.</p>
+<p>The connector-mode logic originated in stacklok's <strong>mcp-builder</strong> (<code>mcp-builder from-connector</code>).
+<strong>nw-mcp-builder</strong> is a minimal copy that lives inside node-wire, so it has no dependency on that
+project. It generates a host for a connector that already exists. To generate the connector from an
+OpenAPI spec, use <a href="../nw-connector-builder/">nw-connector-builder</a> or <a href="../nw-cli/"><code>nw gen-all</code></a>. For
+a stacklok-generated server with AI-curated tools, use
+<a href="../../stacklok-mcp-servers/"><code>nw gen-stacklok</code></a>, which vendors stacklok's generator separately.</p>
 
 
 
@@ -2853,7 +3593,7 @@ SPDX-License-Identifier: Apache-2.0
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../mcp/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+          <a href="../nw-connector-builder-codegen/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Codegen Behaviour">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2863,20 +3603,20 @@ SPDX-License-Identifier: Apache-2.0
                 Previous
               </span>
               <div class="md-ellipsis">
-                Overview
+                Codegen Behaviour
               </div>
             </div>
           </a>
         
         
           
-          <a href="../mcp-client-oauth/" class="md-footer__link md-footer__link--next" aria-label="Next: Client OAuth">
+          <a href="../../mcp/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Client OAuth
+                Overview
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2929,10 +3669,10 @@ SPDX-License-Identifier: Apache-2.0
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

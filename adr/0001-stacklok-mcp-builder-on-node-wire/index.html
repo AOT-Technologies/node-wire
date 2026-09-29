@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/adr/0001-stacklok-mcp-builder-on-node-wire/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../0002-documentation-lifecycle/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>0001 stacklok MCP builder - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#adr-0001-stacklok-mcp-builder-on-node-wire" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              0001 stacklok MCP builder
             
           </span>
         </div>
@@ -403,12 +403,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../privacy/" class="md-tabs__link">
           
   
@@ -425,11 +423,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../adr/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -1892,31 +1892,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +1931,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1977,6 +1974,126 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HIPAA Considerations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1996,7 +2113,7 @@
   <span class="md-ellipsis">
     
   
-    HIPAA Considerations
+    0001 stacklok MCP builder
   
 
     
@@ -2014,7 +2131,7 @@
   <span class="md-ellipsis">
     
   
-    HIPAA Considerations
+    0001 stacklok MCP builder
   
 
     
@@ -2040,10 +2157,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Context
       
     </span>
   </a>
@@ -2051,10 +2168,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#decisions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Decisions
       
     </span>
   </a>
@@ -2062,10 +2179,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#not-carried-over" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Not carried over
       
     </span>
   </a>
@@ -2073,21 +2190,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#consequences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
+        Consequences
       
     </span>
   </a>
@@ -2103,67 +2209,6 @@
 
               
             
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
-        
-          
-          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Decisions
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_11">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Decisions
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
               
                 
   
@@ -2171,63 +2216,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    ADR Index
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0001 stacklok MCP builder
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../adr/0002-documentation-lifecycle/" class="md-nav__link">
+      <a href="../0002-documentation-lifecycle/" class="md-nav__link">
         
   
   
@@ -2483,10 +2472,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#context" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Context
       
     </span>
   </a>
@@ -2494,10 +2483,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#decisions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Decisions
       
     </span>
   </a>
@@ -2505,10 +2494,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#not-carried-over" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Not carried over
       
     </span>
   </a>
@@ -2516,21 +2505,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#consequences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
+        Consequences
       
     </span>
   </a>
@@ -2580,10 +2558,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    Decisions
   </span>
 
         </a>
@@ -2611,36 +2589,111 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
+<h1 id="adr-0001-stacklok-mcp-builder-on-node-wire">ADR 0001 — stacklok MCP builder on node-wire<a class="headerlink" href="#adr-0001-stacklok-mcp-builder-on-node-wire" title="Anchor link to this section">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-09-26</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Frozen decision record</p>
+<p>This page records why the decisions were made, as they stood on the date above. It is not
+updated when the code changes. For how <code>nw gen-stacklok</code> behaves today, read
+<a href="../../stacklok-mcp-servers/">stacklok MCP servers</a>. A later change of direction is a new ADR
+that points back here with <code>Supersedes:</code>.</p>
 </div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Anchor link to this section">&para;</a></h2>
+<p>The goal was to build MCP servers with <strong>stacklok's mcp-builder</strong>, modified so every tool runs on the
+<strong>node-wire runtime and a node-wire connector</strong> instead of stacklok's generated HTTP client.</p>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li>stacklok's generator is the generator.</li>
+<li>node-wire's own generators (nw-connector-builder, nw-mcp-builder) and stacklok's code do not call
+  each other. The connector package is the only thing they share.</li>
+<li>node-wire features such as multitenancy are kept.</li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One command, <code>nw gen-stacklok</code>, runs connector codegen → wheels → stacklok generation</td>
+<td>A single step was a hard requirement. The connector is built from the scope's own <code>spec.source</code> and <code>spec.base_url</code>.</td>
+</tr>
+<tr>
+<td>stacklok/mcp-builder and mcp-template-py are <strong>vendored</strong>, not fetched at build time. That covers generation, plus Phase 1 (the <code>ai-scoping</code> skill, its two agents, and <code>analyze</code> / <code>validate</code>).</td>
+<td>Simpler than fetching every run. There is no PyPI package: the PyPI name <code>mcp-builder</code> belongs to an unrelated project.</td>
+</tr>
+<tr>
+<td>stacklok's Phases 1–2 are reused, and <code>nw gen-stacklok --path</code> runs Phases 1–3 in one command. Phase 4 <code>/ai-validation</code> isn't vendored, because it reviews the httpx client node-wire replaces.</td>
+<td>Every stacklok step up to generation is reused; only the implementation moves to node-wire.</td>
+</tr>
+<tr>
+<td>Phase 1 is an <strong>interactive</strong> Claude Code session by default, with the skill's real questions and gates. <code>--headless</code> (<code>claude -p</code>, gates take the AI's recommendation) is opt-in, and is used when there's no terminal.</td>
+<td>Unattended gates were the largest deviation from stacklok's flow.</td>
+</tr>
+<tr>
+<td>Phase 2 always pauses for a human: continue, or stop and print the <code>--scope</code> resume command. There is no skip flag.</td>
+<td>Every scope must be reviewed by a human before it is built.</td>
+</tr>
+<tr>
+<td>Vendored files only gain hook calls into <code>nw_stacklok/</code>. The pristine copy is committed first.</td>
+<td>Keeps the diff against upstream small and reviewable. Moving to a new upstream commit stays a re-copy plus re-apply.</td>
+</tr>
+<tr>
+<td><strong>Auth follows ToolHive.</strong> ToolHive is the only source of upstream credentials; node-wire's own inbound auth is off in these servers.</td>
+<td>This is stacklok's model: "the generated server performs no authentication". It avoids two sources of credentials, and avoids <code>Authorization</code> meaning two things.</td>
+</tr>
+<tr>
+<td>The credential relay lives in an <strong>optional layer</strong>, <code>node-wire-toolhive</code>, plus one additive bindings argument, <code>ConnectorFactory(auth_provider_hook=)</code>. The runtime is unchanged.</td>
+<td>This had to be a layer, not a runtime change. The runtime's existing auth providers already format bearer, header and query credentials.</td>
+</tr>
+<tr>
+<td>A relayed credential is read on every call and <strong>never cached</strong></td>
+<td>The factory keeps one connector per (tenant, config), so a cached credential would be sent for the next caller (spike S1).</td>
+</tr>
+<tr>
+<td>Headers are read from the MCP SDK's per-message <code>request_ctx</code>, not from middleware contextvars</td>
+<td>Under stateful streamable HTTP, the template's contextvar keeps a session's first request, so a refreshed token would be ignored.</td>
+</tr>
+<tr>
+<td><strong>Multitenancy:</strong> one backend serves all tenants. Each tenant has its own ToolHive <code>MCPRemoteProxy</code>, whose <code>headerForward</code> sets <code>X-Tenant-ID</code>.</td>
+<td>ToolHive has no claim-to-header mapping, and its header injection is static per proxy. Its <code>header-forward</code> middleware uses <code>Header.Set</code>, which overrides a client-supplied header (verified at toolhive <code>dfb0713</code>). A NetworkPolicy admits only the proxies.</td>
+</tr>
+<tr>
+<td>Tenant choice is fixed by the proxy. Only <code>nw_list_configs</code> / <code>nw_select_config</code> are exposed.</td>
+<td>Per-session selection only picks a named config within the tenant.</td>
+</tr>
+<tr>
+<td><strong>Python 3.13</strong> for the whole repo</td>
+<td>stacklok requires it, and nw-cli calls the vendored generator in-process. Package versions were left unchanged at the time.</td>
+</tr>
+<tr>
+<td>stacklok's image defaults (DHI Alpine) are kept. The wheel target is read from the image's base (cp313 <strong>musllinux</strong> for DHI Alpine), and packages with unchanged sources are reused</td>
+<td>stacklok's defaults are kept deliberately. The DHI image has no Python headers, so the wheels come from cibuildwheel (<code>build-packages.sh --cibw-linux</code>). Reuse keeps reruns from recompiling the runtime every time.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-carried-over">Not carried over<a class="headerlink" href="#not-carried-over" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li>Bindings-only features: tool-search mode, per-caller scope policy (ToolHive authorizes callers), REST and gRPC.</li>
+<li>node-wire token refresh and OAuth flows: ToolHive owns the token lifecycle.</li>
+<li>Hand-written connectors without an OpenAPI spec (smtp, ms_teams), which a scope cannot reference.</li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Anchor link to this section">&para;</a></h2>
+<p>These questions were unanswered when the decision was taken:</p>
+<ul>
+<li>The Kubernetes side (spike S2) needs a kind cluster with the ToolHive operator to confirm:</li>
+<li>whether the operator applies <code>podTemplateSpec</code> labels to proxy pods (the NetworkPolicy
+    selects on them);</li>
+<li>how remote-proxy auth delivers the upstream token to an in-cluster backend.</li>
+<li>Dropping Python 3.11/3.12 from published wheels needs a versioning decision (minor release or <code>2.0.0</code>).</li>
+<li>The template's stale per-session token is worth reporting upstream to stacklok.</li>
+</ul>
+<p>Their current state is tracked in issues, not in this record.</p>
 
 
 
@@ -2678,7 +2731,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: ADR Index">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +2741,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                ADR Index
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../0002-documentation-lifecycle/" class="md-footer__link md-footer__link--next" aria-label="Next: 0002 Documentation lifecycle">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                0002 Documentation lifecycle
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -356,131 +356,64 @@
   box-shadow: 0 4px 24px rgba(55, 196, 240, 0.4);
 }
 
+/* ─── Layout ───────────────────────────────────────────────── */
+/* These docs are diagram-heavy and Material's default 61rem grid leaves a
+   ~690px content column, which forces mermaid to scale wide diagrams down
+   until their labels are unreadable. Widen the grid to buy back the room. */
+.md-grid {
+  max-width: 80rem;
+}
+
 /* ─── Mermaid diagrams ─────────────────────────────────────── */
-.md-typeset .nw-diagram-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  margin: 2rem 0 2.5rem;
-  padding: 1.25rem 1rem 1.5rem;
-  border-radius: 12px;
-  border: 1px solid rgba(55, 196, 240, 0.18);
-  background: linear-gradient(
-    180deg,
-    rgba(36, 41, 48, 0.65) 0%,
-    rgba(28, 32, 39, 0.35) 100%
-  );
+/* Material feeds these custom properties into mermaid's themeVariables at init.
+   In the slate scheme they default to near-white text, which is invisible on the
+   light node fills our diagrams declare via classDef — and they out-rank classDef.
+   Pin them to the same dark-on-light palette in BOTH schemes so the site matches
+   what GitHub renders from the diagram source. */
+:root,
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-mermaid-font-family: var(--md-text-font-family), sans-serif;
+  --md-mermaid-label-fg-color: #1c2733;
+  --md-mermaid-label-bg-color: #ffffff;
+  --md-mermaid-edge-color: #5b7387;
+  --md-mermaid-node-bg-color: #ddf1fb;
+  --md-mermaid-node-fg-color: #1a88b0;
+  --md-mermaid-sequence-actor-bg-color: #eceff3;
+  --md-mermaid-sequence-actor-border-color: #5b7387;
+  --md-mermaid-sequence-actor-fg-color: #1c2733;
+  --md-mermaid-sequence-actor-line-color: #8a9bac;
+  --md-mermaid-sequence-message-fg-color: #1c2733;
+  --md-mermaid-sequence-note-bg-color: #fdf2d6;
+  --md-mermaid-sequence-note-fg-color: #3a2c05;
+  --md-mermaid-sequence-note-border-color: #b8860b;
+  --md-mermaid-sequence-number-bg-color: #1a88b0;
+  --md-mermaid-sequence-number-fg-color: #ffffff;
 }
 
-[data-md-color-scheme="default"] .md-typeset .nw-diagram-stack {
-  background: linear-gradient(
-    180deg,
-    rgba(234, 236, 240, 0.9) 0%,
-    rgba(245, 247, 250, 0.6) 100%
-  );
-  border-color: rgba(26, 159, 200, 0.25);
-}
+/* Diagrams carry their own explicit fills and text colours so they read
+   identically in light mode, dark mode, on the site and in raw markdown on
+   GitHub. Keep this stylesheet to layout only — do not re-theme their contents. */
 
-.md-typeset .nw-diagram-stack .nw-diagram {
-  display: flex;
-  justify-content: center;
-  margin: 0;
+/* mermaid emits `width="100%"` plus an inline `max-width` equal to the diagram's
+   natural width, so an SVG can never exceed this container — it only scales down.
+   That means centring is the whole job here, and `text-align` does it for inline
+   SVG at any nesting depth (a `> svg` child selector breaks if mermaid or Material
+   wraps the element). The margin rule is belt-and-braces for a block-level SVG.
+   Keeping diagrams narrow is what actually preserves label size — see the note in
+   docs/architecture.md. */
+.md-typeset .mermaid {
+  text-align: center;
+  margin: 1.5em 0;
   padding: 0.75rem 0.5rem;
-  border: none;
-  background: transparent;
-  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid rgba(26, 136, 176, 0.25);
+  border-radius: 8px;
 }
 
-.md-typeset .nw-diagram-stack .nw-diagram .mermaid {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin: 0;
-}
-
-.md-typeset .nw-diagram-stack .nw-diagram .mermaid svg {
-  width: auto !important;
-  max-width: none !important;
+.md-typeset .mermaid svg {
   height: auto;
-  min-width: min(100%, 720px);
-}
-
-.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid {
-  width: 100%;
-}
-
-.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid svg {
-  width: 100% !important;
-  max-width: none !important;
-  height: auto;
-  min-width: min(100%, 900px);
-}
-
-.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid .nodeLabel,
-.md-typeset .nw-diagram-stack .nw-diagram--runtime .mermaid .label {
-  font-size: 16px !important;
-}
-
-.md-typeset .nw-flow-connector {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.15rem 0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.md-typeset .nw-flow-down {
-  color: #37c4f0;
-}
-
-.md-typeset .nw-flow-up {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed rgba(236, 179, 46, 0.45);
-  color: #ecb32e;
-  font-size: 0.78rem;
-  text-transform: none;
-  letter-spacing: 0.02em;
-}
-
-.md-typeset .nw-diagram {
-  display: flex;
-  justify-content: center;
-  margin: 2rem 0 2.5rem;
-  padding: 1.5rem 1rem;
-  border-radius: 12px;
-  border: 1px solid rgba(55, 196, 240, 0.18);
-  background: linear-gradient(
-    180deg,
-    rgba(36, 41, 48, 0.65) 0%,
-    rgba(28, 32, 39, 0.35) 100%
-  );
-  overflow-x: auto;
-}
-
-[data-md-color-scheme="default"] .md-typeset .nw-diagram {
-  background: linear-gradient(
-    180deg,
-    rgba(234, 236, 240, 0.9) 0%,
-    rgba(245, 247, 250, 0.6) 100%
-  );
-  border-color: rgba(26, 159, 200, 0.25);
-}
-
-.md-typeset .nw-diagram .mermaid {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  min-width: min(100%, 960px);
-  margin: 0;
-}
-
-.md-typeset .nw-diagram .mermaid svg {
-  max-width: 100%;
-  height: auto;
+  margin: 0 auto;
 }
 
 .md-typeset .mermaid .cluster-label .nodeLabel,
@@ -488,9 +421,21 @@
   font-weight: 600;
 }
 
+/* Edge labels: light chip, dark text — matching the node palette in both
+   colour schemes, rather than the dark-only chip this used to force. */
+.md-typeset .mermaid .edgeLabel,
+.md-typeset .mermaid .edgeLabel p,
+.md-typeset .mermaid .edgeLabel span,
+.md-typeset .mermaid .nodeLabel,
+.md-typeset .mermaid .nodeLabel p,
+.md-typeset .mermaid .cluster-label,
+.md-typeset .mermaid .cluster-label p {
+  color: inherit !important;
+}
+
 .md-typeset .mermaid .edgeLabel {
-  background: rgba(28, 32, 39, 0.92) !important;
-  color: #E8EDF5 !important;
+  background: #f2f4f7 !important;
+  color: #1c2733 !important;
   padding: 2px 6px;
   border-radius: 4px;
 }

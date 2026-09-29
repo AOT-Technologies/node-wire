@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/architecture/domain/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../seams/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>Domain - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#domain" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              Domain
             
           </span>
         </div>
@@ -283,11 +283,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../architecture/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -403,12 +405,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../privacy/" class="md-tabs__link">
           
   
@@ -686,28 +686,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -725,7 +728,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -743,7 +746,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -768,10 +771,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../architecture/domain/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Domain
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -787,6 +817,70 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#connectors-and-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connectors and actions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results-and-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results and errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callers-and-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callers and policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -799,7 +893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/seams/" class="md-nav__link">
+      <a href="../seams/" class="md-nav__link">
         
   
   
@@ -827,7 +921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/tenancy/" class="md-nav__link">
+      <a href="../tenancy/" class="md-nav__link">
         
   
   
@@ -1892,31 +1986,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2025,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1977,37 +2068,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2087,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2483,10 +2472,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#connectors-and-actions" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Connectors and actions
       
     </span>
   </a>
@@ -2494,10 +2483,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#results-and-errors" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Results and errors
       
     </span>
   </a>
@@ -2505,10 +2494,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#tenancy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Tenancy
       
     </span>
   </a>
@@ -2516,21 +2505,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#callers-and-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
+        Callers and policy
       
     </span>
   </a>
@@ -2580,10 +2558,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    Architecture
   </span>
 
         </a>
@@ -2611,36 +2589,121 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
-<ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
-</ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
-<ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
-</ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<h1 id="domain">Domain<a class="headerlink" href="#domain" title="Anchor link to this section">&para;</a></h1>
+<p>The words the rest of the docs use, each with one meaning. Read the
+<a href="../">architecture overview</a> first. Read <a href="../seams/">Seams</a> next.</p>
+<h2 id="connectors-and-actions">Connectors and actions<a class="headerlink" href="#connectors-and-actions" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Connector</strong></td>
+<td>An adapter for one external system, such as <code>google_drive</code>, <code>stripe</code> or <code>fhir_epic</code>. It is a <code>BaseConnector</code> subclass in its own package, <code>src/node_wire_&lt;connector_id&gt;/</code>, and it registers through the <code>node_wire.connectors</code> entry-point group. Generated connectors subclass <code>RestConnector</code>.</td>
+</tr>
+<tr>
+<td><strong>Connector id</strong></td>
+<td>The connector's stable name (<code>connector_id</code>). The same string appears in <code>connectors.yaml</code>, <code>NW_ALLOWED_CONNECTORS</code>, the entry-point key, REST paths and MCP tool names.</td>
+</tr>
+<tr>
+<td><strong>Action</strong></td>
+<td>One operation a connector exposes (<code>files.list</code>, <code>charge</code>, <code>read_patient</code>). It is declared with <code>@nw_action</code> / <code>@sdk_action</code> or an <code>action_specs</code> entry. Each action has a Pydantic input model with an <code>action: Literal[...]</code> discriminator.</td>
+</tr>
+<tr>
+<td><strong>Manifest</strong></td>
+<td>The list of <code>(connector_id, action, input_schema, output_schema)</code> entries built by <code>build_manifest()</code>. REST routes, MCP tools and gRPC dispatch are all derived from it (<a href="../../connector-bindings/#manifest">bindings</a>).</td>
+</tr>
+<tr>
+<td><strong>Tool name</strong></td>
+<td>An action's MCP name: <code>&lt;connector_id&gt;_&lt;action&gt;</code>, with dots in the action replaced by underscores (<code>google_drive_files_list</code>). Legacy dotted names still work on <code>tools/call</code>.</td>
+</tr>
+<tr>
+<td><strong>Normalizer</strong></td>
+<td>An optional per-action function (<code>mcp_normalize</code>) that maps LLM-friendly argument aliases to canonical fields before validation. It runs on REST and MCP.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="results-and-errors">Results and errors<a class="headerlink" href="#results-and-errors" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>ConnectorResponse</code></strong></td>
+<td>The envelope every <code>run()</code> returns: <code>success</code>, <code>data</code>, <code>trace_id</code>, <code>error_code</code>, <code>error_category</code>, <code>message</code>. Actions never return raw vendor objects, and failures never escape as exceptions.</td>
+</tr>
+<tr>
+<td><strong><code>ErrorCategory</code></strong></td>
+<td>The error taxonomy: <code>RETRYABLE</code>, <code>BUSINESS</code>, <code>AUTH</code>, <code>FATAL</code>. Bindings translate it into an HTTP status, a gRPC code or an MCP tool error (<a href="../../connector-bindings/#rest-binding">mapping</a>).</td>
+</tr>
+<tr>
+<td><strong>Error code</strong></td>
+<td>A stable string such as <code>GDRIVE_RATE_LIMIT</code> or <code>TENANT_MISMATCH</code>, assigned by <code>ErrorMapper</code> from the connector's <code>error_map</code>. The mapping is scoped to that connector's id.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tenancy">Tenancy<a class="headerlink" href="#tenancy" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tenant</strong></td>
+<td>The caller's organisation. With multi-tenancy off, every call is <code>__default__</code> (<code>DEFAULT_TENANT</code>). With it on, the binding resolves the tenant from the request (<a href="../tenancy/#how-the-tenant-is-resolved">Tenancy</a>).</td>
+</tr>
+<tr>
+<td><strong>Named config</strong></td>
+<td>One configuration of a connector for a tenant, such as <code>sandbox</code> or <code>live</code>, holding a <code>config</code> block, an <code>auth</code> block and secrets. A tenant can hold several. The first one created is the default.</td>
+</tr>
+<tr>
+<td><strong>Entitlement</strong></td>
+<td>A tenant may use a connector only if it has at least one config for it. There is no separate allow list.</td>
+</tr>
+<tr>
+<td><strong>Config store</strong></td>
+<td><code>ConnectorConfigStore</code>: the runtime store of named configs, keyed by <code>(tenant, connector, config_name)</code>. It is loaded from <code>connectors.yaml</code> (as <code>__default__</code>) and from <code>NW_TENANTS_PATH</code>.</td>
+</tr>
+<tr>
+<td><strong>Tenant pin</strong></td>
+<td>The tenant a factory-built connector instance is bound to. <code>run()</code> uses the pin. A different <code>tenant_id</code> returns <code>TENANT_MISMATCH</code> without calling out. Not the same as the MCP <em>session</em> pin (<code>NW_TENANT_ID</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="callers-and-policy">Callers and policy<a class="headerlink" href="#callers-and-policy" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Principal / scopes</strong></td>
+<td>The caller identity a binding passes to <code>run()</code>, from an API key or a JWT.</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td>A permission string. By convention an action needs <code>mcp:&lt;connector_id&gt;.&lt;action&gt;</code>. <code>NW_MCP_ACTION_SCOPE_MAP_JSON</code> can override this per action.</td>
+</tr>
+<tr>
+<td><strong>Scope policy</strong></td>
+<td>The allow/deny decision made before an action runs, by <code>ScopePolicyHook</code> (<a href="../seams/#policyhook">Seams</a>).</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -2678,7 +2741,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +2751,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Overview
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../seams/" class="md-footer__link md-footer__link--next" aria-label="Next: Seams">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                Seams
               </div>
             </div>
             <div class="md-footer__button md-icon">

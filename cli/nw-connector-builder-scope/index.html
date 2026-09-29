@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/cli/nw-connector-builder-scope/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../nw-connector-builder/">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../nw-connector-builder-codegen/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>Generator Contract - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#nw-connector-builder-generator-contract" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              Generator Contract
             
           </span>
         </div>
@@ -323,11 +323,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../cli/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -403,12 +405,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../privacy/" class="md-tabs__link">
           
   
@@ -1116,28 +1116,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1155,7 +1158,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1173,7 +1176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1201,7 +1204,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-cli/" class="md-nav__link">
+      <a href="../nw-cli/" class="md-nav__link">
         
   
   
@@ -1229,7 +1232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder/" class="md-nav__link">
+      <a href="../nw-connector-builder/" class="md-nav__link">
         
   
   
@@ -1254,10 +1257,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-scope/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Contract
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1273,6 +1303,192 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="In scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spec-ingestion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec ingestion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codegen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Codegen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-build-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing &amp; build gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wiring-hand-off" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wiring &amp; hand-off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Out of scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auth-schemes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth schemes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behavior-not-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior not generated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registration-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registration &amp; deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-generated-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing generated output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#soft-drop-vs-hard-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Soft-drop vs. hard failure
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1285,7 +1501,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-codegen/" class="md-nav__link">
+      <a href="../nw-connector-builder-codegen/" class="md-nav__link">
         
   
   
@@ -1313,7 +1529,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-mcp-builder/" class="md-nav__link">
+      <a href="../nw-mcp-builder/" class="md-nav__link">
         
   
   
@@ -1892,31 +2108,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2147,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1977,37 +2190,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2209,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2483,54 +2594,165 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#in-scope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        In scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="In scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#spec-ingestion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec ingestion
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#auth" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Auth
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#codegen" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Codegen
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#testing-build-gate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
+        Testing &amp; build gate
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#wiring-hand-off" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Safe Secret Management
+        Wiring &amp; hand-off
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Out of scope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auth-schemes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auth schemes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec features
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behavior-not-generated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior not generated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#registration-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registration &amp; deployment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-generated-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing generated output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#soft-drop-vs-hard-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Soft-drop vs. hard failure
       
     </span>
   </a>
@@ -2580,10 +2802,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    CLI
   </span>
 
         </a>
@@ -2611,36 +2833,197 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h1 id="nw-connector-builder-generator-contract">nw-connector-builder — generator contract<a class="headerlink" href="#nw-connector-builder-generator-contract" title="Anchor link to this section">&para;</a></h1>
+<p>Companion pages: <a href="../nw-connector-builder/">running the generator</a> ·
+<a href="../nw-connector-builder-codegen/">codegen behaviour</a>.</p>
+<p><code>nw-connector-builder</code> targets a specific, common shape of REST API (single connector-level
+auth scheme, JSON-first bodies, no pagination) and <strong>soft-drops</strong> anything outside that shape
+rather than trying to support every corner of OpenAPI/Swagger. This page is the <strong>contract</strong>: what
+the generator handles today, what it deliberately does not, and what is skipped but flagged per
+build. It is the owner of those rules; other pages link here. For running the generator (flags,
+the pipeline, the build report), see the how-to, <a href="../nw-connector-builder/">nw-connector-builder</a>.</p>
+<hr />
+<h2 id="in-scope">In scope<a class="headerlink" href="#in-scope" title="Anchor link to this section">&para;</a></h2>
+<h3 id="spec-ingestion">Spec ingestion<a class="headerlink" href="#spec-ingestion" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li>Swagger <strong>2.0</strong> and OpenAPI <strong>3.x</strong>, YAML or JSON, UTF-8</li>
+<li>Local file path or <code>http(s)</code> URL (remote fetch goes through Node Wire's SSRF guard,
+  <code>assert_safe_destination</code>, no redirects followed)</li>
+<li>In-house Swagger 2.0 → OpenAPI 3.0 normalization at the front door</li>
+<li>Local relative <code>$ref</code>s and in-document <code>#/</code> refs</li>
+<li>Structural + semantic validation via <code>prance</code> + <code>openapi-spec-validator</code></li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<h3 id="auth">Auth<a class="headerlink" href="#auth" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li>One connector-level <strong>default</strong> scheme, chosen from the document's top-level <code>security</code> (or the
+  most common scheme across operations if none is declared)</li>
+<li><code>apiKey</code> in <code>header</code> or <code>query</code>, <code>http</code> <code>bearer</code>, <code>http</code> <code>basic</code> — mapped to Node Wire's
+  <code>static_token</code> / <code>apikey_query</code> auth providers (self-managed presentation)</li>
+<li>Every <code>oauth2</code> flow (<code>clientCredentials</code>, <code>authorizationCode</code>, <code>implicit</code>, <code>password</code>, or
+  none declared) and <code>openIdConnect</code> — mapped to a <strong>host-supplied</strong> bearer (<code>static_token</code>,
+  <code>host_supplied: true</code>): Node Wire presents <code>&lt;ID&gt;_ACCESS_TOKEN</code> verbatim as a <code>Bearer</code> header
+  but never acquires, refreshes, or detects the expiry of it — see "Host-supplied auth tier"
+  below. The host owns minting and rotation; the connector only attaches the token.</li>
+<li>Operations needing a <strong>different, still-presentable</strong> scheme than the connector default are not
+  dropped — the generator emits it as an additional, named entry in <code>auth_schemes:</code> and routes just
+  those actions to it (<code>auth_scheme=&lt;name&gt;</code> per <code>@nw_action</code>, resolved at runtime by
+  <code>resolve_auth_provider</code>, which fails closed on an unknown name). A connector is no longer
+  necessarily single-scheme; see "Per-action auth schemes" below.</li>
+<li>Anonymous connectors (no scheme, or only unsupported schemes present) build as <code>auth: none</code></li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<h4 id="host-supplied-auth-tier">Host-supplied auth tier<a class="headerlink" href="#host-supplied-auth-tier" title="Anchor link to this section">&para;</a></h4>
+<p>Generated connectors follow the hand-written Slack ownership rule: the host obtains and rotates
+the credential; the connector only attaches it. Every <code>oauth2</code> scheme and <code>openIdConnect</code> map to
+a <code>static_token</code> provider marked <code>host_supplied: true</code> that presents <code>&lt;ID&gt;_ACCESS_TOKEN</code> as a
+<code>Bearer</code> header with <strong>no</strong> acquisition, refresh, or expiry detection. The host application owns
+obtaining and rotating that token entirely out-of-band; a stale token surfaces as a plain <code>401</code>
+from the upstream API. The build report's <code>auth.notes</code> name the triggering scheme, the secret
+key to set, and (when present in the spec) the <code>authorizationUrl</code> / <code>tokenUrl</code> for the host to
+call — those URLs are documentation only.</p>
+<p><strong>This is not OAuth2 (or OIDC) client support — it's a static bearer, full stop.</strong> At runtime,
+<code>host_supplied: true</code> configures <code>StaticTokenAuthProvider(cache=False)</code>, which re-reads the secret
+on every call instead of caching the header. Whether a rotation is actually picked up is a
+property of the configured <code>SecretProvider</code>, not of this flag: env and overlay providers resolve
+live (so the new value is seen on the next call), while <code>AwsSecretsManagerProvider</code>,
+<code>GcpSecretManagerProvider</code> and <code>HashiCorpVaultProvider</code> load their bundle at init and keep serving
+it until recreated. <code>AzureKeyVaultProvider</code> does resolve live but makes a blocking network call per
+read, so a Key Vault deployment should stay on the cached path and call <code>refresh()</code> on rotation.
+Either way Node Wire never calls a token endpoint, never performs a grant exchange, never
+negotiates scope, never authenticates as a client. Hand-written connectors that already use
+<code>OAuth2AuthProvider</code> (<code>fhir_epic</code>, <code>salesforce</code>, …) are unchanged — this policy applies to
+<strong>generated</strong> connectors only.</p>
+<p><strong>One credential per connector, not per caller.</strong> <code>&lt;ID&gt;_ACCESS_TOKEN</code> resolves once per
+tenant/config scope, so every caller of a generated connector reaches the upstream API as the same
+identity. That is the right shape for a service credential the host owns and rotates. It is <em>not</em>
+per-user auth: if each caller must reach the vendor API as themselves, the mechanism is the
+runtime's <code>provider: upstream_bearer</code> relay, which forwards the inbound request's own bearer token
+per call and fails closed unless the connector is also listed in <code>NW_UPSTREAM_BEARER_CONNECTORS</code>
+(see <a href="../../connectors-build/#supported-provider-types">Build a connector</a> and
+<a href="../../google_drive_connector/#upstream_bearer"><code>google_drive_connector.md</code></a>). The generator never
+emits <code>upstream_bearer</code>: nothing in an OpenAPI document says the caller's own token is the right
+credential to relay downstream, and relaying one to the wrong audience leaks it — so that stays a
+deliberate hand-wiring step.</p>
+<h4 id="per-action-auth-schemes">Per-action auth schemes<a class="headerlink" href="#per-action-auth-schemes" title="Anchor link to this section">&para;</a></h4>
+<p>A connector can serve <strong>more than one</strong> OpenAPI security scheme from a single instance. The
+connector-level default (<code>auth:</code> in <code>connectors.yaml</code>) still covers most operations; any operation
+whose declared security is a <em>different</em> scheme — but one that's still presentable (self-managed or
+host-supplied, i.e. not <code>mutualTLS</code>, cookie <code>apiKey</code>, AND-multi, or unrecognized) — gets its own
+named entry under the new, additive <code>auth_schemes:</code> config block, and the generated action passes
+<code>auth_scheme=&lt;name&gt;</code> so the runtime resolves the right <code>AuthProvider</code> per call instead of per
+connector. This is what let petstore-style specs (an <code>apiKey</code> default alongside operations gated by
+an <code>oauth2</code> <code>implicit</code> scheme) stop soft-dropping those operations. Secret names are derived from
+the connector id and the credential kind, so two schemes of the same kind would otherwise share one
+secret; when an extra scheme's secret name is already taken, it is qualified with the scheme name
+(<code>&lt;ID&gt;_&lt;SCHEME&gt;_ACCESS_TOKEN</code>, <code>&lt;ID&gt;_&lt;SCHEME&gt;_API_KEY</code>, …) and the first claimant keeps the short
+name.</p>
+<h3 id="codegen">Codegen<a class="headerlink" href="#codegen" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Actions discoverable via <code>@nw_action</code> on a generated <code>RestConnector</code> subclass (regex-scrapable
+  by <code>nw-mcp-builder</code>, matching the hand-written-connector convention)</li>
+<li>A shared, hardened REST executor (<code>node-wire-runtime</code>) owns base URL, path templating,
+  parameter placement, auth injection, SSRF checks, and error mapping</li>
+<li>Hybrid schema translation: <code>datamodel-code-generator</code> for request/response schemas, hand-rolled
+  per-operation input envelope with an <code>action: Literal</code> discriminator</li>
+<li>Non-JSON request bodies (form data, files, raw content) encoded by declared media type</li>
+<li>Typed output models from the lowest documented 2xx JSON response, falling back to a generic
+  response envelope when no schema is documented</li>
+<li>A <code>declare_secret_shape()</code> call per generated package, so the config store accepts the
+  connector's tenant secrets under <code>NW_SECRET_SHAPE_POLICY=enforce</code> without anyone editing the
+  runtime's hard-coded registry</li>
+<li>A package <code>README.md</code> recording the actions table and the credential contract (which secret to
+  set, and that nothing refreshes it)</li>
+<li>Success-flag envelopes: when a success schema declares <code>ok</code> as a required boolean, a 2xx body
+  with <code>ok: false</code> is raised as a <code>BUSINESS</code> error instead of being returned as a successful
+  call. Narrow by design — optional or non-boolean <code>ok</code> fields are left alone</li>
+</ul>
+<h3 id="testing-build-gate">Testing &amp; build gate<a class="headerlink" href="#testing-build-gate" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Offline schema/contract tests only: parse the spec's <code>example</code> into the generated model when
+  present, else synthesize one with <code>polyfactory</code></li>
+<li>Generated tests ship with the connector (<code>packages/connectors/&lt;id&gt;/tests/</code>)</li>
+<li>Import smoke test + <code>pytest</code> on staged output is a hard gate — promote only happens on green</li>
+<li>Atomic two-phase promote into <code>src/node_wire_&lt;id&gt;/</code> and <code>packages/connectors/&lt;id&gt;/</code>; abort
+  leaves the repo untouched</li>
+</ul>
+<h3 id="wiring-hand-off">Wiring &amp; hand-off<a class="headerlink" href="#wiring-hand-off" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Optional <code>--wire</code>: upserts <code>config/connectors.yaml</code> (comment-preserving via <code>ruamel.yaml</code>) and
+  appends secret placeholders / allowlist entries to <code>sample.env</code></li>
+<li>Automatic hand-off to <code>nw-mcp-builder</code> after a clean promote (unless <code>--no-mcp</code>), producing an
+  MCP host under <code>nw-mcp-builder/out/</code></li>
+</ul>
+<hr />
+<h2 id="out-of-scope">Out of scope<a class="headerlink" href="#out-of-scope" title="Anchor link to this section">&para;</a></h2>
+<h3 id="auth-schemes">Auth schemes<a class="headerlink" href="#auth-schemes" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>OAuth2 / OpenID Connect acquisition for generated connectors</strong> — Node Wire never <em>acquires</em>
+  tokens for generated connectors, deliberately. Every <code>oauth2</code> flow and <code>openIdConnect</code> map to
+  the host-supplied bearer tier above. Hand-written connectors that already use
+  <code>OAuth2AuthProvider</code> are unchanged.</li>
+<li><strong>mutualTLS</strong> — genuinely unpresentable (a transport-layer client certificate, not a
+  header/param); operations secured only by it are soft-dropped</li>
+<li><strong>Cookie-based API keys</strong> — no <code>name=value</code> cookie formatting in <code>StaticTokenAuthProvider</code> yet;
+  soft-dropped</li>
+<li><strong>AND-combined</strong> multi-scheme security (<code>security: [{a: [], b: []}]</code>) — soft-dropped</li>
+<li>Automatic acquisition of OAuth2 / OIDC credentials by generated connectors — Node Wire will
+  present a host-supplied bearer token (see above) but will never obtain, refresh, or
+  detect its expiry</li>
+</ul>
+<p>(Host-supplied <code>oauth2</code> / <code>openIdConnect</code>, and multi-scheme connectors via per-action
+<code>auth_schemes:</code>, are in scope above.)</p>
+<h3 id="spec-features">Spec features<a class="headerlink" href="#spec-features" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Remote <code>$ref</code>s</strong> (absolute URLs) — rejected outright; the input document must be
+  self-contained aside from local relative/<code>#/</code> refs</li>
+<li><strong>Path- or operation-level <code>servers</code> overrides</strong> — ignored; only the connector-level base URL
+  is used (noted in the build report when present)</li>
+<li>Uncommon parameter serialization: <code>deepObject</code> query style, non-<code>simple</code> path/header styles,
+  unsupported <code>collectionFormat</code> values (Swagger 2.0) — soft-dropped per operation</li>
+<li><code>in: cookie</code> parameters — soft-dropped per operation</li>
+</ul>
+<h3 id="behavior-not-generated">Behavior not generated<a class="headerlink" href="#behavior-not-generated" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Pagination</strong> — no auto-pagination in v1, even when the spec documents cursor/offset
+  patterns; generated actions return one page as-is</li>
+<li><strong>Rate-limit / observability metadata</strong> — not derived from the spec (e.g. <code>x-ratelimit-*</code>
+  extensions are ignored); deferred, not designed</li>
+<li>Complex/ambiguous request bodies and non-object success responses fall back to permissive
+  typing (<code>Any</code> / <code>RestResponseOutput</code>) rather than a fully modeled schema</li>
+</ul>
+<h3 id="testing-depth">Testing depth<a class="headerlink" href="#testing-depth" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Mock-server tests and live/integration tests against the real API are explicitly out of
+  scope</strong> — only offline schema/contract tests against generated models are produced</li>
+<li>No contract testing against the live upstream service as part of the generator's gate</li>
+</ul>
+<h3 id="registration-deployment">Registration &amp; deployment<a class="headerlink" href="#registration-deployment" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><code>--wire</code> never edits <code>connector_registry.py</code> or the root <code>pyproject.toml</code> — entry-point
+  registration for editable monorepo installs is a manual follow-up step</li>
+<li>Publishing (PyPI wheel <code>setup.py</code>/Cython glue, <code>scripts/build-packages.sh</code> allowlist entries,
+  CI allowlists, standalone MCP Docker image rows) is a manual <strong>Tier 2/3</strong> checklist in
+  <a href="../../packaging/">packaging.md</a> — the builder produces the runtime + package skeleton only</li>
+<li>No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
+  <code>thv</code>/ToolHive deploy or verify is manual — see <a href="../nw-mcp-builder/#platform-and-toolhive-read-this-first">nw-mcp-builder</a>
+  and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>. This was explicitly dropped from
+  the companion <code>nw-cli</code> orchestrator's scope too; see <a href="../nw-cli/">nw-cli.md</a>.</li>
+</ul>
+<h3 id="editing-generated-output">Editing generated output<a class="headerlink" href="#editing-generated-output" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Generated files are marked "do not hand-edit" — there is no supported workflow for
+  incrementally patching a generated connector; the only supported update path is regenerating
+  with <code>--force</code> (full overwrite, not a diff/merge)</li>
+</ul>
+<hr />
+<h2 id="soft-drop-vs-hard-failure">Soft-drop vs. hard failure<a class="headerlink" href="#soft-drop-vs-hard-failure" title="Anchor link to this section">&para;</a></h2>
+<p>Everything above that's "soft-dropped" means: the operation is skipped and listed in
+<code>report.json</code>, but the build continues. The only way an out-of-scope feature aborts the build
+is if it leaves <strong>zero usable operations</strong> — that's a hard failure (<code>DeriveError</code>), since a
+connector with no actions isn't useful. A coverage warning is also printed when fewer than 50%
+of the document's operations survive derivation, even if the build otherwise succeeds.</p>
+<p>This soft-fail-and-report design is deliberate: the generator is meant to get you most of the
+way there for typical REST APIs, with the report telling you exactly what to hand-write or
+follow up on for the rest — not to silently produce a broken or partial connector.</p>
 
 
 
@@ -2678,7 +3061,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../nw-connector-builder/" class="md-footer__link md-footer__link--prev" aria-label="Previous: nw-connector-builder">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +3071,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                nw-connector-builder
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../nw-connector-builder-codegen/" class="md-footer__link md-footer__link--next" aria-label="Next: Codegen Behaviour">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                Codegen Behaviour
               </div>
             </div>
             <div class="md-footer__button md-icon">

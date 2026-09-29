@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/cli/nw-cli/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../nw-connector-builder/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>nw CLI - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#nw-cli" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              nw CLI
             
           </span>
         </div>
@@ -323,11 +323,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../cli/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -403,12 +405,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../privacy/" class="md-tabs__link">
           
   
@@ -1116,28 +1116,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1155,7 +1158,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1173,7 +1176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1198,10 +1201,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../cli/nw-cli/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1217,6 +1247,164 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-all
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-whl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-whl
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-mcp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-docker-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw docker-build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-stacklok" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-stacklok
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relationship-to-sibling-clis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to sibling CLIs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1229,7 +1417,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder/" class="md-nav__link">
+      <a href="../nw-connector-builder/" class="md-nav__link">
         
   
   
@@ -1257,7 +1445,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
         
   
   
@@ -1285,7 +1473,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-codegen/" class="md-nav__link">
+      <a href="../nw-connector-builder-codegen/" class="md-nav__link">
         
   
   
@@ -1313,7 +1501,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-mcp-builder/" class="md-nav__link">
+      <a href="../nw-mcp-builder/" class="md-nav__link">
         
   
   
@@ -1892,31 +2080,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2119,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1977,37 +2162,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2181,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2483,10 +2566,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Install
       
     </span>
   </a>
@@ -2494,10 +2577,82 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Commands
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-all
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-whl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-whl
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-mcp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-docker-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw docker-build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-gen-stacklok" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw gen-stacklok
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
       
     </span>
   </a>
@@ -2505,10 +2660,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Exit codes
       
     </span>
   </a>
@@ -2516,10 +2671,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#relationship-to-sibling-clis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
+        Relationship to sibling CLIs
       
     </span>
   </a>
@@ -2527,10 +2682,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
+  <a href="#tests" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Safe Secret Management
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
       
     </span>
   </a>
@@ -2580,10 +2746,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    CLI
   </span>
 
         </a>
@@ -2611,36 +2777,279 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h1 id="nw-cli">nw CLI<a class="headerlink" href="#nw-cli" title="Anchor link to this section">&para;</a></h1>
+<p><code>nw</code> is the unified CLI for turning an OpenAPI spec into a connector, wheels, an MCP host, and a Docker image. <code>gen-all</code> runs connector → wheel → MCP host → wire; the image is a separate <code>docker-build</code> step. It orchestrates <a href="../nw-connector-builder/"><code>nw-connector-builder</code></a>, <a href="../../packaging/"><code>scripts/build-packages.sh</code></a>, and <a href="../nw-mcp-builder/"><code>nw-mcp-builder</code></a> without replacing those tools.</p>
+<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. For manual ToolHive registration and the end-to-end agent path, see <a href="../nw-mcp-builder/#platform-and-toolhive-read-this-first">nw-mcp-builder</a> and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
+<hr />
+<h2 id="install">Install<a class="headerlink" href="#install" title="Anchor link to this section">&para;</a></h2>
+<p><code>nw-cli</code> is part of the monorepo <strong>dev</strong> dependency group. From the <strong>node-wire</strong> repo root (hard assumption — there is no <code>--node-wire-root</code> flag):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--help
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--version<span class="w">   </span><span class="c1"># or -V</span>
+</span></code></pre></div>
+<hr />
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nw gen-all</code></td>
+<td>One-shot: connector codegen → Linux wheels → MCP host → wire</td>
+</tr>
+<tr>
+<td><code>nw gen-whl</code></td>
+<td>Standalone wheel build via <code>scripts/build-packages.sh</code></td>
+</tr>
+<tr>
+<td><code>nw gen-mcp</code></td>
+<td>Standalone MCP host (requires existing wheels)</td>
+</tr>
+<tr>
+<td><code>nw docker-build</code></td>
+<td><code>docker build</code> inside <code>nw-mcp-builder/out/&lt;server&gt;-mcp/</code></td>
+</tr>
+<tr>
+<td><code>nw gen-stacklok</code></td>
+<td>Scope an OpenAPI spec with stacklok's <code>/ai-scoping</code>, then build a stacklok MCP server on the node-wire runtime</td>
+</tr>
+</tbody>
+</table>
+<h3 id="nw-gen-all"><code>nw gen-all</code><a class="headerlink" href="#nw-gen-all" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-all<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--path<span class="w"> </span>path/to/openapi.yaml
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--connector-id</code></td>
+<td>Connector id (required)</td>
+</tr>
+<tr>
+<td><code>--path</code></td>
+<td>OpenAPI/Swagger file or URL (required)</td>
+</tr>
+<tr>
+<td><code>--no-wheel</code></td>
+<td>Skip wheel build</td>
+</tr>
+<tr>
+<td><code>--no-mcp</code></td>
+<td>Skip MCP host build</td>
+</tr>
+<tr>
+<td><code>--no-wire</code></td>
+<td>Skip <code>connectors.yaml</code> / <code>sample.env</code> / <code>ALL_PACKAGES</code> registration</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>Overwrite existing connector / MCP output</td>
+</tr>
+<tr>
+<td><code>--tool-search</code></td>
+<td>MCP host serves tools through <code>nw_search_tools</code> + <code>nw_call_tool</code> (no prompt)</td>
+</tr>
+<tr>
+<td><code>--full-tool-list</code></td>
+<td>MCP host lists every tool, even over budget (no prompt, no warning)</td>
+</tr>
+<tr>
+<td><code>--max-tool-listing-kb</code></td>
+<td>Tool listing budget in KB (default <code>25</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Stages run in-process and in order, each skippable independently; the <code>mcp</code> stage additionally checks for wheels before building and can trigger a build-or-prompt sub-step of its own:</p>
+<pre class="mermaid"><code>flowchart TD
+    Start(["nw gen-all"]) --&gt; Connector["Connector codegen&lt;br/&gt;run_build(no_mcp=True)"]
+    Connector --&gt; McpWanted{"Build an&lt;br/&gt;MCP host?"}
+
+    McpWanted -- "yes" --&gt; ToolMode["Decide tool mode&lt;br/&gt;measure listing against --max-tool-listing-kb&lt;br/&gt;TTY: ask · non-TTY: full list + warning"]
+    McpWanted -- "no (--no-mcp)" --&gt; WheelGate
+    ToolMode --&gt; WheelGate{"Build&lt;br/&gt;wheels?"}
+
+    WheelGate -- "yes" --&gt; Wheel["Wheel build&lt;br/&gt;runtime + bindings, then connector"]
+    WheelGate -- "no (--no-wheel)" --&gt; McpGate
+    Wheel --&gt; McpGate{"MCP host&lt;br/&gt;requested?"}
+
+    McpGate -- "yes" --&gt; WheelsPresent{"Wheels present&lt;br/&gt;for this id?"}
+    McpGate -- "no (--no-mcp)" --&gt; WireGate
+    WheelsPresent -- "yes" --&gt; McpBuild["MCP host build&lt;br/&gt;run_mcp_build"]
+    WheelsPresent -- "no, TTY" --&gt; Prompt["Prompt to build&lt;br/&gt;the missing wheel"]
+    WheelsPresent -- "no, non-TTY" --&gt; Fail(["exit 1&lt;br/&gt;prints the fix command"])
+    Prompt --&gt; McpBuild
+    McpBuild --&gt; WireGate{"Wire the&lt;br/&gt;connector in?"}
+
+    WireGate -- "yes" --&gt; Wire["Wire&lt;br/&gt;connectors.yaml + sample.env + ALL_PACKAGES"]
+    WireGate -- "no (--no-wire)" --&gt; Done(["Done"])
+    Wire --&gt; Done
+
+    classDef stage fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef gate fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    classDef term fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef bad fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    class Connector,ToolMode,Wheel,McpBuild,Prompt,Wire stage
+    class McpWanted,WheelGate,McpGate,WheelsPresent,WireGate gate
+    class Start,Done term
+    class Fail bad</code></pre>
+<p>Stages are <strong>in-process</strong> function calls (never re-invokes <code>nw</code>). Connector codegen always passes <code>no_mcp=True</code> to <code>run_build</code> so the builder’s host-only MCP hand-off is skipped; MCP uses <code>skip_build_wheels=True</code> against wheels from <code>build-packages.sh</code>.</p>
+<p>When wire is enabled:</p>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li><code>run_build(..., wire=True)</code> updates <code>config/connectors.yaml</code> and <code>sample.env</code></li>
+<li><code>nw</code> inserts <code>packages/connectors/&lt;id&gt;</code> into <code>scripts/build-packages.sh</code>’s <code>ALL_PACKAGES</code> list if missing</li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<p>If MCP runs and wheels are missing, the same TTY / non-TTY prerequisite handling as <code>gen-mcp</code> applies (see below).</p>
+<p><strong>Tool mode.</strong> Right after codegen (before the wheel builds), the connector's MCP tool listing is measured. Over the budget (<code>--max-tool-listing-kb</code>, default 25 KB) the progress bars pause and you are asked how the MCP host should expose its tools — the full tool list, or tool search (<code>nw_search_tools</code> + <code>nw_call_tool</code>, schemas on demand) — with an explanation of where tool search can fail. Without a terminal the full list is generated and a warning names the flags. <code>--tool-search</code> / <code>--full-tool-list</code> decide up front. The build never fails on size; the choice becomes the host's default <code>NW_MCP_TOOL_MODE</code>. Wording and logic live in nw-mcp-builder (<code>nw_mcp_builder/tool_listing.py</code>); see its README.</p>
+<h3 id="nw-gen-whl"><code>nw gen-whl</code><a class="headerlink" href="#nw-gen-whl" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">          </span><span class="c1"># Linux-only (default)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--host<span class="w">   </span><span class="c1"># host-only</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--all<span class="w">    </span><span class="c1"># cibuildwheel matrix</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--runtime<span class="w">                         </span><span class="c1"># packages/runtime only</span>
+</span></code></pre></div>
+<p>Default mode passes <strong><code>--linux-only</code></strong> to <code>scripts/build-packages.sh</code> (not the script’s host+Linux combined default). The CLI does not expose a <code>--linux-only</code> flag — omit <code>--host</code> / <code>--all</code> to get that mode. <code>--host</code> and <code>--all</code> are mutually exclusive. Runtime is not rebuilt with every connector build — use <code>--runtime</code> when needed. <code>--connector-id</code> is required unless <code>--runtime</code> and/or <code>--bindings</code> is set. <code>--bindings</code> builds <code>packages/bindings</code> (the MCP host surface) — <code>gen-mcp</code> asks you to run <code>nw gen-whl --bindings</code> when that wheel is missing.</p>
+<h3 id="nw-gen-mcp"><code>nw gen-mcp</code><a class="headerlink" href="#nw-gen-mcp" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--force-output
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--tool-search
+</span></code></pre></div>
+<p>Takes the same <code>--tool-search</code> / <code>--full-tool-list</code> / <code>--max-tool-listing-kb</code> flags as <code>gen-all</code>, and asks the same question before building the host.</p>
+<p>Always <code>skip_build_wheels=True</code>. If the runtime or connector wheel is missing:</p>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li><strong>Interactive (TTY):</strong> prompts to build the missing prerequisite</li>
+<li><strong>Non-interactive:</strong> exits non-zero with the exact fix command (e.g. <code>nw gen-whl --runtime</code>)</li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<p>There is no <code>--yes</code> / auto-confirm flag.</p>
+<h3 id="nw-docker-build"><code>nw docker-build</code><a class="headerlink" href="#nw-docker-build" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--tag<span class="w"> </span>v1
+</span></code></pre></div>
+<p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (e.g. <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>. Pass secrets at <strong>run</strong> time (<code>docker run --env-file</code> / <code>-e</code>); they are not baked into the image.</p>
+<p>If the MCP project directory is missing, the same TTY / non-TTY prompt offers to run <code>nw gen-mcp</code> first.</p>
+<h3 id="nw-gen-stacklok"><code>nw gen-stacklok</code><a class="headerlink" href="#nw-gen-stacklok" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--path<span class="w"> </span>&lt;spec<span class="w"> </span>path<span class="w"> </span>or<span class="w"> </span>URL&gt;<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="o">[</span>--workflow<span class="w"> </span><span class="s2">"..."</span><span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--auth-hint<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--scoping-notes<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">      </span><span class="c1"># reviewed scope → Phase 3</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--force<span class="w"> </span>--no-wheel<span class="w"> </span>--no-lock<span class="w"> </span>--output-dir<span class="w"> </span>out/
+</span></code></pre></div>
+<p>With <code>--path</code> it runs stacklok's Phases 1–3 in one go:
+1. prepares the spec;
+2. opens Claude Code with the <code>/ai-scoping</code> skill, which asks its questions and stops at its
+   approval gates as in stacklok's flow. <code>--workflow</code>, <code>--auth-hint</code> and <code>--scoping-notes</code> are
+   starting answers. Exit the session to continue. <code>--headless</code>, or no terminal, runs it
+   unattended with <code>claude -p</code>;
+3. <strong>pauses for the human review</strong>: <code>y</code> continues, <code>n</code> stops and prints the <code>--scope</code> command to
+   resume with;
+4. generates.</p>
+<p>A second <code>--path</code> run reuses the scope in <code>nw-stacklok-builder/scoping/&lt;id&gt;/</code>; <code>--rescope</code> redoes
+it. The connector is always rebuilt from the spec. An existing output project is checked before
+anything is built: you're asked whether to replace it, and <code>--force</code> replaces it without asking.</p>
+<p>Builds a <a href="https://github.com/stacklok/mcp-builder">stacklok mcp-builder</a> server on the node-wire
+runtime from a stacklok <code>mcp-scope.yaml</code>: connector codegen from the scope's <code>spec.source</code> →
+wheels for the image (cp313 musllinux for stacklok's Alpine base, via <code>scripts/build-packages.sh
+--cibw-linux</code> in Docker; unchanged packages are reused) → the vendored stacklok
+generator (<code>nw-stacklok-builder/out/&lt;server&gt;-mcp/</code>, then <code>uv lock</code>). <code>--connector-id</code> may be
+omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}</code> block. See
+<a href="../../stacklok-mcp-servers/">stacklok MCP servers</a>.</p>
+<hr />
+<h2 id="output">Output<a class="headerlink" href="#output" title="Anchor link to this section">&para;</a></h2>
+<p><code>nw gen-all</code> uses brand-colored <code>rich.progress</code> (amber spinner, blue bar, pink on failure) with a bordered summary panel. Single-stage commands use a simpler status spinner.</p>
+<hr />
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Success</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Stage failure, missing prerequisite (non-interactive / declined), or root resolution error</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Usage error (e.g. <code>--host</code> with <code>--all</code>, or missing <code>--connector-id</code> without <code>--runtime</code> or <code>--bindings</code>)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="relationship-to-sibling-clis">Relationship to sibling CLIs<a class="headerlink" href="#relationship-to-sibling-clis" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nw</code></td>
+<td>Orchestrator for the happy path</td>
+</tr>
+<tr>
+<td><code>nw-connector-builder</code></td>
+<td>Still available for low-level OpenAPI codegen</td>
+</tr>
+<tr>
+<td><code>nw-mcp-builder</code></td>
+<td>Still available for MCP-only generation</td>
+</tr>
+<tr>
+<td><code>nw-stacklok-builder</code></td>
+<td>Vendored stacklok generator driven by <code>nw gen-stacklok</code>. Ships stacklok's <code>mcp-builder</code> (analyze / validate / generate) and <code>mcp-builder-schema</code>, which the ai-scoping skill calls; you rarely run them yourself</td>
+</tr>
+</tbody>
+</table>
+<p>Deprecating the standalone builder entry points is <strong>not</strong> part of this CLI.</p>
+<hr />
+<h2 id="tests">Tests<a class="headerlink" href="#tests" title="Anchor link to this section">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_cli<span class="w"> </span>-v<span class="w"> </span>--no-cov
+</span></code></pre></div>
+<p>Coverage is unit/mocked only (no live Docker or network spec fetch).</p>
+<hr />
+<h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Doc</th>
+<th>When to read it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../nw-connector-builder/">nw-connector-builder.md</a></td>
+<td>OpenAPI → connector codegen details</td>
+</tr>
+<tr>
+<td><a href="../nw-mcp-builder/">nw-mcp-builder</a></td>
+<td>Generated MCP host layout, ToolHive, Inspector</td>
+</tr>
+<tr>
+<td><a href="../../packaging/">packaging.md</a></td>
+<td><code>build-packages.sh</code>, wheels, PyPI</td>
+</tr>
+<tr>
+<td><a href="../../configuration/">configuration.md</a></td>
+<td><code>connectors.yaml</code> and env vars</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -2678,7 +3087,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +3097,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Overview
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../nw-connector-builder/" class="md-footer__link md-footer__link--next" aria-label="Next: nw-connector-builder">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                nw-connector-builder
               </div>
             </div>
             <div class="md-footer__button md-icon">

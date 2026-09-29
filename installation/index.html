@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://aot-technologies.github.io/node-wire/installation/">
       
       
-        <link rel="prev" href="..">
+        <link rel="prev" href="../reading/">
       
       
         <link rel="next" href="../configuration/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -244,6 +244,25 @@
   
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../reading/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Reading Map
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -267,17 +286,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../architecture/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
   
   Architecture
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -294,6 +314,26 @@
   
   
   Connectors
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../cli/" class="md-tabs__link">
+          
+  
+  
+  CLI
 
         </a>
       </li>
@@ -374,6 +414,46 @@
   
   
   Compliance
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../adr/" class="md-tabs__link">
+          
+  
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md" class="md-tabs__link">
+          
+  
+  
+  Project
 
         </a>
       </li>
@@ -462,6 +542,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -483,10 +590,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -504,8 +611,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -666,10 +773,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#rest-quick-start" class="md-nav__link">
+  <a href="#rest-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        REST quick start
+        REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-telemetry-stack-grafana-opentelemetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: telemetry stack (Grafana / OpenTelemetry)
       
     </span>
   </a>
@@ -700,45 +818,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Development Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#code-quality-linting-formatting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code Quality (Linting &amp; Formatting)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pre-commit-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pre-commit Hooks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#running-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running Tests
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -779,64 +858,9 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../configuration.md#multi-tenancy" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Multi-tenancy
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -873,7 +897,7 @@
   <span class="md-ellipsis">
     
   
-    Connectors
+    Architecture
   
 
     
@@ -889,7 +913,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Connectors
+    Architecture
   
 
           </label>
@@ -902,7 +926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../connectors/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -930,14 +954,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../nw-connector-builder/" class="md-nav__link">
+      <a href="../architecture/domain/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    OpenAPI Builder
+    Domain
   
 
     
@@ -958,14 +982,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../architecture/seams/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    OpenAPI Builder Scope
+    Seams
   
 
     
@@ -986,14 +1010,159 @@
   
   
     <li class="md-nav__item">
-      <a href="../nw-cli/" class="md-nav__link">
+      <a href="../architecture/tenancy/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    nw CLI
+    Tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connector-bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST / MCP / gRPC Bindings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connectors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Connectors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connector-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connector Reference
   
 
     
@@ -1091,6 +1260,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1120,10 +1317,239 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw-connector-builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codegen Behaviour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/nw-mcp-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw-mcp-builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
             
   
   
@@ -1141,8 +1567,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1187,14 +1613,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-servers/" class="md-nav__link">
+      <a href="../stacklok-mcp-servers/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    MCP Host Builder (nw-mcp-builder)
+    stacklok MCP servers (nw gen-stacklok)
   
 
     
@@ -1293,10 +1719,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -1314,8 +1740,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1522,10 +1948,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
             
   
   
@@ -1543,8 +1969,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1667,10 +2093,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1688,8 +2114,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_8">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1742,6 +2168,352 @@
     
   
     HIPAA Considerations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 stacklok MCP builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0002-documentation-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Documentation lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code of Conduct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Governance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
   
 
     
@@ -1873,10 +2645,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#rest-quick-start" class="md-nav__link">
+  <a href="#rest-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        REST quick start
+        REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-telemetry-stack-grafana-opentelemetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: telemetry stack (Grafana / OpenTelemetry)
       
     </span>
   </a>
@@ -1907,45 +2690,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Development Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#code-quality-linting-formatting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Code Quality (Linting &amp; Formatting)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#pre-commit-hooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pre-commit Hooks
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#running-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running Tests
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -2036,7 +2780,7 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td>Python</td>
-<td>3.11+</td>
+<td>3.13+</td>
 <td>Required to run the platform</td>
 </tr>
 <tr>
@@ -2078,7 +2822,7 @@ SPDX-License-Identifier: Apache-2.0
 <em>(Edit <code>.env</code> and set <code>NW_ALLOWED_CONNECTORS=http_generic</code> or others. Unset or empty
 loads no connectors — fail-closed. Full reference:
 <a href="../configuration/#required-variables">Configuration — Required Variables</a>.)</em></p>
-<p>By default the platform is single-tenant (every call resolves to <code>__default__</code>). To isolate callers by tenant, set <code>NW_MULTITENANCY_ENABLED=true</code> and point <code>NW_TENANTS_PATH</code> at a <code>tenants.yaml</code> file (defaults to <code>config/tenants.yaml</code>). See <a href="../configuration/#multi-tenancy">Configuration — Multi-tenancy</a>.</p>
+<p>The platform is single-tenant by default. To isolate callers by tenant, see <a href="../architecture/tenancy/">Tenancy</a>.</p>
 <h3 id="3-install-dependencies">3. Install dependencies<a class="headerlink" href="#3-install-dependencies" title="Anchor link to this section">&para;</a></h3>
 <p><strong>Using <code>uv</code> (recommended):</strong></p>
 <p>The repository commits <code>uv.lock</code> for reproducible installs. Use <code>--frozen</code> in CI and local dev:</p>
@@ -2133,12 +2877,13 @@ loads no connectors — fail-closed. Full reference:
 </tr>
 </tbody>
 </table>
-<h3 id="rest-quick-start">REST quick start<a class="headerlink" href="#rest-quick-start" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Local development only</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Start the API</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>uv<span class="w"> </span>run<span class="w"> </span>node-wire
+<h3 id="rest-api">REST API<a class="headerlink" href="#rest-api" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Bash (Linux/macOS)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w">   </span><span class="c1"># local development only</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire<span class="w">           </span><span class="c1"># or: MODE=API python -m bindings_entrypoint</span>
+</span></code></pre></div>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c"># PowerShell (Windows)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">$env:NW_REST_AUTH_DISABLED</span><span class="p">=</span><span class="s2">"true"</span><span class="p">;</span> <span class="nv">$env:MODE</span><span class="p">=</span><span class="s2">"API"</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">node-wire</span>
 </span></code></pre></div>
 <p>Once it is running:</p>
 <ul>
@@ -2146,30 +2891,22 @@ loads no connectors — fail-closed. Full reference:
 <li>Swagger UI: <code>http://localhost:8000/docs</code></li>
 <li>Playground: <code>http://localhost:8000/playground/</code></li>
 </ul>
+<p><code>MODE=MCP</code> is not a working server. Run MCP with <code>python -m agents.mcp_entrypoint</code> (<a href="../mcp/">MCP overview</a>).</p>
+<h3 id="optional-telemetry-stack-grafana-opentelemetry">Optional: telemetry stack (Grafana / OpenTelemetry)<a class="headerlink" href="#optional-telemetry-stack-grafana-opentelemetry" title="Anchor link to this section">&para;</a></h3>
+<p>To see traces and connector logs locally, start the bundled Grafana stack before the platform:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">cd</span><span class="w"> </span>grafana<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</span></code></pre></div>
+<p>See <code>grafana/README.md</code> for what it runs.</p>
 <h3 id="mcp-notes">MCP notes<a class="headerlink" href="#mcp-notes" title="Anchor link to this section">&para;</a></h3>
 <p>For MCP transport modes, Inspector usage, and multi-server deployment:</p>
 <ul>
-<li>See <a href="../mcp/">mcp.md</a> for transport setup and local MCP usage.</li>
-<li>See <a href="../packaging/">packaging.md</a> for pre-built per-connector Docker images and ToolHive deployment.</li>
-<li>See <a href="../mcp-servers/">mcp-servers.md</a> to generate a custom standalone MCP host with <code>nw-mcp-builder</code>.</li>
+<li>See <a href="../mcp/#which-mcp-path">MCP overview</a> to choose between the combined server, per-connector images and <code>nw gen-stacklok</code>.</li>
 </ul>
 <hr />
 <h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Anchor link to this section">&para;</a></h2>
-<h3 id="code-quality-linting-formatting">Code Quality (Linting &amp; Formatting)<a class="headerlink" href="#code-quality-linting-formatting" title="Anchor link to this section">&para;</a></h3>
-<p>We use <strong>Ruff</strong> for linting/formatting and <strong>Mypy</strong> for type checking.</p>
-<ul>
-<li><strong>Check:</strong> <code>ruff check .</code></li>
-<li><strong>Fix:</strong> <code>ruff check --fix . &amp;&amp; ruff format .</code></li>
-<li><strong>Types:</strong> <code>mypy</code></li>
-</ul>
-<p><code>mypy</code> defaults to the <code>[tool.mypy].files</code> targets from <code>pyproject.toml</code>. To include tests explicitly, run <code>mypy src tests</code>.</p>
-<h3 id="pre-commit-hooks">Pre-commit Hooks<a class="headerlink" href="#pre-commit-hooks" title="Anchor link to this section">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pre-commit<span class="w"> </span>install
-</span></code></pre></div>
-<h3 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Anchor link to this section">&para;</a></h3>
-<p><div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
-</span></code></pre></div>
-<code>tests/playground/</code> (integration tests against real connector credentials) is excluded by default via <code>--ignore=tests/playground</code> in <code>pyproject.toml</code>'s pytest <code>addopts</code> — run it explicitly with the relevant secret env vars set (see <code>.github/workflows/pytest.yml</code>'s <code>playground-integration</code> job) if you need it: <code>uv run pytest tests/playground/ --no-cov -v</code>.</p>
+<p>Lint, type-check, test and pre-commit commands are in <a href="../code-quality-compliance/">Code quality</a>.
+Contribution rules (DCO, license headers, PRs) are in
+<a href="https://github.com/AOT-Technologies/node-wire/blob/main/CONTRIBUTING.md"><code>CONTRIBUTING.md</code></a>.</p>
 
 
 
@@ -2207,7 +2944,7 @@ loads no connectors — fail-closed. Full reference:
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href=".." class="md-footer__link md-footer__link--prev" aria-label="Previous: Home">
+          <a href="../reading/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Reading Map">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2217,7 +2954,7 @@ loads no connectors — fail-closed. Full reference:
                 Previous
               </span>
               <div class="md-ellipsis">
-                Home
+                Reading Map
               </div>
             </div>
           </a>
@@ -2286,7 +3023,7 @@ loads no connectors — fail-closed. Full reference:
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

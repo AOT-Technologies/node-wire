@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/connector-reference/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../connectors/">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../google_drive_connector/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>Connector Reference - Node Wire</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#connector-reference" class="md-skip">
           Skip to content
         </a>
       
@@ -96,9 +96,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href=".." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../../images/nw-favicon-black.png" alt="logo">
+  <img src="../images/nw-favicon-black.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              Connector Reference
             
           </span>
         </div>
@@ -227,7 +227,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -246,7 +246,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../reading/" class="md-tabs__link">
+      <a href="../reading/" class="md-tabs__link">
         
   
   
@@ -267,7 +267,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../installation/" class="md-tabs__link">
+        <a href="../installation/" class="md-tabs__link">
           
   
   
@@ -287,7 +287,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../architecture/" class="md-tabs__link">
+        <a href="../architecture/" class="md-tabs__link">
           
   
   
@@ -303,11 +303,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../connectors/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../connectors/" class="md-tabs__link">
           
   
   
@@ -327,7 +329,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../cli/" class="md-tabs__link">
+        <a href="../cli/" class="md-tabs__link">
           
   
   
@@ -347,7 +349,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../mcp/" class="md-tabs__link">
+        <a href="../mcp/" class="md-tabs__link">
           
   
   
@@ -367,7 +369,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+        <a href="../contributing/" class="md-tabs__link">
           
   
   
@@ -387,7 +389,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../troubleshooting/" class="md-tabs__link">
+        <a href="../troubleshooting/" class="md-tabs__link">
           
   
   
@@ -403,13 +405,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../privacy/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../privacy/" class="md-tabs__link">
           
   
   
@@ -429,7 +429,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../adr/" class="md-tabs__link">
+        <a href="../adr/" class="md-tabs__link">
           
   
   
@@ -489,9 +489,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href=".." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../../images/nw-favicon-black.png" alt="logo">
+  <img src="../images/nw-favicon-black.png" alt="logo">
 
     </a>
     Node Wire
@@ -518,7 +518,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -545,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reading/" class="md-nav__link">
+      <a href="../reading/" class="md-nav__link">
         
   
   
@@ -626,7 +626,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -654,7 +654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -743,7 +743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -771,7 +771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/domain/" class="md-nav__link">
+      <a href="../architecture/domain/" class="md-nav__link">
         
   
   
@@ -799,7 +799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/seams/" class="md-nav__link">
+      <a href="../architecture/seams/" class="md-nav__link">
         
   
   
@@ -827,7 +827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/tenancy/" class="md-nav__link">
+      <a href="../architecture/tenancy/" class="md-nav__link">
         
   
   
@@ -855,7 +855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connector-bindings/" class="md-nav__link">
+      <a href="../connector-bindings/" class="md-nav__link">
         
   
   
@@ -887,28 +887,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -926,7 +929,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -944,7 +947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connectors/" class="md-nav__link">
+      <a href="../connectors/" class="md-nav__link">
         
   
   
@@ -969,10 +972,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../connector-reference/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connector Reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -988,6 +1018,175 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#configconnectorsyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config/connectors.yaml
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connectorfactory-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ConnectorFactory API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connector-registry-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector registry API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calling-a-connector-directly-in-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calling a connector directly (in-process)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connector-catalog" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connector catalog
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connector catalog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#http_generic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        http_generic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smtp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        smtp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stripe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stripe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salesforce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        salesforce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#google_drive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        google_drive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        slack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fhir_epic-and-fhir_cerner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fhir_epic and fhir_cerner
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1000,7 +1199,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../google_drive_connector/" class="md-nav__link">
+      <a href="../google_drive_connector/" class="md-nav__link">
         
   
   
@@ -1028,7 +1227,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../salesforce_connector/" class="md-nav__link">
+      <a href="../salesforce_connector/" class="md-nav__link">
         
   
   
@@ -1056,7 +1255,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../slack_connector/" class="md-nav__link">
+      <a href="../slack_connector/" class="md-nav__link">
         
   
   
@@ -1084,7 +1283,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connectors-build/" class="md-nav__link">
+      <a href="../connectors-build/" class="md-nav__link">
         
   
   
@@ -1173,7 +1372,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
+      <a href="../cli/" class="md-nav__link">
         
   
   
@@ -1201,7 +1400,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-cli/" class="md-nav__link">
+      <a href="../cli/nw-cli/" class="md-nav__link">
         
   
   
@@ -1229,7 +1428,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder/" class="md-nav__link">
         
   
   
@@ -1257,7 +1456,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder-scope/" class="md-nav__link">
         
   
   
@@ -1285,7 +1484,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-codegen/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
         
   
   
@@ -1313,7 +1512,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-mcp-builder/" class="md-nav__link">
+      <a href="../cli/nw-mcp-builder/" class="md-nav__link">
         
   
   
@@ -1402,7 +1601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp/" class="md-nav__link">
+      <a href="../mcp/" class="md-nav__link">
         
   
   
@@ -1430,7 +1629,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stacklok-mcp-servers/" class="md-nav__link">
+      <a href="../stacklok-mcp-servers/" class="md-nav__link">
         
   
   
@@ -1458,7 +1657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp-client-oauth/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
@@ -1486,7 +1685,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
@@ -1575,7 +1774,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1603,7 +1802,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../code-quality-compliance/" class="md-nav__link">
+      <a href="../code-quality-compliance/" class="md-nav__link">
         
   
   
@@ -1631,7 +1830,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quality-security-gates/" class="md-nav__link">
+      <a href="../quality-security-gates/" class="md-nav__link">
         
   
   
@@ -1659,7 +1858,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../versioning/" class="md-nav__link">
+      <a href="../versioning/" class="md-nav__link">
         
   
   
@@ -1687,7 +1886,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../packaging/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
@@ -1715,7 +1914,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../public-api/" class="md-nav__link">
+      <a href="../public-api/" class="md-nav__link">
         
   
   
@@ -1804,7 +2003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../troubleshooting/" class="md-nav__link">
+      <a href="../troubleshooting/" class="md-nav__link">
         
   
   
@@ -1832,7 +2031,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-rollback/" class="md-nav__link">
+      <a href="../release-rollback/" class="md-nav__link">
         
   
   
@@ -1860,7 +2059,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../local-packages-to-images/" class="md-nav__link">
+      <a href="../local-packages-to-images/" class="md-nav__link">
         
   
   
@@ -1892,31 +2091,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2130,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1952,7 +2148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../privacy/" class="md-nav__link">
+      <a href="../privacy/" class="md-nav__link">
         
   
   
@@ -1977,37 +2173,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2192,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2171,7 +2265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/" class="md-nav__link">
+      <a href="../adr/" class="md-nav__link">
         
   
   
@@ -2199,7 +2293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
+      <a href="../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
         
   
   
@@ -2227,7 +2321,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-documentation-lifecycle/" class="md-nav__link">
+      <a href="../adr/0002-documentation-lifecycle/" class="md-nav__link">
         
   
   
@@ -2483,10 +2577,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#configconnectorsyaml" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        config/connectors.yaml
       
     </span>
   </a>
@@ -2494,10 +2588,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#connectorfactory-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        ConnectorFactory API
       
     </span>
   </a>
@@ -2505,10 +2599,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#connector-registry-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Connector registry API
       
     </span>
   </a>
@@ -2516,10 +2610,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#calling-a-connector-directly-in-process" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
+        Calling a connector directly (in-process)
       
     </span>
   </a>
@@ -2527,10 +2621,104 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
+  <a href="#connector-catalog" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Safe Secret Management
+        Connector catalog
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Connector catalog">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#http_generic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        http_generic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#smtp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        smtp
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stripe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stripe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#salesforce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        salesforce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#google_drive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        google_drive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        slack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fhir_epic-and-fhir_cerner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        fhir_epic and fhir_cerner
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
       
     </span>
   </a>
@@ -2562,7 +2750,7 @@
   
   
     <li class="md-path__item">
-      <a href="../.." class="md-path__link">
+      <a href=".." class="md-path__link">
         
   <span class="md-ellipsis">
     Home
@@ -2580,10 +2768,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../connectors/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    Connectors
   </span>
 
         </a>
@@ -2611,36 +2799,275 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h1 id="connector-reference">Connector reference<a class="headerlink" href="#connector-reference" title="Anchor link to this section">&para;</a></h1>
+<p>Lookup tables for connector authors and host applications: the <code>connectors.yaml</code> schema,
+the factory and registry APIs, how to call a connector in-process, and the catalog of what ships today.</p>
+<p>For walkthroughs, see <a href="../connectors/">Use a connector</a> and <a href="../connectors-build/">Build a connector</a>.</p>
+<hr />
+<h2 id="configconnectorsyaml"><code>config/connectors.yaml</code><a class="headerlink" href="#configconnectorsyaml" title="Anchor link to this section">&para;</a></h2>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">connectors</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&lt;connector_id&gt;</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">          </span><span class="c1"># false → connector not instantiated</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w">           </span><span class="c1"># controls which bindings surface this connector</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rest</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">grpc</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcp</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="c1"># connector-specific keys passed via SecretProvider or connector __init__</span>
+</span></code></pre></div>
+<h2 id="connectorfactory-api"><code>ConnectorFactory</code> API<a class="headerlink" href="#connectorfactory-api" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load()</code></td>
+<td>Reads <code>connectors.yaml</code> and bootstraps the runtime config store. Does <strong>not</strong> instantiate connectors — instantiation is lazy.</td>
+</tr>
+<tr>
+<td><code>await get(connector_id, *, tenant_id=None, config_name=None)</code></td>
+<td>Resolves the tenant's config from the store (the default, or <code>config_name</code>), then returns the cached tenant-pinned instance or builds one. Raises <code>ConfigNotFoundError</code> when the tenant has no config — existence is entitlement. Omitting <code>tenant_id</code> means <code>__default__</code>.</td>
+</tr>
+<tr>
+<td><code>store</code></td>
+<td>The runtime <code>ConnectorConfigStore</code> (<code>create</code> / <code>update</code> / <code>delete</code> / <code>set_default</code> / <code>list</code>). Writes drop the affected cached instances immediately.</td>
+</tr>
+<tr>
+<td><code>get_for_protocol(id, protocol, action=None)</code></td>
+<td><strong>Sync, <code>__default__</code> tenant only.</strong> Returns the default-tenant instance, or <code>None</code> if the connector isn't enabled or isn't exposed for that protocol in YAML. For playground and enumeration — use <code>get()</code> for tenant-scoped calls.</td>
+</tr>
+<tr>
+<td><code>is_exposed(connector_id, protocol)</code></td>
+<td><code>True</code> if the YAML entry lists <code>protocol</code> in <code>exposed_via</code>. Connectors with no YAML entry (pushed only through the store) are exposed on every protocol. Does not check <code>enabled</code>.</td>
+</tr>
+<tr>
+<td><code>list_for_protocol(protocol)</code></td>
+<td>Default-tenant instances of every enabled, registered connector exposed for <code>protocol</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="connector-registry-api">Connector registry API<a class="headerlink" href="#connector-registry-api" title="Anchor link to this section">&para;</a></h2>
+<p><code>get_connector_registry()</code> is defined in <code>base_connector.py</code> and exported from the top-level <code>node_wire_runtime</code> package — it is <strong>not</strong> in <code>node_wire_runtime.connector_registry</code>. Use it to read the connector-id → class map after <code>auto_register()</code> has imported your <code>logic</code> module:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_connector_registry</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime.connector_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">auto_register</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">auto_register</span><span class="p">()</span>  <span class="c1"># requires NW_ALLOWED_CONNECTORS</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">registry</span> <span class="o">=</span> <span class="n">get_connector_registry</span><span class="p">()</span>  <span class="c1"># Dict[str, Type[BaseConnector]]</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">connector_cls</span> <span class="o">=</span> <span class="n">registry</span><span class="p">[</span><span class="s2">"google_drive"</span><span class="p">]</span>
+</span></code></pre></div>
+<p>For the full run pipeline (YAML config, instantiation, protocol routing), use <strong><code>ConnectorFactory</code></strong> (see <a href="#calling-a-connector-directly-in-process">Calling a connector directly</a>).</p>
+<h2 id="calling-a-connector-directly-in-process">Calling a connector directly (in-process)<a class="headerlink" href="#calling-a-connector-directly-in-process" title="Anchor link to this section">&para;</a></h2>
+<p>Use <code>connector.run(dict)</code> for the full pipeline (validation, policy, retries, error mapping).</p>
+<p>Set <strong><code>NW_ALLOWED_CONNECTORS</code></strong> to a comma-separated list of entry-point names (e.g. <code>google_drive</code>) before calling <code>auto_register()</code> — without it, <code>auto_register()</code> loads nothing (fail-closed).</p>
+<p><strong>Scope policy applies here too.</strong> The factory attaches the same policy hook to every <code>run()</code>, however the instance was obtained. With the default <code>NW_MCP_SCOPE_POLICY_DEFAULT=deny</code>, a call with no <code>principal</code> or <code>scopes</code> fails with <code>POLICY_DENIED</code>. How to grant scopes, or switch to <code>allow</code> for local scripts: <a href="../connectors-build/#security-rest-plugins-secrets">Build a connector — Security</a>.</p>
+<p>For a complete, runnable walkthrough — two tenants, the config store, <code>TENANT_MISMATCH</code>, and revoking access — see <a href="../connectors/">Use a connector</a>.</p>
+<p><strong>Multi-tenant / named configs:</strong> resolve the tenant in your host, then <code>await factory.get("google_drive", tenant_id=tenant_id, config_name=name)</code>. The instance is pinned to that tenant. The contract is in <a href="../architecture/tenancy/#the-pin-contract-hosts-embedding-the-factory">Tenancy — the pin contract</a>.</p>
+<p>For composing actions within a connector, use <strong><code>self.call_action</code></strong>. It routes through <strong><code>connector.run</code></strong> so <strong>policy hooks</strong>, <strong>resilience</strong>, and the <strong><code>ConnectorResponse</code></strong> error path apply (including MCP scope policy). It returns the nested action’s <strong>output model</strong> on success (validated from <code>run()</code>’s <code>data</code>). On policy denial it raises <strong><code>PolicyDenied</code></strong>, which the outer <code>run()</code> maps like any other action failure.</p>
+<p>Optional keyword args <code>principal</code>, <code>tenant_id</code>, and <code>scopes</code> override the caller identity for the nested call. When omitted, <strong><code>call_action</code> inherits</strong> identity from the outer <code>run()</code> (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call. On a factory-pinned instance, an explicit nested <code>tenant_id</code> must agree with the instance pin.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">node_wire_runtime</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseConnector</span><span class="p">,</span> <span class="n">nw_action</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nd">@nw_action</span><span class="p">(</span><span class="s2">"upload_then_describe"</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_then_describe</span><span class="p">(</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">MyInput</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trace_id</span><span class="p">:</span> <span class="nb">str</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GoogleDriveOperationOutput</span><span class="p">:</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">created</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_action</span><span class="p">(</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="s2">"files.create"</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.create"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">"mime_type"</span><span class="p">:</span> <span class="n">params</span><span class="o">.</span><span class="n">mime_type</span><span class="p">},</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">file_id</span> <span class="o">=</span> <span class="n">created</span><span class="o">.</span><span class="n">raw</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">call_action</span><span class="p">(</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="s2">"files.get"</span><span class="p">,</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="p">{</span><span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.get"</span><span class="p">,</span> <span class="s2">"file_id"</span><span class="p">:</span> <span class="n">file_id</span><span class="p">},</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="p">)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="connector-catalog">Connector catalog<a class="headerlink" href="#connector-catalog" title="Anchor link to this section">&para;</a></h2>
+<p>Every shipped connector, with the same fields for each. Request and response schemas are not
+repeated here. They are generated from each connector's Pydantic models and served live at
+<code>/docs</code> (Swagger UI) and <code>/openapi.json</code>, and the same models drive the MCP tool schemas. Tool names
+are <code>&lt;connector_id&gt;_&lt;action&gt;</code> with dots replaced by underscores (<code>google_drive_files_list</code>).
+Environment variables are also listed in <a href="../configuration/#connector-secrets">Configuration</a>.
+Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">tenant secret naming</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Connector</th>
+<th>Actions</th>
+<th><code>auth.provider</code></th>
+<th>Setup guide</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#http_generic"><code>http_generic</code></a></td>
+<td><code>request</code></td>
+<td><code>none</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="#smtp"><code>smtp</code></a></td>
+<td><code>send_email</code></td>
+<td><code>static_credentials</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="#stripe"><code>stripe</code></a></td>
+<td><code>charge</code>, <code>create_payment_intent</code>, <code>create_subscription</code>, <code>cancel_subscription</code>, <code>issue_refund</code></td>
+<td><code>static_token</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="#salesforce"><code>salesforce</code></a></td>
+<td><code>create_lead</code>, <code>read_lead</code>, <code>update_lead</code>, <code>delete_lead</code>, <code>create_contact</code>, <code>read_contact</code>, <code>update_contact</code>, <code>delete_contact</code></td>
+<td><code>oauth2</code> (<code>refresh_token</code>)</td>
+<td><a href="../salesforce_connector/">Salesforce</a></td>
+</tr>
+<tr>
+<td><a href="#google_drive"><code>google_drive</code></a></td>
+<td><code>files.list</code>, <code>files.get</code>, <code>files.create</code>, <code>files.upload</code>, <code>files.update</code>, <code>files.delete</code>, <code>permissions.create</code></td>
+<td><code>service_account</code> (or <code>upstream_bearer</code>)</td>
+<td><a href="../google_drive_connector/">Google Drive</a></td>
+</tr>
+<tr>
+<td><a href="#slack"><code>slack</code></a></td>
+<td><code>post_message</code>, <code>send_direct_message</code>, <code>upload_file</code></td>
+<td><code>static_token</code></td>
+<td><a href="../slack_connector/">Slack</a></td>
+</tr>
+<tr>
+<td><a href="#fhir_epic-and-fhir_cerner"><code>fhir_epic</code></a></td>
+<td><code>read_patient</code>, <code>search_patients</code>, <code>search_encounter</code>, <code>create_document_reference</code>, <code>search_document_reference</code></td>
+<td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="#fhir_epic-and-fhir_cerner"><code>fhir_cerner</code></a></td>
+<td>same actions as <code>fhir_epic</code></td>
+<td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3 id="http_generic"><code>http_generic</code><a class="headerlink" href="#http_generic" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li><strong>Package:</strong> <code>node-wire-http</code>, <code>src/node_wire_http_generic/</code>. No standalone MCP image.</li>
+<li><strong>Secrets / settings:</strong> none. The whole request (method, URL, params, body) is the payload.</li>
+<li><strong>Egress:</strong> only <code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code> and <code>DELETE</code>. Internal destinations (localhost,
+  loopback, private and link-local ranges, metadata endpoints) are rejected. Set
+  <code>NW_HTTP_GENERIC_ALLOWED_HOSTS</code> to restrict hosts further. Logs drop query strings and fragments.</li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<h3 id="smtp"><code>smtp</code><a class="headerlink" href="#smtp" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li><strong>Package:</strong> <code>node-wire-smtp</code>, <code>src/node_wire_smtp/</code>. MCP image <code>nw-smtp</code>.</li>
+<li><strong>Secrets / settings:</strong> <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USE_TLS</code>, <code>SMTP_USERNAME</code>, <code>SMTP_PASSWORD</code>, <code>FROM_EMAIL</code>.</li>
+<li><strong>Egress:</strong> the payload carries only <code>to</code>, <code>subject</code>, <code>body</code> and an optional <code>from_email</code>. Relay
+  settings are server-side only, so credentials never go to a caller-chosen host. Set
+  <code>NW_SMTP_ALLOWED_HOSTS</code> in production. <code>subject</code> may not contain newlines or control characters.</li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<h3 id="stripe"><code>stripe</code><a class="headerlink" href="#stripe" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-stripe</code>, <code>src/node_wire_stripe/</code>. MCP image <code>nw-stripe</code>.</li>
+<li><strong>Secrets / settings:</strong> <code>STRIPE_API_KEY</code>, sent raw in <code>Authorization</code> (<code>prefix: ""</code>).</li>
+<li><strong>Errors:</strong> <code>src/node_wire_stripe/logic.py</code> is the worked <code>error_map</code> example
+  (<a href="../connectors-build/#optional-error_map-for-errormapper">Build a connector</a>).</li>
+</ul>
+<h3 id="salesforce"><code>salesforce</code><a class="headerlink" href="#salesforce" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-salesforce</code>, <code>src/node_wire_salesforce/</code>. MCP image <code>nw-salesforce</code>.</li>
+<li><strong>Secrets / settings:</strong> <code>SALESFORCE_INSTANCE_URL</code>, <code>SALESFORCE_TOKEN_URL</code>, <code>SALESFORCE_CLIENT_ID</code>,
+  <code>SALESFORCE_CLIENT_SECRET</code>, <code>SALESFORCE_REFRESH_TOKEN</code>.</li>
+<li><strong>Guide:</strong> <a href="../salesforce_connector/">Salesforce</a> covers configuration and examples.</li>
+</ul>
+<h3 id="google_drive"><code>google_drive</code><a class="headerlink" href="#google_drive" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-google-drive</code>, <code>src/node_wire_google_drive/</code>. MCP image <code>nw-google-drive</code>.</li>
+<li><strong>Secrets / settings:</strong> <code>GOOGLE_DRIVE_SA_JSON</code> (JSON contents, or an absolute path locally), <code>GOOGLE_DRIVE_FOLDER_ID</code>.</li>
+<li><strong>Per-user access:</strong> <code>upstream_bearer</code> relays each caller's own Google token
+  (<a href="../google_drive_connector/#upstream_bearer">Google Drive — upstream bearer</a>).</li>
+<li><strong>Guide:</strong> <a href="../google_drive_connector/">Google Drive</a> covers service-account setup and the error codes.</li>
+</ul>
+<h3 id="slack"><code>slack</code><a class="headerlink" href="#slack" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-slack</code>, <code>src/node_wire_slack/</code>. MCP image <code>nw-slack</code>.</li>
+<li><strong>Secrets / settings:</strong> <code>SLACK_BOT_TOKEN</code>. File uploads from disk must sit under
+  <code>NW_SLACK_ATTACHMENTS_DIR</code> (default <code>/slack_attachments</code>).</li>
+<li><strong>Guide:</strong> <a href="../slack_connector/">Slack</a> covers bot setup, channel resolution and the error codes.</li>
+</ul>
+<h3 id="fhir_epic-and-fhir_cerner"><code>fhir_epic</code> and <code>fhir_cerner</code><a class="headerlink" href="#fhir_epic-and-fhir_cerner" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Packages:</strong> <code>node-wire-fhir-epic</code> (<code>src/node_wire_fhir_epic/</code>, MCP image <code>nw-smartonfhir-epic</code>)
+  and <code>node-wire-fhir-cerner</code> (<code>src/node_wire_fhir_cerner/</code>, MCP image <code>nw-smartonfhir-cerner</code>).
+  Both are SMART on FHIR R4 backend services with Epic- and Cerner-specific schemas.</li>
+<li><strong>Secrets / settings:</strong> Epic: <code>EPIC_FHIR_BASE_URL</code>, <code>EPIC_TOKEN_URL</code>, <code>EPIC_CLIENT_ID</code>, <code>EPIC_KID</code>,
+  <code>EPIC_PRIVATE_KEY</code>. Cerner: the same with a <code>CERNER_</code> prefix, plus <code>CERNER_SCOPES</code>.</li>
+<li><strong>Privacy:</strong> logs record operation mode, HTTP status and counts, never request parameters or
+  FHIR bodies (<a href="../privacy/">Privacy</a>).</li>
+<li><strong>Arguments:</strong> normalizers accept common LLM aliases (<code>patientId</code> → <code>resource_id</code>; root-level
+  <code>patient</code> / <code>patientId</code> → <code>patient_id</code> and <code>sort</code> → <code>_sort</code> on <code>search_encounter</code>). Encounter
+  search requires a patient filter before any outbound call.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>When to use</th>
+<th>Example arguments</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read_patient</code></td>
+<td>You have a Patient ID</td>
+<td><code>{"resource_id": "12724066"}</code></td>
+</tr>
+<tr>
+<td><code>search_patients</code></td>
+<td>No ID, or name-based search</td>
+<td><code>{"given_name": "Nancy", "family_name": "Smart"}</code></td>
+</tr>
+<tr>
+<td><code>search_encounter</code></td>
+<td>Find medical visits</td>
+<td><code>{"patient_id": "12724066"}</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Doc</th>
+<th>When to read it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../connectors/">Use a connector</a></td>
+<td>Calling a connector in-process or over REST, per tenant</td>
+</tr>
+<tr>
+<td><a href="../connectors-build/">Build a connector</a></td>
+<td>Writing a connector by hand</td>
+</tr>
+<tr>
+<td><a href="../connector-bindings/">connector-bindings.md</a></td>
+<td>How actions surface on REST / MCP / gRPC</td>
+</tr>
+<tr>
+<td><a href="../configuration/">configuration.md</a></td>
+<td><code>NW_*</code> environment variables</td>
+</tr>
+<tr>
+<td><a href="../public-api/">public-api.md</a></td>
+<td>What is covered by SemVer</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -2678,7 +3105,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../connectors/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Use a Connector">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +3115,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Use a Connector
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../google_drive_connector/" class="md-footer__link md-footer__link--next" aria-label="Next: Google Drive">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                Google Drive
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2754,10 +3181,10 @@ applicable HIPAA requirements.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

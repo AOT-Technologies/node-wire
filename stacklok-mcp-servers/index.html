@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/stacklok-mcp-servers/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../mcp/">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../mcp-client-oauth/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>stacklok MCP servers (nw gen-stacklok) - Node Wire</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#stacklok-mcp-servers-on-node-wire-nw-gen-stacklok" class="md-skip">
           Skip to content
         </a>
       
@@ -96,9 +96,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href=".." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../../images/nw-favicon-black.png" alt="logo">
+  <img src="../images/nw-favicon-black.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              stacklok MCP servers (nw gen-stacklok)
             
           </span>
         </div>
@@ -227,7 +227,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -246,7 +246,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../reading/" class="md-tabs__link">
+      <a href="../reading/" class="md-tabs__link">
         
   
   
@@ -267,7 +267,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../installation/" class="md-tabs__link">
+        <a href="../installation/" class="md-tabs__link">
           
   
   
@@ -287,7 +287,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../architecture/" class="md-tabs__link">
+        <a href="../architecture/" class="md-tabs__link">
           
   
   
@@ -307,7 +307,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../connectors/" class="md-tabs__link">
+        <a href="../connectors/" class="md-tabs__link">
           
   
   
@@ -327,7 +327,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../cli/" class="md-tabs__link">
+        <a href="../cli/" class="md-tabs__link">
           
   
   
@@ -343,11 +343,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../mcp/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../mcp/" class="md-tabs__link">
           
   
   
@@ -367,7 +369,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+        <a href="../contributing/" class="md-tabs__link">
           
   
   
@@ -387,7 +389,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../troubleshooting/" class="md-tabs__link">
+        <a href="../troubleshooting/" class="md-tabs__link">
           
   
   
@@ -403,13 +405,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../privacy/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../privacy/" class="md-tabs__link">
           
   
   
@@ -429,7 +429,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../adr/" class="md-tabs__link">
+        <a href="../adr/" class="md-tabs__link">
           
   
   
@@ -489,9 +489,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href=".." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../../images/nw-favicon-black.png" alt="logo">
+  <img src="../images/nw-favicon-black.png" alt="logo">
 
     </a>
     Node Wire
@@ -518,7 +518,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -545,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reading/" class="md-nav__link">
+      <a href="../reading/" class="md-nav__link">
         
   
   
@@ -626,7 +626,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -654,7 +654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -743,7 +743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -771,7 +771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/domain/" class="md-nav__link">
+      <a href="../architecture/domain/" class="md-nav__link">
         
   
   
@@ -799,7 +799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/seams/" class="md-nav__link">
+      <a href="../architecture/seams/" class="md-nav__link">
         
   
   
@@ -827,7 +827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/tenancy/" class="md-nav__link">
+      <a href="../architecture/tenancy/" class="md-nav__link">
         
   
   
@@ -855,7 +855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connector-bindings/" class="md-nav__link">
+      <a href="../connector-bindings/" class="md-nav__link">
         
   
   
@@ -944,7 +944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connectors/" class="md-nav__link">
+      <a href="../connectors/" class="md-nav__link">
         
   
   
@@ -972,7 +972,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connector-reference/" class="md-nav__link">
+      <a href="../connector-reference/" class="md-nav__link">
         
   
   
@@ -1000,7 +1000,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../google_drive_connector/" class="md-nav__link">
+      <a href="../google_drive_connector/" class="md-nav__link">
         
   
   
@@ -1028,7 +1028,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../salesforce_connector/" class="md-nav__link">
+      <a href="../salesforce_connector/" class="md-nav__link">
         
   
   
@@ -1056,7 +1056,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../slack_connector/" class="md-nav__link">
+      <a href="../slack_connector/" class="md-nav__link">
         
   
   
@@ -1084,7 +1084,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connectors-build/" class="md-nav__link">
+      <a href="../connectors-build/" class="md-nav__link">
         
   
   
@@ -1173,7 +1173,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
+      <a href="../cli/" class="md-nav__link">
         
   
   
@@ -1201,7 +1201,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-cli/" class="md-nav__link">
+      <a href="../cli/nw-cli/" class="md-nav__link">
         
   
   
@@ -1229,7 +1229,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder/" class="md-nav__link">
         
   
   
@@ -1257,7 +1257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder-scope/" class="md-nav__link">
         
   
   
@@ -1285,7 +1285,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-codegen/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
         
   
   
@@ -1313,7 +1313,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-mcp-builder/" class="md-nav__link">
+      <a href="../cli/nw-mcp-builder/" class="md-nav__link">
         
   
   
@@ -1345,28 +1345,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
             
   
   
@@ -1384,7 +1387,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1402,7 +1405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp/" class="md-nav__link">
+      <a href="../mcp/" class="md-nav__link">
         
   
   
@@ -1427,10 +1430,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../stacklok-mcp-servers/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stacklok MCP servers (nw gen-stacklok)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1446,6 +1476,81 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-generated-server-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the generated server does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploying-behind-toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploying behind ToolHive
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verifying-a-running-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verifying a running server
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1458,7 +1563,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp-client-oauth/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
@@ -1486,7 +1591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
@@ -1575,7 +1680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1603,7 +1708,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../code-quality-compliance/" class="md-nav__link">
+      <a href="../code-quality-compliance/" class="md-nav__link">
         
   
   
@@ -1631,7 +1736,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quality-security-gates/" class="md-nav__link">
+      <a href="../quality-security-gates/" class="md-nav__link">
         
   
   
@@ -1659,7 +1764,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../versioning/" class="md-nav__link">
+      <a href="../versioning/" class="md-nav__link">
         
   
   
@@ -1687,7 +1792,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../packaging/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
@@ -1715,7 +1820,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../public-api/" class="md-nav__link">
+      <a href="../public-api/" class="md-nav__link">
         
   
   
@@ -1804,7 +1909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../troubleshooting/" class="md-nav__link">
+      <a href="../troubleshooting/" class="md-nav__link">
         
   
   
@@ -1832,7 +1937,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-rollback/" class="md-nav__link">
+      <a href="../release-rollback/" class="md-nav__link">
         
   
   
@@ -1860,7 +1965,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../local-packages-to-images/" class="md-nav__link">
+      <a href="../local-packages-to-images/" class="md-nav__link">
         
   
   
@@ -1892,31 +1997,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2036,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1952,7 +2054,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../privacy/" class="md-nav__link">
+      <a href="../privacy/" class="md-nav__link">
         
   
   
@@ -1977,37 +2079,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2098,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2171,7 +2171,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/" class="md-nav__link">
+      <a href="../adr/" class="md-nav__link">
         
   
   
@@ -2199,7 +2199,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
+      <a href="../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
         
   
   
@@ -2227,7 +2227,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../adr/0002-documentation-lifecycle/" class="md-nav__link">
+      <a href="../adr/0002-documentation-lifecycle/" class="md-nav__link">
         
   
   
@@ -2483,10 +2483,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Quick start
       
     </span>
   </a>
@@ -2494,10 +2494,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#what-the-generated-server-does" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        What the generated server does
       
     </span>
   </a>
@@ -2505,10 +2505,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#deploying-behind-toolhive" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Deploying behind ToolHive
       
     </span>
   </a>
@@ -2516,10 +2516,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#verifying-a-running-server" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
+        Verifying a running server
       
     </span>
   </a>
@@ -2527,10 +2527,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
+  <a href="#limits" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Safe Secret Management
+        Limits
       
     </span>
   </a>
@@ -2562,7 +2562,7 @@
   
   
     <li class="md-path__item">
-      <a href="../.." class="md-path__link">
+      <a href=".." class="md-path__link">
         
   <span class="md-ellipsis">
     Home
@@ -2580,10 +2580,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../mcp/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    MCP
   </span>
 
         </a>
@@ -2611,36 +2611,194 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h1 id="stacklok-mcp-servers-on-node-wire-nw-gen-stacklok">stacklok MCP servers on node-wire (<code>nw gen-stacklok</code>)<a class="headerlink" href="#stacklok-mcp-servers-on-node-wire-nw-gen-stacklok" title="Anchor link to this section">&para;</a></h1>
+<p><code>nw gen-stacklok</code> builds an MCP server with <a href="https://github.com/stacklok/mcp-builder">stacklok's mcp-builder</a>
+— a curated, ToolHive-ready server generated from an <code>mcp-scope.yaml</code> — where every tool runs
+through a <strong>node-wire connector</strong> on the <strong>node-wire runtime</strong> instead of stacklok's generated
+HTTP client. stacklok's generator is vendored in <code>nw-stacklok-builder/</code> (see its <code>UPSTREAM.md</code>)
+and modified only through small hooks.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>stacklok mcp-builder</th>
+<th><code>nw gen-stacklok</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Input</td>
+<td><code>mcp-scope.yaml</code> + OpenAPI spec</td>
+<td>the same <code>mcp-scope.yaml</code> (its <code>spec.source</code> is the spec)</td>
+</tr>
+<tr>
+<td>Tool names, descriptions, parameters</td>
+<td>from the scope</td>
+<td>from the scope (unchanged)</td>
+</tr>
+<tr>
+<td>Tool execution</td>
+<td>generated httpx client</td>
+<td>node-wire connector: validation, retries, circuit breaker, error taxonomy, telemetry</td>
+</tr>
+<tr>
+<td>Auth</td>
+<td>ToolHive</td>
+<td>ToolHive (the forwarded credential is relayed into the connector's auth placement)</td>
+</tr>
+<tr>
+<td>Tenancy</td>
+<td>none</td>
+<td>many tenants per backend, one ToolHive proxy per tenant (<code>X-Tenant-ID</code>)</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>project + <code>MCPServer</code> manifests</td>
+<td>project + backend, NetworkPolicy, per-tenant <code>MCPRemoteProxy</code> manifests</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Anchor link to this section">&para;</a></h2>
+<p>One command runs stacklok's Phases 1–3 and pauses for the Phase 2 human review. Prerequisites:
+Python 3.13, uv (<code>uv sync --all-extras --dev</code> installs cibuildwheel), Docker, and Claude Code
+(<code>claude</code> on <code>PATH</code>) for Phase 1.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--path<span class="w"> </span>https://petstore3.swagger.io/api/v3/openapi.json<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--workflow<span class="w"> </span><span class="s2">"Shoppers browse available pets by status"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--workflow<span class="w"> </span><span class="s2">"Store clerks place orders and look up order status"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span>--auth-hint<span class="w"> </span><span class="s2">"API key in the api_key header"</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>petstore-mcp<span class="w"> </span>nw-stacklok-builder/out/petstore-mcp
+</span></code></pre></div>
+<ol>
+<li><strong>Phase 1, AI scoping.</strong> The spec is prepared: downloaded, converted from Swagger 2.0 and made
+   strict OpenAPI 3.0, with the original recorded under <code>x-nw-source</code>. Then Claude Code opens with
+   stacklok's <code>ai-scoping</code> skill, which uses its <code>spec-analyzer</code> and <code>endpoint-scoper</code> agents and
+   <code>mcp-builder analyze</code> / <code>validate</code>, all vendored in <code>nw-stacklok-builder/</code>.</li>
+<li><strong>Interactive (the default with a terminal):</strong> the skill runs as in stacklok's flow. It asks
+     for workflows and auth, and stops at its gates for group selection, tool approval and auth.
+     <code>--workflow</code>, <code>--auth-hint</code> and <code>--scoping-notes</code> are offered as starting answers. Exit the
+     session (<code>/exit</code>) when it's done, and <code>nw</code> continues.</li>
+<li><strong><code>--headless</code>, or no terminal:</strong> <code>claude -p</code> runs unattended. The flags are the final
+     answers; without <code>--workflow</code> the AI proposes workflows. The gates take the AI's own
+     recommendation, and each one is recorded in <code>scoping-summary.md</code>.</li>
+<li>Claude Code is pre-approved only for file edits and stacklok's CLI.</li>
+<li>Output goes to <code>nw-stacklok-builder/scoping/&lt;id&gt;/</code>. A second run reuses it; <code>--rescope</code> redoes it.</li>
+<li><strong>Phase 2, human review.</strong> The command pauses and shows the scope and summary. <code>y</code> continues;
+   <code>n</code> stops so you can edit, and prints the <code>--scope</code> command to resume with. Without a terminal
+   it always stops here.</li>
+<li><strong>Phase 3, generate</strong>, as below.</li>
+</ol>
+<p>stacklok's <code>/ai-validation</code> (Phase 4) isn't included, because it reviews the httpx client that
+node-wire mode replaces. Use the checks under "Verifying a running server". To run the skill
+yourself instead, <code>scripts/install-stacklok-skills.sh</code> links it into <code>.claude/</code>.</p>
+<p>A hand-written or reviewed scope works too. <code>--connector-id</code> binds it to a node-wire connector;
+alternatively, add the block to the scope:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">runtime</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_wire</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">connector_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pet_store</span>
+</span></code></pre></div>
+<p><code>nw gen-stacklok</code> runs three stages:</p>
+<ol>
+<li><strong>Connector</strong> — nw-connector-builder generates <code>node_wire_&lt;id&gt;</code> from <code>spec.source</code>
+   (<code>spec.base_url</code> is the connector's base URL). The connector covers every operation; the scope
+   decides which ones become tools. The connector is always regenerated from the scope's spec, so
+   endpoints map onto it; a hand-written connector with the same id is never overwritten.</li>
+<li><strong>Wheels for the MCP image</strong>: compiled wheels for <code>node-wire-runtime</code>, <code>node-wire-bindings</code>,
+   <code>node-wire-toolhive</code> and the connector.</li>
+<li>They must match the image's Python ABI and C library, because node-wire wheels are
+     binary-only. The target is read from the template's base image: stacklok's
+     <code>dhi.io/python:3.13-alpine</code> gives <strong>cp313 musllinux</strong>.</li>
+<li>Built with cibuildwheel in Docker (<code>scripts/build-packages.sh --cibw-linux</code>).</li>
+<li>A package whose sources haven't changed since its last build, and that has wheels for every
+     requested architecture, is reused rather than recompiled. The source hash is kept in
+     <code>dist/.nw-source-&lt;target&gt;.sha256</code>. In practice, repeat runs rebuild only what changed, often
+     nothing.</li>
+<li>The architecture defaults to the host; <code>NW_WHEEL_ARCHS="x86_64 aarch64"</code> builds both.</li>
+<li><code>--no-wheel</code> skips the stage and uses whatever is in <code>dist/</code>.</li>
+<li><strong>Server</strong> — stacklok's own scope validator checks the scope against the spec, then the
+   vendored stacklok generator writes <code>nw-stacklok-builder/out/&lt;server&gt;-mcp/</code>
+   and runs <code>uv lock</code> there (<code>--no-lock</code> skips it). Every scoped <code>METHOD /path</code> must map to a
+   connector action and every scoped parameter to an action input; mismatches are reported
+   together before anything is written.</li>
+</ol>
+<h2 id="what-the-generated-server-does">What the generated server does<a class="headerlink" href="#what-the-generated-server-does" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li><strong>Tools</strong> keep stacklok's names, signatures and descriptions; each calls
+  <code>self._client.run("&lt;action&gt;", {...})</code>, where <code>client.py</code> is a node-wire client
+  (<code>node_wire_toolhive.NodeWireClient</code>).</li>
+<li><strong>Auth follows ToolHive.</strong> The template's <code>TokenPassthroughMiddleware</code> rejects requests without
+  a bearer token (401). The credential ToolHive forwards as <code>Authorization: Bearer</code> is relayed on
+  every call into the connector's own auth placement — bearer, a named header (e.g. <code>api_key</code>),
+  or a query parameter — and is never cached. The connector must be listed in
+  <code>NW_UPSTREAM_BEARER_CONNECTORS</code> (set in the image). node-wire does not refresh tokens or run
+  OAuth flows here; ToolHive owns the token lifecycle.</li>
+<li><strong>Tenants.</strong> <code>NW_MULTITENANCY_ENABLED=true</code>; the tenant comes from <code>X-Tenant-ID</code>, which each
+  ToolHive tenant proxy sets. Tenant configs (base URL, auth placement, named configs) are read
+  from <code>NW_TENANTS_PATH</code> (<code>/app/tenants/tenants.yaml</code>; format in
+  <code>config/tenants.example.yaml</code>). <code>nw_list_configs</code> / <code>nw_select_config</code> choose a named config
+  for the MCP session. No upstream credentials go in the tenants file.</li>
+<li>Headers, the bearer token and the session id are read from the MCP SDK's per-message request
+  context — not from middleware contextvars, which under stateful streamable HTTP keep the
+  session's <em>first</em> request (a refreshed token would never be seen).</li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<h2 id="deploying-behind-toolhive">Deploying behind ToolHive<a class="headerlink" href="#deploying-behind-toolhive" title="Anchor link to this section">&para;</a></h2>
+<p><code>deploy/</code> holds:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend.yaml</code></td>
+<td>Deployment + ClusterIP Service for the server (one for all tenants)</td>
+</tr>
+<tr>
+<td><code>networkpolicy.yaml</code></td>
+<td>Only the tenant proxies may reach the backend</td>
+</tr>
+<tr>
+<td><code>tenant-proxy.yaml</code></td>
+<td><code>MCPRemoteProxy</code> template — one per tenant; <code>headerForward</code> sets <code>X-Tenant-ID</code></td>
+</tr>
+<tr>
+<td><code>tenants-secret.yaml</code></td>
+<td>Tenant configs mounted at <code>NW_TENANTS_PATH</code></td>
+</tr>
+<tr>
+<td><code>mcpexternalauthconfig.yaml</code>, <code>mcpoidcconfig.yaml</code>, <code>secret.yaml</code></td>
+<td>stacklok's auth manifests, per the scope's <code>auth.type</code></td>
+</tr>
+</tbody>
+</table>
+<p>Why this is safe: ToolHive's <code>header-forward</code> middleware sets each configured header with
+<code>Header.Set</code> on every request, overriding a client-supplied <code>X-Tenant-ID</code> (verified in
+<code>stacklok/toolhive</code> <code>pkg/transport/middleware/header_forward.go</code>), and the NetworkPolicy keeps the
+backend reachable only through those proxies. Never add the tenant header to a vMCP
+<code>passthroughHeaders</code> allowlist.</p>
+<h2 id="verifying-a-running-server">Verifying a running server<a class="headerlink" href="#verifying-a-running-server" title="Anchor link to this section">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>-p<span class="w"> </span><span class="m">8100</span>:8100<span class="w"> </span>-v<span class="w"> </span><span class="nv">$PWD</span>/tenants.yaml:/app/tenants/tenants.yaml:ro<span class="w"> </span>petstore-mcp
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/verify_stacklok_server.py<span class="w"> </span>--scope<span class="w"> </span>path/to/mcp-scope.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--tool<span class="w"> </span>find_pets_by_status<span class="w"> </span>--arguments<span class="w"> </span><span class="s1">'{"status": "available"}'</span>
+</span></code></pre></div>
+<p>The script calls the server like a ToolHive tenant proxy and checks the tool list, one live call,
+tenant enforcement and bearer enforcement. <code>.github/workflows/stacklok-e2e.yml</code> runs the same flow
+on the Petstore scope.</p>
+<h2 id="limits">Limits<a class="headerlink" href="#limits" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li>The scope needs an OpenAPI spec (Swagger 2.0 is converted); hand-written connectors without a
+  spec (smtp, ms_teams) cannot be scoped.</li>
+<li>Bindings-only features are not carried over: tool-search mode, per-caller scope policy
+  (ToolHive authorizes callers; the image sets <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code>), REST, gRPC.</li>
+<li>The wheels only install on Linux of the built architectures; run the server from its image.</li>
+<li>The Kubernetes manifests are templates: the operator's handling of <code>podTemplateSpec</code> labels
+  (used by the NetworkPolicy) should be checked in your cluster (<code>deploy/README.md</code>).</li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<p>See also: <a href="../adr/0001-stacklok-mcp-builder-on-node-wire/">why it is built this way (ADR 0001)</a>, <a href="../cli/nw-cli/">nw CLI</a>,
+<a href="../cli/nw-mcp-builder/">MCP host builder</a>.</p>
 
 
 
@@ -2678,7 +2836,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../mcp/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +2846,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Overview
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../mcp-client-oauth/" class="md-footer__link md-footer__link--next" aria-label="Next: Client OAuth">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                Client OAuth
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2754,10 +2912,10 @@ applicable HIPAA requirements.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

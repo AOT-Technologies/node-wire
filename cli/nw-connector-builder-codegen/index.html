@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/cli/nw-connector-builder-codegen/">
       
       
-        <link rel="prev" href="../../privacy/">
+        <link rel="prev" href="../nw-connector-builder-scope/">
       
       
-        <link rel="next" href="../../adr/">
+        <link rel="next" href="../nw-mcp-builder/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>HIPAA Considerations - Node Wire</title>
+        <title>Codegen Behaviour - Node Wire</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hipaa-compliance-considerations" class="md-skip">
+        <a href="#nw-connector-builder-codegen-behaviour" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              HIPAA Considerations
+              Codegen Behaviour
             
           </span>
         </div>
@@ -323,11 +323,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../cli/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -403,12 +405,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../privacy/" class="md-tabs__link">
           
   
@@ -1116,28 +1116,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1155,7 +1158,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1173,7 +1176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1201,7 +1204,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-cli/" class="md-nav__link">
+      <a href="../nw-cli/" class="md-nav__link">
         
   
   
@@ -1229,7 +1232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder/" class="md-nav__link">
+      <a href="../nw-connector-builder/" class="md-nav__link">
         
   
   
@@ -1257,7 +1260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
         
   
   
@@ -1282,10 +1285,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-codegen/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codegen Behaviour
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1301,6 +1331,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#spec-repair" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec repair
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spec repair">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#draft-4-repair" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft-4 repair
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tool-and-parameter-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool and parameter descriptions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#action-names-and-generated-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action names and generated source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-body-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request body fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#credential-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credential parameters
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#success-flag-envelopes-ok-false" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Success-flag envelopes (ok: false)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1313,7 +1457,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-mcp-builder/" class="md-nav__link">
+      <a href="../nw-mcp-builder/" class="md-nav__link">
         
   
   
@@ -1892,31 +2036,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
             
   
   
@@ -1934,7 +2075,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1977,37 +2118,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    HIPAA Considerations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2023,81 +2137,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Business Associate Agreements (BAAs)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Data in Transit (Encryption)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Data at Rest (Persistence)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Authentication and Authorization
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Safe Secret Management
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2483,10 +2522,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-business-associate-agreements-baas" class="md-nav__link">
+  <a href="#spec-repair" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Business Associate Agreements (BAAs)
+        Spec repair
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spec repair">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#draft-4-repair" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft-4 repair
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tool-and-parameter-descriptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool and parameter descriptions
       
     </span>
   </a>
@@ -2494,10 +2561,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-data-in-transit-encryption" class="md-nav__link">
+  <a href="#action-names-and-generated-source" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Data in Transit (Encryption)
+        Action names and generated source
       
     </span>
   </a>
@@ -2505,10 +2572,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-data-at-rest-persistence" class="md-nav__link">
+  <a href="#request-body-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Data at Rest (Persistence)
+        Request body fields
       
     </span>
   </a>
@@ -2516,10 +2583,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-authentication-and-authorization" class="md-nav__link">
+  <a href="#credential-parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Authentication and Authorization
+        Credential parameters
       
     </span>
   </a>
@@ -2527,10 +2594,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-safe-secret-management" class="md-nav__link">
+  <a href="#success-flag-envelopes-ok-false" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Safe Secret Management
+        Success-flag envelopes (ok: false)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
       
     </span>
   </a>
@@ -2580,10 +2658,10 @@
     
     
       <li class="md-path__item">
-        <a href="../../privacy/" class="md-path__link">
+        <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Compliance
+    CLI
   </span>
 
         </a>
@@ -2611,36 +2689,149 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="hipaa-compliance-considerations">HIPAA Compliance Considerations<a class="headerlink" href="#hipaa-compliance-considerations" title="Anchor link to this section">&para;</a></h1>
-<p>Node Wire provides connectors for healthcare systems, including Epic and Cerner FHIR APIs. While Node Wire is designed with security in mind, deploying Node Wire in a healthcare environment to process Protected Health Information (PHI) requires careful consideration to maintain compliance with the Health Insurance Portability and Accountability Act (HIPAA).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Node Wire is a software framework, not a managed service. You are solely responsible
-for ensuring that your deployment, configuration, and infrastructure meet all
-applicable HIPAA requirements.</p>
-</div>
-<h2 id="1-business-associate-agreements-baas">1. Business Associate Agreements (BAAs)<a class="headerlink" href="#1-business-associate-agreements-baas" title="Anchor link to this section">&para;</a></h2>
-<p>Since Node Wire acts as a middleware layer routing data between various systems (e.g., your EHR, your LLM provider, and external services), you must have a Business Associate Agreement (BAA) in place with <strong>every</strong> third-party service provider that touches PHI.</p>
+<h1 id="nw-connector-builder-codegen-behaviour">nw-connector-builder — codegen behaviour<a class="headerlink" href="#nw-connector-builder-codegen-behaviour" title="Anchor link to this section">&para;</a></h1>
+<p>Why generated connectors look the way they do. You do not need this page to <em>run</em>
+<a href="../nw-connector-builder/"><code>nw-connector-builder</code></a> or <a href="../nw-cli/"><code>nw gen-all</code></a> — read it when
+generated output surprises you: an argument you expected is missing, a description is
+truncated, a field was renamed, or a <code>200 OK</code> came back as an error.</p>
+<p>For what the generator supports at all, see
+<a href="../nw-connector-builder-scope/">generator contract</a>.</p>
+<hr />
+<h2 id="spec-repair">Spec repair<a class="headerlink" href="#spec-repair" title="Anchor link to this section">&para;</a></h2>
+<h3 id="draft-4-repair">Draft-4 repair<a class="headerlink" href="#draft-4-repair" title="Anchor link to this section">&para;</a></h3>
+<p>Real-world specs — Slack's published Web API spec among them — carry JSON Schema draft-4 constructs that OpenAPI 3.0's Schema Object does not allow. One of them anywhere in the document fails validation and takes the whole build with it, so the loader rewrites them into their OAS 3.0 equivalents (after <code>$ref</code> resolution, so inlined targets are covered) and logs a count of what it changed:</p>
+<table>
+<thead>
+<tr>
+<th>Found</th>
+<th>Rewritten to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type: ["string", "null"]</code></td>
+<td><code>type: string</code> + <code>nullable: true</code></td>
+</tr>
+<tr>
+<td><code>type: ["string", "integer"]</code></td>
+<td><code>anyOf: [{type: string}, {type: integer}]</code></td>
+</tr>
+<tr>
+<td><code>type: "null"</code></td>
+<td><code>nullable: true</code></td>
+</tr>
+<tr>
+<td><code>items: [A, {type: null}]</code></td>
+<td><code>items: A</code> + <code>nullable: true</code></td>
+</tr>
+<tr>
+<td><code>items: [A, B]</code></td>
+<td><code>items: {anyOf: [A, B]}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Tuple-form <code>items</code> means positional validation in draft-4, which no generated model can express; the specs that use it mean "A or B", so that is how it is read. Documents without these constructs are untouched.</p>
+<p>Swagger 2.0 input gets one more repair during conversion: response <code>examples</code> (keyed by mime type on the response object, which OAS 3 has no property for) moves to <code>content.&lt;mime&gt;.example</code>.</p>
+<hr />
+<h2 id="tool-and-parameter-descriptions">Tool and parameter descriptions<a class="headerlink" href="#tool-and-parameter-descriptions" title="Anchor link to this section">&para;</a></h2>
+<p>Generated tools carry the spec's own text, so an MCP client can tell what a tool does and what each argument expects:</p>
 <ul>
-<li><strong>LLM Providers:</strong> If you are using OpenAI, Anthropic, Google, or Groq to process PHI via Node Wire agents, you must have a BAA signed with that provider and ensure you are using their HIPAA-eligible endpoints/models.</li>
-<li><strong>Hosting Infrastructure:</strong> If you deploy Node Wire on AWS, Azure, Google Cloud, or another cloud provider, you must have a BAA with the hosting provider.</li>
-<li><strong>External Connectors:</strong> If you use connectors like SMTP or Google Drive to send or store PHI, those services must also be covered under a BAA.</li>
+<li><strong>tool description</strong> — the operation's <code>summary</code>, else its <code>description</code>; first paragraph only, markdown links flattened to their text, capped at 300 characters. It becomes the input model's docstring, which the manifest publishes as the tool description.</li>
+<li><strong>parameter description</strong> — from the parameter, or its schema (OAS 3 allows either); first sentence, capped at 90 characters.</li>
 </ul>
-<h2 id="2-data-in-transit-encryption">2. Data in Transit (Encryption)<a class="headerlink" href="#2-data-in-transit-encryption" title="Anchor link to this section">&para;</a></h2>
-<p>All network traffic involving PHI must be encrypted.
-- <strong>EHR Communication:</strong> Node Wire's FHIR connectors use HTTPS/TLS to communicate with Epic and Cerner APIs.
-- <strong>Client Communication:</strong> When deploying the Node Wire REST API or MCP Server, you must place it behind a reverse proxy (e.g., Nginx, Traefik) or API Gateway configured with strict TLS 1.2+ encryption.</p>
-<h2 id="3-data-at-rest-persistence">3. Data at Rest (Persistence)<a class="headerlink" href="#3-data-at-rest-persistence" title="Anchor link to this section">&para;</a></h2>
-<p>Node Wire itself does not include a database and does not persistently store PHI. It processes data in memory during execution. However, consider the following:
-- <strong>Logs:</strong> Ensure that your logging infrastructure does not capture PHI. Node Wire's default <code>INFO</code> logging levels do not log payloads, but running in <code>DEBUG</code> or <code>TRACE</code> mode may expose PHI to logs. You must configure your logging systems to redact PHI or ensure the logging environment is HIPAA-compliant.
-- <strong>Caching:</strong> If you implement caching layers on top of Node Wire, ensure the cache is encrypted at rest.</p>
-<h2 id="4-authentication-and-authorization">4. Authentication and Authorization<a class="headerlink" href="#4-authentication-and-authorization" title="Anchor link to this section">&para;</a></h2>
+<p>Everything past the first paragraph (argument tables, error lists) repeats the input schema and is paid for in every tool listing, so it is left out. On Slack's spec no operation description reaches the cap.</p>
+<hr />
+<h2 id="action-names-and-generated-source">Action names and generated source<a class="headerlink" href="#action-names-and-generated-source" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li><strong>API Keys &amp; JWTs:</strong> Node Wire's REST API supports API keys and JWTs. Ensure these secrets are strong, rotated regularly, and never hardcoded in source control.</li>
-<li><strong>OAuth 2.0 / SMART on FHIR:</strong> The FHIR connectors rely on the underlying authentication provided by the EHR. Ensure that the service accounts or client applications registered in Epic/Cerner are provisioned with the principle of least privilege, granting access only to the specific FHIR resources required by the agents.</li>
+<li><strong>Action names</strong> come from <code>operationId</code> (or method + path), snake_cased. They are cut to fit the MCP tool-name limit — the tool name is <code>&lt;connector_id&gt;_&lt;action&gt;</code>, at most 64 characters — at a word boundary, never mid-word and never leaving a trailing <code>_</code>. Duplicates get a numeric suffix.</li>
+<li><strong>Formatting</strong> — generated <code>src/node_wire_&lt;id&gt;/</code> and its tests are run through <code>ruff format</code> at staging time, using the target root's <code>pyproject.toml</code> <code>[tool.ruff]</code> settings, so they pass the same <code>ruff format --check</code> as hand-written code. Source ruff cannot parse fails the build: it is a codegen bug.</li>
+<li><strong>No schema titles</strong> — generated models carry a <code>_drop_titles</code> <code>json_schema_extra</code> hook, so their JSON schemas have no <code>title</code> on the model or its fields (Pydantic's defaults only restate the names). Descriptions carry each field's meaning.</li>
+<li><strong>Runtime floor</strong> — the generated package requires <code>node-wire-runtime&gt;=1.1.0</code>, the first runtime with <code>body_property</code> routing and success-flag envelopes.</li>
 </ul>
-<h2 id="5-safe-secret-management">5. Safe Secret Management<a class="headerlink" href="#5-safe-secret-management" title="Anchor link to this section">&para;</a></h2>
-<p>Do not store credentials (e.g., <code>client_secret</code>, API keys) in plain text environment files in production. Out of the box, <code>NW_SECRET_BACKEND</code> selects between <code>env</code> (default) and <code>aws_env</code> (AWS Secrets Manager + env fallback via <code>ChainedSecretProvider</code>) — see <a href="../../configuration/#secrets-management">configuration.md — Secrets Management</a>. HashiCorp Vault and Azure Key Vault provider classes exist in <code>node_wire_runtime.secrets</code> and ship as optional extras, but are not currently wired into <code>NW_SECRET_BACKEND</code>; using them requires custom composition code. You should use a secure secret management solution to inject credentials at runtime.</p>
+<hr />
+<h2 id="request-body-fields">Request body fields<a class="headerlink" href="#request-body-fields" title="Anchor link to this section">&para;</a></h2>
+<p>A generated tool takes <strong>one flat set of arguments</strong>. Each property of an object request body becomes its own typed, described argument next to the path, query and header parameters — there is no nested <code>body</code> object to fill in:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="nt">"channel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C0123"</span><span class="p">,</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hi"</span><span class="p">}</span>
+</span></code></pre></div>
+<p>The tool contract (what a caller sends) is kept separate from the wire contract (where each value goes on the HTTP request). Every generated field carries its location in <code>nw_in</code>; body properties use <code>nw_in="body_property"</code>, and the runtime rebuilds the request body from them by wire name (<code>split_params_by_location</code> in <code>node_wire_runtime/rest.py</code>). The same Pydantic model is validated by every binding, so REST, gRPC and MCP all enforce the same required fields, types and enums.</p>
+<p>Rules:</p>
+<ul>
+<li><strong>Required</strong> — a body property is required only when the request body is required (<code>requestBody.required: true</code>) <em>and</em> the property is in the body schema's <code>required</code> list. An optional body may be omitted entirely.</li>
+<li><strong>Always sent</strong> — an operation that declares a body sends one, <code>{}</code> when no property is set.</li>
+<li><strong><code>allOf</code></strong> parts at the top of the body schema are merged; <code>readOnly</code> properties are left out (a client never sends them).</li>
+<li><strong>Enums</strong> on string fields become <code>Literal[...]</code> types, so they are enforced, not only advertised.</li>
+<li><strong>Name clashes</strong> — a path/query/header parameter that shares a name with a body property is renamed <code>&lt;name&gt;__&lt;location&gt;</code> (e.g. <code>channel__query</code>); the body property keeps the plain name. Names the bindings reserve (<code>action</code>, <code>body</code>, <code>config_name</code>, <code>tenant_id</code>, <code>trace_id</code>) get a <code>_param</code> suffix, Python keywords a trailing <code>_</code> (<code>from</code> → <code>from_</code>, which also accepts <code>from</code>). The value is always sent under its original wire name.</li>
+<li><strong>Whole bodies</strong> — bodies that are not objects with declared properties keep a single <code>body</code> argument: arrays (<code>list</code>), binary/string bodies (<code>str</code>), free-form maps, <code>oneOf</code>/<code>anyOf</code>, and media types other than JSON, form and multipart. <code>body</code> is required when the request body is.</li>
+</ul>
+<hr />
+<h2 id="credential-parameters">Credential parameters<a class="headerlink" href="#credential-parameters" title="Anchor link to this section">&para;</a></h2>
+<p>Specs often declare the credential as an ordinary parameter — Slack's declares a <code>token</code> header on every operation. Generated verbatim, that becomes a required tool argument, so an MCP client asks its caller for the API token and pastes a secret into a tool call, while the connector is already attaching that credential itself from <code>&lt;ID&gt;_ACCESS_TOKEN</code>.</p>
+<p>For <strong>authenticated</strong> actions the builder drops header, query and request-body fields whose name is exactly one of <code>token</code>, <code>access_token</code>, <code>accesstoken</code>, <code>api_key</code>, <code>apikey</code>, <code>api-key</code>, <code>auth_token</code>, <code>authorization</code>, <code>password</code>, <code>secret</code>. The configured <code>AuthProvider</code> supplies the value; on a collision the runtime already gives auth precedence (<code>rest.py</code>).</p>
+<p>Matching is exact and scoped, so nothing else is affected:</p>
+<ul>
+<li><code>page_token</code>, <code>next_token</code>, <code>cursor</code>, <code>token_id</code> — kept (not credentials)</li>
+<li>path parameters — kept, even when named <code>token</code>; they are part of the URL</li>
+<li><strong>anonymous</strong> actions — kept, since no provider would supply the value</li>
+<li>a form-body <code>token</code> (Slack sends it that way on 11 operations) — dropped like a header one, including from the required list</li>
+</ul>
+<p>Dropped parameters are named in the build report's notes.</p>
+<hr />
+<h2 id="success-flag-envelopes-ok-false">Success-flag envelopes (<code>ok: false</code>)<a class="headerlink" href="#success-flag-envelopes-ok-false" title="Anchor link to this section">&para;</a></h2>
+<p>Some APIs never use HTTP error statuses for business failures — Slack answers <code>200 OK</code> with <code>{"ok": false, "error": "invalid_auth"}</code>. Nothing above the REST executor can tell that apart from a successful call, so the connector would report success for a failed request.</p>
+<p>When an operation's success schema declares <strong><code>ok</code> as a required boolean</strong>, the builder passes <code>envelope_ok_field="ok"</code> to <code>execute_rest</code> and adds <code>RestEnvelopeError</code> to the connector's <code>error_map</code> as a <code>BUSINESS</code> failure (<code>API_ENVELOPE_ERROR</code>). At runtime a body whose <code>ok</code> came back <code>false</code> raises instead of returning; the exception message carries the payload's <code>error</code> string when there is one (truncated to 200 chars).</p>
+<p>The trigger is deliberately narrow so ordinary specs are unaffected:</p>
+<table>
+<thead>
+<tr>
+<th>Success schema</th>
+<th>Checked?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>required: [ok]</code>, <code>ok: {type: boolean}</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>ok</code> present but <strong>not</strong> required</td>
+<td>no — an omitted flag says nothing, and treating absence as failure would break valid responses</td>
+</tr>
+<tr>
+<td><code>ok</code> required but not a boolean</td>
+<td>no</td>
+</tr>
+<tr>
+<td>no <code>ok</code> property, or no documented success schema</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>A missing flag at runtime is never a failure either: only a flag the API actually sent as <code>false</code> raises. Specs without the convention generate byte-identical code to before — no import, no <code>error_map</code> entry, no kwarg. The build report names the actions that got the check.</p>
+<p><code>envelope_ok_field</code> is off by default on <code>execute_rest</code>, so hand-written connectors are unaffected.</p>
+<hr />
+<h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Doc</th>
+<th>When to read it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../nw-connector-builder/">nw-connector-builder.md</a></td>
+<td>Running the generator</td>
+</tr>
+<tr>
+<td><a href="../nw-connector-builder-scope/">nw-connector-builder-scope.md</a></td>
+<td>What is in and out of scope</td>
+</tr>
+<tr>
+<td><a href="../../connectors-build/">Build a connector</a></td>
+<td>Hand-written connectors</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -2678,7 +2869,7 @@ applicable HIPAA requirements.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../privacy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Privacy">
+          <a href="../nw-connector-builder-scope/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Generator Contract">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2688,20 +2879,20 @@ applicable HIPAA requirements.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Generator Contract
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../adr/" class="md-footer__link md-footer__link--next" aria-label="Next: ADR Index">
+          <a href="../nw-mcp-builder/" class="md-footer__link md-footer__link--next" aria-label="Next: nw-mcp-builder">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                nw-mcp-builder
               </div>
             </div>
             <div class="md-footer__button md-icon">
