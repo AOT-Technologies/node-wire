@@ -50,6 +50,20 @@ def _restore_backup(backup: Path | None, dest: Path) -> None:
     backup.rename(dest)
 
 
+def _keep_build_output(backup: Path | None, dest: Path) -> None:
+    """Carry the replaced package's ``dist/`` (built wheels) over to the new one.
+
+    Wheels are build output, not generated source; whoever builds decides whether they are
+    stale (``nw gen-stacklok`` compares a source hash stamped in ``dist/``). Dropping them made
+    every regeneration recompile the connector and broke ``--no-wheel``.
+    """
+    if backup is None:
+        return
+    dist = backup / "dist"
+    if dist.is_dir() and not (dest / "dist").exists():
+        dist.rename(dest / "dist")
+
+
 def _cleanup_backup(backup: Path | None) -> None:
     if backup is not None and backup.exists():
         shutil.rmtree(backup)
@@ -134,6 +148,7 @@ def promote(
                 shutil.rmtree(src_dest)
             raise
 
+        _keep_build_output(backups[1][0], pkg_dest)
         for backup, _ in backups:
             _cleanup_backup(backup)
     except Exception:

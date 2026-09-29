@@ -267,6 +267,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **nw-connector-builder**: regenerating a connector with `--force` now keeps
+  `packages/connectors/<id>/dist/`. Deleting it made `nw gen-stacklok` recompile the connector
+  on every run, even from an unchanged spec, and made `--no-wheel` fail for want of a wheel.
 - **`node-wire-bindings`**: two `ConnectorFactory` fixes.
   - `apikey_query` auth now reads the tenant-scoped secret (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`)
     like every other provider. It used the factory-wide provider, so every tenant got the unscoped key.

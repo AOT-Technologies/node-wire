@@ -68,6 +68,25 @@ def test_promote_force_overwrites_existing(tmp_path: Path) -> None:
     assert not (root / "packages" / "connectors" / "pet_store" / "old.toml").exists()
 
 
+def test_promote_force_keeps_built_wheels(tmp_path: Path) -> None:
+    staging = tmp_path / "staging"
+    root = tmp_path / "root"
+    _staging_tree(staging, "pet_store")
+    dist = root / "packages" / "connectors" / "pet_store" / "dist"
+    dist.mkdir(parents=True)
+    (dist / "pet_store-1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
+    (dist / ".nw-source-cp313-musllinux.sha256").write_text("abc\n", encoding="utf-8")
+
+    promote(staging, root, "pet_store", force=True)
+
+    assert sorted(p.name for p in dist.iterdir()) == [
+        ".nw-source-cp313-musllinux.sha256",
+        "pet_store-1.0-cp313-cp313-musllinux_1_2_aarch64.whl",
+    ]
+    assert (dist.parent / "pyproject.toml").is_file()
+    assert not (dist.parent.with_name("pet_store.bak")).exists()
+
+
 def test_promote_rollback_when_second_rename_fails(tmp_path: Path) -> None:
     staging = tmp_path / "staging"
     root = tmp_path / "root"
