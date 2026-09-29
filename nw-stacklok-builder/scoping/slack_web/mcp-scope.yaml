@@ -1,56 +1,56 @@
 version: "1"
 
 server:
-  name: slack
-  description: "Post messages to Slack channels and threads as a bot, and find, inspect, and join the channels to post in."
+  name: slack-web
+  description: "Send, schedule, and edit Slack messages as a bot, and find, inspect, join, and read the channels to post in."
 
 spec:
   source: "/Users/aot/Development/AOT/vinaayakh-node-wire/nw-stacklok-builder/specs/slack_web.openapi.json"
   format: openapi3
   base_url: "https://slack.com/api"
   total_endpoints: 174
-  scoped_endpoints: 8
+  scoped_endpoints: 15
 
 workflows:
-  - "Users should be able to post messages to a channel"
+  - "Send messages to a channel"
 
 groups:
   - name: messaging
-    description: "Send, edit, and link to messages in Slack channels and threads."
+    description: "Send, schedule, update, delete, and link to messages in channels, threads, and DMs."
     tools:
       - tool_name: post_message
         endpoint: POST /chat.postMessage
         description: >
-          Post a new message visible to everyone in a Slack channel, private channel, or DM, as the bot.
-          You can also reply in a thread by passing `thread_ts`. Returns `ok`, the `channel` ID, the new
-          message's `ts` (use it later to update, reply to, or get a permalink for the message), and the
-          posted `message` object. The bot must be a member of the channel (use `join_conversation` for
-          public channels first) or you get `not_in_channel`. To DM a user, get the DM channel ID from
-          `open_conversation` first.
+          Send a message to a public channel, private channel, DM, or MPIM as the bot. This is the
+          primary tool for posting a visible message. Returns `ok`, `channel` (the resolved channel ID),
+          `ts` (the new message's timestamp ID, needed for threading, updating, or deleting it), and the
+          posted `message` object. To reply in a thread, pass the parent message's `ts` as `thread_ts`.
+          Use `post_ephemeral_message` for a message only one user can see, and `schedule_message` to
+          send later.
         response_kind: json
         parameters:
           - name: channel
-            description: "Channel ID (e.g. `C0123456789`), private channel ID, or DM/IM ID to post to. A channel name like `#general` also works, but an ID is more reliable. Use `list_conversations` to find IDs."
+            description: "Channel ID (e.g. \"C0123456789\"), private channel ID, or DM/IM ID to post to. A channel name like \"#general\" also works, but IDs are more reliable; use `list_conversations` to find an ID."
             required: true
             location: body
           - name: text
-            description: "Message text. Supports Slack mrkdwn (`*bold*`, `_italic_`, `<@U123>` user mentions, `<#C123>` channel links). Required unless `blocks` or `attachments` is given. When `blocks` is given, `text` is the notification/fallback text, so always include it."
+            description: "Message text using Slack mrkdwn formatting (*bold*, _italic_, <https://example.com|link>, <@U123> mentions). Required unless `blocks` or `attachments` is provided. When `blocks` is given, `text` is used as the notification/fallback text and should still be set."
             required: false
             location: body
           - name: blocks
-            description: "Block Kit layout as a JSON array string, e.g. `[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"Hello\"}}]`. Use it for rich formatting. Maximum 50 blocks."
+            description: "JSON-encoded string of a Block Kit blocks array, e.g. '[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"Hello\"}}]'. Up to 50 blocks."
             required: false
             location: body
           - name: attachments
-            description: "Legacy secondary attachments as a JSON array string. Prefer `blocks` for new messages."
+            description: "JSON-encoded string of a legacy secondary-attachments array. Prefer `blocks` for new messages."
             required: false
             location: body
           - name: thread_ts
-            description: "`ts` of the parent message to reply in its thread. Always use the parent's `ts`, never a reply's `ts`."
+            description: "The `ts` of the parent message to reply to, as a string (e.g. \"1712345678.123456\"). Always use the parent's `ts`, never a reply's."
             required: false
             location: body
           - name: reply_broadcast
-            description: "With `thread_ts`, set to true to also show the reply in the main channel. Default false."
+            description: "Used with `thread_ts`. If true, the thread reply is also shown in the channel. Default false."
             required: false
             location: body
           - name: mrkdwn
@@ -58,15 +58,15 @@ groups:
             required: false
             location: body
           - name: link_names
-            description: "Set to true to turn plain `@username` / `#channel` text into real mentions/links."
+            description: "If true, @username and #channel text is converted into real mentions and links."
             required: false
             location: body
           - name: unfurl_links
-            description: "Set to true to unfurl primarily text-based links (e.g. article previews)."
+            description: "Pass true to enable unfurling of primarily text-based links."
             required: false
             location: body
           - name: unfurl_media
-            description: "Set to false to disable media unfurls (images, video). Default true."
+            description: "Pass false to disable unfurling of media links (images, video)."
             required: false
             location: body
           - name: username
@@ -74,222 +74,454 @@ groups:
             required: false
             location: body
           - name: icon_emoji
-            description: "Emoji to use as the bot's icon for this message, e.g. `:robot_face:`. Overrides `icon_url`. Requires `chat:write.customize`."
-            required: false
-            location: body
-          - name: icon_url
-            description: "Image URL to use as the bot's icon for this message. Requires `chat:write.customize`."
+            description: "Emoji to use as the message icon, e.g. \":robot_face:\". Overrides `icon_url`. Requires the `chat:write.customize` scope."
             required: false
             location: body
         hints:
-          - "channel must be a channel ID for reliability; resolve names with list_conversations first"
-          - "bot must be a member of the channel or the call fails with not_in_channel — call join_conversation (public channels) or ask a human to invite the bot (private channels)"
-          - "blocks and attachments are JSON strings (form-urlencoded body), not nested objects — serialize before sending"
-          - "Slack returns HTTP 200 with ok=false on errors; check the `ok` and `error` fields"
-          - "rate limited to roughly 1 message per second per channel"
-          - "the returned ts identifies the message; keep it for update_message, get_message_permalink, and thread replies"
+          - "To post in a public channel the bot has not joined, the token needs chat:write.public; otherwise call join_conversation first or expect error not_in_channel"
+          - "Slack returns HTTP 200 with ok=false on errors (e.g. channel_not_found, not_in_channel, invalid_blocks); check the ok field and surface the error string"
+          - "blocks and attachments are JSON strings, not nested objects, because the body is application/x-www-form-urlencoded"
+          - "rate limited to roughly 1 message per second per channel (special tier); bursts are tolerated briefly"
+          - "text is truncated above 40,000 characters; keep messages under 4,000 characters for best display"
+
+      - tool_name: post_ephemeral_message
+        endpoint: POST /chat.postEphemeral
+        description: >
+          Send an ephemeral message that only one specified user can see, inside a channel they belong
+          to. Ephemeral messages do not persist across sessions or devices and cannot be updated or
+          deleted through the API. Returns `ok` and `message_ts`. Use `post_message` for a normal
+          message everyone in the channel sees.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "Channel, private channel, or DM ID in which to show the ephemeral message."
+            required: true
+            location: body
+          - name: user
+            description: "ID of the user who will see the message (e.g. \"U0123456789\"). The user must be a member of `channel`; use `list_conversation_members` to find one."
+            required: true
+            location: body
+          - name: text
+            description: "Message text in Slack mrkdwn. Required unless `blocks` or `attachments` is provided; still recommended as fallback text."
+            required: false
+            location: body
+          - name: blocks
+            description: "JSON-encoded string of a Block Kit blocks array."
+            required: false
+            location: body
+          - name: attachments
+            description: "JSON-encoded string of a legacy attachments array."
+            required: false
+            location: body
+          - name: thread_ts
+            description: "Parent message `ts` (string) to show the ephemeral message inside a thread. It is only displayed if the thread is already active."
+            required: false
+            location: body
+          - name: link_names
+            description: "If true, @username and #channel text is converted into real mentions and links."
+            required: false
+            location: body
+          - name: username
+            description: "Override the bot's display name. Requires `chat:write.customize`."
+            required: false
+            location: body
+          - name: icon_emoji
+            description: "Emoji icon, e.g. \":robot_face:\". Requires `chat:write.customize`."
+            required: false
+            location: body
+        hints:
+          - "delivery is not guaranteed: if the user is not active in Slack the ephemeral message is silently dropped"
+          - "the returned message_ts cannot be used with update_message or delete_message"
+
+      - tool_name: schedule_message
+        endpoint: POST /chat.scheduleMessage
+        description: >
+          Schedule a message to be posted to a channel at a future time, up to 120 days ahead. Returns
+          `ok`, `channel`, `scheduled_message_id` (needed to cancel it with `delete_scheduled_message`),
+          and `post_at`. Use `post_message` to send immediately.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "Channel, private channel, or DM ID to post to."
+            required: true
+            location: body
+          - name: post_at
+            description: "Unix epoch timestamp in seconds for when to send the message, e.g. \"1735689600\". It must be in the future and within 120 days."
+            required: true
+            location: body
+          - name: text
+            description: "Message text in Slack mrkdwn. Required unless `blocks` or `attachments` is provided."
+            required: false
+            location: body
+          - name: blocks
+            description: "JSON-encoded string of a Block Kit blocks array."
+            required: false
+            location: body
+          - name: attachments
+            description: "JSON-encoded string of a legacy attachments array."
+            required: false
+            location: body
+          - name: thread_ts
+            description: "Parent message `ts` to schedule a thread reply. Pass it as a string (e.g. \"1712345678.123456\") to keep microsecond precision."
+            required: false
+            location: body
+          - name: reply_broadcast
+            description: "With `thread_ts`, also show the reply in the channel. Default false."
+            required: false
+            location: body
+          - name: link_names
+            description: "If true, @username and #channel text is converted into real mentions and links."
+            required: false
+            location: body
+          - name: unfurl_links
+            description: "Pass true to enable unfurling of text-based links."
+            required: false
+            location: body
+          - name: unfurl_media
+            description: "Pass false to disable unfurling of media links."
+            required: false
+            location: body
+        hints:
+          - "channel and post_at are marked required here although the spec marks them optional, because Slack rejects calls without them"
+          - "spec types thread_ts as number; Slack ts values must be sent as strings to avoid float precision loss"
+          - "scheduled messages do not appear in get_conversation_history until they are posted"
+
+      - tool_name: list_scheduled_messages
+        endpoint: GET /chat.scheduledMessages.list
+        description: >
+          List messages the bot has scheduled that are not yet sent, optionally filtered to one channel
+          and a time range. Returns `scheduled_messages` (each with `id`, `channel_id`, `post_at`,
+          `date_created`, `text`) and `response_metadata.next_cursor`. Use this to find a
+          `scheduled_message_id` to cancel.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "Channel ID to restrict results to. Omit it to list across all channels."
+            required: false
+            location: query
+          - name: oldest
+            description: "Unix epoch timestamp (seconds). Only return messages scheduled at or after this time."
+            required: false
+            location: query
+          - name: latest
+            description: "Unix epoch timestamp (seconds). Only return messages scheduled at or before this time."
+            required: false
+            location: query
+          - name: limit
+            description: "Maximum number of entries to return per page. Default 100."
+            required: false
+            location: query
+          - name: cursor
+            description: "Pagination cursor from a previous response's `response_metadata.next_cursor`."
+            required: false
+            location: query
+        hints:
+          - "paginated: uses cursor / response_metadata.next_cursor pattern; an empty next_cursor means the last page"
+
+      - tool_name: delete_scheduled_message
+        endpoint: POST /chat.deleteScheduledMessage
+        description: >
+          Cancel a pending scheduled message before it is sent. It needs the `scheduled_message_id`
+          returned by `schedule_message` or `list_scheduled_messages`. Returns `ok`. It cannot delete a
+          message that has already been posted; use `delete_message` for that.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "Channel ID the scheduled message was going to post to."
+            required: true
+            location: body
+          - name: scheduled_message_id
+            description: "The `scheduled_message_id` returned by `schedule_message` or `list_scheduled_messages` (e.g. \"Q1298393284\")."
+            required: true
+            location: body
+        hints:
+          - "fails with invalid_scheduled_message_id if the message is due within ~60 seconds or has already been sent"
 
       - tool_name: update_message
         endpoint: POST /chat.update
         description: >
-          Edit the text, blocks, or attachments of an existing message the bot posted, identified by
-          `channel` + `ts`. Returns `ok`, `channel`, `ts`, and the updated `text`/`message`. Fields you
-          leave out: `blocks` and `attachments` keep their previous values (pass `[]` to clear them).
-          Ephemeral messages cannot be updated.
+          Edit the text or blocks of an existing message the bot previously posted, identified by
+          channel and `ts`. Returns `ok`, `channel`, `ts`, and the updated `text`/`message`. It cannot
+          edit ephemeral messages or messages posted by other users.
         response_kind: json
         parameters:
           - name: channel
-            description: "Channel ID containing the message to update."
+            description: "Channel ID containing the message."
             required: true
             location: body
           - name: ts
-            description: "`ts` of the message to update, exactly as returned by `post_message` (a string like `1712345678.123456`)."
+            description: "The `ts` of the message to update, as a string (e.g. \"1712345678.123456\")."
             required: true
             location: body
           - name: text
-            description: "New message text in Slack mrkdwn. Not required when `blocks` or `attachments` is given."
+            description: "New message text in Slack mrkdwn. Not required when `blocks` or `attachments` is provided."
             required: false
             location: body
           - name: blocks
-            description: "New Block Kit layout as a JSON array string. If omitted, the existing blocks are kept. Pass `[]` to remove them."
+            description: "JSON-encoded string of a Block Kit blocks array. If omitted, the existing blocks are kept. Pass \"[]\" to remove them."
             required: false
             location: body
           - name: attachments
-            description: "New legacy attachments as a JSON array string. If omitted, the existing attachments are kept. Pass `[]` to remove them."
-            required: false
-            location: body
-          - name: link_names
-            description: "Set to true to turn plain `@username` / `#channel` text into mentions. If omitted, the message's original setting is reset to the default (`none`)."
+            description: "JSON-encoded string of a legacy attachments array. If omitted, the existing attachments are kept. Pass \"[]\" to remove them."
             required: false
             location: body
         hints:
-          - "bot tokens can only update messages posted by the same bot (otherwise cant_update_message)"
-          - "Slack returns HTTP 200 with ok=false on errors (e.g. message_not_found)"
+          - "a bot token can only update messages posted by that same bot (error cant_update_message otherwise)"
+
+      - tool_name: delete_message
+        endpoint: POST /chat.delete
+        description: >
+          Permanently delete a message, identified by channel and `ts`. Returns `ok`, `channel`, and
+          `ts`. A bot token can delete only messages that the bot posted. To cancel a not-yet-sent
+          scheduled message, use `delete_scheduled_message` instead.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "Channel ID containing the message."
+            required: true
+            location: body
+          - name: ts
+            description: "The `ts` of the message to delete, as a string (e.g. \"1712345678.123456\")."
+            required: true
+            location: body
+        hints:
+          - "channel and ts are marked required here although the spec marks them optional, because Slack rejects calls without them"
+          - "spec types ts as number; send it as a string to preserve microsecond precision"
+          - "destructive and irreversible"
 
       - tool_name: get_message_permalink
         endpoint: GET /chat.getPermalink
         description: >
-          Get a shareable permalink URL for an existing message, identified by `channel` + `message_ts`.
-          Returns `ok`, `channel`, and `permalink` (e.g. `https://team.slack.com/archives/C123/p1712345678123456`).
+          Get a shareable permalink URL for an existing message, identified by channel and `ts`.
+          Returns `ok`, `channel`, and `permalink` (e.g.
+          "https://myteam.slack.com/archives/C123/p1712345678123456"). Useful after `post_message` to
+          give a user a link to the message.
         response_kind: json
         parameters:
           - name: channel
-            description: "ID of the channel containing the message."
+            description: "ID of the conversation containing the message."
             required: true
             location: query
           - name: message_ts
-            description: "The message's `ts` value, exactly as returned when it was posted."
+            description: "The message's `ts` value, as a string (e.g. \"1712345678.123456\")."
             required: true
             location: query
+        hints:
+          - "spec marks the legacy query token as required; auth must come from the Authorization header"
 
-  - name: conversations
-    description: "Find, inspect, and join channels and DMs, and read threads, so the bot can post in the right place."
+  - name: channels-and-conversations
+    description: "Find, inspect, join, and read channels and DMs so the bot knows where and how to post."
     tools:
       - tool_name: list_conversations
         endpoint: GET /conversations.list
         description: >
-          List channels in the workspace (public by default; also private channels the bot is in, group
-          DMs, and DMs via `types`). Returns `channels` (each with `id`, `name`, `is_private`,
-          `is_archived`, `is_member`, `topic`, `purpose`) and `response_metadata.next_cursor`. Use this to
-          turn a channel name into the channel ID other tools need, and to check `is_member` before posting.
+          List channels and other conversations in the workspace, to find a channel's ID by name before
+          posting. Returns `channels` (each with `id`, `name`, `is_private`, `is_member`, `is_archived`,
+          `topic`, `purpose`, `num_members`) and `response_metadata.next_cursor`. By default only public
+          channels are returned; use `types` to include private channels, DMs, or MPIMs. Use
+          `get_conversation_info` when you already have the ID.
         response_kind: json
         parameters:
           - name: types
-            description: "Comma-separated channel types to include: any of `public_channel`, `private_channel`, `mpim`, `im`. Default `public_channel`."
+            description: "Comma-separated conversation types: any combination of \"public_channel\", \"private_channel\", \"mpim\", \"im\". Default \"public_channel\". Private types need the matching groups:read/im:read/mpim:read scope, and only return conversations the bot is in."
             required: false
             location: query
           - name: exclude_archived
-            description: "Set to true to leave out archived channels. Default false."
+            description: "Set to true to leave archived channels out. Default false."
             required: false
             location: query
           - name: limit
-            description: "Maximum channels per page, up to 1000. Default 100. Slack recommends 200 or less."
+            description: "Maximum number of conversations per page, up to 1000. Default 100. Slack recommends 200 or fewer."
             required: false
             location: query
           - name: cursor
-            description: "Pagination cursor from a previous call's `response_metadata.next_cursor`. Omit it for the first page."
+            description: "Pagination cursor from a previous response's `response_metadata.next_cursor`. Omit it for the first page."
             required: false
             location: query
         hints:
-          - "paginated: uses cursor / response_metadata.next_cursor pattern (empty next_cursor means last page); a name lookup may need several pages"
-          - "fewer than limit results may be returned even when more pages exist; always check next_cursor"
-          - "private channels only appear if the bot is a member"
-          - "response is large for big workspaces — use exclude_archived=true and narrow types"
+          - "paginated: uses cursor / response_metadata.next_cursor pattern; a page may return fewer than limit items even when more exist, so keep paging until next_cursor is empty"
+          - "there is no name filter; to find a channel by name, page through results with exclude_archived=true and match on name"
+          - "response is large for big workspaces; each channel object has 30+ fields"
+          - "rate limited (Tier 2, ~20 requests per minute)"
 
       - tool_name: get_conversation_info
         endpoint: GET /conversations.info
         description: >
-          Get details for one channel or DM by ID: `name`, `is_private`, `is_archived`, `is_member`,
-          `topic`, `purpose`, `created`, and optionally member count and locale. Use it to check that a
-          channel exists and that the bot is a member before posting.
+          Get details for a single conversation by ID. Returns `channel` with `name`, `is_private`,
+          `is_archived`, `is_member` (whether the bot is in it), `topic`, `purpose`, `created`, and
+          optionally `num_members` and `locale`. Use this to check whether the bot must join before
+          posting.
         response_kind: json
         parameters:
           - name: channel
-            description: "Channel/conversation ID to look up. Required by Slack in practice."
-            required: false
+            description: "Conversation ID to look up (e.g. \"C0123456789\")."
+            required: true
             location: query
           - name: include_num_members
-            description: "Set to true to include `num_members`. Default false."
+            description: "Set to true to include the member count. Default false."
             required: false
             location: query
           - name: include_locale
-            description: "Set to true to include the conversation's `locale`. Default false."
+            description: "Set to true to include the conversation's locale. Default false."
             required: false
             location: query
         hints:
-          - "returns channel_not_found for private channels the bot is not in"
+          - "channel is marked required here although the spec marks it optional, because Slack rejects calls without it"
 
-      - tool_name: join_conversation
-        endpoint: POST /conversations.join
+      - tool_name: get_conversation_history
+        endpoint: GET /conversations.history
         description: >
-          Add the bot to an existing public channel so it can post and read there. Returns `ok` and the
-          `channel` object. It does not work for private channels or DMs; a member must invite the bot to
-          those. Use it before `post_message` when `is_member` is false or posting fails with `not_in_channel`.
+          Fetch the top-level messages and events of a conversation, newest first, optionally within a
+          time range. Returns `messages` (each with `ts`, `user`, `text`, `thread_ts`, `reply_count`),
+          `has_more`, and `response_metadata.next_cursor`. Thread replies are not included; use
+          `get_thread_replies` with a parent `ts` for those.
         response_kind: json
         parameters:
           - name: channel
-            description: "ID of the public channel to join. Required by Slack in practice."
+            description: "Conversation ID to read."
+            required: true
+            location: query
+          - name: oldest
+            description: "Only messages after this Slack `ts` / Unix timestamp (e.g. \"1712345678.123456\"). Default 0."
             required: false
-            location: body
+            location: query
+          - name: latest
+            description: "Only messages before this Slack `ts` / Unix timestamp. Default now."
+            required: false
+            location: query
+          - name: inclusive
+            description: "Include messages exactly at `oldest` or `latest`. Only applies when one of them is set. Default false."
+            required: false
+            location: query
+          - name: limit
+            description: "Maximum messages per page, up to 999. Default 100."
+            required: false
+            location: query
+          - name: cursor
+            description: "Pagination cursor from a previous response's `response_metadata.next_cursor`."
+            required: false
+            location: query
         hints:
-          - "bot token needs the channels:join scope (spec lists legacy channels:write); public channels only"
-          - "idempotent — joining a channel already joined returns ok with a warning already_in_channel"
+          - "paginated: uses cursor / response_metadata.next_cursor pattern (has_more indicates more pages)"
+          - "the bot must be a member of the channel and have channels:history / groups:history / im:history; otherwise error not_in_channel"
+          - "spec types latest/oldest as number; send ts values as strings to keep microsecond precision"
+          - "response can be large; use a small limit and oldest/latest to narrow results"
+          - "rate limited: non-Marketplace apps are limited to 1 request per minute and 15 messages per page for this method (Slack 2025 policy)"
 
       - tool_name: get_thread_replies
         endpoint: GET /conversations.replies
         description: >
-          Get a message thread: the parent message plus all its replies, identified by `channel` + the
-          parent's `ts`. Returns `messages` (the parent first, then replies in order), `has_more`, and
-          `response_metadata.next_cursor`. Use it to read a discussion before replying with
-          `post_message` + `thread_ts`.
+          Fetch a message thread: the parent message plus all its replies, identified by the parent's
+          `ts`. Returns `messages` (the parent first, then replies in chronological order), `has_more`,
+          and `response_metadata.next_cursor`. Use `get_conversation_history` for the channel's
+          top-level messages.
         response_kind: json
         parameters:
           - name: channel
-            description: "Channel ID containing the thread. Required by Slack in practice."
-            required: false
+            description: "Conversation ID containing the thread."
+            required: true
             location: query
           - name: ts
-            description: "`ts` of the thread's parent message. If the message has no replies, only that message is returned. Required by Slack in practice."
-            required: false
+            description: "The `ts` of the thread's parent message, as a string (e.g. \"1712345678.123456\"). If the message has no replies, only that message is returned."
+            required: true
             location: query
           - name: oldest
-            description: "Only replies after this Slack timestamp."
+            description: "Only replies after this `ts`. Default 0."
             required: false
             location: query
           - name: latest
-            description: "Only replies before this Slack timestamp."
+            description: "Only replies before this `ts`. Default now."
             required: false
             location: query
           - name: inclusive
-            description: "Set to true to include messages exactly at `oldest`/`latest`."
+            description: "Include replies exactly at `oldest` or `latest`. Only applies when one of them is set. Default false."
             required: false
             location: query
           - name: limit
-            description: "Maximum messages per page. Default 1000. Slack recommends 200 or less."
+            description: "Maximum messages per page, up to 1000. Default 1000."
             required: false
             location: query
           - name: cursor
-            description: "Pagination cursor from a previous call's `response_metadata.next_cursor`."
+            description: "Pagination cursor from a previous response's `response_metadata.next_cursor`."
             required: false
             location: query
         hints:
           - "paginated: uses cursor / response_metadata.next_cursor pattern"
-          - "spec types ts/oldest/latest as number; pass the exact string ts or the thread lookup can fail"
-          - "heavily rate limited for non-Marketplace apps (as low as 1 request/minute)"
+          - "spec types ts/latest/oldest as number; Slack ts values must be sent as strings to avoid float precision loss"
+          - "same bot membership and history-scope requirements as get_conversation_history; same non-Marketplace rate limit"
+
+      - tool_name: list_conversation_members
+        endpoint: GET /conversations.members
+        description: >
+          List the user IDs of the members of a conversation. Returns `members` (an array of user ID
+          strings only, with no names) and `response_metadata.next_cursor`. Useful for picking a `user`
+          for `post_ephemeral_message`.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "Conversation ID."
+            required: true
+            location: query
+          - name: limit
+            description: "Maximum members per page, up to 1000. Default 100."
+            required: false
+            location: query
+          - name: cursor
+            description: "Pagination cursor from a previous response's `response_metadata.next_cursor`."
+            required: false
+            location: query
+        hints:
+          - "paginated: uses cursor / response_metadata.next_cursor pattern"
+          - "returns only user IDs; resolving names needs users.info, which is not in this scope"
+
+      - tool_name: join_conversation
+        endpoint: POST /conversations.join
+        description: >
+          Add the bot to an existing public channel so it can post and read history there. Returns `ok`
+          and the `channel` object. Private channels cannot be joined this way; a member has to invite
+          the bot. If the bot is already a member, it succeeds with a `warning: already_in_channel`.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "ID of the public channel to join."
+            required: true
+            location: body
+        hints:
+          - "bot tokens need the channels:join scope (the spec lists the legacy channels:write)"
+          - "fails with is_archived for archived channels and method_not_supported_for_channel_type for private channels/DMs"
 
       - tool_name: open_conversation
         endpoint: POST /conversations.open
         description: >
-          Open (or resume) a direct message with one user, or a group DM with several users, and return
-          its channel ID. Pass that ID as `channel` to `post_message` to DM someone. Returns `ok` and
-          `channel` (with `id`).
+          Open (or resume) a direct message with one user, or a multi-person DM with 2 to 8 users.
+          Returns `channel.id`, which you can pass to `post_message` to DM someone. Provide either
+          `users` or `channel`.
         response_kind: json
         parameters:
           - name: users
-            description: "Comma-separated user IDs, e.g. `U0123,U0456`. One ID opens a 1:1 DM; 2–8 IDs open a group DM. Give either `users` or `channel`."
+            description: "Comma-separated user IDs, e.g. \"U123,U456\". One ID opens a 1:1 DM; several open an MPIM. Supply this or `channel`."
             required: false
             location: body
           - name: channel
-            description: "ID of an existing IM/MPIM to resume, instead of `users`."
+            description: "ID of an existing IM/MPIM to resume. Supply this or `users`."
             required: false
             location: body
           - name: return_im
-            description: "Set to true to get the full IM channel object in the response."
+            description: "If true, returns the full IM channel definition instead of just the ID."
             required: false
             location: body
         hints:
-          - "requires im:write / mpim:write bot scopes"
-          - "exactly one of users or channel must be given"
+          - "requires im:write (1:1) or mpim:write (group DM) bot scope"
 
 auth:
   type: api_key
   notes: >
-    Static Slack bot token (xoxb-) sent as Authorization: Bearer, supplied at deploy time
-    (e.g. thv --remote-auth-bearer-token). The Slack app needs these bot scopes: chat:write,
-    channels:read, groups:read, im:read, mpim:read, channels:join, channels:history,
-    groups:history, im:history, mpim:history, im:write, mpim:write (optional:
-    chat:write.customize for username/icon overrides). The spec declares only a legacy
-    oauth2 authorizationCode scheme (slackAuth: https://slack.com/oauth/authorize,
-    https://slack.com/api/oauth.access), rejected in favor of the static bot token. The
-    spec's per-endpoint `token` header/query param is dropped by the connector builder
-    as a credential param.
+    Static Slack bot token (xoxb-...) sent as Authorization: Bearer, supplied at deploy time.
+    The spec's slackAuth scheme describes Slack's legacy v1 OAuth flow (/oauth/authorize,
+    oauth.access), which does not issue modern bot tokens, so oauth2 was rejected; Slack's OIDC
+    ("Sign in with Slack") only grants identity scopes, so oidc was rejected. The legacy `token`
+    parameter declared on every endpoint is intentionally excluded from tool parameters. The Slack
+    app needs these bot scopes: chat:write, chat:write.public (post to public channels the bot has
+    not joined), chat:write.customize (only if username/icon_emoji are used), channels:read,
+    groups:read, im:read, mpim:read, channels:history, groups:history, im:history, mpim:history,
+    channels:join, im:write, mpim:write.

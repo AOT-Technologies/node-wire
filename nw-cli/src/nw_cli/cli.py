@@ -716,9 +716,9 @@ def gen_stacklok(
         rich_help_panel="Phase 1: AI scoping",
     ),
     scoping_model: Optional[str] = typer.Option(
-        None,
+        "haiku",
         "--scoping-model",
-        help="Phase 1: Claude model for the scoping run (default: Claude Code's)",
+        help="Phase 1: Claude model for the scoping run and its sub-agents (e.g. sonnet, opus)",
         rich_help_panel="Phase 1: AI scoping",
     ),
     output_dir: Optional[Path] = typer.Option(
@@ -904,8 +904,7 @@ def gen_stacklok(
             _scoped_connector(project, id),
             default_output=output_dir is None,
         ),
-        note=f"Kubernetes: {ui.display_path(project / 'deploy' / 'README.md')}. "
-        f"Rerunning? docker rm -f {project.name} first.",
+        note=f"Kubernetes: {ui.display_path(project / 'deploy' / 'README.md')}.",
     )
 
 
@@ -930,7 +929,7 @@ def _token_placeholder(project: Path, connector_id: str) -> str:
 
 
 def _run_steps(project: Path, connector_id: str, *, default_output: bool = True) -> list[ui.Step]:
-    """Build → start → check → ToolHive, for a generated stacklok project (its real names)."""
+    """Build → replace → start → check → ToolHive, for a generated stacklok project (its real names)."""
     image = project.name  # <server>-mcp
     target = (
         f"--connector-id {connector_id}"
@@ -940,6 +939,11 @@ def _run_steps(project: Path, connector_id: str, *, default_output: bool = True)
     url = f"http://127.0.0.1:{_HOST_PORT}/mcp"
     return [
         ui.Step(f"Build the {image} image", f"uv run nw docker-build {target}"),
+        # A leftover container (stopped or not) keeps the name, and `docker run` then fails.
+        ui.Step(
+            f'Remove any previous {image} container ("No such container" is fine)',
+            f"docker rm -f {image}",
+        ),
         ui.Step(
             f"Start it as a container, serving {url}",
             # No --rm: a container that fails to start keeps its logs for `docker logs`.

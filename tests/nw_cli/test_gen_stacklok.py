@@ -547,6 +547,9 @@ def test_success_prints_run_commands_with_the_real_names(fake_root: Path, tmp_pa
         "--name petstore-mcp" in result.output
         and "thv run http://127.0.0.1:8200/mcp" in result.output
     )
+    # A rerun must not collide with the previous container's name.
+    remove = result.output.index("docker rm -f petstore-mcp")
+    assert remove < result.output.index("docker run -d --name petstore-mcp")
 
 
 def _wheel_root(tmp_path: Path) -> Path:
