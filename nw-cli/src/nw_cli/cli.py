@@ -9,11 +9,14 @@ from __future__ import annotations
 import json
 import re
 import tempfile
+import time
+from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import Optional
 
 import typer
+import yaml
 from typer.core import TyperGroup
 
 try:
@@ -24,12 +27,14 @@ except PackageNotFoundError:  # running from a source tree without install
 from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
 
 from nw_cli import ui
-from nw_cli.names import mcp_project_dir
+from nw_cli.menu import Option, choose
+from nw_cli.names import docker_image_tag, mcp_project_dir
 from nw_cli.prerequisites import confirm_build, docker_problem, is_interactive
 from nw_cli.progress import GenerateProgress, Stage
 from nw_cli.root import resolve_node_wire_root
 from nw_cli.stages import (
     StageError,
+    build_image,
     build_mode_flag,
     mcp_host_packages,
     register_all_packages,
@@ -161,9 +166,15 @@ def _shown(path: Path, node_wire_root: Path) -> str:
         return str(path)
 
 
-def _next(command: str) -> None:
-    """The follow-up command, outside the panel so it copies cleanly."""
-    console.print(f"Next: [bold]{command}[/bold]", highlight=False, soft_wrap=True)
+def _next_docker_build(connector_id: str) -> None:
+    ui.next_steps(
+        [
+            ui.Step(
+                "Build the Docker image", f"uv run nw docker-build --connector-id {connector_id}"
+            )
+        ],
+        heading="Next step",
+    )
 
 
 def _gen_whl_command(packages: list[str], connector_id: str) -> str:
@@ -376,7 +387,7 @@ def gen_all(
 
         progress.run_stage("wire", lambda: register_all_packages(node_wire_root, id))
     if not no_mcp:
-        _next(f"nw docker-build --connector-id {id}")
+        _next_docker_build(id)
 
 
 @app.command("gen-whl")
@@ -500,17 +511,39 @@ def gen_mcp(
             lambda: run_mcp_build(node_wire_root, id, force_output=force_output, tool_mode=mode),
         )
         progress.result("MCP host", _shown(project, node_wire_root))
-    _next(f"nw docker-build --connector-id {id}")
+    _next_docker_build(id)
 
 
 @app.command("docker-build")
 @guard
 def docker_build(
-    id: str = typer.Option(..., "--connector-id", help="Connector id", callback=_connector_id),
+    id: Optional[str] = typer.Option(
+        None,
+        "--connector-id",
+        help="Build the project generated for this connector: its gen-all / gen-mcp host or "
+        "gen-stacklok server (asks when there are several)",
+        callback=_connector_id,
+    ),
+    project_dir: Optional[Path] = typer.Option(
+        None,
+        "--project",
+        help="Build a generated project by path instead: one written outside the default "
+        "output folders (gen-stacklok --output-dir); the image is named after the folder",
+    ),
     tag: str = typer.Option("latest", "--tag", help="Docker image tag"),
 ) -> None:
-    """Build a Docker image from the generated MCP host project."""
+    """Build a Docker image from a generated MCP project."""
+    if (id is None) == (project_dir is None):
+        raise ui.usage_error("pass exactly one of them", flags="--connector-id / --project")
+    if project_dir is not None:
+        _build_project_image(project_dir, tag)
+        return
     node_wire_root = resolve_node_wire_root()
+    generated = _image_projects(node_wire_root, id)
+    if generated:
+        chosen = _pick_project(generated, id)
+        _build_project_image(chosen.path, tag, image=chosen.image(tag))
+        return
     project = mcp_project_dir(node_wire_root, id)
 
     need_host = not project.is_dir()
@@ -548,6 +581,91 @@ def docker_build(
         image = progress.run_stage(
             "docker",
             lambda: run_docker_build(node_wire_root, id, tag=tag, log=progress.output),
+        )
+        progress.result("Image", image)
+
+
+@dataclass(frozen=True)
+class _ImageProject:
+    kind: str
+    path: Path
+    host: bool  # a gen-all / gen-mcp host (its image keeps the <server>-nw-mcp name)
+    connector_id: str
+
+    def image(self, tag: str) -> str:
+        return docker_image_tag(self.connector_id, tag) if self.host else f"{self.path.name}:{tag}"
+
+
+def _stacklok_connectors(project: Path) -> set[str]:
+    try:
+        doc = yaml.safe_load((project / "config" / "connectors.yaml").read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return set()
+    connectors = (doc or {}).get("connectors") if isinstance(doc, dict) else None
+    return set(connectors) if isinstance(connectors, dict) else set()
+
+
+def _image_projects(node_wire_root: Path, connector_id: str) -> list[_ImageProject]:
+    """Generated projects with a Dockerfile for ``connector_id``, newest first."""
+    from nw_cli.stacklok import default_output_dir
+
+    found = []
+    host = mcp_project_dir(node_wire_root, connector_id)
+    if (host / "Dockerfile").is_file():
+        found.append(_ImageProject("MCP host (gen-mcp)", host, True, connector_id))
+    out = default_output_dir(node_wire_root)
+    for project in sorted(out.glob("*-mcp")) if out.is_dir() else []:
+        if (project / "Dockerfile").is_file() and connector_id in _stacklok_connectors(project):
+            found.append(_ImageProject("stacklok server", project, False, connector_id))
+    return sorted(found, key=lambda p: p.path.stat().st_mtime, reverse=True)
+
+
+def _pick_project(projects: list[_ImageProject], connector_id: str) -> _ImageProject:
+    """The only project, the user's pick from a menu, or (no terminal) the newest."""
+    if len(projects) == 1:
+        return projects[0]
+
+    def age(project: _ImageProject) -> str:
+        stamp = time.localtime(project.path.stat().st_mtime)
+        return time.strftime("generated %Y-%m-%d %H:%M", stamp)
+
+    if not is_interactive():
+        newest = projects[0]
+        ui.warning(
+            f"{len(projects)} generated projects for {connector_id}; building the newest, "
+            f"{ui.display_path(newest.path)} (pass --project to choose another)"
+        )
+        return newest
+    options = [
+        Option(str(i + 1), f"{p.kind}: {ui.display_path(p.path)}", age(p))
+        for i, p in enumerate(projects)
+    ]
+    key = choose(console, f"Which {connector_id} project?", options)
+    return projects[int(key) - 1]
+
+
+def _build_project_image(project: Path, tag: str, *, image: str | None = None) -> None:
+    if not (project / "Dockerfile").is_file():
+        raise ui.usage_error(
+            f"{project} is not a generated project (no Dockerfile)", flags="--project"
+        )
+    progress = _progress(
+        "docker-build",
+        [
+            Stage(
+                "docker",
+                "Docker image",
+                hint=f"Check the Dockerfile in {ui.display_path(project)}; "
+                "rerun with --verbose to see every step.",
+            )
+        ],
+    )
+    with progress:
+        image = progress.run_stage(
+            "docker",
+            lambda: build_image(
+                project, image or f"{project.resolve().name}:{tag}", log=progress.output
+            ),
         )
         progress.result("Image", image)
 
@@ -637,7 +755,8 @@ def gen_stacklok(
         run_ai_scoping_interactive,
         scoping_dir,
     )
-    from nw_cli.stacklok import prepare_spec, prepared_spec_path
+    from nw_cli.review import review_scope
+    from nw_cli.stacklok import default_output_dir, prepare_spec, prepared_spec_path
 
     if (scope is None) == (path is None):
         raise ui.usage_error("pass exactly one of them", flags="--path / --scope")
@@ -696,8 +815,7 @@ def gen_stacklok(
                 "spec",
                 lambda: prepare_spec(path, prepared_spec_path(node_wire_root, id)),
             )
-            if reuse:
-                progress.log(f"Reusing {existing} (pass --rescope to redo AI scoping)")
+            reused_at = existing.stat().st_mtime if reuse else None
             request = ScopingRequest(
                 spec=prepared,
                 connector_id=id,
@@ -707,7 +825,15 @@ def gen_stacklok(
             )
             interactive = not headless and is_interactive()
 
-            def _scoping() -> Path:
+            def _scoping(feedback: str | None = None) -> Path:
+                if feedback:
+                    notes = f"{scoping_notes}\n" if scoping_notes else ""
+                    run_request = replace(
+                        request,
+                        notes=f"{notes}Reviewer feedback on the previous scope: {feedback}",
+                    )
+                else:
+                    run_request = request
                 if interactive:
                     with progress.paused():
                         console.print(
@@ -716,30 +842,54 @@ def gen_stacklok(
                             highlight=False,
                         )
                         return run_ai_scoping_interactive(
-                            node_wire_root, request, work_dir=work_dir, model=scoping_model
+                            node_wire_root, run_request, work_dir=work_dir, model=scoping_model
                         )
                 return run_ai_scoping(
                     node_wire_root,
-                    request,
+                    run_request,
                     work_dir=work_dir,
                     model=scoping_model,
                     log=progress.log,
                 )
 
             produced = progress.run_stage("scoping", _scoping)
-            scope_file = produced or existing
-            approved = progress.run_stage("review", lambda: _review(progress, scope_file, work_dir))
-            if approved:
+            decision, scope_file = progress.run_stage(
+                "review",
+                lambda: review_scope(
+                    progress,
+                    node_wire_root=node_wire_root,
+                    scope_file=produced or existing,
+                    connector_id=id,
+                    summary=work_dir / "scoping-summary.md",
+                    output_dir=output_dir or default_output_dir(node_wire_root),
+                    force=force,
+                    reused_at=reused_at,
+                    rescope=_scoping,
+                ),
+            )
+            if decision.generate:
                 project = _stacklok_phase3(
-                    progress, node_wire_root, scope_file, id, output_dir, force, no_lock
+                    progress,
+                    node_wire_root,
+                    scope_file,
+                    id,
+                    output_dir,
+                    force or decision.replace_output,
+                    no_lock,
+                    reviewed=True,
                 )
-        if not approved:
-            console.print(
-                f"Stopped for review. Edit {scope_file}"
-                f" (reasoning: {work_dir / 'scoping-summary.md'}), then run:\n"
-                f"  uv run nw gen-stacklok --scope {scope_file} --connector-id {id}",
-                highlight=False,
-                soft_wrap=True,
+            else:
+                progress.mark_stopped("review")
+        if not decision.generate:
+            ui.next_steps(
+                [
+                    ui.Step(
+                        "When the scope is ready, resume from Phase 3",
+                        f"uv run nw gen-stacklok --scope {ui.display_path(scope_file)}"
+                        f" --connector-id {id}",
+                    )
+                ],
+                heading="Stopped for review",
             )
             return
     else:
@@ -748,44 +898,61 @@ def gen_stacklok(
             project = _stacklok_phase3(
                 progress, node_wire_root, scope_file, id, output_dir, force, no_lock
             )
-    console.print(_run_instructions(project).lstrip("\n"), highlight=False, soft_wrap=True)
-
-
-def _run_instructions(project: Path) -> str:
-    """Build, run and ToolHive commands for a generated stacklok project (its real names)."""
-    image = project.name  # <server>-mcp
-    return (
-        "\nNext, run it locally behind ToolHive (single tenant; ToolHive adds the bearer token):\n"
-        f"  docker build -t {image} {project}\n"
-        f"  docker rm -f {image} 2>/dev/null; docker run -d --name {image} -p 8200:8100 "
-        f"-e NW_MULTITENANCY_ENABLED=false {image}\n"
-        f"  thv run http://127.0.0.1:8200/mcp --name {image} --transport streamable-http "
-        "--remote-auth-bearer-token <upstream-token>\n"
-        f"Kubernetes: {project / 'deploy' / 'README.md'}"
+    ui.next_steps(
+        _run_steps(
+            project,
+            _scoped_connector(project, id),
+            default_output=output_dir is None,
+        ),
+        note=f"Kubernetes: {ui.display_path(project / 'deploy' / 'README.md')}. "
+        f"Rerunning? docker rm -f {project.name} first.",
     )
 
 
-def _review(progress: GenerateProgress, scope_file: Path, work_dir: Path) -> bool:
-    """Phase 2: the human reviews the scope. True: continue to Phase 3; False: stop to edit."""
-    from rich.prompt import Confirm
+_HOST_PORT = 8200  # published host port; the server listens on 8100 inside the image
 
-    summary = work_dir / "scoping-summary.md"
-    if not is_interactive():
-        progress.log("Phase 2 needs a human review and there is no terminal; stopping.")
-        return False
-    with progress.paused():
-        console.print(
-            "\n[bold]Phase 2: human review[/bold]\n"
-            f"  scope:   {scope_file}\n"
-            f"  summary: {summary if summary.is_file() else '(none written)'}"
-            " (the AI's reasoning, and gates it auto-approved)",
-            highlight=False,
-            soft_wrap=True,
-        )
-        return Confirm.ask(
-            "Is the scope OK? [bold]y[/bold] = generate now, [bold]n[/bold] = stop so you can edit it",
-            default=True,
-        )
+
+def _scoped_connector(project: Path, connector_id: str | None) -> str:
+    """The connector a generated stacklok project serves (``--scope`` may omit the id)."""
+    if connector_id:
+        return connector_id
+    return next(iter(sorted(_stacklok_connectors(project))), "<connector_id>")
+
+
+def _token_placeholder(project: Path, connector_id: str) -> str:
+    """``<SLACK_WEB_ACCESS_TOKEN>``: the connector's own secret name, else a generic one."""
+    try:
+        doc = yaml.safe_load((project / "config" / "connectors.yaml").read_text(encoding="utf-8"))
+        key = doc["connectors"][connector_id]["auth"]["secret_key"]
+    except (OSError, yaml.YAMLError, KeyError, TypeError):
+        return "<upstream-api-token>"
+    return f"<{key}>"
+
+
+def _run_steps(project: Path, connector_id: str, *, default_output: bool = True) -> list[ui.Step]:
+    """Build → start → check → ToolHive, for a generated stacklok project (its real names)."""
+    image = project.name  # <server>-mcp
+    target = (
+        f"--connector-id {connector_id}"
+        if default_output
+        else f"--project {ui.display_path(project)}"  # docker-build only looks in the default
+    )
+    url = f"http://127.0.0.1:{_HOST_PORT}/mcp"
+    return [
+        ui.Step(f"Build the {image} image", f"uv run nw docker-build {target}"),
+        ui.Step(
+            f"Start it as a container, serving {url}",
+            # No --rm: a container that fails to start keeps its logs for `docker logs`.
+            f"docker run -d --name {image} -p {_HOST_PORT}:8100 "
+            f"-e NW_MULTITENANCY_ENABLED=false {image}",
+        ),
+        ui.Step('Check it started (look for "Starting MCP server")', f"docker logs {image}"),
+        ui.Step(
+            "Register it with ToolHive (proxies the running container, adds your token)",
+            f"thv run {url} --name {image} --transport streamable-http "
+            f"--remote-auth-bearer-token {_token_placeholder(project, connector_id)}",
+        ),
+    ]
 
 
 def _confirm_replace(progress: GenerateProgress, project: Path) -> bool:
@@ -810,17 +977,32 @@ def _stacklok_phase3(
     output_dir: Path | None,
     force: bool,
     no_lock: bool,
+    *,
+    reviewed: bool = False,
 ) -> Path:
-    """Phase 3: connector → musllinux wheels → stacklok generator on node-wire."""
+    """Phase 3: connector → musllinux wheels → stacklok generator on node-wire.
+
+    ``reviewed``: Phase 2 already validated the scope and settled replacing the output.
+    """
     from nw_cli.stacklok import (
         default_output_dir,
         read_scope,
         run_stacklok_generate,
         run_stacklok_wheel_build,
+        validate_stacklok_scope,
     )
 
     scoped = read_scope(scope_file, connector_id)
     out = output_dir or default_output_dir(node_wire_root)
+    if not reviewed:
+        # Seconds, before the minutes of codegen and wheel builds an invalid scope would waste.
+        with tempfile.TemporaryDirectory(prefix="nw-validate-") as work:
+            check, _, _ = validate_stacklok_scope(scoped, Path(work))
+        if not check.ok:
+            raise StageError(
+                f"Scope {scope_file} fails stacklok validation:\n"
+                + "\n".join(f"  - {e}" for e in check.errors)
+            )
     replace_output = force or _confirm_replace(progress, out / f"{scoped.server_name}-mcp")
 
     # Always regenerated: the scope's endpoints must map onto a connector built from this

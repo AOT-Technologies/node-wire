@@ -52,9 +52,11 @@ docker build -t petstore-mcp nw-stacklok-builder/out/petstore-mcp
      CLI; headless runs refuse anything else (`--permission-mode dontAsk`), since the spec is
      untrusted input.
    - Output goes to `nw-stacklok-builder/scoping/<id>/`. A second run reuses it; `--rescope` redoes it.
-2. **Phase 2, human review.** The command pauses and shows the scope and summary. `y` continues;
-   `n` stops so you can edit, and prints the `--scope` command to resume with. Without a terminal
-   it always stops here.
+2. **Phase 2, human review.** The command pauses with a short summary of the scope (tools, auth,
+   stacklok's validation result, how many points the AI flagged, the output it will write). An
+   arrow-key menu offers: generate, show details, edit and review again, redo the AI scoping with
+   your feedback, or stop (it prints the `--scope` command to resume with). Without a terminal it
+   always stops here. See [nw CLI](cli/nw-cli.md#nw-gen-stacklok).
 3. **Phase 3, generate**, as below.
 
 stacklok's `/ai-validation` (Phase 4) isn't included, because it reviews the httpx client that

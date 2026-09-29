@@ -136,14 +136,15 @@ def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
 def test_docker_build_subprocess(fake_root: Path) -> None:
     project = fake_root / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
 
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch("nw_cli.cli.run_docker_build", return_value="pet-store-nw-mcp:latest") as docker,
+        patch("nw_cli.cli.build_image", return_value="pet-store-nw-mcp:latest") as docker,
     ):
         result = runner.invoke(app, ["docker-build", "--connector-id", "pet_store"])
     assert result.exit_code == 0, result.output
-    docker.assert_called_once_with(fake_root, "pet_store", tag="latest", log=ANY)
+    docker.assert_called_once_with(project, "pet-store-nw-mcp:latest", log=ANY)
     assert "pet-store-nw-mcp:latest" in result.output
     # The MCP host already exists (gen-all built it): its stages are not listed at all.
     assert "Wheel build" not in result.output
@@ -183,6 +184,7 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         path.write_bytes(b"x")
     project = fake_root / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
 
     order: list[str] = []
 
@@ -366,6 +368,8 @@ def test_run_docker_build_subprocess_args(fake_root: Path) -> None:
     project = fake_root / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
 
+    (project / "Dockerfile").write_text("FROM scratch\n")
+
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         image = run_docker_build(fake_root, "pet_store", tag="v1")
         assert image == "pet-store-nw-mcp:v1"
@@ -389,3 +393,76 @@ def test_run_logged_command_streams_to_log(fake_root: Path) -> None:
     assert lines == ["hello", "world"]
     assert popen.call_args.kwargs["stdout"] == subprocess.PIPE
     assert popen.call_args.kwargs["stderr"] == subprocess.STDOUT
+
+
+def test_docker_build_a_stacklok_project_by_path(tmp_path: Path) -> None:
+    project = tmp_path / "out" / "slack-mcp"
+    project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
+    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
+        result = runner.invoke(app, ["docker-build", "--project", str(project), "--tag", "v1"])
+    assert result.exit_code == 0, result.output
+    assert run.call_args.args[0] == ["docker", "build", "-t", "slack-mcp:v1", "."]
+    assert run.call_args.kwargs["cwd"] == project
+    assert "slack-mcp:v1" in result.output
+
+
+def test_docker_build_needs_exactly_one_target(tmp_path: Path) -> None:
+    neither = runner.invoke(app, ["docker-build"])
+    both = runner.invoke(app, ["docker-build", "--connector-id", "x", "--project", str(tmp_path)])
+    no_dockerfile = runner.invoke(app, ["docker-build", "--project", str(tmp_path)])
+    assert neither.exit_code == both.exit_code == no_dockerfile.exit_code == 2
+    assert "Dockerfile" in no_dockerfile.output
+
+
+def _generated(root: Path, rel: str, *, connectors: str | None = None, mtime: float) -> Path:
+    import os
+
+    project = root / rel
+    (project / "config").mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
+    if connectors:
+        (project / "config" / "connectors.yaml").write_text(f"connectors:\n  {connectors}: {{}}\n")
+    os.utime(project, (mtime, mtime))
+    return project
+
+
+def test_docker_build_finds_a_stacklok_server_by_connector_id(fake_root: Path) -> None:
+    server = _generated(
+        fake_root, "nw-stacklok-builder/out/slack-mcp", connectors="slack_web", mtime=2000
+    )
+    _generated(fake_root, "nw-stacklok-builder/out/other-mcp", connectors="stripe", mtime=3000)
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.cli.build_image", return_value="slack-mcp:latest") as build,
+    ):
+        result = runner.invoke(app, ["docker-build", "--connector-id", "slack_web"])
+    assert result.exit_code == 0, result.output
+    build.assert_called_once_with(server, "slack-mcp:latest", log=ANY)
+
+
+def test_several_projects_ask_on_a_terminal_and_take_the_newest_without(
+    fake_root: Path,
+) -> None:
+    host = _generated(fake_root, "nw-mcp-builder/out/slack-web-nw-mcp", mtime=1000)
+    newest = _generated(
+        fake_root, "nw-stacklok-builder/out/slack-mcp", connectors="slack_web", mtime=3000
+    )
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.cli.build_image", return_value="x") as build,
+    ):
+        result = runner.invoke(app, ["docker-build", "--connector-id", "slack_web"])
+        assert result.exit_code == 0, result.output
+        assert build.call_args.args[0] == newest
+        assert "building the newest" in result.output
+
+        with (
+            patch("nw_cli.cli.is_interactive", return_value=True),
+            patch("nw_cli.cli.choose", return_value="2") as menu,
+        ):
+            result = runner.invoke(app, ["docker-build", "--connector-id", "slack_web"])
+        assert result.exit_code == 0, result.output
+        labels = [o.label for o in menu.call_args.args[2]]
+        assert labels[0].startswith("stacklok server") and labels[1].startswith("MCP host")
+        assert build.call_args.args == (host, "slack-web-nw-mcp:latest")

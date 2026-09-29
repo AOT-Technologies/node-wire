@@ -312,6 +312,48 @@ def run_stacklok_wheel_build(
     return stale
 
 
+@dataclass(frozen=True)
+class ScopeCheck:
+    """stacklok's validator verdict on a scope (against its spec)."""
+
+    errors: list[str]
+    warnings: list[str]
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+
+def validate_stacklok_scope(scope: StacklokScope, work_dir: Path) -> tuple[ScopeCheck, Path, Path]:
+    """Run stacklok's validator; returns the verdict and the effective scope and spec files.
+
+    Fast (no build), so callers run it before the slow stages. A scope stacklok cannot even
+    load is reported as an error, not raised.
+    """
+    from mcp_builder.log import configure_logging
+    from mcp_builder.schema.models import load_scope
+    from mcp_builder.spec import load_openapi_spec
+    from mcp_builder.validate import validate_scope
+
+    # stacklok logs every step at info/debug; the verdict is reported by the caller.
+    configure_logging(level="warning")
+    scope_file = scope.write(work_dir)
+    spec_file = materialize_spec(scope.spec_source, work_dir)
+    try:
+        result = validate_scope(load_scope(scope_file), load_openapi_spec(spec_file))
+    except (ValueError, OSError, yaml.YAMLError) as exc:
+        return (
+            ScopeCheck(errors=[f"stacklok cannot load the scope: {exc}"], warnings=[]),
+            scope_file,
+            spec_file,
+        )
+    return (
+        ScopeCheck(errors=list(result.errors), warnings=list(result.warnings)),
+        scope_file,
+        spec_file,
+    )
+
+
 def run_stacklok_generate(
     node_wire_root: Path,
     scope: StacklokScope,
@@ -326,23 +368,16 @@ def run_stacklok_generate(
     """Validate the scope with stacklok's validator, then run its generator in node-wire mode."""
     from mcp_builder.log import configure_logging
     from mcp_builder.pipeline import run_pipeline
-    from mcp_builder.schema.models import load_scope
-    from mcp_builder.spec import load_openapi_spec
-    from mcp_builder.validate import validate_scope
     from nw_stacklok.hooks import NodeWireOptions
 
     # stacklok logs every planning step at debug; keep the progress display readable.
     configure_logging(level="warning")
 
-    scope_file = scope.write(work_dir)
-    spec_file = materialize_spec(scope.spec_source, work_dir)
-    result = validate_scope(load_scope(scope_file), load_openapi_spec(spec_file))
-    for warning in result.warnings:
+    check, scope_file, spec_file = validate_stacklok_scope(scope, work_dir)
+    for warning in check.warnings:
         (log or print)(f"scope warning: {warning}")
-    if result.errors:
-        raise StageError(
-            "Scope validation failed:\n" + "\n".join(f"  - {e}" for e in result.errors)
-        )
+    if check.errors:
+        raise StageError("Scope validation failed:\n" + "\n".join(f"  - {e}" for e in check.errors))
 
     project = output_dir / f"{scope.server_name}-mcp"
     if project.exists():

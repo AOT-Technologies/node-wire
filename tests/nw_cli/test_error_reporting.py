@@ -254,3 +254,14 @@ def test_subprocess_failures_keep_their_exit_code_in_the_message(tmp_path: Path)
         with pytest.raises(StageError, match="exit 3"):
             run_wheel_build(tmp_path, runtime=True, host=True)
     assert proc.wait.called
+
+
+def test_next_step_paths_are_relative_to_where_nw_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from nw_cli.ui import display_path
+
+    monkeypatch.chdir(tmp_path)
+    assert display_path(tmp_path / "out" / "slack-mcp") == str(Path("out") / "slack-mcp")
+    assert display_path("https://example.com/spec.json") == "https://example.com/spec.json"
+    assert display_path("/elsewhere/x") == "/elsewhere/x"

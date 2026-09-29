@@ -17,6 +17,7 @@ from typer.testing import CliRunner
 
 from nw_cli.cli import app
 from nw_cli.stacklok import (
+    ScopeCheck,
     StacklokScope,
     materialize_spec,
     read_scope,
@@ -98,7 +99,11 @@ def test_stages_run_in_order_with_exact_arguments(fake_root: Path, tmp_path: Pat
     assert gen_kwargs["output_dir"] == fake_root / "nw-stacklok-builder" / "out"
     assert gen_kwargs["force_output"] is False
     assert gen_kwargs["lock"] is True
-    assert "MCP server" in result.output and "Next, run it locally" in result.output
+    assert "MCP server" in result.output and "Next steps" in result.output
+    assert "uv run nw docker-build --connector-id" in result.output
+    assert "2>/dev/null" not in result.output  # plain commands that work in any shell
+    assert "--rm" not in result.output  # a failed start keeps its logs
+    assert "-p 8200:8100" in result.output and "http://127.0.0.1:8200/mcp" in result.output
 
 
 def test_flags_reach_the_stages(fake_root: Path, tmp_path: Path) -> None:
@@ -334,7 +339,10 @@ def _invoke_path(
             scope.write_text((FIXTURES / "petstore.yaml").read_text(), encoding="utf-8")
         return scope
 
-    def fake_phase3(progress: Any, node_wire_root: Path, scope_file: Path, *rest: Any) -> Path:
+    def fake_phase3(
+        progress: Any, node_wire_root: Path, scope_file: Path, *rest: Any, **kwargs: Any
+    ) -> Path:
+        assert kwargs == {"reviewed": True}  # Phase 2 validated it and settled replacing
         calls.append(("phase3", scope_file))
         return root / "out" / "petstore-mcp"
 
@@ -344,7 +352,13 @@ def _invoke_path(
         patch("nw_cli.scoping.run_ai_scoping_interactive", side_effect=fake_interactive),
         patch("nw_cli.cli._stacklok_phase3", side_effect=fake_phase3),
         patch("nw_cli.cli.is_interactive", return_value=approve is not None),
-        patch("rich.prompt.Confirm.ask", return_value=bool(approve)),
+        patch("nw_cli.review.is_interactive", return_value=approve is not None),
+        patch("nw_cli.review.choose", return_value="g" if approve else "s"),
+        # The fixture scope's spec is a URL; the review's validation is covered separately.
+        patch(
+            "nw_cli.review.validate_stacklok_scope",
+            return_value=(ScopeCheck(errors=[], warnings=[]), None, None),
+        ),
     ):
         return runner.invoke(app, ["gen-stacklok", "--path", str(spec), *args])
 
@@ -380,7 +394,11 @@ def test_path_runs_phases_1_to_3_in_one_command(fake_root: Path, tmp_path: Path)
     assert request.auth_hint == "api key in the api_key header"
     assert request.notes == "read-only first"
     assert calls[1][1] == fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
-    assert "MCP server" in result.output and "Next, run it locally" in result.output
+    assert "MCP server" in result.output and "Next steps" in result.output
+    assert "uv run nw docker-build --connector-id" in result.output
+    assert "2>/dev/null" not in result.output  # plain commands that work in any shell
+    assert "--rm" not in result.output  # a failed start keeps its logs
+    assert "-p 8200:8100" in result.output and "http://127.0.0.1:8200/mcp" in result.output
 
 
 def test_without_a_terminal_it_stops_for_review(fake_root: Path, tmp_path: Path) -> None:
@@ -406,7 +424,10 @@ def test_declining_the_review_stops_before_generation(fake_root: Path, tmp_path:
     assert result.exit_code == 0, result.output
     assert [name for name, _ in calls] == ["scoping-interactive"]
     scope = fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
+    assert "Stopped for review" in result.output
+    # Not under the test's working directory, so shown in full.
     assert f"uv run nw gen-stacklok --scope {scope} --connector-id demo" in result.output
+    assert "(stopped)" in result.output
 
 
 def test_an_existing_scope_is_reused_unless_rescoped(fake_root: Path, tmp_path: Path) -> None:
@@ -521,7 +542,7 @@ def test_success_prints_run_commands_with_the_real_names(fake_root: Path, tmp_pa
         fake_root, ["--scope", str(_scope(tmp_path)), "--connector-id", "pet_store"], calls
     )
     assert result.exit_code == 0, result.output
-    assert "docker build -t petstore-mcp" in result.output
+    assert "uv run nw docker-build --connector-id" in result.output
     assert (
         "--name petstore-mcp" in result.output
         and "thv run http://127.0.0.1:8200/mcp" in result.output
@@ -599,3 +620,16 @@ def test_a_missing_architecture_forces_a_rebuild(
         monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64 x86_64")
         again = run_stacklok_wheel_build(root, "demo", log=lambda _: None)
     assert again == stacklok_packages("demo")  # no x86_64 wheels yet
+
+
+def test_an_invalid_scope_fails_before_any_build(fake_root: Path, tmp_path: Path) -> None:
+    doc: Dict[str, Any] = yaml.safe_load((FIXTURES / "petstore.yaml").read_text())
+    doc["groups"][0]["tools"][0]["endpoint"] = "GET /no/such/endpoint"
+    scope = _scope(tmp_path, groups=doc["groups"])
+    calls: list[tuple[str, Any]] = []
+
+    result = _invoke(fake_root, ["--scope", str(scope), "--connector-id", "pet_store"], calls)
+
+    assert result.exit_code == 1
+    assert "fails stacklok validation" in result.output
+    assert calls == []  # no codegen, no wheels

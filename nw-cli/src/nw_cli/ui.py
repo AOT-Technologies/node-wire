@@ -173,3 +173,37 @@ def new_log_file(command: str) -> Path:
         suffix += 1
         path = folder / f"{command}-{stamp}-{suffix}.log"
     return path
+
+
+def display_path(path: Path | str) -> str:
+    """``path`` relative to the working directory when inside it (what the user types from)."""
+    text = str(path)
+    if text.startswith(("http://", "https://")):
+        return text
+    try:
+        return str(Path(path).resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return text
+
+
+@dataclass(frozen=True)
+class Step:
+    title: str
+    command: str | None = None
+
+
+def next_steps(steps: list[Step], *, heading: str = "Next steps", note: str | None = None) -> None:
+    """Numbered follow-up steps; each command on its own line, unwrapped, so it copies cleanly."""
+    console.print()
+    console.print(f"[bold]{escape(heading)}[/bold]", highlight=False)
+    numbered = len(steps) > 1
+    for number, step in enumerate(steps, start=1):
+        prefix = f"  [bold {BLUE}]{number}[/]  " if numbered else "  "
+        console.print(f"{prefix}{escape(step.title)}", highlight=False)
+        if step.command:
+            indent = "     " if numbered else "    "
+            console.print(
+                f"{indent}[bold {AMBER}]{escape(step.command)}[/]", highlight=False, soft_wrap=True
+            )
+    if note:
+        console.print(f"  [dim]{escape(note)}[/dim]", highlight=False, soft_wrap=True)

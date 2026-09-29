@@ -230,9 +230,14 @@ def run_docker_build(
     project = mcp_project_dir(node_wire_root, connector_id)
     if not project.is_dir():
         raise StageError(f"MCP project directory not found: {project}")
+    return build_image(project, docker_image_tag(connector_id, tag), log=log)
 
+
+def build_image(project: Path, image: str, *, log: LogFn | None = None) -> str:
+    """``docker build`` of any generated project directory (see :func:`run_docker_build`)."""
+    if not (project / "Dockerfile").is_file():
+        raise StageError(f"No Dockerfile in {project}")
     require_docker("docker-build")
-    image = docker_image_tag(connector_id, tag)
     env = os.environ.copy()
     env["DOCKER_BUILDKIT"] = "1"
 

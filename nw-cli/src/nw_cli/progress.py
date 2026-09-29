@@ -254,6 +254,7 @@ class StageStatus(Enum):
     DONE = "done"
     SKIPPED = "skipped"
     FAILED = "failed"
+    STOPPED = "stopped"  # the user chose to stop here; not a failure
 
 
 @dataclass
@@ -301,6 +302,7 @@ class GenerateProgress:
     _fds: _FdCapture | None = None
     _terminal: TextIO | None = None
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    _pause_depth: int = 0
     _started: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -318,6 +320,13 @@ class GenerateProgress:
                 s.skipped = True
                 s.status = StageStatus.SKIPPED
                 break
+
+    def mark_stopped(self, key: str) -> None:
+        """The user stopped the run at this (finished) stage; the summary says so."""
+        stage = next(s for s in self.stages if s.key == key)
+        stage.status = StageStatus.STOPPED
+        if self._progress is not None and stage.task_id is not None:
+            self._refresh(stage)
 
     def result(self, label: str, value: object) -> None:
         """A line for the success panel, e.g. ``("MCP host", path)``."""
@@ -341,6 +350,10 @@ class GenerateProgress:
             self._target().print(message)
         else:
             self._target().print(message, markup=False, highlight=False)
+
+    def log_only(self, line: str) -> None:
+        """Write a line to the run's log file only (detail too long for the screen)."""
+        self._write_log(line)
 
     def output(self, line: str) -> None:
         """Record a line of build tool output (see the module docstring)."""
@@ -424,9 +437,15 @@ class GenerateProgress:
     def paused(self) -> Iterator[None]:
         """Suspend the live bars and give the terminal back (e.g. to ask a question)."""
         live = self._progress
-        if live is None:
-            yield
+        if live is None or self._pause_depth:
+            # Nested (e.g. the scoping session started from the review): already paused.
+            self._pause_depth += 1
+            try:
+                yield
+            finally:
+                self._pause_depth -= 1
             return
+        self._pause_depth = 1
         # Erase the bars while paused. A plain stop() leaves the last frame on screen, and after
         # another program has used the terminal (the interactive Claude Code session) start()
         # draws a second copy below it.
@@ -438,6 +457,7 @@ class GenerateProgress:
         try:
             yield
         finally:
+            self._pause_depth = 0
             self._redirect()
             display.transient = transient
             live.start()
@@ -485,6 +505,8 @@ class GenerateProgress:
             return Text(stage.label, style=Style(color=PINK, bold=True))
         if stage.status == StageStatus.DONE:
             return Text(stage.label, style=Style(color=BLUE))
+        if stage.status == StageStatus.STOPPED:
+            return Text(f"{stage.label} (stopped)", style=Style(color=AMBER, bold=True))
         if stage.status == StageStatus.RUNNING:
             return Text(stage.label, style=Style(color=AMBER, bold=True))
         return Text(stage.label, style="dim")
@@ -492,7 +514,10 @@ class GenerateProgress:
     def _refresh(self, stage: Stage) -> None:
         assert self._progress is not None and stage.task_id is not None
         completed = (
-            1 if stage.status in (StageStatus.DONE, StageStatus.SKIPPED, StageStatus.FAILED) else 0
+            1
+            if stage.status
+            in (StageStatus.DONE, StageStatus.SKIPPED, StageStatus.FAILED, StageStatus.STOPPED)
+            else 0
         )
         self._progress.update(stage.task_id, description=self._desc(stage), completed=completed)
         style = PINK if stage.status == StageStatus.FAILED else BLUE
@@ -546,6 +571,7 @@ class GenerateProgress:
             StageStatus.DONE: Text("✓", style=BLUE),
             StageStatus.FAILED: Text("✗", style=PINK),
             StageStatus.SKIPPED: Text("–", style="dim"),
+            StageStatus.STOPPED: Text("■", style=AMBER),
             StageStatus.PENDING: Text("·", style="dim"),
             StageStatus.RUNNING: Text("·", style="dim"),
         }
@@ -557,6 +583,8 @@ class GenerateProgress:
                 label = Text(f"{s.label} (not run)", style="dim")
             elif s.status == StageStatus.FAILED:
                 label.stylize(Style(color=PINK, bold=True))
+            elif s.status == StageStatus.STOPPED:
+                label = Text(f"{s.label} (stopped)", style=Style(color=AMBER, bold=True))
             elapsed = f"{s.elapsed:.1f}s" if s.elapsed is not None else ""
             table.add_row(marks[s.status], label, elapsed)
         return table
@@ -590,6 +618,8 @@ class GenerateProgress:
                     results.add_row(label, value)
                 parts += [Text(""), results]
             border = BLUE
+            if any(s.status == StageStatus.STOPPED for s in self.stages):
+                border = AMBER
         self.console.print(Panel(Group(*parts), title=self.title, border_style=border, style=TEXT))
         if self.log_path is not None:
             # Outside the panel so the path copies cleanly.

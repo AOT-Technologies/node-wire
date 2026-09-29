@@ -95,6 +95,7 @@ def test_run_docker_build_missing_project(tmp_path: Path) -> None:
 def test_run_docker_build_success(tmp_path: Path) -> None:
     project = tmp_path / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         image = run_docker_build(tmp_path, "pet_store", tag="v1")
     assert image == "pet-store-nw-mcp:v1"
@@ -108,6 +109,7 @@ def test_run_docker_build_uses_buildx_when_cache_env_set(
 ) -> None:
     project = tmp_path / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
     monkeypatch.setenv("NW_DOCKER_CACHE_FROM", "type=gha,scope=mcp-e2e")
     monkeypatch.setenv("NW_DOCKER_CACHE_TO", "type=gha,mode=max,scope=mcp-e2e")
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:

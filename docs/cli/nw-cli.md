@@ -141,7 +141,10 @@ There is no `--yes` / auto-confirm flag.
 ```bash
 uv run nw docker-build --connector-id pet_store
 uv run nw docker-build --connector-id pet_store --tag v1
+uv run nw docker-build --connector-id slack_web   # its gen-stacklok server works the same way
 ```
+
+`--connector-id` finds the projects generated for that connector: the `gen-all` / `gen-mcp` host (`nw-mcp-builder/out/<id>-nw-mcp/`, image `<id>-nw-mcp:<tag>`) and any `gen-stacklok` server in `nw-stacklok-builder/out/` whose `config/connectors.yaml` lists it (image named after its folder, e.g. `slack-mcp:<tag>`). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. `--project <dir>` builds a project by path instead, for one written outside those folders (`gen-stacklok --output-dir`).
 
 Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<hyphenated-id>-nw-mcp/` (e.g. `pet_store` → image `pet-store-nw-mcp:latest`, project dir `…/out/pet-store-nw-mcp/`). `--tag` defaults to `latest`. Pass secrets at **run** time (`docker run --env-file` / `-e`); they are not baked into the image.
 
@@ -162,13 +165,24 @@ With `--path` it runs stacklok's Phases 1–3 in one go:
    approval gates as in stacklok's flow. `--workflow`, `--auth-hint` and `--scoping-notes` are
    starting answers. Exit the session to continue. `--headless`, or no terminal, runs it
    unattended with `claude -p`;
-3. **pauses for the human review**: `y` continues, `n` stops and prints the `--scope` command to
-   resume with;
+3. **pauses for the human review** with a short summary: server, tool count and names, auth,
+   stacklok's validation result, how many points the AI flagged in `scoping-summary.md`, and the
+   project it will write (and whether that replaces an existing one). Pick the next step with the
+   arrow keys and Enter (or an option's first letter):
+   - **Generate the MCP server** (only offered when the scope passes validation),
+   - **Show details**: the tools with their endpoints, and every flagged point,
+   - **Edit the scope** (in `$VISUAL` / `$EDITOR`, or your own editor), then review it again,
+   - **Redo the AI scoping**, with feedback passed to the AI (the previous scope is kept if the
+     rerun fails),
+   - **Stop here**, printing the `--scope` command to resume with.
+
+   With output piped the menu takes a typed letter instead; with no terminal at all it stops here;
 4. generates.
 
-A second `--path` run reuses the scope in `nw-stacklok-builder/scoping/<id>/`; `--rescope` redoes
-it. The connector is always rebuilt from the spec. An existing output project is checked before
-anything is built: you're asked whether to replace it, and `--force` replaces it without asking.
+A second `--path` run reuses the scope in `nw-stacklok-builder/scoping/<id>/` (the review says so,
+with its date; `r` or `--rescope` redoes it). The connector is always rebuilt from the spec. With
+`--scope`, the scope is validated before anything is built, and you're asked whether to replace an
+existing output project; `--force` replaces it without asking.
 
 Builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder) server on the node-wire
 runtime from a stacklok `mcp-scope.yaml`: connector codegen from the scope's `spec.source` →
