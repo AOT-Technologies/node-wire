@@ -18,6 +18,7 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 ### Connector authoring
 - `BaseConnector`, `RestConnector` — base classes for connectors (`RestConnector` adds the shared HTTP-request scaffolding used by OpenAPI-generated connectors).
 - `RestResponseOutput` — shared output model for `RestConnector`-based connectors.
+- `RestEnvelopeError` — raised by `RestConnector` when a 2xx response's declared success flag (`envelope_ok_field`, e.g. Slack's `ok`) reports failure.
 - `get_connector_registry()` — returns a copy of the connector-id → class registry.
 - `nw_action`, `sdk_action` — action decorators.
 - `SdkActionSpec`, `default_build_kwargs`, `default_resolve_method`, `default_invoke`, `execute_spec_in_thread`, `execute_spec_async`.
@@ -66,12 +67,10 @@ Connector authors depend on these stable modules:
 - `node_wire_runtime.auth.base` — `AuthProvider` interface.
 - `node_wire_runtime.secrets.base` — `SecretProvider` interface.
 
-`node_wire_runtime.mcp_contract` was removed (was never actually generic: it held
-exactly one Google Drive-specific legacy-alias flag, mis-listed here as a stable
-extensibility point). Its contents moved to `node_wire_google_drive.normalizers` —
-connector-specific logic stays in the connector. Connector-specific argument
-normalizers were never part of the stable surface for any other connector either;
-this corrects the one place that had accidentally been documented as if it were.
+Connector-specific argument normalizers are **not** part of the stable surface. They live in
+the connector that owns them (for example `node_wire_google_drive.normalizers`). The removal of
+`node_wire_runtime.mcp_contract` is recorded in
+[CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md).
 
 Connectors register via the `node_wire.connectors` entry-point group.
 

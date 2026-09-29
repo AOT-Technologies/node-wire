@@ -29,7 +29,7 @@ document describes how decisions are made and how the project is maintained.
 ## Releases
 
 Releases are cut by maintainers following the
-[release-readiness checklist](docs/release-readiness-checklist.md) and published
+[release process](docs/packaging.md#release-process-tag-first) and published
 via the automated workflow. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Becoming a maintainer

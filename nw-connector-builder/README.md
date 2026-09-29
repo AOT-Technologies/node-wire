@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 Generate a `node_wire_<id>` connector (and optionally an MCP server) from a
 Swagger 2.0 / OpenAPI 3.x document.
 
-**Full documentation:** [docs/nw-connector-builder.md](../docs/nw-connector-builder.md)
+**Full documentation:** [docs/cli/nw-connector-builder.md](../docs/cli/nw-connector-builder.md)
 
 ```bash
 cd nw-connector-builder
@@ -36,4 +36,4 @@ uv run --directory nw-connector-builder nw-connector-builder --help
 uv run pytest tests/nw_connector_builder -v --no-cov
 ```
 
-See also: [connectors.md](../docs/connectors.md), [mcp-servers.md](../docs/mcp-servers.md), [packaging.md](../docs/packaging.md).
+See also: [Build a connector](../docs/connectors-build.md), [nw-mcp-builder](../docs/cli/nw-mcp-builder.md), [packaging.md](../docs/packaging.md).

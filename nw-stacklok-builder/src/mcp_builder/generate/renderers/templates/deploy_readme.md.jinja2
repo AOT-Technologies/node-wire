@@ -1,0 +1,74 @@
+# Deployment manifests for `{{ server_name }}`
+
+These manifests deploy the generated MCP server onto a Kubernetes cluster that
+has the [ToolHive operator](https://docs.stacklok.com/toolhive/guides-k8s/deploy-operator)
+installed.
+
+## You must provide external access yourself
+
+These manifests do **not** include an Ingress, Gateway, or LoadBalancer. The
+ToolHive operator creates a ClusterIP service on port 8080 (named
+`mcp-{{ server_name }}-proxy`). Exposing it externally is your cluster's
+concern — nginx-ingress, AWS ALB, GKE Gateway, Istio, etc. — and the URL
+shape you pick must then match the placeholders in these manifests
+(`audience`, `resourceUrl`, `embeddedAuthServer.issuer`, `redirectUri`).
+
+See [Run MCP servers in Kubernetes](https://docs.stacklok.com/toolhive/guides-k8s/run-mcp-k8s)
+for the operator's view of external access.
+
+## Files in this directory
+
+| File | When emitted | Purpose |
+| --- | --- | --- |
+| `mcpserver.yaml` | always | The `MCPServer` CRD that tells the operator to run this server |
+{% if has_auth %}
+| `mcpexternalauthconfig.yaml` | when auth is configured | Upstream API authentication (bearer token, or embedded OAuth/OIDC) |
+{% endif %}
+{% if is_embedded_auth %}
+| `mcpoidcconfig.yaml` | embedded OAuth / OIDC only | OIDC issuer metadata that `MCPServer.spec.oidcConfigRef` points at |
+{% endif %}
+{% if is_api_key %}
+| `secret.yaml` | API-key auth only | Kubernetes `Secret` holding the upstream bearer token |
+{% endif %}
+
+## Placeholders to replace before applying
+
+{% if is_embedded_auth %}
+- `REPLACE_ME_DOMAIN` — the external domain where the MCP server is
+  reachable. Appears in `mcpserver.yaml` (`audience`, `resourceUrl`),
+  `mcpexternalauthconfig.yaml` (`embeddedAuthServer.issuer`,
+  `redirectUri`), and `mcpoidcconfig.yaml` (`spec.inline.issuer`).
+  **All occurrences must agree and the URL shape must match how you
+  expose the server** — see comments in `mcpexternalauthconfig.yaml`
+  and `mcpoidcconfig.yaml` for the details.
+- `REPLACE_ME` (in `mcpexternalauthconfig.yaml`) — the upstream OAuth
+  app's `clientId`.
+{% endif %}
+{% if is_api_key %}
+- `REPLACE_ME` (in `secret.yaml`) — the upstream API bearer token.
+{% endif %}
+
+In all configurations, the container image in `mcpserver.yaml`
+(`{{ server_name }}-mcp:latest`) needs to be pushed to a registry
+your cluster can pull from.
+
+## Recommended apply order
+
+The operator reconciles asynchronously, so out-of-order apply works — you'll
+just see transient `NotFound` conditions on MCPServer until the other
+resources are created.
+
+{% if is_api_key %}
+1. `kubectl apply -f secret.yaml`
+2. `kubectl apply -f mcpexternalauthconfig.yaml`
+3. `kubectl apply -f mcpserver.yaml`
+{% elif is_embedded_auth %}
+1. `kubectl apply -f mcpoidcconfig.yaml`
+2. `kubectl apply -f mcpexternalauthconfig.yaml`
+3. `kubectl apply -f mcpserver.yaml`
+{% else %}
+1. `kubectl apply -f mcpserver.yaml`
+{% endif %}
+
+Then expose the `mcp-{{ server_name }}-proxy` service externally with whatever
+mechanism your cluster uses.

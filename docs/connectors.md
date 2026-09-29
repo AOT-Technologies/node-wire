@@ -4,709 +4,140 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Connectors guide (`src/node_wire_*`)
+# Use a connector
 
-This guide explains how **connectors** fit into Node Wire, how to build your own connector, and how the runtime and bindings wire everything together. Connector implementations live under `src/node_wire_<connector_id>/` (e.g. `src/node_wire_google_drive/`); the shared base class lives at **`src/node_wire_runtime/base_connector.py`**.
+Call a connector that already ships — in-process from Python or over REST — and control which tenants may use it through the runtime config store. Every connector works the same way; only the payload and the `config` / `auth` blocks change.
 
-## How connectors fit into the platform
+Actions, auth, secrets and setup guides for every shipped connector are in the [connector catalog](connector-reference.md#connector-catalog).
 
-- **Layer B — Connectors** (`src/node_wire_<connector_id>/`): adapter packages (schemas, logic, optional `error_map`).
-- **Layer C — Bindings** (`src/bindings/`): REST, gRPC, and MCP servers plus `ConnectorFactory` loading from `config/connectors.yaml`.
+Writing your own connector? See [Build a connector](connectors-build.md).
 
-At startup, bindings call **`node_wire_runtime.connector_registry.auto_register()`**, which loads connector entry points and imports each connector's `logic` module — this triggers `BaseConnector.__init_subclass__`, which both registers the class and, via the connector's declarative `error_map`, registers its exception mappings with `ErrorMapper` under that connector's own `connector_id`. **`ConnectorFactory`** resolves connectors from the registry — **do not add per-connector branches in `src/bindings/factory.py`.**
+The example below uses **`http_generic`** for two tenants.
 
----
-
-## Package layout and registration
-
-Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epic`):
-
-| File | Role |
-|------|------|
-| `__init__.py` | Required empty file — marks the directory as a Python package. |
-| `schema.py` | Pydantic input/output models. Each input model has an `action: Literal[...]` discriminator field (often combined into a discriminated union). |
-| `logic.py` | Connector class: `BaseConnector` subclass — either explicit `@nw_action` methods, or **`action_specs`** plus an optional `_execute_action_spec` override for SDK dispatch. |
-| `action_spec.py` (optional) | Declarative `SdkActionSpec` entries mapping validated models to vendor SDK calls (see Google Drive). |
-| `exceptions.py` | Optional: custom exception types. |
-
-At startup, call **`node_wire_runtime.connector_registry.auto_register()`**: it loads entry points in group `node_wire.connectors` and imports each connector's `logic` module, triggering `BaseConnector.__init_subclass__`. That both populates the registry returned by `get_connector_registry()` and registers the connector's `error_map` with `ErrorMapper` — scoped to that connector's own `connector_id`, so one connector's exception mappings can never be resolved for another connector's errors even when both are loaded in the same process. There is no separate registration step or module.
-
----
-
-## The unified `BaseConnector`
-
-There is one base class for all connectors: **`BaseConnector`** (`src/node_wire_runtime/base_connector.py`). It handles:
-
-- Input validation via a Pydantic **discriminated union** (the `action` field selects the right model)
-- Optional **policy hook** enforcement
-- **Retries and circuit breaking** via `with_resilience`
-- **Error mapping** via `ErrorMapper`
-- OpenTelemetry **tracing**
-- A standard **`ConnectorResponse`** envelope
-
-Actions are declared either with the **`@nw_action("name")`** decorator on async methods, or by listing them in **`action_specs`** (the runtime generates equivalent handlers). A connector can have **one or many** actions — there is no separate "single-action" type.
-
-```
-flowchart LR
-  yaml[connectors.yaml]
-  factory[ConnectorFactory.load]
-  inst[BaseConnector subclass]
-  run[connector.run]
-  exec[internal_execute → @nw_action dispatch]
-  resp[ConnectorResponse]
-  yaml --> factory --> inst --> run --> exec --> resp
-```
-
----
-
-## Building a connector (Google Drive SDK example)
-
-The production **Google Drive** connector (`src/node_wire_google_drive/`) is a good template for wrapping a **vendor Python SDK** (here `googleapiclient` / Drive API v3): service-account auth in `build_client()`, a discriminated union of operations in `schema.py`, and **`action_specs`** so each API surface becomes a manifest action without duplicating boilerplate.
-
-### Step 1 — Define your schemas (`schema.py`)
-
-Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. Those models are combined into a **discriminated union** (and often wrapped in `RootModel` for a single top-level validator), which the runtime uses to pick the correct handler.
+## In-process (Python)
 
 ```python
-# src/node_wire_google_drive/schema.py (conceptual excerpt)
-from __future__ import annotations
-
-from typing import Annotated, Literal, Optional, Union
-
-from pydantic import BaseModel, ConfigDict, Field, RootModel
-
-
-class BaseDriveOperation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class FilesListOperation(BaseDriveOperation):
-    action: Literal["files.list"]
-    page_size: int = Field(10, ge=1, le=100)
-    query: Optional[str] = None
-    fields: Optional[str] = None
-    page_token: Optional[str] = None
-
-
-class FilesUploadOperation(BaseDriveOperation):
-    action: Literal["files.upload"]
-    name: str
-    mime_type: str
-    parents: Optional[list[str]] = None
-    content: Optional[str] = None
-    content_base64: Optional[str] = None
-
-
-# …other operations (files.create, files.get, …) — see the repo.
-
-_GoogleDriveOperationUnion = Annotated[
-    Union[
-        FilesListOperation,
-        FilesUploadOperation,
-        # … FilesCreateOperation, FilesGetOperation, …
-    ],
-    Field(discriminator="action"),
-]
-
-GoogleDriveOperationInput = RootModel[_GoogleDriveOperationUnion]
-
-
-class GoogleDriveOperationOutput(BaseModel):
-    raw: dict | list
-    description: str
-```
-
-Use `dict | list` for `raw` when vendor APIs return arrays (e.g. list endpoints); Pydantic validates either shape. Per-action output models can use typed fields instead of a shared envelope.
-
-When a connector only has **one** action, the `action` field is still required — the runtime always validates through the discriminated union.
-
-### Step 2 — Map operations to the SDK (`action_spec.py`)
-
-**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/node_wire_google_drive/action_spec.py`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/action_spec.py).
-
-```python
-# src/node_wire_google_drive/action_spec.py (illustrative)
-from node_wire_runtime.sdk_action_spec import SdkActionSpec
-
-from .schema import FilesCreateOperation, FilesListOperation
-
-# def _build_files_list_kwargs(drive, model): ...
-
-# Real module builds this dict via register helpers — see repo for uploads, permissions, etc.
-
-GOOGLE_DRIVE_ACTION_SPECS: dict[str, SdkActionSpec] = {
-    "files.list": SdkActionSpec(
-        resource_segments=("files",),
-        method_name="list",
-        build_kwargs=_build_files_list_kwargs,  # optional: defaults, shared drives flags
-        input_model=FilesListOperation,
-    ),
-    "files.create": SdkActionSpec(
-        resource_segments=("files",),
-        method_name="create",
-        body_from_model={"name": "name", "mime_type": "mimeType", "parents": "parents"},
-        constant_kwargs={"fields": "id, name, webViewLink", "supportsAllDrives": True},
-        input_model=FilesCreateOperation,
-    ),
-}
-```
-
-`googleapiclient` is **synchronous**. The shared helper **`execute_spec_in_thread`** runs the generated `.execute()` call in a thread pool so the connector’s public API stays async.
-
-#### Using `action_specs` for non-discovery SDKs
-
-The discovery-style shape above (`resource_segments` walked as zero-arg calls, then `.execute()`) is only the **default**. `SdkActionSpec` is not Google-specific — three fields let other vendor SDK shapes reuse the same declarative table instead of falling back to hand-written `@nw_action` methods:
-
-- **`call_segments=False`** — for flat-class SDKs where `resource_segments` are plain attributes, not zero-arg calls (e.g. `stripe.Charge.create(...)`: `resource_segments=("Charge",), call_segments=False`).
-- **`resolve_method`** — full override `(spec, client) -> Callable` for navigation that needs an argument mid-path (e.g. PyGithub's `client.get_repo(name).get_issues`), where segment-walking alone can't express it.
-- **`invoke`** — full override `(method, kwargs) -> Any` for SDKs whose methods return the result directly, with no `.execute()` step (most non-Google SDKs). Use **`execute_spec_async`** instead of `execute_spec_in_thread` when the vendor method is itself a coroutine function — `invoke` can return the coroutine, and `execute_spec_async` awaits it directly on the running loop without a thread hop.
-
-Leave all three unset and you get exactly the Drive/discovery behavior described above.
-
-### Step 3 — Implement the connector class (`logic.py`)
-
-Subclass `BaseConnector`, set **`connector_id`**, **`output_model`**, and **`action_specs`**. The base class **generates** one async `@nw_action` handler per spec. Override **`_execute_action_spec`** to add logging, thread offload, and translation of vendor exceptions (e.g. `HttpError` → your `error_map` types).
-
-```python
-# src/node_wire_google_drive/logic.py (conceptual excerpt)
-from __future__ import annotations
-
-import json
-from typing import Any
-
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
-from node_wire_runtime import BaseConnector
-from node_wire_runtime.models import ErrorCategory
-from node_wire_runtime.sdk_action_spec import execute_spec_in_thread
-
-from .action_spec import GOOGLE_DRIVE_ACTION_SPECS
-from .exceptions import GoogleDriveAuthError, GoogleDriveRateLimitError  # + other mapped types
-from .schema import GoogleDriveOperationOutput
-
-
-class GoogleDriveConnector(BaseConnector):
-    connector_id = "google_drive"
-    output_model = GoogleDriveOperationOutput
-    action_specs = GOOGLE_DRIVE_ACTION_SPECS
-
-    error_map = {
-        GoogleDriveAuthError: (ErrorCategory.AUTH, "GDRIVE_AUTH"),
-        GoogleDriveRateLimitError: (ErrorCategory.RETRYABLE, "GDRIVE_RATE_LIMIT"),
-        # …
-    }
-
-    def build_client(self) -> Any:
-        raw_sa = self.secret_provider.get_secret("GOOGLE_DRIVE_SA_JSON")
-        info = json.loads(raw_sa)  # or path to a JSON file — see production code
-        creds = service_account.Credentials.from_service_account_info(
-            info,
-            scopes=["https://www.googleapis.com/auth/drive"],
-        )
-        return build("drive", "v3", credentials=creds)
-
-    async def _execute_action_spec(
-        self,
-        action_name: str,
-        params: Any,
-        *,
-        trace_id: str,
-        log_extra: dict[str, Any] | None = None,
-    ) -> GoogleDriveOperationOutput:
-        spec = GOOGLE_DRIVE_ACTION_SPECS[action_name]
-        drive = self.get_client()
-        try:
-            raw = await execute_spec_in_thread(drive, spec, params)
-        except HttpError as exc:
-            self._translate_and_raise_http_error(exc)
-        return GoogleDriveOperationOutput(
-            raw=raw,
-            description=f"Successfully executed {action_name}",
-        )
-```
-
-## Connector Authentication
-
-Node Wire provides a shared **`AuthProvider`** abstraction (`src/node_wire_runtime/auth/`) that handles token acquisition, JWT construction (for SMART on FHIR), caching, and expiry. This ensures that connector logic (`logic.py`) does not need to handle raw credentials or IdP-specific handshake details.
-
-### Using Auth in a Connector
-
-To use authentication, call **`await self.get_auth_headers()`** (inherited from `BaseConnector`). This returns a dictionary of headers (e.g. `{"Authorization": "Bearer <token>"}`) injected by the configured provider.
-
-There are two patterns depending on how your connector talks to the vendor:
-
-**HTTP connectors** (direct REST calls via `httpx`) — create a short-lived client inside each `@nw_action` method. Do **not** override `build_client()`:
-
-```python
-# logic.py — HTTP connector pattern (e.g. Slack, FHIR, GitHub)
-# Base URL: read from the connector's own config, an env var, or a module constant.
-# There is no inherited _get_base_url() helper — connectors own their URL resolution.
-BASE_URL = "https://api.example.com"   # or: os.environ["MY_SERVICE_URL"]
-
-@nw_action("read_resource")
-async def read_resource(self, params: In, *, trace_id: str) -> Out:
-    headers = await self.get_auth_headers()  # Fetched/cached by provider
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{BASE_URL}/resource", headers=headers)
-        resp.raise_for_status()
-    ...
-```
-
-**SDK connectors** (vendor Python SDK with a long-lived client object) — override `build_client()` so `get_client()` can cache the result across calls. Auth is handled inside `build_client()`, not via `get_auth_headers()`:
-
-```python
-# logic.py — SDK connector pattern (e.g. Google Drive)
-def build_client(self) -> Any:
-    # Read credential from secret provider and build the vendor client once.
-    raw_sa = self.secret_provider.get_secret("MY_SA_JSON")
-    creds = ...
-    return vendor_sdk.build("v1", credentials=creds)
-
-async def _execute_action_spec(self, action_name, params, *, trace_id, log_extra=None):
-    client = self.get_client()  # cached; calls build_client() on first use
-    ...
-```
-
-### Supported Provider Types
-
-Choose a provider in your **`connectors.yaml`** via the `auth:` block:
-
-| Type | Description | Example connector |
-|------|-------------|-------------------|
-| **`none`** | (Default) No auth headers added. | `http_generic` |
-| **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). | `stripe`, `slack` |
-| **`apikey_query`** | Appends an API key as a query-string parameter instead of a header. | — |
-| **`upstream_bearer`** | Passes through the caller's own bearer token to the vendor API (per-request, not cached). Credential relay, not an ordinary provider — requires the connector to also be listed in `NW_UPSTREAM_BEARER_CONNECTORS` (fails closed otherwise); Node Wire does not verify the token's audience matches the vendor API, that's the host's job. See [google_drive_connector.md](google_drive_connector.md#upstream_bearer). | `google_drive` (opt-in override) |
-| **`static_credentials`** | Username + password pair (e.g. SMTP relay). | `smtp` |
-| **`service_account`** | Google-style service account JSON + scopes. | `google_drive` |
-| **`oauth2`** | Token exchange (`private_key_jwt`, `refresh_token`, `client_secret_post`, etc.). Handles caching and expiry. | `fhir_epic`, `salesforce` |
-
-#### `static_token` field reference
-
-| Field | Required | Default | Notes |
-|-------|----------|---------|-------|
-| `secret_key` | Yes | — | Env var name holding the raw token value (`EnvSecretProvider` tries the key as-is, then uppercased). |
-| `header_name` | No | `Authorization` | HTTP header the token is injected into. |
-| `prefix` | No | `Bearer` (no trailing space) | String prepended to the token value. The provider inserts a single space between `prefix` and the token itself — do **not** add a trailing space to `prefix` yourself, or you'll get a double space. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token"` for APIs that require the `token` scheme (check your vendor's auth docs). |
-
-So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
-
-The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (e.g. redeploy) if the underlying secret is rotated.
-
-### Multiple auth schemes per connector
-
-A connector isn't limited to the single provider built from its `auth:` block. Add a **named**, additional provider per entry under `auth_schemes:` in `connectors.yaml` (same field shape as `auth:`, any provider type):
-
-```yaml
-connectors:
-  my_api:
-    enabled: true
-    auth:
-      provider: static_token
-      secret_key: MY_API_KEY
-    auth_schemes:
-      legacy_bearer:
-        provider: static_token
-        secret_key: MY_API_LEGACY_TOKEN
-        prefix: Bearer
-```
-
-Select a named scheme per call with `await self.get_auth_headers(auth_scheme="legacy_bearer")` (or the lower-level `self.resolve_auth_provider("legacy_bearer")`) instead of the connector default. **`resolve_auth_provider`** fails closed with `ValueError` on an unknown scheme name — there's no silent fallback to the default provider. This is the same mechanism `nw-connector-builder` uses to generate `auth_scheme=` on divergent per-action calls (see [nw-connector-builder.md](nw-connector-builder.md#per-action-auth-schemes)); hand-written connectors can use it directly for the same reason — an upstream API that requires more than one security scheme across its operations.
-
-### Configuration (`connectors.yaml`)
-
-```yaml
-connectors:
-  fhir_epic:
-    enabled: true
-    auth:
-      provider: oauth2
-      grant_method: private_key_jwt
-      token_url_secret: EPIC_TOKEN_URL
-      client_id_secret: EPIC_CLIENT_ID
-      private_key_secret: EPIC_PRIVATE_KEY
-      kid_secret: EPIC_KID
-      algorithm: RS384
-
-  stripe:
-    enabled: true
-    auth:
-      provider: static_token
-      secret_key: stripe_api_key
-      header_name: Authorization
-      prefix: ""  # Stripe expects raw key; env var is STRIPE_API_KEY
-
-  smtp:
-    enabled: true
-    auth:
-      provider: static_credentials
-      username_secret: SMTP_USERNAME
-      password_secret: SMTP_PASSWORD
-
-  google_drive:
-    enabled: true
-    auth:
-      provider: service_account
-      sa_json_secret: GOOGLE_DRIVE_SA_JSON
-      scopes:
-        - https://www.googleapis.com/auth/drive
-```
-
----
-
-Key points:
-- **`connector_id`** — unique string; used for routing, config, and registry lookup.
-- **`output_model`** — the Pydantic class returned by every action. Shared envelopes often use `raw: dict | list` for list-heavy vendor APIs; per-action models can use typed fields instead (see SMS example below).
-- **`error_map`** — maps exception types to `(ErrorCategory, error_code)`. Entries are registered with `ErrorMapper` automatically at class definition time.
-- **`build_client()`** — override to create the Google API client. `get_client()` caches the result in `self._client`.
-- **`action_specs`** — each key becomes a manifest action (e.g. `files.list`). Do **not** also add a manual `@nw_action` with the same name.
-- **`_execute_action_spec`** — **required** when using **`action_specs`**: each generated handler delegates here. Typically call **`execute_spec_in_thread`** for blocking SDKs (such as `googleapiclient`). Connectors that only use hand-written `@nw_action` methods do not implement this hook.
-
-**Adding a new Drive operation:** add a Pydantic variant and extend the union in `schema.py`, register a new `SdkActionSpec` in `action_spec.py`, and rely on auto-generated handlers (see [`src/node_wire_google_drive/README.md`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/README.md)).
-
-### Step 4 — Register in `config/connectors.yaml`
-
-```yaml
-connectors:
-  google_drive:
-    enabled: true
-    exposed_via:
-      - rest
-      - grpc
-      - mcp
-```
-
-`exposed_via` controls which bindings surface the connector. Use any subset of **`rest`**, **`grpc`**, and **`mcp`** (omit protocols you do not need).
-
-### Step 5 — Auto-registration (nothing extra needed)
-
-`BaseConnector.__init_subclass__` registers your class in the global registry as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
-
-### Connector registry API
-
-`get_connector_registry()` is defined in `base_connector.py` and exported from the top-level `node_wire_runtime` package — it is **not** in `node_wire_runtime.connector_registry`. Use it to read the connector-id → class map after `auto_register()` has imported your `logic` module:
-
-```python
-from node_wire_runtime import get_connector_registry
-from node_wire_runtime.connector_registry import auto_register
-
-auto_register()  # requires NW_ALLOWED_CONNECTORS
-registry = get_connector_registry()  # Dict[str, Type[BaseConnector]]
-connector_cls = registry["google_drive"]
-```
-
-For the full run pipeline (YAML config, instantiation, protocol routing), use **`ConnectorFactory`** (see [Calling a connector directly](#calling-a-connector-directly-in-process)).
-
-### Optional: `error_map` for ErrorMapper
-
-Declare an `error_map` class attribute on your connector to translate raised exceptions into the standard error taxonomy — including exceptions raised outside the connector class or shared across modules (e.g. `.exceptions`):
-
-```python
-class MyConnector(BaseConnector):
-    connector_id = "my_connector"
-    ...
-
-    error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
-        MyAuthError: (ErrorCategory.AUTH, "MY_AUTH_ERROR"),
-        MyRateLimitError: (ErrorCategory.RETRYABLE, "MY_RATE_LIMIT"),
-    }
-```
-
-`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. Under the hood it calls the scoped `ErrorMapper.register(connector_id, exc_type, category, code)` (`src/node_wire_runtime/errors.py`) on your behalf; connector code never calls `register()` directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (e.g. two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors). The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (e.g. `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
-
----
-
-## Single-action connector example
-
-A connector with one action is identical in structure — just add one `@nw_action` method:
-
-```python
-# src/node_wire_sms/schema.py
-from __future__ import annotations
-from typing import Literal
-from pydantic import BaseModel
-
-class SmsSendInput(BaseModel):
-    action: Literal["send"] = "send"
-    to: str
-    message: str
-
-class SmsSendOutput(BaseModel):
-    message_sid: str
-    status: str
-```
-
-```python
-# src/node_wire_sms/logic.py
-from __future__ import annotations
-
-from node_wire_runtime import BaseConnector, nw_action
-from .schema import SmsSendInput, SmsSendOutput
-
-
-class SmsConnector(BaseConnector):
-    connector_id = "sms"
-    output_model = SmsSendOutput
-
-    @nw_action("send")
-    async def send(self, params: SmsSendInput, *, trace_id: str) -> SmsSendOutput:
-        api_key = self.secret_provider.get_secret("sms_api_key")
-        # ... call SMS vendor API ...
-        return SmsSendOutput(message_sid="SM123", status="queued")
-```
-
----
-
-## Calling a connector directly (in-process)
-
-Use `connector.run(dict)` for the full pipeline (validation, policy, retries, error mapping).
-
-Set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry-point names (e.g. `google_drive`) before calling `auto_register()` — without it, `auto_register()` loads nothing (fail-closed).
-
-**Scope policy applies here too.** `ConnectorFactory` installs the same scope hook used by MCP/REST/gRPC on every `run()`, regardless of the protocol passed to `get_for_protocol`. With the code / `sample.env` default **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**, a call with no `principal` or `scopes` fails with `POLICY_DENIED` / `Missing required scope: mcp:<connector>.<action>` — even for local scripts. For local experimentation, set **`NW_MCP_SCOPE_POLICY_DEFAULT=allow`** before constructing the factory (as below), or pass `scopes=("mcp:<connector>.<action>",)` (or `"*"`) into `run()`. See [Security](#security-rest-plugins-secrets).
-
-```python
+import asyncio
 import os
 
-from node_wire_runtime.connector_registry import auto_register
+os.environ["NW_ALLOWED_CONNECTORS"] = "http_generic"
+os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"  # local only — see note below
+os.environ["NW_HTTP_GENERIC_ALLOWED_HOSTS"] = "httpbin.org"
+
 from bindings.factory import ConnectorFactory
+from node_wire_runtime.config_store import ConfigNotFoundError
+from node_wire_runtime.connector_registry import auto_register
 
-os.environ["NW_ALLOWED_CONNECTORS"] = "google_drive"
-# Local in-process only: deny (default) blocks run() with no caller identity.
-os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"
-auto_register()
-factory = ConnectorFactory()
-factory.load()
 
-connector = factory.get_for_protocol("google_drive", "rest", action="files.list")
-response = await connector.run(
-    {"action": "files.list", "page_size": 10, "query": "mimeType = 'application/vnd.google-apps.folder'"}
-)
+async def main() -> None:
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()  # reads config/connectors.yaml into the __default__ tenant
+    store = factory.store
 
-if response.success:
-    print(response.data)   # {"raw": {"files": [...], ...}, "description": "Successfully executed files.list"}
-else:
-    print(response.error_code, response.message)
-```
+    # 1. Entitle two tenants. http_generic takes the whole request in the payload,
+    #    so its config block is empty — the entry itself is what grants access.
+    store.create("acme", "http_generic", {"name": "default", "config": {}})
+    store.create("globex", "http_generic", {"name": "default", "config": {}})
 
-**Multi-tenant / named configs:** Resolve the tenant in your host (header, JWT, etc.), then `await factory.get("google_drive", tenant_id=tenant_id, config_name=name)`. The returned instance is **pinned** to that tenant: omit `tenant_id` on `run()` (recommended) or pass the same id. A different `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without running the action. Omitting `tenant_id` on `get` always resolves `__default__`, not the current request tenant.
-
-For composing actions within a connector, use **`self.call_action`**. It routes through **`connector.run`** so **policy hooks**, **resilience**, and the **`ConnectorResponse`** error path apply (including MCP scope policy). It returns the nested action’s **output model** on success (validated from `run()`’s `data`). On policy denial it raises **`PolicyDenied`**, which the outer `run()` maps like any other action failure.
-
-Optional keyword args `principal`, `tenant_id`, and `scopes` override the caller identity for the nested call. When omitted, **`call_action` inherits** identity from the outer `run()` (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call. On a factory-pinned instance, an explicit nested `tenant_id` must agree with the instance pin.
-
-```python
-from node_wire_runtime import BaseConnector, nw_action
-
-@nw_action("upload_then_describe")
-async def upload_then_describe(
-    self, params: MyInput, *, trace_id: str
-) -> GoogleDriveOperationOutput:
-    created = await self.call_action(
-        "files.create",
-        {"action": "files.create", "name": params.name, "mime_type": params.mime_type},
+    # 2. Resolve a tenant-pinned instance and run an action.
+    acme = await factory.get("http_generic", tenant_id="acme")
+    response = await acme.run(
+        {"action": "request", "method": "GET", "url": "https://httpbin.org/get",
+         "params": {"q": "node-wire"}}
     )
-    file_id = created.raw["id"]
-    return await self.call_action(
-        "files.get",
-        {"action": "files.get", "file_id": file_id},
+    print("acme:", response.success, response.data["status_code"])
+
+    # 3. A tenant with no config is not entitled — the factory fails closed.
+    try:
+        await factory.get("http_generic", tenant_id="initech")
+    except ConfigNotFoundError as exc:
+        print("initech:", exc)
+
+    # 4. An instance pinned to acme refuses to run for another tenant.
+    mismatch = await acme.run(
+        {"action": "request", "method": "GET", "url": "https://httpbin.org/get"},
+        tenant_id="globex",
     )
+    print("mismatch:", mismatch.success, mismatch.error_code)
+
+    # 5. Revoke access at runtime: deleting the config drops the cached instance.
+    store.delete("acme", "http_generic", "default")
+    try:
+        await factory.get("http_generic", tenant_id="acme")
+    except ConfigNotFoundError as exc:
+        print("acme after delete:", exc)
+
+
+asyncio.run(main())
 ```
 
----
+Output:
 
-## Integrating with binding layers
-
-The factory and manifest drive all bindings. Once a connector is registered and `load()` is called, REST, gRPC, and MCP discover enabled connectors according to `exposed_via`.
-
-### Optional: MCP under `src/agents/` (ToolHive / stdio)
-
-The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`; see **[packaging.md](packaging.md)** for the pre-built per-connector Docker images, env, and ToolHive registration. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image — follow **packaging.md** when you need a dedicated MCP deployment.
-
-### REST binding
-
-`src/bindings/rest_api/app.py` calls `build_manifest(connectors)` and registers a `POST /connectors/{connector_id}/{action}` route for every manifest entry:
-
-```
-POST /connectors/google_drive/files.list
-Content-Type: application/json
-
-{ "page_size": 10, "query": "name contains 'report'" }
+```text
+acme: True 200
+initech: no config for tenant 'initech' / connector 'http_generic'
+mismatch: False TENANT_MISMATCH
+acme after delete: no config for tenant 'acme' / connector 'http_generic'
 ```
 
-The `action` field in the body is optional for REST — the binding injects it from the URL path (see `src/node_wire_runtime/ingress.py`). Per-action **argument normalizers** (`mcp_normalize` on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an `action` field, it **must** match the path segment; otherwise the API returns **400**.
+What each step relies on:
 
-The runtime then performs full Pydantic validation and returns a `ConnectorResponse`.
+| Step | Behaviour |
+|---|---|
+| `factory.load()` | Reads `config/connectors.yaml` (or `NW_CONFIG_PATH`) once and copies each enabled connector into the store as the `__default__` tenant. Tenants you add later live only in the store. |
+| `store.create(tenant, connector, doc)` | Adds a named config. The first config for a `(tenant, connector)` pair becomes its default. **A config existing is what entitles the tenant** — there is no separate allow list. |
+| `factory.get(connector, tenant_id=…)` | Resolves the tenant's config (the default, or `config_name=…`), builds the instance with that config's secrets and auth, and caches it per `(tenant, connector, config)`. Omitting `tenant_id` means `__default__`, never "the current request". |
+| `run(payload)` | Validation → policy → retries → error mapping. The instance is pinned to its tenant, so leave `tenant_id` off; a different one returns `TENANT_MISMATCH` without calling out. |
+| `store.update` / `store.delete` | Take effect on the next `get()` — the cached instance for that config is dropped at once. |
 
-**Response envelope:**
+The store is in-process memory. Anything you add with `store.create()` is gone on restart unless you persist it. The REST config API below writes to `NW_TENANTS_PATH` for you.
 
-```json
-{
-  "success": true,
-  "data": {
-    "raw": { "files": [{ "id": "...", "name": "...", "mimeType": "..." }], "nextPageToken": null },
-    "description": "Successfully executed files.list"
-  },
-  "trace_id": "4f3a...",
-  "error_code": null,
-  "error_category": null,
-  "message": null
-}
+**Scope policy.** `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is only for local scripts. In a real host, pass `scopes=("mcp:http_generic.request",)` (or `principal`) to `run()`. See [Security](connectors-build.md#security-rest-plugins-secrets).
+
+**Connectors that read their config.** For connectors such as `stripe` or `fhir_epic`, the same calls apply. Put per-tenant settings in the doc's `config` block and the credentials setup in its `auth` block (see [Auth blocks](connectors-build.md#auth-blocks-in-connectorsyaml)). Per-tenant secret naming is in [Tenancy — Tenant secrets](architecture/tenancy.md#tenant-secrets). A tenant can hold several named configs (for example `sandbox` and `live`); select one with `factory.get(..., config_name="live")`.
+
+## Over REST
+
+The REST binding wraps the same store. Start the API with multi-tenancy on (`NW_REST_AUTH_DISABLED` is for local use only):
+
+```bash
+NW_MULTITENANCY_ENABLED=true NW_REST_AUTH_DISABLED=true \
+NW_ALLOWED_CONNECTORS=http_generic NW_MCP_SCOPE_POLICY_DEFAULT=allow \
+MODE=API uv run node-wire
 ```
 
-HTTP status codes are mapped from `ErrorCategory`:
+The tenant always comes from the `X-Tenant-ID` header (or the caller's JWT tenant claim), never from the URL:
 
-| `ErrorCategory` | HTTP status |
-|-----------------|-------------|
-| `BUSINESS` | 400 |
-| `AUTH` | 401 |
-| `RETRYABLE` | 503 |
-| `FATAL` / other | 500 |
+```bash
+# Entitle acme (writes to NW_TENANTS_PATH, default config/tenants.yaml)
+curl -X POST localhost:8000/v1/connectors/http_generic/configs \
+  -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
+  -d '{"name": "default", "config": {}}'
+# → 201 {"name": "default", "default": true}
 
-### MCP binding
+# Call the connector as acme
+curl -X POST localhost:8000/connectors/http_generic/request \
+  -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
+  -d '{"method": "GET", "url": "https://httpbin.org/get"}'
+# → 200 {"success": true, "data": {"status_code": 200, ...}}
 
-`src/bindings/mcp_server/server.py` registers one **MCP tool** per manifest entry. Advertised tool names are `{connector_id}_{action}` with dots in the action replaced by underscores (e.g. `google_drive_files_list`, `google_drive_files_upload`) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.
-
-The MCP server calls `connector.run(args_dict)` and serialises the `ConnectorResponse` as the tool result.
-
-The **resolved action** (from the advertised or legacy tool name) is authoritative: after normalizers run, the binding sets `action` from that name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/node_wire_runtime/ingress.py`).
-
-Optional per-action **argument normalizers** (`mcp_normalize` on `@sdk_action` / `SdkActionSpec`) run before `connector.run` to map LLM aliases to canonical fields. Actions default to **strict** JSON Schema (`additionalProperties: false`); set `alias_tolerant=True` only where extra keys must pass MCP SDK validation before normalization.
-
-Published **`input_schema` omits the `action` property** (manifest contract v2+): clients must not rely on sending `action` inside tool arguments; the MCP tool name (or REST path / gRPC `InvokeRequest.action`) is authoritative.
-
-**FHIR `search_encounter` (Epic/Cerner):** normalizers map root-level `patient` / `patientId` to `patient_id`, and `sort` → `_sort` (via `search_params`). Encounter search **requires** a patient filter (`patient_id` or `patient` in `search_params`) before any outbound FHIR call.
-
-### gRPC binding
-
-`src/bindings/grpc_server/server.py` exposes the `Connector` service. The **`action` field on `InvokeRequest`** is authoritative: after argument normalizers run, ingress rejects a conflicting `action` inside `payload_json` (same rule as REST and MCP). The shared Binding invoke path in `src/bindings/invoke.py` performs factory resolution and `connector.run`.
-
-### Manifest
-
-`build_manifest(connectors)` (from `node_wire_runtime.manifest`) is the single source of truth for both bindings (by default it strips `action` from each entry’s `input_schema`). It returns one entry per `@sdk_action`:
-
-```python
-[
-  {
-    "connector_id": "weather",
-    "action": "current_weather",
-    "input_schema": { ... },   # JSON Schema from CurrentWeatherInput (action not required)
-    "output_schema": { ... },  # ConnectorResponse envelope; data typed to the action output model (nullable on errors)
-  },
-  {
-    "connector_id": "google_drive",
-    "action": "files.upload",
-    ...
-  }
-]
+# A tenant with no config
+curl -X POST localhost:8000/connectors/http_generic/request \
+  -H 'X-Tenant-ID: initech' -H 'Content-Type: application/json' \
+  -d '{"method": "GET", "url": "https://httpbin.org/get"}'
+# → 403
 ```
 
----
-
-## Connector inventory
-
-| Connector | Primary actions |
-|-----------|-----------------|
-| `http_generic` | `request` |
-| `smtp` | `send_email` |
-| `stripe` | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` |
-| `salesforce` | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` |
-| `google_drive` | `files.list`, `files.upload`, … (see `action_specs`) |
-| `fhir_epic` | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
-| `fhir_cerner` | Same family as Epic with Cerner-specific schemas |
-| `slack` | `post_message`, `send_direct_message`, `upload_file` |
-
-MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). See [`docs/mcp-servers.md`](mcp-servers.md).
-
----
-
-## Adding a new connector (checklist)
-
-> **OpenAPI / Swagger APIs:** Prefer [nw-connector-builder](nw-connector-builder.md) (or the full [`nw gen-all`](nw-cli.md) pipeline) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the hand-written steps below for SDK-style or non-REST connectors.
-
-### Runtime (dev)
-
-1. Create the package directory `src/node_wire_<name>/`. The directory **must contain `__init__.py`** (empty is fine) to be importable as a Python package. Add `schema.py` with Pydantic input/output models and register the entry point under `[project.entry-points."node_wire.connectors"]` in the root `pyproject.toml`.
-2. In `logic.py`: subclass `BaseConnector`, set `connector_id` and `output_model`, then add `@nw_action` methods or wire `action_specs`. If your connector makes outbound HTTP calls (e.g. using `httpx`), declare that library as a dependency in the connector's `packages/connectors/<name>/pyproject.toml`. For HTTP-based connectors use an inline `async with httpx.AsyncClient() as client:` inside each `@nw_action` method (see [Using Auth in a Connector](#using-auth-in-a-connector)); only override `build_client()` / `get_client()` when wrapping a vendor SDK that requires a long-lived client object (e.g. `google_drive`).
-3. **Authentication**: Delegate all header construction to **`self.get_auth_headers()`**. Do not hardcode secret lookups or IdP handshakes and ensure sensitive fields are removed from your `input_schema`.
-4. For SDK-style connectors, add an `action_spec.py` (or similar) with `SdkActionSpec` entries and use **`execute_spec_in_thread`** when the vendor client is blocking.
-5. Optionally add `error_map` for custom exception handling (see [error_map example](#optional-error_map-for-errormapper) below).
-6. Add the connector to **`config/connectors.yaml`** with `enabled: true`, the desired `exposed_via` protocols, and an **`auth:`** block.
-7. **Environment template:** Add required secrets and connector-specific vars to [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) (referenced by [configuration.md](configuration.md) and [installation.md](installation.md)). Use commented placeholders with the env var names your connector reads via `SecretProvider`. Also add the new connector's entry-point name to the `NW_ALLOWED_CONNECTORS` line so the template stays current.
-8. `auto_register()` handles runtime registration — **no factory branch required**.
-
-### Publishable PyPI package (when shipping on PyPI)
-
-9. Create `packages/connectors/<name>/pyproject.toml` and `packages/connectors/<name>/setup.py`. See [packaging.md — Tier 2 templates](packaging.md#tier-2-templates) for copy-paste starting points for both files.
-10. Add the package path to **`scripts/build-packages.sh`** (`ALL_PACKAGES`) and to the three CI workflow allowlists — see [packaging.md — CI allowlist updates](packaging.md#ci-allowlist-updates) for the exact lines to add in each file.
-11. Update the inventory table in **[packaging.md](packaging.md)**.
-
-### Standalone MCP server (optional — dedicated Docker/ToolHive image)
-
-> **Prerequisite:** Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
-
-12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
-13. Add the new connector to the "Supported connectors" list in **[mcp-servers.md](mcp-servers.md)** if it's also getting a generated `nw-mcp-builder` host.
-
-For full file lists see [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
-
----
-
-## Configuration reference
-
-### `config/connectors.yaml`
-
-```yaml
-connectors:
-  <connector_id>:
-    enabled: true          # false → connector not instantiated
-    exposed_via:           # controls which bindings surface this connector
-      - rest
-      - grpc
-      - mcp
-    # connector-specific keys passed via SecretProvider or connector __init__
-```
-
-### `ConnectorFactory` API
-
-| Method | Description |
-|--------|-------------|
-| `load()` | Reads `connectors.yaml` and bootstraps the runtime config store. Does **not** instantiate connectors — instantiation is lazy. |
-| `get(connector_id, tenant_id=None, config_name=None)` | Lazily instantiates (or returns a cached instance of) the connector for that tenant/config via `_instantiate()`, resolved from the connector registry (`get_connector_registry()`). |
-| `get_for_protocol(id, protocol, action=None)` | Like `get()`, but returns `None` if the connector isn't enabled and exposed for that protocol. |
-| `is_exposed(connector_id, protocol)` | `True` if the connector is enabled and lists `protocol` in `exposed_via`. |
-| `list_for_protocol(protocol)` | All connectors exposed for a given protocol. |
-
----
-
-## Security (REST, plugins, secrets)
-
-**Scope policy (all `run()` paths)** — `ConnectorFactory` attaches a scope hook to every connector. It runs on **in-process** `connector.run()` as well as MCP, REST, and gRPC — protocol selection does not bypass it. Code / `sample.env` default is **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**: without caller `principal` / `scopes`, actions require the conventional scope `mcp:<connector_id>.<action>` (or an entry in **`NW_MCP_ACTION_SCOPE_MAP_JSON`**). Missing identity is denied (no anonymous bypass). For local scripts and auth-disabled bindings, set **`NW_MCP_SCOPE_POLICY_DEFAULT=allow`**, or grant the needed scopes on the caller (see [Calling a connector directly](#calling-a-connector-directly-in-process)). Optional guardrail **`NW_MCP_SCOPE_POLICY_STRICT=true`** fails startup when scope policy would otherwise be effectively disabled (explicit `allow` + empty map).
-
-**MCP (`bindings.mcp_server`)** — Configure **`NW_MCP_API_KEY_SCOPES`** (and optionally **`NW_MCP_ACTION_SCOPE_MAP_JSON`**) so `tools/list` and `tools/call` align with the same scope rules. API key wildcard (`"*"`) is explicit and intentionally bypasses per-action scope restrictions; use only for deliberate super-user keys. JWTs use claim `scopes` / `scope` and must include **`exp`**, **`iat`**, **`aud`** (match **`NW_JWT_AUDIENCE`**), and **`iss`** (match **`NW_JWT_ISSUER`**) when **`NW_MCP_JWT_SECRET`** is set.
-
-**gRPC (`bindings.grpc_server`)** — Configure **`NW_GRPC_API_KEY_SCOPES`** (and optionally **`NW_MCP_ACTION_SCOPE_MAP_JSON`**) so authenticated gRPC calls use the same scope rules as MCP/REST. Caller identity is propagated from the auth interceptor into `connector.run`.
-
-**REST API (`bindings.rest_api`)** — `GET /health`, `/docs`, `/redoc`, `/openapi.json`, `/playground/*`, and `/scenarios/*` are unauthenticated. Auth is required only for `/connectors/*` and `/ready`, via **`NW_REST_API_KEY`** (`Authorization: Bearer <key>` or `X-API-Key: <key>`) or optional **`NW_REST_JWT_SECRET`** for HS256 JWTs (with **`NW_JWT_AUDIENCE`** / **`NW_JWT_ISSUER`** and required `exp`/`iat`/`aud`/`iss` claims). API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
-
-**HTTP Generic outbound policy** — `http_generic.request` allows only `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and input methods are normalized to uppercase before validation. URLs targeting internal destinations are rejected (`localhost`, loopback, private/link-local IP ranges, metadata endpoints). Connector logs sanitize URL fields by dropping query strings and fragments so only scheme/host/path are retained.
-
-**SMTP outbound policy** — `smtp.send_email` accepts only message fields (`to`, `subject`, `body`, optional `from_email`). SMTP relay settings (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`) are server-side only and cannot be set in the request payload. Credentials are never sent to a caller-chosen host. For production, optionally set **`NW_SMTP_ALLOWED_HOSTS`** to a comma-separated list of permitted relay hostnames. The `subject` field must not contain newline or ASCII control characters (header-injection defense); `body` may be multiline.
-
-**Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
-
-**Secrets** — `EnvSecretProvider` looks up the key **as given**, then **`key.upper()`** (e.g. `my_key` then `MY_KEY`). It raises **`SecretNotFoundError`** when a variable is missing (fail-closed). Set **`NW_ENV_SECRET_LEGACY_EMPTY=true`** only if you need legacy empty-string behaviour. **`NW_SECRET_BACKEND=aws_env`** with **`NW_AWS_SECRETS_MANAGER_SECRET_ID`** composes AWS Secrets Manager JSON + env fallback via `ChainedSecretProvider` (see `bindings.factory._build_secret_provider`).
+Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_name": "<name>"` to the request body to pick a named config. The rest of the config API is `GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs/{name}` and `PUT …/{name}/default`. For MCP, the same store sits behind the `nw_list_tenants` / `nw_select_tenant` / `nw_select_config` tools. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ---
 
 ## Related documentation
 
-- [packaging.md](packaging.md) — Wheel build lifecycle, PyPI publish flow, per-connector Docker images, ToolHive, client install model, secrets config, and pre-publish checklist.
-- [mcp-servers.md](mcp-servers.md) — Generate a custom standalone MCP host with `nw-mcp-builder`.
-- [google_drive_connector.md](google_drive_connector.md) — Drive REST API and setup.
-- [salesforce_connector.md](salesforce_connector.md) — Salesforce CRM operations and playground.
-- [slack_connector.md](slack_connector.md) — Slack bot token and setup.
-- Per-connector READMEs under `src/node_wire_*/README.md` where present.
-
+| Doc | When to read it |
+|-----|-----------------|
+| [connector-reference.md](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector catalog |
+| [connector-bindings.md](connector-bindings.md) | How actions map to REST routes, MCP tools and gRPC methods |
+| [Tenancy](architecture/tenancy.md) | Tenant resolution, entitlement and tenant secrets |
+| [Build a connector](connectors-build.md) | Writing a new connector by hand |

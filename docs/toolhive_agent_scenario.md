@@ -39,23 +39,46 @@ This guide walks you through running the platform as an MCP server using ToolHiv
 
 ## Architecture
 
-```
-ToolHive UI  ──────────────────────────────────────────────────────
-│  MCP Server (Docker): node-wire                     │
-│  ├── Tool: fhir_cerner_read_patient   ← fetch patient from Cerner │
-│  ├── Tool: fhir_epic_read_patient     ← fetch patient from Epic   │
-│  ├── Tool: google_drive_files_upload  ← write file to Drive       │
-│  ├── Tool: stripe_charge              ← process payment           │
-│  └── Tool: smtp_send_email            ← email the summary         │
-│                         ↕ stdio → HTTP proxy                      │
-──────────────────────────────────────────────────────────────────
-         ↕ MCP JSON-RPC over HTTP
- ┌───────────────────────────┐
- │  Agent Script (local)     │
- │  toolhive.py              │
- │  LLM: Groq / OpenAI /     │
- │       Gemini / Claude      │
- └───────────────────────────┘
+The bundled scenario wires four tools across three external systems. Steps are numbered
+in the order the agent calls them.
+
+```mermaid
+flowchart TB
+    Agent["Agent script<br/>agents/toolhive.py"]
+    LLM["LLM provider"]
+    Agent <-- "tool-calling loop" --> LLM
+
+    subgraph th["ToolHive"]
+        Proxy["HTTP proxy"]
+        Secrets[/"Secrets → env"/]
+        subgraph box["MCP container · node-wire"]
+            T1["fhir_*_read_patient"]
+            T2["google_drive_files_upload"]
+            T3["smtp_send_email"]
+        end
+    end
+
+    EHR["Epic / Cerner<br/>FHIR R4"]
+    Drive["Google Drive"]
+    Mail["SMTP relay"]
+
+    Agent -- "MCP / HTTP" --> Proxy
+    Proxy -- "stdio" --> box
+    Secrets -. "env" .-> box
+    T1 -- "1 · fetch patient" --> EHR
+    T2 -- "2 · upload summary" --> Drive
+    T3 -- "3 · email the link" --> Mail
+
+    classDef agent fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef tool fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef store fill:#f2f4f7,stroke:#8a9bac,stroke-width:1px,color:#1c2733
+    classDef extn fill:#ddf5f0,stroke:#12867a,stroke-width:1px,color:#0b2f2a
+    class Agent,LLM agent
+    class T1,T2,T3,Proxy tool
+    class Secrets store
+    class EHR,Drive,Mail extn
+    style th fill:#f4fbfe,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    style box fill:#e8f6fd,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
 ```
 
 ToolHive runs the connector platform in a secure Docker container, injects secrets as environment variables, and exposes an HTTP proxy. The agent script connects to that proxy, discovers tools via `tools/list`, and orchestrates the workflow using an LLM's tool-calling capability.
@@ -76,7 +99,7 @@ For modular deployments, each connector can be run as an independent MCP server 
 
 When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS`** (comma-separated list of ToolHive proxy URLs). The agent will merge tools across servers.
 
-**Full guide (pre-built per-connector Docker images):** [packaging.md](packaging.md)
+**Full guide (pre-built per-connector Docker images):** [Local wheels → images](local-packages-to-images.md)
 
 ---
 
@@ -93,14 +116,14 @@ You can think of it as a local "MCP server manager" — you register your server
 
 ## What does the Node Wire MCP server expose?
 
-When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see **five** tools (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send). The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every connector enabled for MCP in `config/connectors.yaml` (often 18+ tools). This section describes the **five-tool** happy path; see [mcp-servers.md](mcp-servers.md) for the full surface.
+When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), each per-connector server (`agents.stripe_mcp` and the others) advertises that connector's **full** action set, not just the one this workflow calls — Cerner and Epic 5 each, Google Drive 7 (`files.*` plus `permissions.create`), Stripe 5, SMTP 1, so about 23 tools in total. The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every registered connector enabled for MCP in `config/connectors.yaml` — about 35 with the bundled connectors, plus the `nw_*` tenant/config tools when multi-tenancy is on. This section follows the **five-tool** happy path (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send); the architecture diagram above shows only the four tools this workflow actually calls. See [nw-mcp-builder](cli/nw-mcp-builder.md) for the full surface.
 
 | Tool | Description |
 |---|---|
 | `fhir_cerner_read_patient` | Fetch a patient's record from a Cerner FHIR R4 endpoint |
 | `fhir_epic_read_patient` | Fetch a patient's record from an Epic FHIR R4 endpoint |
 | `google_drive_files_upload` | Create and upload a text file to Google Drive |
-| `stripe_charge` | Process a payment |
+| `stripe_charge` | Process a payment — registered by the stack, but **not used** by the FHIR → Drive → email workflow |
 | `smtp_send_email` | Send an email via SMTP |
 
 Advertised names use underscores (`connector_id_action`). Legacy dotted names (e.g. `fhir_epic.read_patient`) still work on `tools/call`.
@@ -174,7 +197,7 @@ Option A — Recommended: ToolHive UI (no code)
 
 Option B — Local quick run (Windows PowerShell)
 
-Prerequisite: Install Python 3.11+ and Git. If you cannot install, ask an administrator to run Option A.
+Prerequisite: Install Python 3.13+ and Git. If you cannot install, ask an administrator to run Option A.
 
 1. Open PowerShell and clone or navigate to the project folder.
 2. Create a simple `.env` file in the project root (replace placeholder values):
@@ -321,7 +344,7 @@ ToolHive will start the container and set up a stdio-to-HTTP proxy on a local po
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` |
 | `NW_MCP_TENANT_PIN_LOCKED` | `false` |
 
-Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [mcp-servers.md — Multi-tenancy](mcp-servers.md#multi-tenancy-mcp).
+Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ### Option B: ToolHive CLI (single-tenant secrets)
 
@@ -403,7 +426,7 @@ python -m agents.toolhive \
 | `--tenant-id` | No | Pin MCP tenant (`X-Tenant-ID` on HTTP; `NW_TENANT_ID` for `--local`). Defaults from `NW_TENANT_ID` env. |
 | `--config-name` | No | Calls `nw_select_config` at start so every connector uses that name |
 
-With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to every connector on that server by default. Tenant pin precedence differs by transport: on stdio, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin; on streamable-http, the live per-request `X-Tenant-ID` header always wins and is never shadowed by a prior select. See [mcp-servers.md — Multi-tenancy (MCP)](mcp-servers.md#multi-tenancy-mcp).
+With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises the `nw_*` tenant/config tools. How they behave on each transport: [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
 ### Switching LLM providers
 
@@ -529,7 +552,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 }
 ```
 
-Replace `<PORT>` with the port shown in ToolHive UI. The five Node Wire connector tools will appear in Claude's tool sidebar automatically.
+Replace `<PORT>` with the port shown in ToolHive UI. The Node Wire connector tools will appear in Claude's tool sidebar automatically.
 
 ### Cursor
 

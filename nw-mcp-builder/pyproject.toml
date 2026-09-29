@@ -6,10 +6,15 @@
 name = "nw-mcp-builder"
 version = "0.1.0"
 description = "Generate thin MCP hosts from node-wire connectors (wheels + McpServer)"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "pydantic>=2.6.0,<3.0.0",
     "pyyaml>=6.0.1",
+    # Tool-listing size check measures with the bindings' own listing code
+    # (tool_listing.measure_tool_listing); 1.1.0 is the first with it.
+    "node-wire-bindings>=1.1.0",
+    # Imported directly to load connector classes (from_connector.load_connector_class).
+    "node-wire-runtime>=1.1.0",
 ]
 
 [project.scripts]
@@ -21,3 +26,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nw_mcp_builder"]
+
+[tool.uv.sources]
+node-wire-bindings = { path = "../packages/bindings", editable = true }
+node-wire-runtime = { path = "../packages/runtime", editable = true }

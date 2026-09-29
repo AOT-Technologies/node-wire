@@ -1,0 +1,37 @@
+version: "1"
+
+server:
+  name: weather-api
+  description: "Weather forecast MCP server for location-based weather data"
+
+spec:
+  source: "https://api.weather.example.com/openapi.yaml"
+  format: openapi3
+  base_url: "https://api.weather.example.com"
+  total_endpoints: 12
+  scoped_endpoints: 1
+
+workflows:
+  - "Users check the weather forecast for a given location"
+
+groups:
+  - name: forecasts
+    description: "Weather forecast retrieval"
+    tools:
+      - tool_name: get_forecast
+        endpoint: GET /forecast/{location}
+        description: >
+          Get the weather forecast for a location. Returns temperature,
+          conditions, humidity, and wind speed for the next 5 days.
+        response_kind: json
+        parameters:
+          - name: location
+            description: "City name or postal code for the forecast."
+            required: true
+            location: path
+
+auth:
+  type: api_key
+  notes: >
+    Authenticate via an API key passed in the X-API-Key header. The key
+    is injected by ToolHive from a Kubernetes secret at deploy time.

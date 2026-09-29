@@ -1,0 +1,51 @@
+# MCPServer — ToolHive managed MCP server for {{ server_name }}.
+#
+# Before applying:
+#   1. Build and push the container image ({{ server_name }}-mcp:latest)
+#      to a registry your cluster can pull from, then update spec.image.
+#   2. If using auth, ensure the MCPExternalAuthConfig is applied first.
+#
+# Namespace can be changed to match your ToolHive installation.
+#
+# Docs: https://docs.stacklok.com/toolhive/reference/crd-spec
+# Examples: https://github.com/stacklok/toolhive/tree/main/examples/operator/mcp-servers
+---
+apiVersion: {{ api_version }}
+kind: MCPServer
+metadata:
+  name: {{ server_name }}
+  namespace: {{ namespace }}
+spec:
+  image: {{ server_name }}-mcp:latest
+  transport: streamable-http
+  proxyPort: 8080
+  mcpPort: 8080
+  permissionProfile:
+    type: builtin
+    name: network
+{% if is_embedded_auth %}
+  authServerRef:
+    kind: MCPExternalAuthConfig
+    name: {{ server_name }}-auth
+  oidcConfigRef:
+    name: {{ server_name }}-oidc
+    audience: https://mcp.REPLACE_ME_DOMAIN/{{ server_name }}
+    resourceUrl: https://mcp.REPLACE_ME_DOMAIN/{{ server_name }}
+{% elif has_auth %}
+  externalAuthConfigRef:
+    name: {{ server_name }}-auth
+{% endif %}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  audit:
+    enabled: true
+  # Telemetry is configured via a separate MCPTelemetryConfig resource and
+  # referenced here with `telemetryConfigRef`. Example:
+  #   telemetryConfigRef:
+  #     name: shared-otel
+  # See: https://github.com/stacklok/toolhive/tree/main/examples/operator

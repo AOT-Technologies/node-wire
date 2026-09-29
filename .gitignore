@@ -56,6 +56,30 @@ mcp_debug.log
 # nw-connector-builder abort report (written to cwd on hard failure)
 /report.json
 
+# slack_web: local codegen test build (nw gen-all), not a shipped connector
+/src/node_wire_slack_web/
+/packages/connectors/slack_web/
+
 # nw-mcp-builder
 nw-mcp-builder/fixtures/
 nw-mcp-builder/out/
+
+# nw-stacklok-builder (nw gen-stacklok output)
+nw-stacklok-builder/out/
+nw-stacklok-builder/specs/
+nw-stacklok-builder/docs/mcp-scope-schema.json
+# stacklok Phase 1 (ai-scoping) output and its skill/agent links (scripts/install-stacklok-skills.sh)
+scoping-output-*/
+# ai-scoping intermediates; mcp-scope.yaml and scoping-summary.md stay committable
+nw-stacklok-builder/scoping/*/analyze.json
+nw-stacklok-builder/scoping/*/spec-analysis.md
+nw-stacklok-builder/scoping/*/tool-scoping.md
+.claude/skills/ai-scoping
+.claude/agents/spec-analyzer.md
+.claude/agents/endpoint-scoper.md
+.gemini/skills/ai-scoping
+.gemini/agents/spec-analyzer.md
+.gemini/agents/endpoint-scoper.md
+
+/.scratch
+.scratch/codegen-tool-contract-plan.md

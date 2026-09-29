@@ -6,9 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Quality and security gates
 
-This document defines how Node Wire enforces security scanning in CI.
-
-This repository enforces security gates at both PR time and publish time.
+This page owns what CI enforces, at PR time and at publish time. Each workflow file is the source of truth for its own steps, and this page names the rule. To run the same checks locally, see [Code quality](code-quality-compliance.md).
 
 ## CI quality gates
 
@@ -26,8 +24,7 @@ Runs GitHub CodeQL static analysis for Python on pull requests, pushes to `main`
 
 Workflow: `.github/workflows/pytest.yml`
 
-Runs the full test suite on **Linux, macOS, and Windows** (Python 3.11 and 3.12
-matrix) with coverage on every pull request and push to `main`.
+Runs the full test suite on **Linux, macOS, and Windows** (Python 3.13) with coverage on every pull request and push to `main`.
 Branch protection requires the **Ubuntu** cells only; macOS/Windows remain
 informational (OSS portability signal without blocking merges on runner flakiness).
 Playground integration tests remain manual (`workflow_dispatch`) on Ubuntu only.
@@ -57,8 +54,7 @@ Required checks to add in branch protection:
 - `Quality gates / Bandit security scan`
 - `CodeQL / Analyze (Python)`
 - `Secret scan / Gitleaks secret scan`
-- `CI – Pytest / Run pytest (ubuntu-latest, Python 3.11)`
-- `CI – Pytest / Run pytest (ubuntu-latest, Python 3.12)`
+- `CI – Pytest / Run pytest (ubuntu-latest, Python 3.13)`
 - `MCP builder e2e (pet-store) / MCP builder e2e gate`
 - `Python package security PR checks / Vulnerability scan (packages/runtime)`
 
@@ -93,59 +89,7 @@ Policy:
 - Findings fail the workflow; remediate by rotating exposed credentials and
   removing secrets from the codebase (never commit live secrets).
 
-### Run locally
-
-Install [Gitleaks](https://github.com/gitleaks/gitleaks) (e.g. `brew install gitleaks`
-on macOS), then from the repository root:
-
-```bash
-# Working tree (staged + unstaged changes vs HEAD)
-gitleaks detect --source . --redact --verbose
-
-# Full git history (matches CI intent)
-gitleaks detect --source . --redact --verbose --log-opts="--all"
-```
-
-If GitHub Advanced Security secret scanning is enabled at the organization level,
-treat it as defense in depth; the in-repo workflow provides auditable CI evidence.
-
-## Run checks locally
-
-```bash
-# Install dev tools from committed lockfile
-uv sync --frozen --extra agents --dev
-
-# Security gate (matches CI failure threshold)
-uv run bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
-  --severity-level high
-
-# Optional: JSON report + same summary as CI logs
-uv run bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
-  -f json -o bandit-report.json --exit-zero
-python scripts/bandit_report_summary.py bandit-report.json
-
-# Tests + coverage (run via pytest.yml in CI)
-uv run pytest tests/ -v
-```
-
-## Deterministic pytest environment
-
-To keep pytest collection and REST app startup deterministic, `tests/conftest.py` sets a fixed environment before imports:
-
-- `NW_REST_LOAD_DOTENV=false` so REST startup does not merge a repo-root `.env` over test variables.
-- `NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml`, a fixture that mirrors `config/connectors.yaml` with all eight publishable connectors enabled.
-- `NW_ALLOWED_CONNECTORS=http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack` so exactly those eight connectors are loaded during collection.
-
-Do not rely on `.env` values during pytest collection. The test harness intentionally overrides them so local developer state does not affect CI or test outcomes.
-
-### Pre-commit
-
-```bash
-pre-commit install
-pre-commit run --all-files
-```
+Run it locally: [Code quality — Security scans](code-quality-compliance.md#security-scans).
 
 ## Bandit policy
 
@@ -160,7 +104,7 @@ CI splits responsibilities:
 1. **JSON artifact + log summary** — `bandit ... -f json -o bandit-report.json --exit-zero` so the workflow always produces the report and runs `scripts/bandit_report_summary.py` for readable logs. Low/medium issues are visible here without failing the job.
 2. **Enforcement** — `bandit ... --severity-level high` fails the job only on high-severity findings (matches branch-protection intent).
 
-Locally, mirror CI with the commands in [Run checks locally](#run-checks-locally).
+Locally, mirror CI with the commands in [Code quality — Security scans](code-quality-compliance.md#security-scans).
 
 ### Scope
 
@@ -171,17 +115,6 @@ Policy:
 - Exclude: `.venv`, `venv`, `tests`, `playground`, `dist`, `htmlcov`.
 - CI enforcement threshold: `--severity-level high`.
 - **Packages tree:** connector distributions under `packages/connectors/*` are audited for CVEs in `.github/workflows/security-pr.yml` (`pip-audit`). Run Bandit against those paths separately if you need SAST on a standalone checkout.
-
-If legacy findings block adoption, create a baseline once and track deltas:
-
-```bash
-bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
-  -f json -o bandit-baseline.json --exit-zero
-bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
-  --baseline bandit-baseline.json --severity-level high
-```
 
 ## SBOM generation
 
@@ -195,7 +128,7 @@ CycloneDX SBOM (`sbom.json`) is generated by:
 - Security scan runs on every PR: enforced by `quality-gates.yml` (Bandit) and `codeql.yml` (CodeQL).
 - Builds fail on high-severity Bandit findings: Bandit gate in CI.
 - Static analysis visible in GitHub Security tab: CodeQL upload from CI.
-- Tests run on every PR: enforced by `pytest.yml` (required: Ubuntu × Python 3.11/3.12).
+- Tests run on every PR: enforced by `pytest.yml` (required: Ubuntu × Python 3.13).
 - MCP pipeline integrity: `mcp-builder-e2e.yml` gate required; heavy pet-store job path-filtered.
 - Developers run checks locally: documented commands and pre-commit (Bandit).
 - Config version-controlled: `pyproject.toml`, `.pre-commit-config.yaml`, workflow files.

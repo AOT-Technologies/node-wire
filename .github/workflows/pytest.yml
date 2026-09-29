@@ -73,7 +73,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.os) }}
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.13"]
 
     steps:
       - name: Checkout repository
@@ -116,7 +116,7 @@ jobs:
       # One leg only, short retention: six legs x 90 days was ~750 MB of the
       # account's 500 MB artifact allowance, and the reports are identical.
       - name: Upload HTML coverage report
-        if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: coverage-html-${{ matrix.os }}-py${{ matrix.python-version }}
@@ -129,7 +129,7 @@ jobs:
           always() &&
           github.event_name == 'pull_request' &&
           matrix.os == 'ubuntu-latest' &&
-          matrix.python-version == '3.12' &&
+          matrix.python-version == '3.13' &&
           hashFiles('coverage.xml') != ''
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
@@ -174,7 +174,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Run when Ubuntu 3.12 finished, including when a macOS or Windows leg failed.
+    # Run when Ubuntu 3.13 finished, including when a macOS or Windows leg failed.
     if: >-
       github.event_name == 'pull_request' &&
       always() &&
@@ -188,7 +188,7 @@ jobs:
           # Full history so diff-cover can diff against the base branch.
           fetch-depth: 0
 
-      - name: Download coverage.xml from Ubuntu 3.12
+      - name: Download coverage.xml from Ubuntu 3.13
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: coverage-xml
@@ -197,7 +197,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml
@@ -240,7 +240,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           enable-cache: true
           cache-dependency-glob: |
             pyproject.toml

@@ -6,7 +6,7 @@
 name = "node-wire-http"
 version = "1.0.0"
 description = "Node Wire connector — generic HTTP REST client (GET/POST/PUT/DELETE/PATCH)"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
@@ -16,8 +16,7 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Internet :: WWW/HTTP",
   "Topic :: System :: Networking",

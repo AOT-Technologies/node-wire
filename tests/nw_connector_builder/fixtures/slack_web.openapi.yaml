@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Shaped like Slack's published Web API spec: one oauth2 scheme with an
+# authorizationCode flow guarding every operation (host-supplied tier).
+openapi: 3.0.3
+info:
+  title: Slack Web API
+  version: 1.7.0
+servers:
+  - url: https://slack.com/api
+security:
+  - slackAuth: ["chat:write"]
+paths:
+  /chat.postMessage:
+    post:
+      operationId: chat_postMessage
+      summary: Sends a message to a channel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, text]
+              properties:
+                channel:
+                  type: string
+                text:
+                  type: string
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                  error:
+                    type: string
+                  ts:
+                    type: string
+  /conversations.list:
+    get:
+      operationId: conversations_list
+      summary: Lists all channels in a Slack team.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                  error:
+                    type: string
+                  channels:
+                    type: array
+                    items:
+                      type: object
+components:
+  securitySchemes:
+    slackAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://slack.com/oauth/v2/authorize
+          tokenUrl: https://slack.com/api/oauth.v2.access
+          scopes:
+            "chat:write": Post messages
+            "channels:read": List channels

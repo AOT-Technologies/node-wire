@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 This project uses **Ruff** for linting and formatting, **Mypy** for static type checking, **Bandit** for SAST, **pip-audit** for dependency vulnerability checks, and **REUSE** for open-source licensing compliance.
 
-Linting and type checks run automatically in CI on pull requests against the `main` branch via `.github/workflows/lint.yml`. Security and package compliance checks are additionally enforced through `.github/workflows/quality-gates.yml` and `.github/workflows/security-pr.yml`.
+This page owns the commands you run **locally**. What CI enforces, and which checks branch protection requires, is in [Quality and security gates](quality-security-gates.md).
 
 ## Manual usage for developers
 
@@ -29,6 +29,57 @@ Then run the local quality checks:
 ```bash
 mypy src tests
 ```
+
+## Tests
+
+```bash
+uv run pytest tests/ -v
+```
+
+`tests/playground/` (integration tests against real connector credentials) is excluded by default
+via `--ignore=tests/playground` in `pyproject.toml`'s pytest `addopts`. Run it explicitly with the
+relevant secret env vars set (see the `playground-integration` job in `.github/workflows/pytest.yml`):
+`uv run pytest tests/playground/ --no-cov -v`.
+
+`tests/conftest.py` fixes the environment before imports so collection is deterministic:
+`NW_REST_LOAD_DOTENV=false` (no repo-root `.env` merge),
+`NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml`, and `NW_ALLOWED_CONNECTORS` set to the
+eight publishable connectors. Do not rely on `.env` values during pytest collection.
+
+## Security scans
+
+Bandit, with the same scan roots and failure threshold as CI:
+
+```bash
+uv run bandit -c pyproject.toml \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  --severity-level high
+
+# Optional: JSON report + the same summary CI prints
+uv run bandit -c pyproject.toml \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -f json -o bandit-report.json --exit-zero
+python scripts/bandit_report_summary.py bandit-report.json
+```
+
+If legacy findings block adoption, create a baseline once and track deltas with
+`--baseline bandit-baseline.json`.
+
+Secret scanning with [Gitleaks](https://github.com/gitleaks/gitleaks) (for example `brew install gitleaks`):
+
+```bash
+gitleaks detect --source . --redact --verbose                        # working tree
+gitleaks detect --source . --redact --verbose --log-opts="--all"     # full history, as CI does
+```
+
+## Docs checks
+
+```bash
+uv run --group docs mkdocs build --strict      # dead links, bad anchors, missing nav files
+uv run pytest tests/test_docs_lifecycle.py     # lifecycle split, public API, package inventory
+```
+
+The rules these enforce are in [Changing the docs](reading.md#changing-the-docs).
 
 ## Pre-commit hooks
 

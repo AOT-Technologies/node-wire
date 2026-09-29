@@ -61,7 +61,7 @@ config = McpClientConfig(
 | `auth.token.refreshLeadSeconds` | `60` | Proactive refresh lead time |
 | `auth.token.store` | `os-keychain` | Token storage backend: `os-keychain` or `configured-secret-store` (`NW_MCP_OAUTH_TOKEN_STORE`) |
 
-`configured-secret-store` persists tokens through the same host-managed `SecretProvider` overlay every other runtime credential write uses (`OverlaySecretProvider` — see `SecretProviderTokenStore` in `mcp_client/token_storage.py`), not raw `os.environ`. Like the analogous oauth2 refresh-token rotation pattern in [`nw-connector-builder-scope.md`](nw-connector-builder-scope.md#oauth2-authorizationcode), this write is **process-local only** — Node Wire does not own durable secret storage. A host that needs the token to survive a restart must persist it itself via whatever backend it configures (env, AWS/Azure/GCP/Vault, or its own config-store-driven overlay writes).
+`configured-secret-store` persists tokens through the same host-managed `SecretProvider` overlay every other runtime credential write uses (`OverlaySecretProvider` — see `SecretProviderTokenStore` in `mcp_client/token_storage.py`), not raw `os.environ`. Like the analogous host-supplied credential tier for generated connectors in [`nw-connector-builder-scope.md`](cli/nw-connector-builder-scope.md#host-supplied-auth-tier), this write is **process-local only** — Node Wire does not own durable secret storage. A host that needs the token to survive a restart must persist it itself via whatever backend it configures (env, AWS/Azure/GCP/Vault, or its own config-store-driven overlay writes).
 
 ## Discovery
 

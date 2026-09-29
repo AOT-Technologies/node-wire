@@ -108,7 +108,7 @@ def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
     ):
         result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store", "--force-output"])
     assert result.exit_code == 0, result.output
-    mcp.assert_called_once_with(fake_root, "pet_store", force_output=True)
+    mcp.assert_called_once_with(fake_root, "pet_store", force_output=True, tool_mode="list")
 
 
 def test_docker_build_subprocess(fake_root: Path) -> None:

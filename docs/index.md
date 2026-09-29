@@ -18,94 +18,55 @@ SPDX-License-Identifier: Apache-2.0
 
 Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
-## Prerequisites
+## Quick start
 
-Before getting started, see the [Installation guide](installation.md) for full setup. You will need Python 3.11+, `uv` (recommended) or `pip`, Git, and optionally Docker (MCP server images) and Node.js (MCP Inspector).
-
-## Quick Start
+You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). The [Installation guide](installation.md) covers the rest.
 
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --extra agents --dev
-cp sample.env .env
+cp sample.env .env                  # set NW_ALLOWED_CONNECTORS, e.g. http_generic
 export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/* and /ready return 503 until auth is configured
 MODE=API uv run node-wire
 ```
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI, or the [playground](http://localhost:8000/playground/) for interactive connector demos.
 
-## Key Sections
+## Where to start
 
 <div class="grid cards" markdown>
 
--   **Getting Started**
+-   **Run it**
 
-    Set up your environment and configure connectors.
+    Install, configure the `NW_*` variables, and turn on multi-tenancy.
 
-    [:octicons-arrow-right-24: Installation](installation.md)
+    [:octicons-arrow-right-24: Installation](installation.md) · [Configuration](configuration.md) · [Tenancy](architecture/tenancy.md)
 
--   **Architecture**
+-   **Call a connector**
 
-    Understand the three-layer design: Runtime, Connectors, and Bindings.
+    Use a shipped connector in-process or over REST, per tenant.
 
-    [:octicons-arrow-right-24: Architecture](architecture.md)
+    [:octicons-arrow-right-24: Use a connector](connectors.md) · [Connector catalog](connector-reference.md#connector-catalog)
 
--   **Connectors**
+-   **Build or generate a connector**
 
-    Build or configure integrations with Google Drive, Salesforce, Slack, and more.
+    Write one by hand, or generate one from an OpenAPI spec with `nw`.
 
-    [:octicons-arrow-right-24: Connectors Guide](connectors.md)
+    [:octicons-arrow-right-24: Build a connector](connectors-build.md) · [CLI](cli/index.md)
 
--   **OpenAPI Builder**
+-   **Deploy MCP**
 
-    Generate a REST connector (and optional MCP host) from a Swagger/OpenAPI spec.
+    Expose connectors to AI agents: one process, per-connector images, or `nw gen-stacklok`.
 
-    [:octicons-arrow-right-24: nw-connector-builder](nw-connector-builder.md)
-
--   **nw CLI**
-
-    One-shot OpenAPI → connector → wheels → MCP host → Docker image pipeline.
-
-    [:octicons-arrow-right-24: nw CLI](nw-cli.md)
-
--   **MCP Integration**
-
-    Deploy connectors as Model Context Protocol servers for AI agents.
-
-    [:octicons-arrow-right-24: MCP Overview](mcp.md)
-
--   **Multi-tenancy**
-
-    Isolate tenants by header/JWT, with per-tenant named configs and secrets.
-
-    [:octicons-arrow-right-24: Multi-tenancy](configuration.md#multi-tenancy)
+    [:octicons-arrow-right-24: MCP overview](mcp.md#which-mcp-path)
 
 </div>
 
-## Available Connectors
+New to the codebase? The [reading map](reading.md) gives the order: architecture, domain, seams, the `run()` pipeline, then topic branches. The reasons behind past decisions are in the [ADRs](adr/index.md).
 
-| Connector | Protocol | Doc |
-|---|---|---|
-| Google Drive | REST + OAuth | [Guide](google_drive_connector.md) |
-| Salesforce | REST | [Guide](salesforce_connector.md) |
-| Slack | Web API | [Guide](slack_connector.md) |
-| SMTP | Email | [Connectors](connectors.md) |
-| Stripe | REST | [Connectors](connectors.md) |
-| FHIR Epic | SMART on FHIR | [Connectors](connectors.md) |
-| FHIR Cerner | SMART on FHIR | [Connectors](connectors.md) |
-| HTTP Generic | REST bridge | [Connectors](connectors.md) |
-
-## Docs map
-
-| Area | Pages |
-|---|---|
-| MCP | [Overview](mcp.md) · [MCP host builder](mcp-servers.md) · [Client OAuth](mcp-client-oauth.md) · [ToolHive scenario](toolhive_agent_scenario.md) |
-| Packaging & release | [Packaging](packaging.md) · [Versioning](versioning.md) · [Release rollback](release-rollback.md) · [Local wheels → images](local-packages-to-images.md) |
-| Development | [Contributing](contributing.md) · [Code quality](code-quality-compliance.md) · [Quality & security gates](quality-security-gates.md) · [Public API](public-api.md) · [Troubleshooting](troubleshooting.md) |
-| Compliance | [Privacy](privacy.md) · [HIPAA considerations](compliance/hipaa-considerations.md) |
-| Builder scope | [What OpenAPI codegen supports](nw-connector-builder-scope.md) |
+Shipped connectors: Google Drive, Salesforce, Slack, SMTP, Stripe, FHIR Epic, FHIR Cerner and HTTP Generic. See the [catalog](connector-reference.md#connector-catalog).
 
 ## Contributing
 
-Contributions are welcome. See the [Contributing guide](contributing.md) for development setup, quality checks, and DCO requirements.
+Contributions are welcome. See the [Contributing guide](contributing.md) for development setup, quality checks, and DCO requirements, and [Changing the docs](reading.md#changing-the-docs) before you edit a page.

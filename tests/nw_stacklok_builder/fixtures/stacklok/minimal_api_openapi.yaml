@@ -1,0 +1,28 @@
+openapi: "3.0.3"
+info:
+  title: Minimal API (subset)
+  version: v1
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+components:
+  schemas:
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        uptime:
+          type: integer
+        version:
+          type: string
+      required:
+        - status

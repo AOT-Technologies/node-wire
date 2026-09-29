@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import os
 from typing import Any, ClassVar, Dict, Mapping, Optional, Type
@@ -42,6 +43,38 @@ class RestResponseOutput(BaseModel):
     body: Any = None
 
 
+class RestEnvelopeError(Exception):
+    """A 2xx response whose declared success flag reported failure.
+
+    Some APIs answer ``200 OK`` with ``{"ok": false, "error": "..."}`` instead of
+    an HTTP error status. Nothing above this layer can tell that apart from a
+    successful call, so the connector would report success for a failed request.
+    Raised only when the caller passes ``envelope_ok_field`` — see
+    :meth:`RestConnector.execute_rest`.
+    """
+
+    def __init__(self, field: str, payload: Dict[str, Any]) -> None:
+        self.field = field
+        self.payload = payload
+        detail = payload.get("error")
+        # `error` is this envelope convention's companion to the flag. Truncated:
+        # some APIs return a whole nested object there, and this string reaches logs.
+        suffix = f": {str(detail)[:200]}" if isinstance(detail, str) and detail else ""
+        super().__init__(f"API reported {field}=false{suffix}")
+
+
+def _check_envelope(payload: Any, field: Optional[str]) -> None:
+    """Raise :class:`RestEnvelopeError` when ``payload[field]`` is literally ``false``.
+
+    A missing field is not a failure: the flag is only meaningful when the API
+    actually sent it, and absence means the response said nothing either way.
+    """
+    if not field or not isinstance(payload, dict):
+        return
+    if payload.get(field) is False:
+        raise RestEnvelopeError(field, payload)
+
+
 def _field_extra(model: BaseModel, name: str) -> dict[str, Any]:
     field = type(model).model_fields.get(name)
     if field is None:
@@ -63,7 +96,19 @@ def split_params_by_location(
     Any | None,
     str | None,
 ]:
-    """Split a typed input model into path/query/header/body using ``nw_in`` metadata."""
+    """Split a typed input model into path/query/header/body using ``nw_in`` metadata.
+
+    The body comes from one of two field shapes, never both:
+
+    * ``nw_in="body"`` — a single field holding the whole body (hand-written
+      connectors, and generated ones whose body is not an object with declared
+      properties).
+    * ``nw_in="body_property"`` — one field per property of an object body, keyed
+      on the wire by ``nw_wire_name``. Generated connectors use this so the call
+      contract is flat. The body is sent even when no property is set (``{}``):
+      the operation declares one, and an empty object is valid where a missing
+      body may not be.
+    """
     path: dict[str, Any] = {}
     query: dict[str, Any] = {}
     header: dict[str, Any] = {}
@@ -71,6 +116,7 @@ def split_params_by_location(
     media_type: str | None = None
 
     data = params.model_dump(by_alias=False, exclude_none=True)
+    body_props, props_media = _collect_body_properties(params, data)
     for name, value in data.items():
         if name == "action":
             continue
@@ -89,9 +135,53 @@ def split_params_by_location(
         elif loc == "body":
             body = getattr(params, name, value)
             media_type = extra.get("nw_media_type") or "application/json"
-        # Unknown / missing nw_in: ignore (action discriminator already skipped)
+        # body_property fields were collected above. Unknown / missing nw_in:
+        # ignore (action discriminator already skipped).
+
+    if body_props is not None:
+        body, media_type = body_props, props_media
 
     return path, query, header, body, media_type
+
+
+def _collect_body_properties(
+    params: BaseModel, data: Mapping[str, Any]
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Assemble ``nw_in="body_property"`` fields into a body dict, or ``(None, None)``.
+
+    Walks the model's declared fields, not just the set ones, so a model with only
+    unset optional properties still yields ``{}``. Raises ``ValueError`` for a
+    model that is malformed as generated code: properties disagreeing on media
+    type, or a whole-body field declared alongside them.
+    """
+    body: dict[str, Any] | None = None
+    media: str | None = None
+    has_whole_body = False
+    for name in type(params).model_fields:
+        extra = _field_extra(params, name)
+        loc = extra.get("nw_in")
+        if loc == "body":
+            has_whole_body = True
+            continue
+        if loc != "body_property":
+            continue
+        field_media = extra.get("nw_media_type") or "application/json"
+        if media is not None and field_media != media:
+            raise ValueError(
+                f"{type(params).__name__}: body_property fields disagree on media type "
+                f"({media!r} vs {field_media!r})"
+            )
+        media = field_media
+        if body is None:
+            body = {}
+        if name in data:
+            body[extra.get("nw_wire_name") or name] = data[name]
+    if body is not None and has_whole_body:
+        raise ValueError(
+            f"{type(params).__name__}: declares both a whole-body field (nw_in='body') "
+            "and body_property fields"
+        )
+    return body, media
 
 
 def encode_param_value(
@@ -180,6 +270,28 @@ def _body_to_jsonable(body: Any) -> Any:
     return body
 
 
+def _form_field_value(value: Any) -> Optional[str]:
+    """Render one value for an ``x-www-form-urlencoded`` / multipart form field.
+
+    ``str()`` is wrong for three JSON types that reach here routinely:
+
+    * ``bool`` renders as ``True``/``False``; every API this layer talks to reads
+      form values as JSON-ish text and expects ``true``/``false``.
+    * ``dict`` / ``list`` render as a Python repr with single quotes, which is not
+      JSON — Slack rejects a ``blocks`` field encoded that way with
+      ``invalid_arguments``.
+    * ``None`` renders as the string ``"None"``, i.e. an omitted optional field
+      becomes the literal text. Returning ``None`` here drops the field instead.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, separators=(",", ":"))
+    return str(value)
+
+
 def _encode_request_body(
     body: Any,
     media_type: str | None,
@@ -196,7 +308,8 @@ def _encode_request_body(
         data = _body_to_jsonable(body)
         if not isinstance(data, dict):
             raise ValueError("form-urlencoded body must be an object")
-        return {"data": {str(k): str(v) for k, v in data.items()}}
+        encoded = {str(k): _form_field_value(v) for k, v in data.items()}
+        return {"data": {k: v for k, v in encoded.items() if v is not None}}
 
     if mt.startswith("multipart/"):
         data = _body_to_jsonable(body)
@@ -216,7 +329,9 @@ def _encode_request_body(
             if isinstance(val, (bytes, bytearray)):
                 files.append((key, (key, bytes(val))))
             else:
-                form_data[key] = str(val)
+                rendered = _form_field_value(val)
+                if rendered is not None:
+                    form_data[key] = rendered
         kwargs: dict[str, Any] = {}
         if form_data:
             kwargs["data"] = form_data
@@ -315,8 +430,15 @@ class RestConnector(BaseConnector):
         trace_id: str,
         auth: bool = True,
         auth_scheme: Optional[str] = None,
+        envelope_ok_field: Optional[str] = None,
     ) -> Any:
-        """Execute an HTTP call using ``nw_in`` field metadata on ``params``."""
+        """Execute an HTTP call using ``nw_in`` field metadata on ``params``.
+
+        ``envelope_ok_field`` names a boolean field in the JSON body that the API
+        sets to ``false`` to report failure while still answering ``2xx``. When
+        given and the field comes back ``false``, raises :class:`RestEnvelopeError`
+        instead of returning a response that looks successful. Defaults to off.
+        """
         base = self.resolve_base_url()
         path_params, query_params, header_params, body, media_type = split_params_by_location(
             params
@@ -395,6 +517,7 @@ class RestConnector(BaseConnector):
                     body_val = response.text
             else:
                 body_val = response.text if response.content else None
+            _check_envelope(body_val, envelope_ok_field)
             return RestResponseOutput(
                 status_code=response.status_code,
                 headers=resp_headers,
@@ -410,4 +533,5 @@ class RestConnector(BaseConnector):
             raise ValueError(
                 f"Expected JSON response for {output_model.__name__}, got non-JSON body"
             ) from exc
+        _check_envelope(payload, envelope_ok_field)
         return output_model.model_validate(payload)

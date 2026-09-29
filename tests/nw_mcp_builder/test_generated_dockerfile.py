@@ -10,7 +10,7 @@ from pathlib import Path
 
 from nw_mcp_builder.generate.connector_project import (
     BINDINGS_DIST_PACKAGE,
-    PYTHON_312_SLIM_IMAGE,
+    PYTHON_313_SLIM_IMAGE,
     _dockerignore,
     _dockerfile,
 )
@@ -29,8 +29,8 @@ def _sample_dockerfile() -> str:
 
 def test_generated_dockerfile_is_digest_pinned_and_non_root() -> None:
     text = _sample_dockerfile()
-    assert text.count(f"FROM {PYTHON_312_SLIM_IMAGE}") == 2  # deps + runtime
-    assert f"FROM {PYTHON_312_SLIM_IMAGE} AS deps" in text
+    assert text.count(f"FROM {PYTHON_313_SLIM_IMAGE}") == 2  # deps + runtime
+    assert f"FROM {PYTHON_313_SLIM_IMAGE} AS deps" in text
     assert "USER app" in text
     assert "USER root" not in text
     assert "HEALTHCHECK" in text
@@ -119,6 +119,6 @@ def test_repo_dockerfiles_share_generated_base_digest() -> None:
     assert files, "expected checked-in Dockerfiles"
     for path in files:
         contents = path.read_text(encoding="utf-8")
-        assert PYTHON_312_SLIM_IMAGE in contents, (
-            f"{path.relative_to(_REPO_ROOT)} must use {PYTHON_312_SLIM_IMAGE}"
+        assert PYTHON_313_SLIM_IMAGE in contents, (
+            f"{path.relative_to(_REPO_ROOT)} must use {PYTHON_313_SLIM_IMAGE}"
         )

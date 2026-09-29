@@ -1,0 +1,131 @@
+##
+## SPDX-FileCopyrightText: 2026 AOT Technologies
+## SPDX-License-Identifier: Apache-2.0
+##
+
+# End-to-end check for `nw gen-stacklok`: stacklok mcp-builder (vendored in nw-stacklok-builder/)
+# generating a ToolHive-ready MCP server that runs on the node-wire runtime and connectors.
+#
+# Builds the pet_store connector from stacklok's own Petstore scope, cp313 musllinux wheels
+# (cibuildwheel), the generated server's image (stacklok's DHI Alpine base), boots it with one
+# tenant, and calls it the way a ToolHive tenant proxy does (Authorization: Bearer + X-Tenant-ID)
+# against the public Petstore API.
+#
+# Opt-in: path-filtered on pull requests, forced on schedule / workflow_dispatch. Not a required
+# check. The Kubernetes side (MCPRemoteProxy headerForward, NetworkPolicy) is not exercised here.
+name: stacklok MCP e2e (pet-store)
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * 1"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CONNECTOR_ID: pet_store
+  SCOPE: tests/nw_stacklok_builder/fixtures/stacklok/petstore.yaml
+
+jobs:
+  changes:
+    name: Detect stacklok pipeline path changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      stacklok: ${{ steps.result.outputs.stacklok }}
+    steps:
+      - name: Checkout repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Path filter
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          filters: |
+            stacklok:
+              - "nw-stacklok-builder/**"
+              - "nw-cli/**"
+              - "nw-connector-builder/**"
+              - "packages/**"
+              - "src/bindings/**"
+              - "src/node_wire_runtime/**"
+              - "src/node_wire_toolhive/**"
+              - "scripts/build-packages.sh"
+              - "scripts/verify_stacklok_server.py"
+              - ".github/workflows/stacklok-e2e.yml"
+
+      - name: Set stacklok output
+        id: result
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
+            echo "stacklok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stacklok=${{ steps.filter.outputs.stacklok }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  stacklok-e2e:
+    name: gen-stacklok, build, boot, and call pet_store server
+    needs: changes
+    if: needs.changes.outputs.stacklok == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra agents --dev   # includes cibuildwheel
+
+      - name: nw gen-stacklok (connector -> image wheels -> stacklok server)
+        run: uv run nw gen-stacklok --scope "${SCOPE}" --connector-id "${CONNECTOR_ID}" --force
+
+      - name: Build the generated server image
+        run: docker build -t petstore-mcp:ci nw-stacklok-builder/out/petstore-mcp
+
+      - name: Run it with one tenant
+        run: |
+          set -euo pipefail
+          uv run python - <<'PY'
+          import yaml
+          ex = yaml.safe_load(open("nw-stacklok-builder/out/petstore-mcp/config/tenants.example.yaml"))
+          doc = ex["tenants"]["example-tenant"]["pet_store"][0]
+          yaml.safe_dump({"tenants": {"acme": {"pet_store": [doc]}}}, open("/tmp/tenants.yaml", "w"))
+          PY
+          docker run -d --name petstore-mcp -p 8100:8100 \
+            -v /tmp/tenants.yaml:/app/tenants/tenants.yaml:ro petstore-mcp:ci
+
+      - name: Call it like a ToolHive tenant proxy
+        run: |
+          uv run python scripts/verify_stacklok_server.py \
+            --scope "${SCOPE}" --tool find_pets_by_status --arguments '{"status": "available"}'
+
+      - name: Container logs
+        if: always()
+        run: docker logs petstore-mcp || true
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f petstore-mcp || true

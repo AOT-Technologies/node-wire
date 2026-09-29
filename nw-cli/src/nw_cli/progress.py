@@ -11,11 +11,13 @@ through :meth:`GenerateProgress.log` — never written to the raw TTY.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
-from rich.console import Console, ConsoleOptions, RenderResult
+from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -117,6 +119,17 @@ class _BlockBarColumn(BarColumn):
         )
 
 
+class _ActiveSpinnerColumn(SpinnerColumn):
+    """Spinner only on the running stage; pending stages show nothing."""
+
+    def render(self, task: Task) -> RenderableType:
+        # Skipped stages are added already complete, which Rich does not count as finished.
+        done = task.total is not None and task.completed >= task.total
+        if task.started and not done:
+            return super().render(task)
+        return Text(" ")
+
+
 class _SpacedProgress(Progress):
     """Progress display with a blank line between task rows."""
 
@@ -146,6 +159,8 @@ class Stage:
     status: StageStatus = StageStatus.PENDING
     task_id: TaskID | None = None
     error: str | None = None
+    # Shown under a failure; the default per-key hints are for `nw gen-all`.
+    hint: str | None = None
 
 
 @dataclass
@@ -184,7 +199,7 @@ class GenerateProgress:
 
     def __enter__(self) -> GenerateProgress:
         self._progress = _SpacedProgress(
-            SpinnerColumn(style=AMBER),
+            _ActiveSpinnerColumn(style=AMBER),
             TextColumn("[bold]{task.description}"),
             _BlockBarColumn(
                 bar_width=None,
@@ -217,6 +232,26 @@ class GenerateProgress:
                 )
             s.task_id = tid
         return self
+
+    @contextmanager
+    def paused(self) -> Iterator[None]:
+        """Suspend the live bars (e.g. to ask a question), then resume them."""
+        live = self._progress
+        if live is None:
+            yield
+            return
+        # Erase the bars while paused. A plain stop() leaves the last frame on screen, and after
+        # another program has used the terminal (the interactive Claude Code session) start()
+        # draws a second copy below it.
+        display = live.live
+        transient = display.transient
+        display.transient = True
+        live.stop()
+        try:
+            yield
+        finally:
+            display.transient = transient
+            live.start()
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         if self._progress is not None:
@@ -298,7 +333,7 @@ class GenerateProgress:
                     "mcp": "Ensure wheels exist, then: nw gen-mcp --connector-id <id>",
                     "wire": "Check scripts/build-packages.sh ALL_PACKAGES block.",
                 }
-                hint = f"\n{hints.get(failed.key, '')}"
+                hint = f"\n{failed.hint or hints.get(failed.key, '')}"
                 msg = f"Failed at stage [bold]{failed.label}[/bold]: {failed.error}{hint}"
             else:
                 msg = "Generate failed."

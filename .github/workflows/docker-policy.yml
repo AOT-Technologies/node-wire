@@ -65,9 +65,9 @@ jobs:
           done
           gen="nw-mcp-builder/src/nw_mcp_builder/generate/connector_project.py"
           echo "Checking generated template $gen"
-          if ! grep -qE 'python:3.12-slim@sha256:[a-f0-9]{64}' "$gen"; then
-            echo "::error::${gen} must pin python:3.12-slim@sha256:<64-hex-digest>"
-            echo "ERROR: $gen must pin python:3.12-slim@sha256:<64-hex-digest>" >&2
+          if ! grep -qE 'python:3.13-slim@sha256:[a-f0-9]{64}' "$gen"; then
+            echo "::error::${gen} must pin python:3.13-slim@sha256:<64-hex-digest>"
+            echo "ERROR: $gen must pin python:3.13-slim@sha256:<64-hex-digest>" >&2
             exit 1
           fi
           if ! grep -qE 'FROM .+ AS deps' "$gen"; then

@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| Python | 3.11+ | Required to run the platform |
+| Python | 3.13+ | Required to run the platform |
 | `uv` or `pip` | Latest | `uv` is recommended for local development |
 | Git | Any recent version | Required to clone the repository |
 | Docker | Latest | Required for MCP server image builds and `docker-compose.mcp.yml` |
@@ -39,7 +39,7 @@ copy sample.env .env
 loads no connectors — fail-closed. Full reference:
 [Configuration — Required Variables](configuration.md#required-variables).)*
 
-By default the platform is single-tenant (every call resolves to `__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file (defaults to `config/tenants.yaml`). See [Configuration — Multi-tenancy](configuration.md#multi-tenancy).
+The platform is single-tenant by default. To isolate callers by tenant, see [Tenancy](architecture/tenancy.md).
 
 ### 3. Install dependencies
 
@@ -87,14 +87,17 @@ Node Wire supports REST, gRPC, and MCP entry modes:
 | gRPC | `MODE=GRPC uv run node-wire` | `50051` | gRPC clients |
 | MCP | `python -m agents.mcp_entrypoint` | `stdio` or HTTP | AI agents, ToolHive, Inspector |
 
-### REST quick start
+### REST API
 
 ```bash
-# Local development only
-export NW_REST_AUTH_DISABLED=true
+# Bash (Linux/macOS)
+export NW_REST_AUTH_DISABLED=true   # local development only
+MODE=API uv run node-wire           # or: MODE=API python -m bindings_entrypoint
+```
 
-# Start the API
-uv run node-wire
+```powershell
+# PowerShell (Windows)
+$env:NW_REST_AUTH_DISABLED="true"; $env:MODE="API"; uv run node-wire
 ```
 
 Once it is running:
@@ -103,34 +106,28 @@ Once it is running:
 - Swagger UI: `http://localhost:8000/docs`
 - Playground: `http://localhost:8000/playground/`
 
+`MODE=MCP` is not a working server. Run MCP with `python -m agents.mcp_entrypoint` ([MCP overview](mcp.md)).
+
+### Optional: telemetry stack (Grafana / OpenTelemetry)
+
+To see traces and connector logs locally, start the bundled Grafana stack before the platform:
+
+```bash
+cd grafana && docker compose up -d
+```
+
+See `grafana/README.md` for what it runs.
+
 ### MCP notes
 
 For MCP transport modes, Inspector usage, and multi-server deployment:
 
-- See [mcp.md](mcp.md) for transport setup and local MCP usage.
-- See [packaging.md](packaging.md) for pre-built per-connector Docker images and ToolHive deployment.
-- See [mcp-servers.md](mcp-servers.md) to generate a custom standalone MCP host with `nw-mcp-builder`.
+- See [MCP overview](mcp.md#which-mcp-path) to choose between the combined server, per-connector images and `nw gen-stacklok`.
 
 ---
 
 ## Development Setup
 
-### Code Quality (Linting & Formatting)
-We use **Ruff** for linting/formatting and **Mypy** for type checking.
-
-- **Check:** `ruff check .`
-- **Fix:** `ruff check --fix . && ruff format .`
-- **Types:** `mypy`
-
-`mypy` defaults to the `[tool.mypy].files` targets from `pyproject.toml`. To include tests explicitly, run `mypy src tests`.
-
-### Pre-commit Hooks
-```bash
-pre-commit install
-```
-
-### Running Tests
-```bash
-uv run pytest tests/ -v
-```
-`tests/playground/` (integration tests against real connector credentials) is excluded by default via `--ignore=tests/playground` in `pyproject.toml`'s pytest `addopts` — run it explicitly with the relevant secret env vars set (see `.github/workflows/pytest.yml`'s `playground-integration` job) if you need it: `uv run pytest tests/playground/ --no-cov -v`.
+Lint, type-check, test and pre-commit commands are in [Code quality](code-quality-compliance.md).
+Contribution rules (DCO, license headers, PRs) are in
+[`CONTRIBUTING.md`](https://github.com/AOT-Technologies/node-wire/blob/main/CONTRIBUTING.md).

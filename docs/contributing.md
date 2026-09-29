@@ -14,6 +14,6 @@ license-header requirements, and the PR process. This page is kept as a stub
 rather than a copy so there's a single source of truth — please read the root
 file directly rather than this one.
 
-See also: [Code Quality](code-quality-compliance.md) and
+See also: [Changing the docs](reading.md#changing-the-docs), [Code Quality](code-quality-compliance.md) and
 [Quality & Security Gates](quality-security-gates.md) for the full tooling
 reference.

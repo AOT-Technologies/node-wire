@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 from nw_mcp_builder.from_connector import format_success_message, run_from_connector
+from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB, terminal_chooser
 
 
 def _package_root() -> Path:
@@ -81,6 +82,31 @@ def add_mcp_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Python for wheel builds (sets UV_PYTHON)",
     )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--tool-search",
+        dest="tool_mode",
+        action="store_const",
+        const="search",
+        default=None,
+        help="Serve tools through nw_search_tools + nw_call_tool (for large connectors)",
+    )
+    mode.add_argument(
+        "--full-tool-list",
+        dest="tool_mode",
+        action="store_const",
+        const="list",
+        help="List every tool, even over the size budget (no prompt, no warning)",
+    )
+    parser.add_argument(
+        "--max-tool-listing-kb",
+        type=float,
+        default=DEFAULT_MAX_TOOL_LISTING_KB,
+        help=(
+            "Tool listing budget in KB; over it you are asked to choose full list or "
+            f"tool search (default {DEFAULT_MAX_TOOL_LISTING_KB:g})"
+        ),
+    )
     parser.add_argument(
         "-v",
         "--verbose",
@@ -112,6 +138,10 @@ def run_mcp_from_args(args: argparse.Namespace) -> None:
             force_fixture=args.force_fixture,
             force_output=args.force_output,
             python=args.python,
+            tool_mode=args.tool_mode,
+            max_tool_listing_kb=args.max_tool_listing_kb,
+            choose_tool_mode=terminal_chooser(),
+            notify=lambda message: print(f"warning: {message}", file=sys.stderr),
         )
     except (FileNotFoundError, FileExistsError, ValueError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)

@@ -6,6 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-connector-builder
 
+!!! note "Advanced — most users want the `nw` CLI"
+    `nw-connector-builder` is the standalone entry point and exposes the full flag surface.
+    For the normal path (spec → connector → wheels → MCP host → image) use
+    [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a
+    flag `nw` does not pass through, or are debugging this stage on its own.
+
 Self-contained tool inside the **node-wire** repo with two subcommands:
 
 | Command | Purpose |
@@ -13,7 +19,7 @@ Self-contained tool inside the **node-wire** repo with two subcommands:
 | `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
 | `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
 
-Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](mcp-servers.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](connectors.md).
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [Build a connector](../connectors-build.md).
 
 ---
 
@@ -38,20 +44,26 @@ Generated output lands in the monorepo (not under `nw-connector-builder/`):
 ## What it does (end to end)
 
 ```mermaid
-flowchart LR
-  spec[OpenAPI / Swagger]
-  load["Load spec<br/>(file or URL)"]
-  normalize["Normalize<br/>Swagger 2.0 → 3.x"]
-  validate["Resolve refs<br/>+ validate"]
-  derive[Derive actions]
-  stage[Stage codegen]
-  gate[Import + pytest gate]
-  promote[Promote to repo]
-  mcp[MCP hand-off]
-  wire["--wire config"]
-  spec --> load --> normalize --> validate --> derive --> stage --> gate --> promote
-  promote --> mcp
-  promote --> wire
+flowchart TB
+    spec[/"OpenAPI / Swagger spec"/] --> load["1 · Load<br/>file or URL"]
+    load --> normalize["2 · Normalize<br/>Swagger 2.0 → OpenAPI 3.x"]
+    normalize --> validate["3 · Validate<br/>resolve refs, reject remote $ref"]
+    validate --> derive["4 · Derive<br/>auth plan + actions"]
+    derive --> codegen["5 · Codegen<br/>stage schema.py + logic.py"]
+    codegen --> gate{"6 · Gate<br/>import smoke + pytest"}
+    gate -- "fail" --> abort(["exit 1 · report.json<br/>repo left untouched"])
+    gate -- "pass" --> promote["7 · Promote<br/>atomic, two-phase"]
+    promote --> mcp["8 · MCP hand-off"]
+    promote --> wire["9 · Wire (--wire)"]
+
+    classDef step fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
+    classDef gateC fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
+    classDef term fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
+    classDef bad fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
+    class load,normalize,validate,derive,codegen,promote,mcp,wire step
+    class gate gateC
+    class spec term
+    class abort bad
 ```
 
 For a connector id like `pet_store`:
@@ -72,7 +84,7 @@ Promote never runs if the gate fails. MCP or `--wire` failures after a clean pro
 
 ## Requirements
 
-- **Python 3.11+**
+- **Python 3.13+**
 - **[uv](https://docs.astral.sh/uv/)** (recommended) or an editable install of the package
 - Run from / against a **node-wire** checkout (default `--node-wire-root` is the parent of `nw-connector-builder/`)
 - For URL specs: network access; fetches use Node Wire’s HTTP safety checks (`assert_safe_destination`) and do not follow redirects
@@ -143,7 +155,7 @@ uv sync
 uv run python -m pet_store_nw_mcp
 ```
 
-See [mcp-servers.md](mcp-servers.md) for ToolHive, Linux wheels, and Inspector.
+See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, Linux wheels, and Inspector.
 
 ### 4. Tests for the builder itself
 
@@ -180,7 +192,7 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 
 ### `mcp`
 
-Same flags as standalone `nw-mcp-builder` (see [mcp-servers.md](mcp-servers.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
+Same flags as standalone `nw-mcp-builder` (see [nw-mcp-builder](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
 
 Help:
 
@@ -209,9 +221,12 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 | Sources | Local file path, or `http` / `https` URL |
 | Remote `$ref` | **Rejected** — absolute remote refs are not fetched; keep a self-contained document (local relative/`#/` refs OK) |
 | Validation | Resolved with `prance` + validated with `openapi-spec-validator` |
+| Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see below) |
 | Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
 
----
+Draft-4 constructs that OpenAPI 3.0 forbids (and the Swagger 2.0 `examples` move) are
+rewritten rather than rejected — see [codegen behaviour](nw-connector-builder-codegen.md#spec-repair).
+
 
 ## Auth mapping
 
@@ -223,50 +238,42 @@ The builder picks **one connector-level default** security scheme (document `sec
 | `apiKey` in `query` | `apikey_query` | `<ID>_API_KEY` |
 | `http` + `bearer` | `static_token` | `<ID>_TOKEN` |
 | `http` + `basic` | `static_token` (`prefix: Basic`, base64) | `<ID>_BASIC_AUTH` |
-| `oauth2` flow `clientCredentials` | `oauth2` (`grant_method: client_secret_post`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET` |
-| `oauth2` flow `authorizationCode` | `oauth2` (`grant_method: refresh_token`) | `<ID>_CLIENT_ID`, `<ID>_CLIENT_SECRET`, `<ID>_REFRESH_TOKEN` (manual one-time step) |
-| `oauth2` with no unattended flow (`implicit` / `password` / none declared), or `openIdConnect` | `static_token` (`prefix: Bearer`, `host_supplied: true`) | `<ID>_ACCESS_TOKEN` |
+| `oauth2` (any flow) or `openIdConnect` | `static_token` (`prefix: Bearer`, `host_supplied: true`) | `<ID>_ACCESS_TOKEN` |
 | None / unsupported only | `none` (anonymous) | — |
 
-`<ID>_TOKEN_URL` is also emitted for both `oauth2` rows, pre-filled in `sample.env` with the
-spec's `tokenUrl` (public API metadata, not a secret — kept as a reference like the rest of the
-block so a sandbox/prod override never needs a code change). `authorizationCode` additionally
-requires completing an interactive consent **outside** Node Wire before `<ID>_REFRESH_TOKEN` can
-be set — see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#oauth2-authorizationcode).
+Secret names come from the connector id and the credential kind, so a second scheme of the same
+kind would otherwise reuse the first one's secret. When that happens the extra scheme is emitted
+under `auth_schemes:` with its name folded in — `<ID>_<SCHEME>_ACCESS_TOKEN`,
+`<ID>_<SCHEME>_API_KEY`, and so on. The build report's
+`auth.notes` name the scheme and, when the OpenAPI document declares them, the
+`authorizationUrl` / `tokenUrl` for the host to call — those URLs are documentation only;
+the connector never POSTs to a token endpoint.
 
-### Host-supplied tier
+`oauth2` and `openIdConnect` become a **host-supplied** bearer: Node Wire presents
+`<ID>_ACCESS_TOKEN` but never obtains, refreshes or detects the expiry of it. Operations that need a
+different but still-presentable scheme get a named entry under `auth_schemes:` instead of being
+dropped. `mutualTLS`, cookie API keys, AND-combined requirements and unrecognized types are
+soft-dropped. What each of these means, and why: the generator contract's
+[host-supplied tier](nw-connector-builder-scope.md#host-supplied-auth-tier) and
+[per-action auth schemes](nw-connector-builder-scope.md#per-action-auth-schemes).
 
-`oauth2` flows Node Wire cannot run unattended (`implicit`, `password`, or no flow the generator recognizes) and `openIdConnect` are **not** soft-dropped — they map to a **host-supplied** bearer token: Node Wire presents whatever value sits in `<ID>_ACCESS_TOKEN` as a plain `Bearer` header but never obtains, refreshes, or detects the expiry of it. The operator's host application is responsible for acquiring and rotating that token out-of-band. This is presentation only, never described as "supports implicit/password" — the acquisition ban on those flows is unchanged, see [nw-connector-builder-scope.md](nw-connector-builder-scope.md#out-of-scope). The build report's `auth.notes` spells out which scheme triggered it and the exact secret key to set.
+---
 
-**"Presents a bearer token" is not the same claim as "supports the flow."** At runtime this tier is the exact same `static_token` provider as a plain `http: bearer` scheme — Node Wire never calls a token endpoint or performs a grant exchange for it. It will happily present *any* bearer string, OAuth2-derived or not; that's a much weaker guarantee than the autonomous acquire-and-refresh behavior `clientCredentials`/`authorizationCode` actually get. See [nw-connector-builder-scope.md](nw-connector-builder-scope.md#host-supplied-auth-tier) for the full reasoning, including why `implicit` in particular carries a real operational cost (no refresh token by spec — the host must redo the full interactive consent every time the token expires).
+## How generated code is shaped
 
-### Per-action auth schemes
-
-Operations that require a **different, still-presentable** scheme than the connector-level default (self-managed or host-supplied — anything except `mutualTLS`, cookie `apiKey`, AND-multi, or an unrecognized type) are no longer soft-dropped as divergent. Instead the builder emits an **additional, named** scheme in `auth_schemes:` (alongside the default `auth:` block) and routes just those actions to it via `auth_scheme=<scheme_name>` on the generated `@nw_action` call — the runtime resolves it with `resolve_auth_provider(auth_scheme)`, which fails closed on an unknown name. This is what lets one connector serve multiple OpenAPI security schemes from a single instance — e.g. `petstore.swagger.io`, where most operations use an `apiKey` default but a handful require an `oauth2` (`implicit`) scheme that's now generated as a host-supplied `auth_schemes` entry instead of being dropped.
-
-**Still soft-dropped** as unsupported (operations that require only these are skipped):
-
-- `mutualTLS`
-- Cookie API keys (`apiKey` `in: cookie`)
-- AND multi-scheme requirements (`security: [{ a: [], b: [] }]`)
-- Unrecognized scheme types
+Tool and parameter descriptions, action naming, the flat request-body contract, dropped
+credential parameters and success-flag (`ok: false`) envelopes are covered in
+[codegen behaviour](nw-connector-builder-codegen.md).
 
 ---
 
 ## Soft-drop rules
 
-Unsupported operations are **skipped** (listed in the report) rather than aborting the build — unless **zero** operations remain (hard failure).
-
-Common soft-drop reasons:
-
-- Unsupported / divergent / AND-multi security
-- `in: cookie` parameters
-- Unsupported serialization styles (e.g. query `deepObject`, non-`simple` path/header styles)
-- Unresolved parameter `$ref`s after the load step
-
-A **coverage warning** is printed when fewer than 50% of document operations were generated.
-
-Path/operation-level `servers` are ignored in v1 (noted in the report).
+Unsupported operations are skipped and listed in the report. The build aborts only if **zero**
+operations remain, and it warns when fewer than 50% of document operations were generated. The
+full list of what is soft-dropped, and why, is the generator contract's
+[Out of scope](nw-connector-builder-scope.md#out-of-scope) and
+[Soft-drop vs. hard failure](nw-connector-builder-scope.md#soft-drop-vs-hard-failure).
 
 ---
 
@@ -278,7 +285,8 @@ After promote:
 src/node_wire_<id>/
   __init__.py
   schema.py          # Pydantic input models + outputs (or RestResponseOutput)
-  logic.py           # RestConnector subclass with @nw_action methods (no error_map by default)
+  logic.py           # RestConnector subclass with @nw_action methods + declare_secret_shape()
+  README.md          # actions table + the credential contract for this connector
 
 packages/connectors/<id>/
   pyproject.toml     # entry point + deps
@@ -315,13 +323,16 @@ Promote is a two-phase commit across both trees (`src/node_wire_<id>` and `packa
 
 If either destination already exists, you must pass **`--force`**.
 
+`--force` only replaces output this tool wrote. If `src/node_wire_<id>/logic.py` exists without the `# Generated by nw-connector-builder` marker, the build is refused before staging — a hand-written connector sharing the id would otherwise be deleted, and the generated package's `declare_secret_shape()` call would replace that connector's tenant-secret contract, so stored credentials stop validating. Pick a different `--id`, or move the existing package aside first. The check runs before staging because the gate imports the generated module in-process.
+
 ---
 
 ## `--wire` behavior
 
 When `--wire` is set after a clean promote:
 
-**`config/connectors.yaml`** — upserts:
+**`config/connectors.yaml`** — upserts. The connector's entry is **replaced wholesale**, not merged: a previously derived `auth:` block (and any keys hand-added under that connector) is discarded and rewritten from the current auth plan. Regenerating a spec whose auth mapping changed therefore changes which secrets the connector reads.
+
 
 ```yaml
 connectors:
@@ -351,7 +362,7 @@ Unless `--no-mcp` is set, the builder calls `nw-mcp-builder` with:
 - `force_fixture=True` (fixture must track the newly promoted connector)
 - `force_output=<value of --force>`
 
-MCP details (wheels, ToolHive, Inspector) live in [mcp-servers.md](mcp-servers.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
+MCP details (wheels, ToolHive, Inspector) live in [nw-mcp-builder](nw-mcp-builder.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
 
 ```bash
 uv run --directory nw-connector-builder nw-connector-builder mcp -c <id> --force-output
@@ -373,7 +384,7 @@ Stdout summary plus JSON:
 | `auth` | chosen provider / secret key / yaml block |
 | `gate` / `mcp` / `wire` | stage outcomes when run |
 
-On success: `packages/connectors/<id>/report.json`  
+On success: `packages/connectors/<id>/report.json`
 On abort: `--report-path` or `./report.json`
 
 ---
@@ -389,17 +400,29 @@ Generated `RestConnector`s honor the same egress controls as other REST adapters
 
 Plus connector-specific secrets from the auth plan (`<ID>_API_KEY`, `<ID>_TOKEN`, …) when using `--wire` / `sample.env`.
 
+### Storing those secrets per tenant
+
+`sample.env` is the single-tenant path. For per-tenant/per-config credentials the values go through the config store, which keeps a registry of which logical secrets each connector owns — hand-written connectors are hard-coded in `node_wire_runtime/tenant_persistence.py`, and generated ones declare themselves. Each generated `logic.py` therefore ends with:
+
+```python
+declare_secret_shape(
+    "slack_web",
+    required=["SLACK_WEB_ACCESS_TOKEN"],
+    formats={"SLACK_WEB_ACCESS_TOKEN": "opaque_secret"},
+)
+```
+
+It runs at import time (the entry point imports `logic`), so the store accepts this connector's credentials even under `NW_SECRET_SHAPE_POLICY=enforce`, which otherwise rejects any connector it does not recognise. The connector-level scheme's secrets are `required`; per-action scheme secrets are format-checked but optional, so a host can store the default credential without provisioning every scheme. Connectors with no auth declare `declare_secret_shape("<id>")` — an explicit "no tenant secrets" rather than silence.
+
 ---
 
 ## After generation — publishing checklist
 
-`nw-connector-builder` creates the **runtime + package skeleton**. To ship on PyPI or as a standalone MCP Docker image, still complete the Tier 2 / Tier 3 steps in [packaging.md](packaging.md):
-
-- [ ] Add `packages/connectors/<id>/setup.py` (Cython build glue) if publishing binary wheels
-- [ ] Register the entry point in the **root** `pyproject.toml` for editable monorepo installs (if not already covered by your workflow)
-- [ ] Add the path to `scripts/build-packages.sh` (`ALL_PACKAGES`) and CI allowlists (`nw gen-all` without `--no-wire` inserts the `ALL_PACKAGES` entry; CI allowlists stay manual)
-- [ ] Update the package inventory in [packaging.md](packaging.md)
-- [ ] Optional standalone MCP image rows in [mcp-servers.md](mcp-servers.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
+`nw-connector-builder` creates the runtime and package skeleton, and `--wire` covers the Tier 1
+wiring. `nw gen-all` also inserts the `ALL_PACKAGES` entry unless you pass `--no-wire`. The rest
+(`setup.py` for binary wheels, the CI allowlists, and an optional MCP image) is the Tier 2 / Tier 3
+checklist in [Packaging](../packaging.md#adding-a-new-publishable-connector). The CI allowlists are
+always manual.
 
 ---
 
@@ -408,8 +431,8 @@ Plus connector-specific secrets from the auth plan (`<ID>_API_KEY`, `<ID>_TOKEN`
 | Doc | When to read it |
 |-----|-----------------|
 | [nw-cli.md](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
-| [connectors.md](connectors.md) | Hand-written connectors, `BaseConnector`, auth patterns |
-| [mcp-servers.md](mcp-servers.md) | Running / packaging the generated MCP host |
-| [packaging.md](packaging.md) | Wheels, PyPI, CI allowlists |
-| [configuration.md](configuration.md) | `connectors.yaml` and env vars |
-| [local-packages-to-images.md](local-packages-to-images.md) | Wheel → Docker image workflow |
+| [Build a connector](../connectors-build.md) | Hand-written connectors, `BaseConnector`, auth patterns |
+| [nw-mcp-builder](nw-mcp-builder.md) | Running / packaging the generated MCP host |
+| [packaging.md](../packaging.md) | Wheels, PyPI, CI allowlists |
+| [configuration.md](../configuration.md) | `connectors.yaml` and env vars |
+| [local-packages-to-images.md](../local-packages-to-images.md) | Wheel → Docker image workflow |

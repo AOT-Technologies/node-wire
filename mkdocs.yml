@@ -9,6 +9,16 @@ repo_url: https://github.com/AOT-Technologies/node-wire
 repo_name: AOT-Technologies/node-wire
 docs_dir: docs
 
+# Surfaced as warnings locally; `mkdocs build --strict` in CI turns them into failures.
+validation:
+  nav:
+    omitted_files: info
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    unrecognized_links: warn
+
 theme:
   name: material
   logo: images/nw-favicon-black.png
@@ -98,22 +108,33 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Reading Map: reading.md
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
-    - Multi-tenancy: configuration.md#multi-tenancy
-  - Architecture: architecture.md
+  - Architecture:
+    - Overview: architecture.md
+    - Domain: architecture/domain.md
+    - Seams: architecture/seams.md
+    - Tenancy: architecture/tenancy.md
+    - REST / MCP / gRPC Bindings: connector-bindings.md
   - Connectors:
-    - Overview: connectors.md
-    - OpenAPI Builder: nw-connector-builder.md
-    - OpenAPI Builder Scope: nw-connector-builder-scope.md
-    - nw CLI: nw-cli.md
+    - Use a Connector: connectors.md
+    - Connector Reference: connector-reference.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md
     - Slack: slack_connector.md
+    - Build a Connector: connectors-build.md
+  - CLI:
+    - Overview: cli/index.md
+    - nw CLI: cli/nw-cli.md
+    - nw-connector-builder: cli/nw-connector-builder.md
+    - Generator Contract: cli/nw-connector-builder-scope.md
+    - Codegen Behaviour: cli/nw-connector-builder-codegen.md
+    - nw-mcp-builder: cli/nw-mcp-builder.md
   - MCP:
     - Overview: mcp.md
-    - MCP Host Builder (nw-mcp-builder): mcp-servers.md
+    - stacklok MCP servers (nw gen-stacklok): stacklok-mcp-servers.md
     - Client OAuth: mcp-client-oauth.md
     - Agent Scenario: toolhive_agent_scenario.md
   - Development:
@@ -130,3 +151,13 @@ nav:
   - Compliance:
     - Privacy: privacy.md
     - HIPAA Considerations: compliance/hipaa-considerations.md
+  - Decisions:
+    - ADR Index: adr/index.md
+    - "0001 stacklok MCP builder": adr/0001-stacklok-mcp-builder-on-node-wire.md
+    - "0002 Documentation lifecycle": adr/0002-documentation-lifecycle.md
+  - Project:
+    - Code of Conduct: https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md
+    - Governance: https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md
+    - Support: https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md
+    - Security Policy: https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md
+    - Changelog: https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md

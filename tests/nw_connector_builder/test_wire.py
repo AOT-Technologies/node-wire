@@ -65,6 +65,20 @@ def test_wire_sample_env_appends_allowlist_and_secrets(tmp_path: Path) -> None:
     assert text.count("FOO=") == 1
 
 
+def test_wire_sample_env_repeated_key_written_once(tmp_path: Path) -> None:
+    """A key listed twice (two schemes resolving to one secret) gets one line."""
+    path = tmp_path / "sample.env"
+    wire_sample_env(
+        path,
+        "pet_store",
+        secret_keys=["PET_STORE_TOKEN", "PET_STORE_TOKEN"],
+        host_supplied_keys=frozenset({"PET_STORE_TOKEN"}),
+    )
+    text = path.read_text(encoding="utf-8")
+    assert text.count("PET_STORE_TOKEN=") == 1
+    assert text.count("host-supplied credential") == 1
+
+
 def test_wire_sample_env_creates_file_and_allowlist(tmp_path: Path) -> None:
     path = tmp_path / "sample.env"
     wire_sample_env(path, "pet_store", secret_keys=["PET_STORE_TOKEN"])

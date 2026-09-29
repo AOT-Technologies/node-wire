@@ -61,9 +61,10 @@ For **shared-folder automation** (single service identity), keep the [service ac
 
 ## Multi-tenancy
 
-With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Google Drive credentials and folder via a named config in `tenants.yaml`, instead of sharing the single `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID` env vars above. Tenant-scoped secrets use `NW_{TENANT}_GOOGLE_DRIVE_{KEY}` for the default config, or `NW_{TENANT}_GOOGLE_DRIVE_{CONFIG}_{KEY}` for a named config (e.g. `NW_ACME_GOOGLE_DRIVE_SA_JSON`, or `NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON` for config `test-drive` — non-alphanumeric characters are uppercased/underscored) — or the equivalent `secrets:` block in `tenants.yaml`.
-
-On MCP, select the tenant/config once per session with `nw_select_tenant` / `nw_select_config` (or pass a per-call `config_name` to a `google_drive_*` tool); `tenant_id` is never a tool argument. See [Configuration — Multi-tenancy](configuration.md#multi-tenancy) and [MCP — Multi-tenancy](mcp-servers.md#multi-tenancy-mcp) for the full reference.
+With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Drive credentials and folder
+in a named config, instead of the shared `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID`. For
+example, tenant `acme` reads `NW_ACME_GOOGLE_DRIVE_SA_JSON`. How tenant secrets are named, and how
+MCP sessions select a tenant and config, is in [Tenancy](architecture/tenancy.md).
 
 ---
 
@@ -204,8 +205,9 @@ GOOGLE_DRIVE_FOLDER_ID=1ABCdef_GHIjklMNOpqrSTUvwxYZ
 Start the platform and test the connection with a quick file list:
 
 ```bash
-# Start the REST API
-python -m bindings_entrypoint
+# Start the REST API (local only: auth and scope policy relaxed)
+NW_ALLOWED_CONNECTORS=google_drive NW_REST_AUTH_DISABLED=true \
+NW_MCP_SCOPE_POLICY_DEFAULT=allow MODE=API uv run node-wire
 
 # In another terminal, list files visible to the service account
 curl -X POST http://localhost:8000/connectors/google_drive/files.list \
@@ -213,11 +215,11 @@ curl -X POST http://localhost:8000/connectors/google_drive/files.list \
   -d '{"action": "files.list", "page_size": 5}'
 ```
 
-A successful response includes `"success": true` and a `files` array under `data.raw`. See [files.list](#fileslist) for the full response shape and optional fields.
+A successful response includes `"success": true` and a `files` array under `data.raw`. The full response shape and optional fields are in the [REST API reference](#rest-api-reference).
 
 You can also use the **Swagger UI** at `http://localhost:8000/docs` to test interactively.
 
-To upload a test file, use the request body documented under [files.upload](#filesupload) (include `parents` with your folder ID).
+To upload a test file, send a `files.upload` request (include `parents` with your folder ID); the argument list is in the [REST API reference](#rest-api-reference).
 
 ### Common Errors (setup)
 
@@ -264,210 +266,15 @@ Each operation uses `action` as a discriminator:
 - `files.upload`
 - `files.delete`
 
-#### files.list
+Per-operation request and response schemas are generated from the connector's Pydantic
+models and published live — do not duplicate them here:
 
-List files visible to the service account.
+- **Swagger UI** — `http://localhost:8000/docs`, under `google_drive`
+- **Raw OpenAPI** — `http://localhost:8000/openapi.json`
+- **MCP** — the same models drive the tool schemas in `tools/list`
 
-Request body:
+Field-level meaning lives on the models in `src/node_wire_google_drive/schema.py`.
 
-```json
-{
-  "action": "files.list",
-  "page_size": 10,
-  "query": "name contains 'test'"
-}
-```
-
-Fields:
-
-- `page_size` (int, optional, default 10, 1–100): maximum files to return.
-- `query` (string, optional): Drive search query (`q` parameter).
-- `fields` (string, optional): Drive partial-response fields mask; defaults to `nextPageToken, files(id, name, mimeType, webViewLink)`.
-- `page_token` (string, optional): pass the previous response's `nextPageToken` to fetch the next page.
-
-Typical success response (wrapped by the runtime):
-
-```json
-{
-  "success": true,
-  "data": {
-    "raw": {
-      "files": [
-        { "id": "1...", "name": "example.txt", "mimeType": "text/plain", "webViewLink": "https://drive.google.com/..." }
-      ],
-      "nextPageToken": null
-    },
-    "description": "Successfully executed files.list"
-  },
-  "error_code": null,
-  "error_category": null,
-  "message": null,
-  "trace_id": "..."
-}
-```
-
-#### files.create
-
-Create a new file metadata entry (no content) or create inside a folder.
-
-Request body:
-
-```json
-{
-  "action": "files.create",
-  "name": "example.txt",
-  "mime_type": "text/plain",
-  "parents": ["<FOLDER_ID>"]
-}
-```
-
-Fields:
-
-- `name` (string, required): file name.
-- `mime_type` (string, optional): Drive MIME type.
-- `parents` (array of string, optional): parent folder IDs.
-
-The service account must have write access to the parent folder.
-
-#### permissions.create
-
-Grant a user access to a file.
-
-Request body:
-
-```json
-{
-  "action": "permissions.create",
-  "file_id": "<FILE_ID>",
-  "role": "reader",
-  "type": "user",
-  "email_address": "user@example.com"
-}
-```
-
-Fields:
-
-- `file_id` (string, required): ID of the target file.
-- `role` (string, required): `"reader"`, `"commenter"`, `"writer"`, or `"owner"`.
-- `type` (string, required): `"user"`, `"group"`, `"domain"`, or `"anyone"` — the kind of grantee.
-- `email_address` (string, required when `type` is `"user"` or `"group"`): email to grant access to.
-- `domain` (string, required when `type` is `"domain"`): the domain to grant access to.
-
-The service account must have permission to change sharing on the file.
-
-#### files.get
-
-Fetch metadata for a specific file.
-
-Request body:
-
-```json
-{
-  "action": "files.get",
-  "file_id": "<FILE_ID>",
-  "fields": "id,name,mimeType,parents"
-}
-```
-
-Fields:
-
-- `file_id` (string, required).
-- `fields` (string, optional): fields mask passed to Drive. If omitted, the connector uses a safe default (`id,name,mimeType,parents`).
-
-#### files.update
-
-Update file metadata and parent relationships.
-
-Request body (rename a file and move it to a different folder):
-
-```json
-{
-  "action": "files.update",
-  "file_id": "<FILE_ID>",
-  "name": "renamed.txt",
-  "mime_type": "text/plain",
-  "add_parents": ["<NEW_FOLDER_ID>"],
-  "remove_parents": ["<OLD_FOLDER_ID>"]
-}
-```
-
-Fields:
-
-- `file_id` (string, required).
-- `name` (string, optional): new file name.
-- `mime_type` (string, optional): new MIME type.
-- `add_parents` (array of string, optional): folder IDs to add (mapped to `addParents`).
-- `remove_parents` (array of string, optional): folder IDs to remove (mapped to `removeParents`).
-
-The service account must have edit permission on the file.
-
-#### files.upload
-
-Create a new file with content (text or binary).
-
-Request body:
-
-```json
-{
-  "action": "files.upload",
-  "name": "hello.txt",
-  "mime_type": "text/plain",
-  "parents": ["<FOLDER_ID>"],
-  "content": "Hello from Node Wire connector!"
-}
-```
-
-For **MCP** (`google_drive_files_upload`), omit `action` in the tool arguments object; the server injects `files.upload` from the tool name. The published `inputSchema` does not include an `action` property.
-
-Fields:
-
-- `name` (string, required).
-- `mime_type` (string, required).
-- `parents` (array of string, optional).
-- `content` (string, optional): UTF-8 text content that will be uploaded.
-- `content_base64` (string, optional): base64-encoded binary content (e.g. PDFs, images).
-
-Exactly one of `content` or `content_base64` must be provided (enforced at validation).
-
-Content is uploaded using `MediaInMemoryUpload`; this is suitable for small payloads.
-
-> For MCP callers (e.g. ToolHive): use canonical fields (`content` / `content_base64`). Legacy `media` / `media_body` shapes are normalized when possible but are not part of the public schema. Legacy `action: "upload"` in the payload is deprecated; set `NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD=reject` to hard-fail during rollout.
-
-#### files.delete
-
-Delete a file.
-
-Request body:
-
-```json
-{
-  "action": "files.delete",
-  "file_id": "<FILE_ID>"
-}
-```
-
-Fields:
-
-- `file_id` (string, required).
-
-The service account must have permission to delete the file. On success, the connector returns a small synthetic payload:
-
-```json
-{
-  "success": true,
-  "data": {
-    "raw": {
-      "file_id": "<FILE_ID>",
-      "status": "deleted"
-    },
-    "description": "Successfully executed files.delete"
-  },
-  "error_code": null,
-  "error_category": null,
-  "message": null,
-  "trace_id": "..."
-}
-```
 
 ### Error taxonomy
 

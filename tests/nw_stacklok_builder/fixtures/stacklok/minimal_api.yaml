@@ -1,0 +1,29 @@
+version: "1"
+
+server:
+  name: minimal-api
+  description: "Minimal public API status checker"
+
+spec:
+  source: "https://api.example.com/openapi.yaml"
+  format: openapi3
+  base_url: "https://api.example.com"
+  total_endpoints: 3
+  scoped_endpoints: 1
+
+workflows:
+  - "Operators check API health status"
+
+groups:
+  - name: health
+    description: "Health and status checks"
+    tools:
+      - tool_name: get_status
+        endpoint: GET /status
+        description: >
+          Check the API health status. Returns the current service state,
+          uptime, and version information.
+        response_kind: json
+
+auth:
+  type: none

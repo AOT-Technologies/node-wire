@@ -11,13 +11,13 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from nw_connector_builder.codegen import write_staging
+from nw_connector_builder.codegen import CodegenFormatError, ruff_config_for, write_staging
 from nw_connector_builder.derive import derive_operations
 from nw_connector_builder.derive.operations import DeriveError
 from nw_connector_builder.gate import run_gate
 from nw_connector_builder.load import SpecLoadError, load_openapi_document
 from nw_connector_builder.mcp_handoff import run_mcp_handoff
-from nw_connector_builder.promote import PromoteError, promote
+from nw_connector_builder.promote import PromoteError, assert_generator_owned, promote
 from nw_connector_builder.report import build_report, print_report, write_report
 from nw_connector_builder.wire import WireError, apply_wire
 
@@ -45,6 +45,14 @@ def run_build(
 ) -> int:
     """Return process exit code (0 success, 1 hard/post-promote failure)."""
     abort_report_path = report_path or (Path.cwd() / "report.json")
+
+    # Before deriving, staging, or importing anything: the gate imports the
+    # generated module in-process, so a colliding id would mutate global runtime
+    # state (its declare_secret_shape call) even on a build that never promotes.
+    try:
+        assert_generator_owned(node_wire_root, connector_id)
+    except PromoteError as exc:
+        raise UsageError(str(exc)) from exc
     result = None
     meta: dict = {"origin": spec}
 
@@ -71,7 +79,21 @@ def run_build(
     exit_code = 0
     try:
         preliminary = build_report(connector_id=connector_id, meta=meta, result=result)
-        write_staging(staging_root, connector_id, result, preliminary)
+        try:
+            write_staging(
+                staging_root,
+                connector_id,
+                result,
+                preliminary,
+                ruff_config=ruff_config_for(node_wire_root),
+            )
+        except CodegenFormatError as exc:
+            report = build_report(
+                connector_id=connector_id, meta=meta, result=result, error=str(exc)
+            )
+            print_report(report)
+            write_report(report, abort_report_path)
+            raise BuildError(str(exc)) from exc
 
         gate = run_gate(staging_root, connector_id)
         gate_info = {

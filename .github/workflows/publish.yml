@@ -265,15 +265,14 @@ jobs:
             --jq '.tagName'
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Build a binary wheel for each platform (Linux / macOS / Windows) and
-  # CPython version. cibuildwheel compiles Cython extensions and produces
-  # manylinux / musllinux / macosx / win_amd64 wheels. The NoPyBuild override
-  # in setup.py keeps .py source files out of every wheel.
+  # Build a binary cp313 wheel for each platform (Linux / macOS / Windows).
+  # cibuildwheel compiles Cython extensions and produces manylinux / musllinux /
+  # macosx / win_amd64 wheels. The NoPyBuild override in setup.py keeps .py
+  # source files out of every wheel.
   #
   # cibuildwheel builds identifiers one at a time, and an ubuntu runner would
   # also build manylinux then musllinux in that same process. One job per
-  # platform and interpreter overlaps those compiles. The wheel set is
-  # unchanged: cp311 and cp312 for manylinux, musllinux, macOS, and Windows.
+  # platform overlaps those compiles.
   # ─────────────────────────────────────────────────────────────────────────────
   build-wheels:
     name: Build (${{ matrix.platform }} ${{ matrix.python }})
@@ -284,35 +283,19 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: manylinux
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
-          - os: ubuntu-latest
-            platform: manylinux
-            python: cp312
+            python: cp313
             cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
           - os: ubuntu-latest
             platform: musllinux
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux* pp*"
-          - os: ubuntu-latest
-            platform: musllinux
-            python: cp312
+            python: cp313
             cibw_skip: "*-win32 *-manylinux* pp*"
           - os: macos-latest
             platform: macos
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: macos-latest
-            platform: macos
-            python: cp312
+            python: cp313
             cibw_skip: "*-win32 *-manylinux_i686 pp*"
           - os: windows-latest
             platform: windows
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: windows-latest
-            platform: windows
-            python: cp312
+            python: cp313
             cibw_skip: "*-win32 *-manylinux_i686 pp*"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -327,7 +310,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       # No-op on the release channel; stamps the pre-release version on beta.
       - name: Stamp publish version into pyproject.toml
@@ -466,7 +449,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Download all wheel artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -526,11 +509,11 @@ jobs:
 
           print(f"PASS: {len(wheels)} wheel(s) match version {expected!r}")
 
-      # dist/ holds wheels for all platforms; only the linux cp311 wheel is
-      # installable on this runner (Python 3.11 / ubuntu). The dependency tree
+      # dist/ holds wheels for all platforms; only the linux cp313 wheel is
+      # installable on this runner (Python 3.13 / ubuntu). The dependency tree
       # audited by pip-audit is identical across platform wheels.
       - name: Install built wheels for CVE scan
-        run: pip install dist/*cp311*manylinux*.whl
+        run: pip install dist/*cp313*manylinux*.whl
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
       # ships setuptools 79.0.1 (PYSEC-2026-3447); the fix is 83.0.0. That

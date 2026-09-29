@@ -12,7 +12,12 @@ from __future__ import annotations
 import json
 import logging
 import re
+
+# Only used to run ruff with a fixed argument list and no shell.
+import subprocess  # nosec B404
+import sys
 import textwrap
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +45,7 @@ def _py_type(hint: str, required: bool, default: Any) -> str:
         hint in {"str", "int", "float", "bool"}
         or hint.startswith("list[")
         or hint.startswith("dict[")
+        or hint.startswith("Literal[")
     ):
         base = hint
     else:
@@ -65,9 +71,60 @@ def _field_extra(plan_param) -> str:  # noqa: ANN001
     )
 
 
+def _string_enum(param) -> list[str] | None:  # noqa: ANN001
+    """The param's enum when it is a non-empty list of strings on a string field."""
+    enum = param.schema.get("enum") if isinstance(param.schema, dict) else None
+    if param.python_type_hint != "str" or not isinstance(enum, list) or not enum:
+        return None
+    if not all(isinstance(v, str) for v in enum):
+        return None
+    return list(dict.fromkeys(enum))
+
+
+def _type_hint(param) -> str:  # noqa: ANN001
+    """Annotation base for a param: a Literal for string enums, else the derived hint.
+
+    A Literal makes Pydantic enforce the enum on every binding, not just advertise
+    it in the MCP schema. Values are spec text, so each goes through repr().
+    """
+    enum = _string_enum(param)
+    if enum:
+        return "Literal[" + ", ".join(repr(v) for v in enum) + "]"
+    return param.python_type_hint
+
+
+def _alias_needed(param, wire_counts: dict[str, int], field_names: set[str]) -> bool:  # noqa: ANN001
+    """Alias a field to its wire name only when that name is unambiguous.
+
+    After a collision rename (``channel__query`` beside body ``channel``) or when
+    two params share a wire name in different locations, an alias would make one
+    input key populate two fields under ``populate_by_name``.
+    """
+    if param.field_name == param.wire_name:
+        return False
+    return wire_counts[param.wire_name] == 1 and param.wire_name not in field_names
+
+
+def _whole_body_type(schema: Any) -> str:
+    """Annotation for a single ``body`` argument, from the body schema's type.
+
+    Object and unknown bodies stay ``dict[str, Any]`` rather than ``Any``: Pydantic
+    emits ``anyOf[{}, null]`` for ``Any``, which MCP clients reject.
+    """
+    t = schema.get("type") if isinstance(schema, dict) else None
+    if t == "array":
+        return "list[Any]"
+    if t == "string":
+        return "str"
+    return "dict[str, Any]"
+
+
 def _example_placeholder(param) -> Any:  # noqa: ANN001
     if param.default is not None:
         return param.default
+    enum = _string_enum(param)
+    if enum:
+        return enum[0]
     hint = param.python_type_hint
     if hint == "int":
         return 1
@@ -80,6 +137,21 @@ def _example_placeholder(param) -> Any:  # noqa: ANN001
     if hint.startswith("dict["):
         return {}
     return "example"
+
+
+# Emitted into every generated schema.py and hooked into each model's
+# json_schema_extra. Pydantic titles the model (its class name) and every field,
+# restating the field name (`channel` -> "Channel"); on a 174-tool connector that
+# was an eighth of tools/list. Dropping them at the source keeps the bindings a
+# pass-through and leaves hand-written connectors' schemas as they are.
+_DROP_TITLES_SOURCE = (
+    "def _drop_titles(schema: dict[str, Any]) -> None:",
+    '    """Remove the model and field titles Pydantic generates; names already say it."""',
+    '    schema.pop("title", None)',
+    '    for prop in (schema.get("properties") or {}).values():',
+    "        if isinstance(prop, dict):",
+    '            prop.pop("title", None)',
+)
 
 
 def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
@@ -98,6 +170,9 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         "from node_wire_runtime import RestResponseOutput",
         "",
         "",
+        *_DROP_TITLES_SOURCE,
+        "",
+        "",
     ]
 
     # Shared body/output placeholders as dict wrappers when schemas exist
@@ -105,34 +180,56 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         in_name = _pascal(action.name) + "Input"
         out_name = _pascal(action.name) + "Output"
         lines.append(f"class {in_name}(BaseModel):")
-        lines.append('    model_config = ConfigDict(populate_by_name=True, extra="forbid")')
+        # The manifest publishes this docstring as the tool description. Spec text,
+        # so emitted through repr() — any string literal is a valid docstring.
+        doc = _operation_description(action.operation)
+        if doc:
+            lines.append(f"    {doc!r}")
+        lines.append(
+            '    model_config = ConfigDict(populate_by_name=True, extra="forbid", '
+            "json_schema_extra=_drop_titles)"
+        )
         lines.append(f"    action: Literal[{action.name!r}] = {action.name!r}")
+        wire_counts: dict[str, int] = {}
         for p in action.params:
-            typ = _py_type(p.python_type_hint, p.required, p.default)
+            wire_counts[p.wire_name] = wire_counts.get(p.wire_name, 0) + 1
+        field_names = {p.field_name for p in action.params}
+        for p in action.params:
+            typ = _py_type(_type_hint(p), p.required, p.default)
             alias = ""
-            if p.field_name != p.wire_name:
+            if _alias_needed(p, wire_counts, field_names):
                 alias = f", alias={p.wire_name!r}"
             default = "..."
             if not p.required:
                 default = repr(p.default) if p.default is not None else "None"
+            desc = _short_description(p.description)
+            description = f", description={desc!r}" if desc else ""
             lines.append(
                 f"    {p.field_name}: {typ} = Field("
-                f"{default}{alias}, json_schema_extra={_field_extra(p)})"
+                f"{default}{alias}{description}, json_schema_extra={_field_extra(p)})"
             )
-        if action.body_schema is not None:
-            # dict[str, Any] (not bare Any) so MCP inputSchema is a valid object
-            # schema — Pydantic emits anyOf[{}, null] for Any, which clients reject.
-            body_extra = {
+        has_whole_body = action.body_schema is not None and not action.body_flattened
+        if has_whole_body:
+            # Bodies that are not objects with declared properties (arrays, free-form
+            # maps, binary) stay one argument; object bodies arrive above as
+            # body_property params.
+            body_extra: dict[str, Any] = {
                 "nw_in": "body",
                 "nw_wire_name": "body",
                 "nw_style": None,
                 "nw_explode": None,
                 "nw_media_type": action.body_media_type or "application/json",
             }
-            lines.append(
-                f"    body: dict[str, Any] | None = Field(None, json_schema_extra={body_extra!r})"
-            )
-        if len(action.params) == 0 and action.body_schema is None:
+            body_type = _whole_body_type(action.body_schema)
+            if action.body_required:
+                lines.append(
+                    f"    body: {body_type} = Field(..., json_schema_extra={body_extra!r})"
+                )
+            else:
+                lines.append(
+                    f"    body: {body_type} | None = Field(None, json_schema_extra={body_extra!r})"
+                )
+        if len(action.params) == 0 and not has_whole_body:
             lines.append("    pass")
         lines.append("")
         lines.append("")
@@ -142,13 +239,61 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
         else:
             # Object-shaped success schema only (see _success_response_schema).
             lines.append(f"class {out_name}(BaseModel):")
-            lines.append('    model_config = ConfigDict(extra="allow")')
+            lines.append(
+                '    model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)'
+            )
             lines.append("    # OpenAPI object success schema — permissive allow for nested props")
             lines.append("    pass")
         lines.append("")
         lines.append("")
 
     return "\n".join(lines)
+
+
+_DESCRIPTION_LIMIT = 90
+_OPERATION_DESCRIPTION_LIMIT = 300
+
+
+def _flatten_links(text: str) -> str:
+    """Markdown links reduced to their text; the anchors are unreachable from a tool call."""
+    return re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+
+
+def _operation_description(operation: dict[str, Any]) -> str | None:
+    """Tool description for an operation: its summary, else its description.
+
+    First paragraph only, capped. Specs follow the summary with reference prose
+    (argument tables, error lists) that repeats the input schema and is paid for
+    in every tool listing. Measured on Slack's 174 operations the first paragraph
+    is at most 184 characters, so the cap only bites on unusually wordy specs.
+    """
+    for key in ("summary", "description"):
+        text = operation.get(key)
+        if not isinstance(text, str) or not text.strip():
+            continue
+        paragraph = re.split(r"\n\s*\n", text.strip(), maxsplit=1)[0]
+        flat = " ".join(_flatten_links(paragraph).split())
+        if len(flat) > _OPERATION_DESCRIPTION_LIMIT:
+            flat = flat[:_OPERATION_DESCRIPTION_LIMIT].rstrip() + "…"
+        return flat
+    return None
+
+
+def _short_description(text: Any) -> str | None:
+    """First sentence of a property description, markdown links flattened.
+
+    Spec descriptions run long and are written for humans browsing docs — Slack's
+    average well over 200 characters, much of it link syntax pointing at anchors
+    the caller cannot follow. The first sentence is what distinguishes one field
+    from another; the rest is paid for in every tool listing.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return None
+    flat = " ".join(_flatten_links(text).split())
+    sentence = flat.split(". ")[0].rstrip(".")
+    if len(sentence) > _DESCRIPTION_LIMIT:
+        sentence = sentence[:_DESCRIPTION_LIMIT].rstrip() + "…"
+    return sentence or None
 
 
 def _pascal(snake: str) -> str:
@@ -164,6 +309,11 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         imports_in.append(_pascal(a.name) + "Input")
         imports_out.append(_pascal(a.name) + "Output")
 
+    enveloped = any(a.envelope_ok_field for a in result.actions)
+    runtime_imports = "RestConnector, RestResponseOutput, nw_action"
+    if enveloped:
+        runtime_imports = "RestConnector, RestEnvelopeError, RestResponseOutput, nw_action"
+
     lines = [
         "# Generated by nw-connector-builder — do not hand-edit.",
         "# SPDX-FileCopyrightText: 2026 AOT Technologies",
@@ -175,8 +325,9 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         "import httpx",
         "from pydantic import BaseModel",
         "",
-        "from node_wire_runtime import RestConnector, RestResponseOutput, nw_action",
+        f"from node_wire_runtime import {runtime_imports}",
         "from node_wire_runtime.models import ErrorCategory",
+        "from node_wire_runtime.tenant_persistence import declare_secret_shape",
         "",
         "from .schema import (",
     ]
@@ -204,6 +355,10 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         '        httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "HTTP_READ_TIMEOUT"),',
         '        httpx.RequestError: (ErrorCategory.FATAL, "HTTP_REQUEST_ERROR"),',
         '        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),',
+    ]
+    if enveloped:
+        lines.append('        RestEnvelopeError: (ErrorCategory.BUSINESS, "API_ENVELOPE_ERROR"),')
+    lines += [
         "    }",
         "",
     ]
@@ -215,6 +370,9 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         decorator_kw = "" if a.auth else ", requires_auth=False"
         # auth_scheme_name is an OpenAPI securitySchemes key — always emit via !r.
         scheme_kw = f", auth_scheme={a.auth_scheme_name!r}" if a.auth_scheme_name else ""
+        # The spec declares this response's success flag; a 2xx body reporting
+        # failure must not read as a successful call.
+        envelope_kw = f", envelope_ok_field={a.envelope_ok_field!r}" if a.envelope_ok_field else ""
         lines += [
             f'    @nw_action("{a.name}"{decorator_kw})',
             f"    async def {a.name}(self, params: {in_name}, *, trace_id: str) -> {out_name}:",
@@ -223,11 +381,63 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
             f"            path_template={a.path!r},",
             "            params=params,",
             f"            output_model={out_name},",
-            f"            trace_id=trace_id{auth_kw}{scheme_kw},",
+            f"            trace_id=trace_id{auth_kw}{scheme_kw}{envelope_kw},",
             "        )",
             "",
         ]
+
+    lines += _secret_shape_lines(connector_id, result)
     return "\n".join(lines)
+
+
+def _secret_shape_lines(connector_id: str, result: DeriveResult) -> list[str]:
+    """Emit the ``declare_secret_shape`` call a generated connector needs at import time.
+
+    The tenant secret store keeps a registry of which logical secrets each connector
+    owns (``tenant_persistence.REQUIRED_SECRETS_BY_CONNECTOR`` and friends). Connectors
+    that predate it are hard-coded there; anything generated has to declare itself or
+    the config store refuses its credentials under ``NW_SECRET_SHAPE_POLICY=enforce``.
+
+    The connector-level scheme's secrets are ``required`` — without them the connector
+    cannot authenticate at all. Per-action scheme secrets are format-checked but not
+    required, so a host can store the default credential without provisioning every
+    optional scheme up front.
+    """
+    required = [k for k in result.auth_plan.secret_keys if k]
+    formats = dict.fromkeys(required, "opaque_secret")
+    for plan in result.extra_auth_plans.values():
+        for key in plan.secret_keys:
+            if key:
+                formats.setdefault(key, "opaque_secret")
+
+    lines = [
+        "",
+        "# Tenant-secret contract for the config store. Generated connectors are not in",
+        "# the runtime's hard-coded registry, so they declare their own shape at import",
+        "# time; without this the store rejects their credentials under",
+        "# NW_SECRET_SHAPE_POLICY=enforce and stores them unvalidated under 'warn'.",
+    ]
+    if not formats:
+        lines += [
+            "# No auth scheme was derived — declared explicitly as 'no tenant secrets'.",
+            f"declare_secret_shape({connector_id!r})",
+        ]
+        return lines
+
+    lines.append("declare_secret_shape(")
+    lines.append(f"    {connector_id!r},")
+    if required:
+        lines.append("    required=[")
+        lines.extend(f"        {key!r}," for key in required)
+        lines.append("    ],")
+    lines.append("    formats={")
+    # Bandit's B105 pattern-matches the secret-looking key beside a string literal;
+    # the value is a format-classifier label, not a credential. The runtime's own
+    # table carries the same marker (tenant_persistence.SECRET_FORMAT_BY_CONNECTOR).
+    lines.extend(f"        {key!r}: 'opaque_secret',  # nosec B105" for key in formats)
+    lines.append("    },")
+    lines.append(")")
+    return lines
 
 
 def generate_init_module(connector_id: str) -> str:
@@ -240,6 +450,14 @@ def generate_init_module(connector_id: str) -> str:
         """node_wire_{connector_id} connector package."""
         '''
     )
+
+
+# Oldest node-wire-runtime that has every API generated code calls:
+# body_property fields in split_params_by_location, envelope_ok_field /
+# RestEnvelopeError, declare_secret_shape. Raise it whenever codegen starts
+# emitting a newer runtime API, or a generated wheel installs against a runtime
+# that fails at import or at call time.
+_MIN_RUNTIME_VERSION = "1.1.0"
 
 
 def generate_package_pyproject(connector_id: str) -> str:
@@ -255,12 +473,12 @@ def generate_package_pyproject(connector_id: str) -> str:
         name = "node-wire-{dist}"
         version = "1.0.0"
         description = "Node Wire connector — {connector_id} (OpenAPI-generated)"
-        requires-python = ">=3.11"
+        requires-python = ">=3.13"
         license = "Apache-2.0"
         authors = [{{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }}]
 
         dependencies = [
-            "node-wire-runtime>=1.0.0",
+            "node-wire-runtime>={_MIN_RUNTIME_VERSION}",
             "httpx[http2]>=0.27.0,<0.28.0",
         ]
 
@@ -363,23 +581,162 @@ def generate_model_tests(connector_id: str, result: DeriveResult) -> str:
             f"    assert again.action == {a.name!r}",
             "",
         ]
-        if a.examples.get("request") is not None and a.body_schema is not None:
-            # Build a payload that satisfies required path/query/header fields so
-            # the example→model gate does not abort on otherwise-valid specs.
-            payload_bits = [f"'action': {a.name!r}", "'body': example"]
+        example = a.examples.get("request")
+        if example is not None:
+            # YAML specs load dates as datetime objects, whose repr() is not a literal.
+            example = json.loads(json.dumps(example, default=str))
+        if example is not None and a.body_schema is not None:
+            # Build a payload that satisfies every required field so the
+            # example→model gate does not abort on otherwise-valid specs. Values
+            # are emitted with repr(): they become Python source, where JSON's
+            # true/false/null would be NameErrors.
+            payload_bits = [f"'action': {a.name!r}"]
+            if not a.body_flattened:
+                payload_bits.append("'body': example")
             for p in a.params:
                 if not p.required:
                     continue
-                payload_bits.append(f"{p.field_name!r}: {json.dumps(_example_placeholder(p))}")
+                payload_bits.append(f"{p.field_name!r}: {_example_placeholder(p)!r}")
             payload_expr = "{" + ", ".join(payload_bits) + "}"
             lines += [
                 f"def test_{a.name}_example_parses() -> None:",
-                f"    example = {json.dumps(a.examples['request'])}",
+                f"    example = {example!r}",
                 f"    payload = {payload_expr}",
-                f"    sch.{in_name}.model_validate(payload)",
-                "",
             ]
+            if a.body_flattened:
+                # Example keys are wire names; map them onto the flat fields.
+                # Keys the schema does not declare are skipped, since the model
+                # forbids extras and the example is documentation, not contract.
+                field_by_wire = {
+                    p.wire_name: p.field_name for p in a.params if p.location == "body_property"
+                }
+                lines += [
+                    f"    field_by_wire = {field_by_wire!r}",
+                    "    if isinstance(example, dict):",
+                    "        payload.update(",
+                    "            {field_by_wire[k]: v for k, v in example.items() if k in field_by_wire}",
+                    "        )",
+                ]
+            lines += [f"    sch.{in_name}.model_validate(payload)", ""]
     return "\n".join(lines)
+
+
+def generate_package_readme(connector_id: str, result: DeriveResult) -> str:
+    """Package README: what this connector is, and the credential contract it expects.
+
+    The hand-written connectors each ship one. For generated packages the auth
+    section matters most — the host has to know which secret to set and that
+    nothing refreshes it, and that has until now only been visible in
+    ``report.json`` and a ``sample.env`` comment.
+    """
+    _validate_connector_id(connector_id)
+    plan = result.auth_plan
+    lines = [
+        "# SPDX-FileCopyrightText: 2026 AOT Technologies",
+        "#",
+        "# SPDX-License-Identifier: Apache-2.0",
+        "",
+        f"# {connector_id} connector (generated)",
+        "",
+        "> **Generated by** `nw-connector-builder` from an OpenAPI document — do not hand-edit.",
+        f"> **Connector ID:** `{connector_id}`",
+        f"> **Base URL:** `{result.default_base_url}`",
+        f"> **Source:** `src/node_wire_{connector_id}/`",
+        "",
+        "## Actions",
+        "",
+        "| Action | Method | Path |",
+        "| --- | --- | --- |",
+    ]
+    for a in result.actions:
+        lines.append(f"| `{a.name}` | {a.method} | `{a.path}` |")
+    lines += ["", "## Authentication", ""]
+
+    if plan.tier == "host_supplied":
+        lines += [
+            f"**Host-supplied credential.** Node Wire presents `{plan.secret_key}` as an",
+            "`Authorization: Bearer` header and never obtains, refreshes, or detects the",
+            f"expiry of it — scheme `{plan.scheme_name}` in the source spec is an OAuth2 /",
+            "OpenID Connect scheme, and the host application owns acquiring and rotating",
+            "the token entirely out-of-band. A stale token surfaces as a plain `401`.",
+        ]
+    elif plan.provider in ("none", ""):
+        lines.append("This connector's operations are anonymous — no credential is configured.")
+    else:
+        lines += [
+            f"Provider `{plan.provider}`, resolved from `{plan.secret_key}` via the",
+            "configured `SecretProvider`.",
+        ]
+
+    if plan.notes:
+        lines += ["", "Build notes:", ""]
+        lines.extend(f"- {note}" for note in plan.notes)
+
+    if result.extra_auth_plans:
+        lines += [
+            "",
+            "Some operations use a non-default scheme, emitted under `auth_schemes:` in",
+            "`config/connectors.yaml`:",
+            "",
+        ]
+        for name, extra in result.extra_auth_plans.items():
+            lines.append(f"- `{name}` → `{extra.secret_key}` ({extra.provider})")
+
+    lines += [
+        "",
+        "### Storing credentials per tenant",
+        "",
+        "`logic.py` calls `declare_secret_shape()` at import time, so this connector's",
+        "secrets can be written through the config store per tenant/config even under",
+        "`NW_SECRET_SHAPE_POLICY=enforce`. Without that declaration the store refuses",
+        "credentials for connectors it does not recognise.",
+        "",
+        "## Provenance",
+        "",
+        f"See `packages/connectors/{connector_id}/report.json` for the source spec, the",
+        "operations that were generated, and anything soft-dropped during the build.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+class CodegenFormatError(RuntimeError):
+    """ruff could not format generated source — a codegen bug, not a style issue."""
+
+
+def ruff_config_for(node_wire_root: Path) -> Path | None:
+    """The target root's ``pyproject.toml`` when it configures ruff, else None.
+
+    Staging lives in a temp directory, outside the root, so ruff's own config
+    discovery would not find the repo's settings (line length and friends).
+    """
+    candidate = node_wire_root / "pyproject.toml"
+    if not candidate.is_file():
+        return None
+    try:
+        data = tomllib.loads(candidate.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    return candidate if "ruff" in (data.get("tool") or {}) else None
+
+
+def format_generated_sources(paths: list[Path], *, config: Path | None) -> None:
+    """Run ``ruff format`` over generated files/directories; raise on failure.
+
+    Runs ruff from this interpreter (a declared dependency of the builder) with
+    a fixed argument list and no shell.
+    """
+    cmd = [sys.executable, "-m", "ruff", "format", "--no-cache"]
+    if config is not None:
+        cmd += ["--config", str(config)]
+    cmd += [str(p) for p in paths]
+    # Fixed argv, no shell; the paths are the generator's own staging output.
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603
+    if proc.returncode != 0:
+        raise CodegenFormatError(
+            "ruff format failed on generated source (codegen bug): "
+            + (proc.stderr or proc.stdout).strip()[-2000:]
+        )
 
 
 def write_staging(
@@ -387,6 +744,8 @@ def write_staging(
     connector_id: str,
     result: DeriveResult,
     report: dict[str, Any],
+    *,
+    ruff_config: Path | None = None,
 ) -> None:
     _validate_connector_id(connector_id)
     src_pkg = staging / "src" / f"node_wire_{connector_id}"
@@ -402,6 +761,9 @@ def write_staging(
         generate_schema_module(connector_id, result), encoding="utf-8"
     )
     (src_pkg / "logic.py").write_text(generate_logic_module(connector_id, result), encoding="utf-8")
+    (src_pkg / "README.md").write_text(
+        generate_package_readme(connector_id, result), encoding="utf-8"
+    )
     (pkg / "pyproject.toml").write_text(generate_package_pyproject(connector_id), encoding="utf-8")
     (pkg / "setup.py").write_text(generate_package_setup(connector_id), encoding="utf-8")
     (tests / f"test_{connector_id}_models.py").write_text(
@@ -409,6 +771,7 @@ def write_staging(
     )
     (tests / "__init__.py").write_text("", encoding="utf-8")
     (pkg / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    format_generated_sources([src_pkg, tests], config=ruff_config)
     logger.info("Wrote staging tree under %s", staging)
 
 

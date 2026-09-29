@@ -1,0 +1,98 @@
+version: "1"
+
+server:
+  name: petstore
+  description: "Swagger Petstore MCP server for pet, store, and user management"
+
+spec:
+  source: "https://petstore3.swagger.io/api/v3/openapi.json"
+  format: openapi3
+  base_url: "https://petstore3.swagger.io/api/v3"
+  total_endpoints: 19
+  scoped_endpoints: 5
+
+workflows:
+  - "Users search for pets by availability status and view details"
+  - "Store clerks place orders and look up order status"
+
+groups:
+  - name: pets
+    description: "Pet lookup and search"
+    tools:
+      - tool_name: find_pets_by_status
+        endpoint: GET /pet/findByStatus
+        description: >
+          Find pets by availability status. Returns a list of pets matching
+          the given status filter (available, pending, or sold).
+        response_kind: json
+        parameters:
+          - name: status
+            description: >
+              Filter by pet status. One of "available", "pending", or "sold".
+              Defaults to "available".
+            required: true
+            location: query
+
+      - tool_name: get_pet_by_id
+        endpoint: GET /pet/{petId}
+        description: >
+          Get a single pet by its numeric ID. Returns the full pet record
+          including name, category, tags, photo URLs, and status.
+        response_kind: json
+        parameters:
+          - name: petId
+            description: "The numeric ID of the pet to retrieve."
+            required: true
+            location: path
+
+  - name: store
+    description: "Order placement and lookup"
+    tools:
+      - tool_name: place_order
+        endpoint: POST /store/order
+        description: >
+          Place an order for a pet. Accepts pet ID, quantity, and ship date.
+          Returns the created order with status and completion flag.
+        response_kind: json
+        parameters:
+          - name: petId
+            description: "The ID of the pet being ordered."
+            required: true
+            location: body
+          - name: quantity
+            description: "Number of pets to order."
+            required: true
+            location: body
+
+      - tool_name: get_order_by_id
+        endpoint: GET /store/order/{orderId}
+        description: >
+          Look up an order by its numeric ID. Returns order details including
+          pet ID, quantity, ship date, status, and completion flag.
+        response_kind: json
+        parameters:
+          - name: orderId
+            description: "The numeric ID of the order."
+            required: true
+            location: path
+
+  - name: users
+    description: "User account lookup"
+    tools:
+      - tool_name: get_user_by_name
+        endpoint: GET /user/{username}
+        description: >
+          Get a user account by username. Returns the full user profile
+          including name, email, phone, and account status.
+        response_kind: json
+        parameters:
+          - name: username
+            description: "The username to look up."
+            required: true
+            location: path
+
+auth:
+  type: api_key
+  notes: >
+    Petstore uses an API key passed in the api_key header. The key is
+    injected by ToolHive from a Kubernetes secret at deploy time.

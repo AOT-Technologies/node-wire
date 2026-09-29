@@ -6,16 +6,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Literal
+from dataclasses import dataclass, field, replace
+from typing import Any, Literal, NamedTuple
 
 
 AuthMode = Literal["required", "anonymous", "optional", "unsupported", "divergent", "and_multi"]
 
-# OpenAPI oauth2 flow -> Node Wire OAuth2AuthProvider grant_method. Only flows that can
-# run unattended (app-only client_credentials) or that reduce to a non-interactive grant
-# after a one-time out-of-band step (authorizationCode -> refresh_token) are mapped.
-# `implicit` and `password` are deliberately never supported — see nw-connector-builder-scope.md.
+# Flow kind is retained only for operation fingerprints so per-operation matching
+# stays stable across regenerations. Generated connectors never run these grants —
+# every oauth2 scheme is host-supplied (see nw-connector-builder-scope.md).
 OAuth2FlowKind = Literal["client_credentials", "authorization_code"]
 
 
@@ -45,14 +44,17 @@ class OpSecurityDecision:
     scheme_name: str | None = None
 
 
-_UNSUPPORTED_TYPES = frozenset({"openIdConnect", "mutualTLS"})
+# Presentable as a bearer, but never acquired by Node Wire — see _scheme_host_supplied.
+_HOST_SUPPLIED_TYPES = frozenset({"oauth2", "openIdConnect"})
+# Not presentable at all (transport-layer credential): operations are soft-dropped.
+_UNSUPPORTED_TYPES = frozenset({"mutualTLS"})
 
 
 def _oauth2_flow_kind(scheme: dict[str, Any] | None) -> OAuth2FlowKind | None:
-    """Which (if any) supported grant this oauth2 scheme's declared flows map to.
+    """Which declared oauth2 flow (if any) this scheme names, for fingerprints only.
 
-    ``clientCredentials`` wins when both are declared (fully unattended beats a flow
-    that needs a one-time manual step). ``implicit`` / ``password`` are never mapped.
+    ``clientCredentials`` wins when both are declared. ``implicit`` / ``password``
+    return ``None``. Generated connectors never acquire tokens from these flows.
     """
     if not scheme or scheme.get("type") != "oauth2":
         return None
@@ -66,25 +68,43 @@ def _oauth2_flow_kind(scheme: dict[str, Any] | None) -> OAuth2FlowKind | None:
     return None
 
 
-def _oauth2_flow_details(scheme: dict[str, Any], kind: OAuth2FlowKind) -> dict[str, Any]:
-    """Pull ``tokenUrl`` / ``authorizationUrl`` / scope names out of the chosen flow."""
+class _OAuth2Endpoints(NamedTuple):
+    """Documentation-only URLs lifted from a scheme's declared oauth2 flows.
+
+    Node Wire never calls either one — they go into the build report so the host
+    knows where to obtain the token it must supply.
+    """
+
+    authorization_url: str | None
+    token_url: str | None
+
+
+_NO_OAUTH2_ENDPOINTS = _OAuth2Endpoints(None, None)
+
+
+def _oauth2_endpoint_urls(scheme: dict[str, Any]) -> _OAuth2Endpoints:
+    """Pull authorizationUrl / tokenUrl from any declared oauth2 flow for host docs."""
     flows = scheme.get("flows") or {}
-    key = "clientCredentials" if kind == "client_credentials" else "authorizationCode"
-    flow = flows.get(key) or {}
-    return {
-        "token_url": flow.get("tokenUrl"),
-        "authorization_url": flow.get("authorizationUrl"),
-        "scopes": list((flow.get("scopes") or {}).keys()),
-    }
+    if not isinstance(flows, dict):
+        return _NO_OAUTH2_ENDPOINTS
+    auth_url: str | None = None
+    grant_url: str | None = None
+    for flow in flows.values():
+        if not isinstance(flow, dict):
+            continue
+        if auth_url is None and flow.get("authorizationUrl"):
+            auth_url = flow["authorizationUrl"]
+        if grant_url is None and flow.get("tokenUrl"):
+            grant_url = flow["tokenUrl"]
+    return _OAuth2Endpoints(auth_url, grant_url)
 
 
 def _scheme_supported(scheme: dict[str, Any] | None) -> bool:
+    """Self-managed schemes Node Wire presents without host OAuth acquisition."""
     if not scheme:
         return False
     t = scheme.get("type")
-    if t == "oauth2":
-        return _oauth2_flow_kind(scheme) is not None
-    if t in _UNSUPPORTED_TYPES:
+    if t in _HOST_SUPPLIED_TYPES or t in _UNSUPPORTED_TYPES:
         return False
     if t == "apiKey":
         return scheme.get("in") in {"header", "query"}
@@ -96,16 +116,12 @@ def _scheme_supported(scheme: dict[str, Any] | None) -> bool:
 def _scheme_host_supplied(scheme: dict[str, Any] | None) -> bool:
     """Host-supplied schemes: presentable as a bearer token, never acquired by Node Wire.
 
-    Covers oauth2 with no unattended grant (``implicit``, ``password``, etc.) and
-    ``openIdConnect``. Contrast ``_scheme_supported``, which is for schemes Node Wire
-    fully owns end to end.
+    Covers every ``oauth2`` flow and ``openIdConnect``. Contrast ``_scheme_supported``,
+    which is for schemes Node Wire fully owns end to end (apiKey / http bearer / basic).
     """
     if not scheme:
         return False
-    t = scheme.get("type")
-    if t == "oauth2":
-        return _oauth2_flow_kind(scheme) is None
-    return t == "openIdConnect"
+    return scheme.get("type") in _HOST_SUPPLIED_TYPES
 
 
 def _scheme_presentable(scheme: dict[str, Any] | None) -> bool:
@@ -215,18 +231,73 @@ def build_auth_plan(
             secret_keys=[secret_key],
         )
 
-    if t == "oauth2":
-        kind = _oauth2_flow_kind(scheme)
-        if kind is None:
-            return _build_host_supplied_auth_plan(upper, chosen_name, scheme)
-        return _build_oauth2_auth_plan(upper, chosen_name, scheme, kind)
-
-    if t == "openIdConnect":
+    if t in _HOST_SUPPLIED_TYPES:
         return _build_host_supplied_auth_plan(upper, chosen_name, scheme)
 
     return ConnectorAuthPlan(
         None, None, "none", "", {}, notes=["Chosen scheme could not be mapped"]
     )
+
+
+def _scheme_qualified_secret_key(upper: str, scheme_name: str, secret_key: str) -> str:
+    """Qualify a colliding secret with its scheme: ``<ID>_<SCHEME>_<SUFFIX>``.
+
+    ``<SUFFIX>`` is what the un-qualified key already carries (``ACCESS_TOKEN``,
+    ``API_KEY``, ``TOKEN``, ``BASIC_AUTH``), so the re-keyed name still reads as
+    the same kind of credential.
+    """
+    scheme_upper = "".join(c if c.isalnum() else "_" for c in scheme_name).upper()
+    prefix = f"{upper}_"
+    suffix = secret_key[len(prefix) :] if secret_key.startswith(prefix) else secret_key
+    return f"{upper}_{scheme_upper}_{suffix}"
+
+
+def _rekey_plan(plan: ConnectorAuthPlan, old_key: str, new_key: str) -> ConnectorAuthPlan:
+    """Return ``plan`` with ``old_key`` renamed to ``new_key`` everywhere it appears."""
+    yaml_block = dict(plan.yaml_block)
+    if yaml_block.get("secret_key") == old_key:
+        yaml_block["secret_key"] = new_key
+    return replace(
+        plan,
+        secret_key=new_key if plan.secret_key == old_key else plan.secret_key,
+        yaml_block=yaml_block,
+        secret_keys=[new_key if k == old_key else k for k in plan.secret_keys],
+        secret_defaults={
+            (new_key if k == old_key else k): v for k, v in plan.secret_defaults.items()
+        },
+        notes=[n.replace(old_key, new_key) for n in plan.notes],
+    )
+
+
+def uniquify_extra_secret_keys(
+    connector_id: str,
+    default: ConnectorAuthPlan,
+    extras: dict[str, ConnectorAuthPlan],
+) -> dict[str, ConnectorAuthPlan]:
+    """Re-key extra schemes whose secret name is already taken by another scheme.
+
+    Secret names are derived from the connector id and the credential kind, not the
+    scheme name, so two schemes of the same kind (two ``apiKey`` headers, two
+    ``oauth2`` flows) would otherwise share one secret despite needing different
+    values. Collisions are qualified with the scheme name; the first claimant keeps
+    the short name. Returns a new dict.
+    """
+    used = set(default.secret_keys)
+    upper = connector_id.upper()
+    out: dict[str, ConnectorAuthPlan] = {}
+    for name, plan in extras.items():
+        for old_key in list(plan.secret_keys):
+            if old_key not in used:
+                continue
+            new_key = _scheme_qualified_secret_key(upper, name, old_key)
+            attempt = 2
+            while new_key in used:
+                new_key = f"{_scheme_qualified_secret_key(upper, name, old_key)}_{attempt}"
+                attempt += 1
+            plan = _rekey_plan(plan, old_key, new_key)
+        used.update(plan.secret_keys)
+        out[name] = plan
+    return out
 
 
 def _build_host_supplied_auth_plan(
@@ -240,9 +311,11 @@ def _build_host_supplied_auth_plan(
     must supply and rotate the token (see nw-connector-builder-scope.md).
     """
     t = scheme.get("type")
+    endpoints = _NO_OAUTH2_ENDPOINTS
     if t == "oauth2":
         flows = sorted((scheme.get("flows") or {}).keys()) or ["<none declared>"]
-        origin = f"declares oauth2 flow(s) {flows!r} with no unattended grant Node Wire can run"
+        origin = f"declares oauth2 flow(s) {flows!r}"
+        endpoints = _oauth2_endpoint_urls(scheme)
     else:
         origin = "declares openIdConnect, whose underlying flow can't be introspected from the spec"
 
@@ -262,6 +335,10 @@ def _build_host_supplied_auth_plan(
         "detects no expiry; a stale token surfaces as a plain 401 from the API, not a "
         "managed refresh cycle."
     ]
+    if endpoints.authorization_url:
+        notes.append(f"Host auth documentation: authorizationUrl={endpoints.authorization_url}")
+    if endpoints.token_url:
+        notes.append(f"Host auth documentation: tokenUrl={endpoints.token_url}")
     return ConnectorAuthPlan(
         scheme_name=chosen_name,
         scheme=scheme,
@@ -271,91 +348,6 @@ def _build_host_supplied_auth_plan(
         notes=notes,
         secret_keys=[secret_key],
         tier="host_supplied",
-    )
-
-
-def _build_oauth2_auth_plan(
-    upper: str,
-    chosen_name: str,
-    scheme: dict[str, Any],
-    kind: OAuth2FlowKind,
-) -> ConnectorAuthPlan:
-    """Scaffold an oauth2 connector-level auth plan for a supported flow.
-
-    Neither flow is minted by Node Wire from spec data alone — see
-    ``docs/nw-connector-builder-scope.md``. What *is* derivable from the spec
-    (token endpoint, declared scopes) is pre-filled; secrets the host app must
-    provision (client id/secret, and for authorization_code a refresh token
-    obtained via a one-time interactive consent) are emitted as blank
-    placeholders in ``sample.env``.
-    """
-    details = _oauth2_flow_details(scheme, kind)
-    token_url_secret = f"{upper}_TOKEN_URL"
-    client_id_secret = f"{upper}_CLIENT_ID"
-    client_secret_secret = f"{upper}_CLIENT_SECRET"
-
-    block: dict[str, Any] = {
-        "provider": "oauth2",
-        "token_url_secret": token_url_secret,
-        "client_id_secret": client_id_secret,
-        "client_secret_secret": client_secret_secret,
-    }
-    secret_keys = [token_url_secret, client_id_secret, client_secret_secret]
-    secret_defaults: dict[str, str] = {}
-    if details["token_url"]:
-        # Not actually secret (it's public API metadata) but resolved the same way as
-        # the rest of the block so a sandbox/prod override never needs a code change.
-        secret_defaults[token_url_secret] = details["token_url"]
-
-    scopes = list(details["scopes"])
-    notes: list[str] = []
-    if kind == "client_credentials":
-        block["grant_method"] = "client_secret_post"
-        primary_secret = client_secret_secret
-        notes.append(
-            "OAuth2 client_credentials (app-only, unattended): register an application "
-            f"with the API provider, then set {client_id_secret} / {client_secret_secret}. "
-            f"{token_url_secret} is pre-filled in sample.env from the spec."
-        )
-    else:
-        refresh_token_secret = f"{upper}_REFRESH_TOKEN"
-        block["grant_method"] = "refresh_token"
-        block["refresh_token_secret"] = refresh_token_secret
-        secret_keys.append(refresh_token_secret)
-        primary_secret = refresh_token_secret
-        where = f" at {details['authorization_url']}" if details["authorization_url"] else ""
-        notes.append(
-            "OAuth2 authorizationCode flow: Node Wire does not perform the interactive "
-            f"consent{where} — complete it once, out-of-band, then set {refresh_token_secret} "
-            f"(plus {client_id_secret} / {client_secret_secret}). Access tokens are refreshed "
-            "automatically from it afterward. If the IdP rotates the refresh token, the "
-            "connector will keep working in-process either way; register the host's own "
-            "OAuth2AuthProvider(on_refresh_token_rotated=...) hook so the replacement also "
-            "survives a restart."
-        )
-        if "offline_access" not in scopes:
-            scopes.append("offline_access")
-            notes.append(
-                "Added 'offline_access' to scopes — the spec's declared scope list didn't "
-                "include it, but most OIDC providers (Microsoft identity platform included) "
-                "will not issue a refresh token during the interactive consent without it. "
-                "Request this same scope list during that consent step. (Some providers, e.g. "
-                "Google, use a request parameter instead of a scope for offline access — check "
-                "your provider's docs if this API isn't one of the common ones.)"
-            )
-
-    if scopes:
-        block["scopes"] = scopes
-
-    return ConnectorAuthPlan(
-        scheme_name=chosen_name,
-        scheme=scheme,
-        provider="oauth2",
-        secret_key=primary_secret,
-        yaml_block=block,
-        notes=notes,
-        secret_keys=secret_keys,
-        secret_defaults=secret_defaults,
     )
 
 

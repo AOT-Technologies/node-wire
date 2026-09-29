@@ -6,10 +6,13 @@
 
 from __future__ import annotations
 
+import keyword
 import re
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
+
+from pydantic import BaseModel
 
 from nw_connector_builder.derive.auth import (
     ConnectorAuthPlan,
@@ -17,8 +20,10 @@ from nw_connector_builder.derive.auth import (
     choose_connector_scheme,
     connector_fingerprint,
     evaluate_operation_security,
+    uniquify_extra_secret_keys,
 )
 from nw_connector_builder.derive.naming import (
+    action_name_budget,
     fallback_operation_name,
     uniquify_names,
 )
@@ -31,7 +36,9 @@ HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "opti
 class ParamPlan:
     field_name: str
     wire_name: str
-    location: str  # path|query|header|body
+    # path|query|header, or body_property: one property of an object request body,
+    # reassembled into the body by the runtime (see split_params_by_location).
+    location: str
     required: bool
     schema: dict[str, Any]
     style: str | None = None
@@ -39,6 +46,7 @@ class ParamPlan:
     media_type: str | None = None
     python_type_hint: str = "Any"
     default: Any = None
+    description: str | None = None
 
 
 @dataclass
@@ -53,10 +61,17 @@ class ActionPlan:
     output_schema: dict[str, Any] | None
     use_rest_response_output: bool
     auth: bool  # False for anonymous
+    # Success-flag field the API sets false to report failure inside a 2xx body.
+    envelope_ok_field: str | None = None
     deprecated: bool = False
     examples: dict[str, Any] = field(default_factory=dict)
     # Non-default scheme for divergent ops; None = connector default.
     auth_scheme_name: str | None = None
+    # True when the body's properties were emitted as body_property params; the
+    # action then has no single `body` argument.
+    body_flattened: bool = False
+    # requestBody.required — for a whole body, whether `body` is a required argument.
+    body_required: bool = False
 
 
 @dataclass
@@ -84,6 +99,14 @@ class DeriveError(Exception):
     """Hard failure during derivation."""
 
 
+# Argument names the bindings or the generated model claim for themselves: MCP
+# pops tenant_id/config_name from tool arguments before the connector sees them,
+# `action` is the dispatch discriminator, `body` the whole-body field.
+_RESERVED_FIELD_NAMES = frozenset(
+    {"body", "action", "self", "cls", "config_name", "tenant_id", "trace_id"}
+)
+
+
 def _sanitize_field_name(wire: str) -> str:
     name = re.sub(r"[^a-zA-Z0-9_]", "_", wire)
     name = re.sub(r"_+", "_", name).strip("_").lower()
@@ -91,8 +114,12 @@ def _sanitize_field_name(wire: str) -> str:
         name = "field"
     if name[0].isdigit():
         name = "f_" + name
-    if name in {"body", "action", "self", "cls"}:
+    if name in _RESERVED_FIELD_NAMES:
         name = name + "_param"
+    elif keyword.iskeyword(name) or hasattr(BaseModel, name):
+        # `from`, `class`, … are not valid identifiers; `json`, `copy`, … would
+        # shadow BaseModel attributes. The wire name is unaffected.
+        name = name + "_"
     return name
 
 
@@ -109,6 +136,126 @@ def _dedupe_field_names(params: list[ParamPlan]) -> list[ParamPlan]:
         used.add(name)
         p.field_name = name
     return params
+
+
+# Parameter names that carry the API credential itself. For an authenticated
+# action the configured AuthProvider already attaches the credential, so keeping
+# these as call arguments duplicates it — and on an MCP tool it makes the model
+# refuse to act until a human hands it a secret to paste into a tool call.
+# Matched exactly, so ordinary fields like `page_token` or `cursor` are untouched.
+_CREDENTIAL_PARAM_NAMES = frozenset(
+    {
+        "token",
+        "access_token",
+        "accesstoken",
+        "api_key",
+        "apikey",
+        "api-key",
+        "auth_token",
+        "authorization",
+        "password",
+        "secret",
+    }
+)
+
+
+def _is_credential_param(wire_name: str, location: str) -> bool:
+    """True for a header/query/body field that duplicates the connector's credential.
+
+    Path parameters are never dropped: they are part of the URL.
+    """
+    if location not in {"header", "query", "body_property"}:
+        return False
+    return wire_name.strip().lower() in _CREDENTIAL_PARAM_NAMES
+
+
+# Media types whose body is a set of named fields the runtime can rebuild from
+# body_property arguments (see node_wire_runtime.rest._encode_request_body).
+def _is_field_media(media_type: str | None) -> bool:
+    mt = (media_type or "").lower()
+    return (
+        mt == "application/json"
+        or mt.endswith("+json")
+        or mt == "application/x-www-form-urlencoded"
+        or mt.startswith("multipart/")
+    )
+
+
+def _object_properties(schema: Any) -> tuple[dict[str, Any], list[str]] | None:
+    """``(properties, required)`` of an object schema with declared properties, else None.
+
+    Top-level ``allOf`` parts are merged. Anything that cannot be described as one
+    flat set of named fields — ``oneOf``/``anyOf``, unresolved ``$ref``, a
+    non-object type, free-form maps — returns None and keeps a whole-body argument.
+    """
+    if not isinstance(schema, dict) or "$ref" in schema:
+        return None
+    if schema.get("oneOf") or schema.get("anyOf"):
+        return None
+    parts = [schema, *(schema.get("allOf") or [])]
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+    for part in parts:
+        if not isinstance(part, dict) or "$ref" in part:
+            return None
+        if part.get("type") not in (None, "object"):
+            return None
+        props = part.get("properties") or {}
+        if not isinstance(props, dict):
+            return None
+        properties.update(props)
+        required.extend(str(r) for r in part.get("required") or [])
+    if not properties:
+        return None
+    return properties, list(dict.fromkeys(required))
+
+
+def _body_property_plans(
+    schema: Any, *, media_type: str, body_required: bool
+) -> list[ParamPlan] | None:
+    """One ``body_property`` ParamPlan per writable property, or None to keep ``body`` whole.
+
+    A property is required only when the body itself is required: an optional
+    body may be omitted entirely, required fields and all.
+    """
+    if not _is_field_media(media_type):
+        return None
+    shape = _object_properties(schema)
+    if shape is None:
+        return None
+    properties, required = shape
+    plans: list[ParamPlan] = []
+    for wire, prop in properties.items():
+        prop = prop if isinstance(prop, dict) else {}
+        if prop.get("readOnly"):
+            # readOnly: sent by the server in responses, never by a client.
+            continue
+        plans.append(
+            ParamPlan(
+                field_name=_sanitize_field_name(str(wire)),
+                wire_name=str(wire),
+                location="body_property",
+                required=body_required and str(wire) in required,
+                schema=prop,
+                media_type=media_type,
+                python_type_hint=_schema_type_hint(prop),
+                default=prop.get("default"),
+                description=prop.get("description"),
+            )
+        )
+    return plans
+
+
+def _rename_colliding_params(params: list[ParamPlan], body_props: list[ParamPlan]) -> None:
+    """Rename path/query/header params whose name a body property also uses.
+
+    The body property keeps the plain name — it is usually the one callers mean —
+    and the parameter becomes ``<name>__<location>``. The wire name is unchanged.
+    """
+    taken = {p.field_name for p in body_props}
+    for p in params:
+        if p.field_name in taken:
+            p.field_name = f"{p.field_name}__{p.location}"
 
 
 def _schema_type_hint(schema: dict[str, Any] | None) -> str:
@@ -211,6 +358,30 @@ def _success_response_schema(op: dict[str, Any]) -> tuple[dict[str, Any] | None,
     return None, True
 
 
+# Envelope-flag convention: a 2xx body carrying its own success boolean
+# (Slack, Telegram, and other "always 200" APIs). Only this exact shape counts —
+# a required boolean named `ok` — so a spec that happens to have an optional or
+# non-boolean `ok` field is untouched.
+_ENVELOPE_OK_FIELD = "ok"
+
+
+def _envelope_ok_field(schema: dict[str, Any] | None) -> str | None:
+    """Return the success-flag field name when the success schema declares one.
+
+    Requires the flag to be **required**: an optional one says nothing when the
+    API omits it, and treating its absence as failure would break every response
+    that legitimately leaves it out.
+    """
+    if not isinstance(schema, dict):
+        return None
+    if _ENVELOPE_OK_FIELD not in (schema.get("required") or []):
+        return None
+    prop = (schema.get("properties") or {}).get(_ENVELOPE_OK_FIELD)
+    if not isinstance(prop, dict) or prop.get("type") != "boolean":
+        return None
+    return _ENVELOPE_OK_FIELD
+
+
 def _schema_is_object(schema: dict[str, Any]) -> bool:
     """True when the schema is (or clearly describes) a JSON object."""
     if not isinstance(schema, dict):
@@ -262,6 +433,7 @@ def derive_operations(
     default_base_url = resolve_base_url(doc, base_url_override)
 
     notes: list[str] = []
+    credential_params: set[str] = set()
     if any(
         isinstance(item, dict) and item.get("servers") for item in (doc.get("paths") or {}).values()
     ):
@@ -284,7 +456,7 @@ def derive_operations(
             raw_ops.append((method.lower(), path, op, cand))
 
     total = len(raw_ops)
-    names = uniquify_names([c for *_, c in raw_ops])
+    names = uniquify_names([c for *_, c in raw_ops], max_len=action_name_budget(connector_id))
 
     actions: list[ActionPlan] = []
     drops: list[SoftDrop] = []
@@ -321,6 +493,9 @@ def derive_operations(
             style = param.get("style")
             explode = param.get("explode")
             required = bool(param.get("required")) or loc == "path"
+            if sec.mode != "anonymous" and _is_credential_param(wire, str(loc)):
+                credential_params.add(f"{wire} (in {loc})")
+                continue
             param_plans.append(
                 ParamPlan(
                     field_name=_sanitize_field_name(wire),
@@ -332,6 +507,8 @@ def derive_operations(
                     explode=explode,
                     python_type_hint=_schema_type_hint(schema),
                     default=schema.get("default", param.get("default")),
+                    # OAS 3 allows the text on the parameter or on its schema.
+                    description=param.get("description") or schema.get("description"),
                 )
             )
 
@@ -339,21 +516,38 @@ def derive_operations(
             drops.append(SoftDrop(method, path, op.get("operationId"), drop_reason))
             continue
 
-        param_plans = _dedupe_field_names(param_plans)
-
         body_schema = None
         body_media = None
+        body_required = False
+        body_flattened = False
         rb = op.get("requestBody")
         if isinstance(rb, dict):
+            body_required = bool(rb.get("required"))
             content = rb.get("content") or {}
             picked = _pick_json_media(content)
             if picked:
                 body_media, media = picked
-                body_schema = media.get("schema")
-            elif content:
-                # non-JSON request body — still implement
-                body_media = next(iter(content.keys()))
-                body_schema = (content[body_media] or {}).get("schema")
+                body_schema = (media or {}).get("schema")
+
+        if body_schema is not None and body_media is not None:
+            body_props = _body_property_plans(
+                body_schema, media_type=body_media, body_required=body_required
+            )
+            if body_props is not None:
+                body_flattened = True
+                if sec.mode != "anonymous":
+                    for bp in body_props:
+                        if _is_credential_param(bp.wire_name, bp.location):
+                            credential_params.add(f"{bp.wire_name} (in body)")
+                    body_props = [
+                        bp
+                        for bp in body_props
+                        if not _is_credential_param(bp.wire_name, bp.location)
+                    ]
+                _rename_colliding_params(param_plans, body_props)
+                param_plans.extend(body_props)
+
+        param_plans = _dedupe_field_names(param_plans)
 
         out_schema, use_envelope = _success_response_schema(op)
 
@@ -383,9 +577,12 @@ def derive_operations(
                 output_schema=out_schema,
                 use_rest_response_output=use_envelope,
                 auth=sec.mode != "anonymous",
+                envelope_ok_field=_envelope_ok_field(out_schema),
                 deprecated=bool(op.get("deprecated")),
                 examples=examples,
                 auth_scheme_name=sec.scheme_name if sec.mode == "divergent" else None,
+                body_flattened=body_flattened,
+                body_required=body_required,
             )
         )
 
@@ -393,13 +590,33 @@ def derive_operations(
         raise DeriveError("Zero usable operations after soft-drops; cannot build connector")
 
     coverage_warning = len(actions) < (total * 0.5)
+    if credential_params:
+        notes.append(
+            "Dropped spec parameter(s) that duplicate the connector credential: "
+            f"{', '.join(sorted(credential_params))}. The configured AuthProvider supplies the "
+            "credential; exposing it as a call argument would ask the caller for a secret"
+        )
+
+    enveloped = [a.name for a in actions if a.envelope_ok_field]
+    if enveloped:
+        # Slack's spec puts this on 170 of 174 operations; naming them all buries
+        # the rest of the report. Per-action detail stays in generated_actions.
+        shown = ", ".join(enveloped[:5])
+        more = f", +{len(enveloped) - 5} more" if len(enveloped) > 5 else ""
+        notes.append(
+            f"Success-flag envelope: {len(enveloped)} of {len(actions)} action(s) treat a 2xx "
+            f"body with {_ENVELOPE_OK_FIELD}=false as a business error, because the success "
+            f"schema declares {_ENVELOPE_OK_FIELD} as a required boolean ({shown}{more})"
+        )
     # Plans for every non-default scheme a generated action actually uses.
     extra_scheme_names = sorted(
         {a.auth_scheme_name for a in actions if a.auth_scheme_name is not None}
     )
-    extra_auth_plans = {
-        name: build_auth_plan(connector_id, schemes, name) for name in extra_scheme_names
-    }
+    extra_auth_plans = uniquify_extra_secret_keys(
+        connector_id,
+        auth_plan,
+        {name: build_auth_plan(connector_id, schemes, name) for name in extra_scheme_names},
+    )
     return DeriveResult(
         actions=actions,
         drops=drops,

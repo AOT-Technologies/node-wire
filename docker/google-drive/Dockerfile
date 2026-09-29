@@ -2,7 +2,7 @@
 ## SPDX-FileCopyrightText: 2026 AOT Technologies
 ## SPDX-License-Identifier: Apache-2.0
 ##
-FROM python:3.12-slim@sha256:3d5ed973e45820f5ba5e46bd065bd88b3a504ff0724d85980dcd05eab361fcf4
+FROM python:3.13-slim@sha256:7c61056e61ac89e852de05f3dc6fa51a6dd2181797bceed46aa725dd7cb2cd3b
 
 LABEL org.opencontainers.image.title="nw-google-drive" \
       org.opencontainers.image.description="Node Wire — Google Drive MCP server" \

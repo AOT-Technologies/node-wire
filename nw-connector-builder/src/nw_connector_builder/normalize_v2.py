@@ -126,6 +126,7 @@ def _convert_parameters(
     """Split body/formData into requestBody; return remaining params + optional requestBody."""
     kept: list[dict[str, Any]] = []
     body_schema: dict[str, Any] | None = None
+    body_required = False
     form_props: dict[str, Any] = {}
     form_required: list[str] = []
     form_is_multipart = False
@@ -140,6 +141,7 @@ def _convert_parameters(
 
         if loc == "body":
             body_schema = _rewrite_refs(p.get("schema") or {"type": "object"})
+            body_required = bool(p.get("required"))
             continue
 
         if loc == "formData":
@@ -170,7 +172,8 @@ def _convert_parameters(
     request_body = None
     if body_schema is not None:
         media = consumes[0] if consumes else "application/json"
-        request_body = {"content": {media: {"schema": body_schema}}, "required": True}
+        # OAS 2 `in: body` is optional unless it says `required: true`.
+        request_body = {"content": {media: {"schema": body_schema}}, "required": body_required}
     elif form_props:
         media = "multipart/form-data" if form_is_multipart else "application/x-www-form-urlencoded"
         schema = {"type": "object", "properties": form_props}
@@ -210,11 +213,88 @@ def _convert_responses(
         if schema is not None:
             media = produces[0] if produces else "application/json"
             r["content"] = {media: {"schema": _rewrite_refs(schema)}}
+        # Swagger 2.0 puts response examples on the response object, keyed by mime
+        # type; OpenAPI 3 has no such property (it lives under content.<mt>.example)
+        # and validation rejects the leftover key outright — Slack's published spec
+        # carries one on every operation's `default` response.
+        examples = r.pop("examples", None)
+        if isinstance(examples, dict):
+            content = r.setdefault("content", {})
+            for mime, value in examples.items():
+                if isinstance(content.get(mime), dict):
+                    content[mime]["example"] = value
+                else:
+                    content[str(mime)] = {"example": value}
         headers = r.get("headers")
         if isinstance(headers, dict):
             r["headers"] = {name: _convert_header(h) for name, h in headers.items()}
         out[code] = _rewrite_refs(r)
     return out
+
+
+def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
+    """Rewrite one node's draft-4-only constructs into their OAS 3.0 equivalents.
+
+    JSON Schema draft-4 allows a union ``type`` list and a tuple-form ``items``
+    array; OpenAPI 3.0's Schema Object allows neither, so a document carrying them
+    fails validation outright even though every other part of it is usable. Real
+    Swagger 2.0 documents carry them anyway — Slack's published Web API spec has
+    62 between the two — so repair them rather than reject the whole spec.
+    """
+    types = node.get("type")
+    if types == "null":
+        # Draft-4 spells "this is always null" as a type; OAS 3.0 has no null type.
+        node.pop("type", None)
+        node["nullable"] = True
+        counts["null_types"] = counts.get("null_types", 0) + 1
+    elif isinstance(types, list):
+        concrete = [t for t in types if t != "null"]
+        if len(concrete) < len(types):
+            node["nullable"] = True
+        if len(concrete) == 1:
+            node["type"] = concrete[0]
+        elif not concrete:
+            node.pop("type", None)
+        else:
+            # OAS 3.0 has no union type; anyOf is the documented equivalent.
+            node.pop("type", None)
+            node["anyOf"] = [{"type": t} for t in concrete]
+        counts["type_unions"] = counts.get("type_unions", 0) + 1
+
+    items = node.get("items")
+    if isinstance(items, list):
+        concrete_items = [i for i in items if not (isinstance(i, dict) and i.get("type") == "null")]
+        nullable = len(concrete_items) < len(items)
+        if len(concrete_items) == 1:
+            merged = dict(concrete_items[0])
+        elif not concrete_items:
+            merged = {}
+        else:
+            # Tuple form means "position 0 is A, position 1 is B", which no
+            # generated model can express; the specs that use it mean "A or B".
+            merged = {"anyOf": concrete_items}
+        if nullable:
+            merged["nullable"] = True
+        node["items"] = merged
+        counts["item_tuples"] = counts.get("item_tuples", 0) + 1
+
+
+def sanitize_draft4_schemas(doc: Any, counts: dict[str, int] | None = None) -> dict[str, int]:
+    """Repair draft-4-only schema constructs in place, returning what was changed.
+
+    Applied to every document (converted or natively OpenAPI 3), because the
+    constructs are invalid in OAS 3.0 wherever they came from. Keyed on shape, not
+    location: only nodes that actually carry a list ``type`` / ``items`` are touched.
+    """
+    counts = {} if counts is None else counts
+    if isinstance(doc, dict):
+        _sanitize_schema_node(doc, counts)
+        for value in doc.values():
+            sanitize_draft4_schemas(value, counts)
+    elif isinstance(doc, list):
+        for value in doc:
+            sanitize_draft4_schemas(value, counts)
+    return counts
 
 
 def normalize_swagger2_to_openapi3(doc: dict[str, Any]) -> dict[str, Any]:

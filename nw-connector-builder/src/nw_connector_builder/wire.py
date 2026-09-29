@@ -129,6 +129,9 @@ def wire_sample_env(
                     f"the {connector_id} build report."
                 )
             new_lines.append(f"{key}={defaults.get(key, '')}")
+            # Track as we go: two schemes can legitimately resolve to one secret,
+            # and a repeated key must not emit a second assignment line.
+            existing_keys.add(key)
 
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 

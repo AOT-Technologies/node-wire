@@ -106,3 +106,16 @@ connectors:
     auth:
       provider: static_token
       secret_key: SLACK_BOT_TOKEN
+  slack_web:
+    enabled: true
+    exposed_via:
+    - rest
+    - grpc
+    - mcp
+    base_url: https://slack.com/api
+    auth:
+      provider: static_token
+      secret_key: SLACK_WEB_ACCESS_TOKEN
+      header_name: Authorization
+      prefix: Bearer
+      host_supplied: true

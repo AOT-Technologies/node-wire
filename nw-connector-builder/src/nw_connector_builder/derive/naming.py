@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Action naming with ≤40 + collision suffix (generator-owned)."""
+"""Action naming: length budget, word-boundary cuts, collision suffix (generator-owned)."""
 
 from __future__ import annotations
 
@@ -41,12 +41,38 @@ def normalize_action_name(raw: str) -> str:
     return name
 
 
+# MCP tool names are `<connector_id>_<action>`; clients cap them at 64 characters.
+MCP_TOOL_NAME_LIMIT = 64
+# Floor for the per-action budget, so a very long connector id still leaves
+# readable action names (the tool name then exceeds the limit — see derive).
+_MIN_ACTION_NAME_LEN = 16
+
+
+def action_name_budget(connector_id: str) -> int:
+    """Longest action name that keeps ``<connector_id>_<action>`` within the MCP limit."""
+    return max(_MIN_ACTION_NAME_LEN, MCP_TOOL_NAME_LIMIT - len(connector_id) - 1)
+
+
+def _truncate(name: str, max_len: int) -> str:
+    """Cut to ``max_len`` at the last word boundary, never leaving a trailing ``_``.
+
+    A mid-word cut (``…_restrict_access_remo``) reads as a different word; a
+    single word longer than the budget is still cut hard.
+    """
+    if len(name) <= max_len:
+        return name
+    cut = name[:max_len]
+    if name[max_len] != "_" and "_" in cut:
+        cut = cut[: cut.rfind("_")]
+    return cut.rstrip("_") or name[:max_len]
+
+
 def uniquify_names(candidates: list[str], *, max_len: int = 40) -> list[str]:
     """Truncate to max_len and append numeric suffixes for collisions (document order)."""
     used: dict[str, int] = {}
     result: list[str] = []
     for raw in candidates:
-        base = normalize_action_name(raw)[:max_len]
+        base = _truncate(normalize_action_name(raw), max_len)
         if not re.fullmatch(r"[a-z][a-z0-9_]*", base):
             base = (base + "x")[:max_len]
         name = base
@@ -54,7 +80,7 @@ def uniquify_names(candidates: list[str], *, max_len: int = 40) -> list[str]:
             n = used[name] + 1
             while True:
                 suffix = f"_{n}"
-                trimmed = base[: max_len - len(suffix)]
+                trimmed = _truncate(base, max_len - len(suffix))
                 candidate = trimmed + suffix
                 if candidate not in used:
                     name = candidate

@@ -1,0 +1,118 @@
+"""Generated tool methods for the {{ server_name }} MCP server.
+
+Each method wraps an upstream API endpoint. FastMCP introspects the
+method signature to build the tool's input schema automatically.
+"""
+
+{% if any_binary %}
+import base64
+{% endif %}
+from typing import Annotated{% if any_node_wire %}, Any{% endif %}
+
+from pydantic import Field
+
+from {{ module_name }}.client import APIClient
+
+
+class Tools:
+    """MCP tool implementations backed by the upstream API."""
+
+    def __init__(self, client: APIClient) -> None:
+        self._client = client
+{% for tool in tools %}
+{% if tool.nw_action %}
+
+    async def {{ tool.method_name }}(self{{ tool.signature }}) -> Any:
+        """{{ tool.description | py_string }}"""
+{% for hint in tool.hints %}
+        # Hint: {{ hint | py_string }}
+{% endfor %}
+        return await self._client.run(
+            "{{ tool.nw_action }}",
+            {{ tool.nw_arguments_expr }},
+        )
+{% elif tool.response_kind == "binary" %}
+
+    async def {{ tool.method_name }}(self{{ tool.signature }}) -> str:
+        """{{ tool.description | py_string }}
+
+        Upstream returns opaque bytes; they are base64-encoded so the
+        value survives MCP transport.
+        """
+{% for hint in tool.hints %}
+        # Hint: {{ hint | py_string }}
+{% endfor %}
+        raw = await self._client.request_bytes(
+            "{{ tool.http_method }}",
+            {{ tool.path_expr }},
+{% if tool.params_expr %}
+            params={{ tool.params_expr }},
+{% endif %}
+{% if tool.body_expr %}
+            json_body={{ tool.body_expr }},
+{% endif %}
+        )
+        return base64.b64encode(raw).decode("ascii")
+{% elif tool.response_kind == "text" %}
+
+    async def {{ tool.method_name }}(self{{ tool.signature }}) -> str:
+        """{{ tool.description | py_string }}
+
+        Upstream returns a text body; it is decoded using the response's
+        declared charset (falling back to UTF-8) and returned verbatim.
+        """
+{% for hint in tool.hints %}
+        # Hint: {{ hint | py_string }}
+{% endfor %}
+        return await self._client.request_text(
+            "{{ tool.http_method }}",
+            {{ tool.path_expr }},
+{% if tool.params_expr %}
+            params={{ tool.params_expr }},
+{% endif %}
+{% if tool.body_expr %}
+            json_body={{ tool.body_expr }},
+{% endif %}
+        )
+{% elif tool.response_kind == "auto" %}
+
+    async def {{ tool.method_name }}(self{{ tool.signature }}) -> dict | str:
+        """{{ tool.description | py_string }}
+
+        Response shape depends on request inputs. The body is decoded
+        based on the response's Content-Type header: JSON content types
+        return a dict, text/* returns a str, and any other content type
+        returns a base64-encoded str.
+        """
+{% for hint in tool.hints %}
+        # Hint: {{ hint | py_string }}
+{% endfor %}
+        return await self._client.request_auto(
+            "{{ tool.http_method }}",
+            {{ tool.path_expr }},
+{% if tool.params_expr %}
+            params={{ tool.params_expr }},
+{% endif %}
+{% if tool.body_expr %}
+            json_body={{ tool.body_expr }},
+{% endif %}
+        )
+{% elif tool.response_kind == "json" %}
+
+    async def {{ tool.method_name }}(self{{ tool.signature }}) -> dict:
+        """{{ tool.description | py_string }}"""
+{% for hint in tool.hints %}
+        # Hint: {{ hint | py_string }}
+{% endfor %}
+        return await self._client.request(
+            "{{ tool.http_method }}",
+            {{ tool.path_expr }},
+{% if tool.params_expr %}
+            params={{ tool.params_expr }},
+{% endif %}
+{% if tool.body_expr %}
+            json_body={{ tool.body_expr }},
+{% endif %}
+        )
+{% endif %}
+{% endfor %}

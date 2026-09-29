@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 [![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
 [![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
-[![PyPI](https://img.shields.io/pypi/v/node-wire.svg)](https://pypi.org/project/node-wire/)
+[![PyPI runtime](https://img.shields.io/pypi/v/node-wire-runtime.svg?label=node-wire-runtime)](https://pypi.org/project/node-wire-runtime/)
 [![GitHub Release](https://img.shields.io/github/v/release/AOT-Technologies/node-wire)](https://github.com/AOT-Technologies/node-wire/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 <p align="center">
@@ -16,217 +16,33 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
-## Prerequisites
+## Quick start
 
-Before getting started, make sure you have:
+You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). See [Installation](docs/installation.md) for everything else, including Windows commands.
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Python | 3.11+ | Required to run the platform |
-| `uv` or `pip` | Latest | `uv` is recommended for local development |
-| Git | Any recent version | Required to clone the repository |
-| Docker | Latest | Required for MCP server image builds and `docker-compose.mcp.yml` |
-| Node.js | Any LTS | Only needed for MCP Inspector |
-
-## Quick Start
-
-### 1. Install
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --extra agents --dev
-```
-*(Requires `uv`. See [Installation](docs/installation.md) for lockfile update workflow.)*
-
-### 2. Configure
-Copy the sample environment file and add your `NW_ALLOWED_CONNECTORS`:
-```bash
-# Linux/macOS/PowerShell
-cp sample.env .env
-
-# Windows (CMD)
-copy sample.env .env
-```
-*(Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others)*
-
-### 3. Run Grafana/OpenTelemetry (optional)
-
-For telemetry visualization, start the Grafana stack before running the application:
-
-```bash
-cd grafana && docker compose up -d
-```
-
-
-### 4. Run
-**Bash (Linux/macOS):**
-```bash
-# Using uv (recommended)
+cp sample.env .env                  # set NW_ALLOWED_CONNECTORS, e.g. http_generic
+export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/* and /ready return 503 until auth is configured
 MODE=API uv run node-wire
-
-# Using python
-MODE=API python -m bindings_entrypoint
 ```
 
-**PowerShell (Windows):**
-```powershell
-# Using uv
-$env:MODE="API"; uv run node-wire
-
-# Using python
-$env:MODE="API"; python -m bindings_entrypoint
-```
-*(Modes: `API`, `GRPC`, `MCP`)*
-
-Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the Swagger UI.
-
-### 5. Playground
-
-The platform includes an interactive web playground at [http://localhost:8000/playground/](http://localhost:8000/playground/) (available when the REST API is running).
-
-### 6. Multi-tenancy (optional)
-
-By default the platform is single-tenant (`__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file holding named configs and per-tenant secret overlays (defaults to `config/tenants.yaml`). See [docs/configuration.md](docs/configuration.md#multi-tenancy) for the full variable reference and [docs/mcp-servers.md](docs/mcp-servers.md#multi-tenancy-mcp) for the MCP tenant/config tools.
-
----
-
-## Build Packages (Wheels)
-
-Before building Docker images, build the Python packages as binary wheels:
-
-```bash
-bash scripts/build-packages.sh
-```
-
-See [docs/packaging.md](docs/packaging.md) for details on the wheel build lifecycle.
-
----
-
-## Build MCP Server Images
-
-Use this workflow when you want Docker images for the individual MCP servers such as Google Drive, SMTP, Stripe, Salesforce, or Slack.
-
-### Build prerequisites
-
-Before building images, make sure:
-
-- Docker is installed and available on your shell path.
-- You are running commands from the repository root.
-- Local wheels have been built first.
-
-See [docs/local-packages-to-images.md](docs/local-packages-to-images.md) for the full package -> image workflow and required wheel artifacts per image.
-
-### Build all MCP server images
-
-All MCP server images are built from the repository root using the automation script:
-
-```bash
-./scripts/build-mcp-images.sh
-```
-
-To tag with a specific version (defaults to the version in `pyproject.toml`):
-
-```bash
-./scripts/build-mcp-images.sh --version 1.0.0
-```
-
-This produces images tagged as both `latest` and the version string:
-
-| Image name | Tags |
-|---|---|
-| `nw-google-drive` | `nw-google-drive:latest`, `nw-google-drive:1.0.0` |
-| `nw-smartonfhir-epic` | `nw-smartonfhir-epic:latest`, `nw-smartonfhir-epic:1.0.0` |
-| `nw-smartonfhir-cerner` | `nw-smartonfhir-cerner:latest`, `nw-smartonfhir-cerner:1.0.0` |
-| `nw-smtp` | `nw-smtp:latest`, `nw-smtp:1.0.0` |
-| `nw-stripe` | `nw-stripe:latest`, `nw-stripe:1.0.0` |
-| `nw-salesforce` | `nw-salesforce:latest`, `nw-salesforce:1.0.0` |
-| `nw-slack` | `nw-slack:latest`, `nw-slack:1.0.0` |
-
-### Build one image manually
-
-To build a single image manually from the repo root:
-
-```bash
-# Google Drive only
-docker build -f docker/google-drive/Dockerfile -t nw-google-drive:latest .
-
-# Epic FHIR only
-docker build -f docker/fhir-epic/Dockerfile -t nw-smartonfhir-epic:latest .
-
-# Cerner FHIR only
-docker build -f docker/fhir-cerner/Dockerfile -t nw-smartonfhir-cerner:latest .
-
-# SMTP only
-docker build -f docker/smtp/Dockerfile -t nw-smtp:latest .
-
-# Stripe only
-docker build -f docker/stripe/Dockerfile -t nw-stripe:latest .
-
-# Salesforce only
-docker build -f docker/salesforce/Dockerfile -t nw-salesforce:latest .
-
-# Slack only
-docker build -f docker/slack/Dockerfile -t nw-slack:latest .
-```
-
-> **Note:** The build context must be the repository root (`.`) so the `COPY src/` and `COPY config/` instructions resolve correctly.
-
----
-
-## Run MCP Servers with Docker Compose
-
-### Compose prerequisites
-
-Before starting the MCP containers, make sure:
-
-- The MCP server images have already been built locally.
-- Your `.env` file is populated with the credentials needed by the connectors you want to run.
-
-`docker-compose.mcp.yml` starts all MCP servers as stdio containers in one command. This is useful for local validation before configuring ToolHive.
-Each service pins `NW_ALLOWED_CONNECTORS` to its own connector so a broad value in `.env` does not make per-connector images import optional dependencies they do not contain.
-
-```bash
-# Ensure local wheels exist and your .env is populated, then:
-docker compose -f docker-compose.mcp.yml up --build
-```
-
-To start only a specific server:
-
-```bash
-docker compose -f docker-compose.mcp.yml up --build nw-smartonfhir-epic
-```
-
----
+Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI, or the [playground](http://localhost:8000/playground/) for interactive connector demos.
 
 ## Documentation
 
-For more detailed information, please refer to the following guides:
+The full documentation is published at **[aot-technologies.github.io/node-wire](https://aot-technologies.github.io/node-wire/)** and lives in [`docs/`](docs/). Start with:
 
-- **[Architecture](docs/architecture.md)** — Layered design and data flow.
-- **[Installation](docs/installation.md)** — Detailed setup and prerequisites.
-- **[Configuration](docs/configuration.md)** — Environment variables and `connectors.yaml`.
-- **[Connectors Guide](docs/connectors.md)** — How to use and build connectors.
-- **[OpenAPI Connector Builder](docs/nw-connector-builder.md)** — Generate connectors from Swagger/OpenAPI specs.
-- **[nw CLI](docs/nw-cli.md)** — OpenAPI → connector → wheels → MCP → Docker pipeline.
-- **[MCP Integration](docs/mcp.md)** — Using node wire with AI agents.
-- **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
-- **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
-- **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
-- **[Release Rollback](docs/release-rollback.md)** — PyPI yank and corrective release procedure.
-- **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
-- **[Privacy](docs/privacy.md)** — Data handling and logging guidance.
-- **[HIPAA Considerations](docs/compliance/hipaa-considerations.md)** — Deploying node wire in regulated healthcare environments.
-- **[ToolHive Agent Scenario](docs/toolhive_agent_scenario.md)** — End-to-end FHIR → Google Drive → email workflow.
-- **[Changelog](CHANGELOG.md)** — Release history.
-
-## Developer docs
-
-- Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
-- Creating a new connector: [docs/connectors.md](docs/connectors.md)
-- Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
-- Quality/security gates (Bandit, CodeQL): [docs/quality-security-gates.md](docs/quality-security-gates.md)
-
----
+| I want to… | Read |
+|---|---|
+| Install, configure, run multi-tenant | [Installation](docs/installation.md) · [Configuration](docs/configuration.md) · [Tenancy](docs/architecture/tenancy.md) |
+| Call a shipped connector | [Use a connector](docs/connectors.md) · [Connector catalog](docs/connector-reference.md#connector-catalog) |
+| Build or generate a connector | [Build a connector](docs/connectors-build.md) · [CLI](docs/cli/index.md) |
+| Deploy connectors as MCP servers | [MCP overview](docs/mcp.md) |
+| Build wheels, MCP images, or run `docker-compose.mcp.yml` | [Packaging](docs/packaging.md) · [Local wheels → images](docs/local-packages-to-images.md) |
+| Understand the codebase, in order | [Reading map](docs/reading.md) |
 
 ## Contributing
 
