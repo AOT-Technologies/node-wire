@@ -8,7 +8,7 @@ SPDX-PackageSupplier = "AOT Technologies <opensource@aot-technologies.com>"
 SPDX-PackageDownloadLocation = "https://github.com/AOT-Technologies/node-wire"
 
 [[annotations]]
-path = ["uv.lock", "nw-mcp-builder/uv.lock", "nw-cli/uv.lock", "nw-connector-builder/uv.lock"]
+path = ["uv.lock", "nw-mcp-builder/uv.lock", "nw-cli/uv.lock", "nw-connector-builder/uv.lock", "nw-stacklok-builder/uv.lock"]
 precedence = "override"
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "CC0-1.0"
@@ -43,7 +43,12 @@ SPDX-License-Identifier = "Apache-2.0"
 # upstream files carry no SPDX headers). See nw-stacklok-builder/UPSTREAM.md. node-wire's own
 # code in nw-stacklok-builder/src/nw_stacklok/ carries normal SPDX headers.
 [[annotations]]
-path = ["nw-stacklok-builder/src/mcp_builder/**", "nw-stacklok-builder/template/**"]
+path = [
+  "nw-stacklok-builder/src/mcp_builder/**",
+  "nw-stacklok-builder/template/**",
+  "nw-stacklok-builder/skills/**",
+  "nw-stacklok-builder/agents/**",
+]
 precedence = "override"
 SPDX-FileCopyrightText = ["2025 Stacklok, Inc.", "2026 AOT Technologies"]
 SPDX-License-Identifier = "Apache-2.0"
@@ -55,4 +60,12 @@ SPDX-License-Identifier = "Apache-2.0"
 path = "tests/nw_stacklok_builder/fixtures/stacklok/**"
 precedence = "override"
 SPDX-FileCopyrightText = ["2025 Stacklok, Inc.", "Swagger Petstore contributors"]
+SPDX-License-Identifier = "Apache-2.0"
+
+# stacklok scopes written by `nw gen-stacklok` (Phase 1 + human review), and the skill's
+# gitignored intermediates next to them.
+[[annotations]]
+path = "nw-stacklok-builder/scoping/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"

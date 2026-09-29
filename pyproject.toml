@@ -121,6 +121,8 @@ dev = [
     "reuse>=5.0.0",
     "licenseheaders>=0.8.8",
     "nw-cli",
+    # musllinux / cross-platform wheels (scripts/build-packages.sh --all, --musllinux).
+    "cibuildwheel==4.2.1",
 ]
 
 [tool.uv]

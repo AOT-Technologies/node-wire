@@ -29,6 +29,7 @@ def run_logged_command(
     cwd: Path,
     log: LogFn | None = None,
     env: Mapping[str, str] | None = None,
+    stdin: int | None = None,
 ) -> int:
     """Run *cmd*, streaming combined stdout/stderr line-by-line through *log*.
 
@@ -44,6 +45,7 @@ def run_logged_command(
         text=True,
         bufsize=1,
         env=dict(env) if env is not None else None,
+        stdin=stdin,
     )
     assert proc.stdout is not None
     for line in proc.stdout:

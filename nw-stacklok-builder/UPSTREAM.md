@@ -17,18 +17,24 @@ for the file-level copyright annotation.
 
 ## Files taken
 
-**mcp-builder** — everything reachable from `pipeline.run_pipeline` and `validate.validate_scope`
-(29 files):
+**mcp-builder** — generation (`pipeline.run_pipeline`) plus stacklok's Phase 1: the CLI the
+`ai-scoping` skill calls, the skill, and the two agents it spawns (37 files):
 
-- `__init__.py`, `log.py`, `pipeline.py`, `validate.py`
+- `__init__.py`, `cli.py`, `analyze.py`, `log.py`, `pipeline.py`, `validate.py`
 - `schema/` — `__init__.py`, `models.py`
 - `spec/` — `__init__.py`, `loader.py`, `media.py`, `parameters.py`, `resolver.py`, `types.py`
 - `generate/` — `__init__.py`, `plan.py`, `scaffold.py`, `patches.py`,
   `renderers/{__init__,client,escape,manifests,tools}.py`, `renderers/templates/*.jinja2` (8)
 
-Not taken: `cli.py` and `analyze.py` (node-wire drives the pipeline from `nw gen-stacklok`;
-`analyze` only feeds stacklok's AI scoping), `skills/`, `agents/`, `tests/`, `e2e/`, `docs/`, and
-repository tooling (`Taskfile.yml`, `.github/`, `CLAUDE.md`, `renovate.json`, `uv.lock`, ...).
+- `skills/ai-scoping/` — `SKILL.md` and `assets/` (`generator-contract.md`, `pipeline-context.md`,
+  `scoping-summary-template.md`)
+- `agents/` — `spec-analyzer.md`, `endpoint-scoper.md`
+
+Not taken:
+- `skills/ai-validation/`, `skills/deploy-assist/`, and `agents/code-validator.md` /
+  `polish-suggester.md` (Phase 4 and deploy review the httpx client node-wire replaces);
+- `tests/`, `e2e/`, `docs/`;
+- repository tooling (`Taskfile.yml`, `.github/`, `CLAUDE.md`, `renovate.json`, `uv.lock`, ...).
 
 **mcp-template-py** — what the scaffold copies into a generated project: `src/mcp_template_py/`
 (8 files), `pyproject.toml`, `Dockerfile`, `.dockerignore`, `.python-version`, `.env.example`,
@@ -44,7 +50,7 @@ node-wire logic lives in `src/nw_stacklok/`; edits to the vendored files are lim
 it. The first commit of this folder is the pristine copy, so `git diff <that commit> --
 nw-stacklok-builder/src/mcp_builder nw-stacklok-builder/template` shows every node-wire change.
 
-Five vendored files are edited (each imports from `nw_stacklok` under a `# node-wire:` comment); edits only
+Five vendored generator files are edited (each imports from `nw_stacklok` under a `# node-wire:` comment); edits only
 adds optional fields or calls into `nw_stacklok`. The template (`template/`) is unmodified — the
 node-wire project changes are applied to the *generated* copy by `nw_stacklok.project`.
 
@@ -55,6 +61,13 @@ node-wire project changes are applied to the *generated* copy by `nw_stacklok.pr
 | `generate/renderers/tools.py` | Passes `nw_action` / `nw_arguments_expr` (`nw_stacklok.render.arguments_expr`) to the template |
 | `generate/renderers/templates/tools.py.jinja2` | A `{% if tool.nw_action %}` branch: the tool calls `self._client.run(action, {...})`; `Any` import |
 | `pipeline.py` | `run_pipeline(..., node_wire: NodeWireOptions \| None = None)`; calls `nw_stacklok.hooks` to bind the plan (`attach`), render `client.py`, finish the project, and render manifests |
+
+Phase 1 files have three edits:
+- `skills/ai-scoping/SKILL.md`: `task generate-schema` → `uv run mcp-builder-schema`
+  (`nw_stacklok.schema`; no go-task dependency).
+- `assets/pipeline-context.md`: the same command name.
+- `assets/generator-contract.md`: a "node-wire runtime" section describing what differs when tools
+  run on a connector.
 
 A scope without `runtime:` takes none of these branches (tested by
 `tests/nw_stacklok_builder/test_vendored_pristine.py`).

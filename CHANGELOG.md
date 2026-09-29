@@ -26,6 +26,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   manifests. Swagger 2.0 specs, and JSON-Schema forms OpenAPI 3.0 rejects (`type: [x, null]`,
   tuple `items`, as in Slack's spec), are converted for stacklok's parser. See
   `docs/stacklok-mcp-servers.md` and the runbook `docs/nw-cli-runbook.md`.
+- **stacklok Phases 1–3 in one `nw gen-stacklok --path` run**:
+  - It prepares a local strict OpenAPI 3.0 copy of the spec. The connector is still built from the
+    original (`x-nw-source`).
+  - It opens Claude Code with stacklok's `/ai-scoping` skill, which keeps its own questions and
+    approval gates as in stacklok's flow; `--workflow`, `--auth-hint` and `--scoping-notes` seed its
+    answers. `--headless`, or no terminal, runs it unattended with `claude -p`: the gates take the
+    AI's recommendation, recorded in `scoping-summary.md`.
+  - It then **pauses for the human review** (continue, or stop and print the resume command) and
+    generates.
+  - `--rescope` redoes Phase 1 (otherwise the saved scope is reused), and the connector is always
+    rebuilt from the spec. An existing output project is checked before any build: you're asked in a
+    terminal, and `--force` replaces it. The progress bars clear while Claude Code or a prompt has
+    the terminal, and only the running stage shows a spinner.
+  - The skill, its `spec-analyzer` / `endpoint-scoper` agents, and stacklok's `mcp-builder
+    analyze` / `validate` CLI are vendored.
+  - `scripts/install-stacklok-skills.sh` links them into `.claude/` or `.gemini/`.
+  - `mcp-builder-schema` replaces `task generate-schema`.
 - **`nw-stacklok-builder`**: stacklok/mcp-builder @ `7c03c38` and stacklok/mcp-template-py @
   `2bd79dc`, vendored (Apache-2.0). Only the files generation needs are included. Five vendored
   files gain hook calls into `nw_stacklok` (`UPSTREAM.md`). A scope without `runtime:` still
@@ -39,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for every auth block (default and named schemes). With no hook, behaviour is unchanged.
 - **`scripts/build-packages.sh --musllinux`**: cp313 musllinux wheels via cibuildwheel. The arch
   is set with `NW_MUSLLINUX_ARCHS`; other wheels in `dist/` are kept.
+  cibuildwheel 4.2.1 is now a dev dependency, so it works under `uv run`. The script also falls back
+  to a `cibuildwheel` on `PATH`, then `uvx`.
 - **`scripts/verify_stacklok_server.py`** and the opt-in workflow `stacklok-e2e.yml`: a generated
   server is called the way a ToolHive tenant proxy would call it.
 

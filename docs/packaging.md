@@ -289,7 +289,7 @@ bash scripts/build-packages.sh packages/connectors/stripe
 For additional platform wheels from your **current machine** (whatever `cibuildwheel` can target there), install it and use the same script:
 
 ```bash
-python -m pip install 'cibuildwheel==4.2.1'
+uv sync --all-extras --dev          # cibuildwheel 4.2.1 is a dev dependency
 bash scripts/build-packages.sh --all
 bash scripts/build-packages.sh --all packages/runtime
 ```
@@ -304,7 +304,7 @@ compile in). `--musllinux` builds cp313 musllinux wheels with cibuildwheel in Do
 `src/` exactly like `publish.yml`, and leaves other wheels in `dist/` untouched:
 
 ```bash
-python -m pip install 'cibuildwheel==4.2.1'
+uv sync --all-extras --dev
 bash scripts/build-packages.sh --musllinux packages/runtime packages/bindings packages/toolhive
 NW_MUSLLINUX_ARCHS="x86_64 aarch64" bash scripts/build-packages.sh --musllinux packages/runtime
 ```

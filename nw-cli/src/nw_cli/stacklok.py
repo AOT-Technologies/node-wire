@@ -17,6 +17,9 @@ import yaml
 from nw_cli.stages import LogFn, StageError, run_logged_command
 
 STACKLOK_BUILDER_DIR = "nw-stacklok-builder"
+# Set on specs prepared by `nw gen-stacklok --path`: the original spec the file was made from.
+# The connector is built from that original; stacklok's tools read the prepared copy.
+PREPARED_SOURCE_KEY = "x-nw-source"
 
 
 def stacklok_packages(connector_id: str) -> list[str]:
@@ -37,13 +40,18 @@ def template_dir(node_wire_root: Path) -> Path:
     return node_wire_root / STACKLOK_BUILDER_DIR / "template"
 
 
+def prepared_spec_path(node_wire_root: Path, name: str) -> Path:
+    return node_wire_root / STACKLOK_BUILDER_DIR / "specs" / f"{name}.openapi.json"
+
+
 @dataclass(frozen=True)
 class StacklokScope:
     """The user's ``mcp-scope.yaml`` with the node-wire runtime block settled."""
 
     path: Path
     connector_id: str
-    spec_source: str
+    spec_source: str  # what stacklok reads
+    connector_spec_source: str  # what nw-connector-builder builds the connector from
     base_url: str | None
     server_name: str
     document: Dict[str, Any]
@@ -86,10 +94,12 @@ def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
     server = str((document.get("server") or {}).get("name") or "").strip()
     if not server:
         raise StageError(f"Scope {scope_path} has no server.name")
+    spec_source = _resolve_source(source, scope_path.parent)
     return StacklokScope(
         path=scope_path,
         connector_id=cid,
-        spec_source=_resolve_source(source, scope_path.parent),
+        spec_source=spec_source,
+        connector_spec_source=_prepared_origin(spec_source) or spec_source,
         base_url=(str(spec["base_url"]).strip() or None) if spec.get("base_url") else None,
         server_name=server,
         document=document,
@@ -97,10 +107,50 @@ def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
 
 
 def _resolve_source(source: str, scope_dir: Path) -> str:
+    """URLs as-is; relative paths against the scope's folder, else the working directory
+    (the ai-scoping skill writes the path it was given, usually relative to where it ran)."""
     if source.startswith(("http://", "https://")):
         return source
     path = Path(source)
-    return str(path if path.is_absolute() else (scope_dir / path).resolve())
+    if path.is_absolute():
+        return str(path)
+    for base in (scope_dir, Path.cwd()):
+        if (base / path).is_file():
+            return str((base / path).resolve())
+    return str((scope_dir / path).resolve())
+
+
+def _prepared_origin(spec_source: str) -> str | None:
+    """The original spec behind a file written by :func:`prepare_spec`, if it is one."""
+    path = Path(spec_source)
+    if spec_source.startswith(("http://", "https://")) or not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+        doc = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
+    except (OSError, ValueError, yaml.YAMLError):
+        return None
+    origin = doc.get(PREPARED_SOURCE_KEY) if isinstance(doc, dict) else None
+    return str(origin) if origin else None
+
+
+def prepare_spec(spec_source: str, target: Path) -> Path:
+    """Write the local OpenAPI 3.0 file stacklok's Phase 1 (ai-scoping) and Phase 3 read.
+
+    Downloads URLs, converts Swagger 2.0 and applies :func:`strict_openapi30`; records the
+    original under ``x-nw-source`` so the connector is still built from it.
+    """
+    from nw_connector_builder.load import detect_version, load_raw_document
+    from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
+
+    doc, origin, from_url = load_raw_document(spec_source)
+    if detect_version(doc) == "2.0":
+        doc = normalize_swagger2_to_openapi3(doc)
+    strict_openapi30(doc)
+    doc[PREPARED_SOURCE_KEY] = origin if from_url else str(Path(origin).resolve())
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(doc, indent=1, default=str), encoding="utf-8")
+    return target
 
 
 def materialize_spec(spec_source: str, work_dir: Path) -> Path:

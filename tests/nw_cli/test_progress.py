@@ -60,3 +60,62 @@ def test_log_writes_above_progress() -> None:
     with gp:
         gp.log("hello-stage")
     assert "hello-stage" in gp.console.file.getvalue()  # type: ignore[union-attr]
+
+
+def test_only_the_running_stage_spins() -> None:
+    import io
+
+    from rich.console import Console
+
+    from nw_cli.progress import GenerateProgress, Stage
+
+    progress = GenerateProgress(
+        stages=[Stage("a", "Alpha"), Stage("b", "Bravo")],
+        console=Console(file=io.StringIO(), force_terminal=True, width=80),
+    )
+    with progress:
+        live = progress._progress  # type: ignore[union-attr]
+        column = live.columns[0]
+        first, second = live.tasks
+        live.start_task(first.id)
+        assert str(column.render(first)).strip()  # running: a spinner frame
+        assert str(column.render(second)).strip() == ""  # pending: blank
+
+
+def test_skipped_stages_do_not_spin() -> None:
+    import io
+
+    from rich.console import Console
+
+    from nw_cli.progress import GenerateProgress, Stage
+
+    progress = GenerateProgress(
+        stages=[Stage("a", "Alpha"), Stage("b", "Bravo")],
+        console=Console(file=io.StringIO(), force_terminal=True, width=80),
+    )
+    progress.mark_skipped("a")
+    with progress:
+        live = progress._progress  # type: ignore[union-attr]
+        skipped = live.tasks[0]
+        assert str(live.columns[0].render(skipped)).strip() == ""
+
+
+def test_a_stage_hint_replaces_the_default_hint() -> None:
+    import io
+
+    from rich.console import Console
+
+    from nw_cli.progress import GenerateProgress, Stage
+
+    out = io.StringIO()
+    progress = GenerateProgress(
+        stages=[Stage("wheel", "Wheels", hint="Needs Docker running")],
+        console=Console(file=out, force_terminal=False, width=100),
+    )
+    try:
+        with progress:
+            progress.run_stage("wheel", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    except RuntimeError:
+        pass
+    text = out.getvalue()
+    assert "Needs Docker running" in text and "nw gen-whl" not in text

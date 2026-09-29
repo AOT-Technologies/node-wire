@@ -23,14 +23,44 @@ and modified only through small hooks.
 
 ## Quick start
 
+One command runs stacklok's Phases 1–3 and pauses for the Phase 2 human review. Prerequisites:
+Python 3.13, uv (`uv sync --all-extras --dev` installs cibuildwheel), Docker, and Claude Code
+(`claude` on `PATH`) for Phase 1.
+
 ```bash
-# Prerequisites: Python 3.13, uv, Docker, cibuildwheel (pip install 'cibuildwheel==4.2.1')
-uv run nw gen-stacklok --scope path/to/mcp-scope.yaml --connector-id pet_store
+uv run nw gen-stacklok \
+  --path https://petstore3.swagger.io/api/v3/openapi.json \
+  --connector-id pet_store \
+  --workflow "Shoppers browse available pets by status" \
+  --workflow "Store clerks place orders and look up order status" \
+  --auth-hint "API key in the api_key header"
 docker build -t petstore-mcp nw-stacklok-builder/out/petstore-mcp
 ```
 
-The scope is a normal stacklok scope (write it by hand or with stacklok's `/ai-scoping` skill).
-`--connector-id` binds it to a node-wire connector; alternatively add the block to the scope:
+1. **Phase 1, AI scoping.** The spec is prepared: downloaded, converted from Swagger 2.0 and made
+   strict OpenAPI 3.0, with the original recorded under `x-nw-source`. Then Claude Code opens with
+   stacklok's `ai-scoping` skill, which uses its `spec-analyzer` and `endpoint-scoper` agents and
+   `mcp-builder analyze` / `validate`, all vendored in `nw-stacklok-builder/`.
+   - **Interactive (the default with a terminal):** the skill runs as in stacklok's flow. It asks
+     for workflows and auth, and stops at its gates for group selection, tool approval and auth.
+     `--workflow`, `--auth-hint` and `--scoping-notes` are offered as starting answers. Exit the
+     session (`/exit`) when it's done, and `nw` continues.
+   - **`--headless`, or no terminal:** `claude -p` runs unattended. The flags are the final
+     answers; without `--workflow` the AI proposes workflows. The gates take the AI's own
+     recommendation, and each one is recorded in `scoping-summary.md`.
+   - Claude Code is pre-approved only for file edits and stacklok's CLI.
+   - Output goes to `nw-stacklok-builder/scoping/<id>/`. A second run reuses it; `--rescope` redoes it.
+2. **Phase 2, human review.** The command pauses and shows the scope and summary. `y` continues;
+   `n` stops so you can edit, and prints the `--scope` command to resume with. Without a terminal
+   it always stops here.
+3. **Phase 3, generate**, as below.
+
+stacklok's `/ai-validation` (Phase 4) isn't included, because it reviews the httpx client that
+node-wire mode replaces. Use the checks under "Verifying a running server". To run the skill
+yourself instead, `scripts/install-stacklok-skills.sh` links it into `.claude/`.
+
+A hand-written or reviewed scope works too. `--connector-id` binds it to a node-wire connector;
+alternatively, add the block to the scope:
 
 ```yaml
 runtime:
@@ -42,7 +72,8 @@ runtime:
 
 1. **Connector** — nw-connector-builder generates `node_wire_<id>` from `spec.source`
    (`spec.base_url` is the connector's base URL). The connector covers every operation; the scope
-   decides which ones become tools. `--force` regenerates an existing connector.
+   decides which ones become tools. The connector is always regenerated from the scope's spec, so
+   endpoints map onto it; a hand-written connector with the same id is never overwritten.
 2. **Wheels** — `scripts/build-packages.sh --musllinux` builds cp313 musllinux wheels for
    `node-wire-runtime`, `node-wire-bindings`, `node-wire-toolhive` and the connector (the
    generated image runs stacklok's DHI Alpine base). Arch defaults to the host;

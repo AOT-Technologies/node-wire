@@ -251,3 +251,12 @@ def test_gen_mcp_passes_the_mode(fake_root: Path) -> None:
     assert result.exit_code == 0, result.output
     assert decide.call_args.kwargs["tool_mode"] == "list"
     mcp.assert_called_once_with(fake_root, "pet_store", force_output=False, tool_mode="list")
+
+
+def test_pausing_erases_the_bars_and_restores_them() -> None:
+    progress = GenerateProgress(console=Console(file=io.StringIO(), force_terminal=True))
+    with progress:
+        display = progress._progress.live  # type: ignore[union-attr]
+        with progress.paused():
+            assert display.transient is True and not display.is_started
+        assert display.transient is False and display.is_started

@@ -208,9 +208,18 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
     exit 1
   fi
 
-  if ! "$PYTHON" -c "import cibuildwheel" >/dev/null 2>&1; then
-    echo "ERROR: cibuildwheel is not installed in the current Python environment." >&2
-    echo "Install with: $PYTHON -m pip install 'cibuildwheel==4.2.1'" >&2
+  # cibuildwheel: the current Python first (the repo's dev environment pins it, so `uv run`
+  # has it), then a standalone `cibuildwheel` on PATH (pipx / uv tool), then uvx.
+  if "$PYTHON" -c "import cibuildwheel" >/dev/null 2>&1; then
+    CIBUILDWHEEL=("$PYTHON" -m cibuildwheel)
+  elif command -v cibuildwheel >/dev/null 2>&1; then
+    CIBUILDWHEEL=(cibuildwheel)
+  elif command -v uvx >/dev/null 2>&1; then
+    CIBUILDWHEEL=(uvx --from 'cibuildwheel==4.2.1' cibuildwheel)
+  else
+    echo "ERROR: cibuildwheel is not available." >&2
+    echo "Run 'uv sync --all-extras --dev' (it is a dev dependency), or install it:" >&2
+    echo "  python3 -m pip install 'cibuildwheel==4.2.1'" >&2
     exit 1
   fi
 
@@ -239,7 +248,7 @@ if [[ "$ALL_MODE" -eq 1 ]]; then
 
     if ! (
       cd "$PKG"
-      "$PYTHON" -m cibuildwheel "${CIBW_ARGS[@]}"
+      "${CIBUILDWHEEL[@]}" "${CIBW_ARGS[@]}"
     ); then
       echo "ERROR: cibuildwheel build failed for $PKG" >&2
       FAILED+=("$PKG (build failed)")

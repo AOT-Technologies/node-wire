@@ -85,7 +85,7 @@ def test_stages_run_in_order_with_exact_arguments(fake_root: Path, tmp_path: Pat
         "connector_id": "pet_store",
         "node_wire_root": fake_root,
         "wire": True,
-        "force": False,
+        "force": True,  # always rebuilt from the scope's spec
         "no_mcp": True,
         "base_url": "https://petstore3.swagger.io/api/v3",
     }
@@ -239,3 +239,259 @@ def test_strict_openapi30_rewrites_json_schema_forms() -> None:
     assert schemas["tuple"]["items"] == {"anyOf": [{"type": "integer"}, {"nullable": True}]}
     assert schemas["fine"] == {"type": "string"}
     assert strict_openapi30(doc) is False
+
+
+def _swagger2(tmp_path: Path) -> Path:
+    spec = tmp_path / "swagger.json"
+    spec.write_text(
+        json.dumps(
+            {
+                "swagger": "2.0",
+                "info": {"title": "demo", "version": "1"},
+                "host": "api.example.test",
+                "paths": {
+                    "/pets": {
+                        "get": {
+                            "responses": {
+                                "200": {
+                                    "description": "ok",
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"n": {"type": ["string", "null"]}},
+                                    },
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return spec
+
+
+def _invoke_path(
+    root: Path,
+    spec: Path,
+    args: list[str],
+    calls: list[tuple[str, Any]],
+    *,
+    write_scope: bool = True,
+    approve: bool | None = None,
+) -> Any:
+    """`gen-stacklok --path` with Phase 1 and Phase 3 faked; records the calls.
+
+    ``approve``: None = no terminal; True/False = the reviewer's answer.
+    """
+
+    def fake_interactive(node_wire_root: Path, request: Any, *, work_dir: Path, model: Any) -> Path:
+        calls.append(("scoping-interactive", request))
+        scope = work_dir / "mcp-scope.yaml"
+        if write_scope:
+            work_dir.mkdir(parents=True, exist_ok=True)
+            scope.write_text((FIXTURES / "petstore.yaml").read_text(), encoding="utf-8")
+        return scope
+
+    def fake_scoping(
+        node_wire_root: Path, request: Any, *, work_dir: Path, model: Any, log: Any
+    ) -> Path:
+        calls.append(("scoping", request))
+        scope = work_dir / "mcp-scope.yaml"
+        if write_scope:
+            work_dir.mkdir(parents=True, exist_ok=True)
+            scope.write_text((FIXTURES / "petstore.yaml").read_text(), encoding="utf-8")
+        return scope
+
+    def fake_phase3(progress: Any, node_wire_root: Path, scope_file: Path, *rest: Any) -> Path:
+        calls.append(("phase3", scope_file))
+        return root / "out" / "petstore-mcp"
+
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=root),
+        patch("nw_cli.scoping.run_ai_scoping", side_effect=fake_scoping),
+        patch("nw_cli.scoping.run_ai_scoping_interactive", side_effect=fake_interactive),
+        patch("nw_cli.cli._stacklok_phase3", side_effect=fake_phase3),
+        patch("nw_cli.cli.is_interactive", return_value=approve is not None),
+        patch("rich.prompt.Confirm.ask", return_value=bool(approve)),
+    ):
+        return runner.invoke(app, ["gen-stacklok", "--path", str(spec), *args])
+
+
+def test_path_runs_phases_1_to_3_in_one_command(fake_root: Path, tmp_path: Path) -> None:
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(
+        fake_root,
+        _swagger2(tmp_path),
+        [
+            "--connector-id",
+            "demo",
+            "--workflow",
+            "Find pets by status",
+            "--workflow",
+            "Place an order",
+            "--auth-hint",
+            "api key in the api_key header",
+            "--scoping-notes",
+            "read-only first",
+        ],
+        calls,
+        approve=True,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == ["scoping-interactive", "phase3"]
+    request = calls[0][1]
+    prepared = fake_root / "nw-stacklok-builder" / "specs" / "demo.openapi.json"
+    assert request.spec == prepared
+    assert json.loads(prepared.read_text())["openapi"].startswith("3.0")
+    assert request.workflows == ["Find pets by status", "Place an order"]
+    assert request.auth_hint == "api key in the api_key header"
+    assert request.notes == "read-only first"
+    assert calls[1][1] == fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
+    assert "MCP server ready" in result.output
+
+
+def test_without_a_terminal_it_stops_for_review(fake_root: Path, tmp_path: Path) -> None:
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(
+        fake_root, _swagger2(tmp_path), ["--connector-id", "demo", "--workflow", "w"], calls
+    )
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == ["scoping"]
+    assert "Stopped for review" in result.output
+    assert "--scope" in result.output and "--connector-id demo" in result.output
+
+
+def test_declining_the_review_stops_before_generation(fake_root: Path, tmp_path: Path) -> None:
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(
+        fake_root,
+        _swagger2(tmp_path),
+        ["--connector-id", "demo", "--workflow", "w"],
+        calls,
+        approve=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == ["scoping-interactive"]
+    scope = fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
+    assert f"uv run nw gen-stacklok --scope {scope} --connector-id demo" in result.output
+
+
+def test_an_existing_scope_is_reused_unless_rescoped(fake_root: Path, tmp_path: Path) -> None:
+    existing = fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
+    existing.parent.mkdir(parents=True)
+    existing.write_text((FIXTURES / "petstore.yaml").read_text(), encoding="utf-8")
+    spec = _swagger2(tmp_path)
+
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(fake_root, spec, ["--connector-id", "demo"], calls, approve=True)
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == ["phase3"]  # no --workflow needed, no AI run
+
+    calls.clear()
+    forced = _invoke_path(
+        fake_root, spec, ["--connector-id", "demo", "--rescope"], calls, approve=True
+    )
+    assert forced.exit_code == 0, forced.output
+    assert [name for name, _ in calls] == ["scoping-interactive", "phase3"]  # --rescope redoes it
+
+    calls.clear()
+    kept = _invoke_path(fake_root, spec, ["--connector-id", "demo", "--force"], calls, approve=True)
+    assert kept.exit_code == 0, kept.output
+    assert [name for name, _ in calls] == ["phase3"]  # --force keeps the saved scope
+
+
+def test_without_workflows_the_ai_proposes_them(fake_root: Path, tmp_path: Path) -> None:
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(
+        fake_root, _swagger2(tmp_path), ["--connector-id", "demo"], calls, approve=True
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0][0] == "scoping-interactive" and calls[0][1].workflows == []
+
+
+def test_headless_flag_runs_phase_1_unattended_even_with_a_terminal(
+    fake_root: Path, tmp_path: Path
+) -> None:
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(
+        fake_root,
+        _swagger2(tmp_path),
+        ["--connector-id", "demo", "--headless"],
+        calls,
+        approve=True,
+    )
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == ["scoping", "phase3"]
+
+
+def test_path_mode_usage_errors(fake_root: Path, tmp_path: Path) -> None:
+    spec = _swagger2(tmp_path)
+    with patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root):
+        no_id = runner.invoke(app, ["gen-stacklok", "--path", str(spec), "--workflow", "w"])
+        both = runner.invoke(app, ["gen-stacklok", "--scope", "s.yaml", "--path", "p.json"])
+        neither = runner.invoke(app, ["gen-stacklok"])
+    assert no_id.exit_code == 2 and "--connector-id" in no_id.output
+    assert both.exit_code == 2 and neither.exit_code == 2
+    assert "exactly one of --path or --scope" in both.output
+
+
+def test_prepared_spec_builds_the_connector_from_its_origin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from nw_cli.stacklok import prepare_spec
+
+    origin = _swagger2(tmp_path)
+    prepared = prepare_spec(str(origin), tmp_path / "specs" / "demo.openapi.json")
+    monkeypatch.chdir(tmp_path)
+    scope_dir = tmp_path / "scoping-output"
+    scope_dir.mkdir()
+    scope = _scope(scope_dir)
+    doc = yaml.safe_load(scope.read_text())
+    doc["spec"]["source"] = "specs/demo.openapi.json"  # relative to the cwd, as the skill writes it
+    scope.write_text(yaml.safe_dump(doc), encoding="utf-8")
+
+    scoped = read_scope(scope, "demo")
+
+    assert scoped.spec_source == str(prepared.resolve())
+    assert scoped.connector_spec_source == str(origin.resolve())
+    assert materialize_spec(scoped.spec_source, tmp_path / "work") == prepared.resolve()
+
+
+def test_existing_output_fails_fast_without_a_terminal(fake_root: Path, tmp_path: Path) -> None:
+    (fake_root / "nw-stacklok-builder" / "out" / "petstore-mcp").mkdir(parents=True)
+    calls: list[tuple[str, Any]] = []
+    result = _invoke(
+        fake_root, ["--scope", str(_scope(tmp_path)), "--connector-id", "pet_store"], calls
+    )
+    assert result.exit_code == 1
+    assert "Output project already exists" in result.output and "--force" in result.output
+    assert calls == []  # nothing built before the check
+
+
+def test_existing_output_is_replaced_after_confirmation(fake_root: Path, tmp_path: Path) -> None:
+    (fake_root / "nw-stacklok-builder" / "out" / "petstore-mcp").mkdir(parents=True)
+    calls: list[tuple[str, Any]] = []
+    with (
+        patch("nw_cli.cli.is_interactive", return_value=True),
+        patch("rich.prompt.Confirm.ask", return_value=True),
+    ):
+        result = _invoke(
+            fake_root, ["--scope", str(_scope(tmp_path)), "--connector-id", "pet_store"], calls
+        )
+    assert result.exit_code == 0, result.output
+    assert calls[-1][1][1]["force_output"] is True
+
+
+def test_success_prints_run_commands_with_the_real_names(fake_root: Path, tmp_path: Path) -> None:
+    calls: list[tuple[str, Any]] = []
+    result = _invoke(
+        fake_root, ["--scope", str(_scope(tmp_path)), "--connector-id", "pet_store"], calls
+    )
+    assert result.exit_code == 0, result.output
+    assert "docker build -t petstore-mcp" in result.output
+    assert (
+        "--name petstore-mcp" in result.output
+        and "thv run http://127.0.0.1:8200/mcp" in result.output
+    )

@@ -138,9 +138,25 @@ If the MCP project directory is missing, the same TTY / non-TTY prompt offers to
 ### `nw gen-stacklok`
 
 ```bash
-uv run nw gen-stacklok --scope mcp-scope.yaml --connector-id pet_store
+uv run nw gen-stacklok --path <spec path or URL> --connector-id pet_store \
+  [--workflow "..." ...] [--auth-hint "..."] [--scoping-notes "..."]
+uv run nw gen-stacklok --scope mcp-scope.yaml --connector-id pet_store      # reviewed scope → Phase 3
 uv run nw gen-stacklok --scope mcp-scope.yaml --force --no-wheel --no-lock --output-dir out/
 ```
+
+With `--path` it runs stacklok's Phases 1–3 in one go:
+1. prepares the spec;
+2. opens Claude Code with the `/ai-scoping` skill, which asks its questions and stops at its
+   approval gates as in stacklok's flow. `--workflow`, `--auth-hint` and `--scoping-notes` are
+   starting answers. Exit the session to continue. `--headless`, or no terminal, runs it
+   unattended with `claude -p`;
+3. **pauses for the human review**: `y` continues, `n` stops and prints the `--scope` command to
+   resume with;
+4. generates.
+
+A second `--path` run reuses the scope in `nw-stacklok-builder/scoping/<id>/`; `--rescope` redoes
+it. The connector is always rebuilt from the spec. An existing output project is checked before
+anything is built: you're asked whether to replace it, and `--force` replaces it without asking.
 
 Builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder) server on the node-wire
 runtime from a stacklok `mcp-scope.yaml`: connector codegen from the scope's `spec.source` →

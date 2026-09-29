@@ -16,6 +16,12 @@ dependencies = [
     "structlog>=25.5.0",
 ]
 
+[project.scripts]
+# stacklok's CLI (analyze / validate / generate), used verbatim by the vendored ai-scoping skill.
+mcp-builder = "mcp_builder.cli:main"
+# Replaces stacklok's `task generate-schema` (no go-task dependency).
+mcp-builder-schema = "nw_stacklok.schema:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
