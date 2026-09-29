@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
-import stat
+import json
+import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
+from nw_cli import scoping
 from nw_cli.scoping import (
     ALLOWED_TOOLS,
     ScopingRequest,
@@ -44,11 +47,22 @@ def _request(tmp_path: Path) -> ScopingRequest:
     )
 
 
-def _fake_claude(tmp_path: Path, body: str) -> Path:
-    script = tmp_path / "claude"
-    script.write_text("#!/bin/sh\n" + body, encoding="utf-8")
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
-    return script
+FakeClaude = Callable[[str], None]
+
+
+@pytest.fixture
+def fake_claude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeClaude:
+    """Install a Python stand-in for `claude`; ``sys.argv[1:]`` holds claude's arguments.
+
+    A Python script run by this interpreter, not a shell script, so it also works on Windows.
+    """
+
+    def install(body: str) -> None:
+        script = tmp_path / "fake_claude.py"
+        script.write_text("import json, sys\n" + body, encoding="utf-8")
+        monkeypatch.setattr(scoping, "_claude_command", lambda: [sys.executable, str(script)])
+
+    return install
 
 
 def test_prompt_carries_every_answer_and_the_gate_policy(tmp_path: Path) -> None:
@@ -76,16 +90,19 @@ def test_link_skill_is_idempotent(root: Path) -> None:
         assert (root / ".claude" / "agents" / f"{agent}.md").is_symlink()
 
 
+def _record_args_and_write_scope(args_file: Path, work: Path) -> str:
+    return (
+        f"open({str(args_file)!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
+        f"open({str(work / 'mcp-scope.yaml')!r}, 'w').write('version: \"1\"\\n')\n"
+    )
+
+
 def test_runs_claude_headless_and_returns_the_scope(
-    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    root: Path, tmp_path: Path, fake_claude: FakeClaude
 ) -> None:
     work = tmp_path / "work"
     args_file = tmp_path / "args"
-    fake = _fake_claude(
-        tmp_path,
-        f'printf "%s\\n" "$@" > {args_file}\necho "version: \\"1\\"" > {work}/mcp-scope.yaml\n',
-    )
-    monkeypatch.setenv("NW_CLAUDE_BIN", str(fake))
+    fake_claude(_record_args_and_write_scope(args_file, work))
     lines: list[str] = []
 
     scope = run_ai_scoping(
@@ -93,7 +110,7 @@ def test_runs_claude_headless_and_returns_the_scope(
     )
 
     assert scope == work / "mcp-scope.yaml" and scope.is_file()
-    args = args_file.read_text().splitlines()
+    args = json.loads(args_file.read_text())
     assert args[0] == "-p" and args[1].startswith("/ai-scoping ")
     assert args[args.index("--permission-mode") + 1] == "acceptEdits"
     assert "Bash(uv run mcp-builder:*)" in args and set(ALLOWED_TOOLS) <= set(args)
@@ -102,17 +119,20 @@ def test_runs_claude_headless_and_returns_the_scope(
 
 
 def test_failure_marker_and_missing_scope_are_errors(
-    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    root: Path, tmp_path: Path, fake_claude: FakeClaude
 ) -> None:
-    monkeypatch.setenv(
-        "NW_CLAUDE_BIN", str(_fake_claude(tmp_path, 'echo "NW_SCOPING_FAILED: no base URL"\n'))
-    )
+    fake_claude("print('NW_SCOPING_FAILED: no base URL')\n")
     with pytest.raises(StageError, match="AI scoping stopped: no base URL"):
         run_ai_scoping(root, _request(tmp_path), work_dir=tmp_path / "w1", log=lambda _: None)
 
-    monkeypatch.setenv("NW_CLAUDE_BIN", str(_fake_claude(tmp_path, "exit 0\n")))
+    fake_claude("sys.exit(0)\n")
     with pytest.raises(StageError, match="without writing"):
         run_ai_scoping(root, _request(tmp_path), work_dir=tmp_path / "w2", log=lambda _: None)
+
+
+def test_nw_claude_bin_overrides_the_path_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_CLAUDE_BIN", "/opt/claude/bin/claude")
+    assert scoping._claude_command() == ["/opt/claude/bin/claude"]
 
 
 def test_missing_claude_explains_the_alternative(
@@ -134,28 +154,24 @@ def test_interactive_prompt_keeps_the_skills_gates(tmp_path: Path) -> None:
 
 
 def test_interactive_session_runs_claude_in_the_foreground(
-    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    root: Path, tmp_path: Path, fake_claude: FakeClaude
 ) -> None:
     work = tmp_path / "work"
     args_file = tmp_path / "args"
-    fake = _fake_claude(
-        tmp_path,
-        f'printf "%s\\n" "$@" > {args_file}\necho "version: \\"1\\"" > {work}/mcp-scope.yaml\n',
-    )
-    monkeypatch.setenv("NW_CLAUDE_BIN", str(fake))
+    fake_claude(_record_args_and_write_scope(args_file, work))
 
     scope = run_ai_scoping_interactive(root, _request(tmp_path), work_dir=work)
 
     assert scope.is_file()
-    args = args_file.read_text().splitlines()
+    args = json.loads(args_file.read_text())
     assert "-p" not in args and args[0].startswith("/ai-scoping ")
     assert "Bash(uv run mcp-builder:*)" in args
     assert "--permission-mode" not in args  # the user answers permission prompts themselves
 
 
 def test_interactive_session_without_a_scope_is_an_error(
-    root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    root: Path, tmp_path: Path, fake_claude: FakeClaude
 ) -> None:
-    monkeypatch.setenv("NW_CLAUDE_BIN", str(_fake_claude(tmp_path, "exit 0\n")))
+    fake_claude("sys.exit(0)\n")
     with pytest.raises(StageError, match="without writing"):
         run_ai_scoping_interactive(root, _request(tmp_path), work_dir=tmp_path / "w")

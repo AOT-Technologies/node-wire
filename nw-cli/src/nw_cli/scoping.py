@@ -148,14 +148,15 @@ def interactive_prompt(request: ScopingRequest, work_dir: Path) -> str:
     return "\n".join(lines)
 
 
-def _claude_binary() -> str:
+def _claude_command() -> list[str]:
+    """The argv prefix that launches Claude Code."""
     claude = os.environ.get("NW_CLAUDE_BIN") or shutil.which("claude")
     if not claude:
         raise StageError(
             "Phase 1 needs Claude Code (`claude` on PATH, or NW_CLAUDE_BIN). "
             "Or write/choose a scope and run: nw gen-stacklok --scope <mcp-scope.yaml>"
         )
-    return claude
+    return [claude]
 
 
 def _prepare_run(node_wire_root: Path, work_dir: Path) -> Path:
@@ -174,10 +175,10 @@ def run_ai_scoping_interactive(
     model: str | None = None,
 ) -> Path:
     """Phase 1 in an interactive Claude Code session on this terminal; returns the scope."""
-    claude = _claude_binary()
+    claude = _claude_command()
     scope = _prepare_run(node_wire_root, work_dir)
     cmd = [
-        claude,
+        *claude,
         interactive_prompt(request, work_dir),
         "--allowedTools",
         *ALLOWED_TOOLS,
@@ -205,11 +206,11 @@ def run_ai_scoping(
     log: LogFn | None = None,
 ) -> Path:
     """Phase 1 headless (Claude Code print mode); returns ``<work_dir>/mcp-scope.yaml``."""
-    claude = _claude_binary()
+    claude = _claude_command()
     scope = _prepare_run(node_wire_root, work_dir)
 
     cmd = [
-        claude,
+        *claude,
         "-p",
         scoping_prompt(request, work_dir),
         "--permission-mode",
