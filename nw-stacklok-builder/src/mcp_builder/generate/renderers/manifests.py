@@ -28,7 +28,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from mcp_builder.generate.plan import ServerPlan
 from mcp_builder.schema.models import OAuth2Auth, OIDCAuth
@@ -44,7 +44,10 @@ DEFAULT_NAMESPACE = "toolhive-system"
 _EMBEDDED_AUTH_CLASSES: tuple[type, ...] = (OAuth2Auth, OIDCAuth)
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
-_env = Environment(  # nosec B701 — generating YAML manifests, not HTML
+_env = Environment(
+    # Escape only HTML/XML templates; these render YAML manifests, which
+    # HTML-escaping would corrupt.
+    autoescape=select_autoescape(),
     loader=FileSystemLoader(_TEMPLATES_DIR),
     keep_trailing_newline=True,
     trim_blocks=True,

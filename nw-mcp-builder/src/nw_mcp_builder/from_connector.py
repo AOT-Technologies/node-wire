@@ -15,17 +15,16 @@ Steps:
 
 from __future__ import annotations
 
-import importlib
 import logging
 import os
 import re
 import subprocess  # nosec B404  # local build tool; all calls below use arg lists, no shell=True
-import sys
 import textwrap
 from pathlib import Path
 
 import yaml
 
+from nw_mcp_builder.connector_class import load_connector_class
 from nw_mcp_builder.generate.connector_project import connector_dist_package_name
 from nw_mcp_builder.pipeline import run_connector_pipeline
 from nw_mcp_builder.schema.models import MCP_TOOL_NAME_LIMIT
@@ -267,45 +266,6 @@ def discover_actions(logic_py: Path) -> list[str]:
     if not actions:
         raise ValueError(f"Connector {connector_id!r} exposes zero actions (under {package_dir})")
     return actions
-
-
-def load_connector_class(logic_py: Path) -> type:
-    """Import ``node_wire_<id>.logic`` from its own ``src`` tree and return the connector class.
-
-    The ``src`` directory is put at the front of ``sys.path`` only for the import
-    (see :func:`discover_actions` for why that is safe for ``node_wire_runtime``).
-    """
-    package_dir = logic_py.parent
-    connector_id = package_dir.name.removeprefix("node_wire_")
-    src_root = str(package_dir.parent)
-    mod_name = f"node_wire_{connector_id}"
-
-    for key in list(sys.modules):
-        if key == mod_name or key.startswith(mod_name + "."):
-            del sys.modules[key]
-
-    old_path = list(sys.path)
-    try:
-        sys.path.insert(0, src_root)
-        logic = importlib.import_module(f"{mod_name}.logic")
-    finally:
-        sys.path[:] = old_path
-
-    from node_wire_runtime import BaseConnector
-
-    cls = None
-    for attr in dir(logic):
-        obj = getattr(logic, attr)
-        if isinstance(obj, type) and issubclass(obj, BaseConnector) and obj is not BaseConnector:
-            if getattr(obj, "connector_id", None) == connector_id:
-                cls = obj
-                break
-    if cls is None:
-        raise ValueError(
-            f"No BaseConnector subclass with connector_id={connector_id!r} found under "
-            f"{package_dir}"
-        )
-    return cls
 
 
 def action_to_tool_name(action: str) -> str:

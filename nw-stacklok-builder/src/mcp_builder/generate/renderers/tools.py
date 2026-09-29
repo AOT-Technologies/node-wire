@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import structlog
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from mcp_builder.generate.plan import ParamPlan, ServerPlan, ToolPlan
 from mcp_builder.generate.renderers.escape import escape_python_string
@@ -43,7 +43,10 @@ def render_tools_module(plan: ServerPlan) -> str:
         Python source code string for the tools module.
     """
     logger.info("rendering tools module", tool_count=len(plan.tools))
-    env = Environment(  # nosec B701 — generating Python source, not HTML
+    env = Environment(
+        # Escape only HTML/XML templates; these render Python source, which
+        # HTML-escaping would corrupt.
+        autoescape=select_autoescape(),
         loader=FileSystemLoader(_TEMPLATES_DIR),
         keep_trailing_newline=True,
         trim_blocks=True,

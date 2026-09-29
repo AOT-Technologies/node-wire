@@ -69,6 +69,11 @@ Phase 1 files have three edits:
 - `assets/generator-contract.md`: a "node-wire runtime" section describing what differs when tools
   run on a connector.
 
+`generate/renderers/manifests.py` and `generate/renderers/tools.py` also pass
+`autoescape=select_autoescape()` to their Jinja `Environment` (upstream relied on the default
+`False`, which CodeQL flags). It escapes only `.html`/`.htm`/`.xml` templates, so the `.jinja2`
+output is unchanged.
+
 A scope without `runtime:` takes none of these branches (tested by
 `tests/nw_stacklok_builder/test_vendored_pristine.py`).
 

@@ -128,7 +128,7 @@ def measure_tool_listing(connector_id: str, node_wire_root: Path) -> ToolListing
     # same-named package in that tree cannot shadow the installed bindings.
     from bindings.mcp_server.server import advertised_tools_for_connectors, tool_listing_bytes
 
-    from nw_mcp_builder.from_connector import load_connector_class
+    from nw_mcp_builder.connector_class import load_connector_class
 
     logic = node_wire_root / "src" / f"node_wire_{connector_id}" / "logic.py"
     if not logic.is_file():
