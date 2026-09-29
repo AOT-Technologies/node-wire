@@ -76,7 +76,7 @@ $env:MODE="API"; uv run node-wire
 # Using python
 $env:MODE="API"; python -m bindings_entrypoint
 ```
-*(Modes: `API`, `GRPC`, `MCP`)*
+*(Modes: `API`, `GRPC`. For MCP, run `python -m agents.mcp_entrypoint` — see [MCP Integration](docs/mcp.md). `MODE=MCP` is a leftover stub, not a working server.)*
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) to see the Swagger UI.
 
@@ -86,7 +86,7 @@ The platform includes an interactive web playground at [http://localhost:8000/pl
 
 ### 6. Multi-tenancy (optional)
 
-By default the platform is single-tenant (`__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file holding named configs and per-tenant secret overlays (defaults to `config/tenants.yaml`). See [docs/configuration.md](docs/configuration.md#multi-tenancy) for the full variable reference and [docs/mcp-servers.md](docs/mcp-servers.md#multi-tenancy-mcp) for the MCP tenant/config tools.
+By default the platform is single-tenant (`__default__`). To isolate callers by tenant, set `NW_MULTITENANCY_ENABLED=true` and point `NW_TENANTS_PATH` at a `tenants.yaml` file holding named configs and per-tenant secret overlays (defaults to `config/tenants.yaml`). See [docs/configuration.md](docs/configuration.md#multi-tenancy) for the full variable reference and [docs/cli/nw-mcp-builder.md](docs/cli/nw-mcp-builder.md#multi-tenancy-mcp) for the MCP tenant/config tools.
 
 ---
 
@@ -206,11 +206,11 @@ For more detailed information, please refer to the following guides:
 - **[Installation](docs/installation.md)** — Detailed setup and prerequisites.
 - **[Configuration](docs/configuration.md)** — Environment variables and `connectors.yaml`.
 - **[Connectors Guide](docs/connectors.md)** — How to use and build connectors.
-- **[OpenAPI Connector Builder](docs/nw-connector-builder.md)** — Generate connectors from Swagger/OpenAPI specs.
-- **[nw CLI](docs/nw-cli.md)** — OpenAPI → connector → wheels → MCP → Docker pipeline.
+- **[OpenAPI Connector Builder](docs/cli/nw-connector-builder.md)** — Generate connectors from Swagger/OpenAPI specs.
+- **[nw CLI](docs/cli/nw-cli.md)** — OpenAPI → connector → wheels → MCP host (`gen-all`), then `docker-build` for the image.
 - **[MCP Integration](docs/mcp.md)** — Using node wire with AI agents.
 - **[Troubleshooting](docs/troubleshooting.md)** — Common errors and fixes.
-- **[MCP Servers & Docker](docs/mcp-servers.md)** — Deploying individual connectors as MCP servers.
+- **[nw-mcp-builder](docs/cli/nw-mcp-builder.md)** — Generating a standalone MCP server for a connector.
 - **[Packaging & Publishing](docs/packaging.md)** — Wheel builds and CI flow.
 - **[Release Rollback](docs/release-rollback.md)** — PyPI yank and corrective release procedure.
 - **[Code Quality & Compliance](docs/code-quality-compliance.md)** — Ruff, Mypy, pre-commit, REUSE, and dependency compliance.
@@ -221,7 +221,7 @@ For more detailed information, please refer to the following guides:
 
 ## Developer docs
 
-- Individual connector MCP servers (ToolHive): [docs/mcp-servers.md](docs/mcp-servers.md)
+- Individual connector MCP servers (ToolHive): [docs/packaging.md](docs/packaging.md) · generated hosts: [docs/cli/nw-mcp-builder.md](docs/cli/nw-mcp-builder.md)
 - Creating a new connector: [docs/connectors.md](docs/connectors.md)
 - Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
 - Quality/security gates (Bandit, CodeQL): [docs/quality-security-gates.md](docs/quality-security-gates.md)

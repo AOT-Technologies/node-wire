@@ -325,7 +325,7 @@ catch-all for any Stripe exception not named explicitly.
 
 ### Single-action connector example
 
-A connector with one action is identical in structure — just add one `@nw_action` method:
+A connector with one action is identical in structure — just add one `@nw_action` method. This is an illustrative sketch; `node_wire_sms` is not a shipped connector:
 
 ```python
 # src/node_wire_sms/schema.py
@@ -524,7 +524,7 @@ connectors:
 > **Prerequisite:** Complete Steps 9–11 (Tier 2) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
 
 12. Add `src/agents/<name>_mcp.py`, a `[project.scripts]` entry in root `pyproject.toml`, `docker/<name>/Dockerfile`, and entries in **`scripts/build-mcp-images.sh`**, **`docker-compose.mcp.yml`**, and **[local-packages-to-images.md](local-packages-to-images.md)** (wheel → image mapping table).
-13. Add the new connector to the "Supported connectors" list in **[mcp-servers.md](cli/nw-mcp-builder.md)** if it's also getting a generated `nw-mcp-builder` host.
+13. Add the new connector to the "Supported connectors" list in **[nw-mcp-builder](cli/nw-mcp-builder.md#supported-connectors)** if it's also getting a generated `nw-mcp-builder` host.
 
 For full file lists see [packaging.md — Adding a new publishable connector](packaging.md#adding-a-new-publishable-connector).
 
@@ -562,7 +562,7 @@ For full file lists see [packaging.md — Adding a new publishable connector](pa
 | [configuration.md](configuration.md) | `NW_*` environment variables and multi-tenancy |
 | [architecture.md](architecture.md) | The three-layer design |
 | [packaging.md](packaging.md) | Publishing a connector to PyPI |
-| [mcp-servers.md](cli/nw-mcp-builder.md) | Generating a standalone MCP host for a connector |
+| [nw-mcp-builder](cli/nw-mcp-builder.md) | Generating a standalone MCP host for a connector |
 
 Per-connector setup guides: [Google Drive](google_drive_connector.md) ·
 [Salesforce](salesforce_connector.md) · [Slack](slack_connector.md). Some connectors also

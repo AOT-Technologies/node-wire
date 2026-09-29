@@ -65,7 +65,7 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
 -   **nw CLI**
 
-    One-shot OpenAPI → connector → wheels → MCP host → Docker image pipeline.
+    One-shot OpenAPI → connector → wheels → MCP host pipeline, plus `nw docker-build` for the image.
 
     [:octicons-arrow-right-24: CLI](cli/index.md)
 
@@ -87,7 +87,7 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
 | Connector | Protocol | Doc |
 |---|---|---|
-| Google Drive | REST + OAuth | [Guide](google_drive_connector.md) |
+| Google Drive | REST · service account | [Guide](google_drive_connector.md) |
 | Salesforce | REST | [Guide](salesforce_connector.md) |
 | Slack | Web API | [Guide](slack_connector.md) |
 | SMTP | Email | [Connectors](connectors.md) |
@@ -98,12 +98,13 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
 ## Which tool do I use?
 
-Four CLIs exist, but `nw` orchestrates the other three — start at the [CLI module](cli/index.md).
+`nw` is the only CLI most people need. It drives `nw-connector-builder`, `nw-mcp-builder`, and the vendored stacklok builder for you — start at the [CLI module](cli/index.md).
 Reach for a standalone builder only when you need a stage on its own.
 
 | I want to… | Use | Page |
 |---|---|---|
-| Turn an OpenAPI/Swagger spec into a connector, wheels, MCP host and Docker image | **`nw gen-all`** | [nw CLI](cli/nw-cli.md) |
+| Turn an OpenAPI/Swagger spec into a connector, wheels and MCP host | **`nw gen-all`** | [nw CLI](cli/nw-cli.md) |
+| Build the Docker image for that MCP host | `nw docker-build` | [nw CLI](cli/nw-cli.md) |
 | Build an MCP server whose tools are curated by AI scoping | **`nw gen-stacklok`** | [stacklok MCP servers](stacklok-mcp-servers.md) |
 | Write a connector by hand (SDK-style or non-REST) | *no CLI* — author `schema.py` + `logic.py` | [Connectors guide](connectors.md) |
 | Regenerate just the MCP host for an existing connector | `nw gen-mcp` | [nw CLI](cli/nw-cli.md) |
@@ -119,7 +120,7 @@ when you need a flag `nw` does not pass through, or are debugging a single stage
 
 | Area | Pages |
 |---|---|
-| MCP | [Overview](mcp.md) · [Client OAuth](mcp-client-oauth.md) · [ToolHive scenario](toolhive_agent_scenario.md) |
+| MCP | [Overview](mcp.md) · [stacklok MCP servers](stacklok-mcp-servers.md) · [stacklok builder decisions](stacklok-mcp-builder-requirements.md) · [Client OAuth](mcp-client-oauth.md) · [ToolHive scenario](toolhive_agent_scenario.md) |
 | Packaging & release | [Packaging](packaging.md) · [Versioning](versioning.md) · [Release rollback](release-rollback.md) · [Local wheels → images](local-packages-to-images.md) |
 | Development | [Contributing](contributing.md) · [Code quality](code-quality-compliance.md) · [Quality & security gates](quality-security-gates.md) · [Public API](public-api.md) · [Troubleshooting](troubleshooting.md) |
 | Compliance | [Privacy](privacy.md) · [HIPAA considerations](compliance/hipaa-considerations.md) |

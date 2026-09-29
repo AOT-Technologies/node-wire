@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 # CLI
 
 The command-line toolchain that turns an OpenAPI/Swagger spec into a Node Wire connector,
-wheels, an MCP host, and a Docker image.
+wheels, an MCP host, and a Docker image (`nw gen-all` for the first three, `nw docker-build` for the image).
 
 `nw` is the orchestrator. It calls the other tools for you, so it is the only one most
 people need.
@@ -30,7 +30,7 @@ uv run nw gen-all --connector-id pet_store --path path/to/openapi.yaml
 
 | I want to… | Command |
 |---|---|
-| Spec → connector → wheels → MCP host → image, in one shot | `nw gen-all` |
+| Spec → connector → wheels → MCP host, in one shot | `nw gen-all` |
 | Rebuild only the wheels | `nw gen-whl` |
 | Rebuild only the MCP host | `nw gen-mcp` |
 | Build the Docker image | `nw docker-build` |

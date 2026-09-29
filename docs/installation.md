@@ -109,7 +109,7 @@ For MCP transport modes, Inspector usage, and multi-server deployment:
 
 - See [mcp.md](mcp.md) for transport setup and local MCP usage.
 - See [packaging.md](packaging.md) for pre-built per-connector Docker images and ToolHive deployment.
-- See [mcp-servers.md](cli/nw-mcp-builder.md) to generate a custom standalone MCP host with `nw-mcp-builder`.
+- See [nw-mcp-builder](cli/nw-mcp-builder.md) to generate a custom standalone MCP host with `nw-mcp-builder`.
 
 ---
 

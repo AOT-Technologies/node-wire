@@ -128,7 +128,7 @@ The REST-only `NW_REST_RATE_LIMIT_ENABLED` family (`_MAX_REQUESTS`, `_WINDOW_SEC
 | `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
 | `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
 
-Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [mcp-servers.md](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+Named-tenant secrets use `NW_{TENANT}_{CONNECTOR}_{KEY}` for the default config, or `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config). MCP transport details: [nw-mcp-builder](cli/nw-mcp-builder.md#multi-tenancy-mcp).
 
 When multitenancy is enabled, MCP exposes `nw_list_tenants`, `nw_select_tenant` (returns
 configs), `nw_list_configs`, and `nw_select_config`. Provision configs via playground REST or

@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Node Wire integrates with the Model Context Protocol to allow AI agents (like Claude or custom LLM orchestrators) to discover and use connectors as tools.
 
-For **pre-built per-connector Docker images and ToolHive registration**, see [packaging.md](packaging.md). For **generating a custom standalone MCP host** for a connector with `nw-mcp-builder`, see [mcp-servers.md](cli/nw-mcp-builder.md).
+For **pre-built per-connector Docker images and ToolHive registration**, see [packaging.md](packaging.md). For **generating a custom standalone MCP host** for a connector with `nw-mcp-builder`, see [nw-mcp-builder](cli/nw-mcp-builder.md).
 
 For **outbound OAuth** when connecting to remote authorized MCP servers over HTTP, see [mcp-client-oauth.md](mcp-client-oauth.md).
 
@@ -118,7 +118,7 @@ uv run python -m agents.mcp_entrypoint
 ### 2. Individual MCP Servers
 Each connector runs as its own independent MCP server (often in a dedicated Docker container). This is preferred for modular, scalable deployments.
 - **Pre-built per-connector Docker images:** [packaging.md](packaging.md)
-- **Generate a custom standalone MCP host with `nw-mcp-builder`:** [mcp-servers.md](cli/nw-mcp-builder.md)
+- **Generate a custom standalone MCP host with `nw-mcp-builder`:** [nw-mcp-builder](cli/nw-mcp-builder.md)
 
 ---
 

@@ -189,7 +189,7 @@ name.
   CI allowlists, standalone MCP Docker image rows) is a manual **Tier 2/3** checklist in
   [packaging.md](../packaging.md) — the builder produces the runtime + package skeleton only
 - No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
-  `thv`/ToolHive deploy or verify is manual — see [mcp-servers.md](nw-mcp-builder.md#platform-and-toolhive-read-this-first)
+  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first)
   and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md). This was explicitly dropped from
   the companion `nw-cli` orchestrator's scope too; see [nw-cli.md](nw-cli.md).
 

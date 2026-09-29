@@ -6,9 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw CLI
 
-`nw` is the unified CLI for the OpenAPI → connector → wheel → MCP host → Docker image pipeline. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](../packaging.md), and [`nw-mcp-builder`](nw-mcp-builder.md) without replacing those tools.
+`nw` is the unified CLI for turning an OpenAPI spec into a connector, wheels, an MCP host, and a Docker image. `gen-all` runs connector → wheel → MCP host → wire; the image is a separate `docker-build` step. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](../packaging.md), and [`nw-mcp-builder`](nw-mcp-builder.md) without replacing those tools.
 
-ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. For manual ToolHive registration and the end-to-end agent path, see [mcp-servers.md](nw-mcp-builder.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
+ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. For manual ToolHive registration and the end-to-end agent path, see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
 
 ---
 
@@ -111,7 +111,7 @@ uv run nw gen-whl --connector-id pet_store --all    # cibuildwheel matrix
 uv run nw gen-whl --runtime                         # packages/runtime only
 ```
 
-Default mode passes **`--linux-only`** to `scripts/build-packages.sh` (not the script’s host+Linux combined default). The CLI does not expose a `--linux-only` flag — omit `--host` / `--all` to get that mode. `--host` and `--all` are mutually exclusive. Runtime is not rebuilt with every connector build — use `--runtime` when needed. `--connector-id` is required unless `--runtime` is set.
+Default mode passes **`--linux-only`** to `scripts/build-packages.sh` (not the script’s host+Linux combined default). The CLI does not expose a `--linux-only` flag — omit `--host` / `--all` to get that mode. `--host` and `--all` are mutually exclusive. Runtime is not rebuilt with every connector build — use `--runtime` when needed. `--connector-id` is required unless `--runtime` and/or `--bindings` is set. `--bindings` builds `packages/bindings` (the MCP host surface) — `gen-mcp` asks you to run `nw gen-whl --bindings` when that wheel is missing.
 
 ### `nw gen-mcp`
 
@@ -186,7 +186,7 @@ omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` blo
 |------|---------|
 | `0` | Success |
 | `1` | Stage failure, missing prerequisite (non-interactive / declined), or root resolution error |
-| `2` | Usage error (e.g. `--host` with `--all`, or missing `--connector-id` without `--runtime`) |
+| `2` | Usage error (e.g. `--host` with `--all`, or missing `--connector-id` without `--runtime` or `--bindings`) |
 
 ---
 
@@ -197,7 +197,7 @@ omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` blo
 | `nw` | Orchestrator for the happy path |
 | `nw-connector-builder` | Still available for low-level OpenAPI codegen |
 | `nw-mcp-builder` | Still available for MCP-only generation |
-| `nw-stacklok-builder` | Vendored stacklok generator driven by `nw gen-stacklok` (no CLI of its own) |
+| `nw-stacklok-builder` | Vendored stacklok generator driven by `nw gen-stacklok`. Ships stacklok's `mcp-builder` (analyze / validate / generate) and `mcp-builder-schema`, which the ai-scoping skill calls; you rarely run them yourself |
 
 Deprecating the standalone builder entry points is **not** part of this CLI.
 
@@ -218,6 +218,6 @@ Coverage is unit/mocked only (no live Docker or network spec fetch).
 | Doc | When to read it |
 |-----|-----------------|
 | [nw-connector-builder.md](nw-connector-builder.md) | OpenAPI → connector codegen details |
-| [mcp-servers.md](nw-mcp-builder.md) | Generated MCP host layout, ToolHive, Inspector |
+| [nw-mcp-builder](nw-mcp-builder.md) | Generated MCP host layout, ToolHive, Inspector |
 | [packaging.md](../packaging.md) | `build-packages.sh`, wheels, PyPI |
 | [configuration.md](../configuration.md) | `connectors.yaml` and env vars |

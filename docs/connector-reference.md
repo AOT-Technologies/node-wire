@@ -124,7 +124,7 @@ async def upload_then_describe(
 | `fhir_cerner` | Same family as Epic with Cerner-specific schemas |
 | `slack` | `post_message`, `send_direct_message`, `upload_file` |
 
-MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). See [`docs/mcp-servers.md`](cli/nw-mcp-builder.md).
+MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). See [nw-mcp-builder](cli/nw-mcp-builder.md).
 
 ---
 

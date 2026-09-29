@@ -155,7 +155,7 @@ uv sync
 uv run python -m pet_store_nw_mcp
 ```
 
-See [mcp-servers.md](nw-mcp-builder.md) for ToolHive, Linux wheels, and Inspector.
+See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, Linux wheels, and Inspector.
 
 ### 4. Tests for the builder itself
 
@@ -192,7 +192,7 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 
 ### `mcp`
 
-Same flags as standalone `nw-mcp-builder` (see [mcp-servers.md](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
+Same flags as standalone `nw-mcp-builder` (see [nw-mcp-builder](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
 
 Help:
 
@@ -390,7 +390,7 @@ Unless `--no-mcp` is set, the builder calls `nw-mcp-builder` with:
 - `force_fixture=True` (fixture must track the newly promoted connector)
 - `force_output=<value of --force>`
 
-MCP details (wheels, ToolHive, Inspector) live in [mcp-servers.md](nw-mcp-builder.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
+MCP details (wheels, ToolHive, Inspector) live in [nw-mcp-builder](nw-mcp-builder.md). A failed hand-off returns exit code `1` after a successful promote — re-run either of these once the connector tree is good:
 
 ```bash
 uv run --directory nw-connector-builder nw-connector-builder mcp -c <id> --force-output
@@ -452,7 +452,7 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 - [ ] Register the entry point in the **root** `pyproject.toml` for editable monorepo installs (if not already covered by your workflow)
 - [ ] Add the path to `scripts/build-packages.sh` (`ALL_PACKAGES`) and CI allowlists (`nw gen-all` without `--no-wire` inserts the `ALL_PACKAGES` entry; CI allowlists stay manual)
 - [ ] Update the package inventory in [packaging.md](../packaging.md)
-- [ ] Optional standalone MCP image rows in [mcp-servers.md](nw-mcp-builder.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
+- [ ] Optional standalone MCP image rows in [nw-mcp-builder](nw-mcp-builder.md) / `docker-compose.mcp.yml` (the thin host under `nw-mcp-builder/out/` is separate from repo `docker/<name>/` images)
 
 ---
 
@@ -462,7 +462,7 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 |-----|-----------------|
 | [nw-cli.md](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
 | [connectors.md](../connectors.md) | Hand-written connectors, `BaseConnector`, auth patterns |
-| [mcp-servers.md](nw-mcp-builder.md) | Running / packaging the generated MCP host |
+| [nw-mcp-builder](nw-mcp-builder.md) | Running / packaging the generated MCP host |
 | [packaging.md](../packaging.md) | Wheels, PyPI, CI allowlists |
 | [configuration.md](../configuration.md) | `connectors.yaml` and env vars |
 | [local-packages-to-images.md](../local-packages-to-images.md) | Wheel → Docker image workflow |

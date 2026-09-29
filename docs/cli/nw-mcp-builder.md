@@ -162,8 +162,8 @@ uv run --directory nw-mcp-builder nw-mcp-builder --help
 
 ```bash
 # Full run: build host-OS wheels + use/create fixture + generate project
-# For Toolhive testing proceed with the second command if you alread have linux based wheel files.
-# This command will be generating platform depended wheels files
+# For ToolHive testing, use the second command if you already have Linux wheel files.
+# This command builds platform-dependent wheel files
 uv run nw-mcp-builder -c <connector_id>
 # Example
 uv run nw-mcp-builder -c google_drive

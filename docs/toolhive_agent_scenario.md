@@ -116,7 +116,7 @@ You can think of it as a local "MCP server manager" — you register your server
 
 ## What does the Node Wire MCP server expose?
 
-When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), agents typically see **five** tools (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send). The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every connector enabled for MCP in `config/connectors.yaml` (often 18+ tools). This section describes the **five-tool** happy path; the architecture diagram above shows only the four tools this workflow actually calls. See [mcp-servers.md](cli/nw-mcp-builder.md) for the full surface.
+When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), each per-connector server (`agents.stripe_mcp` and the others) advertises that connector's **full** action set, not just the one this workflow calls — Cerner and Epic 5 each, Google Drive 7 (`files.*` plus `permissions.create`), Stripe 5, SMTP 1, so about 23 tools in total. The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every registered connector enabled for MCP in `config/connectors.yaml` — about 35 with the bundled connectors, plus the `nw_*` tenant/config tools when multi-tenancy is on. This section follows the **five-tool** happy path (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send); the architecture diagram above shows only the four tools this workflow actually calls. See [nw-mcp-builder](cli/nw-mcp-builder.md) for the full surface.
 
 | Tool | Description |
 |---|---|
@@ -344,7 +344,7 @@ ToolHive will start the container and set up a stdio-to-HTTP proxy on a local po
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` |
 | `NW_MCP_TENANT_PIN_LOCKED` | `false` |
 
-Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [mcp-servers.md — Multi-tenancy](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+Use `nw_select_tenant` / `nw_select_config` (or agent `--tenant-id` / `--config-name`) before connector calls. One config name applies to every connector — pick a name that exists on all connectors you use. See [nw-mcp-builder — Multi-tenancy](cli/nw-mcp-builder.md#multi-tenancy-mcp).
 
 ### Option B: ToolHive CLI (single-tenant secrets)
 
@@ -426,7 +426,7 @@ python -m agents.toolhive \
 | `--tenant-id` | No | Pin MCP tenant (`X-Tenant-ID` on HTTP; `NW_TENANT_ID` for `--local`). Defaults from `NW_TENANT_ID` env. |
 | `--config-name` | No | Calls `nw_select_config` at start so every connector uses that name |
 
-With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to every connector on that server by default. Tenant pin precedence differs by transport: on stdio, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin; on streamable-http, the live per-request `X-Tenant-ID` header always wins and is never shadowed by a prior select. See [mcp-servers.md — Multi-tenancy (MCP)](cli/nw-mcp-builder.md#multi-tenancy-mcp).
+With multitenancy enabled, MCP loads `config/tenants.yaml` and advertises `nw_list_tenants`, `nw_select_tenant`, `nw_list_configs`, and `nw_select_config`. `nw_select_config`'s selection applies to every connector on that server by default. Tenant pin precedence differs by transport: on stdio, `nw_select_tenant` overrides the `NW_TENANT_ID` env pin; on streamable-http, the live per-request `X-Tenant-ID` header always wins and is never shadowed by a prior select. See [nw-mcp-builder — Multi-tenancy (MCP)](cli/nw-mcp-builder.md#multi-tenancy-mcp).
 
 ### Switching LLM providers
 
@@ -552,7 +552,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 }
 ```
 
-Replace `<PORT>` with the port shown in ToolHive UI. The five Node Wire connector tools will appear in Claude's tool sidebar automatically.
+Replace `<PORT>` with the port shown in ToolHive UI. The Node Wire connector tools will appear in Claude's tool sidebar automatically.
 
 ### Cursor
 

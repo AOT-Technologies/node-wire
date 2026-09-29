@@ -10,8 +10,8 @@ The Node Wire project is committed to ensuring privacy and secure data handling 
 
 ## Core Privacy Principles
 
-1. **No Telemetry or Phone Home:**
-   The Node Wire open-source framework does not collect, transmit, or store any usage data, telemetry, or analytics. It operates entirely within the infrastructure where it is deployed.
+1. **No Phone Home:**
+   Node Wire does not send usage data, telemetry, or analytics to AOT Technologies or any vendor endpoint. It does emit OpenTelemetry signals to an endpoint *you* control: the REST/gRPC entrypoint calls `init_observability()` at startup, which installs OTLP trace, log, and metric exporters (default: a local collector, overridable with the standard `OTEL_EXPORTER_OTLP_*` variables). Exports are sanitized, and they only leave the process when a collector is reachable.
 
 2. **No Data Persistence by Default:**
    Node Wire acts as an orchestration and routing layer. It does not contain a built-in database for persistent storage of transaction data, logs, or payloads. Any data persistence must be explicitly configured by the user via connectors (e.g., storing a file in Google Drive).

@@ -554,7 +554,7 @@ The `docker/*/Dockerfile` images are **demonstration templates** for packaging a
 
 Generated MCP host images expect **Linux** wheels built for **Python 3.13**
 (`python:3.13-slim` in the generated Dockerfile). See
-[mcp-servers.md](cli/nw-mcp-builder.md#platform-and-toolhive-read-this-first) and
+[nw-mcp-builder](cli/nw-mcp-builder.md#platform-and-toolhive-read-this-first) and
 [local-packages-to-images.md](local-packages-to-images.md) for the wheel → image
 walkthrough.
 

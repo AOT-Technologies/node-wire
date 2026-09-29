@@ -147,7 +147,6 @@ nav:
     - Privacy: privacy.md
     - HIPAA Considerations: compliance/hipaa-considerations.md
   - Project:
-    - Contributing: contributing.md
     - Code of Conduct: https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md
     - Governance: https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md
     - Support: https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md

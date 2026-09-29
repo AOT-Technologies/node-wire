@@ -117,7 +117,7 @@ or an MCP tool error, but the connector contract is identical on all three.
 - **ErrorMapper**: Maps exception types to stable error codes and categories.
 - **Resilience**: Decorators for retries (Tenacity) and circuit breaking (PyBreaker).
 - **SecretProvider**: Abstraction for fetching secrets (API keys, credentials).
-- **PolicyHook**: Optional hook to allow or deny execution based on principal or tenant.
+- **PolicyHook**: Allow/deny check before execution, based on principal, scopes, or tenant. The hook type is pluggable. `BaseConnector` accepts `policy_hook=None`, but `ConnectorFactory` always attaches one: `ScopePolicyHook` when an MCP scope map or `NW_MCP_SCOPE_POLICY_DEFAULT=deny` is configured, otherwise `TenantConfigHook` (a tenant must have a config for the connector).
 - **Tenant pinning**: Factory-built instances carry `_tenant_id`; `run()` uses that pin when `tenant_id` is omitted and rejects mismatched caller ids with `TENANT_MISMATCH`.
 - **Telemetry**: OpenTelemetry integration for tracing.
 
@@ -133,7 +133,7 @@ flowchart TB
     Pin -. "TENANT_MISMATCH" .-> Err
 
     Val["Pydantic validation<br/>discriminated union on action"]
-    Pol["PolicyHook · optional allow / deny"]
+    Pol["PolicyHook · allow / deny<br/>always set on factory instances"]
     Res["Retries + circuit breaker<br/>Tenacity · PyBreaker"]
     Exec["internal_execute<br/>dispatch to Layer B"]
     Val --> Pol --> Res --> Exec
