@@ -200,31 +200,65 @@ def resolve_mcp_dependency(node_wire_root: Path) -> str:
     return _MCP_DEP_FALLBACK
 
 
+# The Python and libc of PYTHON_313_SLIM_IMAGE: the wheels copied into the project must install
+# there. dist/ also holds wheels for other targets (gen-stacklok's Alpine musllinux, macOS, cp312).
+_IMAGE_PYTHON_TAGS = frozenset({"cp313", "py3", "py313"})
+_IMAGE_ABI3_MAX_MINOR = 13
+
+
+def _installs_in_image(wheel: Path) -> bool:
+    """True when ``wheel``'s tags fit CPython 3.13 on glibc Linux (or any platform)."""
+    parts = wheel.name[: -len(".whl")].split("-")
+    if len(parts) < 5:
+        return False
+    python_tags, abi_tags, platform_tags = (tag.split(".") for tag in parts[-3:])
+    python_ok = any(tag in _IMAGE_PYTHON_TAGS for tag in python_tags) or (
+        "abi3" in abi_tags
+        and any(
+            tag.startswith("cp3") and tag[3:].isdigit() and int(tag[3:]) <= _IMAGE_ABI3_MAX_MINOR
+            for tag in python_tags
+        )
+    )
+    platform_ok = any(
+        tag == "any" or tag.startswith(("linux_", "manylinux")) for tag in platform_tags
+    )
+    return python_ok and platform_ok
+
+
+def _newest_installable_wheel(dist: Path, *, package: str, build_command: str) -> Path:
+    wheels = sorted(dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not wheels:
+        raise FileNotFoundError(f"No {package} wheel in {dist}. Build it: `{build_command}`.")
+    installable = [wheel for wheel in wheels if _installs_in_image(wheel)]
+    if not installable:
+        found = ", ".join(wheel.name for wheel in wheels)
+        raise FileNotFoundError(
+            f"No {package} wheel in {dist} installs on the MCP host image "
+            f"(CPython 3.13, glibc Linux); found: {found}. Build one: `{build_command}`."
+        )
+    return installable[0]
+
+
 def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path, Path]:
-    runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    bindings_dist = node_wire_root / "packages" / "bindings" / "dist"
-    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-
-    if not list(runtime_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"No node-wire-runtime wheel in {runtime_dist}. Build it: `nw gen-whl --runtime`."
-        )
-    if not list(bindings_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"No node-wire-bindings wheel in {bindings_dist}. Build it: `nw gen-whl --bindings`."
-        )
-    if not list(connector_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"No node-wire-{connector_id.replace('_', '-')} wheel in "
-            f"{connector_dist}. Build it: `nw gen-whl --connector-id {connector_id}`."
-        )
-
-    runtime = sorted(runtime_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
-    bindings = sorted(bindings_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
-    connector = sorted(connector_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[
-        0
-    ]
-    return runtime, bindings, connector
+    packages = node_wire_root / "packages"
+    connector_package = f"node-wire-{connector_id.replace('_', '-')}"
+    return (
+        _newest_installable_wheel(
+            packages / "runtime" / "dist",
+            package="node-wire-runtime",
+            build_command="nw gen-whl --runtime",
+        ),
+        _newest_installable_wheel(
+            packages / "bindings" / "dist",
+            package=BINDINGS_DIST_PACKAGE,
+            build_command="nw gen-whl --bindings",
+        ),
+        _newest_installable_wheel(
+            packages / "connectors" / connector_id / "dist",
+            package=connector_package,
+            build_command=f"nw gen-whl --connector-id {connector_id}",
+        ),
+    )
 
 
 def _pyproject_toml(

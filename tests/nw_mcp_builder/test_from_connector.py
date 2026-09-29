@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -205,6 +206,52 @@ def test_run_from_connector_skip_wheels_generates_project(
         force_output=True,
     )
     assert again == project_dir
+
+
+def test_project_gets_the_wheels_its_image_can_install(
+    fake_node_wire: Path, package_root: Path
+) -> None:
+    """dist/ also holds gen-stacklok's Alpine wheels and older builds: newest must not win."""
+    dist = fake_node_wire / "packages" / "runtime" / "dist"
+    for old in dist.glob("*.whl"):
+        old.unlink()
+    wanted = dist / "node_wire_runtime-1.1.0-cp313-cp313-linux_aarch64.whl"
+    wanted.write_bytes(b"")
+    for name in (
+        "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl",
+        "node_wire_runtime-1.1.0-cp312-cp312-linux_aarch64.whl",
+        "node_wire_runtime-1.1.0-cp313-cp313-macosx_11_0_arm64.whl",
+    ):
+        newer = dist / name
+        newer.write_bytes(b"")
+        os.utime(newer, (wanted.stat().st_mtime + 60,) * 2)
+
+    project_dir = run_from_connector(
+        "demo_conn",
+        node_wire_root=fake_node_wire,
+        package_root=package_root,
+        skip_build_wheels=True,
+    )
+
+    wheels = sorted(p.name for p in (project_dir / "wheels").glob("node_wire_runtime-*.whl"))
+    assert wheels == [wanted.name]
+
+
+def test_no_installable_wheel_names_what_was_found(
+    fake_node_wire: Path, package_root: Path
+) -> None:
+    dist = fake_node_wire / "packages" / "runtime" / "dist"
+    for old in dist.glob("*.whl"):
+        old.unlink()
+    (dist / "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
+
+    with pytest.raises(FileNotFoundError, match="musllinux_1_2_aarch64.*nw gen-whl --runtime"):
+        run_from_connector(
+            "demo_conn",
+            node_wire_root=fake_node_wire,
+            package_root=package_root,
+            skip_build_wheels=True,
+        )
 
 
 def test_run_from_connector_requires_wheels_when_skip(
