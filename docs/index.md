@@ -55,7 +55,7 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
     Build or configure integrations with Google Drive, Salesforce, Slack, and more.
 
-    [:octicons-arrow-right-24: Connectors Guide](connectors.md)
+    [:octicons-arrow-right-24: Use a connector](connectors.md) · [Build one](connectors-build.md)
 
 -   **OpenAPI Builder**
 
@@ -106,7 +106,8 @@ Reach for a standalone builder only when you need a stage on its own.
 | Turn an OpenAPI/Swagger spec into a connector, wheels and MCP host | **`nw gen-all`** | [nw CLI](cli/nw-cli.md) |
 | Build the Docker image for that MCP host | `nw docker-build` | [nw CLI](cli/nw-cli.md) |
 | Build an MCP server whose tools are curated by AI scoping | **`nw gen-stacklok`** | [stacklok MCP servers](stacklok-mcp-servers.md) |
-| Write a connector by hand (SDK-style or non-REST) | *no CLI* — author `schema.py` + `logic.py` | [Connectors guide](connectors.md) |
+| Call an existing connector, per tenant | *no CLI* — `ConnectorFactory` or the REST API | [Use a connector](connectors.md) |
+| Write a connector by hand (SDK-style or non-REST) | *no CLI* — author `schema.py` + `logic.py` | [Build a connector](connectors-build.md) |
 | Regenerate just the MCP host for an existing connector | `nw gen-mcp` | [nw CLI](cli/nw-cli.md) |
 | Build just the wheels | `nw gen-whl` | [Packaging](packaging.md) |
 | Deploy an MCP server to ToolHive and drive it with an agent | *no CLI* — `thv` + the bundled agent | [ToolHive scenario](toolhive_agent_scenario.md) |
@@ -124,7 +125,7 @@ when you need a flag `nw` does not pass through, or are debugging a single stage
 | Packaging & release | [Packaging](packaging.md) · [Versioning](versioning.md) · [Release rollback](release-rollback.md) · [Local wheels → images](local-packages-to-images.md) |
 | Development | [Contributing](contributing.md) · [Code quality](code-quality-compliance.md) · [Quality & security gates](quality-security-gates.md) · [Public API](public-api.md) · [Troubleshooting](troubleshooting.md) |
 | Compliance | [Privacy](privacy.md) · [HIPAA considerations](compliance/hipaa-considerations.md) |
-| Connectors | [Guide](connectors.md) · [Reference](connector-reference.md) · [REST/MCP/gRPC exposure](connector-bindings.md) |
+| Connectors | [Use](connectors.md) · [Build](connectors-build.md) · [Reference](connector-reference.md) · [REST/MCP/gRPC exposure](connector-bindings.md) |
 | CLI | [Overview](cli/index.md) · [nw CLI](cli/nw-cli.md) · [nw-connector-builder](cli/nw-connector-builder.md) · [Scope](cli/nw-connector-builder-scope.md) · [Codegen behaviour](cli/nw-connector-builder-codegen.md) · [nw-mcp-builder](cli/nw-mcp-builder.md) |
 | Project | [Code of Conduct](https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md) · [Governance](https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md) · [Support](https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md) · [Security](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) · [Changelog](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) |
 

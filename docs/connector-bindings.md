@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Connectors on REST, MCP and gRPC
 
-How an action you wrote in [connectors.md](connectors.md) becomes an HTTP route, an MCP tool,
+How an action you wrote (see [Build a connector](connectors-build.md)) becomes an HTTP route, an MCP tool,
 and a gRPC method — and what each binding does to the arguments on the way in.
 
 All three share one invoke seam (`src/bindings/invoke.py`); see
@@ -106,7 +106,7 @@ The repo also ships **stdio MCP servers** for agents and ToolHive under `src/age
 
 | Doc | When to read it |
 |-----|-----------------|
-| [connectors.md](connectors.md) | Writing the connector these bindings expose |
+| [Build a connector](connectors-build.md) | Writing the connector these bindings expose |
 | [connector-reference.md](connector-reference.md) | `connectors.yaml` keys and the factory API |
 | [architecture.md](architecture.md) | Where the bindings sit in the three-layer design |
 | [mcp.md](mcp.md) | MCP transports, tool search, multi-tenancy |

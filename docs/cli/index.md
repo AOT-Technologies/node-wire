@@ -37,7 +37,7 @@ uv run nw gen-all --connector-id pet_store --path path/to/openapi.yaml
 | Build a stacklok MCP server with AI-curated tools | `nw gen-stacklok` |
 
 Writing a connector **by hand** instead? No CLI is involved — see the
-[Connectors guide](../connectors.md).
+[Build a connector](../connectors-build.md) guide.
 
 ## Related
 

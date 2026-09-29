@@ -205,7 +205,8 @@ For more detailed information, please refer to the following guides:
 - **[Architecture](docs/architecture.md)** — Layered design and data flow.
 - **[Installation](docs/installation.md)** — Detailed setup and prerequisites.
 - **[Configuration](docs/configuration.md)** — Environment variables and `connectors.yaml`.
-- **[Connectors Guide](docs/connectors.md)** — How to use and build connectors.
+- **[Use a Connector](docs/connectors.md)** — Calling connectors in-process or over REST, per tenant.
+- **[Build a Connector](docs/connectors-build.md)** — Writing a connector by hand.
 - **[OpenAPI Connector Builder](docs/cli/nw-connector-builder.md)** — Generate connectors from Swagger/OpenAPI specs.
 - **[nw CLI](docs/cli/nw-cli.md)** — OpenAPI → connector → wheels → MCP host (`gen-all`), then `docker-build` for the image.
 - **[MCP Integration](docs/mcp.md)** — Using node wire with AI agents.
@@ -222,7 +223,7 @@ For more detailed information, please refer to the following guides:
 ## Developer docs
 
 - Individual connector MCP servers (ToolHive): [docs/packaging.md](docs/packaging.md) · generated hosts: [docs/cli/nw-mcp-builder.md](docs/cli/nw-mcp-builder.md)
-- Creating a new connector: [docs/connectors.md](docs/connectors.md)
+- Creating a new connector: [docs/connectors-build.md](docs/connectors-build.md)
 - Code quality/compliance (Ruff, Mypy, REUSE, pip-audit): [docs/code-quality-compliance.md](docs/code-quality-compliance.md)
 - Quality/security gates (Bandit, CodeQL): [docs/quality-security-gates.md](docs/quality-security-gates.md)
 

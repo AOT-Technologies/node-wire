@@ -39,7 +39,9 @@ flowchart TB
     end
 
     subgraph layerB["Layer B · Connectors · src/node_wire_*/"]
-        Conns["internal_execute · @nw_action / action_specs<br/>google_drive · smtp · stripe · http_generic<br/>salesforce · slack · fhir_epic · fhir_cerner"]
+        Pkg["Package per connector<br/>schema.py · discriminated union<br/>logic.py · class + error_map<br/>normalizers.py · optional"]
+        Actions["Connector class · BaseConnector or RestConnector<br/>@sdk_action / @nw_action / action_specs"]
+        Shipped["Shipped connectors<br/>google_drive · smtp · stripe · http_generic<br/>salesforce · slack · fhir_epic · fhir_cerner"]
     end
 
     Ext[["External systems · third-party APIs"]]
@@ -51,9 +53,11 @@ flowchart TB
     Invoke -- "2 · run() → ConnectorResponse" --> Run
     Config -. "read by load()" .-> Factory
     Factory -- "load(): bootstrap __default__<br/>get(): resolve config" --> Store
-    Factory -. "builds tenant-pinned instance<br/>secrets bound" .-> Run
-    Run --> Conns
-    Conns --> Ext
+    Factory -. "builds tenant-pinned instance<br/>injects SecretProvider · AuthProvider · PolicyHook" .-> Run
+    Run -- "internal_execute" --> Actions
+    Actions --> Ext
+    Run ~~~ Pkg
+    Run ~~~ Shipped
 
     classDef binding fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
     classDef store fill:#f2f4f7,stroke:#8a9bac,stroke-width:1px,color:#1c2733
@@ -63,7 +67,7 @@ flowchart TB
     class RestAPI,GrpcSrv,McpSrv,Invoke,Factory binding
     class Config store
     class Store,Run runtime
-    class Conns connector
+    class Actions,Pkg,Shipped connector
     class Ext ext
     style input fill:#f7f8fa,stroke:#8a9bac,stroke-width:1px,stroke-dasharray:4 3,color:#1c2733
     style layerC fill:#f4fbfe,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
@@ -158,7 +162,7 @@ flowchart TB
 
 ## Layer B – `connectors`
 
-**Purpose:** System adapters that talk to external services. Each connector defines input/output models and implements `internal_execute`.
+**Purpose:** System adapters that talk to external services. Each connector defines input/output models and declares its actions with `@sdk_action` (or its alias `@nw_action`) or `action_specs`. Connectors do not implement `internal_execute` — `BaseConnector.internal_execute` dispatches to the declared action. Hand-written connectors subclass `BaseConnector`; OpenAPI-generated ones subclass `RestConnector`. `ConnectorFactory` injects the tenant-scoped `SecretProvider`, `AuthProvider`(s), and `PolicyHook` when it builds an instance.
 
 **Location:** `src/node_wire_<name>/`
 
@@ -166,6 +170,7 @@ flowchart TB
 
 - `schema.py`: Pydantic models for request and response.
 - `logic.py`: Connector class and external service logic, including an optional `error_map` class attribute that registers the connector's exception mappings — scoped to that connector's own `connector_id` so they can never be resolved for another connector's errors.
+- `normalizers.py` (optional): MCP argument normalizers that map LLM aliases to canonical fields before `run()` (wired via `mcp_normalize` on the action).
 
 ---
 

@@ -123,4 +123,4 @@ A missing flag at runtime is never a failure either: only a flag the API actuall
 |-----|-----------------|
 | [nw-connector-builder.md](nw-connector-builder.md) | Running the generator |
 | [nw-connector-builder-scope.md](nw-connector-builder-scope.md) | What is in and out of scope |
-| [connectors.md](../connectors.md) | Hand-written connectors |
+| [Build a connector](../connectors-build.md) | Hand-written connectors |

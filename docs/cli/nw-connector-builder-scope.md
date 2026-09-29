@@ -77,7 +77,7 @@ identity. That is the right shape for a service credential the host owns and rot
 per-user auth: if each caller must reach the vendor API as themselves, the mechanism is the
 runtime's `provider: upstream_bearer` relay, which forwards the inbound request's own bearer token
 per call and fails closed unless the connector is also listed in `NW_UPSTREAM_BEARER_CONNECTORS`
-(see [`connectors.md`](../connectors.md#supported-provider-types) and
+(see [Build a connector](../connectors-build.md#supported-provider-types) and
 [`google_drive_connector.md`](../google_drive_connector.md#upstream_bearer)). The generator never
 emits `upstream_bearer`: nothing in an OpenAPI document says the caller's own token is the right
 credential to relay downstream, and relaying one to the wrong audience leaks it — so that stays a

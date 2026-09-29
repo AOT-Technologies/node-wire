@@ -113,12 +113,13 @@ nav:
     - Configuration: configuration.md
   - Architecture: architecture.md
   - Connectors:
-    - Overview: connectors.md
-    - Connector Reference: connector-reference.md
-    - REST / MCP / gRPC Exposure: connector-bindings.md
+    - Use a Connector: connectors.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md
     - Slack: slack_connector.md
+    - Build a Connector: connectors-build.md
+    - Connector Reference: connector-reference.md
+    - REST / MCP / gRPC Exposure: connector-bindings.md
   - CLI:
     - Overview: cli/index.md
     - nw CLI: cli/nw-cli.md

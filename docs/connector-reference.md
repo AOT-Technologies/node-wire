@@ -9,7 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 Lookup tables for connector authors and host applications: the `connectors.yaml` schema,
 the factory and registry APIs, how to call a connector in-process, and what ships today.
 
-For the walkthrough, see [connectors.md](connectors.md).
+For walkthroughs, see [Use a connector](connectors.md) and [Build a connector](connectors-build.md).
 
 ---
 
@@ -31,10 +31,11 @@ connectors:
 | Method | Description |
 |--------|-------------|
 | `load()` | Reads `connectors.yaml` and bootstraps the runtime config store. Does **not** instantiate connectors — instantiation is lazy. |
-| `get(connector_id, tenant_id=None, config_name=None)` | Lazily instantiates (or returns a cached instance of) the connector for that tenant/config via `_instantiate()`, resolved from the connector registry (`get_connector_registry()`). |
-| `get_for_protocol(id, protocol, action=None)` | Like `get()`, but returns `None` if the connector isn't enabled and exposed for that protocol. |
-| `is_exposed(connector_id, protocol)` | `True` if the connector is enabled and lists `protocol` in `exposed_via`. |
-| `list_for_protocol(protocol)` | All connectors exposed for a given protocol. |
+| `await get(connector_id, *, tenant_id=None, config_name=None)` | Resolves the tenant's config from the store (the default, or `config_name`), then returns the cached tenant-pinned instance or builds one. Raises `ConfigNotFoundError` when the tenant has no config — existence is entitlement. Omitting `tenant_id` means `__default__`. |
+| `store` | The runtime `ConnectorConfigStore` (`create` / `update` / `delete` / `set_default` / `list`). Writes drop the affected cached instances immediately. |
+| `get_for_protocol(id, protocol, action=None)` | **Sync, `__default__` tenant only.** Returns the default-tenant instance, or `None` if the connector isn't enabled or isn't exposed for that protocol in YAML. For playground and enumeration — use `get()` for tenant-scoped calls. |
+| `is_exposed(connector_id, protocol)` | `True` if the YAML entry lists `protocol` in `exposed_via`. Connectors with no YAML entry (pushed only through the store) are exposed on every protocol. Does not check `enabled`. |
+| `list_for_protocol(protocol)` | Default-tenant instances of every enabled, registered connector exposed for `protocol`. |
 
 ---
 
@@ -59,31 +60,9 @@ Use `connector.run(dict)` for the full pipeline (validation, policy, retries, er
 
 Set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry-point names (e.g. `google_drive`) before calling `auto_register()` — without it, `auto_register()` loads nothing (fail-closed).
 
-**Scope policy applies here too.** `ConnectorFactory` installs the same scope hook used by MCP/REST/gRPC on every `run()`, regardless of the protocol passed to `get_for_protocol`. With the code / `sample.env` default **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**, a call with no `principal` or `scopes` fails with `POLICY_DENIED` / `Missing required scope: mcp:<connector>.<action>` — even for local scripts. For local experimentation, set **`NW_MCP_SCOPE_POLICY_DEFAULT=allow`** before constructing the factory (as below), or pass `scopes=("mcp:<connector>.<action>",)` (or `"*"`) into `run()`. See [Security](connectors.md#security-rest-plugins-secrets).
+**Scope policy applies here too.** `ConnectorFactory` installs the same scope hook used by MCP/REST/gRPC on every `run()`, however the instance was obtained (`get` or `get_for_protocol`). With the code / `sample.env` default **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**, a call with no `principal` or `scopes` fails with `POLICY_DENIED` / `Missing required scope: mcp:<connector>.<action>` — even for local scripts. For local experimentation, set **`NW_MCP_SCOPE_POLICY_DEFAULT=allow`** before constructing the factory, or pass `scopes=("mcp:<connector>.<action>",)` (or `"*"`) into `run()`. See [Security](connectors-build.md#security-rest-plugins-secrets).
 
-```python
-import os
-
-from node_wire_runtime.connector_registry import auto_register
-from bindings.factory import ConnectorFactory
-
-os.environ["NW_ALLOWED_CONNECTORS"] = "google_drive"
-# Local in-process only: deny (default) blocks run() with no caller identity.
-os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"
-auto_register()
-factory = ConnectorFactory()
-factory.load()
-
-connector = factory.get_for_protocol("google_drive", "rest", action="files.list")
-response = await connector.run(
-    {"action": "files.list", "page_size": 10, "query": "mimeType = 'application/vnd.google-apps.folder'"}
-)
-
-if response.success:
-    print(response.data)   # {"raw": {"files": [...], ...}, "description": "Successfully executed files.list"}
-else:
-    print(response.error_code, response.message)
-```
+For a complete, runnable walkthrough — two tenants, the config store, `TENANT_MISMATCH`, and revoking access — see [Use a connector](connectors.md).
 
 **Multi-tenant / named configs:** Resolve the tenant in your host (header, JWT, etc.), then `await factory.get("google_drive", tenant_id=tenant_id, config_name=name)`. The returned instance is **pinned** to that tenant: omit `tenant_id` on `run()` (recommended) or pass the same id. A different `run(tenant_id=...)` returns `TENANT_MISMATCH` (`ErrorCategory.AUTH`) without running the action. Omitting `tenant_id` on `get` always resolves `__default__`, not the current request tenant.
 
@@ -132,7 +111,8 @@ MCP tool names: **`<connector_id>_<action>`** (e.g. `fhir_epic_read_patient`). S
 
 | Doc | When to read it |
 |-----|-----------------|
-| [connectors.md](connectors.md) | Building a connector |
+| [Use a connector](connectors.md) | Calling a connector in-process or over REST, per tenant |
+| [Build a connector](connectors-build.md) | Writing a connector by hand |
 | [connector-bindings.md](connector-bindings.md) | How actions surface on REST / MCP / gRPC |
 | [configuration.md](configuration.md) | `NW_*` environment variables |
 | [public-api.md](public-api.md) | What is covered by SemVer |

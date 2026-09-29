@@ -19,7 +19,7 @@ Self-contained tool inside the **node-wire** repo with two subcommands:
 | `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
 | `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
 
-Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [connectors.md](../connectors.md).
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [Build a connector](../connectors-build.md).
 
 ---
 
@@ -461,7 +461,7 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 | Doc | When to read it |
 |-----|-----------------|
 | [nw-cli.md](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
-| [connectors.md](../connectors.md) | Hand-written connectors, `BaseConnector`, auth patterns |
+| [Build a connector](../connectors-build.md) | Hand-written connectors, `BaseConnector`, auth patterns |
 | [nw-mcp-builder](nw-mcp-builder.md) | Running / packaging the generated MCP host |
 | [packaging.md](../packaging.md) | Wheels, PyPI, CI allowlists |
 | [configuration.md](../configuration.md) | `connectors.yaml` and env vars |

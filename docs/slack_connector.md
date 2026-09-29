@@ -123,4 +123,4 @@ Uploads a file to a Slack channel or DM. The content may be supplied two ways:
 ### Related
 
 - Pre-built per-connector Docker images: [packaging.md](packaging.md)
-- Connector Architecture: [connectors.md](connectors.md)
+- Connector Architecture: [Build a connector — How connectors work](connectors-build.md#how-connectors-work)
