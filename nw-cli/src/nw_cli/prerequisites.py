@@ -10,7 +10,6 @@ import functools
 import shutil
 import subprocess  # nosec B404  # fixed `docker info` argv, no shell
 import sys
-from collections.abc import Callable
 
 import typer
 from rich.console import Console
@@ -46,23 +45,6 @@ def confirm_build(prompt: str, *, fix_command: str) -> None:
         highlight=False,
     )
     raise typer.Exit(1)
-
-
-def ensure(
-    condition: bool,
-    *,
-    prompt: str,
-    fix_command: str,
-    build_fn: Callable[[], None],
-) -> None:
-    """If *condition* is false, prompt (TTY) or abort (non-TTY).
-
-    On interactive yes, call *build_fn*. On no / non-TTY, exit non-zero.
-    """
-    if condition:
-        return
-    confirm_build(prompt, fix_command=fix_command)
-    build_fn()
 
 
 def _probe_docker() -> str | None:

@@ -14,12 +14,9 @@ import pytest
 from nw_cli.stages import (
     StageError,
     build_mode_flag,
-    connector_wheel_present,
     register_all_packages,
     run_docker_build,
     run_wheel_build,
-    runtime_wheel_present,
-    wheels_present,
 )
 
 
@@ -29,27 +26,6 @@ def test_build_mode_flag_defaults_and_mutex() -> None:
     assert build_mode_flag(all_=True) == "--all"
     with pytest.raises(StageError, match="mutually exclusive"):
         build_mode_flag(host=True, all_=True)
-
-
-def test_wheels_present_helpers(tmp_path: Path) -> None:
-    runtime = tmp_path / "packages" / "runtime" / "dist"
-    bindings = tmp_path / "packages" / "bindings" / "dist"
-    conn = tmp_path / "packages" / "connectors" / "pet_store" / "dist"
-    runtime.mkdir(parents=True)
-    bindings.mkdir(parents=True)
-    conn.mkdir(parents=True)
-    assert wheels_present(tmp_path, "pet_store") is False
-    assert runtime_wheel_present(tmp_path) is False
-    assert connector_wheel_present(tmp_path, "pet_store") is False
-
-    (runtime / "runtime-0.1-py3-none-any.whl").write_bytes(b"whl")
-    assert runtime_wheel_present(tmp_path) is True
-    assert wheels_present(tmp_path, "pet_store") is False
-
-    (bindings / "bindings-0.1-py3-none-any.whl").write_bytes(b"whl")
-    (conn / "pet_store-0.1-py3-none-any.whl").write_bytes(b"whl")
-    assert connector_wheel_present(tmp_path, "pet_store") is True
-    assert wheels_present(tmp_path, "pet_store") is True
 
 
 def test_run_wheel_build_requires_connector_or_runtime(tmp_path: Path) -> None:

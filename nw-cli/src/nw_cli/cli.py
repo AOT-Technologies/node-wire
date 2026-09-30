@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 import yaml
@@ -158,14 +158,6 @@ def _progress(command: str, stages: list[Stage]) -> GenerateProgress:
     return GenerateProgress(stages=stages, title=f"nw {command}", log_path=ui.new_log_file(command))
 
 
-def _shown(path: Path, node_wire_root: Path) -> str:
-    """``path`` relative to the repo root when inside it (shorter in the summary panel)."""
-    try:
-        return str(Path(path).resolve().relative_to(node_wire_root.resolve()))
-    except ValueError:
-        return str(path)
-
-
 def _next_docker_build(connector_id: str) -> None:
     ui.next_steps(
         [
@@ -185,7 +177,7 @@ def _gen_whl_command(packages: list[str], connector_id: str) -> str:
         flags.append("--bindings")
     if f"packages/connectors/{connector_id}" in packages:
         flags.append(f"--connector-id {connector_id}")
-    return " ".join(["nw gen-whl", *flags])
+    return " ".join(["uv run nw gen-whl", *flags])
 
 
 def _missing_wheels(node_wire_root: Path, connector_id: str) -> list[str]:
@@ -323,7 +315,7 @@ def gen_all(
                 f"Drop --no-wheel, or build them first: {_gen_whl_command(missing, id)}"
             )
 
-    rerun = f"nw gen-all --connector-id {id} --path {path}"
+    rerun = f"uv run nw gen-all --connector-id {id} --path {path}"
     progress = _progress(
         "gen-all",
         [
@@ -336,7 +328,7 @@ def gen_all(
             Stage(
                 "mcp",
                 "MCP host build",
-                hint=f"Retry just this step: nw gen-mcp --connector-id {id}"
+                hint=f"Retry just this step: uv run nw gen-mcp --connector-id {id}"
                 + (" --force-output" if force else ""),
             ),
             Stage(
@@ -383,7 +375,7 @@ def gen_all(
                     node_wire_root, id, force_output=force, tool_mode=chosen_mode
                 ),
             )
-            progress.result("MCP host", _shown(project, node_wire_root))
+            progress.result("MCP host", ui.display_path(project, node_wire_root))
 
         progress.run_stage("wire", lambda: register_all_packages(node_wire_root, id))
     if not no_mcp:
@@ -458,7 +450,7 @@ def _mcp_host_stages(
             Stage(
                 "mcp",
                 "MCP host build",
-                hint=f"Retry: nw gen-mcp --connector-id {connector_id}"
+                hint=f"Retry: uv run nw gen-mcp --connector-id {connector_id}"
                 + (" --force-output" if force_output else ""),
             )
         )
@@ -510,7 +502,7 @@ def gen_mcp(
             "mcp",
             lambda: run_mcp_build(node_wire_root, id, force_output=force_output, tool_mode=mode),
         )
-        progress.result("MCP host", _shown(project, node_wire_root))
+        progress.result("MCP host", ui.display_path(project, node_wire_root))
     _next_docker_build(id)
 
 
@@ -552,7 +544,7 @@ def docker_build(
         also = f" (and the missing wheels: {', '.join(missing)})" if missing else ""
         confirm_build(
             f"MCP project not found at {project} — generate it now{also}?",
-            fix_command=f"nw gen-mcp --connector-id {id}",
+            fix_command=f"uv run nw gen-mcp --connector-id {id}",
         )
 
     progress = _progress(
@@ -596,13 +588,18 @@ class _ImageProject:
         return docker_image_tag(self.connector_id, tag) if self.host else f"{self.path.name}:{tag}"
 
 
-def _stacklok_connectors(project: Path) -> set[str]:
+def _project_connectors(project: Path) -> dict[str, Any]:
+    """The ``connectors`` mapping of a generated project's ``config/connectors.yaml``."""
     try:
         doc = yaml.safe_load((project / "config" / "connectors.yaml").read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return set()
-    connectors = (doc or {}).get("connectors") if isinstance(doc, dict) else None
-    return set(connectors) if isinstance(connectors, dict) else set()
+        return {}
+    connectors = doc.get("connectors") if isinstance(doc, dict) else None
+    return connectors if isinstance(connectors, dict) else {}
+
+
+def _stacklok_connectors(project: Path) -> set[str]:
+    return set(_project_connectors(project))
 
 
 def _image_projects(node_wire_root: Path, connector_id: str) -> list[_ImageProject]:
@@ -921,9 +918,8 @@ def _scoped_connector(project: Path, connector_id: str | None) -> str:
 def _token_placeholder(project: Path, connector_id: str) -> str:
     """``<SLACK_WEB_ACCESS_TOKEN>``: the connector's own secret name, else a generic one."""
     try:
-        doc = yaml.safe_load((project / "config" / "connectors.yaml").read_text(encoding="utf-8"))
-        key = doc["connectors"][connector_id]["auth"]["secret_key"]
-    except (OSError, yaml.YAMLError, KeyError, TypeError):
+        key = _project_connectors(project)[connector_id]["auth"]["secret_key"]
+    except (KeyError, TypeError):
         return "<upstream-api-token>"
     return f"<{key}>"
 
@@ -1042,7 +1038,7 @@ def _stacklok_phase3(
                 log=progress.log,
             ),
         )
-    progress.result("MCP server", _shown(project, node_wire_root))
+    progress.result("MCP server", ui.display_path(project, node_wire_root))
     return project
 
 

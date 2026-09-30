@@ -27,7 +27,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from nw_cli.prerequisites import is_interactive
-from nw_cli.progress import AMBER, BLUE
+from nw_cli.ui import AMBER, BLUE
 
 Pause = Callable[[], AbstractContextManager[object]]
 

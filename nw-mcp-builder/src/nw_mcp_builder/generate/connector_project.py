@@ -12,6 +12,7 @@ packages come from site-packages after ``pip install``.
 from __future__ import annotations
 
 import logging
+import platform
 import re
 import shutil
 import tomllib
@@ -201,13 +202,21 @@ def resolve_mcp_dependency(node_wire_root: Path) -> str:
 
 
 # The Python and libc of PYTHON_313_SLIM_IMAGE: the wheels copied into the project must install
-# there. dist/ also holds wheels for other targets (gen-stacklok's Alpine musllinux, macOS, cp312).
+# there. dist/ also holds wheels for other targets (gen-stacklok's Alpine musllinux, macOS, cp312,
+# the other CPU architecture).
 _IMAGE_PYTHON_TAGS = frozenset({"cp313", "py3", "py313"})
 _IMAGE_ABI3_MAX_MINOR = 13
+_MACHINE_ARCH = {"arm64": "aarch64", "aarch64": "aarch64", "amd64": "x86_64", "x86_64": "x86_64"}
 
 
-def _installs_in_image(wheel: Path) -> bool:
-    """True when ``wheel``'s tags fit CPython 3.13 on glibc Linux (or any platform)."""
+def _image_arch() -> str:
+    """CPU architecture of the image: ``docker build`` without ``--platform`` builds native."""
+    machine = platform.machine().lower()
+    return _MACHINE_ARCH.get(machine, machine)
+
+
+def _installs_in_image(wheel: Path, arch: str) -> bool:
+    """True when ``wheel``'s tags fit CPython 3.13 on glibc Linux ``arch`` (or any platform)."""
     parts = wheel.name[: -len(".whl")].split("-")
     if len(parts) < 5:
         return False
@@ -220,7 +229,8 @@ def _installs_in_image(wheel: Path) -> bool:
         )
     )
     platform_ok = any(
-        tag == "any" or tag.startswith(("linux_", "manylinux")) for tag in platform_tags
+        tag == "any" or (tag.startswith(("linux_", "manylinux")) and tag.endswith(f"_{arch}"))
+        for tag in platform_tags
     )
     return python_ok and platform_ok
 
@@ -229,12 +239,13 @@ def _newest_installable_wheel(dist: Path, *, package: str, build_command: str) -
     wheels = sorted(dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not wheels:
         raise FileNotFoundError(f"No {package} wheel in {dist}. Build it: `{build_command}`.")
-    installable = [wheel for wheel in wheels if _installs_in_image(wheel)]
+    arch = _image_arch()
+    installable = [wheel for wheel in wheels if _installs_in_image(wheel, arch)]
     if not installable:
         found = ", ".join(wheel.name for wheel in wheels)
         raise FileNotFoundError(
             f"No {package} wheel in {dist} installs on the MCP host image "
-            f"(CPython 3.13, glibc Linux); found: {found}. Build one: `{build_command}`."
+            f"(CPython 3.13, glibc Linux {arch}); found: {found}. Build one: `{build_command}`."
         )
     return installable[0]
 

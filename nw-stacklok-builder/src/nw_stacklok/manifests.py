@@ -35,6 +35,8 @@ TENANT_HEADER = "X-Tenant-ID"
 PROXY_SECRET_HEADER = "X-NW-Proxy-Secret"
 PROXY_SECRET_ENV = "NW_PROXY_SECRET"
 PROXY_SECRET_KEY = "token"
+# node_wire_toolhive.request rejects this value, so an unedited proxy-secret.yaml fails closed.
+PROXY_SECRET_PLACEHOLDER = "REPLACE_ME_PROXY_SECRET"
 # The container listens on all interfaces inside its pod; the NetworkPolicy limits who reaches it.
 _BIND_ALL = "0.0.0.0"  # nosec B104
 # emptyDir scratch space for the read-only root filesystem.
@@ -174,12 +176,13 @@ def _proxy_secret(server: str) -> str:
         "kind": "Secret",
         "metadata": {"name": _proxy_secret_name(server), "namespace": DEFAULT_NAMESPACE},
         "type": "Opaque",
-        "stringData": {PROXY_SECRET_KEY: "REPLACE_ME_PROXY_SECRET"},
+        "stringData": {PROXY_SECRET_KEY: PROXY_SECRET_PLACEHOLDER},
     }
     return (
         f"# Shared by every tenant proxy ({PROXY_SECRET_HEADER}) and the backend ({PROXY_SECRET_ENV}).\n"
-        f"# The backend rejects {TENANT_HEADER} without it. Use a long random value, e.g.\n"
-        "# `openssl rand -hex 32`.\n" + _dump(secret)
+        f"# The backend rejects {TENANT_HEADER} without it, and rejects every request while it is\n"
+        "# still the placeholder. Use a long random value, e.g. `openssl rand -hex 32`.\n"
+        + _dump(secret)
     )
 
 

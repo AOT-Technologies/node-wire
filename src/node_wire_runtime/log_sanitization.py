@@ -41,7 +41,7 @@ _ALWAYS_REDACT_KEYS = frozenset(
     }
 )
 
-_LOG_RECORD_STANDARD_KEYS = frozenset(
+LOG_RECORD_STANDARD_KEYS = frozenset(
     {
         "name",
         "msg",
@@ -121,7 +121,7 @@ def sanitize_log_record(record: logging.LogRecord) -> None:
             )
 
     for key in list(record.__dict__.keys()):
-        if key in _LOG_RECORD_STANDARD_KEYS:
+        if key in LOG_RECORD_STANDARD_KEYS:
             continue
         record.__dict__[key] = sanitize_value(key, record.__dict__[key])
 

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import Iterator, List
 
@@ -22,12 +23,15 @@ def clean_root() -> Iterator[logging.Logger]:
     run, so tests that need an empty root call :func:`_drop_handlers` themselves."""
     root = logging.getLogger()
     saved = (list(root.handlers), list(root.filters), root.level)
+    formatters = [(h, h.formatter) for h in root.handlers]
     try:
         yield root
     finally:
         root.handlers[:] = saved[0]
         root.filters[:] = saved[1]
         root.setLevel(saved[2])
+        for handler, formatter in formatters:
+            handler.setFormatter(formatter)
 
 
 @pytest.fixture
@@ -73,6 +77,34 @@ def test_an_existing_root_handler_is_kept(
     clean_root.addHandler(handler)
     configure_host_logging("nw-slack")
     assert clean_root.handlers == [handler]
+
+
+def test_an_existing_plain_handler_keeps_its_format_and_gains_the_fields(
+    clean_root: logging.Logger, otel_calls: List[str]
+) -> None:
+    _drop_handlers(clean_root)
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    clean_root.addHandler(handler)
+    configure_host_logging("nw-slack")
+    logging.getLogger("runtime").warning("failed", extra={"error_code": "UPSTREAM_TIMEOUT"})
+    assert stream.getvalue() == "WARNING:runtime:failed error_code=UPSTREAM_TIMEOUT\n"
+
+
+def test_a_custom_formatter_is_left_alone(
+    clean_root: logging.Logger, otel_calls: List[str]
+) -> None:
+    class JsonFormatter(logging.Formatter):
+        pass
+
+    _drop_handlers(clean_root)
+    handler = logging.StreamHandler(io.StringIO())
+    formatter = JsonFormatter()
+    handler.setFormatter(formatter)
+    clean_root.addHandler(handler)
+    configure_host_logging("nw-slack")
+    assert handler.formatter is formatter
 
 
 @pytest.mark.parametrize(

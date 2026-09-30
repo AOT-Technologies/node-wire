@@ -13,6 +13,7 @@ session (a refreshed token or a later header would never be seen).
 from __future__ import annotations
 
 import hmac
+import logging
 import os
 from typing import Mapping, Optional
 
@@ -22,6 +23,10 @@ _SESSION_HEADER = "mcp-session-id"
 _STDIO_SESSION = "stdio"
 PROXY_SECRET_ENV = "NW_PROXY_SECRET"
 PROXY_SECRET_HEADER = "x-nw-proxy-secret"
+# What nw_stacklok's generated proxy-secret.yaml ships until the operator replaces it.
+PROXY_SECRET_PLACEHOLDER = "REPLACE_ME_PROXY_SECRET"
+
+logger = logging.getLogger("node_wire_toolhive")
 
 
 def request_headers() -> Optional[Mapping[str, str]]:
@@ -52,11 +57,19 @@ def from_tenant_proxy() -> bool:
 
     Always true when ``NW_PROXY_SECRET`` is unset (local runs). When set, the tenant header is
     only trusted if the request also has a matching ``X-NW-Proxy-Secret``, so a pod that reaches
-    the backend directly (no NetworkPolicy enforcement) cannot claim a tenant.
+    the backend directly (no NetworkPolicy enforcement) cannot claim a tenant. The generated
+    placeholder is never accepted: anyone reading the manifests knows it.
     """
     expected = os.environ.get(PROXY_SECRET_ENV, "")
     if not expected:
         return True
+    if expected == PROXY_SECRET_PLACEHOLDER:
+        logger.error(
+            "%s is still the generated placeholder; rejecting every tenant request. "
+            "Set a random value in proxy-secret.yaml (e.g. `openssl rand -hex 32`).",
+            PROXY_SECRET_ENV,
+        )
+        return False
     headers = request_headers()
     sent = (headers.get(PROXY_SECRET_HEADER) or "") if headers else ""
     return hmac.compare_digest(sent.encode(), expected.encode())

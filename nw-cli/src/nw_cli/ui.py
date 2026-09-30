@@ -175,13 +175,17 @@ def new_log_file(command: str) -> Path:
     return path
 
 
-def display_path(path: Path | str) -> str:
-    """``path`` relative to the working directory when inside it (what the user types from)."""
+def display_path(path: Path | str, base: Path | None = None) -> str:
+    """``path`` relative to ``base`` when inside it; URLs as they are.
+
+    ``base`` defaults to the working directory (what the user types from); summaries pass the
+    repo root to keep their lines short.
+    """
     text = str(path)
     if text.startswith(("http://", "https://")):
         return text
     try:
-        return str(Path(path).resolve().relative_to(Path.cwd().resolve()))
+        return str(Path(path).resolve().relative_to((base or Path.cwd()).resolve()))
     except ValueError:
         return text
 

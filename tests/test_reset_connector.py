@@ -160,3 +160,32 @@ def test_rejects_invalid_ids(root: Path) -> None:
     result = _run(root, "../src", "--yes")
     assert result.returncode == 1
     assert "invalid connector id" in result.stderr
+
+
+def test_unwires_every_connector_given(root: Path) -> None:
+    for connector_id in ("pet_store", "ms_teams"):
+        _generate(root, connector_id, connector_id.replace("_", "-"))
+    (root / "config" / "connectors.yaml").write_text(
+        CONNECTORS_YAML
+        + "  pet_store:\n    auth:\n      secret_key: PET_STORE_API_KEY\n"
+        + "  ms_teams:\n    auth:\n      secret_key: MS_TEAMS_ACCESS_TOKEN\n",
+        encoding="utf-8",
+    )
+    (root / "sample.env").write_text(
+        "NW_ALLOWED_CONNECTORS=slack,slack_web,pet_store,ms_teams\nSLACK_WEB_ACCESS_TOKEN=\n"
+        "PET_STORE_API_KEY=\nMS_TEAMS_ACCESS_TOKEN=\n",
+        encoding="utf-8",
+    )
+    (root / "scripts" / "build-packages.sh").write_text(
+        BUILD_PACKAGES.replace(
+            ")\n", "  packages/connectors/pet_store\n  packages/connectors/ms_teams\n)\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run(root, "pet_store", "ms_teams", "--yes")
+
+    assert result.returncode == 0, result.stderr
+    assert (root / "config" / "connectors.yaml").read_text(encoding="utf-8") == CONNECTORS_YAML
+    assert (root / "sample.env").read_text(encoding="utf-8") == SAMPLE_ENV
+    assert (root / "scripts" / "build-packages.sh").read_text(encoding="utf-8") == BUILD_PACKAGES

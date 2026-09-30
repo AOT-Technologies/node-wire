@@ -33,6 +33,7 @@ import re
 import shutil
 import subprocess  # nosec B404  # fixed git argv, no shell
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -77,6 +78,11 @@ def _committed(root: Path, rel: str) -> str:
     return _git(root, "show", f"HEAD:{rel}") or ""
 
 
+def _read(path: Path, pending: Mapping[Path, str]) -> str:
+    """``path`` as it will be once the edits already planned for earlier ids are applied."""
+    return pending[path] if path in pending else path.read_text(encoding="utf-8")
+
+
 def _connector_ids_of(project: Path) -> set[str]:
     try:
         doc = yaml.safe_load((project / "config" / "connectors.yaml").read_text(encoding="utf-8"))
@@ -104,12 +110,15 @@ def _secret_keys(entry: object) -> set[str]:
     return {b["secret_key"] for b in blocks if isinstance(b, dict) and b.get("secret_key")}
 
 
-def _unwire_connectors_yaml(root: Path, connector_id: str, plan: Plan) -> set[str]:
+def _unwire_connectors_yaml(
+    root: Path, connector_id: str, plan: Plan, pending: Mapping[Path, str]
+) -> set[str]:
     """Drop an uncommitted connectors.yaml entry; returns its secret keys."""
     path = root / "config" / "connectors.yaml"
     if not path.is_file():
         return set()
-    current = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    text = _read(path, pending)
+    current = yaml.safe_load(text) or {}
     entry = (current.get("connectors") or {}).get(connector_id)
     committed = yaml.safe_load(_committed(root, "config/connectors.yaml")) or {}
     if entry is None or connector_id in (committed.get("connectors") or {}):
@@ -119,7 +128,7 @@ def _unwire_connectors_yaml(root: Path, connector_id: str, plan: Plan) -> set[st
 
     ruamel = YAML()
     ruamel.preserve_quotes = True
-    data = ruamel.load(path.read_text(encoding="utf-8"))
+    data = ruamel.load(text)
     del data["connectors"][connector_id]
     from io import StringIO
 
@@ -130,7 +139,9 @@ def _unwire_connectors_yaml(root: Path, connector_id: str, plan: Plan) -> set[st
     return _secret_keys(entry)
 
 
-def _unwire_sample_env(root: Path, connector_id: str, secret_keys: set[str], plan: Plan) -> None:
+def _unwire_sample_env(
+    root: Path, connector_id: str, secret_keys: set[str], plan: Plan, pending: Mapping[Path, str]
+) -> None:
     path = root / "sample.env"
     if not path.is_file():
         return
@@ -142,7 +153,7 @@ def _unwire_sample_env(root: Path, connector_id: str, secret_keys: set[str], pla
     drop_keys = secret_keys - committed_keys
 
     lines, changed = [], False
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in _read(path, pending).splitlines():
         allow = ALLOW_LIST.match(line)
         key = re.match(r"^([A-Z0-9_]+)=", line)
         if allow and connector_id not in committed_allowed:
@@ -160,19 +171,27 @@ def _unwire_sample_env(root: Path, connector_id: str, secret_keys: set[str], pla
         plan.unwire.append(f"sample.env: {connector_id} in NW_ALLOWED_CONNECTORS and its secrets")
 
 
-def _unwire_build_packages(root: Path, connector_id: str, plan: Plan) -> None:
+def _unwire_build_packages(
+    root: Path, connector_id: str, plan: Plan, pending: Mapping[Path, str]
+) -> None:
     rel = "scripts/build-packages.sh"
     path = root / rel
     line = f"  packages/connectors/{connector_id}"
     if not path.is_file() or line in _committed(root, rel).splitlines():
         return
-    text = path.read_text(encoding="utf-8")
+    text = _read(path, pending)
     if line + "\n" in text:
         plan.edits[path] = text.replace(line + "\n", "", 1)
         plan.unwire.append(f"{rel}: packages/connectors/{connector_id} in ALL_PACKAGES")
 
 
-def plan_reset(root: Path, connector_id: str) -> Plan:
+def plan_reset(root: Path, connector_id: str, pending: Mapping[Path, str] | None = None) -> Plan:
+    """What resetting ``connector_id`` removes and rewrites.
+
+    ``pending`` holds the file edits already planned for other ids, so the wiring edits of
+    several ids build on each other instead of each rewriting the original file.
+    """
+    pending = pending or {}
     if not CONNECTOR_ID.fullmatch(connector_id):
         raise ResetError(f"invalid connector id {connector_id!r} (e.g. slack_web)")
     _check_generated(root, connector_id)
@@ -199,9 +218,9 @@ def plan_reset(root: Path, connector_id: str) -> Plan:
     for path in plan.paths:
         plan.tracked += _tracked(root, path)
 
-    secret_keys = _unwire_connectors_yaml(root, connector_id, plan)
-    _unwire_sample_env(root, connector_id, secret_keys, plan)
-    _unwire_build_packages(root, connector_id, plan)
+    secret_keys = _unwire_connectors_yaml(root, connector_id, plan, pending)
+    _unwire_sample_env(root, connector_id, secret_keys, plan, pending)
+    _unwire_build_packages(root, connector_id, plan, pending)
     return plan
 
 
@@ -238,8 +257,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = args.root.resolve()
 
+    plans: dict[str, Plan] = {}
+    pending: dict[Path, str] = {}
     try:
-        plans = {cid: plan_reset(root, cid) for cid in dict.fromkeys(args.connector_ids)}
+        for connector_id in dict.fromkeys(args.connector_ids):
+            plans[connector_id] = plan_reset(root, connector_id, pending)
+            pending.update(plans[connector_id].edits)
     except ResetError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

@@ -12,7 +12,8 @@ from typing import Iterator, List
 import pytest
 
 from node_wire_runtime.log_sanitization import SanitizingLogFilter
-from node_wire_toolhive import init_telemetry, telemetry
+from node_wire_runtime import host_logging
+from node_wire_toolhive import init_telemetry
 
 
 @pytest.fixture
@@ -34,7 +35,7 @@ def root_handler() -> Iterator[logging.Handler]:
 @pytest.fixture
 def otel_calls(monkeypatch: pytest.MonkeyPatch) -> List[str]:
     calls: List[str] = []
-    monkeypatch.setattr(telemetry, "init_observability", lambda app_name: calls.append(app_name))
+    monkeypatch.setattr(host_logging, "init_observability", lambda app_name: calls.append(app_name))
     for name in (
         "OTEL_EXPORTER_OTLP_ENDPOINT",
         "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",

@@ -19,6 +19,7 @@ import yaml
 from mcp_builder.pipeline import run_pipeline
 from nw_stacklok.hooks import NodeWireOptions
 from nw_stacklok.project import TemplateChangedError, WheelsMissingError, finish_project
+from node_wire_toolhive import request as toolhive_request
 from nw_stacklok.resolve import NodeWireResolveError
 
 from .conftest import CONNECTOR_ID, FIXTURES, PETSTORE_SPEC, TEMPLATE, NodeWireCheckout
@@ -203,6 +204,10 @@ def test_manifests_one_backend_and_a_proxy_per_tenant(
     ]
     env = {e["name"]: e for e in deployment["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert env["NW_PROXY_SECRET"]["valueFrom"]["secretKeyRef"] == ref
+    # The backend (node_wire_toolhive) refuses the shipped placeholder, so it must match.
+    assert secret["stringData"]["token"] == toolhive_request.PROXY_SECRET_PLACEHOLDER
+    assert "NW_PROXY_SECRET" == toolhive_request.PROXY_SECRET_ENV
+    assert "X-NW-Proxy-Secret".lower() == toolhive_request.PROXY_SECRET_HEADER
     assert spec["remoteUrl"].startswith("http://petstore-backend.")
     assert spec["allowPrivateEndpoint"] is True
     assert spec["externalAuthConfigRef"] == {"name": "petstore-auth"}

@@ -127,10 +127,18 @@ The REST-only `NW_REST_RATE_LIMIT_ENABLED` family (`_MAX_REQUESTS`, `_WINDOW_SEC
 | `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored). Loaded by REST, gRPC, and standalone MCP (`McpServer` / `agents.mcp_entrypoint`) at startup. | `config/tenants.yaml` |
 | `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
 | `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |
+| `NW_PROXY_SECRET` | **stacklok-built servers only.** Shared secret the ToolHive tenant proxies send as `X-NW-Proxy-Secret`; when set, a request without the matching header cannot claim a tenant. The generated placeholder `REPLACE_ME_PROXY_SECRET` is always rejected. Set from `deploy/proxy-secret.yaml` (see [stacklok MCP servers](stacklok-mcp-servers.md)). | _(unset = not checked)_ |
 
 How these combine (tenant precedence per transport, entitlement, tenant secret naming, the MCP
 tenant/config tools, the pin contract for embedded hosts) is described once, in
 [Tenancy](architecture/tenancy.md).
+
+### nw CLI
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NW_DEBUG` | Any value except empty, `0` or `false` makes `nw` print the full traceback with an error, like `--debug`. | _(unset)_ |
+| `NW_WHEEL_ARCHS` | Space-separated CPU architectures for Linux wheel builds (`nw gen-stacklok`, `build-packages.sh --cibw-linux`/`--musllinux`), e.g. `x86_64 aarch64`. | the host's architecture |
 
 ---
 

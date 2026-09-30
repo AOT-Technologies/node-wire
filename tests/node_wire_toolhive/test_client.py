@@ -168,6 +168,18 @@ async def test_matching_proxy_secret_is_accepted(
     assert upstream[-1].url.host == "acme.example.test"
 
 
+async def test_the_generated_placeholder_secret_is_never_accepted(
+    node_wire_env: Path, upstream: List[httpx.Request], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unedited proxy-secret.yaml fails closed: its value is in every generated project."""
+    monkeypatch.setenv("NW_PROXY_SECRET", "REPLACE_ME_PROXY_SECRET")
+    headers = {**_headers("acme", "tok-1"), "x-nw-proxy-secret": "REPLACE_ME_PROXY_SECRET"}
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    with mcp_request(headers), pytest.raises(NodeWireToolError, match="PROXY_AUTH_FAILED"):
+        await client.run("get_pet", {"petid": "p1"})
+    assert upstream == []
+
+
 async def test_connector_failure_carries_the_taxonomy_and_the_runs_trace_id(
     node_wire_env: Path, upstream: List[httpx.Request], caplog: pytest.LogCaptureFixture
 ) -> None:

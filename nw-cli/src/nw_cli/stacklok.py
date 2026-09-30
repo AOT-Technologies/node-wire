@@ -11,6 +11,7 @@ import os
 import platform
 import re
 import shutil
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
@@ -19,9 +20,7 @@ import yaml
 
 from nw_cli.prerequisites import require_docker
 from nw_cli.stages import LogFn, StageError, run_logged_command
-from nw_cli.wheel_cache import package_source_hash, stamp_path
-
-__all__ = ["package_source_hash"]  # re-exported: tests and callers import it from here
+from nw_cli.wheel_cache import is_fresh, record_build
 
 if TYPE_CHECKING:
     from nw_stacklok.wheels import WheelTarget
@@ -263,8 +262,8 @@ def wheel_arches() -> list[str]:
     return sorted(raw) if raw else [_WHEEL_ARCH_ALIASES.get(machine, machine)]
 
 
-def _stamp(node_wire_root: Path, package: str, target: WheelTarget) -> Path:
-    return stamp_path(node_wire_root, package, f"{target.python}-{target.libc}")
+def _stamp_key(target: WheelTarget) -> str:
+    return f"{target.python}-{target.libc}"
 
 
 def run_stacklok_wheel_build(
@@ -285,15 +284,13 @@ def run_stacklok_wheel_build(
     target = image_wheel_target(node_wire_root)
     arches = wheel_arches()
     say(f"Target: {target.description}, arch {' '.join(arches)}")
-    hashes = {p: package_source_hash(node_wire_root, p) for p in stacklok_packages(connector_id)}
+    packages = stacklok_packages(connector_id)
     stale: list[str] = []
-    for package, digest in hashes.items():
-        stamp = _stamp(node_wire_root, package, target)
+    for package in packages:
         present = set(target.wheels_by_arch(node_wire_root / package / "dist"))
-        fresh = stamp.is_file() and stamp.read_text().strip() == digest
-        if not (fresh and set(arches) <= present):
+        if not (is_fresh(node_wire_root, package, _stamp_key(target)) and set(arches) <= present):
             stale.append(package)
-    reused = [p for p in hashes if p not in stale]
+    reused = [p for p in packages if p not in stale]
     if reused:
         say("Up to date, reused: " + ", ".join(reused))
     if not stale:
@@ -302,13 +299,12 @@ def run_stacklok_wheel_build(
     say("Building: " + ", ".join(stale))
     cmd = ["bash", "scripts/build-packages.sh", "--cibw-linux", *stale]
     env = {**os.environ, "CIBW_BUILD": target.cibw_build, "NW_WHEEL_ARCHS": " ".join(arches)}
+    started = time.time()
     code = run_logged_command(cmd, cwd=node_wire_root, log=output or log, env=env)
     if code != 0:
         raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
     for package in stale:
-        stamp = _stamp(node_wire_root, package, target)
-        stamp.parent.mkdir(parents=True, exist_ok=True)
-        stamp.write_text(hashes[package] + "\n", encoding="utf-8")
+        record_build(node_wire_root, package, _stamp_key(target), since=started)
     return stale
 
 

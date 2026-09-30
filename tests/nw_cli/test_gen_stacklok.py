@@ -625,6 +625,20 @@ def test_a_missing_architecture_forces_a_rebuild(
     assert again == stacklok_packages("demo")  # no x86_64 wheels yet
 
 
+def test_image_wheel_stamps_list_their_wheels(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same stamp format as ``nw wheel``: source hash, then the wheels that build wrote."""
+    root = _wheel_root(tmp_path)
+    monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
+    with patch("nw_cli.stacklok.run_logged_command", side_effect=_fake_builder(root, [])):
+        run_stacklok_wheel_build(root, "demo", log=lambda _: None)
+    stamp = root / "packages/connectors/demo/dist/.nw-source-cp313-musllinux.sha256"
+    assert stamp.read_text(encoding="utf-8").split()[1:] == [
+        "demo-1.0-cp313-cp313-musllinux_1_2_aarch64.whl"
+    ]
+
+
 def test_an_invalid_scope_fails_before_any_build(fake_root: Path, tmp_path: Path) -> None:
     doc: Dict[str, Any] = yaml.safe_load((FIXTURES / "petstore.yaml").read_text())
     doc["groups"][0]["tools"][0]["endpoint"] = "GET /no/such/endpoint"

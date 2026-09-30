@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from nw_mcp_builder.generate import connector_project
 from nw_mcp_builder.from_connector import (
     action_to_tool_name,
     discover_actions,
@@ -209,9 +210,10 @@ def test_run_from_connector_skip_wheels_generates_project(
 
 
 def test_project_gets_the_wheels_its_image_can_install(
-    fake_node_wire: Path, package_root: Path
+    fake_node_wire: Path, package_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """dist/ also holds gen-stacklok's Alpine wheels and older builds: newest must not win."""
+    monkeypatch.setattr(connector_project, "_image_arch", lambda: "aarch64")
     dist = fake_node_wire / "packages" / "runtime" / "dist"
     for old in dist.glob("*.whl"):
         old.unlink()
@@ -221,6 +223,7 @@ def test_project_gets_the_wheels_its_image_can_install(
         "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl",
         "node_wire_runtime-1.1.0-cp312-cp312-linux_aarch64.whl",
         "node_wire_runtime-1.1.0-cp313-cp313-macosx_11_0_arm64.whl",
+        "node_wire_runtime-1.1.0-cp313-cp313-manylinux_2_28_x86_64.whl",
     ):
         newer = dist / name
         newer.write_bytes(b"")

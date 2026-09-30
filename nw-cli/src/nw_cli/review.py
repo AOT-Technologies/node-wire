@@ -34,7 +34,7 @@ from nw_cli.prerequisites import is_interactive
 from nw_cli.progress import GenerateProgress
 from nw_cli.stacklok import ScopeCheck, StacklokScope, read_scope, validate_stacklok_scope
 from nw_cli.stages import StageError
-from nw_cli.ui import AMBER, BLUE, PINK
+from nw_cli.ui import AMBER, BLUE, PINK, display_path
 
 # Sections of the skill's scoping-summary.md written for the reviewer.
 ATTENTION_HEADINGS = ("Flagged for Phase 2 Review", "Auto-approved gates", "Inferred workflows")
@@ -46,16 +46,6 @@ Rescope = Callable[[str | None], Path]  # reviewer feedback -> the new scope fil
 class ReviewDecision:
     generate: bool
     replace_output: bool = False
-
-
-def _shown(path: Path | str, root: Path) -> str:
-    if str(path).startswith(("http://", "https://")):
-        return str(path)
-    path = Path(path)
-    try:
-        return str(path.resolve().relative_to(root.resolve()))
-    except ValueError:
-        return str(path)
 
 
 def attention_items(summary: Path) -> dict[str, list[str]]:
@@ -129,7 +119,7 @@ def scope_summary(
         lines.append(
             Text(f"! {flagged} point(s) flagged for your review (Show details)", style=AMBER)
         )
-    target = _shown(output_project, node_wire_root)
+    target = display_path(output_project, node_wire_root)
     lines.append(
         Text(f"Writes {target}" + ("  (replaces the existing project)" if replaces_output else ""))
     )
@@ -153,9 +143,9 @@ def scope_details(scoped: StacklokScope, *, node_wire_root: Path, summary: Path)
     files = Table.grid(padding=(0, 2))
     files.add_column(style="bold")
     files.add_column(overflow="fold")
-    files.add_row("Scope", _shown(scoped.path, node_wire_root))
+    files.add_row("Scope", display_path(scoped.path, node_wire_root))
     if summary.is_file():
-        files.add_row("Reasoning", _shown(summary, node_wire_root))
+        files.add_row("Reasoning", display_path(summary, node_wire_root))
     parts += [Text(""), files]
     return Group(*parts)
 
@@ -267,7 +257,7 @@ def review_scope(
         editor = _editor()
         options = _menu(
             check,
-            replaces=_shown(project, node_wire_root) if replaces else None,
+            replaces=display_path(project, node_wire_root) if replaces else None,
             editor=editor,
             details=scoped is not None,
         )

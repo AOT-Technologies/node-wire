@@ -52,11 +52,9 @@ docker build -t petstore-mcp nw-stacklok-builder/out/petstore-mcp
      CLI; headless runs refuse anything else (`--permission-mode dontAsk`), since the spec is
      untrusted input.
    - Output goes to `nw-stacklok-builder/scoping/<id>/`. A second run reuses it; `--rescope` redoes it.
-2. **Phase 2, human review.** The command pauses with a short summary of the scope (tools, auth,
-   stacklok's validation result, how many points the AI flagged, the output it will write). An
-   arrow-key menu offers: generate, show details, edit and review again, redo the AI scoping with
-   your feedback, or stop (it prints the `--scope` command to resume with). Without a terminal it
-   always stops here. See [nw CLI](cli/nw-cli.md#nw-gen-stacklok).
+2. **Phase 2, human review.** The command pauses with a summary of the scope and a menu to
+   generate, inspect, edit, rescope or stop; without a terminal it always stops here. The summary
+   and the options are described in [nw CLI](cli/nw-cli.md#nw-gen-stacklok).
 3. **Phase 3, generate**, as below.
 
 stacklok's `/ai-validation` (Phase 4) isn't included, because it reviews the httpx client that
@@ -113,7 +111,8 @@ runtime:
   `config/tenants.example.yaml`). `nw_list_configs` / `nw_select_config` choose a named config
   for the MCP session. No upstream credentials go in the tenants file. When `NW_PROXY_SECRET` is
   set (the generated `backend.yaml` sets it), the tenant header is only accepted from requests
-  that also carry a matching `X-NW-Proxy-Secret`; others fail with `PROXY_AUTH_FAILED`.
+  that also carry a matching `X-NW-Proxy-Secret`; others fail with `PROXY_AUTH_FAILED`. Every
+  request fails that way while `proxy-secret.yaml` still holds the generated placeholder.
 - Headers, the bearer token and the session id are read from the MCP SDK's per-message request
   context — not from middleware contextvars, which under stateful streamable HTTP keep the
   session's *first* request (a refreshed token would never be seen).

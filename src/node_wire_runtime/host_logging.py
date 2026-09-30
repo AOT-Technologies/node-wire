@@ -16,21 +16,25 @@ import os
 import sys
 
 from node_wire_runtime.log_sanitization import (
-    _LOG_RECORD_STANDARD_KEYS,
+    LOG_RECORD_STANDARD_KEYS,
     install_sanitizing_log_filter,
 )
 from node_wire_runtime.observability import init_observability
 
 _OTLP_ENDPOINT_VARS = ("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
 # Added by logging itself or by uvicorn; never runtime fields.
-_NOT_FIELDS = _LOG_RECORD_STANDARD_KEYS | {"asctime", "color_message"}
+_NOT_FIELDS = LOG_RECORD_STANDARD_KEYS | {"asctime", "color_message"}
+_DEFAULT_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
 
 
 class ExtraFieldsFormatter(logging.Formatter):
-    """``<time> <LEVEL> [<logger>] <message> key=value ...`` with every ``extra`` field."""
+    """``<time> <LEVEL> [<logger>] <message> key=value ...`` with every ``extra`` field.
 
-    def __init__(self) -> None:
-        super().__init__("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    ``fmt`` / ``datefmt`` replace the head of the line; the fields are always appended.
+    """
+
+    def __init__(self, fmt: str | None = None, datefmt: str | None = None) -> None:
+        super().__init__(fmt or _DEFAULT_FORMAT, datefmt)
 
     def format(self, record: logging.LogRecord) -> str:
         line = super().format(record)
@@ -52,21 +56,35 @@ def otlp_configured() -> bool:
     return any(os.environ.get(name, "").strip() for name in _OTLP_ENDPOINT_VARS)
 
 
+def install_redaction_and_telemetry(service_name: str) -> None:
+    """Redaction and ``connector_id`` stamping on the root handlers, plus opt-in OTLP export.
+
+    For hosts that own their console format. OpenTelemetry (``service.name`` =
+    ``service_name``) starts only when an OTLP endpoint is configured, so a host without a
+    collector does not log exporter connection errors.
+    """
+    install_sanitizing_log_filter()
+    if otlp_configured():
+        init_observability(app_name=service_name)
+
+
 def configure_host_logging(service_name: str, *, level: str = "INFO") -> None:
     """Call once at host startup.
 
     Adds a stderr handler with :class:`ExtraFieldsFormatter` unless the root logger already has
-    handlers (a host that configures its own keeps them), installs node-wire's redaction and
-    ``connector_id`` stamping on the root handlers, and starts OpenTelemetry export
-    (``service.name`` = ``service_name``) only when an OTLP endpoint is configured, so a host
-    without a collector does not log exporter connection errors.
+    handlers. A host that configures its own keeps them; those with no formatter or a plain
+    ``logging.Formatter`` get an :class:`ExtraFieldsFormatter` with the same format, so the
+    runtime fields still print, while a custom formatter class (JSON, structlog) is left alone.
+    Then calls :func:`install_redaction_and_telemetry`.
     """
     root = logging.getLogger()
     if not root.handlers:
-        handler = logging.StreamHandler(sys.stderr)
-        handler.setFormatter(ExtraFieldsFormatter())
-        root.addHandler(handler)
+        root.addHandler(logging.StreamHandler(sys.stderr))
+    for handler in root.handlers:
+        current = handler.formatter
+        if current is None:
+            handler.setFormatter(ExtraFieldsFormatter())
+        elif type(current) is logging.Formatter:
+            handler.setFormatter(ExtraFieldsFormatter(current._fmt, current.datefmt))
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
-    install_sanitizing_log_filter()
-    if otlp_configured():
-        init_observability(app_name=service_name)
+    install_redaction_and_telemetry(service_name)

@@ -49,7 +49,7 @@ from rich.text import Text
 
 from nw_cli.ui import AMBER, BLUE, PINK, TEXT, ReportedError, describe, exit_code_for
 
-__all__ = ["AMBER", "BLUE", "PINK", "TEXT", "GenerateProgress", "Stage", "StageStatus"]
+__all__ = ["GenerateProgress", "Stage", "StageStatus"]
 
 TAIL_LINES = 15
 
@@ -265,17 +265,9 @@ class Stage:
     status: StageStatus = StageStatus.PENDING
     task_id: TaskID | None = None
     error: str | None = None
-    # Shown under a failure ("" for none); the default per-key hints are for `nw gen-all`.
+    # Shown under a failure.
     hint: str | None = None
     elapsed: float | None = None
-
-
-_DEFAULT_HINTS = {
-    "connector": "Check the OpenAPI spec path and connector id.",
-    "wheel": "Fix with: nw gen-whl --connector-id <id>  (or nw gen-whl --runtime)",
-    "mcp": "Ensure wheels exist, then: nw gen-mcp --connector-id <id>",
-    "wire": "Check scripts/build-packages.sh ALL_PACKAGES block.",
-}
 
 
 @dataclass
@@ -600,7 +592,7 @@ class GenerateProgress:
                         f"{escape(failed.error or '')}"
                     )
                 )
-                hint = failed.hint if failed.hint is not None else _DEFAULT_HINTS.get(failed.key)
+                hint = failed.hint
                 if self._tail and not self._streaming():
                     parts.append(Text("\nLast output:", style="dim"))
                     parts.append(Text("\n".join(f"  {line}" for line in self._tail), style="dim"))

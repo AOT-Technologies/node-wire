@@ -81,29 +81,6 @@ def _stop(proc: subprocess.Popen[str]) -> None:
         proc.wait()
 
 
-def wheels_present(node_wire_root: Path, connector_id: str) -> bool:
-    """True when runtime, bindings, and connector ``dist/`` each have a ``.whl``."""
-    return (
-        runtime_wheel_present(node_wire_root)
-        and bindings_wheel_present(node_wire_root)
-        and connector_wheel_present(node_wire_root, connector_id)
-    )
-
-
-def runtime_wheel_present(node_wire_root: Path) -> bool:
-    return bool(list((node_wire_root / "packages" / "runtime" / "dist").glob("*.whl")))
-
-
-def bindings_wheel_present(node_wire_root: Path) -> bool:
-    return bool(list((node_wire_root / "packages" / "bindings" / "dist").glob("*.whl")))
-
-
-def connector_wheel_present(node_wire_root: Path, connector_id: str) -> bool:
-    return bool(
-        list((node_wire_root / "packages" / "connectors" / connector_id / "dist").glob("*.whl"))
-    )
-
-
 def build_mode_flag(*, host: bool = False, all_: bool = False) -> str:
     """Return the build-packages.sh mode flag (default Linux-only)."""
     if host and all_:

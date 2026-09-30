@@ -141,10 +141,10 @@ There is no `--yes` / auto-confirm flag.
 ```bash
 uv run nw docker-build --connector-id pet_store
 uv run nw docker-build --connector-id pet_store --tag v1
-uv run nw docker-build --connector-id slack_web   # its gen-stacklok server works the same way
+uv run nw docker-build --project nw-stacklok-builder/out/petstore-mcp   # a gen-stacklok server
 ```
 
-`--connector-id` finds the projects generated for that connector: the `gen-all` / `gen-mcp` host (`nw-mcp-builder/out/<id>-nw-mcp/`, image `<id>-nw-mcp:<tag>`) and any `gen-stacklok` server in `nw-stacklok-builder/out/` whose `config/connectors.yaml` lists it (image named after its folder, e.g. `slack-mcp:<tag>`). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. `--project <dir>` builds a project by path instead, for one written outside those folders (`gen-stacklok --output-dir`).
+`--connector-id` finds the projects generated for that connector: the `gen-all` / `gen-mcp` host (`nw-mcp-builder/out/<id>-nw-mcp/`, image `<id>-nw-mcp:<tag>`) and any `gen-stacklok` server in `nw-stacklok-builder/out/` whose `config/connectors.yaml` lists it (image named after its folder, e.g. `petstore-mcp:<tag>`). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. `--project <dir>` builds a project by path instead, for one written outside those folders (`gen-stacklok --output-dir`).
 
 Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<hyphenated-id>-nw-mcp/` (e.g. `pet_store` → image `pet-store-nw-mcp:latest`, project dir `…/out/pet-store-nw-mcp/`). `--tag` defaults to `latest`. Pass secrets at **run** time (`docker run --env-file` / `-e`); they are not baked into the image.
 
