@@ -716,9 +716,9 @@ def gen_stacklok(
         rich_help_panel="Phase 1: AI scoping",
     ),
     scoping_model: Optional[str] = typer.Option(
-        "haiku",
+        None,
         "--scoping-model",
-        help="Phase 1: Claude model for the scoping run and its sub-agents (e.g. sonnet, opus)",
+        help="Phase 1: Claude model for the scoping run (default: Claude Code's)",
         rich_help_panel="Phase 1: AI scoping",
     ),
     output_dir: Optional[Path] = typer.Option(
