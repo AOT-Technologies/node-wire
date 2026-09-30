@@ -88,6 +88,7 @@ def finish_project(project_dir: Path, plan: ServerPlan, *, wheels: bool, lock: b
     _update_dockerignore(project_dir / ".dockerignore")
     _update_env_example(project_dir / ".env.example", connector_id)
     _patch_sources(project_dir / "src" / plan.module_name)
+    _patch_logging(project_dir / "src" / plan.module_name, service_name=project_dir.name)
     _append_readme(project_dir / "README.md", plan, connector_id)
     if lock:
         _lock(project_dir)
@@ -296,6 +297,41 @@ def _patch_sources(module_dir: Path) -> None:
     main.write_text(text, encoding="utf-8")
 
 
+def _patch_logging(module_dir: Path, *, service_name: str) -> None:
+    """Print the runtime's ``extra`` log fields and start node-wire's redaction + telemetry.
+
+    ``BaseConnector.run`` logs its error taxonomy and trace (``trace_id``, ``error_code``,
+    ``error_category``, ``audit_event`` ...) as stdlib ``extra`` fields, which the template's
+    structlog formatter drops unless ``ExtraAdder`` is in its pre-chain.
+    """
+    logging_module = module_dir / "configure_logging.py"
+    text = logging_module.read_text(encoding="utf-8")
+    text = _sub_once(
+        text,
+        r"^([ \t]*)structlog\.stdlib\.add_logger_name,\n",
+        r"\g<0>\1# node-wire runtime fields (trace_id, error_code, error_category, ...)\n"
+        r"\1structlog.stdlib.ExtraAdder(),\n",
+        where=logging_module.name,
+    )
+    logging_module.write_text(text, encoding="utf-8")
+
+    main = module_dir / "__main__.py"
+    text = main.read_text(encoding="utf-8")
+    text = _replace_once(
+        text,
+        "import uvicorn\n",
+        "import uvicorn\nfrom node_wire_toolhive import init_telemetry\n",
+        where=main.name,
+    )
+    text = _sub_once(
+        text,
+        r"^([ \t]*)configure_logging\(log_level=log_level\)\n",
+        rf'\g<0>\1init_telemetry("{service_name}")\n',
+        where=main.name,
+    )
+    main.write_text(text, encoding="utf-8")
+
+
 def _append_readme(path: Path, plan: ServerPlan, connector_id: str) -> None:
     text = path.read_text(encoding="utf-8").rstrip("\n")
     text += f"""
@@ -313,6 +349,9 @@ instead of calling the API directly.
   Tenant configs (base URL, auth placement, named configs) come from the file at
   `NW_TENANTS_PATH`; see `config/tenants.example.yaml`. `nw_list_configs` and
   `nw_select_config` choose a named config for the session.
+- **Errors and logs**: a failed tool returns `CODE [CATEGORY]: message (trace_id=...)`; the
+  server's logs carry the same `trace_id` with `error_code`, `error_category` and
+  `audit_event`. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export traces, metrics and logs.
 - **Wheels** in `wheels/` are cp313 musllinux builds for the image's Alpine base; `uv lock`
   is limited to those Linux architectures (`[tool.uv] environments`). Build the image with
   `docker build .`; the wheels do not install on macOS or Windows hosts.

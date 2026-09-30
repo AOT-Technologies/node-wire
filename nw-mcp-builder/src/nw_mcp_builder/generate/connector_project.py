@@ -355,6 +355,11 @@ def _load_env() -> None:
 
 def main() -> None:
     _load_env()
+    from node_wire_runtime.host_logging import configure_host_logging
+
+    # Prints the runtime's trace_id / error_code / audit_event fields; OTLP export
+    # only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+    configure_host_logging("nw-{connector_id}")
     os.environ["NW_ALLOWED_CONNECTORS"] = "{connector_id}"
     # Local Inspector convenience only. Container images do not disable auth
     # or open the scope policy — set those at runtime if you really need them.

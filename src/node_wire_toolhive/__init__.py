@@ -13,11 +13,13 @@ actions through the node-wire runtime (validation, policy hook, retries, errors,
 from node_wire_toolhive.client import NodeWireClient, NodeWireToolError
 from node_wire_toolhive.config_tools import register_config_tools
 from node_wire_toolhive.relay import RelayAuthProvider, relay_auth_provider_hook
+from node_wire_toolhive.telemetry import init_telemetry
 
 __all__ = [
     "NodeWireClient",
     "NodeWireToolError",
     "RelayAuthProvider",
+    "init_telemetry",
     "register_config_tools",
     "relay_auth_provider_hook",
 ]

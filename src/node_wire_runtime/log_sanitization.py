@@ -203,14 +203,24 @@ class ConnectorIdLogFilter(logging.Filter):
         return True
 
 
+def add_filter_once(target: logging.Filterer, flt: logging.Filter) -> None:
+    """Add ``flt`` to ``target`` unless a filter of the same type is already there."""
+    if not any(type(existing) is type(flt) for existing in target.filters):
+        target.addFilter(flt)
+
+
 def install_sanitizing_log_filter() -> None:
-    """Attach sanitizing + connector-id filters to the root logger once."""
+    """Attach connector-id + sanitizing filters to the root logger and its handlers.
+
+    Logger filters only run for records logged on that logger, not for records propagated
+    from children (``runtime.base_connector`` etc.), so the handlers carry them too. Call
+    again after adding root handlers (e.g. after ``logging.config.dictConfig``); it is
+    idempotent.
+    """
     root = logging.getLogger()
-    if not any(isinstance(flt, ConnectorIdLogFilter) for flt in root.filters):
-        root.addFilter(ConnectorIdLogFilter())
-    if any(isinstance(flt, SanitizingLogFilter) for flt in root.filters):
-        return
-    root.addFilter(SanitizingLogFilter())
+    for target in (root, *root.handlers):
+        add_filter_once(target, ConnectorIdLogFilter())
+        add_filter_once(target, SanitizingLogFilter())
 
 
 def fhir_log_extra(

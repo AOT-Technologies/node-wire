@@ -85,6 +85,14 @@ def test_generated_main_disables_auth_only_outside_container() -> None:
     assert src.index("if _running_in_container():") < src.index("from dotenv import load_dotenv")
 
 
+def test_generated_main_configures_host_logging_after_env_and_before_the_server() -> None:
+    """Runtime taxonomy/trace fields reach the console; OTLP settings may come from .env."""
+    src = _main_py(connector_id="smtp")
+    call = 'configure_host_logging("nw-smtp")'
+    assert "from node_wire_runtime.host_logging import configure_host_logging" in src
+    assert src.index("_load_env()\n") < src.index(call) < src.index("McpServer(\n")
+
+
 def test_load_env_missing_project_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     orphan = tmp_path / "orphan" / "pkg"
     orphan.mkdir(parents=True)

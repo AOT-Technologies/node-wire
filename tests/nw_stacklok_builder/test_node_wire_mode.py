@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import tomllib
 import zipfile
@@ -95,6 +96,43 @@ def test_project_packaging(node_wire_checkout: NodeWireCheckout, tmp_path: Path)
     assert 'extra="ignore"' in (project / "src" / "petstore_mcp" / "settings.py").read_text()
 
 
+def test_runtime_log_fields_and_telemetry_are_wired(
+    node_wire_checkout: NodeWireCheckout,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The runtime logs its taxonomy/trace fields as ``extra``; the server must print them."""
+    project = _generate(node_wire_checkout, tmp_path)
+    module = project / "src" / "petstore_mcp"
+
+    main = (module / "__main__.py").read_text()
+    assert "from node_wire_toolhive import init_telemetry" in main
+    assert main.index("configure_logging(log_level=log_level)") < main.index(
+        'init_telemetry("petstore-mcp")'
+    )
+
+    monkeypatch.syspath_prepend(str(project / "src"))
+    from petstore_mcp.configure_logging import configure_logging  # type: ignore[import-not-found]
+
+    root = logging.getLogger()
+    saved = (list(root.handlers), list(root.filters), root.level)
+    try:
+        configure_logging("INFO", colored_logs=False)
+        logging.getLogger("runtime.base_connector").error(
+            "Connector execution failed",
+            extra={"trace_id": "t-1", "error_code": "AUTH_FAILED", "error_category": "AUTH"},
+        )
+    finally:
+        root.handlers[:] = saved[0]
+        root.filters[:] = saved[1]
+        root.setLevel(saved[2])
+    err = capsys.readouterr().err
+    assert "trace_id=t-1" in err
+    assert "error_code=AUTH_FAILED" in err
+    assert "error_category=AUTH" in err
+
+
 @pytest.mark.parametrize(
     ("relative", "old"),
     [
@@ -102,6 +140,8 @@ def test_project_packaging(node_wire_checkout: NodeWireCheckout, tmp_path: Path)
         ("src/petstore_mcp/api/mcp_builder.py", "return mcp"),
         ("src/petstore_mcp/settings.py", 'env_file_encoding="utf-8",'),
         ("src/petstore_mcp/__main__.py", 'if __name__ == "__main__":'),
+        ("src/petstore_mcp/__main__.py", "configure_logging(log_level=log_level)\n"),
+        ("src/petstore_mcp/configure_logging.py", "structlog.stdlib.add_logger_name,\n"),
     ],
 )
 def test_a_changed_stacklok_template_fails_the_build(

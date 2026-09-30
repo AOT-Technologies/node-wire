@@ -133,3 +133,39 @@ def test_connector_id_log_filter_does_not_overwrite() -> None:
         assert record.connector_id == "stripe"
     finally:
         reset_log_connector_id(token)
+
+
+class _CapturingHandler(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def test_install_redacts_records_propagated_from_child_loggers() -> None:
+    """Root-logger filters never see propagated records, so redaction must sit on the handlers."""
+    root = logging.getLogger()
+    original_filters = list(root.filters)
+    handler = _CapturingHandler()
+    root.addHandler(handler)
+    try:
+        install_sanitizing_log_filter()
+        token = set_log_connector_id("slack_web")
+        try:
+            logging.getLogger("runtime.base_connector").warning(
+                "failed", extra={"password": "hunter2", "trace_id": "t-1"}
+            )
+        finally:
+            reset_log_connector_id(token)
+        (record,) = handler.records
+        assert record.password == REDACTED
+        assert record.trace_id == "t-1"
+        assert record.connector_id == "slack_web"
+    finally:
+        root.removeHandler(handler)
+        for flt in list(root.filters):
+            root.removeFilter(flt)
+        for flt in original_filters:
+            root.addFilter(flt)

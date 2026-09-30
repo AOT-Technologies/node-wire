@@ -23,6 +23,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
 from node_wire_runtime.log_sanitization import (
+    add_filter_once,
     install_sanitizing_log_filter,
     sanitize_value,
 )
@@ -184,8 +185,11 @@ def init_observability(app_name: str = "node_wire") -> None:
     set_logger_provider(logger_provider)
 
     root_logger = logging.getLogger()
-    root_logger.addFilter(_OtelContextFilter())
     root_logger.addHandler(LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider))
+    # On the handlers as well: propagated records skip root-logger filters.
+    for target in (root_logger, *root_logger.handlers):
+        add_filter_once(target, _OtelContextFilter())
+    install_sanitizing_log_filter()
 
     # Metrics: export to the local OTLP collector alongside traces and logs.
     metric_interval_str: str = os.getenv("AOT_METRIC_EXPORT_INTERVAL_MS", "60000")

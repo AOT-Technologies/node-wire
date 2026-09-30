@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import List
 
@@ -165,3 +166,60 @@ async def test_matching_proxy_secret_is_accepted(
     with mcp_request(headers):
         await client.run("get_pet", {"petid": "p1"})
     assert upstream[-1].url.host == "acme.example.test"
+
+
+async def test_connector_failure_carries_the_taxonomy_and_the_runs_trace_id(
+    node_wire_env: Path, upstream: List[httpx.Request], caplog: pytest.LogCaptureFixture
+) -> None:
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    with (
+        caplog.at_level(logging.INFO),
+        mcp_request(_headers("acme", "tok")),
+        pytest.raises(NodeWireToolError) as excinfo,
+    ):
+        await client.run("get_pet", {})
+
+    error = excinfo.value
+    assert (error.error_code, error.error_category) == ("VALIDATION_ERROR", "BUSINESS")
+    assert "VALIDATION_ERROR [BUSINESS]: " in str(error)
+    assert f"trace_id={error.trace_id}" in str(error)
+    # The client-visible trace_id is the one the runtime logged the failure under.
+    runtime_failure = [
+        r
+        for r in caplog.records
+        if r.name == "runtime.base_connector" and r.levelno >= logging.ERROR
+    ]
+    assert [getattr(r, "trace_id", None) for r in runtime_failure] == [error.trace_id]
+
+
+async def test_failure_before_the_connector_runs_is_logged_with_its_trace_id(
+    node_wire_env: Path, upstream: List[httpx.Request], caplog: pytest.LogCaptureFixture
+) -> None:
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    with (
+        caplog.at_level(logging.INFO),
+        mcp_request(_headers(None, "tok")),
+        pytest.raises(NodeWireToolError) as excinfo,
+    ):
+        await client.run("get_pet", {"petid": "p1"})
+
+    error = excinfo.value
+    assert (error.error_code, error.error_category) == ("TENANT_REQUIRED", "AUTH")
+    (record,) = [r for r in caplog.records if r.name == "node_wire_toolhive"]
+    assert record.trace_id == error.trace_id
+    assert record.error_code == "TENANT_REQUIRED"
+    assert record.connector_id == CONNECTOR_ID
+    assert record.action == "get_pet"
+
+
+async def test_unexposed_connector_maps_to_a_taxonomy_code(
+    node_wire_env: Path, upstream: List[httpx.Request], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    monkeypatch.setattr(client.factory, "is_exposed", lambda *_: False)
+    with mcp_request(_headers("acme", "tok")), pytest.raises(NodeWireToolError) as excinfo:
+        await client.run("get_pet", {"petid": "p1"})
+    assert (excinfo.value.error_code, excinfo.value.error_category) == (
+        "CONNECTOR_NOT_EXPOSED",
+        "FATAL",
+    )

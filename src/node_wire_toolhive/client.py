@@ -6,35 +6,69 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
+import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from mcp.server.fastmcp.exceptions import ToolError
 
 from bindings.factory import ConnectorFactory
-from bindings.invoke import invoke
+from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.auth.base import reset_upstream_bearer, set_upstream_bearer
+from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.identity import (
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
 )
+from node_wire_runtime.log_sanitization import reset_log_connector_id, set_log_connector_id
+from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.tenant_persistence import load_tenants
 from node_wire_toolhive import request as _request
 from node_wire_toolhive.relay import relay_auth_provider_hook
 
 _PROTOCOL = "mcp"
 
+logger = logging.getLogger("node_wire_toolhive")
+
+# Failures raised before the connector runs; the runtime maps everything after that.
+_PRE_RUN_ERRORS: Dict[type, Tuple[str, ErrorCategory]] = {
+    ConnectorNotExposed: ("CONNECTOR_NOT_EXPOSED", ErrorCategory.FATAL),
+    ConfigNotFoundError: ("CONFIG_NOT_FOUND", ErrorCategory.BUSINESS),
+}
+
 
 class NodeWireToolError(ToolError):
-    """A connector action failed; carries node-wire's error taxonomy for the MCP client."""
+    """A connector action failed; carries node-wire's error taxonomy for the MCP client.
 
-    def __init__(self, message: str, *, error_code: Optional[str] = None) -> None:
+    The message reads ``CODE [CATEGORY]: message (trace_id=...)`` so the client can quote the
+    ``trace_id`` that the server logged the failure under.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: Optional[str] = None,
+        error_category: Optional[str] = None,
+        trace_id: Optional[str] = None,
+    ) -> None:
+        self.message = message
         self.error_code = error_code
-        super().__init__(f"{error_code}: {message}" if error_code else message)
+        self.error_category = error_category
+        self.trace_id = trace_id
+        text = message
+        if error_code:
+            label = f"{error_code} [{error_category}]" if error_category else error_code
+            text = f"{label}: {text}"
+        if trace_id:
+            text = f"{text} (trace_id={trace_id})"
+        super().__init__(text)
 
 
 class NodeWireClient:
@@ -83,12 +117,16 @@ class NodeWireClient:
         """Tenant for the current request (``__default__`` when multitenancy is off)."""
         if not _request.from_tenant_proxy():
             raise NodeWireToolError(
-                "Request did not come through a tenant proxy", error_code="PROXY_AUTH_FAILED"
+                "Request did not come through a tenant proxy",
+                error_code="PROXY_AUTH_FAILED",
+                error_category=ErrorCategory.AUTH.value,
             )
         try:
             return resolve_tenant_id(headers=_request.request_headers())
         except ValueError as exc:
-            raise NodeWireToolError(str(exc), error_code="TENANT_REQUIRED") from exc
+            raise NodeWireToolError(
+                str(exc), error_code="TENANT_REQUIRED", error_category=ErrorCategory.AUTH.value
+            ) from exc
 
     def config_names(self, tenant_id: str) -> List[Dict[str, Any]]:
         """Named configs of this connector for ``tenant_id`` (name + default flag only)."""
@@ -108,6 +146,7 @@ class NodeWireClient:
             raise NodeWireToolError(
                 f"Unknown config {config_name!r} for tenant {tenant_id!r}",
                 error_code="CONFIG_NOT_FOUND",
+                error_category=ErrorCategory.BUSINESS.value,
             )
         self._selected_config[_request.session_key()] = config_name
         return tenant_id
@@ -119,10 +158,18 @@ class NodeWireClient:
 
     async def run(self, action: str, arguments: Dict[str, Any]) -> Any:
         """Run ``action`` with ``arguments`` (connector input field names); return its data."""
-        tenant_id = self.tenant_id()
+        log_cid_token = set_log_connector_id(self._connector_id)
+        try:
+            return await self._run(action, arguments)
+        finally:
+            reset_log_connector_id(log_cid_token)
+
+    async def _run(self, action: str, arguments: Dict[str, Any]) -> Any:
+        tenant_id: Optional[str] = None
         payload = {k: v for k, v in arguments.items() if v is not None}
         token = set_upstream_bearer(_request.bearer_token())
         try:
+            tenant_id = self.tenant_id()
             response = await invoke(
                 self.factory,
                 connector_id=self._connector_id,
@@ -132,14 +179,51 @@ class NodeWireClient:
                 tenant_id=tenant_id,
                 config_name=self.selected_config(),
             )
-        except NodeWireToolError:
-            raise
         except Exception as exc:  # noqa: BLE001 — surface as a tool error, never a crash
-            raise NodeWireToolError(str(exc), error_code=type(exc).__name__) from exc
+            raise self._pre_run_failure(exc, action=action, tenant_id=tenant_id) from exc
         finally:
             reset_upstream_bearer(token)
         if not response.success:
+            # The runtime already logged this failure under response.trace_id.
             raise NodeWireToolError(
-                response.message or "Connector action failed", error_code=response.error_code
+                response.message or "Connector action failed",
+                error_code=response.error_code,
+                error_category=(response.error_category.value if response.error_category else None),
+                trace_id=response.trace_id,
             )
         return response.data
+
+    def _pre_run_failure(
+        self, exc: Exception, *, action: str, tenant_id: Optional[str]
+    ) -> NodeWireToolError:
+        """Map and log a failure raised before the connector ran (no runtime trace yet)."""
+        if isinstance(exc, NodeWireToolError):
+            message, code, category = exc.message, exc.error_code, exc.error_category
+        else:
+            known = next(
+                (hit for exc_type, hit in _PRE_RUN_ERRORS.items() if isinstance(exc, exc_type)),
+                None,
+            )
+            if known is None:
+                mapped = ErrorMapper.resolve(exc, connector_id=self._connector_id)
+                known = (mapped.code, mapped.category)
+            message, code, category = str(exc), known[0], known[1].value
+        error = NodeWireToolError(
+            message, error_code=code, error_category=category, trace_id=str(uuid.uuid4())
+        )
+        logger.warning(
+            "Tool call failed before the connector ran",
+            extra={
+                "trace_id": error.trace_id,
+                "connector_id": self._connector_id,
+                "action": action,
+                "tenant_id": tenant_id or "",
+                "error_code": error.error_code or "",
+                "error_category": error.error_category or "",
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "audit": True,
+                "audit_event": "invocation_rejected",
+            },
+        )
+        return error
