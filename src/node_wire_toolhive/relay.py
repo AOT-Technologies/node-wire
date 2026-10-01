@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional
 from bindings.factory import AuthProviderHook
 from node_wire_runtime.auth import StaticTokenAuthProvider
 from node_wire_runtime.auth.base import AuthProvider, get_upstream_bearer
+from node_wire_runtime.errors import CATALOGUE, ErrorCode, ErrorMapper
 from node_wire_runtime.secrets import SecretNotFoundError, SecretProvider
 
 RELAY_ALLOWLIST_ENV = "NW_UPSTREAM_BEARER_CONNECTORS"
@@ -30,6 +31,14 @@ _TOKEN_KEY = "toolhive_upstream_token"  # nosec B105  # logical key name, not a 
 
 class MissingUpstreamTokenError(RuntimeError):
     """The request carried no upstream credential for a connector that needs one."""
+
+
+# The caller (ToolHive) forwarded no credential: an authentication failure on its side.
+ErrorMapper.register_global(
+    MissingUpstreamTokenError,
+    CATALOGUE[ErrorCode.UPSTREAM_TOKEN_MISSING],
+    code=ErrorCode.UPSTREAM_TOKEN_MISSING,
+)
 
 
 class _CurrentToken(SecretProvider):

@@ -143,9 +143,11 @@ def with_resilience(
                             if isinstance(exc, CircuitBreakerError):
                                 _circuit_breaker_rejections.add(1, attributes=_metric_attrs)
                             if mapped.category is not ErrorCategory.RETRYABLE:
-                                # Non-retryable: log, then escape the retry loop entirely.
-                                logger.error(
-                                    "Non-retryable error during execution",
+                                # Non-retryable: escape the retry loop entirely. The failure is
+                                # logged once, at error level, by BaseConnector.run (with its
+                                # invocation_failure audit line); this is only the retry decision.
+                                logger.debug(
+                                    "Non-retryable error; not retrying",
                                     extra={
                                         "trace_id": trace_id,
                                         "error_code": mapped.code,

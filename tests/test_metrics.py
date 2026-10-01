@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Literal
 from unittest.mock import MagicMock, patch
 
@@ -119,7 +120,7 @@ async def test_metric_attributes_include_connector_action() -> None:
         with patch.object(bc_module, "_invocation_duration", MagicMock()):
             await connector.run({"action": "run"})
     attrs = mock_counter.add.call_args[1]["attributes"]
-    assert attrs["connector.action"] == "execute"
+    assert attrs["connector.action"] == "run"  # the invoked action, not the class default
 
 
 class _RetryableMetricError(Exception):
@@ -192,3 +193,18 @@ async def test_rate_limit_rejection_counter_incremented() -> None:
             await bucket.acquire()
 
     mock_counter.add.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_run_is_logged_at_error_level_once(caplog: pytest.LogCaptureFixture) -> None:
+    """BaseConnector.run logs the failure; the resilience layer must not log it a second time."""
+    connector = _MetricFailConnector()
+    with caplog.at_level(logging.DEBUG):
+        resp = await connector.run({"action": "run"})
+    assert resp.success is False
+    errors = [
+        r for r in caplog.records if r.levelno >= logging.ERROR and r.name.startswith("runtime.")
+    ]
+    assert [r.getMessage() for r in errors] == ["Connector execution failed"], [
+        (r.name, r.getMessage()) for r in errors
+    ]

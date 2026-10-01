@@ -4,12 +4,15 @@
 #
 from __future__ import annotations
 
+import copy
 import logging
 import os
+from collections.abc import Mapping, MutableMapping
 from typing import Optional, cast
 
 from opentelemetry._logs import set_logger_provider
 from opentelemetry import metrics, trace
+from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -23,6 +26,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
 from node_wire_runtime.log_sanitization import (
+    LOG_RECORD_STANDARD_KEYS,
     add_filter_once,
     install_sanitizing_log_filter,
     sanitize_value,
@@ -48,9 +52,52 @@ class _OtelContextFilter(logging.Filter):
         return True
 
 
-def _sanitize_otlp_attributes(attributes: dict[str, object]) -> None:
+def _sanitize_otlp_attributes(attributes: MutableMapping[str, object]) -> None:
+    # Not ``dict``: span attributes are OpenTelemetry's BoundedAttributes, and the compiled
+    # (Cython) wheel enforces a ``dict`` annotation at run time, failing every span export.
     for key in list(attributes.keys()):
         attributes[key] = sanitize_value(str(key), attributes[key])
+
+
+def _sanitized_copy(attributes: Mapping[str, object]) -> BoundedAttributes:
+    """``attributes`` with sensitive values redacted, frozen like the span's own."""
+    return BoundedAttributes(
+        attributes={key: sanitize_value(str(key), value) for key, value in attributes.items()},
+        immutable=True,
+        max_value_len=getattr(attributes, "max_value_len", None),
+    )
+
+
+_OTEL_SCALARS = (str, bool, int, float)
+
+
+def _otel_value(value: object) -> bool:
+    """Whether OpenTelemetry can carry ``value`` as a log attribute."""
+    if isinstance(value, _OTEL_SCALARS):
+        return True
+    return isinstance(value, (list, tuple)) and all(isinstance(v, _OTEL_SCALARS) for v in value)
+
+
+class OtlpLoggingHandler(LoggingHandler):
+    """OpenTelemetry's LoggingHandler, exporting only attributes OpenTelemetry can carry.
+
+    Other libraries put objects on log records: structlog's ``_logger`` (the logger itself) on
+    every line of a stacklok-built server. The SDK would drop each one with an "Invalid type ...
+    for attribute value" warning per line. The export gets a copy without them; the record keeps
+    them for the other handlers (structlog's console formatter reads ``_logger``).
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        extra = [
+            key
+            for key, value in vars(record).items()
+            if key not in LOG_RECORD_STANDARD_KEYS and not _otel_value(value)
+        ]
+        if extra:
+            record = copy.copy(record)
+            for key in extra:
+                delattr(record, key)
+        super().emit(record)
 
 
 class SanitizingSpanExporter(SpanExporter):
@@ -59,8 +106,11 @@ class SanitizingSpanExporter(SpanExporter):
 
     def export(self, spans):
         for span in spans:
-            if hasattr(span, "_attributes") and span._attributes:
-                _sanitize_otlp_attributes(span._attributes)
+            attributes = getattr(span, "_attributes", None)
+            if attributes:
+                # A finished span's attributes are frozen (BoundedAttributes, immutable in newer
+                # SDKs): swap in a sanitized copy instead of writing into them.
+                span._attributes = _sanitized_copy(attributes)
         return self._delegate.export(spans)
 
     def shutdown(self):
@@ -185,7 +235,9 @@ def init_observability(app_name: str = "node_wire") -> None:
     set_logger_provider(logger_provider)
 
     root_logger = logging.getLogger()
-    root_logger.addHandler(LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider))
+    root_logger.addHandler(
+        OtlpLoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+    )
     # On the handlers as well: propagated records skip root-logger filters.
     for target in (root_logger, *root_logger.handlers):
         add_filter_once(target, _OtelContextFilter())

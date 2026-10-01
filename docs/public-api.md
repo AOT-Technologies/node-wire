@@ -29,6 +29,13 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 - `ConnectorResponse`
 - `ErrorCategory`
 - `ErrorMapper`
+- `ErrorCode` — the runtime-wide error codes; `node_wire_runtime.errors.CATALOGUE` gives each
+  one's category.
+- `NodeWireError` — `NodeWireError(code, message, *, details=None)`: raise it for a failure outside the connector
+  (bad arguments, no tenant, unknown config); a `ValueError`, with its category from the
+  catalogue. `node_wire_runtime.errors.reject(exc, ...)` turns any such failure into a logged,
+  traced `ConnectorResponse`, and `error_text(response)` renders it as
+  `CODE [CATEGORY]: message (trace_id=...)`.
 
 ### Authentication
 - `AuthProvider` (base), `NoAuthProvider`, `StaticTokenAuthProvider`,
@@ -90,7 +97,8 @@ their signatures are stable.
 
 Stable exports (`node_wire_toolhive.__all__`) that stacklok-built MCP servers import:
 `NodeWireClient`, `NodeWireToolError`, `RelayAuthProvider`, `relay_auth_provider_hook`,
-`register_config_tools`, and `init_telemetry(service_name)` (since 1.1.0).
+`register_config_tools`, `report_call_errors(mcp, client)` and `init_telemetry(service_name)`
+(both since 1.1.0).
 
 ## Wire contracts
 

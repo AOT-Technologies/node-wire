@@ -78,7 +78,7 @@ def _observability_test_patches():
             patch("node_wire_runtime.observability.MeterProvider"),
             patch("node_wire_runtime.observability.set_logger_provider"),
             patch(
-                "node_wire_runtime.observability.LoggingHandler",
+                "node_wire_runtime.observability.OtlpLoggingHandler",
                 side_effect=lambda **kwargs: logging.NullHandler(),
             ),
             patch("traceloop.sdk.Traceloop") as mock_tl,
@@ -168,3 +168,30 @@ def test_init_observability_invalid_metric_interval_logs_warning(
         with caplog.at_level(logging.WARNING, logger="runtime.observability"):
             obs.init_observability("app-metric-warn")
     assert any("Invalid AOT_METRIC_EXPORT_INTERVAL_MS" in r.message for r in caplog.records)
+
+
+def test_otlp_log_export_skips_values_otel_cannot_carry(caplog: pytest.LogCaptureFixture) -> None:
+    """structlog puts its logger object on each record (``_logger``); OpenTelemetry would warn
+    "Invalid type ... for attribute value" once per log line."""
+    from opentelemetry.sdk._logs import LoggerProvider
+    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+    from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
+
+    from node_wire_runtime.observability import OtlpLoggingHandler
+
+    sink = InMemoryLogRecordExporter()
+    provider = LoggerProvider()
+    provider.add_log_record_processor(SimpleLogRecordProcessor(sink))
+    handler = OtlpLoggingHandler(logger_provider=provider)
+    record = logging.LogRecord("x", logging.WARNING, __file__, 1, "rejected", None, None)
+    record.__dict__.update({"_logger": object(), "error_code": "TENANT_REQUIRED", "tags": ["a"]})
+
+    with caplog.at_level(logging.WARNING, logger="opentelemetry.attributes"):
+        handler.emit(record)
+
+    (exported,) = sink.get_finished_logs()
+    attributes = exported.log_record.attributes
+    assert attributes["error_code"] == "TENANT_REQUIRED" and list(attributes["tags"]) == ["a"]
+    assert "_logger" not in attributes
+    assert not [r for r in caplog.records if r.name == "opentelemetry.attributes"]
+    assert "_logger" in record.__dict__  # the record itself is left for the other handlers

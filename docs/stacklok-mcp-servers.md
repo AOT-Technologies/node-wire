@@ -118,13 +118,14 @@ runtime:
   session's *first* request (a refreshed token would never be seen).
 - **Errors and logs.** A failed tool call reaches the MCP client as
   `CODE [CATEGORY]: message (trace_id=...)`, e.g.
-  `VALIDATION_ERROR [BUSINESS]: Input validation failed; ... (trace_id=5f0c...)`. The server logs
-  the same `trace_id`. Each connector run writes `runtime.base_connector` lines with `trace_id`,
+  `VALIDATION_ERROR [BUSINESS]: Input validation failed; ... (trace_id=5f0c...)`, the same codes
+  as on every other surface ([Errors](errors.md)). The server logs the same `trace_id`. Each connector run writes `runtime.base_connector` lines with `trace_id`,
   `connector_id`, `action`, `audit_event` (`invocation_start`, `invocation_success`,
   `invocation_failure`, `invocation_validation_failure`, `policy_denial`), `error_code`,
   `error_category` and `duration_ms`. Failures that happen before the connector runs (missing
   tenant, bad proxy secret, unknown config, connector not exposed) are logged by
-  `node_wire_toolhive` with `audit_event=invocation_rejected`. node-wire's log redaction is on.
+  `node_wire_toolhive` with `audit_event=invocation_rejected`, and arguments that don't fit the
+  tool with `audit_event=invocation_validation_failure`. node-wire's log redaction is on.
   These are the server's own logs (`docker logs <container>`); `thv logs <workload>` shows only
   the ToolHive proxy.
 - **Telemetry.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. `http://otel-collector:4318`) to export

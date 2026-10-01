@@ -13,6 +13,7 @@ from typing import List
 import httpx
 import pytest
 
+from node_wire_runtime.errors import NodeWireError
 from node_wire_toolhive import NodeWireClient, NodeWireToolError
 
 from .conftest import CONNECTOR_ID, mcp_request
@@ -75,9 +76,11 @@ async def test_each_call_uses_its_own_requests_credential(
 async def test_missing_credential_is_a_tool_error(
     node_wire_env: Path, upstream: List[httpx.Request]
 ) -> None:
+    """ToolHive forwarded no token: the caller's credential is missing, so AUTH, not FATAL."""
     client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
-    with mcp_request(_headers("acme", None)), pytest.raises(NodeWireToolError):
+    with mcp_request(_headers("acme", None)), pytest.raises(NodeWireToolError) as exc:
         await client.run("get_pet", {"petid": "p1"})
+    assert (exc.value.error_code, exc.value.error_category) == ("UPSTREAM_TOKEN_MISSING", "AUTH")
     assert upstream == []
 
 
@@ -87,7 +90,7 @@ async def test_missing_tenant_header_is_a_tool_error(
     client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
     with mcp_request(_headers(None, "tok")), pytest.raises(NodeWireToolError) as excinfo:
         await client.run("get_pet", {"petid": "p1"})
-    assert excinfo.value.error_code == "TENANT_REQUIRED"
+    assert excinfo.value.error_code == "MISSING_TENANT"
     assert upstream == []
 
 
@@ -115,9 +118,9 @@ async def test_selected_config_is_per_session(
 
 async def test_selecting_an_unknown_config_fails(node_wire_env: Path) -> None:
     client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
-    with mcp_request(_headers("acme", "tok")), pytest.raises(NodeWireToolError) as excinfo:
+    with mcp_request(_headers("acme", "tok")), pytest.raises(NodeWireError) as excinfo:
         client.select_config("apac")
-    assert excinfo.value.error_code == "CONFIG_NOT_FOUND"
+    assert (excinfo.value.code, excinfo.value.category.value) == ("CONFIG_NOT_FOUND", "AUTH")
 
 
 async def test_relay_requires_the_explicit_opt_in(
@@ -216,10 +219,10 @@ async def test_failure_before_the_connector_runs_is_logged_with_its_trace_id(
         await client.run("get_pet", {"petid": "p1"})
 
     error = excinfo.value
-    assert (error.error_code, error.error_category) == ("TENANT_REQUIRED", "AUTH")
-    (record,) = [r for r in caplog.records if r.name == "node_wire_toolhive"]
+    assert (error.error_code, error.error_category) == ("MISSING_TENANT", "AUTH")
+    (record,) = [r for r in caplog.records if r.name == "runtime.errors"]
     assert record.trace_id == error.trace_id
-    assert record.error_code == "TENANT_REQUIRED"
+    assert record.error_code == "MISSING_TENANT"
     assert record.connector_id == CONNECTOR_ID
     assert record.action == "get_pet"
 
@@ -232,6 +235,6 @@ async def test_unexposed_connector_maps_to_a_taxonomy_code(
     with mcp_request(_headers("acme", "tok")), pytest.raises(NodeWireToolError) as excinfo:
         await client.run("get_pet", {"petid": "p1"})
     assert (excinfo.value.error_code, excinfo.value.error_category) == (
-        "CONNECTOR_NOT_EXPOSED",
-        "FATAL",
+        "CONNECTOR_NOT_AVAILABLE",
+        "BUSINESS",
     )

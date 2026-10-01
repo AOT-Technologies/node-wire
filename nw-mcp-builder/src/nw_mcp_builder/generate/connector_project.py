@@ -18,6 +18,8 @@ import shutil
 import tomllib
 from pathlib import Path
 
+import yaml
+
 from nw_mcp_builder.schema.models import MCPScope
 
 logger = logging.getLogger(__name__)
@@ -100,7 +102,9 @@ def write_connector_project(
         raise FileNotFoundError(f"node-wire connector config missing: {config_src}")
     config_dir = project_dir / "config"
     config_dir.mkdir()
-    shutil.copy2(config_src, config_dir / "connectors.yaml")
+    (config_dir / "connectors.yaml").write_text(
+        _own_connector_config(config_src, connector_id), encoding="utf-8"
+    )
 
     connector_pkg = connector_dist_package_name(connector_id)
     mcp_dep = resolve_mcp_dependency(node_wire_root)
@@ -199,6 +203,22 @@ def resolve_mcp_dependency(node_wire_root: Path) -> str:
         _MCP_DEP_FALLBACK,
     )
     return _MCP_DEP_FALLBACK
+
+
+def _own_connector_config(config_src: Path, connector_id: str) -> str:
+    """``config_src`` cut down to ``connector_id``'s entry: the image installs no other connector.
+
+    Every other enabled entry would log "enabled in configuration but not registered" at each
+    start, and bake unrelated connectors' base URLs and auth blocks into the image.
+    """
+    doc = yaml.safe_load(config_src.read_text(encoding="utf-8")) or {}
+    connectors = doc.get("connectors") if isinstance(doc, dict) else None
+    if not isinstance(connectors, dict) or connector_id not in connectors:
+        raise ValueError(
+            f"{connector_id} is not in {config_src}; wire it in first (nw gen-all wires it)"
+        )
+    own = {**doc, "connectors": {connector_id: connectors[connector_id]}}
+    return yaml.safe_dump(own, sort_keys=False)
 
 
 # The Python and libc of PYTHON_313_SLIM_IMAGE: the wheels copied into the project must install

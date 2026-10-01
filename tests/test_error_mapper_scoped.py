@@ -19,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from node_wire_runtime.errors import ErrorMapper
+from node_wire_runtime.secrets import SecretNotFoundError, TenantSecretNotFoundError
 from node_wire_runtime.models import ErrorCategory
 
 
@@ -114,3 +115,18 @@ def test_resolve_picks_the_most_specific_registered_type() -> None:
 def test_resolve_requires_connector_id() -> None:
     with pytest.raises(TypeError):
         ErrorMapper.resolve(_UnmappedError("mystery"))  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    ("exc", "code"),
+    [
+        (SecretNotFoundError("SLACK_WEB_ACCESS_TOKEN"), "SECRET_NOT_FOUND"),
+        (TenantSecretNotFoundError("acme/slack_web/live/TOKEN"), "TENANT_SECRET_NOT_FOUND"),
+    ],
+)
+def test_a_missing_configured_secret_has_a_stable_code(exc: Exception, code: str) -> None:
+    """The server lacks its own secret: a misconfiguration (FATAL, HTTP 500), not the caller's
+    authentication (AUTH would be HTTP 401)."""
+    resolved = ErrorMapper.resolve(exc, connector_id="wf_connector_secrets")
+
+    assert (resolved.code, resolved.category) == (code, ErrorCategory.FATAL)

@@ -47,14 +47,7 @@ The runtime then performs full Pydantic validation and returns a `ConnectorRespo
 }
 ```
 
-HTTP status codes are mapped from `ErrorCategory`:
-
-| `ErrorCategory` | HTTP status |
-|-----------------|-------------|
-| `BUSINESS` | 400 |
-| `AUTH` | 401 |
-| `RETRYABLE` | 503 |
-| `FATAL` / other | 500 |
+A failure's HTTP status, and what every other surface returns for it, is in [Errors](errors.md).
 
 ## MCP binding
 

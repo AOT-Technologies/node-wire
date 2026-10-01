@@ -372,8 +372,12 @@ def test_rest_fail_closed_returns_indistinguishable_403(monkeypatch: pytest.Monk
         app.dependency_overrides.clear()
     assert unknown_scope.status_code == 403
     assert unknown_name.status_code == 403
-    # Same body: the internal reason is never leaked, so names cannot be enumerated.
-    assert unknown_scope.json() == unknown_name.json()
+    # Same body: the internal reason is never leaked, so names cannot be enumerated. Only the
+    # trace_id differs, and it is random per call.
+    scope_body, name_body = unknown_scope.json(), unknown_name.json()
+    assert scope_body.pop("trace_id") != name_body.pop("trace_id")
+    assert scope_body == name_body
+    assert scope_body["error_code"] == "CONFIG_NOT_FOUND"
     assert "secret internals" not in unknown_scope.text
 
 

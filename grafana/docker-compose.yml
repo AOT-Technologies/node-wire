@@ -5,9 +5,14 @@
 services:
   otel-lgtm:
     image: grafana/otel-lgtm
+    # Host ports, overridable when another stack already holds them (e.g. NW_OTLP_HTTP_PORT=14318).
     ports:
-      - "3000:3000"
-      - "4317:4317"
-      - "4318:4318"
+      - "${NW_GRAFANA_PORT:-3000}:3000"
+      - "${NW_OTLP_GRPC_PORT:-4317}:4317"
+      - "${NW_OTLP_HTTP_PORT:-4318}:4318"
+    # The node-wire dashboard, provisioned at startup (edits in the UI are kept until a restart).
+    volumes:
+      - ./provisioning/dashboards/node-wire.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/node-wire.yaml:ro
+      - ./connector-logs-status.json:/otel-lgtm/node-wire-dashboards/connector-logs-status.json:ro
     stdin_open: true
     tty: true

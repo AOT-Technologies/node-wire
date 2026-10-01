@@ -322,7 +322,7 @@ def test_rest_post_connector_not_available_returns_404() -> None:
 
 
 def test_http_status_for_category_direct() -> None:
-    from bindings.rest_api.app import _http_status_for_category
+    from node_wire_runtime.errors import http_status as _http_status_for_category
 
     assert _http_status_for_category(None) == 200
     assert _http_status_for_category(ErrorCategory.BUSINESS) == 400

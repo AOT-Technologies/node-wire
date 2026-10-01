@@ -221,3 +221,22 @@ def test_apply_wire_without_extra_auth_plans_omits_auth_schemes_block(tmp_path: 
     )
     data = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
     assert "auth_schemes" not in data["connectors"]["stripe"]
+
+
+def test_wiring_replaces_files_whole_and_keeps_their_mode(tmp_path: Path) -> None:
+    """``nw gen-mcp`` copies these files while another run may be wiring a connector in."""
+    env = tmp_path / "sample.env"
+    env.write_text("NW_ALLOWED_CONNECTORS=slack\n", encoding="utf-8")
+    env.chmod(0o644)
+    cfg = tmp_path / "connectors.yaml"
+    cfg.write_text("connectors: {}\n", encoding="utf-8")
+    cfg.chmod(0o644)
+    before = env.stat().st_ino, cfg.stat().st_ino
+
+    wire_sample_env(env, "pet_store", secret_keys=["PET_STORE_API_KEY"])
+    wire_connectors_yaml(cfg, "pet_store", base_url="https://x", auth_block=None)
+
+    assert (env.stat().st_ino, cfg.stat().st_ino) != before  # renamed into place, not rewritten
+    assert env.stat().st_mode & 0o777 == 0o644 and cfg.stat().st_mode & 0o777 == 0o644
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["connectors.yaml", "sample.env"]
+    assert "pet_store" in env.read_text(encoding="utf-8")

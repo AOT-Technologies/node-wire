@@ -174,6 +174,8 @@ given, then `key.upper()` (e.g. `my_key` then `MY_KEY`).
 | `AWS_REGION` | AWS region for `aws_env` | `us-east-1` |
 
 Missing keys raise `SecretNotFoundError` (fail-closed) unless `NW_ENV_SECRET_LEGACY_EMPTY=true`.
+A connector call then fails with `SECRET_NOT_FOUND` (`TENANT_SECRET_NOT_FOUND` for a tenant's
+secret), category `FATAL`: the server is misconfigured, so REST answers 500, not 401.
 
 ### Secret backend (`NW_SECRET_BACKEND`)
 

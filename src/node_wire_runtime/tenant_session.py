@@ -31,6 +31,7 @@ import os
 from typing import Callable, List, Optional, Tuple
 
 from node_wire_runtime.config_store import DEFAULT_TENANT
+from node_wire_runtime.errors import ErrorCode, NodeWireError
 from node_wire_runtime.identity import resolve_config_name
 
 MISSING_TENANT_SELECT_MESSAGE = (
@@ -114,21 +115,25 @@ class TenantSessionOverlay:
     # ---- guardrails ---------------------------------------------------- #
 
     def assert_switch_allowed(self) -> None:
-        """Raise ``ValueError`` if ``NW_MCP_TENANT_PIN_LOCKED`` forbids
+        """Raise ``NodeWireError`` (a ``ValueError``) if ``NW_MCP_TENANT_PIN_LOCKED`` forbids
         switching tenants for this session."""
         if self._pin_locked():
-            raise ValueError(PIN_LOCKED_MESSAGE)
+            raise NodeWireError(ErrorCode.TENANT_PIN_LOCKED, PIN_LOCKED_MESSAGE)
 
     def assert_tenant_allowed(self, tenant_id: str) -> None:
-        """Raise ``ValueError`` if ``tenant_id`` is unknown to the store or
+        """Raise ``NodeWireError`` (a ``ValueError``) if ``tenant_id`` is unknown to the store or
         excluded by ``NW_MCP_ALLOWED_TENANTS``."""
         if not self._store_has_tenant(tenant_id):
-            raise ValueError(
-                f"Unknown tenant {tenant_id!r}. Call nw_list_tenants, then nw_select_tenant."
+            raise NodeWireError(
+                ErrorCode.TENANT_NOT_ALLOWED,
+                f"Unknown tenant {tenant_id!r}. Call nw_list_tenants, then nw_select_tenant.",
             )
         allowed = self._allowed_tenants()
         if allowed is not None and tenant_id not in allowed:
-            raise ValueError(f"Tenant {tenant_id!r} is not allowed on this MCP server.")
+            raise NodeWireError(
+                ErrorCode.TENANT_NOT_ALLOWED,
+                f"Tenant {tenant_id!r} is not allowed on this MCP server.",
+            )
 
     def filter_allowed_tenants(self, tenant_ids: List[str]) -> List[str]:
         """Narrow a tenant-id list to ``NW_MCP_ALLOWED_TENANTS``, if configured."""
@@ -181,7 +186,10 @@ class TenantSessionOverlay:
         """
         have, missing = self._config_coverage(tenant_id, config_name)
         if not have:
-            raise ValueError(f"Unknown config {config_name!r} for tenant {tenant_id!r}.")
+            raise NodeWireError(
+                ErrorCode.CONFIG_NOT_FOUND,
+                f"Unknown config {config_name!r} for tenant {tenant_id!r}.",
+            )
         self._selected_config_name = config_name
         return have, missing
 
@@ -243,7 +251,7 @@ class TenantSessionOverlay:
                     pass
                 else:
                     return DEFAULT_TENANT
-            raise ValueError(MISSING_TENANT_SELECT_MESSAGE)
+            raise NodeWireError(ErrorCode.MISSING_TENANT, MISSING_TENANT_SELECT_MESSAGE)
 
     def pinned_tenant_id_or_none(
         self,

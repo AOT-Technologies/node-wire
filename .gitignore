@@ -60,6 +60,12 @@ mcp_debug.log
 /src/node_wire_slack_web/
 /packages/connectors/slack_web/
 /nw-stacklok-builder/scoping/slack_web/
+# pet_store (Petstore v2) and petstore3 (v3): built by scripts/e2e_toolhive.py and the ToolHive
+# runbook, not shipped connectors
+/src/node_wire_pet_store/
+/src/node_wire_petstore3/
+/packages/connectors/pet_store/
+/packages/connectors/petstore3/
 
 # nw-mcp-builder
 nw-mcp-builder/fixtures/
@@ -85,3 +91,9 @@ nw-stacklok-builder/scoping/*/tool-scoping.md
 
 /.scratch
 .scratch/codegen-tool-contract-plan.md
+
+# scripts/e2e_toolhive.py: logs, tenants files, 0600 token files
+/.e2e-toolhive/
+
+# The ToolHive runbook is a local working document, not part of the published docs
+/docs/toolhive-runbook.md

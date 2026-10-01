@@ -118,6 +118,7 @@ nav:
     - Seams: architecture/seams.md
     - Tenancy: architecture/tenancy.md
     - REST / MCP / gRPC Bindings: connector-bindings.md
+    - Errors: errors.md
   - Connectors:
     - Use a Connector: connectors.md
     - Connector Reference: connector-reference.md

@@ -25,7 +25,8 @@ from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
-from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime import ConnectorResponse
+from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
 from node_wire_runtime.config_store import (
     ConfigNameConflictError,
     ConfigNotFoundError,
@@ -117,6 +118,36 @@ def _mount_playground(app: FastAPI) -> None:
 
 
 app = FastAPI(title="Node Wire - REST API")
+
+
+class Rejected(HTTPException):
+    """A REST call refused before (or instead of) running the connector.
+
+    Mapped, logged and traced by the runtime (:func:`node_wire_runtime.errors.reject`). The
+    body is the ConnectorResponse envelope, plus ``detail`` (the message) for clients written
+    against the plain FastAPI errors; the status is the one REST has always returned for it.
+    """
+
+    def __init__(
+        self,
+        exc: BaseException,
+        status: int,
+        *,
+        connector_id: str = "",
+        action: str = "",
+        tenant_id: str = "",
+        headers: Dict[str, str] | None = None,
+    ) -> None:
+        self.response = reject(exc, connector_id=connector_id, action=action, tenant_id=tenant_id)
+        super().__init__(status_code=status, detail=self.response.message, headers=headers)
+
+
+@app.exception_handler(Rejected)
+async def _rejected(_: Request, exc: Rejected) -> JSONResponse:
+    body = {**exc.response.model_dump(mode="json"), "detail": exc.detail}
+    return JSONResponse(status_code=exc.status_code, content=body, headers=exc.headers)
+
+
 FastAPIInstrumentor.instrument_app(app)
 _max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
 # Body limit runs outermost (added last); auth is next; protects /connectors/* and /scenarios/*.
@@ -159,7 +190,9 @@ def _pop_secrets(doc: Dict[str, Any]) -> Dict[str, str] | None:
     if raw is None:
         return {}
     if not isinstance(raw, dict):
-        raise HTTPException(status_code=400, detail="secrets must be a JSON object")
+        raise Rejected(
+            NodeWireError(ErrorCode.VALIDATION_ERROR, "secrets must be a JSON object"), 400
+        )
     return {str(k): str(v) for k, v in raw.items() if v is not None and str(v).strip()}
 
 
@@ -169,7 +202,7 @@ async def check_rate_limit() -> None:
         if os.environ.get("NW_RATE_LIMIT_DISABLED", "false").lower() not in ("true", "1", "yes"):
             await global_rate_limiter.acquire()
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=429, detail=str(exc))
+        raise Rejected(NodeWireError(ErrorCode.RATE_LIMIT_EXCEEDED, str(exc)), 429)
 
 
 @app.get("/health", tags=["system"])
@@ -203,9 +236,9 @@ def _config_tenant(request: Request) -> str:
             headers=request.headers, jwt_identity=get_rest_caller_identity(request)
         )
     except MissingTenantError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise Rejected(exc, 400) from exc
     except TenantIdentityMismatchError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise Rejected(exc, 403) from exc
 
 
 def _log_tenant_action(
@@ -229,16 +262,16 @@ def _log_tenant_action(
 
 
 def _map_config_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, MissingTenantError):
-        return HTTPException(status_code=400, detail=str(exc))
-    if isinstance(exc, ConfigNameConflictError):
-        return HTTPException(status_code=409, detail=str(exc))
-    if isinstance(exc, DefaultDeletionError):
-        return HTTPException(status_code=400, detail=str(exc))
-    if isinstance(exc, ConfigNotFoundError):
-        return HTTPException(status_code=404, detail=str(exc))
-    if isinstance(exc, ConfigStoreError):
-        return HTTPException(status_code=400, detail=str(exc))
+    """Config-store failures: their catalogue codes, with the statuses REST has always used."""
+    for exc_type, status in (
+        (MissingTenantError, 400),
+        (ConfigNameConflictError, 409),
+        (DefaultDeletionError, 400),
+        (ConfigNotFoundError, 404),
+        (ConfigStoreError, 400),
+    ):
+        if isinstance(exc, exc_type):
+            return Rejected(exc, status)
     raise exc
 
 
@@ -281,7 +314,9 @@ async def secrets_upsert(
     tenant_id = _config_tenant(request)
     secrets = payload.get("secrets")
     if not isinstance(secrets, dict):
-        raise HTTPException(status_code=400, detail="body.secrets must be a JSON object")
+        raise Rejected(
+            NodeWireError(ErrorCode.VALIDATION_ERROR, "body.secrets must be a JSON object"), 400
+        )
     config_name = str(
         payload.get("config_name") or request.query_params.get("config_name") or ""
     ).strip()
@@ -304,7 +339,7 @@ async def secrets_upsert(
             config_name=config_name,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
     factory_dep.invalidate_configs(tenant_id, cid, [config_name])
     _persist_tenants(factory_dep)
     return JSONResponse(status_code=200, content={"keys": keys, "config_name": config_name})
@@ -355,7 +390,7 @@ async def config_create(
             try:
                 upsert_tenant_secrets(tenant_id, cid, secrets, config_name=config_name)
             except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
+                raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
         try:
             record = factory_dep.store.create(tenant_id, cid, body)
         except ConfigNameConflictError:
@@ -390,7 +425,7 @@ async def config_get(
     tenant_id = _config_tenant(request)
     doc = factory_dep.store.get(tenant_id, cid, name)
     if doc is None:
-        raise HTTPException(status_code=404, detail="Config not found")
+        raise Rejected(NodeWireError(ErrorCode.CONFIG_NOT_FOUND, "Config not found"), 404)
     return JSONResponse(status_code=200, content=doc)
 
 
@@ -418,7 +453,7 @@ async def config_update(
             try:
                 upsert_tenant_secrets(tenant_id, cid, secrets, config_name=name)
             except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
+                raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
         record = factory_dep.store.update(tenant_id, cid, name, body)
         _persist_tenants(factory_dep)
     except HTTPException:
@@ -482,18 +517,6 @@ async def config_set_default(
     return JSONResponse(status_code=200, content={"status": "ok"})
 
 
-def _http_status_for_category(category: ErrorCategory | None) -> int:
-    if category is None:
-        return 200
-    if category is ErrorCategory.BUSINESS:
-        return 400
-    if category is ErrorCategory.AUTH:
-        return 401
-    if category is ErrorCategory.RETRYABLE:
-        return 503
-    return 500
-
-
 def _truthy(value: str | None) -> bool:
     if value is None:
         return False
@@ -519,9 +542,9 @@ def _make_endpoint(cid: str, act: str) -> Any:
         try:
             tenant_id = resolve_tenant_id(headers=request.headers, jwt_identity=rest_id)
         except MissingTenantError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise Rejected(exc, 400, connector_id=cid, action=act) from exc
         except TenantIdentityMismatchError as exc:
-            raise HTTPException(status_code=403, detail=str(exc)) from exc
+            raise Rejected(exc, 403, connector_id=cid, action=act) from exc
 
         run_payload = dict(payload)
         # config_name is a resolution-time argument, never a connector input.
@@ -540,9 +563,12 @@ def _make_endpoint(cid: str, act: str) -> Any:
             rate_key = f"{tenant_id}:{cid}:{act}:{identity_key}"
             result = limiter.consume(rate_key)
             if not result.allowed:
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Rate limit exceeded"},
+                raise Rejected(
+                    NodeWireError(ErrorCode.RATE_LIMIT_EXCEEDED, "Rate limit exceeded"),
+                    429,
+                    connector_id=cid,
+                    action=act,
+                    tenant_id=tenant_id,
                     headers={"Retry-After": str(result.retry_after_seconds)},
                 )
 
@@ -559,20 +585,38 @@ def _make_endpoint(cid: str, act: str) -> Any:
                 scopes=rest_id.scopes if rest_id else None,
             )
         except ConnectorNotExposed:
-            raise HTTPException(status_code=404, detail="Connector not available for REST")
+            raise Rejected(
+                NodeWireError(
+                    ErrorCode.CONNECTOR_NOT_AVAILABLE, "Connector not available for REST"
+                ),
+                404,
+                connector_id=cid,
+                action=act,
+                tenant_id=tenant_id,
+            )
         except ConfigNotFoundError:
             # Unknown scope and unknown config name return the same body so config
             # names cannot be enumerated (fail-closed).
-            raise HTTPException(
-                status_code=403,
-                detail=(
+            raise Rejected(
+                NodeWireError(
+                    ErrorCode.CONFIG_NOT_FOUND,
                     "No connector configuration for this tenant. "
-                    "Use Add config on this connector page."
+                    "Use Add config on this connector page.",
                 ),
+                403,
+                connector_id=cid,
+                action=act,
+                tenant_id=tenant_id,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        status = _http_status_for_category(response.error_category)
+            raise Rejected(
+                NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)),
+                400,
+                connector_id=cid,
+                action=act,
+                tenant_id=tenant_id,
+            ) from exc
+        status = http_status(response.error_category)
 
         if not response.success:
             span.set_status(Status(StatusCode.ERROR))

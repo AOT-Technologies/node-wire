@@ -25,8 +25,8 @@ The words the rest of the docs use, each with one meaning. Read the
 | Term | Meaning |
 |---|---|
 | **`ConnectorResponse`** | The envelope every `run()` returns: `success`, `data`, `trace_id`, `error_code`, `error_category`, `message`. Actions never return raw vendor objects, and failures never escape as exceptions. |
-| **`ErrorCategory`** | The error taxonomy: `RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`. Bindings translate it into an HTTP status, a gRPC code or an MCP tool error ([mapping](../connector-bindings.md#rest-binding)). |
-| **Error code** | A stable string such as `GDRIVE_RATE_LIMIT` or `TENANT_MISMATCH`, assigned by `ErrorMapper` from the connector's `error_map`. The mapping is scoped to that connector's id. |
+| **`ErrorCategory`** | The error taxonomy: `RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`. Bindings translate it into an HTTP status, a gRPC reply or an MCP tool error ([Errors](../errors.md)). |
+| **Error code** | A stable string such as `GDRIVE_RATE_LIMIT` or `MISSING_TENANT`. A connector's own codes come from its `error_map`, scoped to that connector's id; the runtime-wide ones, for failures inside or before a run, are listed in [Errors](../errors.md). |
 
 ## Tenancy
 

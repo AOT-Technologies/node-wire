@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -465,3 +467,25 @@ def test_invoke_passes_metadata_headers(servicer: ConnectorServiceServicer) -> N
     call_args = runner.run.call_args[0][0]
     # The coroutine was created with metadata; force close to avoid warnings.
     call_args.close()
+
+
+async def test_a_call_refused_before_running_has_a_logged_trace_id(
+    servicer: ConnectorServiceServicer,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Same codes as 1.0.0 (MISSING_TENANT, AUTH), now with a trace id the runtime logged."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    with caplog.at_level(logging.WARNING):
+        resp = await servicer._invoke_async(
+            connector_pb2.InvokeRequest(connector_id="any", action="act")
+        )
+
+    assert (resp.success, resp.error_code, resp.error_category) == (False, "MISSING_TENANT", "AUTH")
+    assert resp.trace_id
+    (record,) = [r for r in caplog.records if getattr(r, "trace_id", None) == resp.trace_id]
+    assert (record.audit_event, record.connector_id, record.action) == (
+        "invocation_rejected",
+        "any",
+        "act",
+    )

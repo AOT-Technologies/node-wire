@@ -10,6 +10,7 @@ credential into the connector's own auth placement, resolves the tenant from the
 actions through the node-wire runtime (validation, policy hook, retries, errors, telemetry).
 """
 
+from node_wire_toolhive.arguments import report_call_errors
 from node_wire_toolhive.client import NodeWireClient, NodeWireToolError
 from node_wire_toolhive.config_tools import register_config_tools
 from node_wire_toolhive.relay import RelayAuthProvider, relay_auth_provider_hook
@@ -22,4 +23,5 @@ __all__ = [
     "init_telemetry",
     "register_config_tools",
     "relay_auth_provider_hook",
+    "report_call_errors",
 ]

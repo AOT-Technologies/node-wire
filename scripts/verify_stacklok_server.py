@@ -21,61 +21,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
-from typing import Any, Dict
 
 import httpx
 import yaml
+from mcp_http import ACCEPT, McpSession, wait_for
 
-_ACCEPT = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
 _CONFIG_TOOLS = {"nw_list_configs", "nw_select_config"}
-
-
-class _Session:
-    def __init__(self, client: httpx.Client, url: str, headers: Dict[str, str]) -> None:
-        self._client, self._url, self._headers = client, url, headers
-        self._sid: str | None = None
-        self._id = 0
-
-    def _post(self, body: Dict[str, Any]) -> httpx.Response:
-        headers = {**_ACCEPT, **self._headers}
-        if self._sid:
-            headers["mcp-session-id"] = self._sid
-        return self._client.post(self._url, headers=headers, content=json.dumps(body))
-
-    def rpc(self, method: str, params: Dict[str, Any]) -> Any:
-        self._id += 1
-        response = self._post(
-            {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}
-        )
-        response.raise_for_status()
-        self._sid = self._sid or response.headers.get("mcp-session-id")
-        data = [line for line in response.text.splitlines() if line.startswith("data:")]
-        return json.loads(data[-1][5:] if data else response.text)
-
-    def open(self) -> "_Session":
-        self.rpc(
-            "initialize",
-            {
-                "protocolVersion": "2025-06-18",
-                "capabilities": {},
-                "clientInfo": {"name": "verify", "version": "1"},
-            },
-        )
-        self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
-        return self
-
-
-def _wait(client: httpx.Client, url: str, timeout: float) -> None:
-    deadline = time.monotonic() + timeout
-    while True:
-        try:
-            client.post(url, headers=_ACCEPT, content="{}")
-            return
-        except httpx.TransportError:
-            if time.monotonic() > deadline:
-                raise
-            time.sleep(1)
 
 
 def main() -> int:
@@ -97,9 +48,9 @@ def main() -> int:
     expected = {t["tool_name"] for g in scope["groups"] for t in g["tools"]} | _CONFIG_TOOLS
     failures: list[str] = []
     with httpx.Client(timeout=60) as client:
-        _wait(client, args.url, args.wait)
+        wait_for(client, args.url, args.wait)
         auth = {"Authorization": f"Bearer {args.token}"}
-        session = _Session(client, args.url, {**auth, "X-Tenant-ID": args.tenant}).open()
+        session = McpSession(client, args.url, {**auth, "X-Tenant-ID": args.tenant}).open()
 
         listed = {t["name"] for t in session.rpc("tools/list", {})["result"]["tools"]}
         if listed != expected:
@@ -113,7 +64,7 @@ def main() -> int:
         if result.get("isError"):
             failures.append(f"{args.tool} failed: {result['content'][0]['text'][:300]}")
 
-        no_tenant = _Session(client, args.url, auth).open()
+        no_tenant = McpSession(client, args.url, auth).open()
         result = no_tenant.rpc(
             "tools/call", {"name": args.tool, "arguments": json.loads(args.arguments)}
         )["result"]
@@ -121,7 +72,7 @@ def main() -> int:
             failures.append("a call without X-Tenant-ID was not rejected with TENANT_REQUIRED")
 
         status = client.post(
-            args.url, headers={**_ACCEPT, "X-Tenant-ID": args.tenant}, content="{}"
+            args.url, headers={**ACCEPT, "X-Tenant-ID": args.tenant}, content="{}"
         ).status_code
         if status != 401:
             failures.append(f"a request without a bearer token returned {status}, expected 401")

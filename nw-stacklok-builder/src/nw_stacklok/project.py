@@ -260,13 +260,15 @@ def _patch_sources(module_dir: Path) -> None:
     text = _replace_once(
         text,
         "from mcp.server.fastmcp import FastMCP\n",
-        "from mcp.server.fastmcp import FastMCP\nfrom node_wire_toolhive import register_config_tools\n",
+        "from mcp.server.fastmcp import FastMCP\n"
+        "from node_wire_toolhive import register_config_tools, report_call_errors\n",
         where=mcp_builder.name,
     )
     text = _sub_once(
         text,
         r"^([ \t]*)return mcp$",
-        r"\1register_config_tools(mcp, tools._client.node_wire)\n\n\1return mcp",
+        r"\1register_config_tools(mcp, tools._client.node_wire)\n"
+        r"\1report_call_errors(mcp, tools._client.node_wire)\n\n\1return mcp",
         where=mcp_builder.name,
     )
     mcp_builder.write_text(text, encoding="utf-8")

@@ -61,6 +61,17 @@ def test_tools_run_connector_actions(node_wire_checkout: NodeWireCheckout, tmp_p
     registrations = (module / "api" / "mcp_builder.py").read_text()
     assert "tools = Tools(APIClient())" in registrations
     assert "register_config_tools(mcp, tools._client.node_wire)" in registrations
+    # Wraps every registered tool, config tools included, so it comes last.
+    order = [
+        registrations.index(line)
+        for line in (
+            "mcp.add_tool(tools.find_pets_by_status)",
+            "register_config_tools(mcp, tools._client.node_wire)",
+            "report_call_errors(mcp, tools._client.node_wire)",
+            "return mcp",
+        )
+    ]
+    assert order == sorted(order)
     for path in project.rglob("*.py"):
         compile(path.read_text(), str(path), "exec")
 

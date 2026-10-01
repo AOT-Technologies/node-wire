@@ -313,3 +313,35 @@ def test_build_wheels_invoked_when_not_skipped(fake_node_wire: Path, package_roo
         )
         build.assert_called_once()
         assert build.call_args.kwargs["python"] == "3.12"
+
+
+def test_project_config_holds_only_its_connector(fake_node_wire: Path, package_root: Path) -> None:
+    """Other connectors' entries would each warn "enabled but not registered" at every start."""
+    config = fake_node_wire / "config" / "connectors.yaml"
+    config.write_text(
+        config.read_text(encoding="utf-8") + "  slack:\n    enabled: true\n", encoding="utf-8"
+    )
+
+    project_dir = run_from_connector(
+        "demo_conn",
+        node_wire_root=fake_node_wire,
+        package_root=package_root,
+        skip_build_wheels=True,
+    )
+
+    baked = yaml.safe_load((project_dir / "config" / "connectors.yaml").read_text(encoding="utf-8"))
+    assert list(baked["connectors"]) == ["demo_conn"]
+    assert baked["connectors"]["demo_conn"]["auth"]["sa_json_secret"] == "DEMO_CONN_SA_JSON"
+
+
+def test_project_needs_its_connector_wired(fake_node_wire: Path, package_root: Path) -> None:
+    (fake_node_wire / "config" / "connectors.yaml").write_text(
+        "connectors:\n  slack:\n    enabled: true\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="demo_conn is not in .*connectors.yaml"):
+        run_from_connector(
+            "demo_conn",
+            node_wire_root=fake_node_wire,
+            package_root=package_root,
+            skip_build_wheels=True,
+        )
