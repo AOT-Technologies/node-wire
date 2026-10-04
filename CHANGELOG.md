@@ -184,7 +184,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   It calls read-only tools only, and a test keeps it that way. With `--otlp-endpoint` its logs,
   traces and metrics fill the `grafana/` dashboard. It ends with the calls by tool and outcome.
-- **`scripts/e2e_toolhive.py`** (local only): builds the ToolHive runbook's eight MCP servers
+- **`scripts/e2e_toolhive.py`** (local only): builds the ToolHive runbook's MCP servers. That's ten
+  scenarios: Petstore and Slack each on a node-wire host (full list, tool search, tenants +
+  configs) and on stacklok (single tenant, tenants + configs). It builds them
   with the `nw` CLI in parallel lanes. Shared wheels are built once, and unchanged packages are
   reused. It deploys each server behind ToolHive under the runbook's workload names, then checks
   the tool listing (`thv mcp list tools`) and the error taxonomy with calls that fail before any

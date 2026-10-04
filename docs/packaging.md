@@ -34,7 +34,7 @@ images and is deliberately absent from the package lists in `publish.yml`,
 `github-release.yml`, and `security-pr.yml`. Do not add it to them. The same applies to
 `node-wire-toolhive`, built only for `nw gen-stacklok` images (`packages/toolhive/`).
 
-**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) (which also builds the unpublished bindings wheel). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
+**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) (which also builds the unpublished bindings wheel); `tests/test_docs_lifecycle.py` fails unless the names here match `ALL_PACKAGES` exactly (no missing rows, no extra rows). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
 
 ---
 

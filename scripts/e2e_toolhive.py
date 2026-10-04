@@ -33,6 +33,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -71,6 +72,7 @@ HOST_PORTS = {
     "slack-web-nw-mcp": 18083,
     "slack-web-nw-mcp-search": 18084,
     "pet-store-nw-mcp-mt": 18085,
+    "slack-web-nw-mcp-mt": 18087,  # 18086: scripts/traffic_petstore.py
 }
 STACKLOK_PORT = 8100  # the stacklok server image
 TENANT_TOOLS = {"nw_list_tenants", "nw_select_tenant", "nw_list_configs", "nw_select_config"}
@@ -598,6 +600,8 @@ SCENARIO_TITLES = {
     "6": "6 Slack stacklok (posting)",
     "7": "7 Petstore host, tenants",
     "8": "8 Petstore stacklok, tenants",
+    "9": "9 Slack host, tenants",
+    "10": "10 Slack stacklok, tenants",
 }
 
 
@@ -838,70 +842,93 @@ def scenario_6(ctx: Context) -> None:
     )
 
 
+TENANT = "acme"
+CONFIGS = ("production", "staging")  # production is the default
+
+
 def _tenants(connector_id: str, block: Dict[str, Any]) -> Dict[str, Any]:
-    """acme: live (default) + sandbox; globex: live."""
+    """Tenant acme with two named configs of ``connector_id``: production (default), staging."""
+
+    settings = {k: v for k, v in block.items() if k not in ("name", "default")}
 
     def cfg(name: str, default: bool = False) -> Dict[str, Any]:
-        return {**block, "name": name, "default": default}
+        # A copy each: shared objects would come out as YAML anchors (&id001 / *id001).
+        return {"name": name, "default": default, **copy.deepcopy(settings)}
 
-    return {
-        "tenants": {
-            "acme": {connector_id: [cfg("live", default=True), cfg("sandbox")]},
-            "globex": {connector_id: [cfg("live", default=True)]},
-        }
-    }
+    return {"tenants": {TENANT: {connector_id: [cfg(CONFIGS[0], default=True), cfg(CONFIGS[1])]}}}
+
+
+_TENANTS_HEADER = """\
+# Tenant acme with two named configs of the same connector: production (the default, used
+# until nw_select_config picks another) and staging. In a real deployment they would differ by
+# credential, and by base_url wherever the API has a separate staging or regional host.
+#
+# Credentials never go in this file:
+#   - node-wire host: NW_ACME_<CONNECTOR>_<CONFIG>_<KEY>, e.g.
+#     NW_ACME_SLACK_WEB_STAGING_SLACK_WEB_ACCESS_TOKEN (or a secrets: block per config);
+#   - stacklok server: ToolHive's proxy for acme forwards the bearer token per request.
+"""
 
 
 def _write_tenants(name: str, doc: Dict[str, Any]) -> Path:
     path = WORK_DIR / name
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
+    path.write_text(_TENANTS_HEADER + yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
     path.chmod(0o644)  # the container user is not the file owner
     return path
 
 
-def scenario_7(ctx: Context) -> None:
-    s, name = SCENARIO_TITLES["7"], "pet-store-nw-mcp-mt"
+def _host_tenants(
+    ctx: Context,
+    key: str,
+    *,
+    name: str,
+    image: str,
+    connector_id: str,
+    token_keys: tuple[str, ...],
+) -> None:
+    """A node-wire host with tenant acme (configs production, staging), in one workload.
+
+    Credentials: the plain ``token_keys`` for the ``__default__`` tenant, which a call uses until
+    ``nw_select_tenant`` (the image's connectors.yaml provides it: docs/architecture/tenancy.md),
+    and ``NW_ACME_<CONNECTOR>_<CONFIG>_<KEY>`` for each config: the one you exported, if any
+    (a separate staging credential), else the shared token.
+    """
+    s = SCENARIO_TITLES[key]
     # The host project's copy: the repo's wiring is restored after the build.
-    host_config = REPO_ROOT / _host_project("pet_store") / "config" / "connectors.yaml"
+    host_config = REPO_ROOT / _host_project(connector_id) / "config" / "connectors.yaml"
     connectors = yaml.safe_load(host_config.read_text(encoding="utf-8"))
     block = {
         k: v
-        for k, v in connectors["connectors"]["pet_store"].items()
+        for k, v in connectors["connectors"][connector_id].items()
         if k not in ("enabled", "exposed_via")
     }
-    tenants = _write_tenants("tenants.host.yaml", _tenants("pet_store", block))
+    tenants = _write_tenants(f"tenants.{name}.yaml", _tenants(connector_id, block))
     env = {
-        **ctx.telemetry(),
+        **_host_env(ctx, *token_keys),
         "NW_MULTITENANCY_ENABLED": "true",
         "NW_TENANTS_PATH": "/app/config/tenants.yaml",
     }
-    for tenant, config in (("ACME", "LIVE"), ("ACME", "SANDBOX"), ("GLOBEX", "LIVE")):
-        for key in ("PET_STORE_API_KEY", "PET_STORE_ACCESS_TOKEN"):
-            if ctx.has(key):
-                env[f"NW_{tenant}_PET_STORE_{config}_{key}"] = ctx.tokens[key]
-    run_host_workload(
-        name,
-        "pet-store-nw-mcp:latest",
-        env,
-        mounts=[f"{tenants}:/app/config/tenants.yaml:ro"],
-    )
+    prefix = connector_id.upper()
+    for config in CONFIGS:
+        for token_key in token_keys:
+            scoped = f"NW_{TENANT.upper()}_{prefix}_{config.upper()}_{token_key}"
+            value = os.environ.get(scoped) or ctx.tokens.get(token_key)
+            if value:
+                env[scoped] = value
+    run_host_workload(name, image, env, mounts=[f"{tenants}:/app/config/tenants.yaml:ro"])
     r = ctx.report
     r.run(
         s,
-        "lists pet_store tools + tenant tools",
-        lambda: _same_tools(listed_tools(name), _host_tools("pet_store") | TENANT_TOOLS),
+        f"lists {connector_id} tools + tenant tools",
+        lambda: _same_tools(listed_tools(name), _host_tools(connector_id) | TENANT_TOOLS),
     )
     url = workload_url(name)
-    # Tenant selection is per process: these run in order on one workload. (Without a selection a
-    # call runs as __default__, which the image's connectors.yaml provides: docs/architecture/
-    # tenancy.md.)
+    # Tenant selection is per process: these run in order on one workload.
     r.run(
         s,
-        "nw_list_tenants: acme, globex",
-        lambda: expect_result(
-            url, "nw_list_tenants", {"connector_id": "pet_store"}, "acme", "globex"
-        ),
+        "nw_list_tenants: acme",
+        lambda: expect_result(url, "nw_list_tenants", {"connector_id": connector_id}, TENANT),
     )
     r.run(
         s,
@@ -917,70 +944,119 @@ def scenario_7(ctx: Context) -> None:
     )
     r.run(
         s,
-        "select acme: configs live, sandbox",
-        lambda: expect_result(url, "nw_select_tenant", {"tenant_id": "acme"}, "live", "sandbox"),
+        "select acme: configs production, staging",
+        lambda: expect_result(url, "nw_select_tenant", {"tenant_id": TENANT}, *CONFIGS),
     )
 
 
-def scenario_8(ctx: Context) -> None:
-    s, container = SCENARIO_TITLES["8"], "petstore-mcp-mt"
-    example = yaml.safe_load(
-        (REPO_ROOT / "nw-stacklok-builder/out/petstore-mcp/config/tenants.example.yaml").read_text()
-    )
-    block = example["tenants"]["example-tenant"]["petstore3"][0]
-    tenants = _write_tenants("tenants.stacklok.yaml", _tenants("petstore3", block))
-    token = ctx.tokens.get("PET_STORE_API_KEY")
+def _stacklok_tenants(
+    ctx: Context,
+    key: str,
+    *,
+    server: str,
+    port: int,
+    connector_id: str,
+    scope: Path,
+    token_var: str,
+    probe: tuple[str, Dict[str, Any]],
+) -> None:
+    """One stacklok container for every tenant, with a ToolHive proxy per tenant (X-Tenant-ID).
+
+    ``probe`` is a tool call for the no-tenant check; it fails before any upstream request.
+    """
+    s, container = SCENARIO_TITLES[key], f"{server}-mt"
+    example_path = REPO_ROOT / "nw-stacklok-builder/out" / server / "config/tenants.example.yaml"
+    example = yaml.safe_load(example_path.read_text(encoding="utf-8"))
+    block = example["tenants"]["example-tenant"][connector_id][0]
+    tenants = _write_tenants(f"tenants.{container}.yaml", _tenants(connector_id, block))
+    token = ctx.tokens.get(token_var)
     url = run_stacklok_container(
         container,
-        "petstore-mcp",
-        18202,
+        server,
+        port,
         require_bearer=bool(token),
         tenants_file=tenants,
         env=ctx.telemetry(),
     )
-    for tenant in ("acme", "globex", None):
-        run_remote_workload(f"petstore-mcp-{tenant or 'notenant'}", url, token=token, tenant=tenant)
+    acme_name, notenant = f"{server}-{TENANT}", f"{server}-notenant"
+    for name, tenant in ((acme_name, TENANT), (notenant, None)):
+        run_remote_workload(name, url, token=token, tenant=tenant)
     r = ctx.report
     r.run(
         s,
         "acme lists the scope's tools + config tools",
-        lambda: _same_tools(
-            listed_tools("petstore-mcp-acme"), _scope_tools(PETSTORE_SCOPE) | CONFIG_TOOLS
-        ),
+        lambda: _same_tools(listed_tools(acme_name), _scope_tools(scope) | CONFIG_TOOLS),
     )
-    acme, globex = workload_url("petstore-mcp-acme"), workload_url("petstore-mcp-globex")
+    acme = workload_url(acme_name)
     r.run(
         s,
-        "acme configs: live, sandbox",
-        lambda: expect_result(acme, "nw_list_configs", {}, "live", "sandbox"),
+        "acme configs: production, staging",
+        lambda: expect_result(acme, "nw_list_configs", {}, *CONFIGS),
     )
-    r.run(s, "globex configs: live only", lambda: _only_live(globex))
     r.run(
         s,
         "select an unknown config",
         lambda: expect_error(
-            acme, "nw_select_config", {"config_name": "staging"}, CONFIG_NOT_FOUND, seen=ctx.seen(s)
+            acme, "nw_select_config", {"config_name": "nightly"}, CONFIG_NOT_FOUND, seen=ctx.seen(s)
         ),
     )
-    r.run(
-        s,
-        "proxy without X-Tenant-ID",
-        lambda: expect_error(
-            workload_url("petstore-mcp-notenant"),
-            "find_pets_by_status",
-            {"status": "available"},
-            MISSING_TENANT,
-            seen=ctx.seen(s),
-        ),
+    try:
+        r.run(
+            s,
+            "proxy without X-Tenant-ID",
+            lambda: expect_error(workload_url(notenant), *probe, MISSING_TENANT, seen=ctx.seen(s)),
+        )
+    finally:
+        # Built only to be refused: left running it looks like a broken server.
+        _remove_workload(notenant)
+
+
+def scenario_7(ctx: Context) -> None:
+    _host_tenants(
+        ctx,
+        "7",
+        name="pet-store-nw-mcp-mt",
+        image="pet-store-nw-mcp:latest",
+        connector_id="pet_store",
+        token_keys=("PET_STORE_API_KEY", "PET_STORE_ACCESS_TOKEN"),
     )
 
 
-def _only_live(url: str) -> Optional[str]:
-    problem = expect_result(url, "nw_list_configs", {}, "live")
-    if problem:
-        return problem
-    _, text = call_tool(url, "nw_list_configs", {})
-    return "globex lists sandbox" if "sandbox" in text else None
+def scenario_8(ctx: Context) -> None:
+    _stacklok_tenants(
+        ctx,
+        "8",
+        server="petstore-mcp",
+        port=18202,
+        connector_id="petstore3",
+        scope=PETSTORE_SCOPE,
+        token_var="PET_STORE_API_KEY",
+        probe=("find_pets_by_status", {"status": "available"}),
+    )
+
+
+def scenario_9(ctx: Context) -> None:
+    _host_tenants(
+        ctx,
+        "9",
+        name="slack-web-nw-mcp-mt",
+        image="slack-web-nw-mcp:latest",
+        connector_id="slack_web",
+        token_keys=("SLACK_WEB_ACCESS_TOKEN",),
+    )
+
+
+def scenario_10(ctx: Context) -> None:
+    _stacklok_tenants(
+        ctx,
+        "10",
+        server="slack-post-mcp",
+        port=18203,
+        connector_id="slack_web",
+        scope=SLACK_SCOPE,
+        token_var="SLACK_WEB_ACCESS_TOKEN",
+        probe=("auth_test", {}),
+    )
 
 
 SCENARIOS: Dict[str, Callable[[Context], None]] = {
@@ -992,6 +1068,8 @@ SCENARIOS: Dict[str, Callable[[Context], None]] = {
     "6": scenario_6,
     "7": scenario_7,
     "8": scenario_8,
+    "9": scenario_9,
+    "10": scenario_10,
 }
 # The build job each scenario's image comes from.
 SCENARIO_IMAGES = {
@@ -1003,6 +1081,8 @@ SCENARIO_IMAGES = {
     "6": "slack_web:stacklok-image",
     "7": "pet_store:image-latest",
     "8": "petstore3:image",
+    "9": "slack_web:image-latest",
+    "10": "slack_web:stacklok-image",
 }
 WORKLOADS = [
     "pet-store-nw-mcp",
@@ -1013,10 +1093,12 @@ WORKLOADS = [
     "slack-post-mcp",
     "pet-store-nw-mcp-mt",
     "petstore-mcp-acme",
-    "petstore-mcp-globex",
     "petstore-mcp-notenant",
+    "slack-web-nw-mcp-mt",
+    "slack-post-mcp-acme",
+    "slack-post-mcp-notenant",
 ]
-CONTAINERS = ["petstore-mcp", "slack-post-mcp", "petstore-mcp-mt"]
+CONTAINERS = ["petstore-mcp", "slack-post-mcp", "petstore-mcp-mt", "slack-post-mcp-mt"]
 
 
 # The OpenTelemetry service.name each scenario's server reports under.
@@ -1029,6 +1111,8 @@ SCENARIO_SERVICES = {
     "3": "petstore-mcp",
     "8": "petstore-mcp",
     "6": "slack-post-mcp",
+    "9": "nw-slack_web",
+    "10": "slack-post-mcp",
 }
 
 
@@ -1158,7 +1242,7 @@ def print_report(report: Report, build: Dict[str, str]) -> bool:
     ok = all(v == "ok" for v in build.values()) and all(r.ok for r in report.results)
     width = max((len(r.scenario) for r in report.results), default=10)
     print()
-    for result in sorted(report.results, key=lambda r: r.scenario):
+    for result in sorted(report.results, key=lambda r: int(r.scenario.split()[0])):
         mark = "PASS" if result.ok else "FAIL"
         line = f"  {mark}  {result.scenario:<{width}}  {result.check}"
         print(line + (f"\n          {result.detail}" if result.detail else ""))
@@ -1173,7 +1257,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--clean", action="store_true", help="remove what this script started")
     parser.add_argument("--jobs", type=int, default=3, help="parallel build jobs (default 3)")
     parser.add_argument(
-        "--scenario", action="append", choices=sorted(SCENARIOS), help="only these (repeatable)"
+        "--scenario",
+        action="append",
+        choices=sorted(SCENARIOS, key=int),
+        help="only these (repeatable)",
     )
     parser.add_argument(
         "--otlp-endpoint",
@@ -1206,7 +1293,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     tokens = {k: os.environ[k] for k in TOKEN_VARS if os.environ.get(k)}
     print("Tokens: " + (", ".join(tokens) or "none (actions are expected to fail)"))
     run_dir = WORK_DIR / "logs" / time.strftime("%Y%m%d-%H%M%S")
-    scenarios = args.scenario or sorted(SCENARIOS)
+    scenarios = sorted(args.scenario or SCENARIOS, key=int)
 
     build: Dict[str, str] = {}
     if not args.skip_build:
@@ -1215,7 +1302,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             build = run_jobs(build_jobs(), workers=args.jobs, log_dir=run_dir)
     ready = [s for s in scenarios if build.get(SCENARIO_IMAGES[s], "ok") == "ok"]
     report = Report()
-    for s in sorted(set(scenarios) - set(ready)):
+    for s in sorted(set(scenarios) - set(ready), key=int):
         report.add(
             SCENARIO_TITLES[s], "build", False, f"{SCENARIO_IMAGES[s]} did not build; see its log"
         )

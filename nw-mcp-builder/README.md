@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Turns a node-wire connector into a standalone MCP host under `out/`.
 
-Auth, telemetry, and connector logic stay in node-wire. The generated project is a thin host: wheels, vendored bindings/runtime/connector sources, config, and env.
+Auth, telemetry, and connector logic stay in node-wire. The generated project is a thin host: runtime, bindings and connector wheels, config, and env. It vendors no node-wire sources; everything is imported from the installed wheels.
 
 | Path | Purpose |
 |------|---------|

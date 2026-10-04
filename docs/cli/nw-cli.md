@@ -103,6 +103,22 @@ When wire is enabled:
 
 - `run_build(..., wire=True)` updates `config/connectors.yaml` and `sample.env`
 - `nw` inserts `packages/connectors/<id>` into `scripts/build-packages.sh`’s `ALL_PACKAGES` list if missing
+- Keeping the connector? Add its row to the [Package inventory](../packaging.md#package-inventory) in `docs/packaging.md`. The first cell is the `project.name` from its `pyproject.toml` in backticks, e.g. `` | `node-wire-<id-dashed>` | `src/node_wire_<id>/` | `<id>` | `` (`<id-dashed>` is defined below). `tests/test_docs_lifecycle.py` fails until that table's names match `ALL_PACKAGES` exactly. For a throwaway connector, pass `--no-wire` or revert the three wire edits listed below. Delete only the lines `gen-all` added; don't `git checkout` the whole file, which also discards any other uncommitted edits in it.
+
+**Where the outputs land.** After a successful run (exit `0`, every stage ✓ in the summary panel), check these paths. `<id-dashed>` is the connector id with `_` replaced by `-` (`pet_store` → `pet-store`).
+
+| Output | Path |
+|--------|------|
+| Connector source | `src/node_wire_<id>/` (`logic.py`, `schema.py`, `README.md`) |
+| Connector package | `packages/connectors/<id>/` (`pyproject.toml`, `setup.py`, `tests/`, `report.json`) |
+| Wheels | `packages/connectors/<id>/dist/node_wire_<id>-*.whl`, plus `packages/runtime/dist/` and `packages/bindings/dist/` (Linux by default) |
+| MCP scope fixture | `nw-mcp-builder/fixtures/<id>_nw.yaml` |
+| MCP host | `nw-mcp-builder/out/<id-dashed>-nw-mcp/` (layout: [nw-mcp-builder: Generated project layout](nw-mcp-builder.md#generated-project-layout)) |
+| Wire edits | `config/connectors.yaml` (new `<id>:` entry), `sample.env` (id added to `NW_ALLOWED_CONNECTORS`, plus the connector's secret names), `scripts/build-packages.sh` (`ALL_PACKAGES` line) |
+
+`--no-wheel`, `--no-mcp` and `--no-wire` skip the matching rows.
+
+**Removing a throwaway connector.** Revert the wire edits as above, then delete the generated paths: `src/node_wire_<id>/` (and `src/node_wire_<id>.egg-info/` if present), `packages/connectors/<id>/`, `nw-mcp-builder/fixtures/<id>_nw.yaml` and `nw-mcp-builder/out/<id-dashed>-nw-mcp/`. Leave `packages/runtime/dist/` and `packages/bindings/dist/` alone; other connectors reuse those wheels.
 
 **Wheel reuse.** Each wheel build stamps the package's `dist/` with a hash of its sources (`.nw-source-<mode>.sha256`). The next `gen-all` rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one `build-packages.sh` run; `--rebuild-wheels` rebuilds everything. Linux wheel builds need Docker: `nw` checks that the daemon answers before starting one, and fails with the reason if it does not.
 
@@ -144,7 +160,7 @@ uv run nw docker-build --connector-id pet_store --tag v1
 uv run nw docker-build --project nw-stacklok-builder/out/petstore-mcp   # a gen-stacklok server
 ```
 
-`--connector-id` finds the projects generated for that connector: the `gen-all` / `gen-mcp` host (`nw-mcp-builder/out/<id>-nw-mcp/`, image `<id>-nw-mcp:<tag>`) and any `gen-stacklok` server in `nw-stacklok-builder/out/` whose `config/connectors.yaml` lists it (image named after its folder, e.g. `petstore-mcp:<tag>`). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. `--project <dir>` builds a project by path instead, for one written outside those folders (`gen-stacklok --output-dir`).
+`--connector-id` finds the projects generated for that connector: the `gen-all` / `gen-mcp` host (`nw-mcp-builder/out/<id-dashed>-nw-mcp/`, image `<id-dashed>-nw-mcp:<tag>`, with `_` in the id replaced by `-`) and any `gen-stacklok` server in `nw-stacklok-builder/out/` whose `config/connectors.yaml` lists it (image named after its folder, e.g. `petstore-mcp:<tag>`). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. `--project <dir>` builds a project by path instead, for one written outside those folders (`gen-stacklok --output-dir`).
 
 Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<hyphenated-id>-nw-mcp/` (e.g. `pet_store` → image `pet-store-nw-mcp:latest`, project dir `…/out/pet-store-nw-mcp/`). `--tag` defaults to `latest`. Pass secrets at **run** time (`docker run --env-file` / `-e`); they are not baked into the image.
 

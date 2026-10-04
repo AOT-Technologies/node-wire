@@ -102,14 +102,14 @@ For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
 1. **Validates** the connector exists under `packages/connectors/<id>` and `src/node_wire_<id>/logic.py`
 2. **Builds wheels** (unless `--skip-build-wheels`):
    - `packages/runtime/dist/node_wire_runtime-*.whl`
+   - `packages/bindings/dist/node_wire_bindings-*.whl`
    - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
    - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-read-this-first))
 3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
    - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source
    - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
 4. **Generates** `out/<server-name>-mcp/` containing:
-   - Copied wheels under `wheels/`
-   - Selective vendored `node-wire/src` → `vendor/node_wire_src` (`bindings`, `node_wire_runtime`, `node_wire_<connector_id>` only; Docker PYTHONPATH parity)
+   - Copied wheels under `wheels/` (runtime, bindings, connector). The host imports everything from these installed wheels; no node-wire source tree is vendored into it
    - `config/connectors.yaml` from the monorepo
    - Thin `__main__.py` that runs `McpServer(connector_ids=[...])`
    - `pyproject.toml`, `README.md`, `Dockerfile`, `.env.example`
@@ -338,16 +338,17 @@ out/google-drive-nw-mcp/
   Dockerfile
   README.md
   .env.example            # NW + connector secret env names
-  wheels/                 # runtime + connector .whl
+  .dockerignore           # whitelist: wheels/, config/connectors.yaml, src/
+  wheels/                 # runtime + bindings + connector .whl
   config/connectors.yaml
-  vendor/node_wire_src/   # bindings + node_wire_runtime + node_wire_<id> only
   src/google_drive_nw_mcp/
+    __init__.py
     __main__.py           # McpServer entrypoint
 ```
 
 ### Environment variables (generated host)
 
-Every generated thin host prefers **process environment** (ToolHive secrets, Docker `-e`, K8s). If `out/<name>-mcp/.env` exists, it fills **unset** keys only (`override=False`). It does **not** load the node-wire monorepo or cwd `.env`. Vendored MCP/REST dotenv merge is disabled via `NW_REST_LOAD_DOTENV=false`. A missing project `.env` is OK when secrets/env are already injected.
+Every generated thin host prefers **process environment** (ToolHive secrets, Docker `-e`, K8s). If `out/<name>-mcp/.env` exists, it fills **unset** keys only (`override=False`). It does **not** load the node-wire monorepo or cwd `.env`. The bindings' own MCP/REST dotenv merge is disabled via `NW_REST_LOAD_DOTENV=false`. A missing project `.env` is OK when secrets/env are already injected.
 
 Set these in `.env` (start from `.env.example`):
 
@@ -386,7 +387,7 @@ docker build -t salesforce-nw-mcp .
 docker run --rm --env-file .env -p 8081:8081 salesforce-nw-mcp
 ```
 
-The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host — no vendored `src/` on `PYTHONPATH`. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. `PYTHONPATH=/app/src` and `python -m <module>` are the entrypoint. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use.
+The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host package (`src/<module>/`, copied to `/app/src` and put on `PYTHONPATH=/app/src`; the entrypoint is `python -m <module>`). No node-wire source tree is vendored: runtime, bindings and connector come only from the installed wheels. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use.
 
 `--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
 
@@ -420,7 +421,7 @@ A generated host is a thin wrapper around the same `McpServer`, so it has the sa
 set `NW_MULTITENANCY_ENABLED=true` and provide `NW_TENANTS_PATH` (see the
 [environment table](#environment-variables-generated-host)). Tenant resolution per transport, the
 `nw_*` tenant/config tools and the ToolHive recipe are in [Tenancy](../architecture/tenancy.md).
-After upgrading node-wire, regenerate and rebuild the host so its vendored bindings pick up the
+After upgrading node-wire, regenerate and rebuild the host so its bundled bindings wheel picks up the
 current tools.
 
 ---
