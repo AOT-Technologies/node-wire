@@ -8,16 +8,15 @@ SPDX-License-Identifier: Apache-2.0
 
 `nw` is the unified CLI for turning an OpenAPI spec into a connector, wheels, an MCP host, and a Docker image. `gen-all` runs connector → wheel → MCP host → wire; the image is a separate `docker-build` step. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](../packaging.md), and [`nw-mcp-builder`](nw-mcp-builder.md) without replacing those tools.
 
-ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. For manual ToolHive registration and the end-to-end agent path, see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
+ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. To run the image and check it lists its tools, see [nw-mcp-builder: Docker](nw-mcp-builder.md#docker). For manual ToolHive registration and the end-to-end agent path, see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
 
 ---
 
 ## Install
 
-`nw-cli` is part of the monorepo **dev** dependency group. From the **node-wire** repo root (hard assumption — there is no `--node-wire-root` flag):
+`nw-cli` is part of the monorepo **dev** dependency group, so the dev install from [Installation](../installation.md#3-install-dependencies) provides it. Then, from the **node-wire** repo root (hard assumption — there is no `--node-wire-root` flag):
 
 ```bash
-uv sync
 uv run nw --help
 uv run nw --version   # or -V
 ```
@@ -49,13 +48,19 @@ uv run nw gen-all \
   --path path/to/openapi.yaml
 ```
 
+**Trial run, or keeping the connector?** By default `gen-all` wires the connector into `config/connectors.yaml`, `sample.env` and `scripts/build-packages.sh`. From then on `tests/test_docs_lifecycle.py` fails until the connector has a [Package inventory](../packaging.md#package-inventory) row (see [When wire is enabled](#when-wire-is-enabled)).
+
+- **Keeping it:** add the inventory row.
+- **Trial that stops before the MCP host:** add `--no-wire --no-mcp`. You get the connector and wheels, and nothing is registered.
+- **Trial through `docker-build`:** keep wiring on. The MCP host is built from the connector's `config/connectors.yaml` entry, so `--no-wire` without `--no-mcp` fails at the MCP stage with `<id> is not in config/connectors.yaml; wire it in first`. When you are done, follow [Removing a throwaway connector](#removing-a-throwaway-connector).
+
 | Flag | Effect |
 |------|--------|
 | `--connector-id` | Connector id (required) |
 | `--path` | OpenAPI/Swagger file or URL (required) |
 | `--no-wheel` | Skip wheel build; the MCP host bundles the wheels already in `dist/` (checked before codegen starts) |
 | `--no-mcp` | Skip MCP host build |
-| `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration |
+| `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration. The MCP stage needs the `connectors.yaml` entry, so combine with `--no-mcp` unless the connector is already wired |
 | `--force` | Overwrite existing connector / MCP output |
 | `--rebuild-wheels` | Rebuild every wheel, even those whose sources are unchanged |
 | `--tool-search` | MCP host serves tools through `nw_search_tools` + `nw_call_tool` (no prompt) |
@@ -99,11 +104,11 @@ flowchart TD
 
 Stages are **in-process** function calls (never re-invokes `nw`). Connector codegen always passes `no_mcp=True` to `run_build` so the builder’s host-only MCP hand-off is skipped; MCP uses `skip_build_wheels=True` against wheels from `build-packages.sh`.
 
-When wire is enabled:
+#### When wire is enabled
 
 - `run_build(..., wire=True)` updates `config/connectors.yaml` and `sample.env`
 - `nw` inserts `packages/connectors/<id>` into `scripts/build-packages.sh`’s `ALL_PACKAGES` list if missing
-- Keeping the connector? Add its row to the [Package inventory](../packaging.md#package-inventory) in `docs/packaging.md`. The first cell is the `project.name` from its `pyproject.toml` in backticks, e.g. `` | `node-wire-<id-dashed>` | `src/node_wire_<id>/` | `<id>` | `` (`<id-dashed>` is defined below). `tests/test_docs_lifecycle.py` fails until that table's names match `ALL_PACKAGES` exactly. For a throwaway connector, pass `--no-wire` or revert the three wire edits listed below. Delete only the lines `gen-all` added; don't `git checkout` the whole file, which also discards any other uncommitted edits in it.
+- Keeping the connector? Add its row to the [Package inventory](../packaging.md#package-inventory) in `docs/packaging.md`. The first cell is the `project.name` from its `pyproject.toml` in backticks, e.g. `` | `node-wire-<id-dashed>` | `src/node_wire_<id>/` | `<id>` | `` (`<id-dashed>` is defined below). `tests/test_docs_lifecycle.py` fails until that table's names match `ALL_PACKAGES` exactly. For a throwaway connector, revert the three wire edits listed below once you are done (or pass `--no-wire --no-mcp` up front if you don't need the MCP host). Undo only what `gen-all` changed (`git diff config/connectors.yaml sample.env scripts/build-packages.sh` shows it): delete the added `<id>:` block, the `ALL_PACKAGES` line and the `<ID>_*` secret lines with their comment, and remove `,<id>` from the existing `NW_ALLOWED_CONNECTORS` line. Don't `git checkout` the whole file, which also discards any other uncommitted edits in it.
 
 **Where the outputs land.** After a successful run (exit `0`, every stage ✓ in the summary panel), check these paths. `<id-dashed>` is the connector id with `_` replaced by `-` (`pet_store` → `pet-store`).
 
@@ -118,7 +123,9 @@ When wire is enabled:
 
 `--no-wheel`, `--no-mcp` and `--no-wire` skip the matching rows.
 
-**Removing a throwaway connector.** Revert the wire edits as above, then delete the generated paths: `src/node_wire_<id>/` (and `src/node_wire_<id>.egg-info/` if present), `packages/connectors/<id>/`, `nw-mcp-builder/fixtures/<id>_nw.yaml` and `nw-mcp-builder/out/<id-dashed>-nw-mcp/`. Leave `packages/runtime/dist/` and `packages/bindings/dist/` alone; other connectors reuse those wheels.
+#### Removing a throwaway connector
+
+Revert the wire edits as above, then delete the generated paths: `src/node_wire_<id>/` (and `src/node_wire_<id>.egg-info/` if present), `packages/connectors/<id>/`, `nw-mcp-builder/fixtures/<id>_nw.yaml` and `nw-mcp-builder/out/<id-dashed>-nw-mcp/`. Leave `packages/runtime/dist/` and `packages/bindings/dist/` alone; other connectors reuse those wheels. If you ran `nw docker-build`, also remove the image: `docker rmi <id-dashed>-nw-mcp:latest`.
 
 **Wheel reuse.** Each wheel build stamps the package's `dist/` with a hash of its sources (`.nw-source-<mode>.sha256`). The next `gen-all` rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one `build-packages.sh` run; `--rebuild-wheels` rebuilds everything. Linux wheel builds need Docker: `nw` checks that the daemon answers before starting one, and fails with the reason if it does not.
 
@@ -162,7 +169,7 @@ uv run nw docker-build --project nw-stacklok-builder/out/petstore-mcp   # a gen-
 
 `--connector-id` finds the projects generated for that connector: the `gen-all` / `gen-mcp` host (`nw-mcp-builder/out/<id-dashed>-nw-mcp/`, image `<id-dashed>-nw-mcp:<tag>`, with `_` in the id replaced by `-`) and any `gen-stacklok` server in `nw-stacklok-builder/out/` whose `config/connectors.yaml` lists it (image named after its folder, e.g. `petstore-mcp:<tag>`). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. `--project <dir>` builds a project by path instead, for one written outside those folders (`gen-stacklok --output-dir`).
 
-Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<hyphenated-id>-nw-mcp/` (e.g. `pet_store` → image `pet-store-nw-mcp:latest`, project dir `…/out/pet-store-nw-mcp/`). `--tag` defaults to `latest`. Pass secrets at **run** time (`docker run --env-file` / `-e`); they are not baked into the image.
+Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<hyphenated-id>-nw-mcp/` (e.g. `pet_store` → image `pet-store-nw-mcp:latest`, project dir `…/out/pet-store-nw-mcp/`). `--tag` defaults to `latest`. Pass secrets at **run** time (`docker run --env-file` / `-e`); they are not baked into the image. To run the image and verify it, follow [nw-mcp-builder: Docker](nw-mcp-builder.md#docker) — the container needs `NW_MCP_HOST=0.0.0.0` to be reachable.
 
 If the MCP project directory is missing, one TTY / non-TTY prompt offers to generate it first (with any missing wheels), then builds the image; without a terminal it exits with `nw gen-mcp --connector-id <id>` as the fix. Docker must be running: `nw` checks before building.
 

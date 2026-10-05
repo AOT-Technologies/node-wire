@@ -47,11 +47,11 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 | File / area | Purpose |
 |---|---|
 | `src/node_wire_<name>/` | `__init__.py` (required, may be empty), `schema.py`, `logic.py` (with optional `error_map`), optional `action_spec.py`, `README.md` |
-| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
+| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install. `uv run` rebuilds the editable install on its next call once `pyproject.toml` changes. If you run `.venv/bin/python` or an activated venv directly, run `uv sync` first or the new entry point is not visible. |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
 | [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets, and the connector id added to the `NW_ALLOWED_CONNECTORS` line |
 | [Connector catalog](connector-reference.md#connector-catalog) | Add an entry with the same fields as the others |
-| Tests | e.g. `tests/test_connectors_basic.py`, registry tests |
+| Tests | `tests/test_<name>.py`. At minimum, assert three things: the connector instantiates with its `connector_id`, `nw_action_metas()` lists the expected actions, and `auto_register()` (with `NW_ALLOWED_CONNECTORS` set) imports your `logic` module. [Example](connectors-build.md#minimal-http-connector-end-to-end), and see `tests/test_connectors_basic.py`. Run the suite as in [Code quality — Tests](code-quality-compliance.md#tests). |
 
 `auto_register()` discovers the connector via the entry point — no factory branch required.
 

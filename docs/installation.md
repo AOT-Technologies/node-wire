@@ -13,8 +13,9 @@ SPDX-License-Identifier: Apache-2.0
 | Python | 3.13+ | Required to run the platform |
 | `uv` or `pip` | Latest | `uv` is recommended for local development |
 | Git | Any recent version | Required to clone the repository |
-| Docker | Latest | Required for MCP server image builds and `docker-compose.mcp.yml` |
+| Docker | Latest | Required for MCP server image builds, Linux wheel builds (cibuildwheel, installed by the `dev` group) and `docker-compose.mcp.yml` |
 | Node.js | Any LTS | Only needed for MCP Inspector |
+| Claude Code | Latest | Only needed for `nw gen-stacklok --path` (Phase 1 AI scoping); `claude` on `PATH`. See [stacklok MCP servers](stacklok-mcp-servers.md) |
 
 ---
 
@@ -91,13 +92,14 @@ Node Wire supports REST, gRPC, and MCP entry modes:
 
 ```bash
 # Bash (Linux/macOS)
-export NW_REST_AUTH_DISABLED=true   # local development only
+export NW_REST_AUTH_DISABLED=true        # local development only
+export NW_MCP_SCOPE_POLICY_DEFAULT=allow  # .env sets deny; with auth off there is no caller scope
 MODE=API uv run node-wire           # or: MODE=API python -m bindings_entrypoint
 ```
 
 ```powershell
 # PowerShell (Windows)
-$env:NW_REST_AUTH_DISABLED="true"; $env:MODE="API"; uv run node-wire
+$env:NW_REST_AUTH_DISABLED="true"; $env:NW_MCP_SCOPE_POLICY_DEFAULT="allow"; $env:MODE="API"; uv run node-wire
 ```
 
 Once it is running:
@@ -105,6 +107,7 @@ Once it is running:
 - Health check: `GET http://localhost:8000/health`
 - Swagger UI: `http://localhost:8000/docs`
 - Playground: `http://localhost:8000/playground/`
+- Call an action: `POST http://localhost:8000/connectors/<id>/<action>` with the action's fields as the JSON body (the connector must be in `NW_ALLOWED_CONNECTORS` in `.env`). Keeping auth on instead? Use an API key with scopes, see [Build a connector — Security](connectors-build.md#security-rest-plugins-secrets).
 
 `MODE=MCP` is not a working server. Run MCP with `python -m agents.mcp_entrypoint` ([MCP overview](mcp.md)).
 
@@ -129,5 +132,7 @@ For MCP transport modes, Inspector usage, and multi-server deployment:
 ## Development Setup
 
 Lint, type-check, test and pre-commit commands are in [Code quality](code-quality-compliance.md).
+The `.env` you created in [Configure](#2-configure) affects `pytest`. Move it aside before you run the
+suite, as [Code quality — Tests](code-quality-compliance.md#tests) explains.
 Contribution rules (DCO, license headers, PRs) are in
 [`CONTRIBUTING.md`](https://github.com/AOT-Technologies/node-wire/blob/main/CONTRIBUTING.md).

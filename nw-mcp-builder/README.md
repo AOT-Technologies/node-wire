@@ -77,9 +77,11 @@ NW_MCP_TRANSPORT=stdio uv run python -m <module_name>
 A project `.env` is local-only (never copied into Docker). For the image, pass secrets at run time:
 
 ```bash
-docker build -t <module_name> .
-docker run --rm --env-file .env -p 8081:8081 <module_name>
+docker build -t <name>-mcp .   # the tag `nw docker-build` uses
+docker run --rm --env-file .env -e NW_MCP_HOST=0.0.0.0 -p 8081:8081 <name>-mcp
 ```
+
+`NW_MCP_HOST=0.0.0.0` is required in a container: the server binds loopback by default, so the published port resets connections without it. To check the running container answers and lists its tools, see [docs/cli/nw-mcp-builder.md — Verify the running container](../docs/cli/nw-mcp-builder.md#verify-the-running-container).
 
 `<name>-mcp` / `<module_name>` come from the connector id (underscores → hyphens in the folder name, e.g. `google_drive` → `out/google-drive-nw-mcp`, module `google_drive_nw_mcp`).
 
