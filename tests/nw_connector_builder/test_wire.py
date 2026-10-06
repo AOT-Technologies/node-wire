@@ -232,11 +232,12 @@ def test_wiring_replaces_files_whole_and_keeps_their_mode(tmp_path: Path) -> Non
     cfg.write_text("connectors: {}\n", encoding="utf-8")
     cfg.chmod(0o644)
     before = env.stat().st_ino, cfg.stat().st_ino
+    modes = env.stat().st_mode, cfg.stat().st_mode  # Windows only keeps the read-only bit
 
     wire_sample_env(env, "pet_store", secret_keys=["PET_STORE_API_KEY"])
     wire_connectors_yaml(cfg, "pet_store", base_url="https://x", auth_block=None)
 
     assert (env.stat().st_ino, cfg.stat().st_ino) != before  # renamed into place, not rewritten
-    assert env.stat().st_mode & 0o777 == 0o644 and cfg.stat().st_mode & 0o777 == 0o644
+    assert (env.stat().st_mode, cfg.stat().st_mode) == modes
     assert sorted(p.name for p in tmp_path.iterdir()) == ["connectors.yaml", "sample.env"]
     assert "pet_store" in env.read_text(encoding="utf-8")

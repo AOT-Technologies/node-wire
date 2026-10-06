@@ -238,9 +238,13 @@ def test_an_error_outside_any_stage_is_in_the_panel(tmp_path: Path) -> None:
     progress = GenerateProgress(
         stages=[Stage("a", "Alpha")], console=Console(file=out, force_terminal=False, width=100)
     )
+
+    def fail() -> None:
+        raise StageError("Kept out/demo-mcp; pass --output-dir")
+
     with pytest.raises(ReportedError) as raised:
         with progress:
-            raise StageError("Kept out/demo-mcp; pass --output-dir")
+            fail()
     assert raised.value.exit_code == 1
     assert "Kept out/demo-mcp" in out.getvalue()
 

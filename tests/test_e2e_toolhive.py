@@ -93,9 +93,9 @@ def test_gen_stacklok_waits_for_the_host_builds_of_its_connector() -> None:
     ("text", "expected"),
     [
         (
-            "Error executing tool find_pets_by_status: TENANT_REQUIRED [AUTH]: X-Tenant-ID is "
+            "Error executing tool find_pets_by_status: MISSING_TENANT [AUTH]: X-Tenant-ID is "
             "required (trace_id=3b5d519f-7a6f-439b-937d-12615e0706e6)",
-            e2e.Taxonomy("TENANT_REQUIRED", "AUTH", "3b5d519f-7a6f-439b-937d-12615e0706e6"),
+            e2e.Taxonomy("MISSING_TENANT", "AUTH", "3b5d519f-7a6f-439b-937d-12615e0706e6"),
         ),
         (
             "Error executing tool nw_select_config: CONFIG_NOT_FOUND [BUSINESS]: Unknown config",

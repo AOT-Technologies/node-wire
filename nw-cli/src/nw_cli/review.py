@@ -152,7 +152,11 @@ def scope_details(scoped: StacklokScope, *, node_wire_root: Path, summary: Path)
 
 def _editor() -> list[str] | None:
     command = os.environ.get("VISUAL") or os.environ.get("EDITOR")
-    return shlex.split(command) if command else None
+    if not command:
+        return None
+    if os.name == "nt":  # POSIX splitting would eat the backslashes in C:\... paths
+        return [part.strip('"') for part in shlex.split(command, posix=False)]
+    return shlex.split(command)
 
 
 def _edit(console: Console, scope_file: Path) -> None:

@@ -274,7 +274,12 @@ def main(argv: list[str] | None = None) -> int:
         if not sys.stdin.isatty():
             print("error: no terminal to confirm; pass --yes", file=sys.stderr)
             return 1
-        if input("Proceed? [y/N] ").strip().lower() not in ("y", "yes"):
+        try:
+            answer = input("Proceed? [y/N] ")
+        except EOFError:  # Windows reports NUL as a terminal
+            print("\nerror: no terminal to confirm; pass --yes", file=sys.stderr)
+            return 1
+        if answer.strip().lower() not in ("y", "yes"):
             print("Nothing removed.")
             return 1
     for plan in plans.values():

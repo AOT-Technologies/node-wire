@@ -8,7 +8,7 @@
 Sends ``Authorization: Bearer`` + ``X-Tenant-ID`` like ToolHive, then checks:
   - tools/list is exactly the scope's tools plus nw_list_configs / nw_select_config;
   - one read-only tool call succeeds against the tenant's upstream API;
-  - a call without X-Tenant-ID is a tool error (TENANT_REQUIRED);
+  - a call without X-Tenant-ID is a tool error (MISSING_TENANT);
   - a request without a bearer token is rejected with 401.
 
 Usage:
@@ -68,8 +68,8 @@ def main() -> int:
         result = no_tenant.rpc(
             "tools/call", {"name": args.tool, "arguments": json.loads(args.arguments)}
         )["result"]
-        if not result.get("isError") or "TENANT_REQUIRED" not in result["content"][0]["text"]:
-            failures.append("a call without X-Tenant-ID was not rejected with TENANT_REQUIRED")
+        if not result.get("isError") or "MISSING_TENANT" not in result["content"][0]["text"]:
+            failures.append("a call without X-Tenant-ID was not rejected with MISSING_TENANT")
 
         status = client.post(
             args.url, headers={**ACCEPT, "X-Tenant-ID": args.tenant}, content="{}"

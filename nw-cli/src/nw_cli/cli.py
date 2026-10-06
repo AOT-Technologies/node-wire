@@ -864,8 +864,8 @@ def gen_stacklok(
                     rescope=_scoping,
                 ),
             )
-            if decision.generate:
-                project = _stacklok_phase3(
+            project = (
+                _stacklok_phase3(
                     progress,
                     node_wire_root,
                     scope_file,
@@ -875,9 +875,12 @@ def gen_stacklok(
                     no_lock,
                     reviewed=True,
                 )
-            else:
+                if decision.generate
+                else None
+            )
+            if project is None:
                 progress.mark_stopped("review")
-        if not decision.generate:
+        if project is None:
             ui.next_steps(
                 [
                     ui.Step(

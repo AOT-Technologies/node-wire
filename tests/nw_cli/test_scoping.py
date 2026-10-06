@@ -117,7 +117,10 @@ def test_runs_claude_headless_and_returns_the_scope(
     assert "Bash(uv run mcp-builder:*)" in args and set(ALLOWED_TOOLS) <= set(args)
     # Edits only inside the work dir: the spec is untrusted and must not reach .claude/.
     assert "Write" not in args and "Edit" not in args
-    assert [a for a in args if a.startswith("Edit(")] == [f"Edit(/{work.resolve().as_posix()}/**)"]
+    path = work.resolve().as_posix()
+    if path[1:2] == ":":  # Claude Code matches C:\x as /c/x
+        path = f"/{path[0].lower()}{path[2:]}"
+    assert [a for a in args if a.startswith("Edit(")] == [f"Edit(/{path}/**)"]
     assert args[args.index("--model") + 1] == "claude-opus-5-5"
     assert (root / ".claude" / "skills" / "ai-scoping").is_symlink()
 

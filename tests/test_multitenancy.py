@@ -375,7 +375,8 @@ def test_rest_fail_closed_returns_indistinguishable_403(monkeypatch: pytest.Monk
     # Same body: the internal reason is never leaked, so names cannot be enumerated. Only the
     # trace_id differs, and it is random per call.
     scope_body, name_body = unknown_scope.json(), unknown_name.json()
-    assert scope_body.pop("trace_id") != name_body.pop("trace_id")
+    scope_trace, name_trace = scope_body.pop("trace_id"), name_body.pop("trace_id")
+    assert scope_trace != name_trace
     assert scope_body == name_body
     assert scope_body["error_code"] == "CONFIG_NOT_FOUND"
     assert "secret internals" not in unknown_scope.text

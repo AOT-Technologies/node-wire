@@ -17,7 +17,7 @@ import yaml
 from rich.console import Console
 
 from nw_cli.progress import GenerateProgress, Stage
-from nw_cli.review import ReviewDecision, attention_items, review_scope
+from nw_cli.review import ReviewDecision, _editor, attention_items, review_scope
 from nw_cli.stacklok import ScopeCheck
 from nw_cli.stages import StageError
 
@@ -143,6 +143,12 @@ def test_edit_then_review_again(
     assert decision.generate
     assert scope_file.read_text().endswith("# edited\n")
     assert len(asked) == 2 and text.count("Phase 2: review the scope") == 2
+
+
+def test_editor_keeps_windows_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VISUAL", r'"C:\Program Files\Code\code.exe" --wait')
+    with patch("nw_cli.review.os.name", "nt"):
+        assert _editor() == [r"C:\Program Files\Code\code.exe", "--wait"]
 
 
 def test_redo_passes_feedback_and_keeps_the_scope_when_it_fails(

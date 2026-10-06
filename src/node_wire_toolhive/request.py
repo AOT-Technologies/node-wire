@@ -65,9 +65,8 @@ def from_tenant_proxy() -> bool:
         return True
     if expected == PROXY_SECRET_PLACEHOLDER:
         logger.error(
-            "%s is still the generated placeholder; rejecting every tenant request. "
-            "Set a random value in proxy-secret.yaml (e.g. `openssl rand -hex 32`).",
-            PROXY_SECRET_ENV,
+            "NW_PROXY_SECRET is still the generated placeholder; rejecting every tenant request. "
+            "Set a random value in proxy-secret.yaml (e.g. `openssl rand -hex 32`)."
         )
         return False
     headers = request_headers()

@@ -128,7 +128,7 @@ def test_dry_run_removes_nothing(root: Path) -> None:
     _generate(root, "pet_store", "petstore")
     result = _run(root, "pet_store", "--dry-run")
     assert result.returncode == 0, result.stderr
-    assert "remove  src/node_wire_pet_store" in result.stdout
+    assert f"remove  {Path('src/node_wire_pet_store')}" in result.stdout
     assert (root / "src" / "node_wire_pet_store").is_dir()
 
 
