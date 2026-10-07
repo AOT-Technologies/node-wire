@@ -16,6 +16,7 @@ Only need to call a connector that already ships? Start at [Use a connector](con
 |---|---|
 | Understand the contract every connector implements | [How connectors work](#how-connectors-work) |
 | Write a new connector by hand | [Write a connector step by step](#write-a-connector-step-by-step) |
+| Copy a complete, minimal HTTP connector | [Minimal HTTP connector, end to end](#minimal-http-connector-end-to-end) |
 | Wire up credentials | [Authentication](#authentication) |
 | Ship it | [Operations](#operations) |
 
@@ -79,7 +80,7 @@ The production **Google Drive** connector (`src/node_wire_google_drive/`) is a g
 
 ### Step 1 — Define your schemas (`schema.py`)
 
-Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. Those models are combined into a **discriminated union** (and often wrapped in `RootModel` for a single top-level validator), which the runtime uses to pick the correct handler.
+Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. You do **not** have to build the union yourself. When your class is defined, `BaseConnector` collects each action's input model and builds the discriminated union on `action` for you, wrapped in a `RootModel`. It finds that model from the `params` type hint of an `@nw_action` method, or from `input_model` on an `SdkActionSpec`. If the connector has only one action, the `RootModel` wraps that single model directly. Google Drive also exports its own `GoogleDriveOperationInput` union, shown below. That is optional: its tests use it, but the runtime does not.
 
 ```python
 # src/node_wire_google_drive/schema.py (conceptual excerpt)
@@ -132,7 +133,7 @@ class GoogleDriveOperationOutput(BaseModel):
 
 Use `dict | list` for `raw` when vendor APIs return arrays (e.g. list endpoints); Pydantic validates either shape. Per-action output models can use typed fields instead of a shared envelope.
 
-When a connector only has **one** action, the `action` field is still required — the runtime always validates through the discriminated union.
+When a connector has only **one** action, its model still needs the `action` field. Dispatch reads `action` from the validated input to pick the handler. Give it a default (`action: Literal["send"] = "send"`) so callers can leave it out. REST fills it in from the URL path anyway.
 
 ### Step 2 — Map operations to the SDK (`action_spec.py`)
 
@@ -269,7 +270,7 @@ connectors:
 
 ### Step 5 — Auto-registration (nothing extra needed)
 
-`BaseConnector.__init_subclass__` registers your class in the global registry as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.**
+`BaseConnector.__init_subclass__` registers your class in the global registry as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.** The one thing `auto_register()` does need is a `node_wire.connectors` entry point that names your `logic` module, plus the connector id in `NW_ALLOWED_CONNECTORS`. See the Root `pyproject.toml` row in [Packaging — Tier 1](packaging.md#tier-1-runtime-dev-always-required).
 
 ### Optional: `error_map` for ErrorMapper
 
@@ -343,6 +344,150 @@ class SmsConnector(BaseConnector):
         api_key = self.secret_provider.get_secret("sms_api_key")
         # ... call SMS vendor API ...
         return SmsSendOutput(message_sid="SM123", status="queued")
+```
+
+---
+
+### Minimal HTTP connector, end to end
+
+A complete, runnable `httpx` connector against the public [JSONPlaceholder](https://jsonplaceholder.typicode.com) API. It has no auth, two actions and no SDK. Copy it as the starting point for a hand-written HTTP connector. Add an empty `src/node_wire_jsonplaceholder/__init__.py` alongside these two files.
+
+```python
+# src/node_wire_jsonplaceholder/schema.py
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class PostsGetInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: Literal["posts.get"] = "posts.get"
+    post_id: int = Field(ge=1)
+
+
+class PostsListInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: Literal["posts.list"] = "posts.list"
+    user_id: int | None = None
+
+
+class JsonPlaceholderOutput(BaseModel):
+    status_code: int
+    raw: dict | list
+```
+
+```python
+# src/node_wire_jsonplaceholder/logic.py
+from __future__ import annotations
+
+import os
+from typing import ClassVar
+
+import httpx
+
+from node_wire_runtime import BaseConnector, nw_action
+from node_wire_runtime.models import ErrorCategory
+
+from .schema import JsonPlaceholderOutput, PostsGetInput, PostsListInput
+
+BASE_URL = os.environ.get("JSONPLACEHOLDER_BASE_URL", "https://jsonplaceholder.typicode.com")
+
+
+class JsonPlaceholderConnector(BaseConnector):
+    connector_id = "jsonplaceholder"
+    output_model = JsonPlaceholderOutput
+
+    error_map: ClassVar[dict[type[BaseException], tuple[ErrorCategory, str]]] = {
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "JSONPLACEHOLDER_TIMEOUT"),
+        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "JSONPLACEHOLDER_HTTP_ERROR"),
+    }
+
+    async def _get(self, path: str, params: dict | None = None) -> JsonPlaceholderOutput:
+        headers = await self.get_auth_headers()  # {} with the default NoAuthProvider
+        async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
+            resp = await client.get(path, params=params, headers=headers)
+            resp.raise_for_status()
+        return JsonPlaceholderOutput(status_code=resp.status_code, raw=resp.json())
+
+    @nw_action("posts.get")
+    async def posts_get(self, params: PostsGetInput, *, trace_id: str) -> JsonPlaceholderOutput:
+        return await self._get(f"/posts/{params.post_id}")
+
+    @nw_action("posts.list")
+    async def posts_list(self, params: PostsListInput, *, trace_id: str) -> JsonPlaceholderOutput:
+        query = {"userId": params.user_id} if params.user_id is not None else None
+        return await self._get("/posts", params=query)
+```
+
+Wire it up:
+
+```toml
+# pyproject.toml (repo root), under the existing table
+[project.entry-points."node_wire.connectors"]
+jsonplaceholder = "node_wire_jsonplaceholder.logic"
+```
+
+```yaml
+# config/connectors.yaml, under connectors:
+  jsonplaceholder:
+    enabled: true
+    exposed_via:
+      - rest
+      - mcp
+    # auth: not set, so the connector uses NoAuthProvider
+```
+
+For the REST, MCP and gRPC servers, also add `jsonplaceholder` to `NW_ALLOWED_CONNECTORS` in `.env`.
+
+Try it in-process. A plain script does not read `.env`, so it sets `NW_ALLOWED_CONNECTORS` itself. The scope policy denies callers that have no identity by default (see [Security](#security-rest-plugins-secrets)), so the script also sets it to `allow`:
+
+```python
+# try_jsonplaceholder.py: a throwaway script, run with `uv run python try_jsonplaceholder.py`
+import asyncio
+import os
+
+os.environ["NW_ALLOWED_CONNECTORS"] = "jsonplaceholder"
+os.environ.setdefault("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+
+from bindings.factory import ConnectorFactory
+from node_wire_runtime.connector_registry import auto_register
+
+
+async def main() -> None:
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()
+    connector = await factory.get("jsonplaceholder")
+    resp = await connector.run({"action": "posts.get", "post_id": 1})
+    print(resp.success, resp.data["raw"]["title"])
+
+
+asyncio.run(main())
+```
+
+A 404 comes back as `success=False` with `error_code="JSONPLACEHOLDER_HTTP_ERROR"`, from `error_map`. `post_id=0` returns `VALIDATION_ERROR`. Over REST the action comes from the path: `POST /connectors/jsonplaceholder/posts.get` with body `{"post_id": 1}`.
+
+A minimal test covers instantiation, the action registry and entry-point registration:
+
+```python
+# tests/test_jsonplaceholder.py
+from node_wire_jsonplaceholder.logic import JsonPlaceholderConnector
+from node_wire_runtime import BaseConnector
+from node_wire_runtime.connector_registry import auto_register
+
+
+def test_instantiates_with_its_actions():
+    connector = JsonPlaceholderConnector()
+    assert connector.connector_id == "jsonplaceholder"
+    assert set(connector.nw_action_metas()) == {"posts.get", "posts.list"}
+
+
+def test_entry_point_auto_registers(monkeypatch):
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "jsonplaceholder")
+    assert "node_wire_jsonplaceholder.logic" in auto_register()
+    assert BaseConnector.get_registry()["jsonplaceholder"] is JsonPlaceholderConnector
 ```
 
 ---

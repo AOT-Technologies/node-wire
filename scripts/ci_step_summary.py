@@ -13,6 +13,7 @@ is distinct from a failed scan.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import re
@@ -266,6 +267,10 @@ def main(argv: list[str] | None = None) -> None:
     sarif.set_defaults(func=cmd_sarif)
 
     args = parser.parse_args(argv)
+    # Windows runners default stdout to cp1252; test names and messages can be any Unicode.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     args.func(args)
 
 

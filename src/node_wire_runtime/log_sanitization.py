@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import contextvars
 import logging
+import re
 from typing import Any, Optional
 
 import httpx
+
+from .http_safety import sanitize_url_for_log
 
 REDACTED = "***REDACTED***"
 
@@ -25,6 +28,20 @@ _SENSITIVE_SUBSTRINGS = {
     "encounter",
     "resourceid",
 }
+
+# Credential-bearing keys. Matched like _SENSITIVE_SUBSTRINGS, except numbers are kept so
+# usage counts (``prompt_tokens``, ``total_tokens``) still log.
+_SECRET_SUBSTRINGS = {
+    "token",
+    "authorization",
+    "apikey",
+    "bearer",
+    "cookie",
+    "credential",
+}
+
+_URL_RE = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^\s'\"<>]+")
+_BEARER_RE = re.compile(r"\b(bearer)\s+[A-Za-z0-9\-._~+/]+=*", re.IGNORECASE)
 
 _ALWAYS_REDACT_KEYS = frozenset(
     {
@@ -41,7 +58,7 @@ _ALWAYS_REDACT_KEYS = frozenset(
     }
 )
 
-_LOG_RECORD_STANDARD_KEYS = frozenset(
+LOG_RECORD_STANDARD_KEYS = frozenset(
     {
         "name",
         "msg",
@@ -73,17 +90,37 @@ def _normalize_key(key: str) -> str:
     return key.lower().replace("_", "").replace("-", "").replace(" ", "")
 
 
-def is_sensitive_key(key: str) -> bool:
-    """Return True when an attribute/key should be fully redacted."""
-    k = _normalize_key(key)
+def _is_phi_key(key: str) -> bool:
     if key.lower() in _ALWAYS_REDACT_KEYS:
         return True
+    k = _normalize_key(key)
     return any(s in k for s in _SENSITIVE_SUBSTRINGS)
+
+
+def _is_secret_key(key: str) -> bool:
+    k = _normalize_key(key)
+    return any(s in k for s in _SECRET_SUBSTRINGS)
+
+
+def is_sensitive_key(key: str) -> bool:
+    """Return True when an attribute/key should be fully redacted."""
+    return _is_phi_key(key) or _is_secret_key(key)
+
+
+def redact_credentials(text: str) -> str:
+    """Drop URL query strings, fragments and userinfo, and ``Bearer <token>`` values, from
+    free text such as ``str(exc)`` (httpx puts the full request URL in its messages)."""
+    text = _URL_RE.sub(lambda m: sanitize_url_for_log(m.group(0)), text)
+    return _BEARER_RE.sub(lambda m: f"{m.group(1)} {REDACTED}", text)
 
 
 def sanitize_value(key: str, value: Any) -> Any:
     """Recursively redact sensitive values."""
-    if is_sensitive_key(key):
+    if _is_phi_key(key):
+        return REDACTED
+    if _is_secret_key(key) and not (
+        isinstance(value, (int, float)) and not isinstance(value, bool)
+    ):
         return REDACTED
     if isinstance(value, dict):
         return {k: sanitize_value(str(k), v) for k, v in value.items()}
@@ -91,8 +128,8 @@ def sanitize_value(key: str, value: Any) -> Any:
         return [sanitize_value(key, item) for item in value]
     if isinstance(value, tuple):
         return tuple(sanitize_value(key, item) for item in value)
-    if isinstance(value, str) and key.lower() in {"body", "raw_body", "payload"}:
-        return REDACTED
+    if isinstance(value, str):
+        return redact_credentials(value)
     return value
 
 
@@ -106,11 +143,14 @@ def _redact_sensitive_string_arg(value: str) -> str:
     lowered = value.lower()
     if "phi_marker" in lowered:
         return REDACTED
-    return value
+    return redact_credentials(value)
 
 
 def sanitize_log_record(record: logging.LogRecord) -> None:
     """Sanitize message args and dynamic attributes on a log record in place."""
+    # With args, msg is a format string; scrubbing it could drop a ``%s`` from a URL.
+    if isinstance(record.msg, str) and not record.args:
+        record.msg = redact_credentials(record.msg)
     if record.args:
         if isinstance(record.args, dict):
             record.args = sanitize_mapping(record.args)  # type: ignore[assignment]
@@ -121,7 +161,7 @@ def sanitize_log_record(record: logging.LogRecord) -> None:
             )
 
     for key in list(record.__dict__.keys()):
-        if key in _LOG_RECORD_STANDARD_KEYS:
+        if key in LOG_RECORD_STANDARD_KEYS:
             continue
         record.__dict__[key] = sanitize_value(key, record.__dict__[key])
 
@@ -203,14 +243,24 @@ class ConnectorIdLogFilter(logging.Filter):
         return True
 
 
+def add_filter_once(target: logging.Filterer, flt: logging.Filter) -> None:
+    """Add ``flt`` to ``target`` unless a filter of the same type is already there."""
+    if not any(type(existing) is type(flt) for existing in target.filters):
+        target.addFilter(flt)
+
+
 def install_sanitizing_log_filter() -> None:
-    """Attach sanitizing + connector-id filters to the root logger once."""
+    """Attach connector-id + sanitizing filters to the root logger and its handlers.
+
+    Logger filters only run for records logged on that logger, not for records propagated
+    from children (``runtime.base_connector`` etc.), so the handlers carry them too. Call
+    again after adding root handlers (e.g. after ``logging.config.dictConfig``); it is
+    idempotent.
+    """
     root = logging.getLogger()
-    if not any(isinstance(flt, ConnectorIdLogFilter) for flt in root.filters):
-        root.addFilter(ConnectorIdLogFilter())
-    if any(isinstance(flt, SanitizingLogFilter) for flt in root.filters):
-        return
-    root.addFilter(SanitizingLogFilter())
+    for target in (root, *root.handlers):
+        add_filter_once(target, ConnectorIdLogFilter())
+        add_filter_once(target, SanitizingLogFilter())
 
 
 def fhir_log_extra(

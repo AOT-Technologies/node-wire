@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 from .models import ConnectorResponse, ErrorCategory
-from .errors import ErrorMapper
+from .errors import ErrorCode, ErrorMapper, NodeWireError
 from .secrets import (
     SecretProvider,
     EnvSecretProvider,
@@ -90,7 +90,9 @@ __version__ = _resolve_version()
 __all__ = [
     "ConnectorResponse",
     "ErrorCategory",
+    "ErrorCode",
     "ErrorMapper",
+    "NodeWireError",
     "SecretProvider",
     "EnvSecretProvider",
     "SecretNotFoundError",

@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from node_wire_runtime import ConnectorResponse
+from node_wire_runtime.errors import CATALOGUE, ErrorCode, ErrorMapper
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
 
 
@@ -25,6 +26,13 @@ class ConnectorNotExposed(Exception):
         self.connector_id = connector_id
         self.protocol = protocol
         super().__init__(f"Connector {connector_id!r} is not exposed via {protocol!r}")
+
+
+ErrorMapper.register_global(
+    ConnectorNotExposed,
+    CATALOGUE[ErrorCode.CONNECTOR_NOT_AVAILABLE],
+    code=ErrorCode.CONNECTOR_NOT_AVAILABLE,
+)
 
 
 async def invoke(

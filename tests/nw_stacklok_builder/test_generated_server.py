@@ -191,7 +191,7 @@ def test_no_tenant_header_is_a_tool_error(
     session.open(_as(None, "tok"))
     result = session.call("get_pet_by_id", {"petId": 7}, headers=_as(None, "tok"))
     assert result["isError"] is True
-    assert "TENANT_REQUIRED" in result["content"][0]["text"]
+    assert "MISSING_TENANT [AUTH]" in result["content"][0]["text"]
     assert upstream == []
 
 

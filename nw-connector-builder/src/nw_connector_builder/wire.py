@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+import io
 import logging
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -17,6 +19,24 @@ logger = logging.getLogger(__name__)
 
 class WireError(Exception):
     pass
+
+
+def _replace_atomically(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` so a concurrent reader never sees a partial file.
+
+    ``nw gen-mcp`` copies these files while another ``nw`` run may be wiring a connector in.
+    """
+    mode = path.stat().st_mode & 0o777 if path.exists() else 0o644
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        tmp.chmod(mode)  # mkstemp creates 0600; keep the file readable as before
+        tmp.replace(path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def wire_connectors_yaml(
@@ -57,27 +77,9 @@ def wire_connectors_yaml(
         block["auth_schemes"] = extra_auth_blocks
     data["connectors"][connector_id] = block
 
-    # Atomic write
-    fd, tmp_name = tempfile.mkstemp(prefix="connectors.", suffix=".yaml", dir=str(path.parent))
-    os_close = True
-    try:
-        import os
-
-        os.close(fd)
-        os_close = False
-        tmp = Path(tmp_name)
-        with tmp.open("w", encoding="utf-8") as f:
-            yaml.dump(data, f)
-        tmp.replace(path)
-    finally:
-        if os_close:
-            import os
-
-            try:
-                os.close(fd)
-            except Exception as exc:  # noqa: BLE001
-                # Best-effort cleanup during error unwinding; fd may already be closed.
-                logger.debug("os.close(%d) during cleanup failed: %s", fd, exc)
+    out = io.StringIO()
+    yaml.dump(data, out)
+    _replace_atomically(path, out.getvalue())
 
 
 def wire_sample_env(
@@ -133,7 +135,7 @@ def wire_sample_env(
             # and a repeated key must not emit a second assignment line.
             existing_keys.add(key)
 
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    _replace_atomically(path, "\n".join(new_lines) + "\n")
 
 
 def apply_wire(

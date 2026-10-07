@@ -12,10 +12,13 @@ packages come from site-packages after ``pip install``.
 from __future__ import annotations
 
 import logging
+import platform
 import re
 import shutil
 import tomllib
 from pathlib import Path
+
+import yaml
 
 from nw_mcp_builder.schema.models import MCPScope
 
@@ -99,7 +102,9 @@ def write_connector_project(
         raise FileNotFoundError(f"node-wire connector config missing: {config_src}")
     config_dir = project_dir / "config"
     config_dir.mkdir()
-    shutil.copy2(config_src, config_dir / "connectors.yaml")
+    (config_dir / "connectors.yaml").write_text(
+        _own_connector_config(config_src, connector_id), encoding="utf-8"
+    )
 
     connector_pkg = connector_dist_package_name(connector_id)
     mcp_dep = resolve_mcp_dependency(node_wire_root)
@@ -200,31 +205,91 @@ def resolve_mcp_dependency(node_wire_root: Path) -> str:
     return _MCP_DEP_FALLBACK
 
 
+def _own_connector_config(config_src: Path, connector_id: str) -> str:
+    """``config_src`` cut down to ``connector_id``'s entry: the image installs no other connector.
+
+    Every other enabled entry would log "enabled in configuration but not registered" at each
+    start, and bake unrelated connectors' base URLs and auth blocks into the image.
+    """
+    doc = yaml.safe_load(config_src.read_text(encoding="utf-8")) or {}
+    connectors = doc.get("connectors") if isinstance(doc, dict) else None
+    if not isinstance(connectors, dict) or connector_id not in connectors:
+        raise ValueError(
+            f"{connector_id} is not in {config_src}; wire it in first (nw gen-all wires it)"
+        )
+    own = {**doc, "connectors": {connector_id: connectors[connector_id]}}
+    return yaml.safe_dump(own, sort_keys=False)
+
+
+# The Python and libc of PYTHON_313_SLIM_IMAGE: the wheels copied into the project must install
+# there. dist/ also holds wheels for other targets (gen-stacklok's Alpine musllinux, macOS, cp312,
+# the other CPU architecture).
+_IMAGE_PYTHON_TAGS = frozenset({"cp313", "py3", "py313"})
+_IMAGE_ABI3_MAX_MINOR = 13
+_MACHINE_ARCH = {"arm64": "aarch64", "aarch64": "aarch64", "amd64": "x86_64", "x86_64": "x86_64"}
+
+
+def _image_arch() -> str:
+    """CPU architecture of the image: ``docker build`` without ``--platform`` builds native."""
+    machine = platform.machine().lower()
+    return _MACHINE_ARCH.get(machine, machine)
+
+
+def _installs_in_image(wheel: Path, arch: str) -> bool:
+    """True when ``wheel``'s tags fit CPython 3.13 on glibc Linux ``arch`` (or any platform)."""
+    parts = wheel.name[: -len(".whl")].split("-")
+    if len(parts) < 5:
+        return False
+    python_tags, abi_tags, platform_tags = (tag.split(".") for tag in parts[-3:])
+    python_ok = any(tag in _IMAGE_PYTHON_TAGS for tag in python_tags) or (
+        "abi3" in abi_tags
+        and any(
+            tag.startswith("cp3") and tag[3:].isdigit() and int(tag[3:]) <= _IMAGE_ABI3_MAX_MINOR
+            for tag in python_tags
+        )
+    )
+    platform_ok = any(
+        tag == "any" or (tag.startswith(("linux_", "manylinux")) and tag.endswith(f"_{arch}"))
+        for tag in platform_tags
+    )
+    return python_ok and platform_ok
+
+
+def _newest_installable_wheel(dist: Path, *, package: str, build_command: str) -> Path:
+    wheels = sorted(dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not wheels:
+        raise FileNotFoundError(f"No {package} wheel in {dist}. Build it: `{build_command}`.")
+    arch = _image_arch()
+    installable = [wheel for wheel in wheels if _installs_in_image(wheel, arch)]
+    if not installable:
+        found = ", ".join(wheel.name for wheel in wheels)
+        raise FileNotFoundError(
+            f"No {package} wheel in {dist} installs on the MCP host image "
+            f"(CPython 3.13, glibc Linux {arch}); found: {found}. Build one: `{build_command}`."
+        )
+    return installable[0]
+
+
 def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path, Path]:
-    runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    bindings_dist = node_wire_root / "packages" / "bindings" / "dist"
-    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-
-    if not list(runtime_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"No node-wire-runtime wheel in {runtime_dist}. Build it: `nw gen-whl --runtime`."
-        )
-    if not list(bindings_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"No node-wire-bindings wheel in {bindings_dist}. Build it: `nw gen-whl --bindings`."
-        )
-    if not list(connector_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"No node-wire-{connector_id.replace('_', '-')} wheel in "
-            f"{connector_dist}. Build it: `nw gen-whl --connector-id {connector_id}`."
-        )
-
-    runtime = sorted(runtime_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
-    bindings = sorted(bindings_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[0]
-    connector = sorted(connector_dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)[
-        0
-    ]
-    return runtime, bindings, connector
+    packages = node_wire_root / "packages"
+    connector_package = f"node-wire-{connector_id.replace('_', '-')}"
+    return (
+        _newest_installable_wheel(
+            packages / "runtime" / "dist",
+            package="node-wire-runtime",
+            build_command="nw gen-whl --runtime",
+        ),
+        _newest_installable_wheel(
+            packages / "bindings" / "dist",
+            package=BINDINGS_DIST_PACKAGE,
+            build_command="nw gen-whl --bindings",
+        ),
+        _newest_installable_wheel(
+            packages / "connectors" / connector_id / "dist",
+            package=connector_package,
+            build_command=f"nw gen-whl --connector-id {connector_id}",
+        ),
+    )
 
 
 def _pyproject_toml(
@@ -321,6 +386,11 @@ def _load_env() -> None:
 
 def main() -> None:
     _load_env()
+    from node_wire_runtime.host_logging import configure_host_logging
+
+    # Prints the runtime's trace_id / error_code / audit_event fields; OTLP export
+    # only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+    configure_host_logging("nw-{connector_id}")
     os.environ["NW_ALLOWED_CONNECTORS"] = "{connector_id}"
     # Local Inspector convenience only. Container images do not disable auth
     # or open the scope policy — set those at runtime if you really need them.

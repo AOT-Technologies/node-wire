@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Loads the node-wire dashboards at startup (mounted by ../../docker-compose.yml next to the
+# image's own providers in /otel-lgtm/grafana/conf/provisioning/dashboards/).
+apiVersion: 1
+
+providers:
+  - name: node-wire
+    folder: node-wire
+    type: file
+    allowUiUpdates: true
+    options:
+      path: /otel-lgtm/node-wire-dashboards
+      foldersFromFilesStructure: false

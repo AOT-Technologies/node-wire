@@ -2,22 +2,35 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Brand-styled rich.progress output for multi-stage ``nw generate``.
+"""Brand-styled rich.progress display for the multi-stage ``nw`` commands.
 
-Logs are always printed *above* the live progress bars via the Progress
-console (and stdout/stderr redirection). Subprocess output must be fed
-through :meth:`GenerateProgress.log` — never written to the raw TTY.
+Two kinds of output go through it:
+
+* :meth:`GenerateProgress.log` — ``nw``'s own messages, always printed above the bars.
+* :meth:`GenerateProgress.output` — build tool output (subprocesses, and anything printed to
+  stdout/stderr while the display runs). Streamed with ``--verbose`` or without a terminal;
+  otherwise shown as the running stage's latest line. Both go to the run's log file, and a failure
+  panel repeats the last lines of the failed stage.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import io
+import os
+import sys
+import threading
+import time
+from collections import deque
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from pathlib import Path
+from typing import Any, TextIO
 
-from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
+import typer
+from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
+from rich.markup import escape
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -31,13 +44,14 @@ from rich.progress import (
 )
 from rich.segment import Segment
 from rich.style import Style
+from rich.table import Table
 from rich.text import Text
 
-# Node Wire brand palette (docs/stylesheets/extra.css)
-AMBER = "#ecb32e"
-BLUE = "#37c4f0"
-PINK = "#e01d5a"
-TEXT = "#E8EDF5"
+from nw_cli.ui import AMBER, BLUE, PINK, TEXT, ReportedError, describe, exit_code_for
+
+__all__ = ["GenerateProgress", "Stage", "StageStatus"]
+
+TAIL_LINES = 15
 
 
 # Eighth-block glyphs for smooth fractional fill ("" 1/8 .. 8/8).
@@ -131,7 +145,9 @@ class _ActiveSpinnerColumn(SpinnerColumn):
 
 
 class _SpacedProgress(Progress):
-    """Progress display with a blank line between task rows."""
+    """Progress display with a blank line between task rows and the latest output line below."""
+
+    detail: str = ""
 
     def make_tasks_table(self, tasks):  # type: ignore[override]
         table = super().make_tasks_table(tasks)
@@ -142,6 +158,95 @@ class _SpacedProgress(Progress):
         table.pad_edge = False
         return table
 
+    def get_renderables(self):  # type: ignore[override]
+        yield from super().get_renderables()
+        if self.detail:
+            yield Text(f"  {self.detail}", style="dim", no_wrap=True, overflow="ellipsis")
+
+
+class _LineWriter(io.TextIOBase):
+    """A stdout/stderr stand-in that hands complete lines to a callback."""
+
+    def __init__(self, emit: Callable[[str], None]) -> None:
+        self._emit = emit
+        self._buffer = ""
+
+    def writable(self) -> bool:
+        return True
+
+    def write(self, text: str) -> int:
+        self._buffer += text
+        *lines, self._buffer = self._buffer.split("\n")
+        for line in lines:
+            self._emit(line.rstrip("\r"))
+        return len(text)
+
+    def flush(self) -> None:
+        if self._buffer:
+            line, self._buffer = self._buffer, ""
+            self._emit(line.rstrip("\r"))
+
+
+class _FdCapture:
+    """Route file descriptors 1 and 2 into a callback while the bars are live.
+
+    Child processes that inherit the terminal (``uv lock`` in the stacklok generator, anything a
+    library starts without capturing) write to the descriptors directly, past ``sys.stdout``.
+    POSIX terminals only; elsewhere those writes still reach the screen as before.
+    """
+
+    def __init__(self, emit: Callable[[str], None]) -> None:
+        self._emit = emit
+        self._saved: tuple[int, int] | None = None
+        self._thread: threading.Thread | None = None
+
+    @staticmethod
+    def supported(target: Console) -> bool:
+        if os.name == "nt" or not target.is_terminal:
+            return False
+        try:
+            return target.file.fileno() == 1
+        except (AttributeError, OSError, ValueError):
+            return False
+
+    @staticmethod
+    def open_terminal() -> TextIO:
+        """A stream on the real terminal (a copy of fd 1), valid while capturing."""
+        encoding = getattr(sys.__stdout__, "encoding", None) or "utf-8"
+        return open(os.dup(1), "w", buffering=1, encoding=encoding)  # noqa: SIM115
+
+    def start(self) -> None:
+        for stream in (sys.stdout, sys.stderr):
+            stream.flush()
+        self._saved = (os.dup(1), os.dup(2))
+        read, write = os.pipe()
+        os.dup2(write, 1)
+        os.dup2(write, 2)
+        os.close(write)
+        self._thread = threading.Thread(target=self._pump, args=(read,), daemon=True)
+        self._thread.start()
+
+    def _pump(self, fd: int) -> None:
+        # Universal newlines: a \r-redrawn progress line from a build tool becomes separate lines.
+        with open(fd, encoding="utf-8", errors="replace") as pipe:
+            for line in pipe:
+                self._emit(line.rstrip("\n"))
+
+    def stop(self) -> None:
+        if self._saved is None:
+            return
+        for stream in (sys.stdout, sys.stderr):
+            stream.flush()
+        os.dup2(self._saved[0], 1)
+        os.dup2(self._saved[1], 2)
+        for fd in self._saved:
+            os.close(fd)
+        self._saved = None
+        if self._thread is not None:
+            # EOF once no process holds the pipe; a lingering grandchild must not hang nw.
+            self._thread.join(timeout=2)
+            self._thread = None
+
 
 class StageStatus(Enum):
     PENDING = "pending"
@@ -149,6 +254,7 @@ class StageStatus(Enum):
     DONE = "done"
     SKIPPED = "skipped"
     FAILED = "failed"
+    STOPPED = "stopped"  # the user chose to stop here; not a failure
 
 
 @dataclass
@@ -159,18 +265,37 @@ class Stage:
     status: StageStatus = StageStatus.PENDING
     task_id: TaskID | None = None
     error: str | None = None
-    # Shown under a failure; the default per-key hints are for `nw gen-all`.
+    # Shown under a failure.
     hint: str | None = None
+    elapsed: float | None = None
 
 
 @dataclass
 class GenerateProgress:
-    """Drive a four-stage progress display for ``nw generate``."""
+    """Drive a multi-stage progress display, then print a summary or failure panel.
+
+    An exception escaping the ``with`` block is reported in the failure panel and re-raised as
+    :class:`~nw_cli.ui.ReportedError`, so the command's error boundary does not print it again.
+    """
 
     stages: list[Stage] = field(default_factory=list)
     console: Console = field(default_factory=Console)
-    _progress: Progress | None = None
+    title: str = "nw"
+    log_path: Path | None = None
+    # None: decided by the terminal and --verbose (see nw_cli.ui.stream_output).
+    stream: bool | None = None
+    _progress: _SpacedProgress | None = None
     _failed: bool = False
+    _error: str | None = None
+    _results: list[tuple[str, str]] = field(default_factory=list)
+    _tail: deque[str] = field(default_factory=lambda: deque(maxlen=TAIL_LINES))
+    _log: TextIO | None = None
+    _streams: tuple[Any, Any] | None = None
+    _fds: _FdCapture | None = None
+    _terminal: TextIO | None = None
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+    _pause_depth: int = 0
+    _started: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.stages:
@@ -188,16 +313,91 @@ class GenerateProgress:
                 s.status = StageStatus.SKIPPED
                 break
 
+    def mark_stopped(self, key: str) -> None:
+        """The user stopped the run at this (finished) stage; the summary says so."""
+        stage = next(s for s in self.stages if s.key == key)
+        stage.status = StageStatus.STOPPED
+        if self._progress is not None and stage.task_id is not None:
+            self._refresh(stage)
+
+    def result(self, label: str, value: object) -> None:
+        """A line for the success panel, e.g. ``("MCP host", path)``."""
+        self._results.append((label, str(value)))
+
+    # -- output ---------------------------------------------------------------------------
+
+    def _write_log(self, line: str) -> None:
+        with self._lock:  # output() also runs on the descriptor-capture thread
+            if self._log is not None:
+                self._log.write(f"{time.strftime('%H:%M:%S')} {line}\n")
+                self._log.flush()
+
+    def _target(self) -> Console:
+        return self._progress.console if self._progress is not None else self.console
+
     def log(self, message: str = "", *, markup: bool = False) -> None:
-        """Print a log line above the live progress bars."""
-        # Progress.console.print goes through Live and stays above the bars.
-        target = self._progress.console if self._progress is not None else self.console
+        """Print one of ``nw``'s own messages above the live progress bars."""
+        self._write_log(Text.from_markup(message).plain if markup else message)
         if markup:
-            target.print(message)
+            self._target().print(message)
         else:
-            target.print(message, markup=False, highlight=False)
+            self._target().print(message, markup=False, highlight=False)
+
+    def log_only(self, line: str) -> None:
+        """Write a line to the run's log file only (detail too long for the screen)."""
+        self._write_log(line)
+
+    def output(self, line: str) -> None:
+        """Record a line of build tool output (see the module docstring)."""
+        self._write_log(line)
+        self._tail.append(line)
+        if self._streaming():
+            self._target().print(Text(line, style="dim"), highlight=False)
+        elif self._progress is not None and line.strip():
+            self._progress.detail = line.strip()
+
+    def _streaming(self) -> bool:
+        if self.stream is None:
+            # Decided once, while stdout is still the real stream (see _redirect).
+            from nw_cli.ui import stream_output
+
+            self.stream = stream_output(self.console)
+        return self.stream
+
+    def _redirect(self) -> None:
+        if self._fds is not None:
+            self._fds.start()
+        self._streams = (sys.stdout, sys.stderr)
+        sys.stdout = _LineWriter(self.output)  # type: ignore[assignment]
+        sys.stderr = _LineWriter(self.output)  # type: ignore[assignment]
+
+    def _restore(self) -> None:
+        if self._streams is not None:
+            for writer in (sys.stdout, sys.stderr):
+                if isinstance(writer, _LineWriter):
+                    writer.flush()
+            sys.stdout, sys.stderr = self._streams
+            self._streams = None
+        if self._fds is not None:
+            self._fds.stop()
+
+    # -- lifecycle ------------------------------------------------------------------------
 
     def __enter__(self) -> GenerateProgress:
+        if self.log_path is not None:
+            self._log = self.log_path.open("w", encoding="utf-8")
+            self._write_log(f"{self.title} ({' '.join(sys.argv)})")
+        # Bound to the real stream: stdout (and on a terminal fds 1/2) go into output() below.
+        target = self.console.file
+        if _FdCapture.supported(self.console):
+            self._fds = _FdCapture(self.output)  # started by _redirect(), once the bars are up
+            self._terminal = target = _FdCapture.open_terminal()
+        live_console = Console(
+            file=target,
+            force_terminal=self.console.is_terminal,
+            width=None if self.console.is_terminal else self.console.width,
+            color_system=self.console.color_system,  # type: ignore[arg-type]
+        )
         self._progress = _SpacedProgress(
             _ActiveSpinnerColumn(style=AMBER),
             TextColumn("[bold]{task.description}"),
@@ -209,37 +409,35 @@ class GenerateProgress:
                 pulse_style=AMBER,
             ),
             TimeElapsedColumn(),
-            console=self.console,
+            console=live_console,
             expand=True,
-            # Route Python print()/logging through Live so they stay above bars.
-            redirect_stdout=True,
-            redirect_stderr=True,
+            redirect_stdout=False,
+            redirect_stderr=False,
         )
+        self._streaming()
         self._progress.start()
         for s in self.stages:
             if s.skipped:
-                tid = self._progress.add_task(
-                    self._desc(s),
-                    total=1,
-                    completed=1,
-                )
+                tid = self._progress.add_task(self._desc(s), total=1, completed=1)
             else:
-                tid = self._progress.add_task(
-                    self._desc(s),
-                    total=1,
-                    completed=0,
-                    start=False,
-                )
+                tid = self._progress.add_task(self._desc(s), total=1, completed=0, start=False)
             s.task_id = tid
+        self._redirect()
         return self
 
     @contextmanager
     def paused(self) -> Iterator[None]:
-        """Suspend the live bars (e.g. to ask a question), then resume them."""
+        """Suspend the live bars and give the terminal back (e.g. to ask a question)."""
         live = self._progress
-        if live is None:
-            yield
+        if live is None or self._pause_depth:
+            # Nested (e.g. the scoping session started from the review): already paused.
+            self._pause_depth += 1
+            try:
+                yield
+            finally:
+                self._pause_depth -= 1
             return
+        self._pause_depth = 1
         # Erase the bars while paused. A plain stop() leaves the last frame on screen, and after
         # another program has used the terminal (the interactive Claude Code session) start()
         # draws a second copy below it.
@@ -247,17 +445,50 @@ class GenerateProgress:
         transient = display.transient
         display.transient = True
         live.stop()
+        self._restore()
         try:
             yield
         finally:
+            self._pause_depth = 0
+            self._redirect()
             display.transient = transient
             live.start()
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self._restore()
+        self._fds = None
         if self._progress is not None:
+            running = next((s for s in self.stages if s.status == StageStatus.RUNNING), None)
+            if running is not None and exc is not None:
+                self._fail(running, exc)
+            self._progress.detail = ""
             self._progress.stop()
             self._progress = None
-        self._print_summary()
+        if self._terminal is not None:
+            self._terminal.close()
+            self._terminal = None
+        try:
+            if isinstance(exc, typer.Exit):
+                # Already reported (a declined prompt); exit 0 is a deliberate early stop.
+                if exc.exit_code == 0:
+                    self._print_summary()
+                return
+            if exc is not None:
+                self._failed = True
+                if isinstance(exc, KeyboardInterrupt):
+                    self._error = "Interrupted."
+                elif not any(s.status == StageStatus.FAILED for s in self.stages):
+                    self._error = describe(exc)
+                self._write_log(f"error: {self._error or describe(exc)}")
+            self._print_summary()
+        finally:
+            if self._log is not None:
+                self._log.close()
+                self._log = None
+        if exc is not None:
+            raise ReportedError(exit_code_for(exc)) from exc
+
+    # -- stages ---------------------------------------------------------------------------
 
     def _desc(self, stage: Stage) -> Text:
         if stage.status == StageStatus.SKIPPED:
@@ -266,6 +497,8 @@ class GenerateProgress:
             return Text(stage.label, style=Style(color=PINK, bold=True))
         if stage.status == StageStatus.DONE:
             return Text(stage.label, style=Style(color=BLUE))
+        if stage.status == StageStatus.STOPPED:
+            return Text(f"{stage.label} (stopped)", style=Style(color=AMBER, bold=True))
         if stage.status == StageStatus.RUNNING:
             return Text(stage.label, style=Style(color=AMBER, bold=True))
         return Text(stage.label, style="dim")
@@ -275,23 +508,22 @@ class GenerateProgress:
         completed = (
             1
             if stage.status
-            in (
-                StageStatus.DONE,
-                StageStatus.SKIPPED,
-                StageStatus.FAILED,
-            )
+            in (StageStatus.DONE, StageStatus.SKIPPED, StageStatus.FAILED, StageStatus.STOPPED)
             else 0
         )
-        self._progress.update(
-            stage.task_id,
-            description=self._desc(stage),
-            completed=completed,
-        )
-        if stage.status == StageStatus.FAILED:
-            for col in self._progress.columns:
-                if isinstance(col, BarColumn):
-                    col.complete_style = PINK
-                    col.finished_style = PINK
+        self._progress.update(stage.task_id, description=self._desc(stage), completed=completed)
+        style = PINK if stage.status == StageStatus.FAILED else BLUE
+        for col in self._progress.columns:
+            if isinstance(col, BarColumn):
+                col.complete_style = style
+                col.finished_style = style
+
+    def _fail(self, stage: Stage, exc: BaseException) -> None:
+        stage.status = StageStatus.FAILED
+        stage.error = "Interrupted." if isinstance(exc, KeyboardInterrupt) else describe(exc)
+        stage.elapsed = time.monotonic() - self._started.get(stage.key, time.monotonic())
+        self._failed = True
+        self._refresh(stage)
 
     def run_stage(self, key: str, fn: Callable[[], Any]) -> Any:
         """Mark stage running, call *fn*, mark done/failed. Re-raises on failure."""
@@ -301,50 +533,88 @@ class GenerateProgress:
 
         assert self._progress is not None and stage.task_id is not None
         stage.status = StageStatus.RUNNING
+        self._tail.clear()
+        self._progress.detail = ""
+        self._started[key] = time.monotonic()
+        self._write_log(f"== {stage.label}")
         self._progress.start_task(stage.task_id)
         self._refresh(stage)
 
         try:
             result = fn()
-        except Exception as exc:
-            stage.status = StageStatus.FAILED
-            stage.error = str(exc)
-            self._failed = True
-            self._refresh(stage)
+        except BaseException as exc:
+            self._fail(stage, exc)
             raise
 
         stage.status = StageStatus.DONE
+        stage.elapsed = time.monotonic() - self._started[key]
+        self._progress.detail = ""
         self._refresh(stage)
-        if self._progress is not None:
-            for col in self._progress.columns:
-                if isinstance(col, BarColumn):
-                    col.complete_style = BLUE
-                    col.finished_style = BLUE
         return result
 
+    # -- summary --------------------------------------------------------------------------
+
+    def _stage_table(self) -> Table:
+        table = Table.grid(padding=(0, 2))
+        table.add_column(width=1)
+        table.add_column()
+        table.add_column(justify="right", style="dim")
+        marks = {
+            StageStatus.DONE: Text("✓", style=BLUE),
+            StageStatus.FAILED: Text("✗", style=PINK),
+            StageStatus.SKIPPED: Text("–", style="dim"),
+            StageStatus.STOPPED: Text("■", style=AMBER),
+            StageStatus.PENDING: Text("·", style="dim"),
+            StageStatus.RUNNING: Text("·", style="dim"),
+        }
+        for s in self.stages:
+            label = Text(s.label)
+            if s.status == StageStatus.SKIPPED:
+                label = Text(f"{s.label} (skipped)", style="dim")
+            elif s.status in (StageStatus.PENDING, StageStatus.RUNNING):
+                label = Text(f"{s.label} (not run)", style="dim")
+            elif s.status == StageStatus.FAILED:
+                label.stylize(Style(color=PINK, bold=True))
+            elif s.status == StageStatus.STOPPED:
+                label = Text(f"{s.label} (stopped)", style=Style(color=AMBER, bold=True))
+            elapsed = f"{s.elapsed:.1f}s" if s.elapsed is not None else ""
+            table.add_row(marks[s.status], label, elapsed)
+        return table
+
     def _print_summary(self) -> None:
+        parts: list[RenderableType] = [self._stage_table()]
         if self._failed:
             failed = next((s for s in self.stages if s.status == StageStatus.FAILED), None)
-            hint = ""
             if failed is not None:
-                hints = {
-                    "connector": "Check the OpenAPI spec path and connector id.",
-                    "wheel": "Fix with: nw gen-whl --connector-id <id>  (or nw gen-whl --runtime)",
-                    "mcp": "Ensure wheels exist, then: nw gen-mcp --connector-id <id>",
-                    "wire": "Check scripts/build-packages.sh ALL_PACKAGES block.",
-                }
-                hint = f"\n{failed.hint or hints.get(failed.key, '')}"
-                msg = f"Failed at stage [bold]{failed.label}[/bold]: {failed.error}{hint}"
+                parts.append(
+                    Text.from_markup(
+                        f"\nFailed at stage [bold]{escape(failed.label)}[/bold]: "
+                        f"{escape(failed.error or '')}"
+                    )
+                )
+                hint = failed.hint
+                if self._tail and not self._streaming():
+                    parts.append(Text("\nLast output:", style="dim"))
+                    parts.append(Text("\n".join(f"  {line}" for line in self._tail), style="dim"))
+                if hint:
+                    parts.append(Text(f"\n{hint}"))
             else:
-                msg = "Generate failed."
-            self.console.print(Panel(msg, title="nw generate", border_style=PINK, style=TEXT))
+                parts.append(Text(f"\n{self._error or 'Failed.'}"))
+            border = PINK
         else:
-            done = [s.label for s in self.stages if s.status == StageStatus.DONE]
-            skipped = [s.label for s in self.stages if s.status == StageStatus.SKIPPED]
-            parts = []
-            if done:
-                parts.append(f"Completed: {', '.join(done)}")
-            if skipped:
-                parts.append(f"Skipped: {', '.join(skipped)}")
-            body = "\n".join(parts) if parts else "Done."
-            self.console.print(Panel(body, title="nw generate", border_style=BLUE, style=TEXT))
+            if self._results:
+                results = Table.grid(padding=(0, 2))
+                results.add_column(style="bold")
+                results.add_column(overflow="fold")
+                for label, value in self._results:
+                    results.add_row(label, value)
+                parts += [Text(""), results]
+            border = BLUE
+            if any(s.status == StageStatus.STOPPED for s in self.stages):
+                border = AMBER
+        self.console.print(Panel(Group(*parts), title=self.title, border_style=border, style=TEXT))
+        if self.log_path is not None:
+            # Outside the panel so the path copies cleanly.
+            self.console.print(
+                f"Log: {self.log_path}", style="dim", highlight=False, soft_wrap=True
+            )

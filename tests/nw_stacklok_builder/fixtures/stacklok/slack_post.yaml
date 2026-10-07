@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# A reviewed stacklok scope for posting to Slack channels (scripts/e2e_toolhive.py, scenario 6).
+version: "1"
+
+server:
+  name: slack-post
+  description: "Slack MCP server for posting status updates to channels"
+
+spec:
+  source: "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json"
+  format: openapi3
+  base_url: "https://slack.com/api"
+  total_endpoints: 174
+  scoped_endpoints: 3
+
+workflows:
+  - "Team members post status updates and announcements to a channel"
+  - "Team members find the ID of the channel to post to"
+  - "Team members check which workspace and user the token posts as"
+
+groups:
+  - name: posting
+    description: "Posting messages to channels"
+    tools:
+      - tool_name: post_message
+        endpoint: POST /chat.postMessage
+        description: >
+          Post a message to a channel. Use list_conversations to find the
+          channel ID. The token's bot or user appears as the author; a bot
+          can only post to channels it has joined.
+        response_kind: json
+        parameters:
+          - name: channel
+            description: "The channel ID to post to (e.g. C0123456789)."
+            required: true
+            location: body
+          - name: text
+            description: >
+              The message text. Supports Slack mrkdwn formatting.
+            required: true
+            location: body
+          - name: thread_ts
+            description: >
+              Timestamp (ts) of a parent message, to post the message as a
+              reply in its thread.
+            required: false
+            location: body
+        hints:
+          - "not_in_channel: invite the bot to the channel first (/invite @your-app)"
+
+  - name: channels
+    description: "Finding the channel to post to"
+    tools:
+      - tool_name: list_conversations
+        endpoint: GET /conversations.list
+        description: >
+          List the channels visible to the token, with their IDs and names,
+          to find the channel to post to.
+        response_kind: json
+        parameters:
+          - name: types
+            description: >
+              Comma-separated channel types: "public_channel",
+              "private_channel". Defaults to "public_channel".
+            required: false
+            location: query
+          - name: exclude_archived
+            description: "Leave out archived channels when true."
+            required: false
+            location: query
+          - name: limit
+            description: "Channels per page. Default 100, maximum 1000."
+            required: false
+            location: query
+          - name: cursor
+            description: "Pagination cursor: response_metadata.next_cursor of the previous page."
+            required: false
+            location: query
+        hints:
+          - "paginated: uses cursor/next_cursor pattern in response_metadata"
+
+  - name: identity
+    description: "Checking the token"
+    tools:
+      - tool_name: auth_test
+        endpoint: GET /auth.test
+        description: >
+          Check the token: returns the workspace, the user or bot it acts
+          as, and their IDs. Fails with invalid_auth for a bad token.
+        response_kind: json
+        parameters: []
+
+auth:
+  type: oauth2
+  flow: authorizationCode
+  authorization_url: "https://slack.com/oauth/v2/authorize"
+  token_url: "https://slack.com/api/oauth.v2.access"
+  scopes_available:
+    "channels:read": "Read public channel information"
+    "chat:write": "Send messages"
+  scopes_required:
+    - channels:read
+    - chat:write
+  notes: >
+    The MCP server receives a bot or user token via the Authorization
+    header (ToolHive sends it); node-wire never runs Slack's OAuth flow.

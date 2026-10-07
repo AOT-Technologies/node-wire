@@ -34,13 +34,24 @@ from pybreaker import CircuitBreaker
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
 from .auth import AuthProvider, NoAuthProvider
-from .errors import ErrorMapper
+from .config_store import (
+    ConfigNameConflictError,
+    ConfigNotFoundError,
+    ConfigStoreError,
+    DefaultDeletionError,
+)
+from .errors import CATALOGUE, ErrorCode, ErrorMapper
 from .models import ConnectorResponse, ErrorCategory
-from .identity import TenantIdentityMismatchError, TenantMismatchError, effective_run_tenant_id
+from .identity import (
+    MissingTenantError,
+    TenantIdentityMismatchError,
+    TenantMismatchError,
+    effective_run_tenant_id,
+)
 from .policy import PolicyContext, PolicyHook, PolicyDenied
-from .log_sanitization import reset_log_connector_id, set_log_connector_id
+from .log_sanitization import reset_log_connector_id, redact_credentials, set_log_connector_id
 from .resilience import with_resilience
-from .secrets import SecretProvider
+from .secrets import SecretNotFoundError, SecretProvider, TenantSecretNotFoundError
 from .sdk_action_spec import SdkActionSpec
 
 logger = logging.getLogger("runtime.base_connector")
@@ -56,13 +67,24 @@ _invocation_duration = _meter.create_histogram(
     unit="ms",
     description="Connector invocation wall-clock time in milliseconds",
 )
-POLICY_DENIED_CODE = "POLICY_DENIED"
+POLICY_DENIED_CODE = ErrorCode.POLICY_DENIED
 
-ErrorMapper.register_global(PolicyDenied, ErrorCategory.AUTH, code=POLICY_DENIED_CODE)
-ErrorMapper.register_global(TenantMismatchError, ErrorCategory.AUTH, code="TENANT_MISMATCH")
-ErrorMapper.register_global(
-    TenantIdentityMismatchError, ErrorCategory.AUTH, code="TENANT_IDENTITY_MISMATCH"
-)
+
+def _register(exc_type: type, code: str) -> None:
+    """A runtime-raised exception resolves to its catalogue code and category everywhere."""
+    ErrorMapper.register_global(exc_type, CATALOGUE[code], code=code)
+
+
+_register(PolicyDenied, ErrorCode.POLICY_DENIED)
+_register(TenantMismatchError, ErrorCode.TENANT_MISMATCH)
+_register(TenantIdentityMismatchError, ErrorCode.TENANT_IDENTITY_MISMATCH)
+_register(MissingTenantError, ErrorCode.MISSING_TENANT)
+_register(ConfigNotFoundError, ErrorCode.CONFIG_NOT_FOUND)
+_register(ConfigNameConflictError, ErrorCode.CONFIG_NAME_CONFLICT)
+_register(DefaultDeletionError, ErrorCode.CONFIG_DEFAULT_REQUIRED)
+_register(ConfigStoreError, ErrorCode.CONFIG_INVALID)
+_register(SecretNotFoundError, ErrorCode.SECRET_NOT_FOUND)
+_register(TenantSecretNotFoundError, ErrorCode.TENANT_SECRET_NOT_FOUND)
 
 
 class NestedConnectorActionError(Exception):
@@ -552,6 +574,13 @@ class BaseConnector(ABC):
         scopes: Optional[tuple[str, ...]] = None,
     ) -> ConnectorResponse:
         trace_id = str(uuid.uuid4())
+        # The invoked action (raw_input["action"]), so metrics, spans, retries and audit logs
+        # name the tool that ran; self.action is only the class default ("execute").
+        action = (
+            str(raw_input.get("action") or self.action)
+            if isinstance(raw_input, dict)
+            else self.action
+        )
         config_name = getattr(self, "_config_name", None)
         pinned = getattr(self, "_tenant_id", None)
         effective, mismatch = effective_run_tenant_id(pinned=pinned, caller=tenant_id)
@@ -582,7 +611,7 @@ class BaseConnector(ABC):
             "connector.run",
             attributes={
                 "connector.id": self.connector_id,
-                "connector.action": self.action,
+                "connector.action": action,
                 "config.name": config_name or "",
                 "tenant.id": tenant_id or "",
                 "principal.id": principal or "",
@@ -592,14 +621,14 @@ class BaseConnector(ABC):
             logger.info(
                 "Starting connector execution | connector=%s | action=%s | tenant_id=%s | config_name=%s",
                 self.connector_id,
-                self.action,
+                action,
                 tenant_id or "(none)",
                 config_name or "(default)",
                 extra={
                     "trace_id": trace_id,
                     "connector_id": self.connector_id,
                     "config_name": config_name,
-                    "action": self.action,
+                    "action": action,
                     "principal": principal,
                     "scopes": list(scopes) if scopes else [],
                     "audit": True,
@@ -621,7 +650,7 @@ class BaseConnector(ABC):
                         extra={
                             "trace_id": trace_id,
                             "connector_id": self.connector_id,
-                            "action": self.action,
+                            "action": action,
                             "error_type": type(exc).__name__,
                             "error_message": str(exc),
                             "audit": True,
@@ -661,7 +690,7 @@ class BaseConnector(ABC):
                             extra={
                                 "trace_id": trace_id,
                                 "connector_id": self.connector_id,
-                                "action": self.action,
+                                "action": action,
                                 "error_type": type(exc).__name__,
                                 "error_message": str(exc),
                                 "audit": True,
@@ -683,7 +712,7 @@ class BaseConnector(ABC):
                 execute_with_resilience = with_resilience(
                     self._breaker_for_tenant(tenant_id),
                     connector_id=self.connector_id,
-                    action=self.action,
+                    action=action,
                 )
 
                 @execute_with_resilience
@@ -697,7 +726,7 @@ class BaseConnector(ABC):
                     extra={
                         "trace_id": trace_id,
                         "connector_id": self.connector_id,
-                        "action": self.action,
+                        "action": action,
                         "duration_ms": round((time.monotonic() - _start) * 1000, 2),
                         "audit": True,
                         "audit_event": "invocation_success",
@@ -737,7 +766,7 @@ class BaseConnector(ABC):
                     extra={
                         "trace_id": trace_id,
                         "connector_id": self.connector_id,
-                        "action": self.action,
+                        "action": action,
                         "error_code": mapped.code,
                         "error_category": mapped.category.value,
                         "error_type": type(exc).__name__,
@@ -751,7 +780,7 @@ class BaseConnector(ABC):
                     success=False,
                     error_code=mapped.code,
                     error_category=mapped.category,
-                    message=str(exc),
+                    message=redact_credentials(str(exc)),
                     trace_id=trace_id,
                 )
                 return _response
@@ -761,7 +790,7 @@ class BaseConnector(ABC):
                     _duration_ms = (time.monotonic() - _start) * 1000
                     _metric_attrs = {
                         "connector.id": self.connector_id,
-                        "connector.action": self.action,
+                        "connector.action": action,
                         "success": _response.success,
                         "error_category": (
                             _response.error_category.value if _response.error_category else "none"

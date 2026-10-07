@@ -70,6 +70,7 @@ One fact, one owning page. Other pages link here instead of restating it.
 | What the OpenAPI generator supports | [Generator contract](cli/nw-connector-builder-scope.md) |
 | Local quality commands | [Code quality](code-quality-compliance.md) |
 | CI gates and branch protection | [Quality & security gates](quality-security-gates.md) |
+| Error codes, categories and what each surface returns | [Errors](errors.md), checked by `tests/test_docs_lifecycle.py` |
 | Stable public API | [Public API](public-api.md), checked by `tests/test_docs_lifecycle.py` |
 
 ## Changing the docs

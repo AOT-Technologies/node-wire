@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from pathlib import Path
@@ -17,24 +18,59 @@ from bindings.factory import ConnectorFactory
 from bindings.invoke import invoke
 from node_wire_runtime.auth.base import reset_upstream_bearer, set_upstream_bearer
 from node_wire_runtime.connector_registry import auto_register
+from node_wire_runtime.errors import ErrorCode, NodeWireError, reject
 from node_wire_runtime.identity import (
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
 )
+from node_wire_runtime.log_sanitization import reset_log_connector_id, set_log_connector_id
+from node_wire_runtime.models import ConnectorResponse
 from node_wire_runtime.tenant_persistence import load_tenants
 from node_wire_toolhive import request as _request
 from node_wire_toolhive.relay import relay_auth_provider_hook
 
 _PROTOCOL = "mcp"
 
+logger = logging.getLogger("node_wire_toolhive")
+
 
 class NodeWireToolError(ToolError):
-    """A connector action failed; carries node-wire's error taxonomy for the MCP client."""
+    """A tool call failed; carries node-wire's error taxonomy for the MCP client.
 
-    def __init__(self, message: str, *, error_code: Optional[str] = None) -> None:
+    The message is :func:`node_wire_runtime.errors.error_text`,
+    ``CODE [CATEGORY]: message (trace_id=...)``, so the client can quote the ``trace_id`` that
+    the server logged the failure under. Build one from a response with :meth:`from_response`.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_code: Optional[str] = None,
+        error_category: Optional[str] = None,
+        trace_id: Optional[str] = None,
+    ) -> None:
+        self.message = message
         self.error_code = error_code
-        super().__init__(f"{error_code}: {message}" if error_code else message)
+        self.error_category = error_category
+        self.trace_id = trace_id
+        text = message
+        if error_code:
+            label = f"{error_code} [{error_category}]" if error_category else error_code
+            text = f"{label}: {text}"
+        if trace_id:
+            text = f"{text} (trace_id={trace_id})"
+        super().__init__(text)
+
+    @classmethod
+    def from_response(cls, response: ConnectorResponse) -> "NodeWireToolError":
+        return cls(
+            response.message or "Connector action failed",
+            error_code=response.error_code,
+            error_category=response.error_category.value if response.error_category else None,
+            trace_id=response.trace_id,
+        )
 
 
 class NodeWireClient:
@@ -61,6 +97,10 @@ class NodeWireClient:
         self._selected_config: Dict[str, str] = {}
 
     @property
+    def connector_id(self) -> str:
+        return self._connector_id
+
+    @property
     def factory(self) -> ConnectorFactory:
         if not self._ready:
             with self._lock:
@@ -81,10 +121,12 @@ class NodeWireClient:
 
     def tenant_id(self) -> str:
         """Tenant for the current request (``__default__`` when multitenancy is off)."""
-        try:
-            return resolve_tenant_id(headers=_request.request_headers())
-        except ValueError as exc:
-            raise NodeWireToolError(str(exc), error_code="TENANT_REQUIRED") from exc
+        if not _request.from_tenant_proxy():
+            raise NodeWireError(
+                ErrorCode.PROXY_AUTH_FAILED, "Request did not come through a tenant proxy"
+            )
+        # MissingTenantError / TenantIdentityMismatchError carry their own catalogue codes.
+        return resolve_tenant_id(headers=_request.request_headers())
 
     def config_names(self, tenant_id: str) -> List[Dict[str, Any]]:
         """Named configs of this connector for ``tenant_id`` (name + default flag only)."""
@@ -98,12 +140,14 @@ class NodeWireClient:
     def select_config(self, config_name: str) -> str:
         """Pin the current MCP session to ``config_name`` for this request's tenant."""
         if not is_multitenancy_enabled():
-            raise NodeWireToolError("Named configs require NW_MULTITENANCY_ENABLED=true")
+            raise NodeWireError(
+                ErrorCode.UNKNOWN_TOOL, "Named configs require NW_MULTITENANCY_ENABLED=true"
+            )
         tenant_id = self.tenant_id()
         if self.factory.store.get(tenant_id, self._connector_id, config_name) is None:
-            raise NodeWireToolError(
+            raise NodeWireError(
+                ErrorCode.CONFIG_NOT_FOUND,
                 f"Unknown config {config_name!r} for tenant {tenant_id!r}",
-                error_code="CONFIG_NOT_FOUND",
             )
         self._selected_config[_request.session_key()] = config_name
         return tenant_id
@@ -115,10 +159,18 @@ class NodeWireClient:
 
     async def run(self, action: str, arguments: Dict[str, Any]) -> Any:
         """Run ``action`` with ``arguments`` (connector input field names); return its data."""
-        tenant_id = self.tenant_id()
+        log_cid_token = set_log_connector_id(self._connector_id)
+        try:
+            return await self._run(action, arguments)
+        finally:
+            reset_log_connector_id(log_cid_token)
+
+    async def _run(self, action: str, arguments: Dict[str, Any]) -> Any:
+        tenant_id: Optional[str] = None
         payload = {k: v for k, v in arguments.items() if v is not None}
         token = set_upstream_bearer(_request.bearer_token())
         try:
+            tenant_id = self.tenant_id()
             response = await invoke(
                 self.factory,
                 connector_id=self._connector_id,
@@ -128,14 +180,21 @@ class NodeWireClient:
                 tenant_id=tenant_id,
                 config_name=self.selected_config(),
             )
-        except NodeWireToolError:
-            raise
         except Exception as exc:  # noqa: BLE001 — surface as a tool error, never a crash
-            raise NodeWireToolError(str(exc), error_code=type(exc).__name__) from exc
+            raise self._rejected(exc, action=action, tenant_id=tenant_id) from exc
         finally:
             reset_upstream_bearer(token)
         if not response.success:
-            raise NodeWireToolError(
-                response.message or "Connector action failed", error_code=response.error_code
-            )
+            # The runtime already logged this failure under response.trace_id.
+            raise NodeWireToolError.from_response(response)
         return response.data
+
+    def _rejected(
+        self, exc: Exception, *, action: str, tenant_id: Optional[str]
+    ) -> NodeWireToolError:
+        """A failure raised before the connector ran, mapped and logged by the runtime."""
+        if isinstance(exc, NodeWireToolError):
+            return exc
+        return NodeWireToolError.from_response(
+            reject(exc, connector_id=self._connector_id, action=action, tenant_id=tenant_id or "")
+        )

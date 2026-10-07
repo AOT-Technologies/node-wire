@@ -12,6 +12,7 @@ import pytest
 from rich.console import Console
 
 from nw_cli.progress import GenerateProgress, StageStatus
+from nw_cli.ui import ReportedError
 
 
 def _progress() -> GenerateProgress:
@@ -38,8 +39,9 @@ def test_run_stage_success_and_skip() -> None:
     wire = next(s for s in gp.stages if s.key == "wire")
     assert wire.status == StageStatus.SKIPPED
     out = gp.console.file.getvalue()  # type: ignore[union-attr]
-    assert "Completed:" in out
-    assert "Skipped:" in out
+    assert "✓" in out and "Connector codegen" in out
+    assert "Wire / ALL_PACKAGES (skipped)" in out
+    assert "(not run)" in out  # wheel and mcp never ran
 
 
 def test_run_stage_failure_marks_failed_and_reraises() -> None:
@@ -112,10 +114,9 @@ def test_a_stage_hint_replaces_the_default_hint() -> None:
         stages=[Stage("wheel", "Wheels", hint="Needs Docker running")],
         console=Console(file=out, force_terminal=False, width=100),
     )
-    try:
+    with pytest.raises(ReportedError) as raised:
         with progress:
             progress.run_stage("wheel", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-    except RuntimeError:
-        pass
+    assert isinstance(raised.value.__cause__, RuntimeError)
     text = out.getvalue()
     assert "Needs Docker running" in text and "nw gen-whl" not in text

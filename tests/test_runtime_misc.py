@@ -474,3 +474,44 @@ def test_fallback_logic_not_found_is_skipped(monkeypatch: pytest.MonkeyPatch) ->
         loaded = connector_registry.auto_register()
 
     assert loaded == []
+
+
+def test_sanitizing_span_exporter_exports_real_sdk_spans() -> None:
+    """A finished SDK span's attributes are immutable BoundedAttributes, not a dict."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    from node_wire_runtime.observability import SanitizingSpanExporter
+
+    sink = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(SanitizingSpanExporter(sink)))
+    with provider.get_tracer("t").start_as_current_span(
+        "connector.run", attributes={"patient_id": "12345", "connector.id": "fhir_epic"}
+    ):
+        pass
+
+    (span,) = sink.get_finished_spans()
+    assert span.attributes["patient_id"] == REDACTED
+    assert span.attributes["connector.id"] == "fhir_epic"
+
+
+def test_sanitizing_span_exporter_handles_immutable_attributes() -> None:
+    """Newer SDKs freeze a finished span's attributes; sanitizing must not write into them."""
+    from opentelemetry.attributes import BoundedAttributes
+
+    from node_wire_runtime.observability import SanitizingSpanExporter
+
+    delegate = MagicMock()
+    exporter = SanitizingSpanExporter(delegate)
+    span = MagicMock()
+    span._attributes = BoundedAttributes(
+        attributes={"patient_id": "12345", "connector.id": "fhir_epic"}, immutable=True
+    )
+
+    exporter.export([span])
+
+    delegate.export.assert_called_once()
+    assert span._attributes["patient_id"] == REDACTED
+    assert span._attributes["connector.id"] == "fhir_epic"

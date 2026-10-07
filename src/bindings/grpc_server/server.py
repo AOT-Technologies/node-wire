@@ -16,8 +16,9 @@ from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
+from node_wire_runtime.errors import ErrorCode, NodeWireError, reject
 from node_wire_runtime.connector_registry import auto_register
-from node_wire_runtime import ConnectorResponse, ErrorCategory
+from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
@@ -56,6 +57,24 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
             load_tenants(self._factory.store)
 
+    def _rejected(
+        self,
+        exc: BaseException,
+        request: connector_pb2.InvokeRequest,  # type: ignore[name-defined, attr-defined]
+        tenant_id: str = "",
+    ) -> connector_pb2.InvokeResponse:  # type: ignore[name-defined, attr-defined]
+        """A call refused before its connector ran: mapped, logged and traced by the runtime."""
+        response = reject(
+            exc, connector_id=request.connector_id, action=request.action, tenant_id=tenant_id
+        )
+        return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
+            success=False,
+            error_code=response.error_code or "",
+            error_category=response.error_category.value if response.error_category else "",
+            message=response.message or "",
+            trace_id=response.trace_id,
+        )
+
     async def _invoke_async(
         self,
         request: connector_pb2.InvokeRequest,  # type: ignore[name-defined, attr-defined]
@@ -70,13 +89,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             ):
                 await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="RATE_LIMIT_EXCEEDED",
-                error_category=ErrorCategory.RETRYABLE.value,
-                message=str(e),
-                trace_id="",
-            )
+            return self._rejected(NodeWireError(ErrorCode.RATE_LIMIT_EXCEEDED, str(e)), request)
 
         identity = get_grpc_caller_identity()
 
@@ -90,53 +103,32 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             )
             result = limiter.consume(f"grpc:{request.connector_id}:{request.action}:{identity_key}")
             if not result.allowed:
-                return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                    success=False,
-                    error_code="RATE_LIMIT_EXCEEDED",
-                    error_category=ErrorCategory.RETRYABLE.value,
-                    message=(f"Rate limit exceeded, retry after {result.retry_after_seconds}s"),
-                    trace_id="",
+                message = f"Rate limit exceeded, retry after {result.retry_after_seconds}s"
+                return self._rejected(
+                    NodeWireError(ErrorCode.RATE_LIMIT_EXCEEDED, message), request
                 )
 
         try:
             tenant_id = resolve_tenant_id(headers=metadata or {}, jwt_identity=identity)
-        except MissingTenantError as exc:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="MISSING_TENANT",
-                error_category=ErrorCategory.AUTH.value,
-                message=str(exc),
-                trace_id="",
-            )
-        except TenantIdentityMismatchError as exc:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="TENANT_IDENTITY_MISMATCH",
-                error_category=ErrorCategory.AUTH.value,
-                message=str(exc),
-                trace_id="",
-            )
+        except (MissingTenantError, TenantIdentityMismatchError) as exc:
+            return self._rejected(exc, request)
 
+        not_available = NodeWireError(
+            ErrorCode.CONNECTOR_NOT_AVAILABLE,
+            f"Connector {request.connector_id!r} is not available via gRPC.",
+        )
         if not self._factory.is_exposed(request.connector_id, "grpc"):
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="CONNECTOR_NOT_AVAILABLE",
-                error_category=ErrorCategory.BUSINESS.value,
-                message=f"Connector {request.connector_id!r} is not available via gRPC.",
-                trace_id="",
-            )
+            return self._rejected(not_available, request, tenant_id)
 
         payload: Any = {}
         if request.payload_json:
             try:
                 payload = json.loads(request.payload_json)
             except json.JSONDecodeError as e:
-                return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                    success=False,
-                    error_code="INVALID_JSON",
-                    error_category=ErrorCategory.BUSINESS.value,
-                    message=f"Failed to parse payload_json: {e}",
-                    trace_id="",
+                return self._rejected(
+                    NodeWireError(ErrorCode.INVALID_JSON, f"Failed to parse payload_json: {e}"),
+                    request,
+                    tenant_id,
                 )
 
         if not isinstance(payload, dict):
@@ -155,28 +147,18 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                 scopes=identity.scopes if identity else None,
             )
         except ConnectorNotExposed:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="CONNECTOR_NOT_AVAILABLE",
-                error_category=ErrorCategory.BUSINESS.value,
-                message=f"Connector {request.connector_id!r} is not available via gRPC.",
-                trace_id="",
-            )
+            return self._rejected(not_available, request, tenant_id)
         except ConfigNotFoundError:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="CONFIG_NOT_FOUND",
-                error_category=ErrorCategory.AUTH.value,
-                message="No connector configuration for this tenant",
-                trace_id="",
+            return self._rejected(
+                NodeWireError(
+                    ErrorCode.CONFIG_NOT_FOUND, "No connector configuration for this tenant"
+                ),
+                request,
+                tenant_id,
             )
         except ValueError as exc:
-            return connector_pb2.InvokeResponse(  # type: ignore[name-defined, attr-defined]
-                success=False,
-                error_code="INVALID_PAYLOAD",
-                error_category=ErrorCategory.BUSINESS.value,
-                message=str(exc),
-                trace_id="",
+            return self._rejected(
+                NodeWireError(ErrorCode.INVALID_PAYLOAD, str(exc)), request, tenant_id
             )
 
         data_json = json.dumps(response.data) if response.data is not None else ""

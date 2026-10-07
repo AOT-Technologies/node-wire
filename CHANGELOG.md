@@ -148,15 +148,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   personal data. The playground picker groups OpenRouter models behind one
   row that expands on hover or click.
 
+- **`nw` CLI**:
+  - One error handler for every command. A failure is reported once, in the summary panel, with
+    the stage, the reason, the last 15 lines of its output and a fix hint. `--debug` (or
+    `NW_DEBUG=1`) adds the traceback. Ctrl-C stops the running build tool and exits 130.
+  - Build tool output stays under the progress bars unless `-v` / `--verbose` is set, or there is
+    no terminal. Every run writes a full log to `<tmp>/nw-logs/`.
+  - Commands print the next steps to run (`uv run nw docker-build …`, the stacklok run and
+    ToolHive steps) below the summary.
+  - `gen-all` reuses wheels whose sources are unchanged (a `.nw-source-<mode>.sha256` stamp per
+    package); `--rebuild-wheels` rebuilds them all.
+  - `docker-build --connector-id` finds the `gen-stacklok` servers built on the connector as well
+    as its MCP host, with a menu when there are several. `--project <dir>` builds one by path.
+  - The `gen-stacklok` Phase 2 review is an arrow-key menu: generate, show details, edit the
+    scope and review again, redo the AI scoping with feedback, or stop.
+- **`grafana/`**: the dashboard is rebuilt as **Connector Calls & Logs** and provisioned at
+  startup, in a node-wire folder, instead of being imported by hand.
+  - Calls, success rate, latency and a per-action table come from the connector metrics. The old
+    rate was log lines matching `failed|error` against all log lines, which read about 97% when no
+    call had succeeded.
+  - An errors row groups failures by `error_code`, `error_category` and where they failed.
+  - Calls rejected before the connector ran are counted from their audit log lines.
+  - A log panel is filtered by `trace_id`.
+  - Service, connector and action pickers replace the hard-coded `service_name="node-wire"` and
+    connector list, so MCP hosts (`nw-<connector>`) and stacklok servers (`<server>-mcp`) show.
+- **`grafana/docker-compose.yml`**: the host ports are overridable (`NW_GRAFANA_PORT`,
+  `NW_OTLP_GRPC_PORT`, `NW_OTLP_HTTP_PORT`; defaults 3000, 4317 and 4318), for machines where
+  another collector already holds them.
+- **`scripts/traffic_petstore.py`** (local only): deploys the Petstore MCP host behind ToolHive
+  (`pet-store-nw-mcp-traffic`) and sends it a weighted stream of tool calls against the public
+  Petstore demo:
+  - successes (find by status and tags, inventory, a pet that exists);
+  - upstream 404s (`HTTP_STATUS_ERROR`);
+  - calls rejected before any upstream request (`VALIDATION_ERROR`, `UNKNOWN_TOOL`).
+
+  It calls read-only tools only, and a test keeps it that way. With `--otlp-endpoint` its logs,
+  traces and metrics fill the `grafana/` dashboard. It ends with the calls by tool and outcome.
+- **`scripts/e2e_toolhive.py`** (local only): builds the ToolHive runbook's MCP servers. That's ten
+  scenarios: Petstore and Slack each on a node-wire host (full list, tool search, tenants +
+  configs) and on stacklok (single tenant, tenants + configs). It builds them
+  with the `nw` CLI in parallel lanes. Shared wheels are built once, and unchanged packages are
+  reused. It deploys each server behind ToolHive under the runbook's workload names, then checks
+  the tool listing (`thv mcp list tools`) and the error taxonomy with calls that fail before any
+  upstream request. `PET_STORE_API_KEY`, `PET_STORE_ACCESS_TOKEN` and `SLACK_WEB_ACCESS_TOKEN`
+  are optional: when set, they're passed to the servers and no upstream action is called.
+  `--skip-build` rechecks the built images; `--clean` removes what it started.
+  `--otlp-endpoint` sends the servers' logs and traces to the `grafana/` stack. It then checks, in
+  Loki through Grafana, that each failed call's `trace_id` leads to its log line with the same
+  `error_code`. It adds a posting-focused stacklok scope for Slack,
+  `tests/nw_stacklok_builder/fixtures/stacklok/slack_post.yaml` (`post_message`,
+  `list_conversations`, `auth_test`).
+- **`scripts/reset_connector.py`**: removes everything `gen-all` / `gen-mcp` / `gen-stacklok`
+  generated for one or more connectors (sources, packages and wheels, output projects, the saved
+  scope, uncommitted wiring), so the next run starts from scratch. It refuses hand-written or
+  git-tracked connectors. `--dry-run` lists what it would remove.
+- **`node-wire-runtime`** 1.1.0: `node_wire_runtime.host_logging`. `configure_host_logging` prints
+  the runtime's `extra` fields (`trace_id`, `error_code`, `error_category`, `audit_event` …) on
+  the console, installs redaction, and starts OpenTelemetry export only when an OTLP endpoint is
+  set. `install_redaction_and_telemetry` does the same for hosts that own their console format.
+  nw-mcp-builder hosts call `configure_host_logging` at startup.
+- **`node-wire-toolhive`** 1.1.0: `init_telemetry(service_name)`, which stacklok-built servers
+  call at startup for the same redaction and opt-in OTLP export.
+
 ### Changed
 
-- **All packages now require Python 3.13** (`requires-python = ">=3.13"`), covering the runtime,
-  bindings, connectors, `nw-cli`, `nw-connector-builder` and `nw-mcp-builder`. Wheels are built
-  for `cp313` only (`CIBW_BUILD=cp313-*`; the publish matrix is one job per platform). Container
-  images and the generated MCP host Dockerfile use `python:3.13-slim` (digest-pinned), connectors
-  generated by `nw-connector-builder` declare `>=3.13`, and CI runs on 3.13. Package versions are
-  unchanged. Branch protection must require `Run pytest (ubuntu-latest, Python 3.13)` in place of
-  the 3.11/3.12 checks.
+- **One error taxonomy on every surface** (`docs/errors.md`). The runtime now owns every code,
+  including failures before a connector runs, and bindings only translate them. Codes shipped in
+  1.0.0 keep their name and category.
+  - `node_wire_runtime`: `ErrorCode`, `NodeWireError` (a `ValueError`), and
+    `errors.reject()` / `validation_error()` / `error_text()` / `http_status()`. Every refused
+    call gets a trace id and one `invocation_rejected` / `invocation_validation_failure` log line.
+  - **Node-wire MCP host**: a failed call is `isError: true`. Its text is
+    `CODE [CATEGORY]: message (trace_id=…)` (validation messages keep their `Input validation
+    error:` wording after the code), and the envelope is its structured content. Unknown tools,
+    bad arguments, unknown tenants and configs, rate limits and a connector not on this server
+    were plain text with no code: now `UNKNOWN_TOOL`, `VALIDATION_ERROR`, `TENANT_NOT_ALLOWED`,
+    `CONFIG_NOT_FOUND`, `RATE_LIMIT_EXCEEDED`, `CONNECTOR_NOT_AVAILABLE`. A connector failure was
+    a result with `success: false` and `isError: false`.
+  - **REST**: a call refused before running keeps its status and `detail`, and its body is now the
+    envelope (it was `{"detail": …}` only).
+  - **gRPC**: same codes as before (`INVALID_PAYLOAD` stays gRPC's name for `VALIDATION_ERROR`
+    through 1.x); refused calls now carry a trace id.
+  - **stacklok-built servers** (unreleased): `TENANT_REQUIRED` is now `MISSING_TENANT`,
+    `CONNECTOR_NOT_EXPOSED [FATAL]` is now `CONNECTOR_NOT_AVAILABLE [BUSINESS]`, and
+    `CONFIG_NOT_FOUND` is `AUTH`, as gRPC shipped it. Unknown tools are `UNKNOWN_TOOL`.
+    `node_wire_toolhive.report_argument_errors` is renamed `report_call_errors`; regenerate
+    servers with `nw gen-stacklok --force`.
+  - The runtime's tenant session raises coded errors (`TENANT_NOT_ALLOWED`, `TENANT_PIN_LOCKED`,
+    `CONFIG_NOT_FOUND`, `MISSING_TENANT`) instead of bare `ValueError`s.
+- **Error codes for a missing credential**: these used to get `ErrorMapper`'s fallback, the
+  exception's class name with category `FATAL`. They now have stable codes. Clients that matched
+  the old codes must update.
+  - A secret the server is configured to read but lacks: `SECRET_NOT_FOUND`, or
+    `TENANT_SECRET_NOT_FOUND` for a tenant's secret (was `SecretNotFoundError` /
+    `TenantSecretNotFoundError`). Still `FATAL`: it's a server misconfiguration, so REST keeps
+    answering 500.
+  - A stacklok-built server that got no bearer token from ToolHive: `UPSTREAM_TOKEN_MISSING
+    [AUTH]` (was `MissingUpstreamTokenError [FATAL]`). The caller's credential is missing.
+- **Development and tooling move to Python 3.13**: the repo root, `nw-cli`,
+  `nw-connector-builder`, `nw-mcp-builder` and `nw-stacklok-builder` require `>=3.13`, CI runs on
+  3.13, and container images and the generated MCP host Dockerfile use `python:3.13-slim`
+  (digest-pinned). Branch protection must require `Run pytest (ubuntu-latest, Python 3.13)` in
+  place of the 3.11/3.12 checks. The published packages (runtime, bindings, toolhive, connectors,
+  and connectors generated by `nw-connector-builder`) still declare `>=3.11`; the publish matrix
+  adds `cp313` wheels (which the stacklok Alpine image installs) next to `cp311` and `cp312`.
+  A `Published packages (Python 3.11/3.12)` CI job runs the runtime, bindings and toolhive tests
+  on those versions, and the `Pytest matrix complete` gate requires it.
+- **`nw gen-stacklok`**: `--scoping-model` defaults to Claude Code's own model (was `haiku`).
+- **`nw` CLI**: fix and retry hints read `uv run nw …`, like the next steps.
 
 - **`nw-connector-builder`**: generated tools now carry the spec's descriptions. The operation's
   `summary` (else `description`) — first paragraph, markdown links flattened, 300-character cap —
@@ -265,8 +364,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name). The import package (`node_wire_http_generic`), the connector key, and
   the `node_wire.connectors` entry point (`http_generic`) are unchanged.
 
+### Security
+
+- **`nw gen-stacklok` manifests**: the backend no longer trusts `X-Tenant-ID` on the NetworkPolicy
+  alone. `deploy/proxy-secret.yaml` holds a shared secret every tenant proxy sends as
+  `X-NW-Proxy-Secret` (`headerForward.addHeadersFromSecret`); the backend reads it as
+  `NW_PROXY_SECRET`, and `node-wire-toolhive` rejects tenant requests without it
+  (`PROXY_AUTH_FAILED`). `deploy/README.md` states the NetworkPolicy-enforcing CNI requirement.
+  The generated placeholder value `REPLACE_ME_PROXY_SECRET` is always rejected, so a
+  `proxy-secret.yaml` applied unedited fails closed instead of sharing a publicly known secret.
+- **Generated stacklok image**: `.dockerignore` now allow-lists `config/connectors.yaml` instead of
+  excluding only `config/tenants.yaml`, so a tenants file under another name is never baked in.
+- **Headless AI scoping**: Claude Code runs with `--permission-mode dontAsk` and file edits
+  allowed only inside the scoping work directory (was `acceptEdits` across the repo), so a
+  prompt-injected spec cannot rewrite `.claude/` or the vendored skill.
+- **`nw gen-stacklok`**: `server.name` is checked as a DNS label when the scope is read, and
+  `--force` refuses to delete a project outside the output directory.
+
 ### Fixed
 
+- **nw-mcp-builder**: the MCP host project's `config/connectors.yaml` holds only its own
+  connector. It used to copy the repo's whole file, so every start logged "Connector enabled in
+  configuration but not registered" for each of the other connectors, and baked their base URLs
+  and auth blocks into the image. A connector that isn't wired in now fails the build with a
+  clear message.
+- **node-wire-runtime**: OTLP log export skips record attributes OpenTelemetry can't carry.
+  structlog's `_logger` object on every line of a stacklok-built server logged an "Invalid type …
+  for attribute value" warning per line. The record keeps them for the console.
+- **node-wire-runtime**: a failed connector run is logged at error level once, by
+  `BaseConnector.run` with its `invocation_failure` audit line. The resilience layer's second
+  "Non-retryable error during execution" line is now a debug-level retry decision.
+- **node-wire-runtime**: connector metrics (`connector.action`), the `connector.run` span and
+  the run's audit log lines now name the invoked action (the call's `action`). They said
+  `execute`, the class default, for every call, so no per-action breakdown was possible.
+- **node-wire-runtime**: span export failed in the compiled (Cython) wheels with
+  `TypeError: Argument 'attributes' has incorrect type (expected dict, got BoundedAttributes)`, so
+  no trace ever reached the collector. The source install was unaffected, which is why tests
+  passed.
+- **stacklok-built servers**: two kinds of tool failure now read
+  `CODE [CATEGORY]: message (trace_id=...)` and are logged under that trace id, as
+  `docs/stacklok-mcp-servers.md` says every failure does.
+  - Invalid arguments were reported in pydantic's words, with no code or trace id. They're now
+    `VALIDATION_ERROR [BUSINESS]: Input validation failed; channel: Field required ...`, via
+    `node_wire_toolhive.report_call_errors`, which generated servers call when they build
+    their MCP server.
+  - `nw_list_configs` / `nw_select_config` failures (`TENANT_REQUIRED`, `CONFIG_NOT_FOUND`) had no
+    trace id.
+
+  Regenerate existing servers (`nw gen-stacklok --force`) to pick this up.
+- **nw-connector-builder `--wire`**: `sample.env` is replaced atomically, like
+  `config/connectors.yaml`, keeping its file mode. `nw gen-mcp` copies both files, so a
+  concurrent `nw` run that was wiring a connector in could hand it a half-written file.
+- **MCP host logging**: the runtime's taxonomy and trace fields (`trace_id`, `error_code` …) were
+  dropped from the console by plain formatters. nw-mcp-builder hosts and stacklok-built servers
+  now print them. A host that already has a handler with a plain `logging.Formatter` keeps its
+  format and gains the fields. Redaction was installed only as a root-logger filter, which
+  doesn't run for records from child loggers (`runtime.base_connector` …). It now sits on the
+  root handlers too.
+- **nw-mcp-builder**: the MCP project copies only wheels its image can install: CPython 3.13,
+  glibc Linux, the image's CPU architecture. Before, it took the newest wheel in `dist/`, which
+  could be gen-stacklok's musllinux build, a macOS or cp312 wheel, or the other architecture.
+- **`nw gen-stacklok`**: image wheel stamps list their wheels, like `nw gen-whl`'s, so the
+  `.nw-source-cp313-musllinux.sha256` stamps share one format.
+- **Generated stacklok project**: every patch to stacklok's template (Dockerfile, pyproject,
+  `mcp_builder.py`, `settings.py`, `__main__.py`) now fails the build with
+  `TemplateChangedError` when its target isn't found, instead of silently doing nothing.
 - **nw-connector-builder**: regenerating a connector with `--force` now keeps
   `packages/connectors/<id>/dist/`. Deleting it made `nw gen-stacklok` recompile the connector
   on every run, even from an unchanged spec, and made `--no-wheel` fail for want of a wheel.

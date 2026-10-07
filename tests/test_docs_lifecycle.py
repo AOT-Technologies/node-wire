@@ -147,3 +147,12 @@ def test_packaging_inventory_matches_build_script() -> None:
     inventory = packaging.split("## Package inventory", 1)[1].split("\n## ", 1)[0]
     listed = set(re.findall(r"^\| `([a-z0-9-]+)`", inventory, re.MULTILINE))
     assert listed == names, f"packaging.md inventory drifted from ALL_PACKAGES: {listed ^ names}"
+
+
+def test_errors_page_lists_the_runtime_catalogue() -> None:
+    """docs/errors.md owns the error codes; its table must match the runtime's catalogue."""
+    from node_wire_runtime.errors import CATALOGUE
+
+    text = (DOCS / "errors.md").read_text(encoding="utf-8")
+    rows = dict(re.findall(r"^\| `([A-Z_]+)` \| `([A-Z]+)` \|", text, flags=re.MULTILINE))
+    assert rows == {code: category.value for code, category in CATALOGUE.items()}

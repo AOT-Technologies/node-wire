@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import tomllib
 import zipfile
@@ -17,7 +18,8 @@ import yaml
 
 from mcp_builder.pipeline import run_pipeline
 from nw_stacklok.hooks import NodeWireOptions
-from nw_stacklok.project import WheelsMissingError
+from nw_stacklok.project import TemplateChangedError, WheelsMissingError, finish_project
+from node_wire_toolhive import request as toolhive_request
 from nw_stacklok.resolve import NodeWireResolveError
 
 from .conftest import CONNECTOR_ID, FIXTURES, PETSTORE_SPEC, TEMPLATE, NodeWireCheckout
@@ -59,6 +61,17 @@ def test_tools_run_connector_actions(node_wire_checkout: NodeWireCheckout, tmp_p
     registrations = (module / "api" / "mcp_builder.py").read_text()
     assert "tools = Tools(APIClient())" in registrations
     assert "register_config_tools(mcp, tools._client.node_wire)" in registrations
+    # Wraps every registered tool, config tools included, so it comes last.
+    order = [
+        registrations.index(line)
+        for line in (
+            "mcp.add_tool(tools.find_pets_by_status)",
+            "register_config_tools(mcp, tools._client.node_wire)",
+            "report_call_errors(mcp, tools._client.node_wire)",
+            "return mcp",
+        )
+    ]
+    assert order == sorted(order)
     for path in project.rglob("*.py"):
         compile(path.read_text(), str(path), "exec")
 
@@ -89,7 +102,79 @@ def test_project_packaging(node_wire_checkout: NodeWireCheckout, tmp_path: Path)
     assert "COPY config/ /app/config/" in dockerfile
     assert f"NW_UPSTREAM_BEARER_CONNECTORS={CONNECTOR_ID}" in dockerfile
     assert "NW_MULTITENANCY_ENABLED=true" in dockerfile
-    assert "config/tenants.yaml" in (project / ".dockerignore").read_text()
+    ignored = (project / ".dockerignore").read_text().splitlines()
+    # Allow-list, so a tenants file under any name (tenants.prod.yaml) stays out of the image.
+    assert ignored[-2:] == ["config/*", "!config/connectors.yaml"]
+    assert 'extra="ignore"' in (project / "src" / "petstore_mcp" / "settings.py").read_text()
+
+
+def test_runtime_log_fields_and_telemetry_are_wired(
+    node_wire_checkout: NodeWireCheckout,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The runtime logs its taxonomy/trace fields as ``extra``; the server must print them."""
+    project = _generate(node_wire_checkout, tmp_path)
+    module = project / "src" / "petstore_mcp"
+
+    main = (module / "__main__.py").read_text()
+    assert "from node_wire_toolhive import init_telemetry" in main
+    assert main.index("configure_logging(log_level=log_level)") < main.index(
+        'init_telemetry("petstore-mcp")'
+    )
+
+    monkeypatch.syspath_prepend(str(project / "src"))
+    from petstore_mcp.configure_logging import configure_logging  # type: ignore[import-not-found]
+
+    root = logging.getLogger()
+    saved = (list(root.handlers), list(root.filters), root.level)
+    try:
+        configure_logging("INFO", colored_logs=False)
+        logging.getLogger("runtime.base_connector").error(
+            "Connector execution failed",
+            extra={"trace_id": "t-1", "error_code": "AUTH_FAILED", "error_category": "AUTH"},
+        )
+    finally:
+        root.handlers[:] = saved[0]
+        root.filters[:] = saved[1]
+        root.setLevel(saved[2])
+    err = capsys.readouterr().err
+    assert "trace_id=t-1" in err
+    assert "error_code=AUTH_FAILED" in err
+    assert "error_category=AUTH" in err
+
+
+@pytest.mark.parametrize(
+    ("relative", "old"),
+    [
+        ("Dockerfile", "COPY --from=builder /app/src /app/src\n"),
+        ("src/petstore_mcp/api/mcp_builder.py", "return mcp"),
+        ("src/petstore_mcp/settings.py", 'env_file_encoding="utf-8",'),
+        ("src/petstore_mcp/__main__.py", 'if __name__ == "__main__":'),
+        ("src/petstore_mcp/__main__.py", "configure_logging(log_level=log_level)\n"),
+        ("src/petstore_mcp/configure_logging.py", "structlog.stdlib.add_logger_name,\n"),
+    ],
+)
+def test_a_changed_stacklok_template_fails_the_build(
+    node_wire_checkout: NodeWireCheckout,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    relative: str,
+    old: str,
+) -> None:
+    """Every patch must match; a silent no-op would ship an image missing node-wire wiring."""
+    captured = {}
+    monkeypatch.setattr(
+        "nw_stacklok.project.finish_project",
+        lambda project_dir, plan, **kwargs: captured.update(plan=plan),
+    )
+    project = _generate(node_wire_checkout, tmp_path)  # stacklok's output, not yet finished
+    target = project / relative
+    target.write_text(target.read_text().replace(old, "# changed upstream"))
+
+    with pytest.raises(TemplateChangedError, match=target.name):
+        finish_project(project, captured["plan"], wheels=False, lock=False)
 
 
 def test_manifests_one_backend_and_a_proxy_per_tenant(
@@ -103,6 +188,7 @@ def test_manifests_one_backend_and_a_proxy_per_tenant(
     assert {
         "backend.yaml",
         "networkpolicy.yaml",
+        "proxy-secret.yaml",
         "tenant-proxy.yaml",
         "tenants-secret.yaml",
     } <= names
@@ -120,6 +206,19 @@ def test_manifests_one_backend_and_a_proxy_per_tenant(
     assert proxy["kind"] == "MCPRemoteProxy"
     spec = proxy["spec"]
     assert spec["headerForward"]["addPlaintextHeaders"] == {"X-Tenant-ID": "REPLACE_ME_TENANT"}
+
+    # Second layer behind the NetworkPolicy: the proxy sends the secret the backend checks.
+    (secret,) = yaml.safe_load_all((deploy / "proxy-secret.yaml").read_text())
+    ref = {"name": secret["metadata"]["name"], "key": "token"}
+    assert spec["headerForward"]["addHeadersFromSecret"] == [
+        {"headerName": "X-NW-Proxy-Secret", "valueSecretRef": ref}
+    ]
+    env = {e["name"]: e for e in deployment["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert env["NW_PROXY_SECRET"]["valueFrom"]["secretKeyRef"] == ref
+    # The backend (node_wire_toolhive) refuses the shipped placeholder, so it must match.
+    assert secret["stringData"]["token"] == toolhive_request.PROXY_SECRET_PLACEHOLDER
+    assert "NW_PROXY_SECRET" == toolhive_request.PROXY_SECRET_ENV
+    assert "X-NW-Proxy-Secret".lower() == toolhive_request.PROXY_SECRET_HEADER
     assert spec["remoteUrl"].startswith("http://petstore-backend.")
     assert spec["allowPrivateEndpoint"] is True
     assert spec["externalAuthConfigRef"] == {"name": "petstore-auth"}

@@ -139,13 +139,52 @@ jobs:
           if-no-files-found: error
 
 
+  # The repo needs 3.13, but node-wire-runtime, -bindings and -toolhive are published for
+  # >=3.11 (cp311/cp312 wheels in publish.yml). Install just those, pure Python (editable
+  # installs skip Cython), and run the tests that need nothing else: connectors pull in
+  # their SDKs and the REST binding needs fastapi, neither of which ships in these packages.
+  published-python:
+    name: Published packages (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the published packages
+        run: |
+          uv venv --python "${{ matrix.python-version }}" .venv-published
+          VIRTUAL_ENV=.venv-published uv pip install \
+            -e packages/runtime -e packages/bindings -e packages/toolhive pytest pytest-asyncio
+
+      - name: Run their tests
+        run: |
+          .venv-published/bin/python -m pytest -q -o addopts="" --import-mode=importlib \
+            tests/test_aot_runtime_basic.py tests/test_binding_invoke.py \
+            tests/test_error_mapper_scoped.py tests/test_host_logging.py \
+            tests/test_log_sanitization.py tests/test_observability.py \
+            tests/test_payload_redaction.py tests/test_rest_body_properties.py \
+            tests/test_rest_connector.py tests/test_rest_envelope.py \
+            tests/test_runtime_misc.py tests/node_wire_toolhive
+
   # Branch protection requires a context that every pull request produces. The
   # OS matrix is chosen at runtime, so the macOS and Windows legs do not exist
   # on most pull requests and their check names stay "Expected" forever. This
   # job always runs and reports the matrix result under one stable name.
   pytest-gate:
     name: Pytest matrix complete
-    needs: [changes, test]
+    needs: [changes, test, published-python]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
@@ -156,15 +195,21 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          PUBLISHED_RESULT: ${{ needs.published-python.result }}
           SELECTED_OS: ${{ needs.changes.outputs.os }}
         run: |
           echo "Runner selection: ${CHANGES_RESULT} (os=${SELECTED_OS:-unset})"
           echo "Pytest matrix:    ${TEST_RESULT}"
+          echo "Python 3.11/3.12: ${PUBLISHED_RESULT}"
           # Anything other than success - including skipped, which means the
           # matrix never ran - is a failure. A green gate must mean every
           # selected leg passed.
           if [[ "${TEST_RESULT}" != "success" ]]; then
             echo "::error::Pytest matrix did not pass (result: ${TEST_RESULT})"
+            exit 1
+          fi
+          if [[ "${PUBLISHED_RESULT}" != "success" ]]; then
+            echo "::error::Published-package tests did not pass (result: ${PUBLISHED_RESULT})"
             exit 1
           fi
 

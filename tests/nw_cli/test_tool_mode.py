@@ -201,7 +201,7 @@ def test_gen_all_decides_after_codegen_and_passes_the_mode(fake_root: Path) -> N
             ],
         )
     assert result.exit_code == 0, result.output
-    assert order == ["connector", "decide", "wheel", "wheel", "mcp"]
+    assert order == ["connector", "decide", "wheel", "mcp"]
 
 
 def test_gen_all_rejects_both_mode_flags(fake_root: Path) -> None:

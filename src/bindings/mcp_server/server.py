@@ -14,6 +14,8 @@ import uuid
 from contextvars import ContextVar
 from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
+from mcp.types import ListToolsRequest
+
 from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
 from bindings.mcp_server.tool_search import Bm25Index
@@ -25,6 +27,7 @@ from bindings.mcp_server.auth import (
 )
 from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
+from node_wire_runtime.errors import ErrorCode, NodeWireError, error_text, reject
 from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
@@ -189,6 +192,44 @@ def format_tool_validation_error(exc: Any) -> str:
     """
     path = getattr(exc, "json_path", None) or "$"
     return f"Input validation error: {path}: {exc.message}"
+
+
+def _failed_call(response: Any, *, structured: Optional[Dict[str, Any]] = None) -> Any:
+    """A failed tool call as MCP reports it: ``isError``, node-wire's one-line error text
+    (``CODE [CATEGORY]: message (trace_id=...)``), and the ConnectorResponse envelope as
+    structured content (the tool's declared output schema)."""
+    from mcp.types import CallToolResult, TextContent
+
+    return CallToolResult(
+        content=[TextContent(type="text", text=error_text(response))],
+        structuredContent=structured
+        if structured is not None
+        else response.model_dump(mode="json"),
+        isError=True,
+    )
+
+
+def _auth_failure(exc: Any, tool_name: str) -> Any:
+    """An MCP call refused by ingress authentication, as a failed call (``MCP_AUTH_*``, AUTH)."""
+    logger.warning(
+        "MCP tools/call denied by authentication",
+        extra={
+            "tool_name": tool_name,
+            "status_code": exc.status_code,
+            "error_code": exc.error_code,
+        },
+    )
+    return _failed_call(
+        ConnectorResponse(
+            success=False,
+            data=None,
+            error_code=exc.error_code,
+            error_category=ErrorCategory.AUTH,
+            message=exc.detail,
+            trace_id=f"mcp-auth-{uuid.uuid4()}",
+            details=exc.to_payload(),
+        )
+    )
 
 
 def validate_tool_arguments(arguments: Any, input_schema: Any) -> str | None:
@@ -848,7 +889,12 @@ class McpServer:
                 env_pin=self._tenant_session.env_pin,
             )
         except (MissingTenantError, TenantIdentityMismatchError) as exc:
-            raise ValueError(str(exc)) from exc
+            code = (
+                ErrorCode.MISSING_TENANT
+                if isinstance(exc, MissingTenantError)
+                else ErrorCode.TENANT_IDENTITY_MISMATCH
+            )
+            raise NodeWireError(code, str(exc)) from exc
 
     def _store_has_tenant(self, tenant_id: str) -> bool:
         return tenant_id in self._factory.store.list_tenants()
@@ -887,7 +933,10 @@ class McpServer:
         allow = self._connector_ids
         if connector_id is not None:
             if allow is not None and connector_id not in allow:
-                raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
+                raise NodeWireError(
+                    ErrorCode.CONNECTOR_NOT_AVAILABLE,
+                    f"Connector {connector_id!r} is not allowed on this MCP server.",
+                )
             docs = self._factory.store.list(tenant_id, connector_id)
         elif allow is not None:
             docs = []
@@ -920,7 +969,10 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(f"Tool {LIST_CONFIGS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
+            raise NodeWireError(
+                ErrorCode.UNKNOWN_TOOL,
+                f"Tool {LIST_CONFIGS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true",
+            )
         tenant_arg = _optional_str(arguments.get("tenant_id"))
         tenant_id = self._effective_tenant_id(identity, tenant_arg=tenant_arg)
         connector_id = _optional_str(arguments.get("connector_id"))
@@ -954,7 +1006,10 @@ class McpServer:
         allow = self._connector_ids
         if connector_id is not None:
             if allow is not None and connector_id not in allow:
-                raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
+                raise NodeWireError(
+                    ErrorCode.CONNECTOR_NOT_AVAILABLE,
+                    f"Connector {connector_id!r} is not allowed on this MCP server.",
+                )
             return [
                 tid
                 for tid in self._factory.store.list_tenants()
@@ -981,7 +1036,10 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(f"Tool {LIST_TENANTS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
+            raise NodeWireError(
+                ErrorCode.UNKNOWN_TOOL,
+                f"Tool {LIST_TENANTS_TOOL!r} requires NW_MULTITENANCY_ENABLED=true",
+            )
         connector_id = _optional_str(arguments.get("connector_id"))
 
         tenants = self._list_tenant_ids(connector_id)
@@ -1018,11 +1076,16 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(f"Tool {SELECT_TENANT_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
+            raise NodeWireError(
+                ErrorCode.UNKNOWN_TOOL,
+                f"Tool {SELECT_TENANT_TOOL!r} requires NW_MULTITENANCY_ENABLED=true",
+            )
         self._tenant_session.assert_switch_allowed()
         tenant_id = _optional_str(arguments.get("tenant_id"))
         if not tenant_id:
-            raise ValueError(f"{SELECT_TENANT_TOOL} requires tenant_id")
+            raise NodeWireError(
+                ErrorCode.VALIDATION_ERROR, f"{SELECT_TENANT_TOOL} requires tenant_id"
+            )
         self._tenant_session.select_tenant(tenant_id)
         connector_id = _optional_str(arguments.get("connector_id"))
         configs = self._list_configs_for_tenant(tenant_id, connector_id)
@@ -1059,10 +1122,15 @@ class McpServer:
         identity: CallerIdentity | None,
     ) -> Dict[str, Any]:
         if not is_multitenancy_enabled():
-            raise ValueError(f"Tool {SELECT_CONFIG_TOOL!r} requires NW_MULTITENANCY_ENABLED=true")
+            raise NodeWireError(
+                ErrorCode.UNKNOWN_TOOL,
+                f"Tool {SELECT_CONFIG_TOOL!r} requires NW_MULTITENANCY_ENABLED=true",
+            )
         config_name = _optional_str(arguments.get("config_name"))
         if not config_name:
-            raise ValueError(f"{SELECT_CONFIG_TOOL} requires config_name")
+            raise NodeWireError(
+                ErrorCode.VALIDATION_ERROR, f"{SELECT_CONFIG_TOOL} requires config_name"
+            )
         tenant_id = self._effective_tenant_id(identity)
         have, missing = self._tenant_session.select_config(tenant_id, config_name)
         logger.info(
@@ -1138,10 +1206,11 @@ class McpServer:
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
-            raise ValueError(f"Ambiguous MCP tool name {name!r}")
-        raise ValueError(
+            raise NodeWireError(ErrorCode.UNKNOWN_TOOL, f"Ambiguous MCP tool name {name!r}")
+        raise NodeWireError(
+            ErrorCode.UNKNOWN_TOOL,
             f"Unknown tool {name!r}. Expected '<connector>_<action>' "
-            f"(or legacy '<connector>.<action>')."
+            f"(or legacy '<connector>.<action>').",
         )
 
     async def invoke_tool(
@@ -1161,7 +1230,7 @@ class McpServer:
             ):
                 await global_rate_limiter.acquire()
         except RateLimitExceeded as e:
-            raise ValueError(str(e))
+            raise NodeWireError(ErrorCode.RATE_LIMIT_EXCEEDED, str(e))
 
         # Opt-in per-identity limiter (off by default; M-2, 2026-09-01 review).
         # Shared with REST/gRPC via node_wire_runtime.rate_limit so one noisy
@@ -1173,7 +1242,10 @@ class McpServer:
             )
             result = limiter.consume(f"mcp:{name}:{identity_key}")
             if not result.allowed:
-                raise ValueError(f"Rate limit exceeded, retry after {result.retry_after_seconds}s")
+                raise NodeWireError(
+                    ErrorCode.RATE_LIMIT_EXCEEDED,
+                    f"Rate limit exceeded, retry after {result.retry_after_seconds}s",
+                )
 
         arguments = dict(arguments or {})
         # LLMs often fill optional schema keys with null; treat as omitted.
@@ -1189,9 +1261,10 @@ class McpServer:
             return await self._invoke_select_config(arguments, identity=identity)
         if name in (SEARCH_TOOLS_TOOL, CALL_TOOL_TOOL):
             if self._tool_mode != "search":
-                raise ValueError(
+                raise NodeWireError(
+                    ErrorCode.UNKNOWN_TOOL,
                     f"Unknown tool {name!r}: tool search is off on this server "
-                    "(NW_MCP_TOOL_MODE=search enables it)."
+                    "(NW_MCP_TOOL_MODE=search enables it).",
                 )
             if name == SEARCH_TOOLS_TOOL:
                 return self._invoke_search_tools(arguments, identity=identity)
@@ -1274,7 +1347,9 @@ class McpServer:
     ) -> Dict[str, Any]:
         query = arguments.get("query")
         if not isinstance(query, str) or not query.strip():
-            raise ValueError(f"{SEARCH_TOOLS_TOOL} requires a non-empty query")
+            raise NodeWireError(
+                ErrorCode.VALIDATION_ERROR, f"{SEARCH_TOOLS_TOOL} requires a non-empty query"
+            )
         try:
             limit = int(arguments.get("limit", _SEARCH_DEFAULT_LIMIT))
         except (TypeError, ValueError):
@@ -1322,20 +1397,29 @@ class McpServer:
     ) -> Dict[str, Any]:
         name = arguments.get("name")
         if not isinstance(name, str) or not name.strip():
-            raise ValueError(f"{CALL_TOOL_TOOL} requires the tool name")
+            raise NodeWireError(
+                ErrorCode.VALIDATION_ERROR, f"{CALL_TOOL_TOOL} requires the tool name"
+            )
         tool_args = arguments.get("arguments") or {}
         if not isinstance(tool_args, dict):
-            raise ValueError(f"{CALL_TOOL_TOOL}: arguments must be an object")
+            raise NodeWireError(
+                ErrorCode.VALIDATION_ERROR, f"{CALL_TOOL_TOOL}: arguments must be an object"
+            )
         if name in (SEARCH_TOOLS_TOOL, CALL_TOOL_TOOL):
-            raise ValueError(f"{name!r} cannot be called through {CALL_TOOL_TOOL}")
+            raise NodeWireError(
+                ErrorCode.VALIDATION_ERROR, f"{name!r} cannot be called through {CALL_TOOL_TOOL}"
+            )
         # Same schema and validator a direct tools/call uses. None = unknown or
         # hidden from this caller; both read as unknown, so nothing leaks.
         schema = self._advertised_input_schema(name, identity=identity)
         if schema is None:
-            raise ValueError(f"Unknown tool {name!r}. Use {SEARCH_TOOLS_TOOL} to find tools.")
+            raise NodeWireError(
+                ErrorCode.UNKNOWN_TOOL,
+                f"Unknown tool {name!r}. Use {SEARCH_TOOLS_TOOL} to find tools.",
+            )
         problem = validate_tool_arguments(tool_args, schema)
         if problem:
-            raise ValueError(problem)
+            raise NodeWireError(ErrorCode.VALIDATION_ERROR, problem)
         tool_args = {k: v for k, v in tool_args.items() if v is not None}
         return await self._run_connector_tool(name, tool_args, identity=identity)
 
@@ -1350,7 +1434,10 @@ class McpServer:
         connector_id, action = self._resolve_tool_name(name)
 
         if self._connector_ids is not None and connector_id not in self._connector_ids:
-            raise ValueError(f"Connector {connector_id!r} is not allowed on this MCP server.")
+            raise NodeWireError(
+                ErrorCode.CONNECTOR_NOT_AVAILABLE,
+                f"Connector {connector_id!r} is not allowed on this MCP server.",
+            )
 
         # tenant_id stays header/JWT-only here (matches REST's header, gRPC's
         # metadata) — strip any LLM-supplied value so it never reaches
@@ -1404,14 +1491,21 @@ class McpServer:
             )
             stream_completion_log(trace_id, True, connector_id=connector_id, action=action)
         except ConnectorNotExposed:
-            raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+            raise NodeWireError(
+                ErrorCode.CONNECTOR_NOT_AVAILABLE,
+                f"Connector {connector_id!r} is not available via MCP.",
+            )
         except ConfigNotFoundError:
             if config_name is not None:
-                raise ValueError(
+                raise NodeWireError(
+                    ErrorCode.CONFIG_NOT_FOUND,
                     f"Config {config_name!r} is not defined for connector "
-                    f"{connector_id!r} on tenant {tenant_id!r}."
+                    f"{connector_id!r} on tenant {tenant_id!r}.",
                 )
-            raise ValueError(f"Connector {connector_id!r} is not available via MCP.")
+            raise NodeWireError(
+                ErrorCode.CONNECTOR_NOT_AVAILABLE,
+                f"Connector {connector_id!r} is not available via MCP.",
+            )
         except Exception:
             stream_completion_log(trace_id, False, connector_id=connector_id, action=action)
             raise
@@ -1520,7 +1614,7 @@ class McpServer:
 
     def _setup_lowlevel_server(self) -> Any:
         from mcp.server import Server as LowLevelServer
-        from mcp.types import CallToolResult, TextContent, Tool
+        from mcp.types import Tool
 
         # Published once here rather than in every tool description.
         low = LowLevelServer(
@@ -1531,12 +1625,19 @@ class McpServer:
             ),
         )
 
+        # Typed exactly ListToolsRequest (module-level import, no default) so the SDK passes the
+        # request: it passes None when refreshing its own tool cache inside a tools/call.
         @low.list_tools()
-        async def handle_list_tools() -> list[Tool]:
+        async def handle_list_tools(request: ListToolsRequest) -> list[Any]:
             meta = self._request_meta_from_context()
             try:
                 identity = self._ensure_identity(identity=None, meta=meta)
             except McpAuthError as exc:
+                if request is None:
+                    # The SDK refreshing its tool cache inside a tools/call, not a client's
+                    # tools/list: list nothing, and let handle_call_tool report the auth failure
+                    # as a coded result (raising here would reach the client as SDK text).
+                    return []
                 logger.warning(
                     "MCP tools/list denied by authentication",
                     extra={
@@ -1573,23 +1674,7 @@ class McpServer:
             try:
                 identity = self._ensure_identity(identity=None, meta=meta)
             except McpAuthError as exc:
-                logger.warning(
-                    "MCP tools/call denied by authentication",
-                    extra={
-                        "tool_name": tool_name,
-                        "status_code": exc.status_code,
-                        "error_code": exc.error_code,
-                    },
-                )
-                return ConnectorResponse(
-                    success=False,
-                    data=None,
-                    error_code=exc.error_code,
-                    error_category=ErrorCategory.AUTH,
-                    message=exc.detail,
-                    trace_id=f"mcp-auth-{uuid.uuid4()}",
-                    details=exc.to_payload(),
-                ).model_dump()
+                return _auth_failure(exc, tool_name)
 
             if identity:
                 logger.info(
@@ -1604,12 +1689,19 @@ class McpServer:
             # After auth, so an unauthenticated caller cannot probe tool shapes.
             schema = self._advertised_input_schema(tool_name, identity=identity)
             problem = validate_tool_arguments(arguments or {}, schema)
-            if problem:
-                return CallToolResult(
-                    content=[TextContent(type="text", text=problem)], isError=True
-                )
-
-            return await self.invoke_tool(tool_name, arguments or {}, identity=identity)
+            try:
+                if problem:
+                    raise NodeWireError(ErrorCode.VALIDATION_ERROR, problem)
+                result = await self.invoke_tool(tool_name, arguments or {}, identity=identity)
+            except McpAuthError as exc:
+                return _auth_failure(exc, tool_name)
+            except NodeWireError as exc:
+                tenant = (identity.tenant_id if identity else None) or ""
+                return _failed_call(reject(exc, action=tool_name, tenant_id=tenant))
+            if isinstance(result, dict) and result.get("success") is False:
+                # The connector ran and failed: the runtime already logged it under its trace_id.
+                return _failed_call(ConnectorResponse.model_validate(result), structured=result)
+            return result
 
         return low
 

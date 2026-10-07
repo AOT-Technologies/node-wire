@@ -6,19 +6,21 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import platform
+import re
 import shutil
-import tomllib
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
 
 import yaml
 
+from nw_cli.prerequisites import require_docker
 from nw_cli.stages import LogFn, StageError, run_logged_command
+from nw_cli.wheel_cache import is_fresh, record_build
 
 if TYPE_CHECKING:
     from nw_stacklok.wheels import WheelTarget
@@ -71,6 +73,10 @@ class StacklokScope:
         return target
 
 
+# RFC 1123 label, the same rule as stacklok's ServerConfig.validate_dns_label.
+_DNS_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+
+
 def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
     """Load a stacklok scope and bind it to ``connector_id``.
 
@@ -101,6 +107,13 @@ def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
     server = str((document.get("server") or {}).get("name") or "").strip()
     if not server:
         raise StageError(f"Scope {scope_path} has no server.name")
+    # Checked here, not only by stacklok's validator later: the name becomes the output
+    # directory (replaced under --force), image name and Kubernetes names.
+    if not _DNS_LABEL.fullmatch(server):
+        raise StageError(
+            f"Scope {scope_path} has an invalid server.name {server!r}: use lowercase letters, "
+            "digits and hyphens, starting and ending with a letter or digit (max 63)"
+        )
     spec_source = _resolve_source(source, scope_path.parent)
     return StacklokScope(
         path=scope_path,
@@ -141,19 +154,31 @@ def _prepared_origin(spec_source: str) -> str | None:
     return str(origin) if origin else None
 
 
-def prepare_spec(spec_source: str, target: Path) -> Path:
-    """Write the local OpenAPI 3.0 file stacklok's Phase 1 (ai-scoping) and Phase 3 read.
+def _load_strict(spec_source: str) -> tuple[Dict[str, Any], str, bool, bool]:
+    """Load ``spec_source`` as a strict OpenAPI 3.0 document for stacklok's parser.
 
-    Downloads URLs, converts Swagger 2.0 and applies :func:`strict_openapi30`; records the
-    original under ``x-nw-source`` so the connector is still built from it.
+    Converts Swagger 2.0 and applies :func:`strict_openapi30` to 3.0.x documents (3.1 allows
+    those JSON-Schema forms). Returns ``(doc, origin, from_url, changed)``.
     """
     from nw_connector_builder.load import detect_version, load_raw_document
     from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
 
     doc, origin, from_url = load_raw_document(spec_source)
-    if detect_version(doc) == "2.0":
+    changed = detect_version(doc) == "2.0"
+    if changed:
         doc = normalize_swagger2_to_openapi3(doc)
-    strict_openapi30(doc)
+    if str(doc.get("openapi", "")).startswith("3.0"):
+        changed = strict_openapi30(doc) or changed
+    return doc, origin, from_url, changed
+
+
+def prepare_spec(spec_source: str, target: Path) -> Path:
+    """Write the local OpenAPI 3.0 file stacklok's Phase 1 (ai-scoping) and Phase 3 read.
+
+    Always written (see :func:`_load_strict`); records the original under ``x-nw-source`` so the
+    connector is still built from it.
+    """
+    doc, origin, from_url, _changed = _load_strict(spec_source)
     doc[PREPARED_SOURCE_KEY] = origin if from_url else str(Path(origin).resolve())
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(doc, indent=1, default=str), encoding="utf-8")
@@ -161,20 +186,14 @@ def prepare_spec(spec_source: str, target: Path) -> Path:
 
 
 def materialize_spec(spec_source: str, work_dir: Path) -> Path:
-    """A local, strict OpenAPI 3.0 file for stacklok's loader.
+    """A local, strict OpenAPI 3.0 file for stacklok's loader (see :func:`_load_strict`).
 
-    Downloads URLs, converts Swagger 2.0, and rewrites JSON-Schema forms OpenAPI 3.0 rejects
-    (see :func:`strict_openapi30`). An unchanged local file is used as-is.
+    An unchanged local file is used as-is, and so is one :func:`prepare_spec` wrote.
     """
-    from nw_connector_builder.load import detect_version, load_raw_document
-    from nw_connector_builder.normalize_v2 import normalize_swagger2_to_openapi3
-
-    doc, _origin, from_url = load_raw_document(spec_source)
-    version = detect_version(doc)
-    if version == "2.0":
-        doc = normalize_swagger2_to_openapi3(doc)
-    changed = strict_openapi30(doc) if str(doc.get("openapi", "")).startswith("3.0") else False
-    if not from_url and version != "2.0" and not changed:
+    if _prepared_origin(spec_source) is not None:
+        return Path(spec_source)
+    doc, _origin, from_url, changed = _load_strict(spec_source)
+    if not from_url and not changed:
         return Path(spec_source)
     work_dir.mkdir(parents=True, exist_ok=True)
     target = work_dir / "openapi.json"
@@ -227,7 +246,6 @@ _WHEEL_ARCH_ALIASES = {
     "x86_64": "x86_64",
     "amd64": "x86_64",
 }
-_HASH_SKIP_DIRS = {"__pycache__", "build", "dist"}
 
 
 def image_wheel_target(node_wire_root: Path) -> WheelTarget:
@@ -244,83 +262,92 @@ def wheel_arches() -> list[str]:
     return sorted(raw) if raw else [_WHEEL_ARCH_ALIASES.get(machine, machine)]
 
 
-def package_source_hash(node_wire_root: Path, package: str) -> str:
-    """Hash of everything a package's wheel is compiled from.
-
-    That is the package folder (pyproject, setup.py, README) and the ``src/`` packages its
-    ``[tool.setuptools.packages.find]`` includes.
-    """
-    pkg_dir = node_wire_root / package
-    find = (
-        tomllib.loads((pkg_dir / "pyproject.toml").read_text(encoding="utf-8"))
-        .get("tool", {})
-        .get("setuptools", {})
-        .get("packages", {})
-        .get("find", {})
-    )
-    roots = [pkg_dir]
-    for where in find.get("where", []):
-        for include in find.get("include", []):
-            top = include.split(".", 1)[0].rstrip("*")
-            roots.append((pkg_dir / where / top).resolve())
-    digest = hashlib.sha256()
-    for root in roots:
-        if not root.exists():
-            continue
-        for path in sorted(root.rglob("*")):
-            rel = path.relative_to(root)
-            if not path.is_file() or _HASH_SKIP_DIRS & set(rel.parts):
-                continue
-            if path.suffix in {".so", ".pyd", ".c", ".pyc"} or ".egg-info" in str(rel):
-                continue
-            if path.name == "report.json":  # build report; varies per run, not in the wheel
-                continue
-            digest.update(f"{root.name}/{rel.as_posix()}\0".encode())
-            digest.update(path.read_bytes())
-    return digest.hexdigest()
-
-
-def _stamp(node_wire_root: Path, package: str, target: WheelTarget) -> Path:
-    return node_wire_root / package / "dist" / f".nw-source-{target.python}-{target.libc}.sha256"
+def _stamp_key(target: WheelTarget) -> str:
+    return f"{target.python}-{target.libc}"
 
 
 def run_stacklok_wheel_build(
-    node_wire_root: Path, connector_id: str, *, log: LogFn | None = None
+    node_wire_root: Path,
+    connector_id: str,
+    *,
+    log: LogFn | None = None,
+    output: LogFn | None = None,
 ) -> list[str]:
     """Wheels for the generated server's image; returns the packages it had to (re)build.
 
     The flavour (Python ABI + libc) comes from the image, e.g. cp313 musllinux for stacklok's
     Alpine base. A package whose sources are unchanged since its last build, and whose wheels
     for every requested architecture are present, is reused rather than recompiled.
+    ``log`` gets these decisions; ``output`` (default ``log``) the build tool's output.
     """
     say = log or print
     target = image_wheel_target(node_wire_root)
     arches = wheel_arches()
     say(f"Target: {target.description}, arch {' '.join(arches)}")
-    hashes = {p: package_source_hash(node_wire_root, p) for p in stacklok_packages(connector_id)}
+    packages = stacklok_packages(connector_id)
     stale: list[str] = []
-    for package, digest in hashes.items():
-        stamp = _stamp(node_wire_root, package, target)
+    for package in packages:
         present = set(target.wheels_by_arch(node_wire_root / package / "dist"))
-        fresh = stamp.is_file() and stamp.read_text().strip() == digest
-        if not (fresh and set(arches) <= present):
+        if not (is_fresh(node_wire_root, package, _stamp_key(target)) and set(arches) <= present):
             stale.append(package)
-    reused = [p for p in hashes if p not in stale]
+    reused = [p for p in packages if p not in stale]
     if reused:
         say("Up to date, reused: " + ", ".join(reused))
     if not stale:
         return []
+    require_docker("the image wheel build (cibuildwheel)")
     say("Building: " + ", ".join(stale))
     cmd = ["bash", "scripts/build-packages.sh", "--cibw-linux", *stale]
     env = {**os.environ, "CIBW_BUILD": target.cibw_build, "NW_WHEEL_ARCHS": " ".join(arches)}
-    code = run_logged_command(cmd, cwd=node_wire_root, log=log, env=env)
+    started = time.time()
+    code = run_logged_command(cmd, cwd=node_wire_root, log=output or log, env=env)
     if code != 0:
         raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
     for package in stale:
-        stamp = _stamp(node_wire_root, package, target)
-        stamp.parent.mkdir(parents=True, exist_ok=True)
-        stamp.write_text(hashes[package] + "\n", encoding="utf-8")
+        record_build(node_wire_root, package, _stamp_key(target), since=started)
     return stale
+
+
+@dataclass(frozen=True)
+class ScopeCheck:
+    """stacklok's validator verdict on a scope (against its spec)."""
+
+    errors: list[str]
+    warnings: list[str]
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+
+def validate_stacklok_scope(scope: StacklokScope, work_dir: Path) -> tuple[ScopeCheck, Path, Path]:
+    """Run stacklok's validator; returns the verdict and the effective scope and spec files.
+
+    Fast (no build), so callers run it before the slow stages. A scope stacklok cannot even
+    load is reported as an error, not raised.
+    """
+    from mcp_builder.log import configure_logging
+    from mcp_builder.schema.models import load_scope
+    from mcp_builder.spec import load_openapi_spec
+    from mcp_builder.validate import validate_scope
+
+    # stacklok logs every step at info/debug; the verdict is reported by the caller.
+    configure_logging(level="warning")
+    scope_file = scope.write(work_dir)
+    spec_file = materialize_spec(scope.spec_source, work_dir)
+    try:
+        result = validate_scope(load_scope(scope_file), load_openapi_spec(spec_file))
+    except (ValueError, OSError, yaml.YAMLError) as exc:
+        return (
+            ScopeCheck(errors=[f"stacklok cannot load the scope: {exc}"], warnings=[]),
+            scope_file,
+            spec_file,
+        )
+    return (
+        ScopeCheck(errors=list(result.errors), warnings=list(result.warnings)),
+        scope_file,
+        spec_file,
+    )
 
 
 def run_stacklok_generate(
@@ -337,28 +364,23 @@ def run_stacklok_generate(
     """Validate the scope with stacklok's validator, then run its generator in node-wire mode."""
     from mcp_builder.log import configure_logging
     from mcp_builder.pipeline import run_pipeline
-    from mcp_builder.schema.models import load_scope
-    from mcp_builder.spec import load_openapi_spec
-    from mcp_builder.validate import validate_scope
     from nw_stacklok.hooks import NodeWireOptions
 
     # stacklok logs every planning step at debug; keep the progress display readable.
     configure_logging(level="warning")
 
-    scope_file = scope.write(work_dir)
-    spec_file = materialize_spec(scope.spec_source, work_dir)
-    result = validate_scope(load_scope(scope_file), load_openapi_spec(spec_file))
-    for warning in result.warnings:
+    check, scope_file, spec_file = validate_stacklok_scope(scope, work_dir)
+    for warning in check.warnings:
         (log or print)(f"scope warning: {warning}")
-    if result.errors:
-        raise StageError(
-            "Scope validation failed:\n" + "\n".join(f"  - {e}" for e in result.errors)
-        )
+    if check.errors:
+        raise StageError("Scope validation failed:\n" + "\n".join(f"  - {e}" for e in check.errors))
 
     project = output_dir / f"{scope.server_name}-mcp"
     if project.exists():
         if not force_output:
             raise StageError(f"Output project already exists: {project} (pass --force)")
+        if output_dir.resolve() not in project.resolve().parents:
+            raise StageError(f"Refusing to replace {project}: it is outside {output_dir}")
         shutil.rmtree(project)
     output_dir.mkdir(parents=True, exist_ok=True)
     return run_pipeline(

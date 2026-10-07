@@ -34,7 +34,7 @@ images and is deliberately absent from the package lists in `publish.yml`,
 `github-release.yml`, and `security-pr.yml`. Do not add it to them. The same applies to
 `node-wire-toolhive`, built only for `nw gen-stacklok` images (`packages/toolhive/`).
 
-**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) (which also builds the unpublished bindings wheel). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
+**Source of truth:** Keep this table in sync with `ALL_PACKAGES` in [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) (which also builds the unpublished bindings wheel); `tests/test_docs_lifecycle.py` fails unless the names here match `ALL_PACKAGES` exactly (no missing rows, no extra rows). MCP Docker images are a **separate subset** — see [Docker demo images](#docker-demo-images). `http_generic` is publishable on PyPI but does not have a standalone MCP container image.
 
 ---
 
@@ -47,11 +47,11 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 | File / area | Purpose |
 |---|---|
 | `src/node_wire_<name>/` | `__init__.py` (required, may be empty), `schema.py`, `logic.py` (with optional `error_map`), optional `action_spec.py`, `README.md` |
-| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install |
+| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install. `uv run` rebuilds the editable install on its next call once `pyproject.toml` changes. If you run `.venv/bin/python` or an activated venv directly, run `uv sync` first or the new entry point is not visible. |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
 | [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets, and the connector id added to the `NW_ALLOWED_CONNECTORS` line |
 | [Connector catalog](connector-reference.md#connector-catalog) | Add an entry with the same fields as the others |
-| Tests | e.g. `tests/test_connectors_basic.py`, registry tests |
+| Tests | `tests/test_<name>.py`. At minimum, assert three things: the connector instantiates with its `connector_id`, `nw_action_metas()` lists the expected actions, and `auto_register()` (with `NW_ALLOWED_CONNECTORS` set) imports your `logic` module. [Example](connectors-build.md#minimal-http-connector-end-to-end), and see `tests/test_connectors_basic.py`. Run the suite as in [Code quality — Tests](code-quality-compliance.md#tests). |
 
 `auto_register()` discovers the connector via the entry point — no factory branch required.
 
@@ -79,7 +79,7 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 name = "node-wire-<name>"
 version = "1.0.0"
 description = "Node Wire connector — <short description>"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 
@@ -244,7 +244,7 @@ bash scripts/build-packages.sh --all
 bash scripts/build-packages.sh --all packages/runtime
 ```
 
-Local `--all` builds CPython 3.13 (`CIBW_BUILD=cp313-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds the same interpreters with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
+Local `--all` builds CPython 3.13 (`CIBW_BUILD=cp313-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds cp311, cp312, and cp313 with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
 
 ### Wheels for a specific image (`--cibw-linux`, `--musllinux`)
 
@@ -426,7 +426,7 @@ from the release tag via the **Use workflow from** dropdown.
 
 **Pipeline steps:**
 
-1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (Python 3.13)
+1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (CPython 3.11, 3.12, 3.13)
 2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
 3. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
 4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations

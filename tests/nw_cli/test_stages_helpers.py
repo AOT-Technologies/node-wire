@@ -14,12 +14,9 @@ import pytest
 from nw_cli.stages import (
     StageError,
     build_mode_flag,
-    connector_wheel_present,
     register_all_packages,
     run_docker_build,
     run_wheel_build,
-    runtime_wheel_present,
-    wheels_present,
 )
 
 
@@ -29,27 +26,6 @@ def test_build_mode_flag_defaults_and_mutex() -> None:
     assert build_mode_flag(all_=True) == "--all"
     with pytest.raises(StageError, match="mutually exclusive"):
         build_mode_flag(host=True, all_=True)
-
-
-def test_wheels_present_helpers(tmp_path: Path) -> None:
-    runtime = tmp_path / "packages" / "runtime" / "dist"
-    bindings = tmp_path / "packages" / "bindings" / "dist"
-    conn = tmp_path / "packages" / "connectors" / "pet_store" / "dist"
-    runtime.mkdir(parents=True)
-    bindings.mkdir(parents=True)
-    conn.mkdir(parents=True)
-    assert wheels_present(tmp_path, "pet_store") is False
-    assert runtime_wheel_present(tmp_path) is False
-    assert connector_wheel_present(tmp_path, "pet_store") is False
-
-    (runtime / "runtime-0.1-py3-none-any.whl").write_bytes(b"whl")
-    assert runtime_wheel_present(tmp_path) is True
-    assert wheels_present(tmp_path, "pet_store") is False
-
-    (bindings / "bindings-0.1-py3-none-any.whl").write_bytes(b"whl")
-    (conn / "pet_store-0.1-py3-none-any.whl").write_bytes(b"whl")
-    assert connector_wheel_present(tmp_path, "pet_store") is True
-    assert wheels_present(tmp_path, "pet_store") is True
 
 
 def test_run_wheel_build_requires_connector_or_runtime(tmp_path: Path) -> None:
@@ -66,6 +42,7 @@ def test_run_wheel_build_nonzero_exit(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "build-packages.sh"
     script.parent.mkdir(parents=True)
     script.write_text("#!/bin/bash\n", encoding="utf-8")
+    (tmp_path / "packages" / "connectors" / "pet_store").mkdir(parents=True)
     with patch("nw_cli.stages.run_logged_command", return_value=7):
         with pytest.raises(StageError, match="exit 7"):
             run_wheel_build(tmp_path, connector_id="pet_store")
@@ -76,6 +53,7 @@ def test_run_wheel_build_uses_posix_relative_script(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "build-packages.sh"
     script.parent.mkdir(parents=True)
     script.write_text("#!/bin/bash\n", encoding="utf-8")
+    (tmp_path / "packages" / "connectors" / "pet_store").mkdir(parents=True)
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         run_wheel_build(tmp_path, connector_id="pet_store")
     cmd = run.call_args.args[0]
@@ -93,6 +71,7 @@ def test_run_docker_build_missing_project(tmp_path: Path) -> None:
 def test_run_docker_build_success(tmp_path: Path) -> None:
     project = tmp_path / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         image = run_docker_build(tmp_path, "pet_store", tag="v1")
     assert image == "pet-store-nw-mcp:v1"
@@ -106,6 +85,7 @@ def test_run_docker_build_uses_buildx_when_cache_env_set(
 ) -> None:
     project = tmp_path / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
     monkeypatch.setenv("NW_DOCKER_CACHE_FROM", "type=gha,scope=mcp-e2e")
     monkeypatch.setenv("NW_DOCKER_CACHE_TO", "type=gha,mode=max,scope=mcp-e2e")
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:

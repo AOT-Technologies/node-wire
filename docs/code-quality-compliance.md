@@ -42,9 +42,24 @@ relevant secret env vars set (see the `playground-integration` job in `.github/w
 `uv run pytest tests/playground/ --no-cov -v`.
 
 `tests/conftest.py` fixes the environment before imports so collection is deterministic:
-`NW_REST_LOAD_DOTENV=false` (no repo-root `.env` merge),
-`NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml`, and `NW_ALLOWED_CONNECTORS` set to the
-eight publishable connectors. Do not rely on `.env` values during pytest collection.
+`NW_REST_LOAD_DOTENV=false`, `NW_CONFIG_PATH=tests/fixtures/connectors_for_tests.yaml`, and
+`NW_ALLOWED_CONNECTORS` set to the eight publishable connectors. Do not rely on `.env` values
+during pytest collection.
+
+**Move your `.env` aside before running the suite.** `NW_REST_LOAD_DOTENV=false` only switches off
+the dotenv loads in the REST/MCP bindings. Importing `bindings.rest_api.app` also mounts the
+playground, and `playground/scenarios.py` calls `load_dotenv()` without checking that flag. So a
+repo-root `.env` still leaks into `os.environ` for every key that conftest or the test has not set
+already. With a `.env` copied from `sample.env`, the leaked `NW_RATE_LIMIT_PER_IDENTITY_*` values
+(`MAX_REQUESTS=120`) take precedence over the legacy `NW_REST_RATE_LIMIT_MAX_REQUESTS=2` that
+`tests/test_rest_rate_limit_enforcement.py` sets. As a result
+`test_rest_rate_limit_returns_429_and_retry_after` and
+`test_rest_rate_limit_ignores_spoofed_xff_when_proxy_hops_zero` fail with `assert 200 == 429`.
+CI has no `.env`, so it runs the suite clean. To do the same locally:
+
+```bash
+mv .env .env.off && uv run pytest tests/ -v; mv .env.off .env
+```
 
 ## Security scans
 
