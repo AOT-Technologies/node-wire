@@ -107,7 +107,7 @@ def is_sensitive_key(key: str) -> bool:
     return _is_phi_key(key) or _is_secret_key(key)
 
 
-def scrub_secrets(text: str) -> str:
+def redact_credentials(text: str) -> str:
     """Drop URL query strings, fragments and userinfo, and ``Bearer <token>`` values, from
     free text such as ``str(exc)`` (httpx puts the full request URL in its messages)."""
     text = _URL_RE.sub(lambda m: sanitize_url_for_log(m.group(0)), text)
@@ -129,7 +129,7 @@ def sanitize_value(key: str, value: Any) -> Any:
     if isinstance(value, tuple):
         return tuple(sanitize_value(key, item) for item in value)
     if isinstance(value, str):
-        return scrub_secrets(value)
+        return redact_credentials(value)
     return value
 
 
@@ -143,14 +143,14 @@ def _redact_sensitive_string_arg(value: str) -> str:
     lowered = value.lower()
     if "phi_marker" in lowered:
         return REDACTED
-    return scrub_secrets(value)
+    return redact_credentials(value)
 
 
 def sanitize_log_record(record: logging.LogRecord) -> None:
     """Sanitize message args and dynamic attributes on a log record in place."""
     # With args, msg is a format string; scrubbing it could drop a ``%s`` from a URL.
     if isinstance(record.msg, str) and not record.args:
-        record.msg = scrub_secrets(record.msg)
+        record.msg = redact_credentials(record.msg)
     if record.args:
         if isinstance(record.args, dict):
             record.args = sanitize_mapping(record.args)  # type: ignore[assignment]

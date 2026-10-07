@@ -49,7 +49,7 @@ from .identity import (
     effective_run_tenant_id,
 )
 from .policy import PolicyContext, PolicyHook, PolicyDenied
-from .log_sanitization import reset_log_connector_id, scrub_secrets, set_log_connector_id
+from .log_sanitization import reset_log_connector_id, redact_credentials, set_log_connector_id
 from .resilience import with_resilience
 from .secrets import SecretNotFoundError, SecretProvider, TenantSecretNotFoundError
 from .sdk_action_spec import SdkActionSpec
@@ -780,7 +780,7 @@ class BaseConnector(ABC):
                     success=False,
                     error_code=mapped.code,
                     error_category=mapped.category,
-                    message=scrub_secrets(str(exc)),
+                    message=redact_credentials(str(exc)),
                     trace_id=trace_id,
                 )
                 return _response

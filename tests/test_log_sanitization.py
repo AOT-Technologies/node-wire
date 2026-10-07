@@ -16,7 +16,7 @@ from node_wire_runtime.log_sanitization import (
     install_sanitizing_log_filter,
     reset_log_connector_id,
     sanitize_value,
-    scrub_secrets,
+    redact_credentials,
     set_log_connector_id,
 )
 
@@ -125,8 +125,8 @@ def test_format_string_with_url_placeholder_is_left_intact() -> None:
     assert record.getMessage() == "GET https://api.x.com/v1?page=2"
 
 
-def test_scrub_secrets_leaves_plain_text_alone() -> None:
-    assert scrub_secrets("Connection refused") == "Connection refused"
+def test_redact_credentials_leaves_plain_text_alone() -> None:
+    assert redact_credentials("Connection refused") == "Connection refused"
 
 
 def test_install_sanitizing_log_filter_is_idempotent() -> None:
