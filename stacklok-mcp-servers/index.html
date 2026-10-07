@@ -876,6 +876,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1500,6 +1528,45 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Quick start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-changes-in-the-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it changes in the repository
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-three-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three phases
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2491,6 +2558,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Quick start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-it-changes-in-the-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it changes in the repository
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-three-phases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three phases
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2659,17 +2765,111 @@ and modified only through small hooks.</p>
 </tbody>
 </table>
 <h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Anchor link to this section">&para;</a></h2>
-<p>One command runs stacklok's Phases 1–3 and pauses for the Phase 2 human review. Prerequisites:
-Python 3.13, uv (<code>uv sync --all-extras --dev</code> installs cibuildwheel), Docker, and Claude Code
-(<code>claude</code> on <code>PATH</code>) for Phase 1.</p>
+<p>Install the dev toolchain as in <a href="../installation/#3-install-dependencies">Installation</a>; its <code>dev</code>
+group already includes cibuildwheel, which builds the image's wheels. On top of that,
+<code>nw gen-stacklok</code> needs Docker running (wheel builds and the image) and, for Phase 1 only,
+Claude Code (<code>claude</code> on <code>PATH</code>). A run with <code>--scope</code> doesn't need Claude Code.</p>
+<p>One command runs stacklok's Phases 1–3 and pauses for the Phase 2 human review:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--path<span class="w"> </span>https://petstore3.swagger.io/api/v3/openapi.json<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--workflow<span class="w"> </span><span class="s2">"Shoppers browse available pets by status"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span>--workflow<span class="w"> </span><span class="s2">"Store clerks place orders and look up order status"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span>--auth-hint<span class="w"> </span><span class="s2">"API key in the api_key header"</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>petstore-mcp<span class="w"> </span>nw-stacklok-builder/out/petstore-mcp
 </span></code></pre></div>
+<p>On a terminal, pick <strong>Generate the MCP server</strong> in the review menu. With <code>--headless</code>, or
+without a terminal, the command always stops at the review and prints the command that resumes
+it from Phase 3. Read the scope, then run that command:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>nw-stacklok-builder/scoping/pet_store/mcp-scope.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--connector-id<span class="w"> </span>pet_store
+</span></code></pre></div>
+<p>Then build the image with <code>nw docker-build</code>, the command the CLI prints:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
+</span></code></pre></div>
+<p>It finds the server generated for the connector and names the image after the project folder.
+Plain <code>docker build -t &lt;server&gt;-mcp nw-stacklok-builder/out/&lt;server&gt;-mcp</code> builds the same image.
+Next, check it as in <a href="#verifying-a-running-server">Verifying a running server</a>.</p>
+<h3 id="names">Names<a class="headerlink" href="#names" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Comes from</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;id&gt;</code></td>
+<td><code>--connector-id</code>, or the scope's <code>runtime.connector_id</code></td>
+<td><code>pet_store</code></td>
+</tr>
+<tr>
+<td>Scope and Phase 1 notes</td>
+<td><code>nw-stacklok-builder/scoping/&lt;id&gt;/</code> (<code>mcp-scope.yaml</code>, <code>scoping-summary.md</code>)</td>
+<td><code>nw-stacklok-builder/scoping/pet_store/mcp-scope.yaml</code></td>
+</tr>
+<tr>
+<td><code>&lt;server&gt;</code></td>
+<td>the scope's <code>server.name</code>, a DNS label that Phase 1 picks and the Phase 2 review shows. It is not derived from <code>&lt;id&gt;</code></td>
+<td><code>petstore</code></td>
+</tr>
+<tr>
+<td>Project folder</td>
+<td><code>nw-stacklok-builder/out/&lt;server&gt;-mcp/</code> (<code>--output-dir</code> changes the parent folder)</td>
+<td><code>nw-stacklok-builder/out/petstore-mcp/</code></td>
+</tr>
+<tr>
+<td>Image</td>
+<td><code>&lt;server&gt;-mcp:latest</code></td>
+<td><code>petstore-mcp:latest</code></td>
+</tr>
+</tbody>
+</table>
+<p>To read <code>&lt;server&gt;</code> from a saved scope, run
+<code>grep -A1 '^server:' nw-stacklok-builder/scoping/&lt;id&gt;/mcp-scope.yaml</code>.</p>
+<h3 id="what-it-changes-in-the-repository">What it changes in the repository<a class="headerlink" href="#what-it-changes-in-the-repository" title="Anchor link to this section">&para;</a></h3>
+<p>The connector stage generates the connector and wires it in, like <code>nw gen-all</code> does
+(<a href="../cli/nw-cli/#when-wire-is-enabled">When wire is enabled</a>). <code>gen-stacklok</code> has no <code>--no-wire</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config/connectors.yaml</code></td>
+<td>adds the <code>&lt;id&gt;:</code> entry (tracked file)</td>
+</tr>
+<tr>
+<td><code>sample.env</code></td>
+<td>adds <code>&lt;id&gt;</code> to <code>NW_ALLOWED_CONNECTORS</code>, plus the connector's secret names (tracked file)</td>
+</tr>
+<tr>
+<td><code>src/node_wire_&lt;id&gt;/</code>, <code>packages/connectors/&lt;id&gt;/</code></td>
+<td>connector source and its wheels (new)</td>
+</tr>
+<tr>
+<td><code>nw-stacklok-builder/scoping/&lt;id&gt;/</code></td>
+<td>the scope and <code>scoping-summary.md</code> (new)</td>
+</tr>
+<tr>
+<td><code>nw-stacklok-builder/specs/&lt;id&gt;.openapi.json</code>, <code>nw-stacklok-builder/out/&lt;server&gt;-mcp/</code></td>
+<td>the prepared spec and the server project (gitignored)</td>
+</tr>
+</tbody>
+</table>
+<p>Unlike <code>gen-all</code>, it doesn't add the connector to <code>ALL_PACKAGES</code> in <code>scripts/build-packages.sh</code>.
+For a throwaway run, undo what it changed in <code>config/connectors.yaml</code> and <code>sample.env</code>
+(<code>git diff config/connectors.yaml sample.env</code> shows it): delete the added <code>&lt;id&gt;:</code> block and secret
+lines, and remove <code>,&lt;id&gt;</code> from the existing <code>NW_ALLOWED_CONNECTORS</code> line. Don't <code>git checkout</code>
+those files, which would also discard your other edits there. Then delete every path in the table
+— the gitignored ones too, since <code>git status</code> won't show them — plus the <code>tenants.yaml</code> you created
+for verification, and the image (<code>docker rmi &lt;server&gt;-mcp</code>). Leave <code>packages/runtime/dist/</code>,
+<code>packages/bindings/dist/</code> and <code>packages/toolhive/dist/</code> alone; other builds reuse those wheels.</p>
+<h3 id="the-three-phases">The three phases<a class="headerlink" href="#the-three-phases" title="Anchor link to this section">&para;</a></h3>
 <ol>
 <li><strong>Phase 1, AI scoping.</strong> The spec is prepared: downloaded, converted from Swagger 2.0 and made
    strict OpenAPI 3.0, with the original recorded under <code>x-nw-source</code>. Then Claude Code opens with
@@ -2682,21 +2882,23 @@ Python 3.13, uv (<code>uv sync --all-extras --dev</code> installs cibuildwheel),
 <li><strong><code>--headless</code>, or no terminal:</strong> <code>claude -p</code> runs unattended. The flags are the final
      answers; without <code>--workflow</code> the AI proposes workflows. The gates take the AI's own
      recommendation, and each one is recorded in <code>scoping-summary.md</code>.</li>
-<li>Claude Code is pre-approved only for file edits and stacklok's CLI.</li>
+<li>Claude Code is pre-approved only for file edits inside the scoping work directory and stacklok's
+     CLI; headless runs refuse anything else (<code>--permission-mode dontAsk</code>), since the spec is
+     untrusted input.</li>
 <li>Output goes to <code>nw-stacklok-builder/scoping/&lt;id&gt;/</code>. A second run reuses it; <code>--rescope</code> redoes it.</li>
-<li><strong>Phase 2, human review.</strong> The command pauses and shows the scope and summary. <code>y</code> continues;
-   <code>n</code> stops so you can edit, and prints the <code>--scope</code> command to resume with. Without a terminal
-   it always stops here.</li>
+<li><strong>Phase 2, human review.</strong> The command pauses with a summary of the scope and a menu to
+   generate, inspect, edit, rescope or stop; without a terminal it always stops here. The summary
+   and the options are described in <a href="../cli/nw-cli/#nw-gen-stacklok">nw CLI</a>.</li>
 <li><strong>Phase 3, generate</strong>, as below.</li>
 </ol>
 <p>stacklok's <code>/ai-validation</code> (Phase 4) isn't included, because it reviews the httpx client that
-node-wire mode replaces. Use the checks under "Verifying a running server". To run the skill
+node-wire mode replaces. Use the checks in <a href="#verifying-a-running-server">Verifying a running server</a>. To run the skill
 yourself instead, <code>scripts/install-stacklok-skills.sh</code> links it into <code>.claude/</code>.</p>
 <p>A hand-written or reviewed scope works too. <code>--connector-id</code> binds it to a node-wire connector;
 alternatively, add the block to the scope:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">runtime</span><span class="p">:</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_wire</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">connector_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pet_store</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">runtime</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node_wire</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">connector_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pet_store</span>
 </span></code></pre></div>
 <p><code>nw gen-stacklok</code> runs three stages:</p>
 <ol>
@@ -2735,12 +2937,31 @@ alternatively, add the block to the scope:</p>
   OAuth flows here; ToolHive owns the token lifecycle.</li>
 <li><strong>Tenants.</strong> <code>NW_MULTITENANCY_ENABLED=true</code>; the tenant comes from <code>X-Tenant-ID</code>, which each
   ToolHive tenant proxy sets. Tenant configs (base URL, auth placement, named configs) are read
-  from <code>NW_TENANTS_PATH</code> (<code>/app/tenants/tenants.yaml</code>; format in
-  <code>config/tenants.example.yaml</code>). <code>nw_list_configs</code> / <code>nw_select_config</code> choose a named config
-  for the MCP session. No upstream credentials go in the tenants file.</li>
+  from <code>NW_TENANTS_PATH</code> (<code>/app/tenants/tenants.yaml</code>). The format is in the example the
+  generator writes to the project, <code>nw-stacklok-builder/out/&lt;server&gt;-mcp/config/tenants.example.yaml</code>
+  (not the repository's <code>config/</code>). <code>nw_list_configs</code> / <code>nw_select_config</code> choose a named config
+  for the MCP session. No upstream credentials go in the tenants file. When <code>NW_PROXY_SECRET</code> is
+  set (the generated <code>backend.yaml</code> sets it), the tenant header is only accepted from requests
+  that also carry a matching <code>X-NW-Proxy-Secret</code>; others fail with <code>PROXY_AUTH_FAILED</code>. Every
+  request fails that way while <code>proxy-secret.yaml</code> still holds the generated placeholder.</li>
 <li>Headers, the bearer token and the session id are read from the MCP SDK's per-message request
   context — not from middleware contextvars, which under stateful streamable HTTP keep the
   session's <em>first</em> request (a refreshed token would never be seen).</li>
+<li><strong>Errors and logs.</strong> A failed tool call reaches the MCP client as
+  <code>CODE [CATEGORY]: message (trace_id=...)</code>, e.g.
+  <code>VALIDATION_ERROR [BUSINESS]: Input validation failed; ... (trace_id=5f0c...)</code>, the same codes
+  as on every other surface (<a href="../errors/">Errors</a>). The server logs the same <code>trace_id</code>. Each connector run writes <code>runtime.base_connector</code> lines with <code>trace_id</code>,
+  <code>connector_id</code>, <code>action</code>, <code>audit_event</code> (<code>invocation_start</code>, <code>invocation_success</code>,
+  <code>invocation_failure</code>, <code>invocation_validation_failure</code>, <code>policy_denial</code>), <code>error_code</code>,
+  <code>error_category</code> and <code>duration_ms</code>. Failures that happen before the connector runs (missing
+  tenant, bad proxy secret, unknown config, connector not exposed) are logged by
+  <code>node_wire_toolhive</code> with <code>audit_event=invocation_rejected</code>, and arguments that don't fit the
+  tool with <code>audit_event=invocation_validation_failure</code>. node-wire's log redaction is on.
+  These are the server's own logs (<code>docker logs &lt;container&gt;</code>); <code>thv logs &lt;workload&gt;</code> shows only
+  the ToolHive proxy.</li>
+<li><strong>Telemetry.</strong> Set <code>OTEL_EXPORTER_OTLP_ENDPOINT</code> (e.g. <code>http://otel-collector:4318</code>) to export
+  node-wire's traces (<code>connector.run</code> spans), metrics and logs over OTLP/HTTP with
+  <code>service.name=&lt;server&gt;-mcp</code>. When it is unset, or <code>OTEL_SDK_DISABLED=true</code>, nothing is exported.</li>
 </ul>
 <h2 id="deploying-behind-toolhive">Deploying behind ToolHive<a class="headerlink" href="#deploying-behind-toolhive" title="Anchor link to this section">&para;</a></h2>
 <p><code>deploy/</code> holds:</p>
@@ -2761,6 +2982,10 @@ alternatively, add the block to the scope:</p>
 <td>Only the tenant proxies may reach the backend</td>
 </tr>
 <tr>
+<td><code>proxy-secret.yaml</code></td>
+<td>Shared secret every proxy sends as <code>X-NW-Proxy-Secret</code>; the backend reads it as <code>NW_PROXY_SECRET</code></td>
+</tr>
+<tr>
 <td><code>tenant-proxy.yaml</code></td>
 <td><code>MCPRemoteProxy</code> template — one per tenant; <code>headerForward</code> sets <code>X-Tenant-ID</code></td>
 </tr>
@@ -2776,17 +3001,67 @@ alternatively, add the block to the scope:</p>
 </table>
 <p>Why this is safe: ToolHive's <code>header-forward</code> middleware sets each configured header with
 <code>Header.Set</code> on every request, overriding a client-supplied <code>X-Tenant-ID</code> (verified in
-<code>stacklok/toolhive</code> <code>pkg/transport/middleware/header_forward.go</code>), and the NetworkPolicy keeps the
-backend reachable only through those proxies. Never add the tenant header to a vMCP
-<code>passthroughHeaders</code> allowlist.</p>
+<code>stacklok/toolhive</code> <code>pkg/transport/middleware/header_forward.go</code>). Two layers keep other pods from
+claiming a tenant:</p>
+<ul>
+<li>the NetworkPolicy admits only the proxy pods. This needs a CNI that enforces NetworkPolicy
+  (Calico, Cilium, ...); on one that doesn't, the policy does nothing;</li>
+<li>every proxy sends the shared secret from <code>proxy-secret.yaml</code> (<code>headerForward.addHeadersFromSecret</code>),
+  and the backend rejects the tenant header without it.</li>
+</ul>
+<p>Never add the tenant header or <code>X-NW-Proxy-Secret</code> to a vMCP <code>passthroughHeaders</code> allowlist.</p>
 <h2 id="verifying-a-running-server">Verifying a running server<a class="headerlink" href="#verifying-a-running-server" title="Anchor link to this section">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>-p<span class="w"> </span><span class="m">8100</span>:8100<span class="w"> </span>-v<span class="w"> </span><span class="nv">$PWD</span>/tenants.yaml:/app/tenants/tenants.yaml:ro<span class="w"> </span>petstore-mcp
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/verify_stacklok_server.py<span class="w"> </span>--scope<span class="w"> </span>path/to/mcp-scope.yaml<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--tool<span class="w"> </span>find_pets_by_status<span class="w"> </span>--arguments<span class="w"> </span><span class="s1">'{"status": "available"}'</span>
+<p><code>scripts/verify_stacklok_server.py</code> calls the server the way a ToolHive tenant proxy does and
+checks four things:</p>
+<ul>
+<li><code>tools/list</code> is exactly the scope's tools plus <code>nw_list_configs</code> and <code>nw_select_config</code>;</li>
+<li>one live tool call succeeds;</li>
+<li>a call without <code>X-Tenant-ID</code> is rejected;</li>
+<li>a request without a bearer token gets 401.</li>
+</ul>
+<p>The server must run as the image ships, with multitenancy on and a tenants file.
+<code>.github/workflows/stacklok-e2e.yml</code> runs the same flow on the Petstore scope.</p>
+<p>From the repository root, with the image built as in <a href="#quick-start">Quick start</a>:</p>
+<ol>
+<li>
+<p>Create <code>tenants.yaml</code> from the generated example. It defines one tenant, <code>example-tenant</code>,
+   with the scope's base URL and auth placement, and no credentials:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cp<span class="w"> </span>nw-stacklok-builder/out/&lt;server&gt;-mcp/config/tenants.example.yaml<span class="w"> </span>tenants.yaml
 </span></code></pre></div>
-<p>The script calls the server like a ToolHive tenant proxy and checks the tool list, one live call,
-tenant enforcement and bearer enforcement. <code>.github/workflows/stacklok-e2e.yml</code> runs the same flow
-on the Petstore scope.</p>
+<p>Edit it to add tenants or change a base URL. <code>tenants.yaml</code> at the repository root is your
+own file; don't commit it.</p>
+</li>
+<li>
+<p>Start the server on port 8100 with the file mounted. Remove any earlier container of the same
+   name first ("No such container" is fine):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>rm<span class="w"> </span>-f<span class="w"> </span>&lt;server&gt;-mcp
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>&lt;server&gt;-mcp<span class="w"> </span>-p<span class="w"> </span><span class="m">8100</span>:8100<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/tenants.yaml:/app/tenants/tenants.yaml:ro"</span><span class="w"> </span>&lt;server&gt;-mcp
+</span></code></pre></div>
+</li>
+<li>
+<p>Run the checks. <code>--tenant</code> must be a key under <code>tenants:</code> in the file. <code>--token</code> is the
+   credential ToolHive would forward; the server relays it to the upstream API. Petstore doesn't
+   check it, so the default <code>verify-token</code> works there. For an API that does, pass a real one.
+   Pick a read-only tool from the scope for <code>--tool</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/verify_stacklok_server.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--scope<span class="w"> </span>nw-stacklok-builder/scoping/&lt;id&gt;/mcp-scope.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--tenant<span class="w"> </span>example-tenant<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--tool<span class="w"> </span>find_pets_by_status<span class="w"> </span>--arguments<span class="w"> </span><span class="s1">'{"status": "available"}'</span>
+</span></code></pre></div>
+<p>It prints <code>PASS: ...</code> and exits 0, or prints one <code>FAIL: ...</code> line per failed check and
+exits 1. <code>--url</code> defaults to <code>http://127.0.0.1:8100/mcp</code>.</p>
+</li>
+<li>
+<p>Read the server's logs with <code>docker logs &lt;server&gt;-mcp</code>, then remove the container with
+   <code>docker rm -f &lt;server&gt;-mcp</code>.</p>
+</li>
+</ol>
+<p>At the end of a run, <code>nw gen-stacklok</code> prints a different <code>docker run</code>: port 8200 with
+<code>NW_MULTITENANCY_ENABLED=false</code>, then <code>thv run</code> to put a local ToolHive proxy in front of it.
+That single-tenant container is for trying the tools from an MCP client. It needs no tenants
+file, but it fails the script's checks: it lists no <code>nw_*</code> config tools and it doesn't require
+<code>X-Tenant-ID</code>. Use the multi-tenant run above to verify the server.</p>
 <h2 id="limits">Limits<a class="headerlink" href="#limits" title="Anchor link to this section">&para;</a></h2>
 <ul>
 <li>The scope needs an OpenAPI spec (Swagger 2.0 is converted); hand-written connectors without a

@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/adr/0001-stacklok-mcp-builder-on-node-wire/">
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/errors/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../connector-bindings/">
       
       
-        <link rel="next" href="../0002-documentation-lifecycle/">
+        <link rel="next" href="../connectors/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>0001 stacklok MCP builder - Node Wire</title>
+        <title>Errors - Node Wire</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0001-stacklok-mcp-builder-on-node-wire" class="md-skip">
+        <a href="#errors" class="md-skip">
           Skip to content
         </a>
       
@@ -96,9 +96,9 @@
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href=".." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../../images/nw-favicon-black.png" alt="logo">
+  <img src="../images/nw-favicon-black.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              0001 stacklok MCP builder
+              Errors
             
           </span>
         </div>
@@ -227,7 +227,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href=".." class="md-tabs__link">
         
   
   
@@ -246,7 +246,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../reading/" class="md-tabs__link">
+      <a href="../reading/" class="md-tabs__link">
         
   
   
@@ -267,7 +267,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../installation/" class="md-tabs__link">
+        <a href="../installation/" class="md-tabs__link">
           
   
   
@@ -283,11 +283,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../architecture/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../architecture/" class="md-tabs__link">
           
   
   
@@ -307,7 +309,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../connectors/" class="md-tabs__link">
+        <a href="../connectors/" class="md-tabs__link">
           
   
   
@@ -327,7 +329,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../cli/" class="md-tabs__link">
+        <a href="../cli/" class="md-tabs__link">
           
   
   
@@ -347,7 +349,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../mcp/" class="md-tabs__link">
+        <a href="../mcp/" class="md-tabs__link">
           
   
   
@@ -367,7 +369,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+        <a href="../contributing/" class="md-tabs__link">
           
   
   
@@ -387,7 +389,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../troubleshooting/" class="md-tabs__link">
+        <a href="../troubleshooting/" class="md-tabs__link">
           
   
   
@@ -407,7 +409,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../privacy/" class="md-tabs__link">
+        <a href="../privacy/" class="md-tabs__link">
           
   
   
@@ -423,13 +425,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../adr/" class="md-tabs__link">
           
   
   
@@ -489,9 +489,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+    <a href=".." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
       
-  <img src="../../images/nw-favicon-black.png" alt="logo">
+  <img src="../images/nw-favicon-black.png" alt="logo">
 
     </a>
     Node Wire
@@ -518,7 +518,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href=".." class="md-nav__link">
         
   
   
@@ -545,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reading/" class="md-nav__link">
+      <a href="../reading/" class="md-nav__link">
         
   
   
@@ -626,7 +626,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -654,7 +654,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -686,28 +686,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
-        
-          
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -725,7 +728,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -743,7 +746,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/" class="md-nav__link">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -771,7 +774,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/domain/" class="md-nav__link">
+      <a href="../architecture/domain/" class="md-nav__link">
         
   
   
@@ -799,7 +802,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/seams/" class="md-nav__link">
+      <a href="../architecture/seams/" class="md-nav__link">
         
   
   
@@ -827,7 +830,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../architecture/tenancy/" class="md-nav__link">
+      <a href="../architecture/tenancy/" class="md-nav__link">
         
   
   
@@ -855,7 +858,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connector-bindings/" class="md-nav__link">
+      <a href="../connector-bindings/" class="md-nav__link">
         
   
   
@@ -880,10 +883,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../errors/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -899,6 +929,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-a-code-comes-from" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where a code comes from
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-wide-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime-wide codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#following-a-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Following a failure
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -972,7 +1088,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connectors/" class="md-nav__link">
+      <a href="../connectors/" class="md-nav__link">
         
   
   
@@ -1000,7 +1116,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connector-reference/" class="md-nav__link">
+      <a href="../connector-reference/" class="md-nav__link">
         
   
   
@@ -1028,7 +1144,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../google_drive_connector/" class="md-nav__link">
+      <a href="../google_drive_connector/" class="md-nav__link">
         
   
   
@@ -1056,7 +1172,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../salesforce_connector/" class="md-nav__link">
+      <a href="../salesforce_connector/" class="md-nav__link">
         
   
   
@@ -1084,7 +1200,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../slack_connector/" class="md-nav__link">
+      <a href="../slack_connector/" class="md-nav__link">
         
   
   
@@ -1112,7 +1228,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../connectors-build/" class="md-nav__link">
+      <a href="../connectors-build/" class="md-nav__link">
         
   
   
@@ -1201,7 +1317,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/" class="md-nav__link">
+      <a href="../cli/" class="md-nav__link">
         
   
   
@@ -1229,7 +1345,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-cli/" class="md-nav__link">
+      <a href="../cli/nw-cli/" class="md-nav__link">
         
   
   
@@ -1257,7 +1373,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder/" class="md-nav__link">
         
   
   
@@ -1285,7 +1401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-scope/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder-scope/" class="md-nav__link">
         
   
   
@@ -1313,7 +1429,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-connector-builder-codegen/" class="md-nav__link">
+      <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
         
   
   
@@ -1341,7 +1457,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../cli/nw-mcp-builder/" class="md-nav__link">
+      <a href="../cli/nw-mcp-builder/" class="md-nav__link">
         
   
   
@@ -1430,7 +1546,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp/" class="md-nav__link">
+      <a href="../mcp/" class="md-nav__link">
         
   
   
@@ -1458,7 +1574,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stacklok-mcp-servers/" class="md-nav__link">
+      <a href="../stacklok-mcp-servers/" class="md-nav__link">
         
   
   
@@ -1486,7 +1602,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp-client-oauth/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
@@ -1514,7 +1630,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
@@ -1603,7 +1719,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../contributing/" class="md-nav__link">
         
   
   
@@ -1631,7 +1747,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../code-quality-compliance/" class="md-nav__link">
+      <a href="../code-quality-compliance/" class="md-nav__link">
         
   
   
@@ -1659,7 +1775,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../quality-security-gates/" class="md-nav__link">
+      <a href="../quality-security-gates/" class="md-nav__link">
         
   
   
@@ -1687,7 +1803,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../versioning/" class="md-nav__link">
+      <a href="../versioning/" class="md-nav__link">
         
   
   
@@ -1715,7 +1831,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../packaging/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
@@ -1743,7 +1859,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../public-api/" class="md-nav__link">
+      <a href="../public-api/" class="md-nav__link">
         
   
   
@@ -1832,7 +1948,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../troubleshooting/" class="md-nav__link">
+      <a href="../troubleshooting/" class="md-nav__link">
         
   
   
@@ -1860,7 +1976,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-rollback/" class="md-nav__link">
+      <a href="../release-rollback/" class="md-nav__link">
         
   
   
@@ -1888,7 +2004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../local-packages-to-images/" class="md-nav__link">
+      <a href="../local-packages-to-images/" class="md-nav__link">
         
   
   
@@ -1977,7 +2093,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../privacy/" class="md-nav__link">
+      <a href="../privacy/" class="md-nav__link">
         
   
   
@@ -2005,7 +2121,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
+      <a href="../compliance/hipaa-considerations/" class="md-nav__link">
         
   
   
@@ -2037,31 +2153,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
         
           
-          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
             
   
   
@@ -2079,7 +2192,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2097,7 +2210,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../adr/" class="md-nav__link">
         
   
   
@@ -2122,37 +2235,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    0001 stacklok MCP builder
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
         
   
   
@@ -2168,70 +2254,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Context
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decisions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decisions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#not-carried-over" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Not carried over
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2244,7 +2266,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../0002-documentation-lifecycle/" class="md-nav__link">
+      <a href="../adr/0002-documentation-lifecycle/" class="md-nav__link">
         
   
   
@@ -2500,10 +2522,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#the-envelope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        The envelope
       
     </span>
   </a>
@@ -2511,10 +2533,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decisions" class="md-nav__link">
+  <a href="#categories" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decisions
+        Categories
       
     </span>
   </a>
@@ -2522,10 +2544,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#not-carried-over" class="md-nav__link">
+  <a href="#where-a-code-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Not carried over
+        Where a code comes from
       
     </span>
   </a>
@@ -2533,10 +2555,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
+  <a href="#runtime-wide-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consequences
+        Runtime-wide codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#following-a-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Following a failure
       
     </span>
   </a>
@@ -2568,7 +2612,7 @@
   
   
     <li class="md-path__item">
-      <a href="../.." class="md-path__link">
+      <a href=".." class="md-path__link">
         
   <span class="md-ellipsis">
     Home
@@ -2586,10 +2630,10 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../architecture/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Decisions
+    Architecture
   </span>
 
         </a>
@@ -2617,111 +2661,246 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="adr-0001-stacklok-mcp-builder-on-node-wire">ADR 0001 — stacklok MCP builder on node-wire<a class="headerlink" href="#adr-0001-stacklok-mcp-builder-on-node-wire" title="Anchor link to this section">&para;</a></h1>
-<ul>
-<li><strong>Status:</strong> Accepted</li>
-<li><strong>Date:</strong> 2026-09-26</li>
-</ul>
-<div class="admonition note">
-<p class="admonition-title">Frozen decision record</p>
-<p>This page records why the decisions were made, as they stood on the date above. It is not
-updated when the code changes. For how <code>nw gen-stacklok</code> behaves today, read
-<a href="../../stacklok-mcp-servers/">stacklok MCP servers</a>. A later change of direction is a new ADR
-that points back here with <code>Supersedes:</code>.</p>
-</div>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Anchor link to this section">&para;</a></h2>
-<p>The goal was to build MCP servers with <strong>stacklok's mcp-builder</strong>, modified so every tool runs on the
-<strong>node-wire runtime and a node-wire connector</strong> instead of stacklok's generated HTTP client.</p>
-<ul>
-<li>stacklok's generator is the generator.</li>
-<li>node-wire's own generators (nw-connector-builder, nw-mcp-builder) and stacklok's code do not call
-  each other. The connector package is the only thing they share.</li>
-<li>node-wire features such as multitenancy are kept.</li>
-</ul>
-<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Anchor link to this section">&para;</a></h2>
+<h1 id="errors">Errors<a class="headerlink" href="#errors" title="Anchor link to this section">&para;</a></h1>
+<p>Every failed call, on every surface, carries the same four facts: an error <strong>code</strong>, its
+<strong>category</strong>, a <strong>message</strong> and a <strong>trace id</strong>. The runtime decides all four. A binding only
+turns them into its transport: an HTTP status, a gRPC reply, an MCP <code>isError</code> result.</p>
+<h2 id="the-envelope">The envelope<a class="headerlink" href="#the-envelope" title="Anchor link to this section">&para;</a></h2>
+<p>A failure is a <code>ConnectorResponse</code> with <code>success: false</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">"success"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">"error_code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"MISSING_TENANT"</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">"error_category"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AUTH"</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"X-Tenant-ID is required when multitenancy is enabled"</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">"trace_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3b5d519f-7a6f-439b-937d-12615e0706e6"</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">"details"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>details</code> is set for some codes, e.g. <code>VALIDATION_ERROR</code> lists <code>{"loc": [...], "msg": ...}</code> per
+bad field. On MCP the same failure also reads as one line:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>MISSING_TENANT [AUTH]: X-Tenant-ID is required when multitenancy is enabled (trace_id=3b5d519f-7a6f-439b-937d-12615e0706e6)
+</span></code></pre></div>
+<h2 id="categories">Categories<a class="headerlink" href="#categories" title="Anchor link to this section">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Decision</th>
-<th>Why</th>
+<th>Category</th>
+<th>Meaning</th>
+<th>HTTP status (REST, connector failures)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>One command, <code>nw gen-stacklok</code>, runs connector codegen → wheels → stacklok generation</td>
-<td>A single step was a hard requirement. The connector is built from the scope's own <code>spec.source</code> and <code>spec.base_url</code>.</td>
+<td><code>BUSINESS</code></td>
+<td>The request is wrong; fix it and retry</td>
+<td>400</td>
 </tr>
 <tr>
-<td>stacklok/mcp-builder and mcp-template-py are <strong>vendored</strong>, not fetched at build time. That covers generation, plus Phase 1 (the <code>ai-scoping</code> skill, its two agents, and <code>analyze</code> / <code>validate</code>).</td>
-<td>Simpler than fetching every run. There is no PyPI package: the PyPI name <code>mcp-builder</code> belongs to an unrelated project.</td>
+<td><code>AUTH</code></td>
+<td>Not authenticated, or not allowed</td>
+<td>401</td>
 </tr>
 <tr>
-<td>stacklok's Phases 1–2 are reused, and <code>nw gen-stacklok --path</code> runs Phases 1–3 in one command. Phase 4 <code>/ai-validation</code> isn't vendored, because it reviews the httpx client node-wire replaces.</td>
-<td>Every stacklok step up to generation is reused; only the implementation moves to node-wire.</td>
+<td><code>RETRYABLE</code></td>
+<td>Transient; retrying may succeed</td>
+<td>503</td>
 </tr>
 <tr>
-<td>Phase 1 is an <strong>interactive</strong> Claude Code session by default, with the skill's real questions and gates. <code>--headless</code> (<code>claude -p</code>, gates take the AI's recommendation) is opt-in, and is used when there's no terminal.</td>
-<td>Unattended gates were the largest deviation from stacklok's flow.</td>
-</tr>
-<tr>
-<td>Phase 2 always pauses for a human: continue, or stop and print the <code>--scope</code> resume command. There is no skip flag.</td>
-<td>Every scope must be reviewed by a human before it is built.</td>
-</tr>
-<tr>
-<td>Vendored files only gain hook calls into <code>nw_stacklok/</code>. The pristine copy is committed first.</td>
-<td>Keeps the diff against upstream small and reviewable. Moving to a new upstream commit stays a re-copy plus re-apply.</td>
-</tr>
-<tr>
-<td><strong>Auth follows ToolHive.</strong> ToolHive is the only source of upstream credentials; node-wire's own inbound auth is off in these servers.</td>
-<td>This is stacklok's model: "the generated server performs no authentication". It avoids two sources of credentials, and avoids <code>Authorization</code> meaning two things.</td>
-</tr>
-<tr>
-<td>The credential relay lives in an <strong>optional layer</strong>, <code>node-wire-toolhive</code>, plus one additive bindings argument, <code>ConnectorFactory(auth_provider_hook=)</code>. The runtime is unchanged.</td>
-<td>This had to be a layer, not a runtime change. The runtime's existing auth providers already format bearer, header and query credentials.</td>
-</tr>
-<tr>
-<td>A relayed credential is read on every call and <strong>never cached</strong></td>
-<td>The factory keeps one connector per (tenant, config), so a cached credential would be sent for the next caller (spike S1).</td>
-</tr>
-<tr>
-<td>Headers are read from the MCP SDK's per-message <code>request_ctx</code>, not from middleware contextvars</td>
-<td>Under stateful streamable HTTP, the template's contextvar keeps a session's first request, so a refreshed token would be ignored.</td>
-</tr>
-<tr>
-<td><strong>Multitenancy:</strong> one backend serves all tenants. Each tenant has its own ToolHive <code>MCPRemoteProxy</code>, whose <code>headerForward</code> sets <code>X-Tenant-ID</code>.</td>
-<td>ToolHive has no claim-to-header mapping, and its header injection is static per proxy. Its <code>header-forward</code> middleware uses <code>Header.Set</code>, which overrides a client-supplied header (verified at toolhive <code>dfb0713</code>). A NetworkPolicy admits only the proxies.</td>
-</tr>
-<tr>
-<td>Tenant choice is fixed by the proxy. Only <code>nw_list_configs</code> / <code>nw_select_config</code> are exposed.</td>
-<td>Per-session selection only picks a named config within the tenant.</td>
-</tr>
-<tr>
-<td><strong>Python 3.13</strong> for the whole repo</td>
-<td>stacklok requires it, and nw-cli calls the vendored generator in-process. Package versions were left unchanged at the time.</td>
-</tr>
-<tr>
-<td>stacklok's image defaults (DHI Alpine) are kept. The wheel target is read from the image's base (cp313 <strong>musllinux</strong> for DHI Alpine), and packages with unchanged sources are reused</td>
-<td>stacklok's defaults are kept deliberately. The DHI image has no Python headers, so the wheels come from cibuildwheel (<code>build-packages.sh --cibw-linux</code>). Reuse keeps reruns from recompiling the runtime every time.</td>
+<td><code>FATAL</code></td>
+<td>The server or upstream is misconfigured or broken</td>
+<td>500</td>
 </tr>
 </tbody>
 </table>
-<h2 id="not-carried-over">Not carried over<a class="headerlink" href="#not-carried-over" title="Anchor link to this section">&para;</a></h2>
+<h2 id="where-a-code-comes-from">Where a code comes from<a class="headerlink" href="#where-a-code-comes-from" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li>Bindings-only features: tool-search mode, per-caller scope policy (ToolHive authorizes callers), REST and gRPC.</li>
-<li>node-wire token refresh and OAuth flows: ToolHive owns the token lifecycle.</li>
-<li>Hand-written connectors without an OpenAPI spec (smtp, ms_teams), which a scope cannot reference.</li>
+<li><strong>Inside a connector run</strong>, <code>ErrorMapper</code> maps the exception: first the connector's own
+  <code>error_map</code> (e.g. <code>GDRIVE_RATE_LIMIT</code>), then the runtime-wide codes below. An exception
+  neither knows is reported under its class name, with <code>FATAL</code>.</li>
+<li><strong>Before the connector runs</strong> (arguments, tenant, config, rate limit, unknown tool), the binding
+  raises <code>NodeWireError(code, message)</code>, and <code>node_wire_runtime.errors.reject()</code> builds the
+  envelope, gives it a trace id and logs it. Bindings never invent a code.</li>
 </ul>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Anchor link to this section">&para;</a></h2>
-<p>These questions were unanswered when the decision was taken:</p>
-<ul>
-<li>The Kubernetes side (spike S2) needs a kind cluster with the ToolHive operator to confirm:</li>
-<li>whether the operator applies <code>podTemplateSpec</code> labels to proxy pods (the NetworkPolicy
-    selects on them);</li>
-<li>how remote-proxy auth delivers the upstream token to an in-cluster backend.</li>
-<li>Dropping Python 3.11/3.12 from published wheels needs a versioning decision (minor release or <code>2.0.0</code>).</li>
-<li>The template's stale per-session token is worth reporting upstream to stacklok.</li>
-</ul>
-<p>Their current state is tracked in issues, not in this record.</p>
+<h2 id="runtime-wide-codes">Runtime-wide codes<a class="headerlink" href="#runtime-wide-codes" title="Anchor link to this section">&para;</a></h2>
+<p><code>node_wire_runtime.ErrorCode</code>; each code's category is <code>node_wire_runtime.errors.CATALOGUE</code>.
+Codes shipped in 1.0.0 keep their name and category through 1.x.</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Category</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VALIDATION_ERROR</code></td>
+<td><code>BUSINESS</code></td>
+<td>Arguments don't fit the tool or the action's input model (every bad field is named; <code>details</code> lists them)</td>
+</tr>
+<tr>
+<td><code>INVALID_PAYLOAD</code></td>
+<td><code>BUSINESS</code></td>
+<td>gRPC only: its 1.0.0 name for a payload rejected before the connector ran (elsewhere <code>VALIDATION_ERROR</code>); kept through 1.x</td>
+</tr>
+<tr>
+<td><code>INVALID_JSON</code></td>
+<td><code>BUSINESS</code></td>
+<td>gRPC: <code>payload_json</code> is not JSON</td>
+</tr>
+<tr>
+<td><code>UNKNOWN_TOOL</code></td>
+<td><code>BUSINESS</code></td>
+<td>No such tool on this server, an ambiguous name, or a tool this server doesn't enable (tool search, tenant tools without multitenancy)</td>
+</tr>
+<tr>
+<td><code>CONNECTOR_NOT_AVAILABLE</code></td>
+<td><code>BUSINESS</code></td>
+<td>The connector isn't served on this surface, or isn't allowed on this server</td>
+</tr>
+<tr>
+<td><code>RATE_LIMIT_EXCEEDED</code></td>
+<td><code>RETRYABLE</code></td>
+<td>The global or per-identity rate limiter refused the call</td>
+</tr>
+<tr>
+<td><code>MISSING_TENANT</code></td>
+<td><code>AUTH</code></td>
+<td>Multitenancy is on and the call names no tenant</td>
+</tr>
+<tr>
+<td><code>TENANT_NOT_ALLOWED</code></td>
+<td><code>AUTH</code></td>
+<td>The tenant is unknown, or excluded by <code>NW_MCP_ALLOWED_TENANTS</code></td>
+</tr>
+<tr>
+<td><code>TENANT_PIN_LOCKED</code></td>
+<td><code>AUTH</code></td>
+<td><code>nw_select_tenant</code> while <code>NW_MCP_TENANT_PIN_LOCKED=true</code></td>
+</tr>
+<tr>
+<td><code>TENANT_MISMATCH</code></td>
+<td><code>AUTH</code></td>
+<td>A connector instance pinned to one tenant was run for another</td>
+</tr>
+<tr>
+<td><code>TENANT_IDENTITY_MISMATCH</code></td>
+<td><code>AUTH</code></td>
+<td>The JWT's tenant claim disagrees with the requested tenant</td>
+</tr>
+<tr>
+<td><code>CONFIG_NOT_FOUND</code></td>
+<td><code>AUTH</code></td>
+<td>No config for this tenant and connector, or an unknown config name (the two are indistinguishable on purpose)</td>
+</tr>
+<tr>
+<td><code>CONFIG_NAME_CONFLICT</code></td>
+<td><code>BUSINESS</code></td>
+<td>Creating a config whose name already exists</td>
+</tr>
+<tr>
+<td><code>CONFIG_DEFAULT_REQUIRED</code></td>
+<td><code>BUSINESS</code></td>
+<td>Deleting the default config without naming a new one</td>
+</tr>
+<tr>
+<td><code>CONFIG_INVALID</code></td>
+<td><code>BUSINESS</code></td>
+<td>Any other config-store refusal</td>
+</tr>
+<tr>
+<td><code>POLICY_DENIED</code></td>
+<td><code>AUTH</code></td>
+<td>The policy hook (e.g. the MCP scope policy) refused the action</td>
+</tr>
+<tr>
+<td><code>PROXY_AUTH_FAILED</code></td>
+<td><code>AUTH</code></td>
+<td>stacklok servers: the request lacks the ToolHive tenant proxy's <code>X-NW-Proxy-Secret</code></td>
+</tr>
+<tr>
+<td><code>UPSTREAM_TOKEN_MISSING</code></td>
+<td><code>AUTH</code></td>
+<td>stacklok servers: ToolHive forwarded no <code>Authorization: Bearer</code> credential</td>
+</tr>
+<tr>
+<td><code>SECRET_NOT_FOUND</code></td>
+<td><code>FATAL</code></td>
+<td>The server lacks a secret it is configured to read (a misconfiguration, so REST answers 500)</td>
+</tr>
+<tr>
+<td><code>TENANT_SECRET_NOT_FOUND</code></td>
+<td><code>FATAL</code></td>
+<td>The same, for a tenant's secret</td>
+</tr>
+</tbody>
+</table>
+<h2 id="per-surface">Per surface<a class="headerlink" href="#per-surface" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>A failed call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REST</td>
+<td>The envelope, plus <code>detail</code> (the message) for clients of the plain FastAPI errors. Connector failures: status from the category (table above). Refused before running: the status REST has always used, e.g. 400 <code>MISSING_TENANT</code>, 403 <code>CONFIG_NOT_FOUND</code> (fail-closed), 404 <code>CONNECTOR_NOT_AVAILABLE</code>, 409 <code>CONFIG_NAME_CONFLICT</code>, 429 <code>RATE_LIMIT_EXCEEDED</code> with <code>Retry-After</code></td>
+</tr>
+<tr>
+<td>gRPC</td>
+<td><code>InvokeResponse</code> with <code>success</code>, <code>error_code</code>, <code>error_category</code>, <code>message</code>, <code>trace_id</code></td>
+</tr>
+<tr>
+<td>MCP, node-wire host</td>
+<td><code>isError: true</code>; the text is the one-line form; <code>structuredContent</code> is the envelope (the tools' declared output schema)</td>
+</tr>
+<tr>
+<td>MCP, stacklok-built server</td>
+<td><code>isError: true</code>; the text is the one-line form (after FastMCP's <code>Error executing tool &lt;name&gt;:</code> for failures inside a tool)</td>
+</tr>
+</tbody>
+</table>
+<p>Ingress authentication is the exception for now: the MCP host reports <code>MCP_AUTH_REQUIRED</code>,
+<code>MCP_AUTH_INVALID</code> or <code>MCP_AUTH_NOT_CONFIGURED</code> (category <code>AUTH</code>), and REST and gRPC answer with a
+status only. One <code>AUTH_*</code> set across surfaces is planned for 2.0.</p>
+<h2 id="following-a-failure">Following a failure<a class="headerlink" href="#following-a-failure" title="Anchor link to this section">&para;</a></h2>
+<p>The trace id is the key into the logs. Every failed call writes one line under it:</p>
+<table>
+<thead>
+<tr>
+<th><code>audit_event</code></th>
+<th>Logged by</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invocation_failure</code></td>
+<td><code>runtime.base_connector</code></td>
+<td>the connector ran and failed</td>
+</tr>
+<tr>
+<td><code>invocation_validation_failure</code></td>
+<td><code>runtime.base_connector</code> or <code>runtime.errors</code></td>
+<td>the input or arguments didn't validate</td>
+</tr>
+<tr>
+<td><code>invocation_rejected</code></td>
+<td><code>runtime.errors</code></td>
+<td>the call was refused before the connector ran</td>
+</tr>
+<tr>
+<td><code>policy_denial</code></td>
+<td><code>runtime.base_connector</code></td>
+<td>the policy hook refused the action</td>
+</tr>
+</tbody>
+</table>
+<p>With the <code>grafana/</code> stack, paste the trace id into the dashboard's <code>trace_id</code> box, or query
+Loki: <code>{service_name="&lt;service&gt;"} | trace_id="&lt;trace id&gt;"</code>.</p>
 
 
 
@@ -2759,7 +2938,7 @@ that points back here with <code>Supersedes:</code>.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: ADR Index">
+          <a href="../connector-bindings/" class="md-footer__link md-footer__link--prev" aria-label="Previous: REST / MCP / gRPC Bindings">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2769,20 +2948,20 @@ that points back here with <code>Supersedes:</code>.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                ADR Index
+                REST / MCP / gRPC Bindings
               </div>
             </div>
           </a>
         
         
           
-          <a href="../0002-documentation-lifecycle/" class="md-footer__link md-footer__link--next" aria-label="Next: 0002 Documentation lifecycle">
+          <a href="../connectors/" class="md-footer__link md-footer__link--next" aria-label="Next: Use a Connector">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                0002 Documentation lifecycle
+                Use a Connector
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2835,10 +3014,10 @@ that points back here with <code>Supersedes:</code>.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>

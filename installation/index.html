@@ -1059,6 +1059,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2796,12 +2824,17 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td>Docker</td>
 <td>Latest</td>
-<td>Required for MCP server image builds and <code>docker-compose.mcp.yml</code></td>
+<td>Required for MCP server image builds, Linux wheel builds (cibuildwheel, installed by the <code>dev</code> group) and <code>docker-compose.mcp.yml</code></td>
 </tr>
 <tr>
 <td>Node.js</td>
 <td>Any LTS</td>
 <td>Only needed for MCP Inspector</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>Latest</td>
+<td>Only needed for <code>nw gen-stacklok --path</code> (Phase 1 AI scoping); <code>claude</code> on <code>PATH</code>. See <a href="../stacklok-mcp-servers/">stacklok MCP servers</a></td>
 </tr>
 </tbody>
 </table>
@@ -2879,17 +2912,19 @@ loads no connectors — fail-closed. Full reference:
 </table>
 <h3 id="rest-api">REST API<a class="headerlink" href="#rest-api" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Bash (Linux/macOS)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w">   </span><span class="c1"># local development only</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire<span class="w">           </span><span class="c1"># or: MODE=API python -m bindings_entrypoint</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w">        </span><span class="c1"># local development only</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">NW_MCP_SCOPE_POLICY_DEFAULT</span><span class="o">=</span>allow<span class="w">  </span><span class="c1"># .env sets deny; with auth off there is no caller scope</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire<span class="w">           </span><span class="c1"># or: MODE=API python -m bindings_entrypoint</span>
 </span></code></pre></div>
 <div class="language-powershell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c"># PowerShell (Windows)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">$env:NW_REST_AUTH_DISABLED</span><span class="p">=</span><span class="s2">"true"</span><span class="p">;</span> <span class="nv">$env:MODE</span><span class="p">=</span><span class="s2">"API"</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">node-wire</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">$env:NW_REST_AUTH_DISABLED</span><span class="p">=</span><span class="s2">"true"</span><span class="p">;</span> <span class="nv">$env:NW_MCP_SCOPE_POLICY_DEFAULT</span><span class="p">=</span><span class="s2">"allow"</span><span class="p">;</span> <span class="nv">$env:MODE</span><span class="p">=</span><span class="s2">"API"</span><span class="p">;</span> <span class="n">uv</span> <span class="n">run</span> <span class="n">node-wire</span>
 </span></code></pre></div>
 <p>Once it is running:</p>
 <ul>
 <li>Health check: <code>GET http://localhost:8000/health</code></li>
 <li>Swagger UI: <code>http://localhost:8000/docs</code></li>
 <li>Playground: <code>http://localhost:8000/playground/</code></li>
+<li>Call an action: <code>POST http://localhost:8000/connectors/&lt;id&gt;/&lt;action&gt;</code> with the action's fields as the JSON body (the connector must be in <code>NW_ALLOWED_CONNECTORS</code> in <code>.env</code>). Keeping auth on instead? Use an API key with scopes, see <a href="../connectors-build/#security-rest-plugins-secrets">Build a connector — Security</a>.</li>
 </ul>
 <p><code>MODE=MCP</code> is not a working server. Run MCP with <code>python -m agents.mcp_entrypoint</code> (<a href="../mcp/">MCP overview</a>).</p>
 <h3 id="optional-telemetry-stack-grafana-opentelemetry">Optional: telemetry stack (Grafana / OpenTelemetry)<a class="headerlink" href="#optional-telemetry-stack-grafana-opentelemetry" title="Anchor link to this section">&para;</a></h3>
@@ -2905,6 +2940,8 @@ loads no connectors — fail-closed. Full reference:
 <hr />
 <h2 id="development-setup">Development Setup<a class="headerlink" href="#development-setup" title="Anchor link to this section">&para;</a></h2>
 <p>Lint, type-check, test and pre-commit commands are in <a href="../code-quality-compliance/">Code quality</a>.
+The <code>.env</code> you created in <a href="#2-configure">Configure</a> affects <code>pytest</code>. Move it aside before you run the
+suite, as <a href="../code-quality-compliance/#tests">Code quality — Tests</a> explains.
 Contribution rules (DCO, license headers, PRs) are in
 <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CONTRIBUTING.md"><code>CONTRIBUTING.md</code></a>.</p>
 

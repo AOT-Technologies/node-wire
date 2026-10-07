@@ -16,7 +16,7 @@
         <link rel="prev" href="../architecture/tenancy/">
       
       
-        <link rel="next" href="../connectors/">
+        <link rel="next" href="../errors/">
       
       
         
@@ -987,6 +987,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2662,33 +2690,7 @@ and a gRPC method — and what each binding does to the arguments on the way in.
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>HTTP status codes are mapped from <code>ErrorCategory</code>:</p>
-<table>
-<thead>
-<tr>
-<th><code>ErrorCategory</code></th>
-<th>HTTP status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BUSINESS</code></td>
-<td>400</td>
-</tr>
-<tr>
-<td><code>AUTH</code></td>
-<td>401</td>
-</tr>
-<tr>
-<td><code>RETRYABLE</code></td>
-<td>503</td>
-</tr>
-<tr>
-<td><code>FATAL</code> / other</td>
-<td>500</td>
-</tr>
-</tbody>
-</table>
+<p>A failure's HTTP status, and what every other surface returns for it, is in <a href="../errors/">Errors</a>.</p>
 <h2 id="mcp-binding">MCP binding<a class="headerlink" href="#mcp-binding" title="Anchor link to this section">&para;</a></h2>
 <p><code>src/bindings/mcp_server/server.py</code> registers one <strong>MCP tool</strong> per manifest entry. Advertised tool names are <code>{connector_id}_{action}</code> with dots in the action replaced by underscores (e.g. <code>google_drive_files_list</code>, <code>google_drive_files_upload</code>) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.</p>
 <p>The MCP server calls <code>connector.run(args_dict)</code> and serialises the <code>ConnectorResponse</code> as the tool result.</p>
@@ -2799,13 +2801,13 @@ and a gRPC method — and what each binding does to the arguments on the way in.
         
         
           
-          <a href="../connectors/" class="md-footer__link md-footer__link--next" aria-label="Next: Use a Connector">
+          <a href="../errors/" class="md-footer__link md-footer__link--next" aria-label="Next: Errors">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Use a Connector
+                Errors
               </div>
             </div>
             <div class="md-footer__button md-icon">

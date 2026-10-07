@@ -876,6 +876,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2779,14 +2807,32 @@ SPDX-License-Identifier: Apache-2.0
 
 <h1 id="nw-cli">nw CLI<a class="headerlink" href="#nw-cli" title="Anchor link to this section">&para;</a></h1>
 <p><code>nw</code> is the unified CLI for turning an OpenAPI spec into a connector, wheels, an MCP host, and a Docker image. <code>gen-all</code> runs connector → wheel → MCP host → wire; the image is a separate <code>docker-build</code> step. It orchestrates <a href="../nw-connector-builder/"><code>nw-connector-builder</code></a>, <a href="../../packaging/"><code>scripts/build-packages.sh</code></a>, and <a href="../nw-mcp-builder/"><code>nw-mcp-builder</code></a> without replacing those tools.</p>
-<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. For manual ToolHive registration and the end-to-end agent path, see <a href="../nw-mcp-builder/#platform-and-toolhive-read-this-first">nw-mcp-builder</a> and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
+<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. To run the image and check it lists its tools, see <a href="../nw-mcp-builder/#docker">nw-mcp-builder: Docker</a>. For manual ToolHive registration and the end-to-end agent path, see <a href="../nw-mcp-builder/#platform-and-toolhive-read-this-first">nw-mcp-builder</a> and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="install">Install<a class="headerlink" href="#install" title="Anchor link to this section">&para;</a></h2>
-<p><code>nw-cli</code> is part of the monorepo <strong>dev</strong> dependency group. From the <strong>node-wire</strong> repo root (hard assumption — there is no <code>--node-wire-root</code> flag):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>sync
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--help
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--version<span class="w">   </span><span class="c1"># or -V</span>
+<p><code>nw-cli</code> is part of the monorepo <strong>dev</strong> dependency group, so the dev install from <a href="../../installation/#3-install-dependencies">Installation</a> provides it. Then, from the <strong>node-wire</strong> repo root (hard assumption — there is no <code>--node-wire-root</code> flag):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--help
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>--version<span class="w">   </span><span class="c1"># or -V</span>
 </span></code></pre></div>
+<p>Global options go before the command (<code>uv run nw -v gen-all ...</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--verbose</code> / <code>-v</code></td>
+<td>Stream build tool output (codegen report, <code>build-packages.sh</code>, <code>docker build</code>) line by line. Always on without a terminal, e.g. in CI</td>
+</tr>
+<tr>
+<td><code>--debug</code></td>
+<td>Print the full traceback with an error (or set <code>NW_DEBUG=1</code>)</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="commands">Commands<a class="headerlink" href="#commands" title="Anchor link to this section">&para;</a></h2>
 <table>
@@ -2824,6 +2870,12 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--path<span class="w"> </span>path/to/openapi.yaml
 </span></code></pre></div>
+<p><strong>Trial run, or keeping the connector?</strong> By default <code>gen-all</code> wires the connector into <code>config/connectors.yaml</code>, <code>sample.env</code> and <code>scripts/build-packages.sh</code>. From then on <code>tests/test_docs_lifecycle.py</code> fails until the connector has a <a href="../../packaging/#package-inventory">Package inventory</a> row (see <a href="#when-wire-is-enabled">When wire is enabled</a>).</p>
+<ul>
+<li><strong>Keeping it:</strong> add the inventory row.</li>
+<li><strong>Trial that stops before the MCP host:</strong> add <code>--no-wire --no-mcp</code>. You get the connector and wheels, and nothing is registered.</li>
+<li><strong>Trial through <code>docker-build</code>:</strong> keep wiring on. The MCP host is built from the connector's <code>config/connectors.yaml</code> entry, so <code>--no-wire</code> without <code>--no-mcp</code> fails at the MCP stage with <code>&lt;id&gt; is not in config/connectors.yaml; wire it in first</code>. When you are done, follow <a href="#removing-a-throwaway-connector">Removing a throwaway connector</a>.</li>
+</ul>
 <table>
 <thead>
 <tr>
@@ -2842,7 +2894,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>--no-wheel</code></td>
-<td>Skip wheel build</td>
+<td>Skip wheel build; the MCP host bundles the wheels already in <code>dist/</code> (checked before codegen starts)</td>
 </tr>
 <tr>
 <td><code>--no-mcp</code></td>
@@ -2850,11 +2902,15 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>--no-wire</code></td>
-<td>Skip <code>connectors.yaml</code> / <code>sample.env</code> / <code>ALL_PACKAGES</code> registration</td>
+<td>Skip <code>connectors.yaml</code> / <code>sample.env</code> / <code>ALL_PACKAGES</code> registration. The MCP stage needs the <code>connectors.yaml</code> entry, so combine with <code>--no-mcp</code> unless the connector is already wired</td>
 </tr>
 <tr>
 <td><code>--force</code></td>
 <td>Overwrite existing connector / MCP output</td>
+</tr>
+<tr>
+<td><code>--rebuild-wheels</code></td>
+<td>Rebuild every wheel, even those whose sources are unchanged</td>
 </tr>
 <tr>
 <td><code>--tool-search</code></td>
@@ -2870,28 +2926,26 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
-<p>Stages run in-process and in order, each skippable independently; the <code>mcp</code> stage additionally checks for wheels before building and can trigger a build-or-prompt sub-step of its own:</p>
+<p>Checks that need no work run first: the connector id must be a lowercase Python identifier, and with <code>--no-wheel</code> the wheels the MCP host bundles must already exist. Then the stages run in-process and in order, each skippable independently:</p>
 <pre class="mermaid"><code>flowchart TD
-    Start(["nw gen-all"]) --&gt; Connector["Connector codegen&lt;br/&gt;run_build(no_mcp=True)"]
+    Start(["nw gen-all"]) --&gt; Preflight{"Pre-flight&lt;br/&gt;valid --connector-id?&lt;br/&gt;--no-wheel: wheels present?"}
+    Preflight -- "no" --&gt; Fail(["exit 2 / 1&lt;br/&gt;before any work"])
+    Preflight -- "yes" --&gt; Connector["Connector codegen&lt;br/&gt;run_build(no_mcp=True)&lt;br/&gt;+ connectors.yaml / sample.env"]
     Connector --&gt; McpWanted{"Build an&lt;br/&gt;MCP host?"}
 
     McpWanted -- "yes" --&gt; ToolMode["Decide tool mode&lt;br/&gt;measure listing against --max-tool-listing-kb&lt;br/&gt;TTY: ask · non-TTY: full list + warning"]
     McpWanted -- "no (--no-mcp)" --&gt; WheelGate
     ToolMode --&gt; WheelGate{"Build&lt;br/&gt;wheels?"}
 
-    WheelGate -- "yes" --&gt; Wheel["Wheel build&lt;br/&gt;runtime + bindings, then connector"]
+    WheelGate -- "yes" --&gt; Wheel["Wheel build&lt;br/&gt;one build-packages.sh run for runtime, bindings, connector&lt;br/&gt;unchanged sources: reused"]
     WheelGate -- "no (--no-wheel)" --&gt; McpGate
     Wheel --&gt; McpGate{"MCP host&lt;br/&gt;requested?"}
 
-    McpGate -- "yes" --&gt; WheelsPresent{"Wheels present&lt;br/&gt;for this id?"}
+    McpGate -- "yes" --&gt; McpBuild["MCP host build&lt;br/&gt;run_mcp_build"]
     McpGate -- "no (--no-mcp)" --&gt; WireGate
-    WheelsPresent -- "yes" --&gt; McpBuild["MCP host build&lt;br/&gt;run_mcp_build"]
-    WheelsPresent -- "no, TTY" --&gt; Prompt["Prompt to build&lt;br/&gt;the missing wheel"]
-    WheelsPresent -- "no, non-TTY" --&gt; Fail(["exit 1&lt;br/&gt;prints the fix command"])
-    Prompt --&gt; McpBuild
     McpBuild --&gt; WireGate{"Wire the&lt;br/&gt;connector in?"}
 
-    WireGate -- "yes" --&gt; Wire["Wire&lt;br/&gt;connectors.yaml + sample.env + ALL_PACKAGES"]
+    WireGate -- "yes" --&gt; Wire["Register in ALL_PACKAGES"]
     WireGate -- "no (--no-wire)" --&gt; Done(["Done"])
     Wire --&gt; Done
 
@@ -2899,17 +2953,56 @@ SPDX-License-Identifier: Apache-2.0
     classDef gate fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
     classDef term fill:#eceff3,stroke:#5b7387,stroke-width:1px,color:#1c2733
     classDef bad fill:#fde2ea,stroke:#b81548,stroke-width:1px,color:#3d0a1d
-    class Connector,ToolMode,Wheel,McpBuild,Prompt,Wire stage
-    class McpWanted,WheelGate,McpGate,WheelsPresent,WireGate gate
+    class Connector,ToolMode,Wheel,McpBuild,Wire stage
+    class Preflight,McpWanted,WheelGate,McpGate,WireGate gate
     class Start,Done term
     class Fail bad</code></pre>
 <p>Stages are <strong>in-process</strong> function calls (never re-invokes <code>nw</code>). Connector codegen always passes <code>no_mcp=True</code> to <code>run_build</code> so the builder’s host-only MCP hand-off is skipped; MCP uses <code>skip_build_wheels=True</code> against wheels from <code>build-packages.sh</code>.</p>
-<p>When wire is enabled:</p>
+<h4 id="when-wire-is-enabled">When wire is enabled<a class="headerlink" href="#when-wire-is-enabled" title="Anchor link to this section">&para;</a></h4>
 <ul>
 <li><code>run_build(..., wire=True)</code> updates <code>config/connectors.yaml</code> and <code>sample.env</code></li>
 <li><code>nw</code> inserts <code>packages/connectors/&lt;id&gt;</code> into <code>scripts/build-packages.sh</code>’s <code>ALL_PACKAGES</code> list if missing</li>
+<li>Keeping the connector? Add its row to the <a href="../../packaging/#package-inventory">Package inventory</a> in <code>docs/packaging.md</code>. The first cell is the <code>project.name</code> from its <code>pyproject.toml</code> in backticks, e.g. <code>| `node-wire-&lt;id-dashed&gt;` | `src/node_wire_&lt;id&gt;/` | `&lt;id&gt;` |</code> (<code>&lt;id-dashed&gt;</code> is defined below). <code>tests/test_docs_lifecycle.py</code> fails until that table's names match <code>ALL_PACKAGES</code> exactly. For a throwaway connector, revert the three wire edits listed below once you are done (or pass <code>--no-wire --no-mcp</code> up front if you don't need the MCP host). Undo only what <code>gen-all</code> changed (<code>git diff config/connectors.yaml sample.env scripts/build-packages.sh</code> shows it): delete the added <code>&lt;id&gt;:</code> block, the <code>ALL_PACKAGES</code> line and the <code>&lt;ID&gt;_*</code> secret lines with their comment, and remove <code>,&lt;id&gt;</code> from the existing <code>NW_ALLOWED_CONNECTORS</code> line. Don't <code>git checkout</code> the whole file, which also discards any other uncommitted edits in it.</li>
 </ul>
-<p>If MCP runs and wheels are missing, the same TTY / non-TTY prerequisite handling as <code>gen-mcp</code> applies (see below).</p>
+<p><strong>Where the outputs land.</strong> After a successful run (exit <code>0</code>, every stage ✓ in the summary panel), check these paths. <code>&lt;id-dashed&gt;</code> is the connector id with <code>_</code> replaced by <code>-</code> (<code>pet_store</code> → <code>pet-store</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Output</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Connector source</td>
+<td><code>src/node_wire_&lt;id&gt;/</code> (<code>logic.py</code>, <code>schema.py</code>, <code>README.md</code>)</td>
+</tr>
+<tr>
+<td>Connector package</td>
+<td><code>packages/connectors/&lt;id&gt;/</code> (<code>pyproject.toml</code>, <code>setup.py</code>, <code>tests/</code>, <code>report.json</code>)</td>
+</tr>
+<tr>
+<td>Wheels</td>
+<td><code>packages/connectors/&lt;id&gt;/dist/node_wire_&lt;id&gt;-*.whl</code>, plus <code>packages/runtime/dist/</code> and <code>packages/bindings/dist/</code> (Linux by default)</td>
+</tr>
+<tr>
+<td>MCP scope fixture</td>
+<td><code>nw-mcp-builder/fixtures/&lt;id&gt;_nw.yaml</code></td>
+</tr>
+<tr>
+<td>MCP host</td>
+<td><code>nw-mcp-builder/out/&lt;id-dashed&gt;-nw-mcp/</code> (layout: <a href="../nw-mcp-builder/#generated-project-layout">nw-mcp-builder: Generated project layout</a>)</td>
+</tr>
+<tr>
+<td>Wire edits</td>
+<td><code>config/connectors.yaml</code> (new <code>&lt;id&gt;:</code> entry), <code>sample.env</code> (id added to <code>NW_ALLOWED_CONNECTORS</code>, plus the connector's secret names), <code>scripts/build-packages.sh</code> (<code>ALL_PACKAGES</code> line)</td>
+</tr>
+</tbody>
+</table>
+<p><code>--no-wheel</code>, <code>--no-mcp</code> and <code>--no-wire</code> skip the matching rows.</p>
+<h4 id="removing-a-throwaway-connector">Removing a throwaway connector<a class="headerlink" href="#removing-a-throwaway-connector" title="Anchor link to this section">&para;</a></h4>
+<p>Revert the wire edits as above, then delete the generated paths: <code>src/node_wire_&lt;id&gt;/</code> (and <code>src/node_wire_&lt;id&gt;.egg-info/</code> if present), <code>packages/connectors/&lt;id&gt;/</code>, <code>nw-mcp-builder/fixtures/&lt;id&gt;_nw.yaml</code> and <code>nw-mcp-builder/out/&lt;id-dashed&gt;-nw-mcp/</code>. Leave <code>packages/runtime/dist/</code> and <code>packages/bindings/dist/</code> alone; other connectors reuse those wheels. If you ran <code>nw docker-build</code>, also remove the image: <code>docker rmi &lt;id-dashed&gt;-nw-mcp:latest</code>.</p>
+<p><strong>Wheel reuse.</strong> Each wheel build stamps the package's <code>dist/</code> with a hash of its sources (<code>.nw-source-&lt;mode&gt;.sha256</code>). The next <code>gen-all</code> rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one <code>build-packages.sh</code> run; <code>--rebuild-wheels</code> rebuilds everything. Linux wheel builds need Docker: <code>nw</code> checks that the daemon answers before starting one, and fails with the reason if it does not.</p>
 <p><strong>Tool mode.</strong> Right after codegen (before the wheel builds), the connector's MCP tool listing is measured. Over the budget (<code>--max-tool-listing-kb</code>, default 25 KB) the progress bars pause and you are asked how the MCP host should expose its tools — the full tool list, or tool search (<code>nw_search_tools</code> + <code>nw_call_tool</code>, schemas on demand) — with an explanation of where tool search can fail. Without a terminal the full list is generated and a warning names the flags. <code>--tool-search</code> / <code>--full-tool-list</code> decide up front. The build never fails on size; the choice becomes the host's default <code>NW_MCP_TOOL_MODE</code>. Wording and logic live in nw-mcp-builder (<code>nw_mcp_builder/tool_listing.py</code>); see its README.</p>
 <h3 id="nw-gen-whl"><code>nw gen-whl</code><a class="headerlink" href="#nw-gen-whl" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">          </span><span class="c1"># Linux-only (default)</span>
@@ -2917,25 +3010,27 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--all<span class="w">    </span><span class="c1"># cibuildwheel matrix</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--runtime<span class="w">                         </span><span class="c1"># packages/runtime only</span>
 </span></code></pre></div>
-<p>Default mode passes <strong><code>--linux-only</code></strong> to <code>scripts/build-packages.sh</code> (not the script’s host+Linux combined default). The CLI does not expose a <code>--linux-only</code> flag — omit <code>--host</code> / <code>--all</code> to get that mode. <code>--host</code> and <code>--all</code> are mutually exclusive. Runtime is not rebuilt with every connector build — use <code>--runtime</code> when needed. <code>--connector-id</code> is required unless <code>--runtime</code> and/or <code>--bindings</code> is set. <code>--bindings</code> builds <code>packages/bindings</code> (the MCP host surface) — <code>gen-mcp</code> asks you to run <code>nw gen-whl --bindings</code> when that wheel is missing.</p>
+<p>Default mode passes <strong><code>--linux-only</code></strong> to <code>scripts/build-packages.sh</code> (not the script’s host+Linux combined default). The CLI does not expose a <code>--linux-only</code> flag — omit <code>--host</code> / <code>--all</code> to get that mode. <code>--host</code> and <code>--all</code> are mutually exclusive. Runtime is not rebuilt with every connector build — use <code>--runtime</code> when needed. <code>--connector-id</code> is required unless <code>--runtime</code> and/or <code>--bindings</code> is set. Flags combine into one build run (<code>--runtime --bindings --connector-id pet_store</code> builds all three). <code>gen-whl</code> always builds; it also writes the source stamps <code>gen-all</code> reuses. <code>--bindings</code> builds <code>packages/bindings</code> (the MCP host surface) — <code>gen-mcp</code> asks you to run <code>nw gen-whl --bindings</code> when that wheel is missing.</p>
 <h3 id="nw-gen-mcp"><code>nw gen-mcp</code><a class="headerlink" href="#nw-gen-mcp" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--force-output
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--tool-search
 </span></code></pre></div>
 <p>Takes the same <code>--tool-search</code> / <code>--full-tool-list</code> / <code>--max-tool-listing-kb</code> flags as <code>gen-all</code>, and asks the same question before building the host.</p>
-<p>Always <code>skip_build_wheels=True</code>. If the runtime or connector wheel is missing:</p>
+<p>Always <code>skip_build_wheels=True</code>. If any of the runtime, bindings or connector wheels is missing:</p>
 <ul>
-<li><strong>Interactive (TTY):</strong> prompts to build the missing prerequisite</li>
-<li><strong>Non-interactive:</strong> exits non-zero with the exact fix command (e.g. <code>nw gen-whl --runtime</code>)</li>
+<li><strong>Interactive (TTY):</strong> one prompt names every missing wheel and builds them in one run</li>
+<li><strong>Non-interactive:</strong> exits non-zero with the exact fix command (e.g. <code>nw gen-whl --runtime --bindings</code>)</li>
 </ul>
 <p>There is no <code>--yes</code> / auto-confirm flag.</p>
 <h3 id="nw-docker-build"><code>nw docker-build</code><a class="headerlink" href="#nw-docker-build" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--tag<span class="w"> </span>v1
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--project<span class="w"> </span>nw-stacklok-builder/out/petstore-mcp<span class="w">   </span><span class="c1"># a gen-stacklok server</span>
 </span></code></pre></div>
-<p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (e.g. <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>. Pass secrets at <strong>run</strong> time (<code>docker run --env-file</code> / <code>-e</code>); they are not baked into the image.</p>
-<p>If the MCP project directory is missing, the same TTY / non-TTY prompt offers to run <code>nw gen-mcp</code> first.</p>
+<p><code>--connector-id</code> finds the projects generated for that connector: the <code>gen-all</code> / <code>gen-mcp</code> host (<code>nw-mcp-builder/out/&lt;id-dashed&gt;-nw-mcp/</code>, image <code>&lt;id-dashed&gt;-nw-mcp:&lt;tag&gt;</code>, with <code>_</code> in the id replaced by <code>-</code>) and any <code>gen-stacklok</code> server in <code>nw-stacklok-builder/out/</code> whose <code>config/connectors.yaml</code> lists it (image named after its folder, e.g. <code>petstore-mcp:&lt;tag&gt;</code>). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. <code>--project &lt;dir&gt;</code> builds a project by path instead, for one written outside those folders (<code>gen-stacklok --output-dir</code>).</p>
+<p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (e.g. <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>. Pass secrets at <strong>run</strong> time (<code>docker run --env-file</code> / <code>-e</code>); they are not baked into the image. To run the image and verify it, follow <a href="../nw-mcp-builder/#docker">nw-mcp-builder: Docker</a> — the container needs <code>NW_MCP_HOST=0.0.0.0</code> to be reachable.</p>
+<p>If the MCP project directory is missing, one TTY / non-TTY prompt offers to generate it first (with any missing wheels), then builds the image; without a terminal it exits with <code>nw gen-mcp --connector-id &lt;id&gt;</code> as the fix. Docker must be running: <code>nw</code> checks before building.</p>
 <h3 id="nw-gen-stacklok"><code>nw gen-stacklok</code><a class="headerlink" href="#nw-gen-stacklok" title="Anchor link to this section">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--path<span class="w"> </span>&lt;spec<span class="w"> </span>path<span class="w"> </span>or<span class="w"> </span>URL&gt;<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="o">[</span>--workflow<span class="w"> </span><span class="s2">"..."</span><span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--auth-hint<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--scoping-notes<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span>
@@ -2948,12 +3043,22 @@ SPDX-License-Identifier: Apache-2.0
    approval gates as in stacklok's flow. <code>--workflow</code>, <code>--auth-hint</code> and <code>--scoping-notes</code> are
    starting answers. Exit the session to continue. <code>--headless</code>, or no terminal, runs it
    unattended with <code>claude -p</code>;
-3. <strong>pauses for the human review</strong>: <code>y</code> continues, <code>n</code> stops and prints the <code>--scope</code> command to
-   resume with;
+3. <strong>pauses for the human review</strong> with a short summary: server, tool count and names, auth,
+   stacklok's validation result, how many points the AI flagged in <code>scoping-summary.md</code>, and the
+   project it will write (and whether that replaces an existing one). Pick the next step with the
+   arrow keys and Enter (or an option's first letter):
+   - <strong>Generate the MCP server</strong> (only offered when the scope passes validation),
+   - <strong>Show details</strong>: the tools with their endpoints, and every flagged point,
+   - <strong>Edit the scope</strong> (in <code>$VISUAL</code> / <code>$EDITOR</code>, or your own editor), then review it again,
+   - <strong>Redo the AI scoping</strong>, with feedback passed to the AI (the previous scope is kept if the
+     rerun fails),
+   - <strong>Stop here</strong>, printing the <code>--scope</code> command to resume with.</p>
+<p>With output piped the menu takes a typed letter instead; with no terminal at all it stops here;
 4. generates.</p>
-<p>A second <code>--path</code> run reuses the scope in <code>nw-stacklok-builder/scoping/&lt;id&gt;/</code>; <code>--rescope</code> redoes
-it. The connector is always rebuilt from the spec. An existing output project is checked before
-anything is built: you're asked whether to replace it, and <code>--force</code> replaces it without asking.</p>
+<p>A second <code>--path</code> run reuses the scope in <code>nw-stacklok-builder/scoping/&lt;id&gt;/</code> (the review says so,
+with its date; <code>r</code> or <code>--rescope</code> redoes it). The connector is always rebuilt from the spec. With
+<code>--scope</code>, the scope is validated before anything is built, and you're asked whether to replace an
+existing output project; <code>--force</code> replaces it without asking.</p>
 <p>Builds a <a href="https://github.com/stacklok/mcp-builder">stacklok mcp-builder</a> server on the node-wire
 runtime from a stacklok <code>mcp-scope.yaml</code>: connector codegen from the scope's <code>spec.source</code> →
 wheels for the image (cp313 musllinux for stacklok's Alpine base, via <code>scripts/build-packages.sh
@@ -2963,7 +3068,14 @@ omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}
 <a href="../../stacklok-mcp-servers/">stacklok MCP servers</a>.</p>
 <hr />
 <h2 id="output">Output<a class="headerlink" href="#output" title="Anchor link to this section">&para;</a></h2>
-<p><code>nw gen-all</code> uses brand-colored <code>rich.progress</code> (amber spinner, blue bar, pink on failure) with a bordered summary panel. Single-stage commands use a simpler status spinner.</p>
+<p>Every command shows the same brand-colored <code>rich.progress</code> display (amber spinner, blue bar, pink on failure), then a bordered summary panel: each stage with ✓ / ✗ / – (skipped) and its duration, and the results (connector, MCP host, image). Commands to run next are printed below the panel so they copy cleanly.</p>
+<ul>
+<li><strong>On a terminal:</strong> build tool output is kept out of the way. The running stage shows its latest line under the bars; <code>nw</code>'s own messages (tool mode, reused wheels, operation counts) always print.</li>
+<li><strong>With <code>--verbose</code>, or without a terminal (CI):</strong> build tool output streams line by line above the bars.</li>
+<li><strong>Every run</strong> writes a full, timestamped log to <code>&lt;tmp&gt;/nw-logs/&lt;command&gt;-&lt;time&gt;.log</code>, printed as <code>Log:</code> under the panel.</li>
+<li><strong>On failure</strong> the panel names the stage and the reason, the last 15 lines of that stage's output (when they were not streamed), and a fix hint. The error is reported once; there is no traceback unless you pass <code>--debug</code>. An unexpected internal error is labelled as such, with a pointer to <code>--debug</code>.</li>
+</ul>
+<p>Ctrl-C stops the running build tool (no orphaned <code>docker</code> / <code>cibuildwheel</code> processes) and exits 130.</p>
 <hr />
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Anchor link to this section">&para;</a></h2>
 <table>
@@ -2980,11 +3092,15 @@ omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}
 </tr>
 <tr>
 <td><code>1</code></td>
-<td>Stage failure, missing prerequisite (non-interactive / declined), or root resolution error</td>
+<td>Stage failure, missing prerequisite (Docker, wheels; non-interactive or declined), root resolution error, or an unexpected internal error</td>
 </tr>
 <tr>
 <td><code>2</code></td>
-<td>Usage error (e.g. <code>--host</code> with <code>--all</code>, or missing <code>--connector-id</code> without <code>--runtime</code> or <code>--bindings</code>)</td>
+<td>Usage error: conflicting or missing flags (e.g. <code>--host</code> with <code>--all</code>), an invalid <code>--connector-id</code>, or a codegen refusal such as an existing connector without <code>--force</code></td>
+</tr>
+<tr>
+<td><code>130</code></td>
+<td>Interrupted (Ctrl-C)</td>
 </tr>
 </tbody>
 </table>

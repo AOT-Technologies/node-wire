@@ -970,6 +970,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2642,11 +2670,11 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><strong><code>ErrorCategory</code></strong></td>
-<td>The error taxonomy: <code>RETRYABLE</code>, <code>BUSINESS</code>, <code>AUTH</code>, <code>FATAL</code>. Bindings translate it into an HTTP status, a gRPC code or an MCP tool error (<a href="../../connector-bindings/#rest-binding">mapping</a>).</td>
+<td>The error taxonomy: <code>RETRYABLE</code>, <code>BUSINESS</code>, <code>AUTH</code>, <code>FATAL</code>. Bindings translate it into an HTTP status, a gRPC reply or an MCP tool error (<a href="../../errors/">Errors</a>).</td>
 </tr>
 <tr>
 <td><strong>Error code</strong></td>
-<td>A stable string such as <code>GDRIVE_RATE_LIMIT</code> or <code>TENANT_MISMATCH</code>, assigned by <code>ErrorMapper</code> from the connector's <code>error_map</code>. The mapping is scoped to that connector's id.</td>
+<td>A stable string such as <code>GDRIVE_RATE_LIMIT</code> or <code>MISSING_TENANT</code>. A connector's own codes come from its <code>error_map</code>, scoped to that connector's id; the runtime-wide ones, for failures inside or before a run, are listed in <a href="../../errors/">Errors</a>.</td>
 </tr>
 </tbody>
 </table>

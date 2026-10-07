@@ -876,6 +876,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1566,6 +1594,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Docker">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#verify-the-running-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify the running container
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2857,6 +2902,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Docker">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#verify-the-running-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify the running container
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3008,8 +3070,8 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 <tbody>
 <tr>
 <td><strong>ToolHive local MCP</strong> (Docker image from <code>out/&lt;name&gt;-mcp</code>)</td>
-<td><strong>Linux</strong> (<code>*linux_x86_64*</code> / manylinux), Python <strong>3.13</strong> (matches <code>python:3.13-slim</code> in the generated Dockerfile)</td>
-<td>From the <strong>node-wire</strong> repo root, use <code>scripts/build-packages.sh</code> (see below)</td>
+<td><strong>Linux</strong> (<code>linux_*</code> / manylinux) for the <strong>same CPU architecture as the image</strong> — <code>*_aarch64</code> on Apple Silicon / ARM hosts, <code>*_x86_64</code> on Intel/AMD — Python <strong>3.13</strong> (matches <code>python:3.13-slim</code> in the generated Dockerfile)</td>
+<td>From the <strong>node-wire</strong> repo root, use <code>scripts/build-packages.sh</code> (see below); <code>nw gen-all</code> does this for you and picks your machine's architecture</td>
 </tr>
 <tr>
 <td><strong>Local run / MCP Inspector / ToolHive remote MCP</strong> on the same OS as your machine</td>
@@ -3081,14 +3143,14 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 <li><strong>Validates</strong> the connector exists under <code>packages/connectors/&lt;id&gt;</code> and <code>src/node_wire_&lt;id&gt;/logic.py</code></li>
 <li><strong>Builds wheels</strong> (unless <code>--skip-build-wheels</code>):</li>
 <li><code>packages/runtime/dist/node_wire_runtime-*.whl</code></li>
+<li><code>packages/bindings/dist/node_wire_bindings-*.whl</code></li>
 <li><code>packages/connectors/&lt;id&gt;/dist/node_wire_&lt;id&gt;-*.whl</code></li>
 <li>Platform matches the machine running the CLI (see <a href="#platform-and-toolhive-read-this-first">Platform and ToolHive</a>)</li>
 <li><strong>Ensures a scope fixture</strong> at <code>fixtures/&lt;id&gt;_nw.yaml</code></li>
 <li>Auto-generated from <code>@nw_action</code> / <code>@sdk_action</code> / <code>SdkActionSpec</code> in connector source</li>
 <li>Skips overwrite if the file already exists (use <code>--force-fixture</code> to regenerate)</li>
 <li><strong>Generates</strong> <code>out/&lt;server-name&gt;-mcp/</code> containing:</li>
-<li>Copied wheels under <code>wheels/</code></li>
-<li>Selective vendored <code>node-wire/src</code> → <code>vendor/node_wire_src</code> (<code>bindings</code>, <code>node_wire_runtime</code>, <code>node_wire_&lt;connector_id&gt;</code> only; Docker PYTHONPATH parity)</li>
+<li>Copied wheels under <code>wheels/</code> (runtime, bindings, connector). The host imports everything from these installed wheels; no node-wire source tree is vendored into it</li>
 <li><code>config/connectors.yaml</code> from the monorepo</li>
 <li>Thin <code>__main__.py</code> that runs <code>McpServer(connector_ids=[...])</code></li>
 <li><code>pyproject.toml</code>, <code>README.md</code>, <code>Dockerfile</code>, <code>.env.example</code></li>
@@ -3368,14 +3430,15 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  Dockerfile
 </span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  README.md
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  .env.example            # NW + connector secret env names
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  wheels/                 # runtime + connector .whl
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>  config/connectors.yaml
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>  vendor/node_wire_src/   # bindings + node_wire_runtime + node_wire_&lt;id&gt; only
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  .dockerignore           # whitelist: wheels/, config/connectors.yaml, src/
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>  wheels/                 # runtime + bindings + connector .whl
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>  config/connectors.yaml
 </span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>  src/google_drive_nw_mcp/
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    __main__.py           # McpServer entrypoint
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    __init__.py
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    __main__.py           # McpServer entrypoint
 </span></code></pre></div>
 <h3 id="environment-variables-generated-host">Environment variables (generated host)<a class="headerlink" href="#environment-variables-generated-host" title="Anchor link to this section">&para;</a></h3>
-<p>Every generated thin host prefers <strong>process environment</strong> (ToolHive secrets, Docker <code>-e</code>, K8s). If <code>out/&lt;name&gt;-mcp/.env</code> exists, it fills <strong>unset</strong> keys only (<code>override=False</code>). It does <strong>not</strong> load the node-wire monorepo or cwd <code>.env</code>. Vendored MCP/REST dotenv merge is disabled via <code>NW_REST_LOAD_DOTENV=false</code>. A missing project <code>.env</code> is OK when secrets/env are already injected.</p>
+<p>Every generated thin host prefers <strong>process environment</strong> (ToolHive secrets, Docker <code>-e</code>, K8s). If <code>out/&lt;name&gt;-mcp/.env</code> exists, it fills <strong>unset</strong> keys only (<code>override=False</code>). It does <strong>not</strong> load the node-wire monorepo or cwd <code>.env</code>. The bindings' own MCP/REST dotenv merge is disabled via <code>NW_REST_LOAD_DOTENV=false</code>. A missing project <code>.env</code> is OK when secrets/env are already injected.</p>
 <p>Set these in <code>.env</code> (start from <code>.env.example</code>):</p>
 <table>
 <thead>
@@ -3395,6 +3458,11 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 <td><code>NW_MCP_PORT</code></td>
 <td><code>8081</code></td>
 <td>HTTP port when using streamable-http</td>
+</tr>
+<tr>
+<td><code>NW_MCP_HOST</code></td>
+<td>loopback (see <a href="../../configuration/#transport-binding-config">Configuration</a>)</td>
+<td>Bind address for streamable-http. Set <code>0.0.0.0</code> inside a container, otherwise the published port answers with <code>Connection reset by peer</code></td>
 </tr>
 <tr>
 <td><code>NW_ALLOWED_CONNECTORS</code></td>
@@ -3443,17 +3511,38 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 <hr />
 <h2 id="docker">Docker<a class="headerlink" href="#docker" title="Anchor link to this section">&para;</a></h2>
 <p>From a generated project (use <strong>Linux</strong> wheels for this path — see <a href="#platform-and-toolhive-read-this-first">Platform and ToolHive</a>):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">cd</span><span class="w"> </span>out/&lt;name&gt;-mcp
+<p>From the <strong>node-wire</strong> repo root (<code>nw docker-build --connector-id &lt;id&gt;</code> runs the same build and tags <code>&lt;id-dashed&gt;-nw-mcp:latest</code> — see <a href="../nw-cli/#nw-docker-build">nw CLI</a>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder/out/&lt;name&gt;-mcp
 </span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>&lt;image-name&gt;<span class="w"> </span>.
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="c1"># Secrets at runtime only — never COPY .env into the image</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>&lt;image-name&gt;
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="c1"># Example</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="nb">cd</span><span class="w"> </span>out/salesforce-nw-mcp
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>salesforce-nw-mcp<span class="w"> </span>.
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>salesforce-nw-mcp
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">   </span><span class="c1"># fill connector secrets; keeps NW_MCP_AUTH_DISABLED / NW_MCP_SCOPE_POLICY_DEFAULT for local use</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Secrets at runtime only — never COPY .env into the image.</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># NW_MCP_HOST=0.0.0.0 is required: the server binds loopback by default, which is unreachable through -p.</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-e<span class="w"> </span><span class="nv">NW_MCP_HOST</span><span class="o">=</span><span class="m">0</span>.0.0.0<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>&lt;image-name&gt;
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="c1"># Example (generated by `nw gen-all --connector-id petstore_review`)</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="nb">cd</span><span class="w"> </span>nw-mcp-builder/out/petstore-review-nw-mcp
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>-e<span class="w"> </span><span class="nv">NW_MCP_HOST</span><span class="o">=</span><span class="m">0</span>.0.0.0<span class="w"> </span>-p<span class="w"> </span><span class="m">8081</span>:8081<span class="w"> </span>petstore-review-nw-mcp:latest
 </span></code></pre></div>
-<p>The generated Dockerfile is multi-stage and digest-pinned (<code>python:3.13-slim@sha256:…</code>): wheels install in a <code>deps</code> stage (BuildKit pip cache), then <code>/usr/local</code> is copied into the runtime stage with app sources last for layer caching. It runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels (<code>node-wire-runtime</code>, <code>node-wire-bindings</code>, connector), <code>config/connectors.yaml</code>, and the thin host — no vendored <code>src/</code> on <code>PYTHONPATH</code>. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. <code>PYTHONPATH=/app/src</code> and <code>python -m &lt;module&gt;</code> are the entrypoint. MCP auth is <strong>not</strong> disabled in the image, and the scope policy defaults <strong>fail-closed</strong> (<code>deny</code>) there too — unlike local <code>uv run</code>, which sets <code>NW_MCP_AUTH_DISABLED=true</code> and <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> automatically for Inspector convenience. A container started without both set accepts connections but <code>tools/list</code> comes back empty. Set <code>NW_MCP_AUTH_DISABLED=true</code> / <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> at run time for local Inspector/ToolHive use.</p>
+<p>The startup log must say <code>Uvicorn running on http://0.0.0.0:8081</code>. If it says <code>127.0.0.1</code>, <code>NW_MCP_HOST</code> was not set and requests from the host get <code>Connection reset by peer</code>.</p>
+<h3 id="verify-the-running-container">Verify the running container<a class="headerlink" href="#verify-the-running-container" title="Anchor link to this section">&para;</a></h3>
+<p>From a second terminal, open an MCP session and list the tools. Streamable HTTP needs both <code>Accept</code> types, and every request after <code>initialize</code> must echo the <code>Mcp-Session-Id</code> response header:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">URL</span><span class="o">=</span>http://localhost:8081/mcp
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nv">H</span><span class="o">=(</span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Accept: application/json, text/event-stream'</span><span class="o">)</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="nv">SID</span><span class="o">=</span><span class="k">$(</span>curl<span class="w"> </span>-s<span class="w"> </span>-D<span class="w"> </span>-<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span><span class="s2">"</span><span class="nv">$URL</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">H</span><span class="p">[@]</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'tolower($1)=="mcp-session-id:" {print $2}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s1">'\r'</span><span class="k">)</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"session: </span><span class="nv">$SID</span><span class="s2">"</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">"</span><span class="nv">$URL</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">H</span><span class="p">[@]</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"Mcp-Session-Id: </span><span class="nv">$SID</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"jsonrpc":"2.0","method":"notifications/initialized"}'</span><span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{http_code}\n'</span><span class="w">   </span><span class="c1"># 202</span>
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>curl<span class="w"> </span>-s<span class="w"> </span><span class="s2">"</span><span class="nv">$URL</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">H</span><span class="p">[@]</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"Mcp-Session-Id: </span><span class="nv">$SID</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"jsonrpc":"2.0","id":2,"method":"tools/list"}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-o<span class="w"> </span><span class="s1">'"name":"&lt;connector_id&gt;_[^"]*"'</span>
+</span></code></pre></div>
+<p>Replace <code>&lt;connector_id&gt;</code> with your id (e.g. <code>petstore_review</code>). Works in bash and zsh. A healthy host prints a session id, <code>202</code>, then one line per tool (20 for the Swagger Petstore v2 spec). An empty session id means the port is not reachable — check <code>NW_MCP_HOST</code>. A session but no tool names means <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> is missing (see below). A plain <code>curl http://localhost:8081/mcp</code> returns <code>406 Not Acceptable</code>; that only proves the port answers.</p>
+<p>The generated Dockerfile is multi-stage and digest-pinned (<code>python:3.13-slim@sha256:…</code>): wheels install in a <code>deps</code> stage (BuildKit pip cache), then <code>/usr/local</code> is copied into the runtime stage with app sources last for layer caching. It runs as non-root <code>USER app</code> with a read-only application tree, and copies only wheels (<code>node-wire-runtime</code>, <code>node-wire-bindings</code>, connector), <code>config/connectors.yaml</code>, and the thin host package (<code>src/&lt;module&gt;/</code>, copied to <code>/app/src</code> and put on <code>PYTHONPATH=/app/src</code>; the entrypoint is <code>python -m &lt;module&gt;</code>). No node-wire source tree is vendored: runtime, bindings and connector come only from the installed wheels. <code>.dockerignore</code> is a whitelist so <code>.env</code>, tenant YAML, and keys never enter the build context. MCP auth is <strong>not</strong> disabled in the image, and the scope policy defaults <strong>fail-closed</strong> (<code>deny</code>) there too — unlike local <code>uv run</code>, which sets <code>NW_MCP_AUTH_DISABLED=true</code> and <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> automatically for Inspector convenience. A container started without both set accepts connections but <code>tools/list</code> comes back empty. Set <code>NW_MCP_AUTH_DISABLED=true</code> / <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> at run time for local Inspector/ToolHive use (the generated <code>.env.example</code> already contains both).</p>
 <p><code>--env-file</code> injects process environment. Do not bind-mount <code>.env</code> into the container filesystem.</p>
 <p><strong>MCP SDK:</strong> Pin <code>mcp&gt;=1.6.0,&lt;2</code>. MCP SDK 2.x breaks <code>@server.list_tools()</code> on the current server binding.</p>
 <hr />
@@ -3507,6 +3596,10 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 <td>Fill connector secrets via env or project <code>.env</code>; check <code>config/connectors.yaml</code></td>
 </tr>
 <tr>
+<td><code>curl: (56) Recv failure: Connection reset by peer</code> against a running container; log shows <code>Uvicorn running on http://127.0.0.1:…</code></td>
+<td>Add <code>-e NW_MCP_HOST=0.0.0.0</code> to <code>docker run</code> (see <a href="#docker">Docker</a>)</td>
+</tr>
+<tr>
 <td>Wrong listen port in ToolHive</td>
 <td>Set <code>NW_MCP_PORT</code> to the same value as ToolHive <code>FASTMCP_PORT</code> / <code>MCP_PORT</code></td>
 </tr>
@@ -3526,27 +3619,27 @@ flag <code>nw</code> does not pass through, or are debugging this stage on its o
 set <code>NW_MULTITENANCY_ENABLED=true</code> and provide <code>NW_TENANTS_PATH</code> (see the
 <a href="#environment-variables-generated-host">environment table</a>). Tenant resolution per transport, the
 <code>nw_*</code> tenant/config tools and the ToolHive recipe are in <a href="../../architecture/tenancy/">Tenancy</a>.
-After upgrading node-wire, regenerate and rebuild the host so its vendored bindings pick up the
+After upgrading node-wire, regenerate and rebuild the host so its bundled bindings wheel picks up the
 current tools.</p>
 <hr />
 <h2 id="package-layout-source">Package layout (source)<a class="headerlink" href="#package-layout-source" title="Anchor link to this section">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>nw-mcp-builder/
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  pyproject.toml
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  README.md
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  fixtures/                 # *_nw.yaml scope files
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  src/nw_mcp_builder/
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    pipeline.py             # run_connector_pipeline
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    generate/
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    schema/
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>      models.py             # MCPScope validation for fixtures
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>nw-mcp-builder/
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>  pyproject.toml
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>  README.md
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>  fixtures/                 # *_nw.yaml scope files
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>  out/                      # generated MCP hosts (gitignored content typical)
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>  src/nw_mcp_builder/
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    cli.py                  # entrypoint: nw-mcp-builder
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    from_connector.py       # wheels → fixture → pipeline → .env.example
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    pipeline.py             # run_connector_pipeline
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    generate/
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>      connector_project.py  # emit out/&lt;server&gt;-mcp/
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>    schema/
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>      models.py             # MCPScope validation for fixtures
 </span></code></pre></div>
 <p>Dependencies: <code>pydantic</code>, <code>pyyaml</code> only (no mcp-builder dependency).</p>
 <p>Unit tests live under <code>tests/nw_mcp_builder/</code> (run from the node-wire repo root):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_mcp_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </span></code></pre></div>
 <hr />
 <h2 id="relationship-to-mcp-builder">Relationship to mcp-builder<a class="headerlink" href="#relationship-to-mcp-builder" title="Anchor link to this section">&para;</a></h2>

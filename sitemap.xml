@@ -2,162 +2,166 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://aot-technologies.github.io/node-wire/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/architecture/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/code-quality-compliance/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/configuration/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/connector-bindings/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/connector-reference/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/connectors-build/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/connectors/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/contributing/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
+    </url>
+    <url>
+         <loc>https://aot-technologies.github.io/node-wire/errors/</loc>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/google_drive_connector/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/installation/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/local-packages-to-images/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/mcp-client-oauth/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/mcp/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/packaging/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/privacy/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/public-api/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/quality-security-gates/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/reading/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/release-rollback/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/salesforce_connector/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/slack_connector/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/stacklok-mcp-builder-requirements/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/stacklok-mcp-servers/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/toolhive_agent_scenario/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/troubleshooting/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/versioning/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/adr/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/adr/0001-stacklok-mcp-builder-on-node-wire/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/adr/0002-documentation-lifecycle/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/architecture/domain/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/architecture/seams/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/architecture/tenancy/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/cli/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/cli/nw-cli/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/cli/nw-connector-builder-codegen/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/cli/nw-connector-builder-scope/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/cli/nw-connector-builder/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/cli/nw-mcp-builder/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
     <url>
          <loc>https://aot-technologies.github.io/node-wire/compliance/hipaa-considerations/</loc>
-         <lastmod>2026-09-29</lastmod>
+         <lastmod>2026-10-07</lastmod>
     </url>
 </urlset>

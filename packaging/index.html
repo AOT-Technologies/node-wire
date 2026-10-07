@@ -876,6 +876,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3197,7 +3225,7 @@ local wheel (<code>scripts/build-packages.sh</code>, <code>nw gen-whl --bindings
 images and is deliberately absent from the package lists in <code>publish.yml</code>,
 <code>github-release.yml</code>, and <code>security-pr.yml</code>. Do not add it to them. The same applies to
 <code>node-wire-toolhive</code>, built only for <code>nw gen-stacklok</code> images (<code>packages/toolhive/</code>).</p>
-<p><strong>Source of truth:</strong> Keep this table in sync with <code>ALL_PACKAGES</code> in <a href="https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh"><code>scripts/build-packages.sh</code></a> (which also builds the unpublished bindings wheel). MCP Docker images are a <strong>separate subset</strong> — see <a href="#docker-demo-images">Docker demo images</a>. <code>http_generic</code> is publishable on PyPI but does not have a standalone MCP container image.</p>
+<p><strong>Source of truth:</strong> Keep this table in sync with <code>ALL_PACKAGES</code> in <a href="https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh"><code>scripts/build-packages.sh</code></a> (which also builds the unpublished bindings wheel); <code>tests/test_docs_lifecycle.py</code> fails unless the names here match <code>ALL_PACKAGES</code> exactly (no missing rows, no extra rows). MCP Docker images are a <strong>separate subset</strong> — see <a href="#docker-demo-images">Docker demo images</a>. <code>http_generic</code> is publishable on PyPI but does not have a standalone MCP container image.</p>
 <hr />
 <h2 id="adding-a-new-publishable-connector">Adding a new publishable connector<a class="headerlink" href="#adding-a-new-publishable-connector" title="Anchor link to this section">&para;</a></h2>
 <p>This is the one checklist for shipping a connector. Write it first (<a href="../connectors-build/">Build a connector</a>), or generate it (<a href="../cli/nw-cli/"><code>nw gen-all</code></a>, which already does the Tier 1 wiring and the <code>ALL_PACKAGES</code> entry unless you pass <code>--no-wire</code>). Then update these files to ship it on PyPI and, optionally, as a standalone MCP server.</p>
@@ -3216,7 +3244,7 @@ images and is deliberately absent from the package lists in <code>publish.yml</c
 </tr>
 <tr>
 <td>Root <code>pyproject.toml</code></td>
-<td><code>[project.entry-points."node_wire.connectors"]</code> for editable dev install</td>
+<td><code>[project.entry-points."node_wire.connectors"]</code> for editable dev install. <code>uv run</code> rebuilds the editable install on its next call once <code>pyproject.toml</code> changes. If you run <code>.venv/bin/python</code> or an activated venv directly, run <code>uv sync</code> first or the new entry point is not visible.</td>
 </tr>
 <tr>
 <td><code>config/connectors.yaml</code></td>
@@ -3232,7 +3260,7 @@ images and is deliberately absent from the package lists in <code>publish.yml</c
 </tr>
 <tr>
 <td>Tests</td>
-<td>e.g. <code>tests/test_connectors_basic.py</code>, registry tests</td>
+<td><code>tests/test_&lt;name&gt;.py</code>. At minimum, assert three things: the connector instantiates with its <code>connector_id</code>, <code>nw_action_metas()</code> lists the expected actions, and <code>auto_register()</code> (with <code>NW_ALLOWED_CONNECTORS</code> set) imports your <code>logic</code> module. <a href="../connectors-build/#minimal-http-connector-end-to-end">Example</a>, and see <code>tests/test_connectors_basic.py</code>. Run the suite as in <a href="../code-quality-compliance/#tests">Code quality — Tests</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -3291,7 +3319,7 @@ images and is deliberately absent from the package lists in <code>publish.yml</c
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"node-wire-&lt;name&gt;"</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"1.0.0"</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Node Wire connector — &lt;short description&gt;"</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&gt;=3.13"</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">requires-python</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&gt;=3.11"</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">license</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Apache-2.0"</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">authors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"AOT Technologies"</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"opensource@aot-technologies.com"</span><span class="w"> </span><span class="p">}]</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
@@ -3470,7 +3498,7 @@ source of truth for its list. Add <code>packages/connectors/&lt;name&gt;</code> 
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--all
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>--all<span class="w"> </span>packages/runtime
 </span></code></pre></div>
-<p>Local <code>--all</code> builds CPython 3.13 (<code>CIBW_BUILD=cp313-*</code>) and skips win32, 32-bit manylinux, and PyPy (<code>CIBW_SKIP=*-win32 *-manylinux_i686 pp*</code>) unless you override those variables. Publish CI (<code>.github/workflows/publish.yml</code>) builds the same interpreters with <code>cibuildwheel==4.2.1</code>, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.</p>
+<p>Local <code>--all</code> builds CPython 3.13 (<code>CIBW_BUILD=cp313-*</code>) and skips win32, 32-bit manylinux, and PyPy (<code>CIBW_SKIP=*-win32 *-manylinux_i686 pp*</code>) unless you override those variables. Publish CI (<code>.github/workflows/publish.yml</code>) builds cp311, cp312, and cp313 with <code>cibuildwheel==4.2.1</code>, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.</p>
 <h3 id="wheels-for-a-specific-image-cibw-linux-musllinux">Wheels for a specific image (<code>--cibw-linux</code>, <code>--musllinux</code>)<a class="headerlink" href="#wheels-for-a-specific-image-cibw-linux-musllinux" title="Anchor link to this section">&para;</a></h3>
 <p><code>nw gen-stacklok</code> servers run stacklok's DHI Alpine image, which needs <strong>musl</strong> wheels. The default
 <code>--linux-only</code> builder is Debian/glibc, and the DHI image has no Python headers to compile in.</p>
@@ -3623,7 +3651,7 @@ from the release tag via the <strong>Use workflow from</strong> dropdown.</p>
 </ul>
 <p><strong>Pipeline steps:</strong></p>
 <ol>
-<li>Matrix-build wheels on Ubuntu, macOS, and Windows via <code>cibuildwheel</code> (Python 3.13)</li>
+<li>Matrix-build wheels on Ubuntu, macOS, and Windows via <code>cibuildwheel</code> (CPython 3.11, 3.12, 3.13)</li>
 <li>Post-build gate: verify zero <code>.py</code> files per wheel; record SHA256 checksums</li>
 <li>Merge artifacts; <code>pip-audit --fail-on HIGH</code> CVE gate</li>
 <li>Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations</li>

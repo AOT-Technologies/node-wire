@@ -794,6 +794,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#nw-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1057,6 +1068,34 @@
     
   
     REST / MCP / gRPC Bindings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
   
 
     
@@ -2649,6 +2688,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#nw-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw CLI
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3192,11 +3242,38 @@ shared by every caller, so one noisy identity can still exhaust it for everyone.
 <td>When <code>true</code>, reject <code>nw_select_tenant</code> (pin always wins).</td>
 <td><code>false</code></td>
 </tr>
+<tr>
+<td><code>NW_PROXY_SECRET</code></td>
+<td><strong>stacklok-built servers only.</strong> Shared secret the ToolHive tenant proxies send as <code>X-NW-Proxy-Secret</code>; when set, a request without the matching header cannot claim a tenant. The generated placeholder <code>REPLACE_ME_PROXY_SECRET</code> is always rejected. Set from <code>deploy/proxy-secret.yaml</code> (see <a href="../stacklok-mcp-servers/">stacklok MCP servers</a>).</td>
+<td><em>(unset = not checked)</em></td>
+</tr>
 </tbody>
 </table>
 <p>How these combine (tenant precedence per transport, entitlement, tenant secret naming, the MCP
 tenant/config tools, the pin contract for embedded hosts) is described once, in
 <a href="../architecture/tenancy/">Tenancy</a>.</p>
+<h3 id="nw-cli">nw CLI<a class="headerlink" href="#nw-cli" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NW_DEBUG</code></td>
+<td>Any value except empty, <code>0</code> or <code>false</code> makes <code>nw</code> print the full traceback with an error, like <code>--debug</code>.</td>
+<td><em>(unset)</em></td>
+</tr>
+<tr>
+<td><code>NW_WHEEL_ARCHS</code></td>
+<td>Space-separated CPU architectures for Linux wheel builds (<code>nw gen-stacklok</code>, <code>build-packages.sh --cibw-linux</code>/<code>--musllinux</code>), e.g. <code>x86_64 aarch64</code>.</td>
+<td>the host's architecture</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="configuration-file-configconnectorsyaml">Configuration File (<code>config/connectors.yaml</code>)<a class="headerlink" href="#configuration-file-configconnectorsyaml" title="Anchor link to this section">&para;</a></h2>
 <p>This file determines which connectors are enabled and which protocols they are exposed through.</p>
@@ -3247,7 +3324,9 @@ given, then <code>key.upper()</code> (e.g. <code>my_key</code> then <code>MY_KEY
 </tr>
 </tbody>
 </table>
-<p>Missing keys raise <code>SecretNotFoundError</code> (fail-closed) unless <code>NW_ENV_SECRET_LEGACY_EMPTY=true</code>.</p>
+<p>Missing keys raise <code>SecretNotFoundError</code> (fail-closed) unless <code>NW_ENV_SECRET_LEGACY_EMPTY=true</code>.
+A connector call then fails with <code>SECRET_NOT_FOUND</code> (<code>TENANT_SECRET_NOT_FOUND</code> for a tenant's
+secret), category <code>FATAL</code>: the server is misconfigured, so REST answers 500, not 401.</p>
 <h3 id="secret-backend-nw_secret_backend">Secret backend (<code>NW_SECRET_BACKEND</code>)<a class="headerlink" href="#secret-backend-nw_secret_backend" title="Anchor link to this section">&para;</a></h3>
 <table>
 <thead>

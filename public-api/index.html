@@ -876,6 +876,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1905,6 +1933,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#node_wire_toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        node_wire_toolhive
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2715,6 +2754,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#node_wire_toolhive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        node_wire_toolhive
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-contracts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2844,6 +2894,13 @@ major version bump.</p>
 <li><code>ConnectorResponse</code></li>
 <li><code>ErrorCategory</code></li>
 <li><code>ErrorMapper</code></li>
+<li><code>ErrorCode</code> — the runtime-wide error codes; <code>node_wire_runtime.errors.CATALOGUE</code> gives each
+  one's category.</li>
+<li><code>NodeWireError</code> — <code>NodeWireError(code, message, *, details=None)</code>: raise it for a failure outside the connector
+  (bad arguments, no tenant, unknown config); a <code>ValueError</code>, with its category from the
+  catalogue. <code>node_wire_runtime.errors.reject(exc, ...)</code> turns any such failure into a logged,
+  traced <code>ConnectorResponse</code>, and <code>error_text(response)</code> renders it as
+  <code>CODE [CATEGORY]: message (trace_id=...)</code>.</li>
 </ul>
 <h3 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Anchor link to this section">&para;</a></h3>
 <ul>
@@ -2894,6 +2951,21 @@ the connector that owns them (for example <code>node_wire_google_drive.normalize
 <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md">CHANGELOG.md</a>.</p>
 <p>Connectors register via the <code>node_wire.connectors</code> entry-point group.</p>
 <p><strong>Bootstrap (not in <code>__all__</code>):</strong> <code>node_wire_runtime.connector_registry.auto_register()</code> loads entry points at process startup (requires <code>NW_ALLOWED_CONNECTORS</code>). In-process usage typically goes through <code>bindings.factory.ConnectorFactory</code> after <code>auto_register()</code>, not direct registry access.</p>
+<p><strong>Host logging (not in <code>__all__</code>, since 1.1.0):</strong> generated MCP hosts call these at startup, so
+their signatures are stable.</p>
+<ul>
+<li><code>node_wire_runtime.host_logging.configure_host_logging(service_name, *, level="INFO")</code> — console
+  handler that prints the runtime's <code>extra</code> fields (<code>trace_id</code>, <code>error_code</code>, …), redaction, and
+  OpenTelemetry export when an OTLP endpoint is set. Used by nw-mcp-builder hosts.</li>
+<li><code>node_wire_runtime.host_logging.install_redaction_and_telemetry(service_name)</code> — the same without
+  touching handlers or formatters, for hosts that own their console format.</li>
+<li><code>node_wire_runtime.host_logging.ExtraFieldsFormatter</code>, <code>otlp_configured()</code>.</li>
+</ul>
+<h2 id="node_wire_toolhive"><code>node_wire_toolhive</code><a class="headerlink" href="#node_wire_toolhive" title="Anchor link to this section">&para;</a></h2>
+<p>Stable exports (<code>node_wire_toolhive.__all__</code>) that stacklok-built MCP servers import:
+<code>NodeWireClient</code>, <code>NodeWireToolError</code>, <code>RelayAuthProvider</code>, <code>relay_auth_provider_hook</code>,
+<code>register_config_tools</code>, <code>report_call_errors(mcp, client)</code> and <code>init_telemetry(service_name)</code>
+(both since 1.1.0).</p>
 <h2 id="wire-contracts">Wire contracts<a class="headerlink" href="#wire-contracts" title="Anchor link to this section">&para;</a></h2>
 <ul>
 <li><strong>REST</strong> — routes and request/response schemas served by the API binding
