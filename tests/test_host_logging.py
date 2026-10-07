@@ -69,6 +69,26 @@ def test_runtime_fields_are_printed_and_redacted(
     assert otel_calls == []
 
 
+def test_credentials_in_extras_never_reach_the_console(
+    clean_root: logging.Logger, otel_calls: List[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    _drop_handlers(clean_root)
+    configure_host_logging("nw-rest")
+    logging.getLogger("runtime.base_connector").error(
+        "Connector execution failed",
+        extra={
+            "authorization": "Bearer abc123",
+            "api_key": "sk-live-1",
+            "error_message": "GET https://api.x.com/v1?api_key=sk-live-2 failed: Bearer xyz789",
+        },
+    )
+
+    err = capsys.readouterr().err
+    for secret in ("abc123", "sk-live-1", "sk-live-2", "xyz789"):
+        assert secret not in err
+    assert "error_message=GET https://api.x.com/v1 failed" in err
+
+
 def test_an_existing_root_handler_is_kept(
     clean_root: logging.Logger, otel_calls: List[str]
 ) -> None:

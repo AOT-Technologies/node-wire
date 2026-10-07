@@ -16,6 +16,7 @@ from node_wire_runtime.log_sanitization import (
     install_sanitizing_log_filter,
     reset_log_connector_id,
     sanitize_value,
+    scrub_secrets,
     set_log_connector_id,
 )
 
@@ -53,6 +54,79 @@ def test_sanitizing_log_filter_redacts_long_body_arg() -> None:
     SanitizingLogFilter().filter(record)
     assert record.args[0] == REDACTED
     assert "PHI_MARKER_" not in str(record.args[0])
+
+
+def _record(**extras: object) -> logging.LogRecord:
+    record = logging.LogRecord(
+        name="test",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="failed",
+        args=(),
+        exc_info=None,
+    )
+    record.__dict__.update(extras)
+    return record
+
+
+def test_credential_extras_are_redacted() -> None:
+    record = _record(
+        authorization="Bearer abc123",
+        api_key="sk-live-1",
+        access_token="tok",
+        session_cookie="c=1",
+        static_credentials={"user": "u"},
+    )
+    SanitizingLogFilter().filter(record)
+    assert record.authorization == REDACTED
+    assert record.api_key == REDACTED
+    assert record.access_token == REDACTED
+    assert record.session_cookie == REDACTED
+    assert record.static_credentials == REDACTED
+
+
+def test_token_counts_still_log() -> None:
+    record = _record(prompt_tokens=12, total_tokens=30)
+    SanitizingLogFilter().filter(record)
+    assert record.prompt_tokens == 12
+    assert record.total_tokens == 30
+
+
+def test_error_message_loses_query_string_and_bearer_token() -> None:
+    record = _record(
+        error_message=(
+            "Client error '401 Unauthorized' for url "
+            "'https://user:pw@api.x.com/v1/items?api_key=sk-live-2#frag': Bearer abc.def-123"
+        )
+    )
+    SanitizingLogFilter().filter(record)
+    assert record.error_message == (
+        f"Client error '401 Unauthorized' for url 'https://api.x.com/v1/items': Bearer {REDACTED}"
+    )
+
+
+def test_unformatted_message_and_string_args_are_scrubbed() -> None:
+    plain = _record()
+    plain.msg = "GET https://api.x.com/v1?api_key=sk-1 failed"
+    SanitizingLogFilter().filter(plain)
+    assert plain.getMessage() == "GET https://api.x.com/v1 failed"
+
+    with_args = _record()
+    with_args.msg, with_args.args = "GET %s failed", ("https://api.x.com/v1?api_key=sk-1",)
+    SanitizingLogFilter().filter(with_args)
+    assert with_args.getMessage() == "GET https://api.x.com/v1 failed"
+
+
+def test_format_string_with_url_placeholder_is_left_intact() -> None:
+    record = _record()
+    record.msg, record.args = "GET https://api.x.com/v1?page=%s", (2,)
+    SanitizingLogFilter().filter(record)
+    assert record.getMessage() == "GET https://api.x.com/v1?page=2"
+
+
+def test_scrub_secrets_leaves_plain_text_alone() -> None:
+    assert scrub_secrets("Connection refused") == "Connection refused"
 
 
 def test_install_sanitizing_log_filter_is_idempotent() -> None:

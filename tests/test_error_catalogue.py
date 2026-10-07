@@ -12,7 +12,7 @@ import re
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from node_wire_runtime import ErrorCategory, ErrorMapper
+from node_wire_runtime import BaseConnector, ErrorCategory, ErrorMapper, nw_action
 from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.errors import (
     CATALOGUE,
@@ -92,6 +92,40 @@ def test_reject_builds_a_traced_envelope_and_logs_it_once(
         "nw_select_config",
         "acme",
     )
+
+
+def test_reject_scrubs_credentials_from_the_message(caplog: pytest.LogCaptureFixture) -> None:
+    exc = RuntimeError("GET https://api.x.com/v1?api_key=sk-live-2 failed: Bearer abc123")
+    with caplog.at_level(logging.WARNING):
+        response = reject(exc, connector_id="http_generic")
+
+    assert response.message == "GET https://api.x.com/v1 failed: Bearer ***REDACTED***"
+    (record,) = [r for r in caplog.records if getattr(r, "trace_id", None) == response.trace_id]
+    assert record.error_message == response.message
+
+
+class _LeakIn(BaseModel):
+    action: str = "run"
+
+
+class _LeakOut(BaseModel):
+    done: bool
+
+
+class _LeakyConnector(BaseConnector):
+    connector_id = "leak_test"
+    output_model = _LeakOut
+
+    @nw_action("run")
+    async def run_action(self, params: _LeakIn, *, trace_id: str) -> _LeakOut:
+        raise RuntimeError("GET https://api.x.com/v1?api_key=sk-live-2 failed")
+
+
+@pytest.mark.asyncio
+async def test_a_failed_run_scrubs_credentials_from_the_message() -> None:
+    response = await _LeakyConnector().run({"action": "run"})
+    assert response.success is False
+    assert response.message == "GET https://api.x.com/v1 failed"
 
 
 def test_invalid_arguments_are_one_validation_error() -> None:

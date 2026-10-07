@@ -19,6 +19,7 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple, Type
 
 from pydantic import ValidationError
 
+from .log_sanitization import scrub_secrets
 from .models import ConnectorResponse, ErrorCategory
 
 logger = logging.getLogger("runtime.errors")
@@ -230,7 +231,7 @@ def reject(
     raise :class:`NodeWireError` to pick the code.
     """
     mapped = ErrorMapper.resolve(exc, connector_id=connector_id)
-    message = exc.message if isinstance(exc, NodeWireError) else str(exc)
+    message = scrub_secrets(exc.message if isinstance(exc, NodeWireError) else str(exc))
     details = exc.details if isinstance(exc, NodeWireError) else None
     trace_id = str(uuid.uuid4())
     logger.warning(
