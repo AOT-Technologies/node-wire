@@ -45,6 +45,7 @@ jobs:
           filters: |
             connectors:
               - "packages/connectors/**"
+              - "packages/meta/**"
               - ".github/workflows/security-pr.yml"
               - ".github/workflows/publish.yml"
               - "pyproject.toml"

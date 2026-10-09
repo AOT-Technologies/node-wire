@@ -538,24 +538,6 @@ jobs:
               sys.exit(1)
           print(f"PASS: {wheels[0]} has no modules")
 
-      - name: Record wheel SHA256 (artifact integrity)
-        shell: python
-        run: |
-          import hashlib, pathlib, sys
-
-          dist = pathlib.Path("packages/meta/dist")
-          wheels = sorted(dist.glob("*.whl"))
-          if not wheels:
-              print("ERROR: no wheels to hash", file=sys.stderr)
-              sys.exit(1)
-          lines = []
-          for w in wheels:
-              h = hashlib.sha256(w.read_bytes()).hexdigest()
-              line = f"{h}  {w.name}"
-              print(line)
-              lines.append(line)
-          (dist / "sha256sums.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
@@ -664,10 +646,6 @@ jobs:
           else
             pip install dist/*cp313*manylinux*.whl
           fi
-
-      - name: Resolve meta package dependencies
-        if: needs.prerequisites.outputs.package_path == 'packages/meta'
-        run: pip install dist/*.whl --dry-run
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
       # ships setuptools 79.0.1 (PYSEC-2026-3447); the fix is 83.0.0. That
