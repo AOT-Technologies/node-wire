@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "node-wire-connectors"
+version = "1.0.0"
+description = "Node Wire runtime and all public connectors"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+
+dependencies = [
+    "node-wire-runtime>=1.1,<2",
+    "node-wire-http>=1.0,<2",
+    "node-wire-smtp>=1.0,<2",
+    "node-wire-stripe>=1.0,<2",
+    "node-wire-slack>=1.0,<2",
+    "node-wire-salesforce>=1.0,<2",
+    "node-wire-google-drive>=1.0,<2",
+    "node-wire-fhir-epic>=1.0,<2",
+    "node-wire-fhir-cerner>=1.0,<2",
+]
+
+[build-system]
+requires = ["setuptools>=69.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
