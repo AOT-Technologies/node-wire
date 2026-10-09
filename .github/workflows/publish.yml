@@ -46,6 +46,7 @@ on:
           - packages/connectors/fhir_epic
           - packages/connectors/salesforce
           - packages/connectors/slack
+          - packages/meta
 
 env:
   PIP_AUDIT_VERSION: "2.7.3"
@@ -98,6 +99,7 @@ jobs:
               "packages/connectors/fhir_epic",
               "packages/connectors/salesforce",
               "packages/connectors/slack",
+              "packages/meta",
           }
           if norm not in allowed:
               print(f"ERROR: package {norm!r} is not allowlisted.", file=sys.stderr)
@@ -279,6 +281,7 @@ jobs:
   build-wheels:
     name: Build (${{ matrix.platform }} ${{ matrix.python }})
     needs: prerequisites
+    if: needs.prerequisites.outputs.package_path != 'packages/meta'
     strategy:
       fail-fast: false
       matrix:
@@ -460,6 +463,107 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # Metadata-only wheel. The connector matrix requires a compiled extension.
+  build-meta:
+    name: Build (meta)
+    needs: prerequisites
+    if: needs.prerequisites.outputs.package_path == 'packages/meta'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Stamp publish version into pyproject.toml
+        shell: python
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
+          PUBLISH_VERSION: ${{ needs.prerequisites.outputs.publish_version }}
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          version = os.environ["PUBLISH_VERSION"]
+          pyproject = pathlib.Path(os.environ["PACKAGE_PATH"]) / "pyproject.toml"
+
+          text = pyproject.read_text(encoding="utf-8")
+          patched, count = re.subn(
+              r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1
+          )
+          if count != 1:
+              print(f"ERROR: no version line to patch in {pyproject}", file=sys.stderr)
+              sys.exit(1)
+          pyproject.write_text(patched, encoding="utf-8")
+
+          actual = tomllib.loads(patched)["project"]["version"]
+          if actual != version:
+              print(f"ERROR: patched version is {actual!r}, expected {version!r}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"PASS: building {pyproject.parent} at version {version}")
+
+      - name: Build pure wheel
+        run: |
+          python -m pip install "build==1.2.2"
+          python -m build --wheel --outdir packages/meta/dist packages/meta
+
+      - name: Verify metadata-only wheel
+        shell: python
+        run: |
+          import glob, sys, zipfile
+
+          wheels = glob.glob("packages/meta/dist/*.whl")
+          if len(wheels) != 1:
+              print(f"ERROR: expected one wheel, found {wheels}", file=sys.stderr)
+              sys.exit(1)
+          with zipfile.ZipFile(wheels[0]) as zf:
+              names = zf.namelist()
+          bad = [n for n in names if n.endswith((".py", ".so", ".pyd"))]
+          if bad:
+              print("ERROR: meta wheel is not metadata-only:", file=sys.stderr)
+              for name in bad:
+                  print(f"  {name}", file=sys.stderr)
+              sys.exit(1)
+          print(f"PASS: {wheels[0]} has no modules")
+
+      - name: Record wheel SHA256 (artifact integrity)
+        shell: python
+        run: |
+          import hashlib, pathlib, sys
+
+          dist = pathlib.Path("packages/meta/dist")
+          wheels = sorted(dist.glob("*.whl"))
+          if not wheels:
+              print("ERROR: no wheels to hash", file=sys.stderr)
+              sys.exit(1)
+          lines = []
+          for w in wheels:
+              h = hashlib.sha256(w.read_bytes()).hexdigest()
+              line = f"{h}  {w.name}"
+              print(line)
+              lines.append(line)
+          (dist / "sha256sums.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: wheels-meta-py3-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          path: packages/meta/dist/*
+          retention-days: 1
+          if-no-files-found: error
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Collect all platform wheels, run supply-chain checks, publish to PyPI.
   # Uses Trusted Publisher (OIDC) — no long-lived PyPI API tokens needed.
@@ -468,7 +572,13 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   publish:
     name: Publish to PyPI
-    needs: [prerequisites, build-wheels]
+    needs: [prerequisites, build-wheels, build-meta]
+    if: >-
+      always() &&
+      needs.prerequisites.result == 'success' &&
+      (needs.build-wheels.result == 'success' || needs.build-meta.result == 'success') &&
+      (needs.build-wheels.result == 'success' || needs.build-wheels.result == 'skipped') &&
+      (needs.build-meta.result == 'success' || needs.build-meta.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -547,7 +657,17 @@ jobs:
       # installable on this runner (Python 3.13 / ubuntu). The dependency tree
       # audited by pip-audit is identical across platform wheels.
       - name: Install built wheels for CVE scan
-        run: pip install dist/*cp313*manylinux*.whl
+        shell: bash
+        run: |
+          if [[ "${{ needs.prerequisites.outputs.package_path }}" == "packages/meta" ]]; then
+            pip install dist/*.whl
+          else
+            pip install dist/*cp313*manylinux*.whl
+          fi
+
+      - name: Resolve meta package dependencies
+        if: needs.prerequisites.outputs.package_path == 'packages/meta'
+        run: pip install dist/*.whl --dry-run
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
       # ships setuptools 79.0.1 (PYSEC-2026-3447); the fix is 83.0.0. That

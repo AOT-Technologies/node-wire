@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`node-wire-connectors`**: `pip install node-wire-connectors` installs the runtime and every public connector. A subset is the connector packages by name (`pip install node-wire-smtp node-wire-google-drive`). The meta package has no extras.
 - **`nw gen-stacklok`**: builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder)
   server from a stacklok `mcp-scope.yaml` on the node-wire runtime. It runs three stages:
   1. connector codegen from `spec.source`;
