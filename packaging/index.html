@@ -3220,7 +3220,7 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <p>Each connector's <code>pyproject.toml</code> lives at <code>packages/connectors/&lt;name&gt;/pyproject.toml</code>; the runtime's is at <code>packages/runtime/pyproject.toml</code>; MCP bindings at <code>packages/bindings/pyproject.toml</code>.</p>
-<p><strong>Only the runtime and connectors ship to PyPI.</strong> <code>node-wire-bindings</code> is built as a
+<p><strong>Only the runtime, the connectors, and <code>node-wire-connectors</code> ship to PyPI.</strong> <code>node-wire-connectors</code> is metadata only (<code>packages/meta</code>); it is not in the table above or in <code>ALL_PACKAGES</code>. <code>node-wire-bindings</code> is built as a
 local wheel (<code>scripts/build-packages.sh</code>, <code>nw gen-whl --bindings</code>) for MCP Docker
 images and is deliberately absent from the package lists in <code>publish.yml</code>,
 <code>github-release.yml</code>, and <code>security-pr.yml</code>. Do not add it to them. The same applies to
@@ -3545,8 +3545,11 @@ the flags with <code>NW_WHEEL_CFLAGS</code>.</p>
 </span></code></pre></div>
 <hr />
 <h2 id="client-consumption-model">Client consumption model<a class="headerlink" href="#client-consumption-model" title="Anchor link to this section">&para;</a></h2>
-<p>A downstream client installs only what it needs:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="w"> </span>node-wire-stripe<span class="w"> </span>node-wire-fhir-epic
+<p><code>pip install node-wire-connectors</code> installs the runtime and every public connector. The meta package has no extras. A subset is the connector packages themselves:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-smtp<span class="w"> </span>node-wire-google-drive
+</span></code></pre></div>
+<p>A downstream client can also name the runtime and individual connectors:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="w"> </span>node-wire-stripe<span class="w"> </span>node-wire-fhir-epic
 </span></code></pre></div>
 <p>At startup, <code>auto_register()</code> discovers all installed connectors via the <code>node_wire.connectors</code> <a href="https://packaging.python.org/en/latest/specifications/entry-points/">entry-point group</a> — no explicit import list required.</p>
 <h3 id="runtime-loading-knobs">Runtime loading knobs<a class="headerlink" href="#runtime-loading-knobs" title="Anchor link to this section">&para;</a></h3>
@@ -3598,8 +3601,8 @@ below; <a href="#beta-pypi-publish">Beta PyPI publish</a> does not use it at all
 leading <code>v</code>). For stable releases, run this before dispatching "GitHub Release"
 below.</p>
 <p>Manual fallback, if you must create the tag by hand (bypasses the validation above):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>git<span class="w"> </span>tag<span class="w"> </span>-a<span class="w"> </span>v1.0.0<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Release 1.0.0"</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v1.0.0
 </span></code></pre></div>
 <h4 id="step-3-create-the-github-release">Step 3 — Create the GitHub Release<a class="headerlink" href="#step-3-create-the-github-release" title="Anchor link to this section">&para;</a></h4>
 <p>Dispatch <strong>GitHub Release</strong> in Actions with <code>version</code> set to <code>1.0.0</code> (no leading <code>v</code>).
@@ -3687,9 +3690,9 @@ rejects a pre-release <code>project.version</code>. Keep the source tree on <cod
 <code>channel: beta</code> derive the suffix.</p>
 </blockquote>
 <p>Install a beta with:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>node-wire-runtime
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="c1"># or pin exactly:</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="o">==</span><span class="m">1</span>.2.0b1
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>node-wire-runtime
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># or pin exactly:</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>pip<span class="w"> </span>install<span class="w"> </span>node-wire-runtime<span class="o">==</span><span class="m">1</span>.2.0b1
 </span></code></pre></div>
 <hr />
 <h2 id="ci-publish-flow-trusted-publisher">CI publish flow (Trusted Publisher)<a class="headerlink" href="#ci-publish-flow-trusted-publisher" title="Anchor link to this section">&para;</a></h2>
