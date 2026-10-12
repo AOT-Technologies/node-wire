@@ -45,6 +45,7 @@ jobs:
           filters: |
             connectors:
               - "packages/connectors/**"
+              - "packages/meta/**"
               - ".github/workflows/security-pr.yml"
               - ".github/workflows/publish.yml"
               - "pyproject.toml"
@@ -130,7 +131,8 @@ jobs:
             "packages/connectors/fhir_cerner" \
             "packages/connectors/fhir_epic" \
             "packages/connectors/salesforce" \
-            "packages/connectors/slack"
+            "packages/connectors/slack" \
+            "packages/meta"
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)

@@ -148,6 +148,25 @@ def test_packaging_inventory_matches_build_script() -> None:
     listed = set(re.findall(r"^\| `([a-z0-9-]+)`", inventory, re.MULTILINE))
     assert listed == names, f"packaging.md inventory drifted from ALL_PACKAGES: {listed ^ names}"
 
+    assert "packages/meta" not in paths
+    assert "node-wire-connectors" not in names
+    assert "pip install node-wire-connectors" in packaging
+    assert "The meta package has no extras." in packaging
+    meta = tomllib.loads(
+        (REPO_ROOT / "packages" / "meta" / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    assert meta["project"]["dependencies"] == [
+        "node-wire-runtime>=1.1,<2",
+        "node-wire-http>=1.0,<2",
+        "node-wire-smtp>=1.0,<2",
+        "node-wire-stripe>=1.0,<2",
+        "node-wire-slack>=1.0,<2",
+        "node-wire-salesforce>=1.0,<2",
+        "node-wire-google-drive>=1.0,<2",
+        "node-wire-fhir-epic>=1.0,<2",
+        "node-wire-fhir-cerner>=1.0,<2",
+    ]
+
 
 def test_errors_page_lists_the_runtime_catalogue() -> None:
     """docs/errors.md owns the error codes; its table must match the runtime's catalogue."""

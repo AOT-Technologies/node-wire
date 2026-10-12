@@ -28,7 +28,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`; MCP bindings at `packages/bindings/pyproject.toml`.
 
-**Only the runtime and connectors ship to PyPI.** `node-wire-bindings` is built as a
+**Only the runtime, the connectors, and `node-wire-connectors` ship to PyPI.** `node-wire-connectors` is metadata only (`packages/meta`); it is not in the table above or in `ALL_PACKAGES`. `node-wire-bindings` is built as a
 local wheel (`scripts/build-packages.sh`, `nw gen-whl --bindings`) for MCP Docker
 images and is deliberately absent from the package lists in `publish.yml`,
 `github-release.yml`, and `security-pr.yml`. Do not add it to them. The same applies to
@@ -311,7 +311,13 @@ print('Loaded:', loaded)
 
 ## Client consumption model
 
-A downstream client installs only what it needs:
+`pip install node-wire-connectors` installs the runtime and every public connector. The meta package has no extras. A subset is the connector packages themselves:
+
+```bash
+pip install node-wire-smtp node-wire-google-drive
+```
+
+A downstream client can also name the runtime and individual connectors:
 
 ```bash
 pip install node-wire-runtime node-wire-stripe node-wire-fhir-epic

@@ -154,6 +154,7 @@ jobs:
               "packages/connectors/fhir_epic",
               "packages/connectors/salesforce",
               "packages/connectors/slack",
+              "packages/meta",
           ]
 
           lines = [

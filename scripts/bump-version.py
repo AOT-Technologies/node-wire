@@ -155,7 +155,11 @@ def main(argv: list[str] | None = None) -> int:
     for path in _pyproject_paths():
         original = path.read_text(encoding="utf-8")
         updated = _set_project_version(original, version, path)
-        if "node-wire-runtime>=" in updated:
+        # Simplified: meta keeps its own dependency ranges; only its version field moves.
+        if (
+            "node-wire-runtime>=" in updated
+            and path != ROOT / "packages" / "meta" / "pyproject.toml"
+        ):
             updated = _set_runtime_dep(updated, version)
         if updated != original:
             rel = path.relative_to(ROOT).as_posix()
