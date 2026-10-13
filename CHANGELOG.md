@@ -367,6 +367,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Runtime config documents can no longer send process secrets to a caller-chosen host.**
+  - Secret references (`secret_key` and every `*_secret` field in `auth` / `auth_schemes`) must be
+    one of the connector's declared logical names (`declare_secret_shape`). An undeclared connector
+    may only use its own `NW_CFG_{CONNECTOR}_` prefix. Any other `NW_*` name (ingress JWT secrets,
+    API keys, `NW_PROXY_SECRET`, another tenant's `NW_{TENANT}_...` key) is refused. This is checked
+    when a config is written and again on every secret lookup, which also covers
+    caller-supplied keys such as Slack's `token_secret_key`.
+  - A `base_url` (top level or under `config`) whose host differs from the connector's spec server
+    must be listed in `NW_REST_ALLOWED_HOSTS`. This is checked at write time and again when the
+    connector builds its URL.
+  - `__default__` is configured through `connectors.yaml` only: `POST`/`PUT`/`DELETE` on its
+    configs and secrets via `/v1` return 400 in both tenancy modes. `/v1/config/init` refuses a
+    `__default__` entry and keeps the YAML `__default__` configs.
+  - **Upgrade note:** a `connectors.yaml` or `tenants.yaml` `base_url` that overrides a REST
+    connector's spec host now needs that host in `NW_REST_ALLOWED_HOSTS`. Out-of-tree connectors
+    that reference secrets need `declare_secret_shape()` or `NW_CFG_{CONNECTOR}_*` names. A
+    persisted tenant config that fails these checks is skipped with a warning at load; it no
+    longer stops the server from starting.
 - **`nw gen-stacklok` manifests**: the backend no longer trusts `X-Tenant-ID` on the NetworkPolicy
   alone. `deploy/proxy-secret.yaml` holds a shared secret every tenant proxy sends as
   `X-NW-Proxy-Secret` (`headerForward.addHeadersFromSecret`); the backend reads it as

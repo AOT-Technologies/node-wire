@@ -239,16 +239,17 @@ def _reject_default_tenant_write(tenant_id: str) -> None:
         )
 
 
-def _reject_default_init(store: Any, full_payload: Any) -> None:
-    """``store.init`` replaces every tenant, so it must not write or drop ``__default__``."""
-    if DEFAULT_TENANT in store.list_tenants():
-        raise ConfigStoreError(
-            "__default__ configs are read-only via the API; edit connectors.yaml"
-        )
-    if isinstance(full_payload, dict) and DEFAULT_TENANT in full_payload:
-        raise ConfigStoreError(
-            "__default__ configs are read-only via the API; edit connectors.yaml"
-        )
+def _init_payload_keeping_default(store: Any, full_payload: Any) -> Any:
+    """``store.init`` replaces every tenant: refuse ``__default__`` in the payload and
+    carry the YAML-sourced ``__default__`` configs over unchanged."""
+    if not isinstance(full_payload, dict):
+        return full_payload
+    if DEFAULT_TENANT in full_payload:
+        _reject_default_tenant_write(DEFAULT_TENANT)
+    current_default = store.export_all().get(DEFAULT_TENANT)
+    if current_default:
+        return {**full_payload, DEFAULT_TENANT: current_default}
+    return full_payload
 
 
 def _config_tenant(request: Request) -> str:
@@ -309,8 +310,7 @@ async def config_init(
     header_tenant = tenant_from_headers(request.headers)
     full_payload = {header_tenant: payload} if header_tenant else payload
     try:
-        _reject_default_init(factory_dep.store, full_payload)
-        factory_dep.store.init(full_payload)
+        factory_dep.store.init(_init_payload_keeping_default(factory_dep.store, full_payload))
         _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)

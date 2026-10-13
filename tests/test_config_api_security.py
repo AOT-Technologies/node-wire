@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Literal
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
@@ -17,10 +19,18 @@ from bindings.factory import ConnectorFactory
 from bindings.invoke import invoke
 from bindings.rest_api.app import app, get_factory
 from node_wire_runtime import nw_action
-from node_wire_runtime.config_store import DEFAULT_TENANT
+from node_wire_runtime.config_store import (
+    DEFAULT_TENANT,
+    ConfigNotFoundError,
+    ConnectorConfigStore,
+)
 from node_wire_runtime.rest import RestConnector, RestResponseOutput
 from node_wire_runtime.secrets import tenant_scoped_secret_key
-from node_wire_runtime.tenant_persistence import declare_secret_shape
+from node_wire_runtime.tenant_persistence import (
+    assert_secret_ref,
+    declare_secret_shape,
+    load_tenants,
+)
 
 _CONNECTOR = "sec_demo_rest"
 _LOGICAL = "DEMO_REST_TOKEN"
@@ -289,7 +299,131 @@ def test_named_tenant_config_write_still_succeeds(monkeypatch: pytest.MonkeyPatc
     app.dependency_overrides.clear()
 
 
-def test_init_rejects_default_tenant_and_keeps_empty_store_named_init(
+def test_update_rejects_raw_env_secret_ref(factory: ConnectorFactory) -> None:
+    client = _client(factory)
+    headers = _headers(**{"X-Tenant-ID": "acme"})
+    created = client.post(
+        f"/v1/connectors/{_CONNECTOR}/configs", json=_doc(_LOGICAL), headers=headers
+    )
+    assert created.status_code == 201, created.text
+    updated = client.put(
+        f"/v1/connectors/{_CONNECTOR}/configs/live",
+        json=_doc("NW_REST_JWT_SECRET"),
+        headers=headers,
+    )
+    assert updated.status_code == 400, updated.text
+    assert "NW_REST_JWT_SECRET" not in updated.text
+    assert factory.store.resolve("acme", _CONNECTOR, "live").raw["auth"]["secret_key"] == _LOGICAL
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "NW_PROXY_SECRET",
+        "NW_MCP_OAUTH_CLIENT_SECRET",
+        "NW_GRPC_API_KEY",
+        "NW_ACME_SLACK_LIVE_SLACK_BOT_TOKEN",
+        "SLACK_BOT_TOKEN ",
+        "slack_bot_token",
+        "",
+    ],
+)
+def test_declared_connector_refuses_non_logical_refs(ref: str) -> None:
+    with pytest.raises(ValueError, match="not an allowed logical name"):
+        assert_secret_ref("slack", ref, field="secret_key")
+
+
+def test_runtime_namespace_refused_even_when_declared() -> None:
+    """Defence in depth: a shape that lists an ingress secret does not make it reachable."""
+    declare_secret_shape(
+        "sec_greedy", formats={"NW_REST_JWT_SECRET": "opaque_secret", "OK": "opaque_secret"}
+    )
+    with pytest.raises(ValueError):
+        assert_secret_ref("sec_greedy", "NW_REST_JWT_SECRET")
+    assert_secret_ref("sec_greedy", "OK")
+
+
+@pytest.mark.parametrize(
+    ("ref", "allowed"),
+    [
+        ("NW_CFG_SEC_UNDECLARED_TOKEN", True),
+        ("nw_cfg_sec_undeclared_token", True),
+        ("NW_CFG_SLACK_TOKEN", False),
+        ("NW_REST_JWT_SECRET", False),
+        ("TOKEN", False),
+    ],
+)
+def test_undeclared_connector_is_held_to_its_cfg_prefix(ref: str, allowed: bool) -> None:
+    if allowed:
+        assert_secret_ref("sec_undeclared", ref)
+    else:
+        with pytest.raises(ValueError):
+            assert_secret_ref("sec_undeclared", ref)
+
+
+def test_caller_supplied_secret_key_is_gated_at_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Slack's ``token_secret_key`` action param names a secret; the lookup is gated too."""
+    _auth_env(monkeypatch, multitenancy=False)
+    factory = ConnectorFactory()
+    factory.store.create(
+        DEFAULT_TENANT,
+        "slack",
+        {
+            "name": "keep",
+            "default": True,
+            "auth": {"provider": "static_token", "secret_key": "SLACK_BOT_TOKEN"},
+        },
+    )
+    record = factory.store.resolve(DEFAULT_TENANT, "slack", None)
+    connector = factory._instantiate(record)
+    with pytest.raises(ValueError, match="not an allowed logical name"):
+        connector.secret_provider.get_secret("NW_REST_JWT_SECRET")
+
+
+def test_load_tenants_skips_invalid_persisted_doc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A doc persisted before validation existed is dropped, not loaded, and boot continues."""
+    _declare()
+    monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
+    tenants = tmp_path / "tenants.yaml"
+    tenants.write_text(
+        yaml.safe_dump(
+            {
+                "tenants": {
+                    "acme": {
+                        _CONNECTOR: [
+                            {**_doc(_LOGICAL), "name": "good"},
+                            {**_doc("NW_REST_JWT_SECRET"), "name": "bad", "default": False},
+                            {
+                                **_doc(_LOGICAL, base_url="https://evil.example"),
+                                "name": "evil",
+                                "default": False,
+                            },
+                        ]
+                    },
+                    DEFAULT_TENANT: {
+                        _CONNECTOR: [{**_doc("NW_ACME_SEC_DEMO_REST_LIVE_DEMO_REST_TOKEN")}]
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tenants))
+    store = ConnectorConfigStore()
+
+    load_tenants(store)
+
+    assert store.resolve("acme", _CONNECTOR, "good").name == "good"
+    for name in ("bad", "evil"):
+        with pytest.raises(ConfigNotFoundError):
+            store.resolve("acme", _CONNECTOR, name)
+    with pytest.raises(ConfigNotFoundError):
+        store.resolve(DEFAULT_TENANT, _CONNECTOR, None)
+
+
+def test_init_refuses_default_tenant_and_keeps_yaml_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _auth_env(monkeypatch, multitenancy=True)
@@ -311,26 +445,18 @@ def test_init_rejects_default_tenant_and_keeps_empty_store_named_init(
     )
     assert bare.status_code == 400, bare.text
 
+    # connectors.yaml bootstrap: init for a named tenant must neither fail nor drop it.
     factory.store.create(
         DEFAULT_TENANT,
         "slack",
         {"name": "keep", "default": True, "config": {}},
     )
-    drops = client.post(
-        "/v1/config/init",
-        json=slack_doc,
-        headers=_headers(**{"X-Tenant-ID": "acme"}),
-    )
-    assert drops.status_code == 400, drops.text
-
-    empty = ConnectorFactory()
-    app.dependency_overrides.clear()
-    kept_client = _client(empty)
-    kept = kept_client.post(
+    kept = client.post(
         "/v1/config/init",
         json=slack_doc,
         headers=_headers(**{"X-Tenant-ID": "acme"}),
     )
     assert kept.status_code == 200, kept.text
-    assert empty.store.resolve("acme", "slack", None).name == "boot"
+    assert factory.store.resolve("acme", "slack", None).name == "boot"
+    assert factory.store.resolve(DEFAULT_TENANT, "slack", None).name == "keep"
     app.dependency_overrides.clear()

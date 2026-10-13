@@ -67,7 +67,7 @@ copy sample.env .env
 | `NW_JWT_ISSUER` | Expected JWT `iss` claim when any `*_JWT_SECRET` is set | _(required with JWT secret)_ |
 | `NW_SMTP_ALLOWED_HOSTS` | Optional comma-separated SMTP relay hostnames permitted for `smtp.send_email` (recommended for production) | _(unset = env relay only)_ |
 | `NW_HTTP_GENERIC_ALLOWED_HOSTS` | Optional egress allowlist for the `http_generic` connector only | _(unset)_ |
-| `NW_REST_ALLOWED_HOSTS` | Optional egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. | _(unset)_ |
+| `NW_REST_ALLOWED_HOSTS` | Egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. **Required** for any `base_url` (YAML, `tenants.yaml` or `/v1`) whose host differs from the connector's spec server; without it such configs are rejected at write time and at call time. | _(unset)_ |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
 
 ### Authentication & Request Limits

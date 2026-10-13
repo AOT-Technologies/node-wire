@@ -37,7 +37,11 @@ from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Opti
 
 import yaml
 
-from node_wire_runtime.config_store import ConfigNotFoundError, ConnectorConfigStore
+from node_wire_runtime.config_store import (
+    ConfigNameConflictError,
+    ConfigStoreError,
+    ConnectorConfigStore,
+)
 from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
 from node_wire_runtime.secrets.base import _sanitize_secret_segment
 
@@ -241,17 +245,10 @@ def _validate_scopes_space_separated(value: str) -> None:
         raise ValueError("scopes must be non-empty tokens separated by spaces")
 
 
-# Ingress signing and API-key material. Never a connector secret, even if a shape lists it.
-_INGRESS_SECRET_DENY = frozenset(
-    {
-        "NW_REST_JWT_SECRET",
-        "NW_MCP_JWT_SECRET",
-        "NW_GRPC_JWT_SECRET",
-        "NW_REST_API_KEY",
-        "NW_MCP_API_KEY",
-        "NW_GRPC_API_KEY",
-    }
-)
+# Simplified: one prefix instead of a denylist. ``NW_*`` holds the ingress signing
+# secrets and API keys (NW_REST_JWT_SECRET, NW_PROXY_SECRET, ...) and every
+# tenant-scoped key (NW_{TENANT}_...), so it is never a declared connector secret.
+_RUNTIME_ENV_PREFIX = "NW_"
 
 
 def logical_secret_names(connector_id: str) -> FrozenSet[str]:
@@ -269,18 +266,17 @@ def assert_secret_ref(connector_id: str, key: str, *, field: str = "") -> None:
     The error names that field and does not include the supplied reference.
     """
     label = f"secret reference {field}" if field else "secret reference"
-    if not isinstance(key, str) or not key.strip():
+    # Exact match only: the value checked here is the value later looked up.
+    if not isinstance(key, str) or not key or key != key.strip():
         raise ValueError(f"{label} is not an allowed logical name")
-    name = key.strip()
-    if name.upper() in _INGRESS_SECRET_DENY:
-        raise ValueError(f"{label} is not an allowed logical name")
+    upper = key.upper()
     if connector_id in _DECLARED_SECRET_SHAPES:
-        if name not in logical_secret_names(connector_id):
+        if upper.startswith(_RUNTIME_ENV_PREFIX) or key not in logical_secret_names(connector_id):
             raise ValueError(f"{label} is not an allowed logical name")
         return
     # Simplified: undeclared connectors have no allowlist, so the forced prefix is the whole rule.
     prefix = "NW_CFG_" + _sanitize_secret_segment(connector_id) + "_"
-    if not name.upper().startswith(prefix):
+    if not upper.startswith(prefix):
         raise ValueError(f"{label} is not an allowed logical name")
 
 
@@ -620,19 +616,22 @@ def load_tenants(store: ConnectorConfigStore) -> None:
                             continue
                         name = str(doc["name"])
                         try:
-                            store.create(tenant_id, connector_id, doc)
-                        except Exception:
                             try:
+                                store.create(tenant_id, connector_id, doc)
+                            except ConfigNameConflictError:
                                 store.update(tenant_id, connector_id, name, doc)
-                            except ConfigNotFoundError:
-                                logger.warning(
-                                    "Could not load tenant config",
-                                    extra={
-                                        "tenant_id": tenant_id,
-                                        "connector_id": connector_id,
-                                        "name": name,
-                                    },
-                                )
+                        except ConfigStoreError:
+                            # Fail closed for this one config (e.g. a doc persisted
+                            # before secret-ref / base_url validation existed) rather
+                            # than refusing to boot every other tenant.
+                            logger.warning(
+                                "Could not load tenant config",
+                                extra={
+                                    "tenant_id": tenant_id,
+                                    "connector_id": connector_id,
+                                    "config_name": name,
+                                },
+                            )
 
         global _nested_secrets_mirror
         _nested_secrets_mirror = {}
