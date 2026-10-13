@@ -407,7 +407,7 @@ def test_late_failure_keeps_timeout_and_its_own_exception() -> None:
         opened_at = breaker._opened_at
         release.set()
         with pytest.raises(RetryableTestError, match="late"):
-            await straggler
+            await asyncio.wait_for(straggler, timeout=1)
         assert breaker._opened_at == opened_at
         assert breaker.state.name == "open"
 
