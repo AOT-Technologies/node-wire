@@ -65,6 +65,9 @@ class CircuitBreaker:
         self._state_name = "closed"
         self._fail_counter = 0
         self._opened_at = 0.0
+        # Bumped on every trip and every move to half-open. A result carrying an
+        # older generation is from a call that started before that change.
+        self._generation = 0
 
     @property
     def fail_counter(self) -> int:
@@ -80,27 +83,39 @@ class CircuitBreaker:
     def _trip(self) -> None:
         self._state_name = "open"
         self._opened_at = time.monotonic()
+        self._generation += 1
 
-    def allow(self) -> None:
-        """Let the call through, or raise ``CircuitBreakerError``.
+    def allow(self) -> int:
+        """Let the call through and return its generation, or raise ``CircuitBreakerError``.
 
         After ``reset_timeout``, the next caller moves the breaker to half-open
         and becomes the trial. The check and the claim do not await, so two
-        tasks on this loop cannot both become the trial.
+        tasks on this loop cannot both become the trial. Pass the returned
+        generation to :meth:`record_success` / :meth:`record_failure`.
         """
         if self._state_name == "closed":
-            return
+            return self._generation
         if self._state_name == "half-open":
             raise CircuitBreakerError("Circuit breaker is open")
         if time.monotonic() < self._opened_at + self.reset_timeout:
             raise CircuitBreakerError("Circuit breaker is open")
         self._state_name = "half-open"
+        self._generation += 1
+        return self._generation
 
-    def record_success(self) -> None:
+    def record_success(self, generation: int) -> None:
+        # A call that started before the last trip cannot close the breaker or
+        # stand in for the half-open trial.
+        if generation != self._generation:
+            return
         self._fail_counter = 0
         self._state_name = "closed"
 
-    def record_failure(self, exc: BaseException) -> None:
+    def record_failure(self, exc: BaseException, generation: int) -> None:
+        # A call that started before the last trip must not restart the timeout
+        # or hide its own exception behind CircuitBreakerError.
+        if generation != self._generation:
+            return
         if self._state_name == "half-open":
             self._trip()
             return
@@ -138,7 +153,7 @@ async def _run_through_breaker(
     """Run one async call through the breaker, awaiting the result."""
     current_breaker = _resolve_breaker(breaker)
     try:
-        current_breaker.allow()
+        generation = current_breaker.allow()
     except CircuitBreakerError:
         logger.error(
             "Circuit breaker is OPEN; rejecting call",
@@ -153,9 +168,9 @@ async def _run_through_breaker(
     try:
         result = await fn(*args, **kwargs)
     except BaseException as exc:
-        current_breaker.record_failure(exc)
+        current_breaker.record_failure(exc, generation)
         raise
-    current_breaker.record_success()
+    current_breaker.record_success(generation)
     return result
 
 
