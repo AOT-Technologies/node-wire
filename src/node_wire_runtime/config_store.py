@@ -152,12 +152,9 @@ def _check_base_urls(connector_id: str, doc: Dict[str, Any]) -> None:
     from node_wire_runtime.rest import RestConnector
 
     connector_cls = get_connector_registry().get(connector_id)
-    if connector_cls is None or not (
-        isinstance(connector_cls, type) and issubclass(connector_cls, RestConnector)
-    ):
-        if connector_cls is None:
-            raise ConfigStoreError("base_url is not allowed")
-        return
+    # Simplified: only RestConnector consumes base_url; every other connector refuses it.
+    if not (isinstance(connector_cls, type) and issubclass(connector_cls, RestConnector)):
+        raise ConfigStoreError("base_url is not allowed")
     baked = str(getattr(connector_cls, "default_base_url", "") or "")
     for url in urls:
         try:

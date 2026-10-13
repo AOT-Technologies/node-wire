@@ -24,6 +24,7 @@ from node_wire_runtime.config_store import (
     ConfigNotFoundError,
     ConnectorConfigStore,
 )
+from node_wire_runtime.http_safety import assert_base_url_allowed
 from node_wire_runtime.rest import RestConnector, RestResponseOutput
 from node_wire_runtime.secrets import tenant_scoped_secret_key
 from node_wire_runtime.tenant_persistence import (
@@ -169,6 +170,19 @@ def test_create_rejects_raw_env_and_other_tenant_secret_refs(
         assert "NW_REST_JWT_SECRET" not in resp.text
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://api.example.com",
+        "https://evil.example\\@api.example.com",
+        "https://u:p@api.example.com",
+    ],
+)
+def test_base_url_downgrade_userinfo_and_backslash_refused(url: str) -> None:
+    with pytest.raises(ValueError, match="base_url host is not allowed"):
+        assert_base_url_allowed(url, baked_base_url="https://api.example.com")
+
+
 def test_base_url_allowlist_at_write_and_call(
     factory: ConnectorFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -266,17 +280,14 @@ def test_default_tenant_config_writes_rejected(
     client = _client(factory)
     headers = _headers(**{"X-Tenant-ID": DEFAULT_TENANT})
     body = {"name": "keep", "config": {}}
-    assert (
-        client.post("/v1/connectors/slack/configs", json=body, headers=headers).status_code == 400
-    )
-    assert (
-        client.put("/v1/connectors/slack/configs/keep", json=body, headers=headers).status_code
-        == 400
-    )
-    assert client.delete("/v1/connectors/slack/configs/keep", headers=headers).status_code == 400
-    assert (
-        client.put("/v1/connectors/slack/configs/keep/default", headers=headers).status_code == 400
-    )
+    created = client.post("/v1/connectors/slack/configs", json=body, headers=headers)
+    assert created.status_code == 400
+    updated = client.put("/v1/connectors/slack/configs/keep", json=body, headers=headers)
+    assert updated.status_code == 400
+    deleted = client.delete("/v1/connectors/slack/configs/keep", headers=headers)
+    assert deleted.status_code == 400
+    made_default = client.put("/v1/connectors/slack/configs/keep/default", headers=headers)
+    assert made_default.status_code == 400
     secrets = client.put(
         "/v1/connectors/slack/secrets",
         json={"config_name": "keep", "secrets": {"SLACK_BOT_TOKEN": "xoxb-abc"}},

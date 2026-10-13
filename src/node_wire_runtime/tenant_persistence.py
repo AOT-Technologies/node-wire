@@ -275,6 +275,8 @@ def assert_secret_ref(connector_id: str, key: str, *, field: str = "") -> None:
             raise ValueError(f"{label} is not an allowed logical name")
         return
     # Simplified: undeclared connectors have no allowlist, so the forced prefix is the whole rule.
+    # Nested ids (a / a_b) share NW_CFG_ names; only __default__ resolves them unscoped, and it
+    # is YAML-only, so the overlap is operator config rather than a caller-reachable read.
     prefix = "NW_CFG_" + _sanitize_secret_segment(connector_id) + "_"
     if not upper.startswith(prefix):
         raise ValueError(f"{label} is not an allowed logical name")

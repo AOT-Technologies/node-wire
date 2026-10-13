@@ -45,8 +45,14 @@ def assert_base_url_allowed(url: str, *, baked_base_url: str = "") -> None:
     """Reject a runtime ``base_url`` whose host is outside the connector allowlist.
 
     The host of ``baked_base_url`` (the spec server) is always allowed. Any other
-    host requires ``NW_REST_ALLOWED_HOSTS`` to be set and to contain it.
+    host requires ``NW_REST_ALLOWED_HOSTS`` to be set and to contain it. The scheme
+    must be ``https``, or ``http`` when the spec server itself is ``http``.
     """
+    # Simplified: refuse "@" and "\" anywhere instead of reconciling URL parsers.
+    if "@" in url or "\\" in url:
+        raise ValueError("base_url host is not allowed")
+    if urlsplit(url).scheme.lower() not in ("https", urlsplit(baked_base_url).scheme.lower()):
+        raise ValueError("base_url host is not allowed")
     host = _url_host(url)
     if not host:
         raise ValueError("base_url host is not allowed")
