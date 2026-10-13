@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from .base_connector import BaseConnector
 from .http_safety import (
     SsrfBlockedError,
+    assert_base_url_allowed,
     assert_safe_destination,
     rest_trust_env,
     sanitize_url_for_log,
@@ -411,7 +412,10 @@ class RestConnector(BaseConnector):
 
     def resolve_base_url(self) -> str:
         if self._base_url_override and str(self._base_url_override).strip():
-            return str(self._base_url_override).rstrip("/")
+            override = str(self._base_url_override).strip()
+            baked = str(getattr(type(self), "default_base_url", "") or "")
+            assert_base_url_allowed(override, baked_base_url=baked)
+            return override.rstrip("/")
         baked = getattr(type(self), "default_base_url", "") or ""
         if not baked:
             raise RuntimeError(

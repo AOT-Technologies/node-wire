@@ -39,6 +39,7 @@ import yaml
 
 from node_wire_runtime.config_store import ConfigNotFoundError, ConnectorConfigStore
 from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
+from node_wire_runtime.secrets.base import _sanitize_secret_segment
 
 logger = logging.getLogger("runtime.tenant_persistence")
 
@@ -238,6 +239,49 @@ def _validate_scopes_space_separated(value: str) -> None:
         raise ValueError("expected one or more scopes separated by spaces")
     if any(not p for p in parts):
         raise ValueError("scopes must be non-empty tokens separated by spaces")
+
+
+# Ingress signing and API-key material. Never a connector secret, even if a shape lists it.
+_INGRESS_SECRET_DENY = frozenset(
+    {
+        "NW_REST_JWT_SECRET",
+        "NW_MCP_JWT_SECRET",
+        "NW_GRPC_JWT_SECRET",
+        "NW_REST_API_KEY",
+        "NW_MCP_API_KEY",
+        "NW_GRPC_API_KEY",
+    }
+)
+
+
+def logical_secret_names(connector_id: str) -> FrozenSet[str]:
+    """Declared logical secret names for one connector (empty when none are declared)."""
+    names = set(REQUIRED_SECRETS_BY_CONNECTOR.get(connector_id) or [])
+    names.update((SECRET_FORMAT_BY_CONNECTOR.get(connector_id) or {}).keys())
+    names.update(logical for _, logical in SHARED_ENV_BY_CONNECTOR.get(connector_id) or [])
+    return frozenset(names)
+
+
+def assert_secret_ref(connector_id: str, key: str, *, field: str = "") -> None:
+    """Reject a secret reference that is not this connector's logical name.
+
+    ``field`` is the document key (``secret_key``, ``client_secret_secret``, ...).
+    The error names that field and does not include the supplied reference.
+    """
+    label = f"secret reference {field}" if field else "secret reference"
+    if not isinstance(key, str) or not key.strip():
+        raise ValueError(f"{label} is not an allowed logical name")
+    name = key.strip()
+    if name.upper() in _INGRESS_SECRET_DENY:
+        raise ValueError(f"{label} is not an allowed logical name")
+    if connector_id in _DECLARED_SECRET_SHAPES:
+        if name not in logical_secret_names(connector_id):
+            raise ValueError(f"{label} is not an allowed logical name")
+        return
+    # Simplified: undeclared connectors have no allowlist, so the forced prefix is the whole rule.
+    prefix = "NW_CFG_" + _sanitize_secret_segment(connector_id) + "_"
+    if not name.upper().startswith(prefix):
+        raise ValueError(f"{label} is not an allowed logical name")
 
 
 _FORMAT_VALIDATORS: Dict[str, Callable[[str], None]] = {

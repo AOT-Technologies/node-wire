@@ -102,7 +102,71 @@ def redact(doc: Any) -> Any:
     return doc
 
 
-def _validate_doc(doc: Any) -> Dict[str, Any]:
+def _secret_ref_fields(block: Any) -> List[tuple[str, str]]:
+    """``secret_key`` and ``*_secret`` string fields on one auth block."""
+    if not isinstance(block, dict):
+        return []
+    refs: List[tuple[str, str]] = []
+    for key, value in block.items():
+        if not isinstance(value, str):
+            continue
+        if key == "secret_key" or key.endswith("_secret"):
+            refs.append((key, value))
+    return refs
+
+
+def _check_secret_refs(connector_id: str, doc: Dict[str, Any]) -> None:
+    # Lazy: tenant_persistence imports this module.
+    from node_wire_runtime.tenant_persistence import assert_secret_ref
+
+    blocks = []
+    auth = doc.get("auth")
+    if isinstance(auth, dict):
+        blocks.append(auth)
+    schemes = doc.get("auth_schemes")
+    if isinstance(schemes, dict):
+        for scheme in schemes.values():
+            if isinstance(scheme, dict):
+                blocks.append(scheme)
+    for block in blocks:
+        for ref_field, value in _secret_ref_fields(block):
+            try:
+                assert_secret_ref(connector_id, value, field=ref_field)
+            except ValueError as exc:
+                raise ConfigStoreError(str(exc)) from exc
+
+
+def _check_base_urls(connector_id: str, doc: Dict[str, Any]) -> None:
+    urls: List[str] = []
+    for raw in (
+        doc.get("base_url"),
+        (doc.get("config") or {}).get("base_url") if isinstance(doc.get("config"), dict) else None,
+    ):
+        if isinstance(raw, str) and raw.strip():
+            urls.append(raw.strip())
+    if not urls:
+        return
+    # Lazy: base_connector imports this module.
+    from node_wire_runtime.base_connector import get_connector_registry
+    from node_wire_runtime.http_safety import assert_base_url_allowed
+    from node_wire_runtime.rest import RestConnector
+
+    connector_cls = get_connector_registry().get(connector_id)
+    if connector_cls is None or not (
+        isinstance(connector_cls, type) and issubclass(connector_cls, RestConnector)
+    ):
+        if connector_cls is None:
+            raise ConfigStoreError("base_url is not allowed")
+        return
+    baked = str(getattr(connector_cls, "default_base_url", "") or "")
+    for url in urls:
+        try:
+            assert_base_url_allowed(url, baked_base_url=baked)
+        except ValueError as exc:
+            raise ConfigStoreError(str(exc)) from exc
+
+
+def _validate_doc(doc: Any, connector_id: str) -> Dict[str, Any]:
     """Validate a single config document at the trust boundary.
 
     Callers (bindings) may pass arbitrary JSON; enforce shape here rather than
@@ -131,6 +195,8 @@ def _validate_doc(doc: Any) -> Dict[str, Any]:
                 raise ConfigStoreError(
                     f"config 'auth_schemes[{scheme_name!r}]' must be a JSON object"
                 )
+    _check_secret_refs(connector_id, doc)
+    _check_base_urls(connector_id, doc)
     return doc
 
 
@@ -194,7 +260,7 @@ class ConnectorConfigStore:
         records: Dict[str, ConfigRecord] = {}
         default_seen: Optional[str] = None
         for doc in docs:
-            doc = _validate_doc(doc)
+            doc = _validate_doc(doc, connector_id)
             name = doc["name"]
             if name in records:
                 raise ConfigNameConflictError(
@@ -225,7 +291,7 @@ class ConnectorConfigStore:
     def create(self, tenant_id: str, connector_id: str, doc: Dict[str, Any]) -> ConfigRecord:
         """Add one named config. Name must be unique in scope. The first config
         for a scope becomes the default automatically."""
-        doc = _validate_doc(doc)
+        doc = _validate_doc(doc, connector_id)
         name = doc["name"]
         with self._lock:
             scope = self._data.setdefault(tenant_id, {}).setdefault(connector_id, {})
@@ -256,7 +322,7 @@ class ConnectorConfigStore:
     ) -> ConfigRecord:
         """Replace the named config's contents. The name itself is immutable
         (delete + create to rename), keeping instance keys unambiguous."""
-        doc = _validate_doc(doc)
+        doc = _validate_doc(doc, connector_id)
         if doc["name"] != name:
             raise ConfigStoreError(
                 f"config name is immutable: cannot rename {name!r} to {doc['name']!r} "

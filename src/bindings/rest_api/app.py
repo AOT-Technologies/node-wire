@@ -28,6 +28,7 @@ from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
 from node_wire_runtime.config_store import (
+    DEFAULT_TENANT,
     ConfigNameConflictError,
     ConfigNotFoundError,
     ConfigStoreError,
@@ -230,6 +231,26 @@ async def ready() -> Dict[str, str]:
 # (RestAuthMiddleware); node-wire does not.
 
 
+def _reject_default_tenant_write(tenant_id: str) -> None:
+    """``__default__`` is YAML-only. API writes to it are rejected in both tenancy modes."""
+    if tenant_id == DEFAULT_TENANT:
+        raise ConfigStoreError(
+            "__default__ configs are read-only via the API; edit connectors.yaml"
+        )
+
+
+def _reject_default_init(store: Any, full_payload: Any) -> None:
+    """``store.init`` replaces every tenant, so it must not write or drop ``__default__``."""
+    if DEFAULT_TENANT in store.list_tenants():
+        raise ConfigStoreError(
+            "__default__ configs are read-only via the API; edit connectors.yaml"
+        )
+    if isinstance(full_payload, dict) and DEFAULT_TENANT in full_payload:
+        raise ConfigStoreError(
+            "__default__ configs are read-only via the API; edit connectors.yaml"
+        )
+
+
 def _config_tenant(request: Request) -> str:
     try:
         return resolve_tenant_id(
@@ -288,6 +309,7 @@ async def config_init(
     header_tenant = tenant_from_headers(request.headers)
     full_payload = {header_tenant: payload} if header_tenant else payload
     try:
+        _reject_default_init(factory_dep.store, full_payload)
         factory_dep.store.init(full_payload)
         _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
@@ -332,12 +354,15 @@ async def secrets_upsert(
         config_name=config_name,
     )
     try:
+        _reject_default_tenant_write(tenant_id)
         keys = upsert_tenant_secrets(
             tenant_id,
             cid,
             {str(k): str(v) for k, v in secrets.items()},
             config_name=config_name,
         )
+    except ConfigStoreError as exc:
+        raise _map_config_error(exc) from exc
     except ValueError as exc:
         raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
     factory_dep.invalidate_configs(tenant_id, cid, [config_name])
@@ -377,6 +402,7 @@ async def config_create(
 
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         body = dict(doc)
         secrets = _pop_secrets(body)
         config_name = str(body.get("name") or "").strip()
@@ -441,6 +467,7 @@ async def config_update(
 
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         body = dict(doc)
         secrets = _pop_secrets(body)
         _log_tenant_action(
@@ -473,6 +500,7 @@ async def config_delete(
 ) -> JSONResponse:
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         _log_tenant_action(
             action="config.delete",
             tenant_id=tenant_id,
@@ -504,6 +532,7 @@ async def config_set_default(
 ) -> JSONResponse:
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         _log_tenant_action(
             action="config.set_default",
             tenant_id=tenant_id,

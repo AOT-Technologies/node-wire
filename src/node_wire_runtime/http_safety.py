@@ -37,6 +37,27 @@ def load_rest_allowed_hosts() -> frozenset[str]:
     return frozenset(h.strip().lower().rstrip(".") for h in re.split(r"[\s,]+", raw) if h.strip())
 
 
+def _url_host(url: str) -> str:
+    return (urlsplit(url).hostname or "").strip().lower().rstrip(".")
+
+
+def assert_base_url_allowed(url: str, *, baked_base_url: str = "") -> None:
+    """Reject a runtime ``base_url`` whose host is outside the connector allowlist.
+
+    The host of ``baked_base_url`` (the spec server) is always allowed. Any other
+    host requires ``NW_REST_ALLOWED_HOSTS`` to be set and to contain it.
+    """
+    host = _url_host(url)
+    if not host:
+        raise ValueError("base_url host is not allowed")
+    baked_host = _url_host(baked_base_url) if baked_base_url else ""
+    if baked_host and host == baked_host:
+        return
+    allowed = load_rest_allowed_hosts()
+    if not allowed or host not in allowed:
+        raise ValueError("base_url host is not allowed")
+
+
 def rest_trust_env() -> bool:
     """Return True when ``NW_REST_TRUST_ENV=true`` (corporate proxy escape hatch)."""
     return os.environ.get(_TRUST_ENV_ENV, "").strip().lower() in {"1", "true", "yes"}
