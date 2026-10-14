@@ -108,3 +108,92 @@ def test_playground_mounts_with_auth_only_with_the_second_flag() -> None:
         NW_REST_PLAYGROUND_ALLOW_WITH_AUTH="true",
     )
     assert "/scenarios/stripe-charge" in paths
+
+
+# --------------------------------------------------------------------------- #
+# The same decisions, in-process: ``_mount_playground`` on a throwaway app
+# --------------------------------------------------------------------------- #
+
+
+def _mounted_paths(monkeypatch: pytest.MonkeyPatch, **env: str) -> set[str]:
+    """Run ``_mount_playground`` against a fresh app; return its playground routes."""
+    from fastapi import FastAPI
+
+    import bindings.rest_api.app as rest_app
+
+    for name in _PLAYGROUND_ENV:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    fresh = FastAPI()
+    rest_app._mount_playground(fresh)
+    paths = {getattr(route, "path", "") for route in fresh.routes}
+    return _playground_routes(paths)
+
+
+@pytest.mark.parametrize("value", [None, "", "false", "0", "no"])
+def test_mount_playground_is_a_noop_unless_enabled(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, value: str | None
+) -> None:
+    env = {} if value is None else {"NW_REST_PLAYGROUND_ENABLED": value}
+    with caplog.at_level("INFO", logger="bindings.rest_api"):
+        mounted = _mounted_paths(monkeypatch, **env)
+
+    assert mounted == set()
+    assert "REST playground disabled" in caplog.text
+
+
+@pytest.mark.parametrize("secret_env", ["NW_REST_API_KEY", "NW_REST_JWT_SECRET"])
+def test_mount_playground_refuses_when_auth_is_configured(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, secret_env: str
+) -> None:
+    with caplog.at_level("ERROR", logger="bindings.rest_api"):
+        mounted = _mounted_paths(
+            monkeypatch, NW_REST_PLAYGROUND_ENABLED="true", **{secret_env: "x" * 32}
+        )
+
+    assert mounted == set()
+    assert "playground NOT mounted" in caplog.text
+
+
+def test_mount_playground_mounts_with_auth_only_with_the_second_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mounted = _mounted_paths(
+        monkeypatch,
+        NW_REST_PLAYGROUND_ENABLED="true",
+        NW_REST_API_KEY="x" * 32,
+        NW_REST_PLAYGROUND_ALLOW_WITH_AUTH="true",
+    )
+    assert "/scenarios/stripe-charge" in mounted
+
+
+def test_mount_playground_mounts_when_enabled_without_auth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mounted = _mounted_paths(monkeypatch, NW_REST_PLAYGROUND_ENABLED="true")
+    assert "/scenarios/stripe-charge" in mounted
+    assert "/playground/feature-flags" in mounted
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        ({}, False),
+        ({"NW_REST_API_KEY": "k"}, True),
+        ({"NW_REST_JWT_SECRET": "s"}, True),
+        # An explicit local-dev opt-out wins over a configured key.
+        ({"NW_REST_API_KEY": "k", "NW_REST_AUTH_DISABLED": "true"}, False),
+    ],
+)
+def test_rest_auth_configured(
+    monkeypatch: pytest.MonkeyPatch, env: dict[str, str], expected: bool
+) -> None:
+    import bindings.rest_api.app as rest_app
+
+    for name in _PLAYGROUND_ENV:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+
+    assert rest_app._rest_auth_configured() is expected
