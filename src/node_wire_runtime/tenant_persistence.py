@@ -503,40 +503,56 @@ def _export_secrets_mirror() -> Dict[str, Any]:
     }
 
 
-def _strip_inline_secrets(node: Any) -> Tuple[Any, int]:
-    """Copy of ``node`` without inline secret fields, plus how many were dropped.
+def _is_inline_secret_field(key: Any, value: Any) -> bool:
+    return (
+        not isinstance(value, (dict, list))
+        and isinstance(key, str)
+        and key.endswith(SECRET_FIELD_MARKERS)
+    )
+
+
+def _without_inline_secrets(node: Any) -> Any:
+    """Copy of ``node`` without inline secret fields.
 
     Nothing reads those fields (they are only redacted), so dropping them loses no behaviour.
     """
     if isinstance(node, dict):
-        out: Dict[str, Any] = {}
-        dropped = 0
-        for key, value in node.items():
-            if isinstance(value, (dict, list)):
-                out[key], n = _strip_inline_secrets(value)
-                dropped += n
-            elif isinstance(key, str) and key.endswith(SECRET_FIELD_MARKERS):
-                dropped += 1
-            else:
-                out[key] = value
-        return out, dropped
+        return {
+            key: _without_inline_secrets(value)
+            for key, value in node.items()
+            if not _is_inline_secret_field(key, value)
+        }
     if isinstance(node, list):
-        items = [_strip_inline_secrets(item) for item in node]
-        return [item for item, _ in items], sum(n for _, n in items)
-    return node, 0
+        return [_without_inline_secrets(item) for item in node]
+    return node
+
+
+def _count_inline_secrets(node: Any) -> int:
+    """How many inline secret fields ``node`` holds. Counts names only, returns no data."""
+    if isinstance(node, dict):
+        return sum(
+            1 if _is_inline_secret_field(key, value) else _count_inline_secrets(value)
+            for key, value in node.items()
+        )
+    if isinstance(node, list):
+        return sum(_count_inline_secrets(item) for item in node)
+    return 0
 
 
 def save_tenants(store: ConnectorConfigStore) -> None:
     path = tenants_path(for_write=True)
     secret_store = tenant_secret_store()
     with _lock:
-        tenants, dropped = _strip_inline_secrets(store.export_all())
+        exported = store.export_all()
+        # The count is computed from field names alone, so no config data reaches the log call.
+        dropped = _count_inline_secrets(exported)
         if dropped:
             logger.warning(
                 "Not persisting %d inline secret field(s) in tenant configs; "
                 "store secrets via the secrets API",
                 dropped,
             )
+        tenants = _without_inline_secrets(exported)
         mirror = _export_secrets_mirror()
         if secret_store is not None:
             secret_store.save(mirror)

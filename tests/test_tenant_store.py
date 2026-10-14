@@ -849,11 +849,9 @@ def test_secrets_never_reach_tenants_yaml_and_round_trip_a_restart(tmp_path: Pat
     }
     assert _CANARY.encode() not in _everything_on_disk(tmp_path)  # the store file is encrypted
 
-    # Restart: a new process has an empty overlay and an empty config store.
+    # Restart: a new process has an empty overlay and an empty config store
+    # (load_tenants rebuilds the secrets mirror itself).
     OverlaySecretProvider.instance().clear()
-    import node_wire_runtime.tenant_persistence as tp
-
-    tp._nested_secrets_mirror.clear()
     fresh = ConnectorConfigStore()
     load_tenants(fresh)
     key = tenant_scoped_secret_key("acme", "slack", "SLACK_BOT_TOKEN", config_name="main")
