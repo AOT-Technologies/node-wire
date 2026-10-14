@@ -3047,7 +3047,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>NW_REST_ALLOWED_HOSTS</code></td>
-<td>Optional egress allowlist for <code>RestConnector</code> / OpenAPI-generated connectors (comma-separated hostnames). Distinct from <code>NW_HTTP_GENERIC_ALLOWED_HOSTS</code>.</td>
+<td>Egress allowlist for <code>RestConnector</code> / OpenAPI-generated connectors (comma-separated hostnames). Distinct from <code>NW_HTTP_GENERIC_ALLOWED_HOSTS</code>. <strong>Required</strong> for any <code>base_url</code> (YAML, <code>tenants.yaml</code> or <code>/v1</code>) whose host differs from the connector's spec server; without it such configs are rejected at write time and at call time.</td>
 <td><em>(unset)</em></td>
 </tr>
 <tr>
