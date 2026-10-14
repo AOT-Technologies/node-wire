@@ -367,6 +367,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`/v1` config and secret admin API requires scopes.** Any authenticated caller could read
+  and rewrite configs, push secrets, change defaults, run a full init and list every tenant.
+  - `nw:config:read`, `nw:config:write`, `nw:secrets:write` (also for `secrets` inline in a
+    config) and `nw:platform:admin` (init, `GET /v1/tenants`). Admin or `*` satisfies all.
+  - Without admin, a caller acts only on its JWT `tenant_id`.
+  - `/v1` bodies are capped by `NW_REST_MAX_BODY_BYTES`. Each change logs an
+    `audit_event=config_change` line with key names, never values.
+  - **Upgrade note:** with REST auth on, `/v1` callers need these scopes in their JWT or
+    `NW_REST_API_KEY_SCOPES`. API keys, tenantless JWTs and single-tenant mode need
+    `nw:platform:admin` for tenant routes. `NW_REST_AUTH_DISABLED` (local, playground) is
+    unchanged.
 - **`nw gen-stacklok` manifests**: the backend no longer trusts `X-Tenant-ID` on the NetworkPolicy
   alone. `deploy/proxy-secret.yaml` holds a shared secret every tenant proxy sends as
   `X-NW-Proxy-Secret` (`headerForward.addHeadersFromSecret`); the backend reads it as
