@@ -16,7 +16,7 @@ SPDX-License-Identifier: Apache-2.0
   <img src="images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
 </p>
 
-![An OpenAPI spec, a hand-written adapter or a shipped connector runs inside the Node Wire runtime, which checks, validates, retries and maps errors, then serves it over REST, gRPC and MCP.](images/media/hero.svg)
+![Request path: callers, REST, gRPC or MCP bindings, ConnectorFactory, run() checks, connector, external API, then one ConnectorResponse back.](images/media/hero.svg)
 
 **Node Wire is an open source Python connector framework.** You write or generate a connector once, and Node Wire runs it with the same validation, policy, resilience, error handling and telemetry, whether the caller is a web app over REST, a service over gRPC, or an AI agent over the Model Context Protocol (MCP).
 

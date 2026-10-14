@@ -1,65 +1,71 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 270" width="960" height="270" role="img" aria-labelledby="t d">
   <!--
   SPDX-FileCopyrightText: 2026 AOT Technologies
   SPDX-License-Identifier: Apache-2.0
   -->
   <title id="t">Anatomy of a connector</title>
-  <desc id="d">A connector package holds schema.py with Pydantic models keyed by an action field, and logic.py with a BaseConnector subclass whose @nw_action methods call the external system. auto_register loads it through the node_wire.connectors entry point, which also registers its error_map. The bindings then expose each action as a REST route, an MCP tool and a gRPC Invoke call.</desc>
+  <desc id="d">A connector package holds schema.py with Pydantic models keyed by an action field, and logic.py with a BaseConnector subclass whose @nw_action methods call the external system. auto_register loads it through the node_wire.connectors entry point, which also registers its error_map. Each action then becomes a REST route, an MCP tool and a gRPC Invoke call.</desc>
   <style>
-    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1c2733; }
-    .h { font-size: 13px; font-weight: 700; }
-    .s { font-size: 11px; fill: #4a5a6a; }
-    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
-    .flow { fill: none; stroke-width: 2; stroke-dasharray: 5 6; animation: dash 1.1s linear infinite; }
-    .file { animation: lift 6s ease-in-out infinite; }
-    .f2 { animation-delay: 1s; } .f3 { animation-delay: 2s; }
-    .out { animation: lit 6s ease-in-out infinite; }
-    .o2 { animation-delay: .4s; } .o3 { animation-delay: .8s; }
-    @keyframes dash { to { stroke-dashoffset: -22; } }
-    @keyframes lift { 0%,30%,100% { fill: #fff5f8; } 10%,20% { fill: #fbd0dd; } }
-    @keyframes lit { 0%,45%,100% { opacity: .55; } 60%,85% { opacity: 1; } }
-    @media (prefers-reduced-motion: reduce) { .flow, .file, .out { animation: none; } .out { opacity: 1; } }
+    text { font-family: Inter, 'SF Pro Text', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; fill: #111827; }
+    .t { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .b { font-size: 11.5px; fill: #6b7280; }
+    .k { font-size: 10px; font-weight: 600; fill: #9ca3af; letter-spacing: 0.08em; }
+    .m { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #6b7280; }
+    .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
+    .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
+    .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
+    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
+           animation-delay: var(--w, 0s); opacity: 0; }
+    .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
+    .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
+    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
+                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+    @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
+    @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
+                        92%, 100% { opacity: 0; } }
+    .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
+    @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .dot, .hl { animation: none; opacity: 0; }
+      .in, .bar { animation: none; opacity: 1; }
+    }
   </style>
-
-  <rect width="960" height="300" rx="16" fill="#ffffff"/>
-  <rect x="1" y="1" width="958" height="298" rx="16" fill="none" stroke="#d8dee6"/>
-
-  <!-- Package -->
-  <rect x="24" y="24" width="360" height="252" rx="14" fill="#fff5f8" stroke="#b81548" stroke-dasharray="6 5"/>
-  <text x="44" y="50" class="mono" font-weight="700" fill="#3d0a1d">src/node_wire_&lt;id&gt;/</text>
-
-  <rect class="file" x="44" y="66" width="320" height="78" rx="10" fill="#fff5f8" stroke="#b81548"/>
-  <text x="60" y="88" class="h" fill="#3d0a1d">schema.py</text>
-  <text x="60" y="108" class="mono" fill="#3d0a1d">class SendInput(BaseModel):</text>
-  <text x="60" y="126" class="mono" fill="#3d0a1d" xml:space="preserve">    action: Literal["send"] = "send"</text>
-
-  <rect class="file f2" x="44" y="154" width="320" height="78" rx="10" fill="#fff5f8" stroke="#b81548"/>
-  <text x="60" y="176" class="h" fill="#3d0a1d">logic.py</text>
-  <text x="60" y="196" class="mono" fill="#3d0a1d">@nw_action("send")</text>
-  <text x="60" y="214" class="mono" fill="#3d0a1d">async def send(self, params, *, trace_id)</text>
-
-  <text x="44" y="258" class="s" fill="#3d0a1d">optional: action_spec.py · normalizers.py · error_map</text>
-
-  <!-- Registration -->
-  <path class="flow" stroke="#b8860b" d="M384 150 L 440 150"/>
-  <rect x="440" y="104" width="200" height="92" rx="12" fill="#fffaf0" stroke="#b8860b" stroke-width="2"/>
-  <text x="540" y="130" class="mono" font-weight="700" text-anchor="middle" fill="#3a2c05">auto_register()</text>
-  <text x="540" y="150" class="s" text-anchor="middle" fill="#6b5410">entry point node_wire.connectors</text>
-  <text x="540" y="166" class="s" text-anchor="middle" fill="#6b5410">registry + scoped error_map</text>
-  <text x="540" y="182" class="s" text-anchor="middle" fill="#6b5410">no extra registration code</text>
-
-  <!-- Bindings -->
-  <path class="flow" stroke="#1a88b0" d="M640 150 C 680 150, 680 74, 720 74"/>
-  <path class="flow" stroke="#1a88b0" d="M640 150 L 720 150"/>
-  <path class="flow" stroke="#12867a" d="M640 150 C 680 150, 680 226, 720 226"/>
-
-  <g class="out"><rect x="720" y="50" width="216" height="48" rx="10" fill="#ddf1fb" stroke="#1a88b0"/>
-  <text x="738" y="70" class="h" fill="#0d2f3d">REST route</text>
-  <text x="738" y="88" class="mono" fill="#0d2f3d">POST /connectors/&lt;id&gt;/send</text></g>
-  <g class="out o2"><rect x="720" y="126" width="216" height="48" rx="10" fill="#ddf1fb" stroke="#1a88b0"/>
-  <text x="738" y="146" class="h" fill="#0d2f3d">gRPC Invoke</text>
-  <text x="738" y="164" class="mono" fill="#0d2f3d">action: "send"</text></g>
-  <g class="out o3"><rect x="720" y="202" width="216" height="48" rx="10" fill="#ddf5f0" stroke="#12867a"/>
-  <text x="738" y="222" class="h" fill="#0b2f2a">MCP tool</text>
-  <text x="738" y="240" class="mono" fill="#0b2f2a">&lt;id&gt;_send</text></g>
+  <rect width="960" height="270" rx="12" fill="#ffffff"/>
+  <rect x=".5" y=".5" width="959" height="269" rx="12" fill="none" stroke="#e5e7eb"/>
+  <text x="32" y="40" class="k" text-anchor="start">PACKAGE</text>
+  <text x="32" y="62" class="mi" text-anchor="start">src/node_wire_&lt;id&gt;/</text>
+  <rect x="32" y="76" width="340" height="72" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 6s; --w: 0s"><rect x="32" y="76" width="340" height="72" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="46" y="98" class="t" text-anchor="start">schema.py</text>
+  <text x="46" y="118" class="m" xml:space="preserve">class SendInput(BaseModel):</text>
+  <text x="46" y="134" class="m" xml:space="preserve">    action: Literal["send"] = "send"</text>
+  <rect x="32" y="158" width="340" height="72" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 6s; --w: 1.2s"><rect x="32" y="158" width="340" height="72" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="46" y="180" class="t" text-anchor="start">logic.py</text>
+  <text x="46" y="200" class="m" xml:space="preserve">@nw_action("send")</text>
+  <text x="46" y="216" class="m" xml:space="preserve">async def send(self, params, *, trace_id)</text>
+  <text x="32" y="252" class="b" text-anchor="start">Optional: action_spec.py · normalizers.py · error_map</text>
+  <text x="440" y="40" class="k" text-anchor="start">REGISTER</text>
+  <rect x="440" y="112" width="190" height="76" rx="7" fill="#f9fafb" stroke="#d1d5db"/>
+  <text x="456" y="138" class="mi" text-anchor="start">auto_register()</text>
+  <text x="456" y="156" class="b" text-anchor="start">entry point node_wire.connectors</text>
+  <text x="456" y="172" class="b" text-anchor="start">registry + scoped error_map</text>
+  <path class="ln" d="M372 150 L 440 150"/>
+  <text x="720" y="40" class="k" text-anchor="start">EXPOSED AS</text>
+  <rect x="720" y="56" width="210" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="734" y="78.0" class="t" text-anchor="start">REST route</text>
+  <text x="734" y="94.0" class="m" text-anchor="start">POST /connectors/&lt;id&gt;/send</text>
+  <path class="ln" d="M630 150 C 675 150, 675 81, 720 81"/>
+  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M630 150 C 675 150, 675 81, 720 81'); --d: 2s; --w: 1.6s"/>
+  <rect x="720" y="120" width="210" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="734" y="142.0" class="t" text-anchor="start">gRPC Invoke</text>
+  <text x="734" y="158.0" class="m" text-anchor="start">action: &quot;send&quot;</text>
+  <path class="ln" d="M630 150 C 675 150, 675 145, 720 145"/>
+  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M630 150 C 675 150, 675 145, 720 145'); --d: 2s; --w: 2.0s"/>
+  <rect x="720" y="184" width="210" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="734" y="206.0" class="t" text-anchor="start">MCP tool</text>
+  <text x="734" y="222.0" class="m" text-anchor="start">&lt;id&gt;_send</text>
+  <path class="ln" d="M630 150 C 675 150, 675 209, 720 209"/>
+  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M630 150 C 675 150, 675 209, 720 209'); --d: 2s; --w: 2.4000000000000004s"/>
+  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M372 150 L 440 150'); --d: 1.6s; --w: 0s"/>
 </svg>

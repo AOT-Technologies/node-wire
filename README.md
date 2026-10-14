@@ -18,7 +18,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <p align="center">
   <img src="./docs/images/media/hero.svg" width="900"
-       alt="An OpenAPI spec, a hand-written adapter or a shipped connector runs inside the node wire runtime, which checks, validates, retries and maps errors, then serves it over REST, gRPC and MCP.">
+       alt="Request path: callers, REST, gRPC or MCP bindings, ConnectorFactory, run() checks, connector, external API, then one ConnectorResponse back.">
 </p>
 
 **node wire is an open source Python connector framework.** You write or

@@ -27,28 +27,15 @@ from playwright.sync_api import sync_playwright
 
 FPS = 12
 PALETTE = {
-    "default": "#e6edf3",
-    "black": "#484f58",
-    "red": "#ff7b72",
-    "green": "#3fb950",
-    "brown": "#d29922",
-    "yellow": "#d29922",
-    "blue": "#58a6ff",
-    "magenta": "#bc8cff",
-    "cyan": "#39c5cf",
-    "white": "#b1bac4",
-    "brightblack": "#6e7681",
-    "brightred": "#ffa198",
-    "brightgreen": "#56d364",
-    "brightbrown": "#e3b341",
-    "brightyellow": "#e3b341",
-    "brightblue": "#79c0ff",
-    "brightmagenta": "#d2a8ff",
-    "brightcyan": "#56d4dd",
-    "brightwhite": "#ffffff",
+    "default": "#d4dae3", "black": "#5c6370", "red": "#e06c87", "green": "#7fb98a",
+    "brown": "#d8b46a", "yellow": "#d8b46a", "blue": "#7aaed6", "magenta": "#b69ad8",
+    "cyan": "#6fc3d9", "white": "#aeb6c2", "brightblack": "#6b7280", "brightred": "#ea8aa1",
+    "brightgreen": "#94c99e", "brightbrown": "#e2c486", "brightyellow": "#e2c486",
+    "brightblue": "#93bfe2", "brightmagenta": "#c7b0e3", "brightcyan": "#8dd0e2",
+    "brightwhite": "#eef1f5",
 }
-BG = "#0d1117"
-PROMPT = "\x1b[38;2;63;185;80m❯\x1b[0m "
+BG = "#16191e"
+PROMPT = "\x1b[38;2;55;196;240m❯\x1b[0m "
 
 
 def color(value: str, fallback: str) -> str:
@@ -73,7 +60,7 @@ def screen_html(screen: pyte.Screen, rows: int, cursor: bool) -> str:
                 style += ";font-weight:700"
             text = ch.data
             if cursor and y == screen.cursor.y and x == screen.cursor.x:
-                style = f"color:{BG};background:#e6edf3"
+                style = f"color:{BG};background:#37c4f0"
                 text = text if text.strip() else " "
             parts.append(f'<span style="{style}">{html.escape(text)}</span>')
             x += 1
@@ -83,15 +70,13 @@ def screen_html(screen: pyte.Screen, rows: int, cursor: bool) -> str:
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;background:%(bg)s}
-.win{background:%(bg)s;border:1px solid #30363d;width:max-content}
-.bar{height:34px;background:#161b22;border-bottom:1px solid #30363d;display:flex;align-items:center;padding:0 14px;gap:8px;font:13px -apple-system,Helvetica,sans-serif;color:#8b949e}
-.dot{width:12px;height:12px;border-radius:50%%;display:inline-block}
-.title{flex:1;text-align:center;margin-right:60px}
-pre{margin:0;padding:14px 18px 18px;font:14px/1.32 Menlo,"SF Mono",monospace;color:#e6edf3}
+.win{background:%(bg)s;width:max-content;border:1px solid #2a2f37}
+.bar{height:30px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #23272e;
+     font:500 11.5px Inter,"SF Pro Text",-apple-system,Helvetica,sans-serif;letter-spacing:.02em;color:#6b7280}
+pre{margin:0;padding:16px 22px 20px;font:13px/1.3 "JetBrains Mono","SF Mono",Menlo,monospace;color:#d4dae3;
+    -webkit-font-smoothing:antialiased}
 pre span{white-space:pre}
-</style></head><body><div class="win" id="win"><div class="bar">
-<span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span>
-<span class="dot" style="background:#28c840"></span><span class="title">%(title)s</span></div>
+</style></head><body><div class="win" id="win"><div class="bar">%(title)s</div>
 <pre id="term"></pre></div></body></html>"""
 
 
@@ -172,7 +157,7 @@ def main() -> None:
     ap.add_argument("--step", nargs=2, action="append", required=True, metavar=("REC", "CMD"))
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--hold", type=float, default=4.0)
-    ap.add_argument("--title", default="node-wire — zsh")
+    ap.add_argument("--title", default="node-wire")
     args = ap.parse_args()
     steps = [(json.loads(Path(rec).read_text()), cmd) for rec, cmd in args.step]
     # Machine-specific temp paths (log file locations) read as noise in docs.
@@ -193,7 +178,7 @@ def main() -> None:
     tmp = Path(tempfile.mkdtemp())
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH"))
-        page = browser.new_page(device_scale_factor=1)
+        page = browser.new_page(device_scale_factor=2)
         page.set_content(PAGE % {"bg": BG, "title": html.escape(args.title)})
         win = page.locator("#win")
         for n, (_, body) in enumerate(merged):

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 280" width="960" height="280" role="img" aria-labelledby="t d">
   <!--
   SPDX-FileCopyrightText: 2026 AOT Technologies
   SPDX-License-Identifier: Apache-2.0
@@ -6,58 +6,45 @@
   <title id="t">MCP tool search mode</title>
   <desc id="d">In list mode, tools/list returns every tool with its schema, so the listing grows with the connector. In search mode it returns two tools. The agent calls nw_search_tools with keywords, gets the best matches with their input schemas, then runs one through nw_call_tool, which validates the arguments and returns the ConnectorResponse.</desc>
   <style>
-    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1c2733; }
-    .h { font-size: 13px; font-weight: 700; }
-    .s { font-size: 11px; fill: #4a5a6a; }
-    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
-    .msg { opacity: 0; animation: msg 9s ease-in-out infinite; }
-    .m2 { animation-delay: 1.5s; } .m3 { animation-delay: 3s; } .m4 { animation-delay: 4.5s; }
-    .grow { animation: grow 9s ease-in-out infinite; transform-box: fill-box; transform-origin: left; }
-    @keyframes msg { 0% { opacity: 0; transform: translateY(6px); } 6%,80% { opacity: 1; transform: none; } 90%,100% { opacity: 0; } }
-    @keyframes grow { 0% { transform: scaleX(.15); } 40%,85% { transform: scaleX(1); } 100% { transform: scaleX(.15); } }
-    @media (prefers-reduced-motion: reduce) { .msg, .grow { animation: none; opacity: 1; } }
+    text { font-family: Inter, 'SF Pro Text', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; fill: #111827; }
+    .t { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .b { font-size: 11.5px; fill: #6b7280; }
+    .k { font-size: 10px; font-weight: 600; fill: #9ca3af; letter-spacing: 0.08em; }
+    .m { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #6b7280; }
+    .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
+    .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
+    .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
+    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
+           animation-delay: var(--w, 0s); opacity: 0; }
+    .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
+    .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
+    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
+                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+    @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
+    @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
+                        92%, 100% { opacity: 0; } }
+    .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
+    @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .dot, .hl { animation: none; opacity: 0; }
+      .in, .bar { animation: none; opacity: 1; }
+    }
   </style>
-
-  <rect width="960" height="300" rx="16" fill="#ffffff"/>
-  <rect x="1" y="1" width="958" height="298" rx="16" fill="none" stroke="#d8dee6"/>
-
-  <!-- List mode -->
-  <text x="32" y="44" class="s" font-weight="700" letter-spacing="1">LIST MODE (DEFAULT)</text>
-  <text x="32" y="68" class="mono">tools/list →</text>
-  <rect x="32" y="80" width="320" height="22" rx="5" fill="#f2f4f7"/>
-  <rect class="grow" x="32" y="80" width="320" height="22" rx="5" fill="#fde2ea" stroke="#b81548"/>
-  <text x="40" y="96" class="mono" fill="#3d0a1d">every tool + every schema</text>
-  <text x="32" y="124" class="s">The listing grows with the connector and is sent to the</text>
-  <text x="32" y="140" class="s">model on every request.</text>
-
-  <text x="32" y="184" class="s" font-weight="700" letter-spacing="1">SEARCH MODE</text>
-  <text x="32" y="206" class="mono">NW_MCP_TOOL_MODE=search</text>
-  <text x="32" y="230" class="mono">tools/list →</text>
-  <rect x="32" y="242" width="64" height="22" rx="5" fill="#ddf5f0" stroke="#12867a"/>
-  <text x="104" y="258" class="s">2 tools, about 1–2 KB whatever the size</text>
-
-  <!-- Conversation -->
-  <line x1="420" y1="28" x2="420" y2="276" stroke="#d8dee6"/>
-  <text x="460" y="44" class="h">AI agent</text>
-  <text x="900" y="44" class="h" text-anchor="end">node wire MCP server</text>
-
-  <g class="msg">
-    <rect x="460" y="60" width="300" height="38" rx="10" fill="#ddf1fb" stroke="#1a88b0"/>
-    <text x="474" y="84" class="mono" fill="#0d2f3d">nw_search_tools {"query": "create lead"}</text>
-  </g>
-  <g class="msg m2">
-    <rect x="600" y="108" width="300" height="62" rx="10" fill="#ddf5f0" stroke="#12867a"/>
-    <text x="614" y="128" class="mono" fill="#0b2f2a">salesforce_create_lead + inputSchema</text>
-    <text x="614" y="146" class="mono" fill="#0b2f2a">salesforce_create_contact + …</text>
-    <text x="886" y="158" class="s" text-anchor="end" fill="#0b2f2a">BM25 over names, descriptions, args</text>
-  </g>
-  <g class="msg m3">
-    <rect x="460" y="174" width="390" height="38" rx="10" fill="#ddf1fb" stroke="#1a88b0"/>
-    <text x="474" y="198" class="mono" fill="#0d2f3d">nw_call_tool {"name": "salesforce_create_lead", …}</text>
-  </g>
-  <g class="msg m4">
-    <rect x="640" y="222" width="260" height="44" rx="10" fill="#ddf5f0" stroke="#12867a"/>
-    <text x="654" y="242" class="mono" fill="#0b2f2a">ConnectorResponse</text>
-    <text x="654" y="258" class="s" fill="#0b2f2a">same validation and scope policy</text>
-  </g>
+  <rect width="960" height="280" rx="12" fill="#ffffff"/>
+  <rect x=".5" y=".5" width="959" height="279" rx="12" fill="none" stroke="#e5e7eb"/>
+  <text x="32" y="40" class="k" text-anchor="start">LIST MODE · DEFAULT</text>
+  <text x="32" y="66" class="mi" text-anchor="start">tools/list</text>
+  <rect x="32" y="78" width="320" height="8" rx="4" fill="#e5e7eb"/>
+  <text x="32" y="106" class="b" text-anchor="start">Every tool and every schema, on every request.</text>
+  <text x="32" y="152" class="k" text-anchor="start">SEARCH MODE</text>
+  <text x="32" y="178" class="mi" text-anchor="start">NW_MCP_TOOL_MODE=search</text>
+  <rect x="32" y="190" width="40" height="8" rx="4" fill="#1a9fc8"/>
+  <text x="32" y="218" class="b" text-anchor="start">Two tools, about 1–2 KB whatever the connector size.</text>
+  <line x1="400" y1="28" x2="400" y2="252" stroke="#e5e7eb"/>
+  <text x="440" y="40" class="k" text-anchor="start">AGENT</text>
+  <text x="928" y="40" class="k" text-anchor="end">NODE WIRE MCP SERVER</text>
+  <g class="in" style="--d: 8s; --w: 0s"><rect x="440" y="56" width="330" height="42" rx="7" fill="#ffffff" stroke="#1a9fc8" stroke-opacity="0.6"/><text x="454" y="74" class="mi">nw_search_tools</text><text x="454" y="89" class="m">{&quot;query&quot;: &quot;create lead&quot;}</text></g>
+  <g class="in" style="--d: 8s; --w: 1.6s"><rect x="598" y="108" width="330" height="42" rx="7" fill="#ffffff" stroke="#e5e7eb" stroke-opacity="1"/><text x="612" y="126" class="mi">salesforce_create_lead</text><text x="612" y="141" class="m">+ inputSchema, ranked by BM25</text></g>
+  <g class="in" style="--d: 8s; --w: 3.2s"><rect x="440" y="160" width="330" height="42" rx="7" fill="#ffffff" stroke="#1a9fc8" stroke-opacity="0.6"/><text x="454" y="178" class="mi">nw_call_tool</text><text x="454" y="193" class="m">{&quot;name&quot;: &quot;salesforce_create_lead&quot;, …}</text></g>
+  <g class="in" style="--d: 8s; --w: 4.8s"><rect x="598" y="212" width="330" height="42" rx="7" fill="#ffffff" stroke="#e5e7eb" stroke-opacity="1"/><text x="612" y="230" class="mi">ConnectorResponse</text><text x="612" y="245" class="m">same validation and scope policy</text></g>
 </svg>

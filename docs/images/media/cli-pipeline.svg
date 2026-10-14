@@ -1,71 +1,73 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 230" width="960" height="230" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 220" width="960" height="220" role="img" aria-labelledby="t d">
   <!--
   SPDX-FileCopyrightText: 2026 AOT Technologies
   SPDX-License-Identifier: Apache-2.0
   -->
   <title id="t">The nw CLI pipeline</title>
-  <desc id="d">nw gen-all takes an OpenAPI or Swagger spec through four stages: connector codegen, wheel build, MCP host build and wiring into config. nw docker-build then builds a Docker image from the MCP host. gen-whl and gen-mcp run single stages; gen-stacklok builds a stacklok MCP server from the same spec.</desc>
+  <desc id="d">nw gen-all takes an OpenAPI or Swagger spec through four stages: connector codegen, wheel build, MCP host build and wiring into config. nw docker-build then builds a Docker image from the MCP host. gen-whl and gen-mcp run single stages; gen-stacklok builds a stacklok MCP server.</desc>
   <style>
-    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1c2733; }
-    .h { font-size: 13px; font-weight: 700; }
-    .s { font-size: 11px; fill: #4a5a6a; }
-    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
-    .arrow { fill: none; stroke: #8a9bac; stroke-width: 2; }
-    .stage { animation: run 8s linear infinite; }
-    .d1 { animation-delay: 1.2s; } .d2 { animation-delay: 2.4s; } .d3 { animation-delay: 3.6s; } .d4 { animation-delay: 4.8s; }
-    .bar { animation: fill 8s linear infinite; transform-box: fill-box; transform-origin: left; }
-    @keyframes run { 0%,100% { fill: #fffaf0; stroke: #b8860b; } 2%,13% { fill: #fbe3a6; stroke: #b8860b; } 15%,85% { fill: #ddf5f0; stroke: #12867a; } 90% { fill: #fffaf0; stroke: #b8860b; } }
-    @keyframes fill { 0% { transform: scaleX(0); } 75%,90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+    text { font-family: Inter, 'SF Pro Text', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; fill: #111827; }
+    .t { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .b { font-size: 11.5px; fill: #6b7280; }
+    .k { font-size: 10px; font-weight: 600; fill: #9ca3af; letter-spacing: 0.08em; }
+    .m { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #6b7280; }
+    .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
+    .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
+    .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
+    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
+           animation-delay: var(--w, 0s); opacity: 0; }
+    .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
+    .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
+    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
+                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+    @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
+    @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
+                        92%, 100% { opacity: 0; } }
+    .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
+    @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .dot, .hl { animation: none; opacity: 0; }
+      .in, .bar { animation: none; opacity: 1; }
+    }
   </style>
-
-  <rect width="960" height="230" rx="16" fill="#ffffff"/>
-  <rect x="1" y="1" width="958" height="228" rx="16" fill="none" stroke="#d8dee6"/>
-
-  <!-- Spec -->
-  <rect x="24" y="66" width="112" height="60" rx="10" fill="#f2f4f7" stroke="#8a9bac"/>
-  <text x="80" y="92" class="h" text-anchor="middle">OpenAPI</text>
-  <text x="80" y="110" class="s" text-anchor="middle">spec path or URL</text>
-
-  <!-- gen-all bracket -->
-  <rect x="160" y="40" width="588" height="112" rx="12" fill="none" stroke="#1a88b0" stroke-dasharray="6 5"/>
-  <text x="176" y="60" class="mono" font-weight="700" fill="#1a88b0">nw gen-all</text>
-  <rect x="270" y="52" width="460" height="6" rx="3" fill="#e6eef3"/>
-  <rect class="bar" x="270" y="52" width="460" height="6" rx="3" fill="#1a88b0"/>
-
-  <path class="arrow" d="M136 96 L 176 96"/>
-
-  <rect class="stage" x="176" y="72" width="126" height="64" rx="10" fill="#fffaf0" stroke="#b8860b"/>
-  <text x="239" y="98" class="h" text-anchor="middle">Codegen</text>
-  <text x="239" y="116" class="s" text-anchor="middle">schema.py · logic.py</text>
-
-  <path class="arrow" d="M302 104 L 318 104"/>
-  <rect class="stage d1" x="318" y="72" width="126" height="64" rx="10" fill="#fffaf0" stroke="#b8860b"/>
-  <text x="381" y="98" class="h" text-anchor="middle">Wheels</text>
-  <text x="381" y="116" class="s" text-anchor="middle">build-packages.sh</text>
-
-  <path class="arrow" d="M444 104 L 460 104"/>
-  <rect class="stage d2" x="460" y="72" width="126" height="64" rx="10" fill="#fffaf0" stroke="#b8860b"/>
-  <text x="523" y="98" class="h" text-anchor="middle">MCP host</text>
-  <text x="523" y="116" class="s" text-anchor="middle">nw-mcp-builder</text>
-
-  <path class="arrow" d="M586 104 L 602 104"/>
-  <rect class="stage d3" x="602" y="72" width="130" height="64" rx="10" fill="#fffaf0" stroke="#b8860b"/>
-  <text x="667" y="98" class="h" text-anchor="middle">Wire</text>
-  <text x="667" y="116" class="s" text-anchor="middle">connectors.yaml · env</text>
-
-  <path class="arrow" d="M748 104 L 782 104"/>
-  <rect class="stage d4" x="782" y="66" width="154" height="76" rx="10" fill="#fffaf0" stroke="#b8860b"/>
-  <text x="859" y="92" class="mono" font-weight="700" text-anchor="middle">nw docker-build</text>
-  <text x="859" y="112" class="s" text-anchor="middle">MCP server image</text>
-  <text x="859" y="128" class="s" text-anchor="middle">ready for ToolHive</text>
-
-  <!-- Single-stage commands -->
-  <text x="176" y="182" class="s" font-weight="700" letter-spacing="1">RUN ONE STAGE</text>
-  <rect x="318" y="168" width="126" height="26" rx="13" fill="#ddf1fb" stroke="#1a88b0"/>
-  <text x="381" y="186" class="mono" text-anchor="middle" fill="#0d2f3d">nw gen-whl</text>
-  <rect x="460" y="168" width="126" height="26" rx="13" fill="#ddf1fb" stroke="#1a88b0"/>
-  <text x="523" y="186" class="mono" text-anchor="middle" fill="#0d2f3d">nw gen-mcp</text>
-  <rect x="602" y="168" width="334" height="26" rx="13" fill="#ddf5f0" stroke="#12867a"/>
-  <text x="769" y="186" class="mono" text-anchor="middle" fill="#0b2f2a">nw gen-stacklok · AI-curated tool set</text>
-  <text x="480" y="216" class="s" text-anchor="middle">Each stage reports its result in a Rich progress view; a failure names the stage and the fix.</text>
+  <rect width="960" height="220" rx="12" fill="#ffffff"/>
+  <rect x=".5" y=".5" width="959" height="219" rx="12" fill="none" stroke="#e5e7eb"/>
+  <rect x="32" y="74" width="110" height="52" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="87.0" y="97.0" class="t" text-anchor="middle">OpenAPI</text>
+  <text x="87.0" y="113.0" class="b" text-anchor="middle">path or URL</text>
+  <text x="176" y="46" class="mi" text-anchor="start">nw gen-all</text>
+  <path class="ln" d="M176 56 L 770 56"/>
+  <rect class="bar" x="176" y="55" width="594" height="2" fill="#1a9fc8"/>
+  <rect x="176" y="74" width="138" height="52" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 8s; --w: 0.2s"><rect x="176" y="74" width="138" height="52" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="245" y="97" class="t" text-anchor="middle">Codegen</text>
+  <text x="245" y="113" class="b" text-anchor="middle">schema · logic</text>
+  <rect x="328" y="74" width="138" height="52" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 8s; --w: 1.5999999999999999s"><rect x="328" y="74" width="138" height="52" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="397" y="97" class="t" text-anchor="middle">Wheels</text>
+  <text x="397" y="113" class="b" text-anchor="middle">build-packages.sh</text>
+  <rect x="480" y="74" width="138" height="52" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 8s; --w: 3.0s"><rect x="480" y="74" width="138" height="52" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="549" y="97" class="t" text-anchor="middle">MCP host</text>
+  <text x="549" y="113" class="b" text-anchor="middle">nw-mcp-builder</text>
+  <rect x="632" y="74" width="138" height="52" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 8s; --w: 4.3999999999999995s"><rect x="632" y="74" width="138" height="52" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="701" y="97" class="t" text-anchor="middle">Wire</text>
+  <text x="701" y="113" class="b" text-anchor="middle">connectors.yaml</text>
+  <path class="ln" d="M142 100 L 176 100"/>
+  <path class="ln" d="M314 100 L 328 100"/>
+  <path class="ln" d="M466 100 L 480 100"/>
+  <path class="ln" d="M618 100 L 632 100"/>
+  <path class="ln" d="M770 100 L 800 100"/>
+  <rect x="800" y="74" width="130" height="52" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="865.0" y="97.0" class="mi" text-anchor="middle">nw docker-build</text>
+  <text x="865.0" y="113.0" class="b" text-anchor="middle">MCP server image</text>
+  <text x="176" y="162" class="k" text-anchor="start">SINGLE STAGES</text>
+  <rect x="328" y="150" width="138" height="30" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="397.0" y="169.5" class="mi" text-anchor="middle">nw gen-whl</text>
+  <rect x="480" y="150" width="138" height="30" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="549.0" y="169.5" class="mi" text-anchor="middle">nw gen-mcp</text>
+  <rect x="632" y="150" width="274" height="30" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="769.0" y="169.5" class="mi" text-anchor="middle">nw gen-stacklok · curated tools</text>
+  <text x="480" y="204" class="b" text-anchor="middle">Each stage reports in a Rich progress view; a failure names the stage and the fix.</text>
 </svg>
