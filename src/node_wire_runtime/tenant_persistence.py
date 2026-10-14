@@ -41,10 +41,12 @@ import yaml
 
 from node_wire_runtime.config_store import (
     SECRET_FIELD_MARKERS,
-    ConfigNotFoundError,
+    ConfigNameConflictError,
+    ConfigStoreError,
     ConnectorConfigStore,
 )
 from node_wire_runtime.secrets import OverlaySecretProvider, SecretStore, tenant_scoped_secret_key
+from node_wire_runtime.secrets.base import _sanitize_secret_segment
 from node_wire_runtime.secrets.local_file import LocalEncryptedFileStore, write_private_file
 
 logger = logging.getLogger("runtime.tenant_persistence")
@@ -286,6 +288,43 @@ def _validate_scopes_space_separated(value: str) -> None:
         raise ValueError("expected one or more scopes separated by spaces")
     if any(not p for p in parts):
         raise ValueError("scopes must be non-empty tokens separated by spaces")
+
+
+# Simplified: one prefix instead of a denylist. ``NW_*`` holds the ingress signing
+# secrets and API keys (NW_REST_JWT_SECRET, NW_PROXY_SECRET, ...) and every
+# tenant-scoped key (NW_{TENANT}_...), so it is never a declared connector secret.
+_RUNTIME_ENV_PREFIX = "NW_"
+
+
+def logical_secret_names(connector_id: str) -> FrozenSet[str]:
+    """Declared logical secret names for one connector (empty when none are declared)."""
+    names = set(REQUIRED_SECRETS_BY_CONNECTOR.get(connector_id) or [])
+    names.update((SECRET_FORMAT_BY_CONNECTOR.get(connector_id) or {}).keys())
+    names.update(logical for _, logical in SHARED_ENV_BY_CONNECTOR.get(connector_id) or [])
+    return frozenset(names)
+
+
+def assert_secret_ref(connector_id: str, key: str, *, field: str = "") -> None:
+    """Reject a secret reference that is not this connector's logical name.
+
+    ``field`` is the document key (``secret_key``, ``client_secret_secret``, ...).
+    The error names that field and does not include the supplied reference.
+    """
+    label = f"secret reference {field}" if field else "secret reference"
+    # Exact match only: the value checked here is the value later looked up.
+    if not isinstance(key, str) or not key or key != key.strip():
+        raise ValueError(f"{label} is not an allowed logical name")
+    upper = key.upper()
+    if connector_id in _DECLARED_SECRET_SHAPES:
+        if upper.startswith(_RUNTIME_ENV_PREFIX) or key not in logical_secret_names(connector_id):
+            raise ValueError(f"{label} is not an allowed logical name")
+        return
+    # Simplified: undeclared connectors have no allowlist, so the forced prefix is the whole rule.
+    # Nested ids (a / a_b) share NW_CFG_ names; only __default__ resolves them unscoped, and it
+    # is YAML-only, so the overlap is operator config rather than a caller-reachable read.
+    prefix = "NW_CFG_" + _sanitize_secret_segment(connector_id) + "_"
+    if not upper.startswith(prefix):
+        raise ValueError(f"{label} is not an allowed logical name")
 
 
 _FORMAT_VALIDATORS: Dict[str, Callable[[str], None]] = {
@@ -697,19 +736,22 @@ def load_tenants(store: ConnectorConfigStore) -> None:
                             continue
                         name = str(doc["name"])
                         try:
-                            store.create(tenant_id, connector_id, doc)
-                        except Exception:
                             try:
+                                store.create(tenant_id, connector_id, doc)
+                            except ConfigNameConflictError:
                                 store.update(tenant_id, connector_id, name, doc)
-                            except ConfigNotFoundError:
-                                logger.warning(
-                                    "Could not load tenant config",
-                                    extra={
-                                        "tenant_id": tenant_id,
-                                        "connector_id": connector_id,
-                                        "name": name,
-                                    },
-                                )
+                        except ConfigStoreError:
+                            # Fail closed for this one config (e.g. a doc persisted
+                            # before secret-ref / base_url validation existed) rather
+                            # than refusing to boot every other tenant.
+                            logger.warning(
+                                "Could not load tenant config",
+                                extra={
+                                    "tenant_id": tenant_id,
+                                    "connector_id": connector_id,
+                                    "config_name": name,
+                                },
+                            )
 
         global _nested_secrets_mirror
         _nested_secrets_mirror = {}

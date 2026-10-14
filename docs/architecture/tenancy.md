@@ -30,7 +30,8 @@ the named configs and per-tenant secret overlays. REST, gRPC and standalone MCP
   `config_name` (the `factory.get` argument, the REST body field or the MCP tool argument).
 - Configs are created, changed and deleted through the store: the REST API
   (`POST`/`GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs[/{name}]`, `PUT …/{name}/default`), the
-  playground, or by editing `tenants.yaml`. **MCP never writes configs.**
+  playground, or by editing `tenants.yaml`. **MCP never writes configs.** `__default__` is the
+  exception: it comes from `connectors.yaml` only, and `/v1` writes to it return `400`.
 - A store write takes effect on the next `get()`, because the cached instance for that config is
   dropped at once.
 

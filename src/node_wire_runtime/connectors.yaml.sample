@@ -51,8 +51,6 @@ connectors:
   fhir_epic:
     enabled: false
     exposed_via: [rest, grpc, mcp]
-    # Non-sensitive endpoint config — safe in YAML
-    base_url: "${EPIC_FHIR_BASE_URL:https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4}"
     auth:
       provider: oauth2
       grant_method: private_key_jwt
@@ -67,7 +65,6 @@ connectors:
   fhir_cerner:
     enabled: false
     exposed_via: [rest, grpc, mcp]
-    base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
     auth:
       provider: oauth2
       grant_method: private_key_jwt
