@@ -187,6 +187,38 @@ class ConnectorConfigStore:
             for tenant_id, connector_id, name in previous:
                 self._invalidate(tenant_id, connector_id, [name])
 
+    def replace_tenant(self, tenant_id: str, connectors: Dict[str, Any]) -> None:
+        """Replace one tenant's configs. Other tenants stay.
+
+        Shape: ``{ connector_id: [ config_doc, ... ] }``. An empty map removes
+        the tenant. An empty map for ``__default__`` is rejected so this path
+        cannot drop that tenant. Invalidates cached instances for this tenant only.
+        """
+        if not isinstance(connectors, dict):
+            raise ConfigStoreError(f"init payload for tenant {tenant_id!r} must be a JSON object")
+        tenant_map: Dict[str, Dict[str, ConfigRecord]] = {}
+        for connector_id, docs in connectors.items():
+            if not isinstance(docs, list):
+                raise ConfigStoreError(
+                    f"init payload for {tenant_id!r}/{connector_id!r} must be a list"
+                )
+            tenant_map[connector_id] = self._build_scope(tenant_id, connector_id, docs)
+
+        if not tenant_map and tenant_id == DEFAULT_TENANT:
+            raise ConfigStoreError("cannot drop the __default__ tenant")
+
+        with self._lock:
+            previous: List[tuple[str, str]] = []
+            for connector_id, records in self._data.get(tenant_id, {}).items():
+                for name in records:
+                    previous.append((connector_id, name))
+            if tenant_map:
+                self._data[tenant_id] = tenant_map
+            else:
+                self._data.pop(tenant_id, None)
+            for connector_id, name in previous:
+                self._invalidate(tenant_id, connector_id, [name])
+
     def _build_scope(
         self, tenant_id: str, connector_id: str, docs: List[Any]
     ) -> Dict[str, ConfigRecord]:
