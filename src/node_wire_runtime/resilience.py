@@ -89,17 +89,18 @@ class CircuitBreaker:
         """Let the call through and return its generation, or raise ``CircuitBreakerError``.
 
         After ``reset_timeout``, the next caller moves the breaker to half-open
-        and becomes the trial. The check and the claim do not await, so two
+        and becomes the trial; a trial still running after another ``reset_timeout``
+        is replaced the same way. The check and the claim do not await, so two
         tasks on this loop cannot both become the trial. Pass the returned
         generation to :meth:`record_success` / :meth:`record_failure`.
         """
         if self._state_name == "closed":
             return self._generation
-        if self._state_name == "half-open":
-            raise CircuitBreakerError("Circuit breaker is open")
+        # Simplified: a trial that outlives reset_timeout is abandoned, like an open period.
         if time.monotonic() < self._opened_at + self.reset_timeout:
             raise CircuitBreakerError("Circuit breaker is open")
         self._state_name = "half-open"
+        self._opened_at = time.monotonic()
         self._generation += 1
         return self._generation
 
