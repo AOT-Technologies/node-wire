@@ -26,11 +26,12 @@ from bindings.mcp_server.auth import (
     log_effective_mcp_auth_state,
 )
 from node_wire_runtime.caller_identity import CallerIdentity
-from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
+from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.errors import ErrorCode, NodeWireError, error_text, reject
 from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
+    check_tenancy_config,
     is_multitenancy_enabled,
     resolve_tenant_id,
 )
@@ -905,6 +906,13 @@ class McpServer:
         *,
         tenant_arg: Optional[str] = None,
     ) -> str:
+        request_tenant = _session_tenant_ctx.get()
+        # An HTTP caller is bound to its request tenant; a tool argument cannot widen that.
+        if tenant_arg and request_tenant is not None and tenant_arg != request_tenant:
+            raise NodeWireError(
+                ErrorCode.TENANT_IDENTITY_MISMATCH,
+                f"tenant_id {tenant_arg!r} does not match the request tenant {request_tenant!r}",
+            )
         return self._tenant_session.effective_tenant_id(
             tenant_arg=tenant_arg,
             request_tenant_id=_session_tenant_ctx.get(),
@@ -1717,6 +1725,7 @@ class McpServer:
         raw = os.getenv("NW_TENANT_ID")
         self._tenant_session.set_env_pin(raw.strip() if raw and raw.strip() else None)
 
+        check_tenancy_config()
         log_effective_mcp_auth_state()
 
         low = self._setup_lowlevel_server()
@@ -1776,7 +1785,6 @@ class McpServer:
 
         upstream_passthrough = self._upstream_passthrough
         upstream_granted_scopes = self._upstream_passthrough_scopes
-        factory_store = self._factory.store
 
         @asynccontextmanager
         async def lifespan(app: Starlette):
@@ -1813,13 +1821,10 @@ class McpServer:
                         env_pin=None,
                     )
                 except MissingTenantError as exc:
-                    if DEFAULT_TENANT in factory_store.list_tenants():
-                        session_tenant = DEFAULT_TENANT
-                    else:
-                        return JSONResponse(
-                            status_code=400,
-                            content={"detail": str(exc), "error_code": "MISSING_TENANT"},
-                        )
+                    return JSONResponse(
+                        status_code=400,
+                        content={"detail": str(exc), "error_code": "MISSING_TENANT"},
+                    )
                 except TenantIdentityMismatchError as exc:
                     return JSONResponse(
                         status_code=403,
@@ -1879,6 +1884,7 @@ class McpServer:
                 extra={"host": host, "port": port},
             )
 
+        check_tenancy_config()
         log_effective_mcp_auth_state()
 
         low = self._setup_lowlevel_server()

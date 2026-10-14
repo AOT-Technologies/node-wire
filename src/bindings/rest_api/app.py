@@ -36,6 +36,7 @@ from node_wire_runtime.config_store import (
 from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
+    check_tenancy_config,
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
@@ -149,6 +150,7 @@ async def _rejected(_: Request, exc: Rejected) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=body, headers=exc.headers)
 
 
+check_tenancy_config()
 FastAPIInstrumentor.instrument_app(app)
 _max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
 # Body limit runs outermost (added last); auth is next; protects /connectors/* and /scenarios/*.

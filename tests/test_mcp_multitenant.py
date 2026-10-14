@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -17,6 +19,7 @@ from bindings.mcp_server.server import (
     _session_tenant_ctx,
     _with_config_name_property,
 )
+from node_wire_runtime.errors import ErrorCode, NodeWireError
 from node_wire_runtime.models import ConnectorResponse
 
 
@@ -488,25 +491,82 @@ def test_stdio_pin_assignment_from_nw_tenant_id(monkeypatch: pytest.MonkeyPatch)
     assert server.tenant_session.env_pin == "acme"
 
 
-def test_streamable_http_mt_missing_header_uses_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+class _FakeStreamableSessionManager:
+    async def handle_request(self, scope, receive, send):
+        from starlette.responses import JSONResponse
+
+        await JSONResponse({"ok": True})(scope, receive, send)
+
+
+def _post_mcp(headers: dict[str, str] | None = None):
     from fastapi.testclient import TestClient
-    from starlette.responses import JSONResponse
-
-    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
-
-    class _FakeStreamableSessionManager:
-        async def handle_request(self, scope, receive, send):
-            response = JSONResponse({"ok": True})
-            await response(scope, receive, send)
 
     server = McpServer(connector_ids=["http_generic"])
     app = server._build_streamable_http_app(
-        session_manager=_FakeStreamableSessionManager(),
-        path="/mcp",
+        session_manager=_FakeStreamableSessionManager(), path="/mcp"
     )
-    client = TestClient(app)
-    response = client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"})
-    assert response.status_code == 200
-    assert response.json()["ok"] is True
+    return TestClient(app).post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"},
+        headers=headers or {},
+    )
+
+
+def test_streamable_http_mt_missing_header_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No header never falls back to ``__default__`` (operator-only)."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    response = _post_mcp()
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "MISSING_TENANT"
+
+
+def _registry_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, str]:
+    path = tmp_path / "keys.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "key_id": "acme-prod",
+                    "hash": hashlib.sha256(b"acme-secret").hexdigest(),
+                    "tenant": "acme",
+                    "scopes": [],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("NW_API_KEYS_FILE", str(path))
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_API_KEY", raising=False)
+    monkeypatch.delenv("NW_MCP_JWT_SECRET", raising=False)
+    return {"X-API-Key": "acme-secret"}
+
+
+def test_streamable_http_registry_key_cannot_cross_tenants(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    key = _registry_key(monkeypatch, tmp_path)
+    for tenant in ("beta", "__default__"):
+        response = _post_mcp({**key, "X-Tenant-ID": tenant})
+        assert response.status_code == 403, tenant
+        assert response.json()["error_code"] == "TENANT_IDENTITY_MISMATCH"
+    assert _post_mcp({**key, "X-Tenant-ID": "acme"}).status_code == 200
+    assert _post_mcp(key).status_code == 200  # the key itself carries the tenant
+
+
+def test_tool_tenant_arg_cannot_leave_the_request_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    server = McpServer(connector_ids=["http_generic"])
+    server._factory.store.create(
+        "acme", "http_generic", {"name": "default", "default": True, "config": {}, "auth": {}}
+    )
+    token = _session_tenant_ctx.set("acme")
+    try:
+        for other in ("beta", "__default__"):
+            with pytest.raises(NodeWireError) as exc:
+                server._effective_tenant_id(None, tenant_arg=other)
+            assert exc.value.code == ErrorCode.TENANT_IDENTITY_MISMATCH
+        assert server._effective_tenant_id(None, tenant_arg="acme") == "acme"
+    finally:
+        _session_tenant_ctx.reset(token)

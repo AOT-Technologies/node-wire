@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 from node_wire_runtime.caller_identity import (
     CallerIdentity,
     api_key_matches,
+    api_key_registry_claims,
+    api_key_registry_configured,
     build_caller_identity,
     decode_binding_jwt,
     parse_api_key_scopes_from_env,
@@ -173,7 +175,11 @@ def log_effective_mcp_auth_state() -> None:
 
 def mcp_auth_configured() -> bool:
     _bootstrap_mcp_auth_env()
-    return bool(os.environ.get("NW_MCP_API_KEY") or os.environ.get("NW_MCP_JWT_SECRET"))
+    return bool(
+        os.environ.get("NW_MCP_API_KEY")
+        or os.environ.get("NW_MCP_JWT_SECRET")
+        or api_key_registry_configured()
+    )
 
 
 def _get_meta_value(meta: Mapping[str, Any] | None, keys: tuple[str, ...]) -> str | None:
@@ -209,6 +215,10 @@ def extract_token(
 def verify_mcp_token(token: str) -> tuple[dict[str, Any], str]:
     api_key = os.getenv("NW_MCP_API_KEY")
     jwt_secret = os.getenv("NW_MCP_JWT_SECRET")
+
+    registry_claims = api_key_registry_claims(token)
+    if registry_claims is not None:
+        return (registry_claims, "api_key")
 
     if api_key and api_key_matches(token, api_key):
         scopes = list(parse_api_key_scopes_from_env("NW_MCP_API_KEY_SCOPES"))

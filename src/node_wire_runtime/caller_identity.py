@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import logging
@@ -13,11 +14,16 @@ import os
 import re
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Mapping
 
 import jwt
 
+from node_wire_runtime.config_store import DEFAULT_TENANT
+
 logger = logging.getLogger("runtime.caller_identity")
+
+API_KEYS_FILE_ENV = "NW_API_KEYS_FILE"
 
 JWT_AUDIENCE_ENV = "NW_JWT_AUDIENCE"
 JWT_ISSUER_ENV = "NW_JWT_ISSUER"
@@ -85,6 +91,47 @@ def api_key_matches(token: str, api_key: str) -> bool:
     return hmac.compare_digest(token, api_key)
 
 
+def api_key_registry_configured() -> bool:
+    return bool(os.environ.get(API_KEYS_FILE_ENV, "").strip())
+
+
+@lru_cache(maxsize=None)
+def _read_api_key_registry(path: str) -> tuple[Mapping[str, Any], ...]:
+    entries = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(entries, list):
+        raise ValueError(f"{API_KEYS_FILE_ENV} must contain a JSON array")
+    for entry in entries:
+        if entry["tenant"] == DEFAULT_TENANT:
+            raise ValueError(
+                f"{API_KEYS_FILE_ENV}: key {entry['key_id']!r} cannot bind {DEFAULT_TENANT!r}"
+            )
+    return tuple(entries)
+
+
+def load_api_key_registry() -> tuple[Mapping[str, Any], ...]:
+    """Tenant-bound keys from ``NW_API_KEYS_FILE``: ``[{key_id, hash, tenant, scopes}]``.
+
+    ``hash`` is the hex SHA-256 of the key; the key itself is never stored. Simplified: read
+    once per path and cached; changes need a restart.
+    """
+    return _read_api_key_registry(os.environ[API_KEYS_FILE_ENV].strip())
+
+
+def api_key_registry_claims(token: str) -> dict[str, Any] | None:
+    """JWT-style claims for a registry key matching ``token``, else ``None``."""
+    if not api_key_registry_configured():
+        return None
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    for entry in load_api_key_registry():
+        if hmac.compare_digest(digest, str(entry["hash"]).lower()):
+            return {
+                "sub": entry["key_id"],
+                "tenant_id": entry["tenant"],
+                "scopes": entry.get("scopes", []),
+            }
+    return None
+
+
 class JwtVerificationNotConfigured(jwt.InvalidTokenError):
     """Raised when a JWT secret is used but ``NW_JWT_AUDIENCE`` / ``NW_JWT_ISSUER`` are unset."""
 
@@ -146,6 +193,10 @@ def verify_bearer_token_and_identity(
 
     Shared by REST and gRPC bindings. API key scopes come from ``api_key_scopes_env``.
     """
+    registry_claims = api_key_registry_claims(token)
+    if registry_claims is not None:
+        return True, build_caller_identity(registry_claims, auth_type=api_key_auth_type)
+
     if api_key and api_key_matches(token, api_key):
         scopes = list(parse_api_key_scopes_from_env(api_key_scopes_env))
         ident = build_caller_identity(
