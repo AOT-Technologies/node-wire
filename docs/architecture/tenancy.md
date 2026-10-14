@@ -73,6 +73,37 @@ overlay that is checked first), then from the environment. Non-alphanumeric char
 `acme` on Google Drive reads `NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON`. A missing secret fails
 with `tenant secret not found: <tenant>/<connector>/...`.
 
+### Where tenant secrets are stored
+
+Secrets sent through `/v1` (`PUT /v1/connectors/{cid}/secrets`, or `secrets` in a config body) are
+never written to `tenants.yaml`. That file holds configs and secret **names** only, and is created
+`0600`. Values go to a secret store, and **with no store configured those requests fail with
+`400`** (nothing is saved).
+
+For development, enable the encrypted local file:
+
+| Name | Value |
+|------|--------|
+| `NW_ALLOW_LOCAL_SECRET_FILE` | `true` |
+| `NW_LOCAL_SECRET_KEY` | a Fernet key: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `NW_LOCAL_SECRET_FILE` | absolute path **outside the source tree** (and outside `/app` in the image), e.g. a mounted volume |
+
+The file is Fernet-encrypted and created `0600`. Startup refuses a missing key, a relative path or a
+path inside the source tree. A wrong key is an error, never an empty store. There is no key
+rotation yet. In production, supply secrets through environment variables or a cloud secret backend
+(`NW_SECRET_BACKEND`), which is read-only.
+
+Inline secret fields in a config (`*_value`, `password`, ...) are not read by any connector and are
+dropped, with a warning, when `tenants.yaml` is written.
+
+#### Upgrading
+
+| Change | Migration |
+|---|---|
+| `/v1` secret writes return `400` until a store is configured | Enable the local file (above), or use env vars / a cloud backend. |
+| An existing `tenants.yaml` with plaintext `secrets:` | With a store configured it migrates automatically on the next start and the file is rewritten as names only. With no store it still loads (a warning is logged) and is kept `0600`. |
+| Inline secret fields are no longer written | None needed. |
+
 ## MCP tenant and config tools
 
 With multi-tenancy on, every Node Wire MCP server (`agents.mcp_entrypoint`, per-connector images

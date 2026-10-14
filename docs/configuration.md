@@ -124,6 +124,9 @@ The REST-only `NW_REST_RATE_LIMIT_ENABLED` family (`_MAX_REQUESTS`, `_WINDOW_SEC
 | `NW_MULTITENANCY_ENABLED` | When `true`, resolve tenant from header / `NW_TENANT_ID` / JWT and require a tenant (missing → error). When `false`, always `__default__`. | `false` |
 | `NW_TENANT_ID` | **MCP stdio only** — default process pin. Chat can override via `nw_select_tenant` unless `NW_MCP_TENANT_PIN_LOCKED=true`. Do not set on multi-tenant streamable-http (use `X-Tenant-ID` instead). | _(unset)_ |
 | `NW_TENANT_ID_HEADER` | HTTP/gRPC header name for tenant id (case-insensitive) | `X-Tenant-ID` |
+| `NW_ALLOW_LOCAL_SECRET_FILE` | `true` enables the encrypted local secret file (development). Without a secret store, `/v1` secret writes fail with 400. See [Tenancy](architecture/tenancy.md#where-tenant-secrets-are-stored). | `false` |
+| `NW_LOCAL_SECRET_KEY` | Fernet key that encrypts the local secret file. Required with `NW_ALLOW_LOCAL_SECRET_FILE`. | unset |
+| `NW_LOCAL_SECRET_FILE` | Absolute path of the local secret file, outside the source tree. Required with `NW_ALLOW_LOCAL_SECRET_FILE`. | unset |
 | `NW_TENANTS_PATH` | Path to the YAML file that persists runtime named configs + tenant secret overlays (`config/tenants.yaml` by default; gitignored). Loaded by REST, gRPC, and standalone MCP (`McpServer` / `agents.mcp_entrypoint`) at startup. | `config/tenants.yaml` |
 | `NW_MCP_ALLOWED_TENANTS` | Comma-separated tenant ids the MCP server may list or select. Empty = all tenants that have configs. | _(unset)_ |
 | `NW_MCP_TENANT_PIN_LOCKED` | When `true`, reject `nw_select_tenant` (pin always wins). | `false` |

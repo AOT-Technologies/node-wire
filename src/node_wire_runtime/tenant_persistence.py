@@ -4,7 +4,9 @@
 #
 """Multi-tenant config + secret overlay persistence.
 
-Simplified: one YAML file rewritten on each mutation; gitignored by the repo.
+Simplified: one YAML file rewritten on each mutation; gitignored by the repo. It holds configs
+and secret *names* only. Secret values live in a :class:`~node_wire_runtime.secrets.SecretStore`
+(see :func:`tenant_secret_store`); without one, new secrets are refused.
 
 Lives in the runtime (not a binding) because REST, gRPC, and MCP must all
 observe the same persisted tenant/config dataset from the same file — this is
@@ -37,8 +39,13 @@ from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Mapping, Opti
 
 import yaml
 
-from node_wire_runtime.config_store import ConfigNotFoundError, ConnectorConfigStore
-from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
+from node_wire_runtime.config_store import (
+    SECRET_FIELD_MARKERS,
+    ConfigNotFoundError,
+    ConnectorConfigStore,
+)
+from node_wire_runtime.secrets import OverlaySecretProvider, SecretStore, tenant_scoped_secret_key
+from node_wire_runtime.secrets.local_file import LocalEncryptedFileStore, write_private_file
 
 logger = logging.getLogger("runtime.tenant_persistence")
 
@@ -115,6 +122,47 @@ class SecretShapeNotDeclaredError(ValueError):
     Subclasses ``ValueError`` so the REST binding's existing ``except ValueError``
     handlers surface it as a 400 rather than a 500.
     """
+
+
+class SecretStoreNotConfiguredError(ValueError):
+    """Tenant secrets cannot be persisted: no secret store is configured (fail closed).
+
+    Subclasses ``ValueError`` so the REST binding surfaces it as a 400, not a 500.
+    """
+
+
+LOCAL_SECRET_FILE_ENABLE_ENV = "NW_ALLOW_LOCAL_SECRET_FILE"  # nosec B105
+LOCAL_SECRET_KEY_ENV = "NW_LOCAL_SECRET_KEY"  # nosec B105
+LOCAL_SECRET_FILE_ENV = "NW_LOCAL_SECRET_FILE"  # nosec B105
+
+
+def tenant_secret_store() -> Optional[SecretStore]:
+    """The configured durable secret store, or ``None`` (then secrets are never written).
+
+    Simplified: only the encrypted local file (development) exists today; a cloud backend adds
+    one branch here. It needs ``NW_ALLOW_LOCAL_SECRET_FILE=true``, a Fernet key in
+    ``NW_LOCAL_SECRET_KEY`` and an absolute ``NW_LOCAL_SECRET_FILE`` outside the source tree.
+    """
+    if os.environ.get(LOCAL_SECRET_FILE_ENABLE_ENV, "").strip().lower() not in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
+        return None
+    key = os.environ.get(LOCAL_SECRET_KEY_ENV, "").strip()
+    raw_path = os.environ.get(LOCAL_SECRET_FILE_ENV, "").strip()
+    if not key or not raw_path:
+        raise SecretStoreNotConfiguredError(
+            f"{LOCAL_SECRET_FILE_ENABLE_ENV}=true requires {LOCAL_SECRET_KEY_ENV} and "
+            f"{LOCAL_SECRET_FILE_ENV}"
+        )
+    path = Path(raw_path)
+    if not path.is_absolute() or path.resolve().is_relative_to(_REPO_ROOT.resolve()):
+        raise SecretStoreNotConfiguredError(
+            f"{LOCAL_SECRET_FILE_ENV} must be an absolute path outside the source tree"
+        )
+    return LocalEncryptedFileStore(path, key)
 
 
 # Connectors that genuinely have no tenant secrets. Listing them is the explicit
@@ -455,20 +503,68 @@ def _export_secrets_mirror() -> Dict[str, Any]:
     }
 
 
+def _strip_inline_secrets(node: Any) -> Tuple[Any, int]:
+    """Copy of ``node`` without inline secret fields, plus how many were dropped.
+
+    Nothing reads those fields (they are only redacted), so dropping them loses no behaviour.
+    """
+    if isinstance(node, dict):
+        out: Dict[str, Any] = {}
+        dropped = 0
+        for key, value in node.items():
+            if isinstance(value, (dict, list)):
+                out[key], n = _strip_inline_secrets(value)
+                dropped += n
+            elif isinstance(key, str) and key.endswith(SECRET_FIELD_MARKERS):
+                dropped += 1
+            else:
+                out[key] = value
+        return out, dropped
+    if isinstance(node, list):
+        items = [_strip_inline_secrets(item) for item in node]
+        return [item for item, _ in items], sum(n for _, n in items)
+    return node, 0
+
+
 def save_tenants(store: ConnectorConfigStore) -> None:
     path = tenants_path(for_write=True)
+    secret_store = tenant_secret_store()
     with _lock:
-        payload = {
-            "tenants": store.export_all(),
-            "secrets": _export_secrets_mirror(),
-        }
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".yaml.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            yaml.safe_dump(
-                payload, f, default_flow_style=False, allow_unicode=True, sort_keys=False
+        tenants, dropped = _strip_inline_secrets(store.export_all())
+        if dropped:
+            logger.warning(
+                "Not persisting %d inline secret field(s) in tenant configs; "
+                "store secrets via the secrets API",
+                dropped,
             )
-        tmp.replace(path)
+        mirror = _export_secrets_mirror()
+        if secret_store is not None:
+            secret_store.save(mirror)
+            # References only: the values live in the secret store.
+            secrets: Dict[str, Any] = {
+                t: {
+                    c: {cfg: sorted(kv) for cfg, kv in configs.items()}
+                    for c, configs in cons.items()
+                }
+                for t, cons in mirror.items()
+            }
+        else:
+            # Simplified: with no store, new secrets are refused, so the mirror can only hold
+            # values loaded from a legacy plaintext file. Keep them (now 0600) so a restart does
+            # not lose them, until a store is configured and load_tenants migrates them.
+            if mirror:
+                logger.warning(
+                    "Tenant secrets from a legacy plaintext tenants file are still written to it; "
+                    "configure a secret store (%s) to migrate them",
+                    LOCAL_SECRET_FILE_ENABLE_ENV,
+                )
+            secrets = mirror
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"tenants": tenants, "secrets": secrets}
+        text = yaml.safe_dump(
+            payload, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
+        write_private_file(path, text.encode("utf-8"))
     logger.info("Wrote tenants file", extra={"path": str(path)})
 
 
@@ -528,12 +624,19 @@ def upsert_tenant_secrets(
         if merged:
             validate_secret_formats(connector_id, merged)
 
-        flat: Dict[str, str] = {}
-        for logical_key, value in merged.items():
-            scoped = tenant_scoped_secret_key(
-                tenant_id, connector_id, logical_key, config_name=name
+        flat: Dict[str, str] = {
+            tenant_scoped_secret_key(tenant_id, connector_id, logical_key, config_name=name): value
+            for logical_key, value in merged.items()
+        }
+        # Fail closed before anything is mutated: no store means no new secret is ever kept.
+        if flat and tenant_secret_store() is None:
+            raise SecretStoreNotConfiguredError(
+                "no secret store is configured, so tenant secrets cannot be saved. "
+                f"For development set {LOCAL_SECRET_FILE_ENABLE_ENV}=true with "
+                f"{LOCAL_SECRET_KEY_ENV} and {LOCAL_SECRET_FILE_ENV}; otherwise supply the "
+                "secrets through environment variables or a cloud secret backend"
             )
-            flat[scoped] = value
+        for logical_key, value in merged.items():
             _nested_secrets_mirror.setdefault(tenant_id, {}).setdefault(
                 connector_id, {}
             ).setdefault(name, {})[logical_key] = value
@@ -549,10 +652,12 @@ def _is_legacy_connector_secrets(kv: Mapping[str, Any]) -> bool:
     """True when secrets are flat logical→string (pre per-config nesting)."""
     if not kv:
         return False
-    return all(not isinstance(v, dict) for v in kv.values())
+    return all(not isinstance(v, (dict, list)) for v in kv.values())
 
 
 def load_tenants(store: ConnectorConfigStore) -> None:
+    # Resolved first so a misconfigured store fails startup even when there is no file yet.
+    secret_store = tenant_secret_store()
     path = tenants_path()
     if not path.is_file():
         return
@@ -592,7 +697,15 @@ def load_tenants(store: ConnectorConfigStore) -> None:
 
         global _nested_secrets_mirror
         _nested_secrets_mirror = {}
-        flat: Dict[str, str] = {}
+        legacy_plaintext = 0
+        unresolved_refs = 0
+        if secret_store is not None:
+            for tenant_id, connectors in secret_store.load().items():
+                for connector_id, configs in connectors.items():
+                    for cfg, logical_map in configs.items():
+                        _nested_secrets_mirror.setdefault(tenant_id, {}).setdefault(
+                            connector_id, {}
+                        )[cfg] = {str(k): str(v) for k, v in logical_map.items()}
         secrets = raw.get("secrets") or {}
         if isinstance(secrets, dict):
             for tenant_id, connectors in secrets.items():
@@ -613,21 +726,50 @@ def load_tenants(store: ConnectorConfigStore) -> None:
                         )
                         continue
                     for config_name, logical_map in kv.items():
+                        cfg = str(config_name)
+                        held = (
+                            (_nested_secrets_mirror.get(tenant_id) or {})
+                            .get(connector_id, {})
+                            .get(cfg, {})
+                        )
+                        if isinstance(logical_map, list):
+                            # A reference: the value must already have come from the store.
+                            unresolved_refs += sum(
+                                1 for name in logical_map if str(name) not in held
+                            )
+                            continue
                         if not isinstance(logical_map, dict):
                             continue
-                        cfg = str(config_name)
+                        # Legacy plaintext values written by older versions.
                         for logical, value in logical_map.items():
-                            scoped = tenant_scoped_secret_key(
-                                tenant_id,
-                                connector_id,
-                                str(logical),
-                                config_name=cfg,
-                            )
-                            flat[scoped] = str(value)
                             _nested_secrets_mirror.setdefault(tenant_id, {}).setdefault(
                                 connector_id, {}
                             ).setdefault(cfg, {})[str(logical)] = str(value)
+                            legacy_plaintext += 1
+        flat: Dict[str, str] = {
+            tenant_scoped_secret_key(tenant_id, connector_id, logical, config_name=cfg): value
+            for tenant_id, connectors in _nested_secrets_mirror.items()
+            for connector_id, configs in connectors.items()
+            for cfg, logical_map in configs.items()
+            for logical, value in logical_map.items()
+        }
         OverlaySecretProvider.instance().replace_all(flat)
+        if unresolved_refs:
+            logger.warning(
+                "%d secret reference(s) in the tenants file have no value in the secret store",
+                unresolved_refs,
+            )
+        if legacy_plaintext:
+            if secret_store is not None:
+                # Move plaintext values into the store; the rewrite leaves names only.
+                save_tenants(store)
+                logger.info("Migrated legacy plaintext tenant secrets into the secret store")
+            else:
+                logger.warning(
+                    "tenants file holds plaintext secrets; configure a secret store (%s) "
+                    "to migrate them",
+                    LOCAL_SECRET_FILE_ENABLE_ENV,
+                )
         logger.info(
             "Loaded tenants file",
             extra={
