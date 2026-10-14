@@ -506,7 +506,7 @@ def test_encode_request_body_model_binary_and_fallback() -> None:
     assert _encode_request_body(123, "application/octet-stream") == {"content": b"123"}
 
 
-def test_resolve_base_url_override_and_missing() -> None:
+def test_resolve_base_url_override_and_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     class _NoDefault(RestConnector):
         connector_id = "no_default"
         default_base_url = ""
@@ -519,6 +519,10 @@ def test_resolve_base_url_override_and_missing() -> None:
     with pytest.raises(RuntimeError, match="no base_url"):
         _NoDefault().resolve_base_url()
 
+    monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
+    with pytest.raises(ValueError, match="base_url host is not allowed"):
+        _NoDefault(base_url="https://override.example.com/").resolve_base_url()
+    monkeypatch.setenv("NW_REST_ALLOWED_HOSTS", "override.example.com")
     assert (
         _NoDefault(base_url="https://override.example.com/").resolve_base_url()
         == "https://override.example.com"
