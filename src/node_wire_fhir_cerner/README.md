@@ -37,6 +37,8 @@ The connector implements the **SMART Backend Services** specification (specifica
 
 ### Required secrets
 
+The connector reads these secrets:
+
 | Secret Key | Description |
 |---|---|
 | `cerner_fhir_base_url` | Base URL for the Cerner FHIR R4 endpoint |
@@ -121,6 +123,8 @@ Cerner's FHIR implementation (especially in the sandbox) has several unique requ
 ---
 
 ## Directory structure
+
+The connector is organized as follows:
 
 | File / Path | Purpose |
 |---|---|

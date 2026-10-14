@@ -217,7 +217,7 @@ To test the Google Drive integration manually, follow these specialized setup st
     *   **IAM Check**: Check the "Share" settings on the archived file in Google Drive; the "Recipient Email" specified in the UI is added automatically as a "Reader".
 
 ### 🤖 Configuring the AI agent (optional)
-To enable the AI Agent chat, you need to configure an LLM provider:
+To enable the AI Agent chat, configure an LLM provider by following these steps:
 
 1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `OPENAI_API_KEY` / `OPENAI_MODEL`, `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`, `NVIDIA_API_KEY` for Nemotron, and/or `OPENROUTER_API_KEY` plus `OPENROUTER_MODELS` (defaults: Laguna S 2.1, LFM 2.5, Nex N2.5 Pro, Ling 3.0 Flash) for OpenRouter. OpenRouter free endpoints log prompts — do not send confidential or personal data.
 2.  **Switch models in the UI**: Use the `provider/model` selector next to the chat input (defaults to Groq when configured). Use **+ Add local model** to discover and add an Ollama model (`OLLAMA_BASE_URL` defaults to `http://127.0.0.1:11434/v1`).

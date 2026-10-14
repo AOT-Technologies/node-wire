@@ -120,7 +120,7 @@ git tag -a v1.0.1 <fixed-sha> -m "Release 1.0.1"
 git push origin v1.0.1
 ```
 
-Note: this is a manual, out-of-band path (a fix-and-re-tag, not a normal release). The
+Replace `<fixed-sha>` with the commit that contains the fix. This is a manual, out-of-band path (a fix-and-re-tag, not a normal release). The
 normal forward path for creating a release tag uses the **Create Release Tag**
 workflow (`.github/workflows/create-tag.yml`, see [packaging.md](packaging.md)), which
 validates version format, package-version consistency, and the CHANGELOG entry before

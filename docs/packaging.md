@@ -12,6 +12,8 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 
 ## Package inventory
 
+The following table lists every package the build script produces:
+
 | PyPI name | Source path | Entry-point key |
 |---|---|---|
 | `node-wire-runtime` | `src/node_wire_runtime/` | — (no entry point; this is the runtime) |
@@ -44,18 +46,22 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 
 ### Tier 1 — Runtime (dev, always required)
 
+Update the following files and areas:
+
 | File / area | Purpose |
 |---|---|
 | `src/node_wire_<name>/` | `__init__.py` (required, may be empty), `schema.py`, `logic.py` (with optional `error_map`), optional `action_spec.py`, `README.md` |
-| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install. `uv run` rebuilds the editable install on its next call once `pyproject.toml` changes. If you run `.venv/bin/python` or an activated venv directly, run `uv sync` first or the new entry point is not visible. |
+| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install. `uv run` rebuilds the editable install on its next call once `pyproject.toml` changes. If you run `.venv/bin/python` or an activated venv directly, run `uv sync` first or the added entry point is not visible. |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
 | [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets, and the connector id added to the `NW_ALLOWED_CONNECTORS` line |
 | [Connector catalog](connector-reference.md#connector-catalog) | Add an entry with the same fields as the others |
-| Tests | `tests/test_<name>.py`. At minimum, assert three things: the connector instantiates with its `connector_id`, `nw_action_metas()` lists the expected actions, and `auto_register()` (with `NW_ALLOWED_CONNECTORS` set) imports your `logic` module. [Example](connectors-build.md#minimal-http-connector-end-to-end), and see `tests/test_connectors_basic.py`. Run the suite as in [Code quality — Tests](code-quality-compliance.md#tests). |
+| Tests | `tests/test_<name>.py`. At minimum, assert three things: the connector instantiates with its `connector_id`, `nw_action_metas()` lists the expected actions, and `auto_register()` (with `NW_ALLOWED_CONNECTORS` set) imports your `logic` module. See the [minimal HTTP connector example](connectors-build.md#minimal-http-connector-end-to-end) and `tests/test_connectors_basic.py`. Run the suite as in [Code quality — Tests](code-quality-compliance.md#tests). |
 
 `auto_register()` discovers the connector via the entry point — no factory branch required.
 
 ### Tier 2 — Publishable PyPI package
+
+Update the following files:
 
 | File | Purpose |
 |---|---|
@@ -155,7 +161,11 @@ if __name__ == "__main__":
     )
 ```
 
-Replace `<name>` with the connector's snake_case name (for example, `my_service`) and `<connector_id>` with the entry-point key (same string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`).
+Replace the following:
+
+- `<name>`: the connector's snake_case name, for example, `my_service`.
+- `<short description>`: a one-line description of the connector.
+- `<connector_id>`: the entry-point key, the same string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`.
 
 ### CI allowlist updates
 
@@ -179,7 +189,7 @@ Use when you need a dedicated Docker/ToolHive image for a single connector (not 
 | File | Purpose |
 |---|---|
 | `src/agents/<name>_mcp.py` | Per-connector MCP agent entrypoint |
-| Root `pyproject.toml` | `[project.scripts]` for example, `nw-<kebab-name>` |
+| Root `pyproject.toml` | `[project.scripts]` entry, for example, `nw-<kebab-name>` |
 | `docker/<name>/Dockerfile` | Demo MCP image |
 | [`scripts/build-mcp-images.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-mcp-images.sh) | `docker build` block |
 | [`docker-compose.mcp.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
@@ -411,7 +421,7 @@ Stable versions only — the workflow rejects PEP 440 pre-releases.
 **Workflow:** `.github/workflows/github-release.yml` — manual `workflow_dispatch`
 after the tag has been pushed.
 
-The workflow:
+The workflow does the following:
 
 1. Validates all package versions match the tag.
 2. Verifies `CHANGELOG.md` has the matching section and release link.
@@ -426,14 +436,14 @@ package** (once per entry in the `allowed` set in that workflow). There is no ve
 input — the version is read from the selected package's `pyproject.toml`, so dispatch
 from the release tag via the **Use workflow from** dropdown.
 
-**Required inputs:**
+The workflow takes the following required inputs:
 
 | Input | Example | Notes |
 |---|---|---|
 | `channel` | `release` | `release` publishes the declared version as-is; `beta` derives the next pre-release |
 | `package` | `packages/connectors/stripe` | Dropdown backed by the workflow allowlist |
 
-**Prerequisites checked before build (`channel: release`):**
+For `channel: release`, the workflow checks the following before it builds:
 
 - `package` is allowlisted.
 - Package `pyproject.toml` declares a stable `X.Y.Z` version.
@@ -441,7 +451,7 @@ from the release tag via the **Use workflow from** dropdown.
 - `CHANGELOG.md` contains the matching release section/link.
 - A GitHub Release exists for `v<version>`.
 
-**Pipeline steps:**
+The pipeline runs the following steps:
 
 1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (CPython 3.11, 3.12, 3.13)
 2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
@@ -476,9 +486,10 @@ publish derives the pre-release suffix itself.
    stamping it into the wheel at build time. No changelog entry, git tag, or GitHub
    Release is required; pipeline steps are otherwise identical to stable.
 
-> **Note:** `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
-> rejects a pre-release `project.version`. Keep the source tree on `X.Y.Z` and let
-> `channel: beta` derive the suffix.
+!!! note
+    `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
+    rejects a pre-release `project.version`. Keep the source tree on `X.Y.Z` and let
+    `channel: beta` derive the suffix.
 
 Install a beta with:
 
@@ -517,3 +528,11 @@ Run these gates before triggering the CI publish workflow (default `build-packag
 - [ ] `pytest tests/test_connector_registry.py tests/test_connectors_basic.py` passes
 - [ ] Wheel SHA256 checksums recorded and match expected values
 - [ ] `package` and `channel` inputs are correct before dispatching, and for `channel: release` the tag and GitHub Release already exist
+
+---
+
+## Related docs
+
+- [Local package to Docker image workflow](local-packages-to-images.md) — build wheels and MCP images locally
+- [Release rollback and unpublish runbook](release-rollback.md) — yank and corrective releases
+- [Versioning policy](versioning.md) — when to bump MAJOR, MINOR, or PATCH

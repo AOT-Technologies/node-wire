@@ -13,6 +13,8 @@ the pre-filled defaults, and assert on the rendered pipeline state. No mocking
 
 ## What is tested
 
+The suite contains the following tests:
+
 | Test | Action |
 |------|--------|
 | `test_epic_fhir_post_consultation_default` | Post-consultation sync — pre-filled patient Jason Smith, all 4 steps must succeed |

@@ -12,6 +12,8 @@ pipeline state. No mocking — every test hits the real Salesforce API.
 
 ## What is tested
 
+The suite contains the following tests:
+
 | Test | Action |
 |------|--------|
 | `test_sf_create_lead_minimal` | `create_lead` — required fields only (LastName + Company) |

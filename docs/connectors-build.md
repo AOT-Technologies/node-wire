@@ -12,6 +12,8 @@ Only need to call a connector that already ships? Start at [Use a connector](con
 
 ## On this page
 
+Use this table to find the section you need:
+
 | If you want to… | Go to |
 |---|---|
 | Understand the contract every connector implements | [How connectors work](#how-connectors-work) |
@@ -77,12 +79,15 @@ flowchart TB
 
 ## Write a connector step by step
 
-
 The production **Google Drive** connector (`src/node_wire_google_drive/`) is a good template for wrapping a **vendor Python SDK** (here `googleapiclient` / Drive API v3): service-account auth in `build_client()`, a discriminated union of operations in `schema.py`, and **`action_specs`** so each API surface becomes a manifest action without duplicating boilerplate.
 
 ### Step 1 — Define your schemas (`schema.py`)
 
-Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. You do **not** have to build the union yourself. When your class is defined, `BaseConnector` collects each action's input model and builds the discriminated union on `action` for you, wrapped in a `RootModel`. It finds that model from the `params` type hint of an `@nw_action` method, or from `input_model` on an `SdkActionSpec`. If the connector has only one action, the `RootModel` wraps that single model directly. Google Drive also exports its own `GoogleDriveOperationInput` union, shown in the following example. That is optional: its tests use it, but the runtime does not. The following excerpt shows two operations and the union:
+Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. You do **not** have to build the union yourself.
+
+When your class is defined, `BaseConnector` collects each action's input model and builds the discriminated union on `action` for you, wrapped in a `RootModel`. It finds that model from the `params` type hint of an `@nw_action` method, or from `input_model` on an `SdkActionSpec`. If the connector has only one action, the `RootModel` wraps that single model directly.
+
+Google Drive also exports its own `GoogleDriveOperationInput` union, shown in the following example. That is optional: its tests use it, but the runtime does not. The following excerpt shows two operations and the union:
 
 ```python
 # src/node_wire_google_drive/schema.py (conceptual excerpt)
@@ -308,7 +313,11 @@ Dict order is irrelevant: resolution walks the raised exception's MRO and takes 
 closest match. `StripeError` is the base class of the preceding rows, so it acts as the
 catch-all for any Stripe exception not named explicitly.
 
-`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. Internally it calls the scoped `ErrorMapper.register(connector_id, exc_type, category, code)` (`src/node_wire_runtime/errors.py`) on your behalf; connector code never calls `register()` directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (for example, two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors). The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (for example, `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
+`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**.
+
+Internally it calls the scoped `ErrorMapper.register(connector_id, exc_type, category, code)` (`src/node_wire_runtime/errors.py`) on your behalf; connector code never calls `register()` directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (for example, two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors).
+
+The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (for example, `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
 
 ---
 
@@ -349,7 +358,7 @@ class SmsConnector(BaseConnector):
     @nw_action("send")
     async def send(self, params: SmsSendInput, *, trace_id: str) -> SmsSendOutput:
         api_key = self.secret_provider.get_secret("sms_api_key")
-        # ... call SMS vendor API ...
+        # Call the SMS vendor API here.
         return SmsSendOutput(message_sid="SM123", status="queued")
 ```
 
@@ -505,7 +514,6 @@ def test_entry_point_auto_registers(monkeypatch):
 
 ## Authentication
 
-
 Node Wire provides a shared **`AuthProvider`** abstraction (`src/node_wire_runtime/auth/`) that handles token acquisition, JWT construction (for SMART on FHIR), caching, and expiry. This ensures that connector logic (`logic.py`) does not need to handle raw credentials or IdP-specific handshake details.
 
 ### Using auth in a connector
@@ -534,12 +542,20 @@ async def read_resource(self, params: In, *, trace_id: str) -> Out:
 **SDK connectors** (vendor Python SDK with a long-lived client object) — override `build_client()` so `get_client()` can cache the result across calls. Auth is handled inside `build_client()`, not via `get_auth_headers()`:
 
 ```python
-# logic.py — SDK connector pattern (for example, Google Drive)
+# logic.py — SDK connector pattern (simplified from src/node_wire_google_drive/logic.py)
+import json
+
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
 def build_client(self) -> Any:
-    # Read credential from secret provider and build the vendor client once.
+    # Read the credential from the secret provider and build the vendor client once.
     raw_sa = self.secret_provider.get_secret("MY_SA_JSON")
-    creds = ...
-    return vendor_sdk.build("v1", credentials=creds)
+    creds = service_account.Credentials.from_service_account_info(
+        json.loads(raw_sa),
+        scopes=["https://www.googleapis.com/auth/drive"],
+    )
+    return build("drive", "v3", credentials=creds)
 
 async def _execute_action_spec(self, action_name, params, *, trace_id, log_extra=None):
     client = self.get_client()  # cached; calls build_client() on first use
@@ -561,6 +577,8 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 | **`oauth2`** | Token exchange (`private_key_jwt`, `refresh_token`, `client_secret_post`, etc.). Handles caching and expiry. | `fhir_epic`, `salesforce` |
 
 #### `static_token` field reference
+
+The `static_token` block takes the following fields:
 
 | Field | Required | Default | Notes |
 |-------|----------|---------|-------|
@@ -655,7 +673,11 @@ image) are in one checklist: [Packaging — Adding a new publishable connector](
 
 ### Security (REST, plugins, secrets)
 
-**Scope policy (all `run()` paths)** — `ConnectorFactory` attaches a scope hook to every connector. It runs on **in-process** `connector.run()` as well as MCP, REST, and gRPC — protocol selection does not bypass it. Code / `sample.env` default is **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**: without caller `principal` / `scopes`, actions require the conventional scope `mcp:<connector_id>.<action>` (or an entry in **`NW_MCP_ACTION_SCOPE_MAP_JSON`**). Missing identity is denied (no anonymous bypass). For local scripts and auth-disabled bindings, set **`NW_MCP_SCOPE_POLICY_DEFAULT=allow`**, or grant the needed scopes on the caller (see [Calling a connector directly](connector-reference.md#calling-a-connector-directly-in-process)). Optional guardrail **`NW_MCP_SCOPE_POLICY_STRICT=true`** fails startup when scope policy would otherwise be effectively disabled (explicit `allow` + empty map).
+**Scope policy (all `run()` paths)** — `ConnectorFactory` attaches a scope hook to every connector. It runs on **in-process** `connector.run()` as well as MCP, REST, and gRPC — protocol selection does not bypass it.
+
+Code / `sample.env` default is **`NW_MCP_SCOPE_POLICY_DEFAULT=deny`**: without caller `principal` / `scopes`, actions require the conventional scope `mcp:<connector_id>.<action>` (or an entry in **`NW_MCP_ACTION_SCOPE_MAP_JSON`**). Missing identity is denied (no anonymous bypass).
+
+For local scripts and auth-disabled bindings, set **`NW_MCP_SCOPE_POLICY_DEFAULT=allow`**, or grant the needed scopes on the caller (see [Calling a connector directly](connector-reference.md#calling-a-connector-directly-in-process)). Optional guardrail **`NW_MCP_SCOPE_POLICY_STRICT=true`** fails startup when scope policy would otherwise be effectively disabled (explicit `allow` + empty map).
 
 **MCP (`bindings.mcp_server`)** — Configure **`NW_MCP_API_KEY_SCOPES`** (and optionally **`NW_MCP_ACTION_SCOPE_MAP_JSON`**) so `tools/list` and `tools/call` align with the same scope rules. API key wildcard (`"*"`) is explicit and intentionally bypasses per-action scope restrictions; use only for deliberate super-user keys. JWTs use claim `scopes` / `scope` and must include **`exp`**, **`iat`**, **`aud`** (match **`NW_JWT_AUDIENCE`**), and **`iss`** (match **`NW_JWT_ISSUER`**) when **`NW_MCP_JWT_SECRET`** is set.
 
@@ -672,6 +694,8 @@ image) are in one checklist: [Packaging — Adding a new publishable connector](
 ---
 
 ## Related documentation
+
+The following pages cover related topics:
 
 | Doc | When to read it |
 |-----|-----------------|

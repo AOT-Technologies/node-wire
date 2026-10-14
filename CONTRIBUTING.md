@@ -85,6 +85,11 @@ git config user.name "<your-name>"
 git config user.email "<your-email>"
 ```
 
+Replace the following:
+
+- `<your-name>`: your real full name.
+- `<your-email>`: the email address tied to your GitHub account.
+
 Do not commit with placeholder identities (for example, an unconfigured `My Name`
 default). Misconfigured identities get carried into the project history through
 squash-merge co-author trailers and are difficult to remove later.

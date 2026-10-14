@@ -22,6 +22,8 @@ the pipeline, the build report), see the how-to, [nw-connector-builder](nw-conne
 
 ### Spec ingestion
 
+The generator accepts the following specs and sources:
+
 - Swagger **2.0** and OpenAPI **3.x**, YAML or JSON, UTF-8
 - Local file path or `http(s)` URL (remote fetch goes through Node Wire's SSRF guard,
   `assert_safe_destination`, no redirects followed)
@@ -30,6 +32,8 @@ the pipeline, the build report), see the how-to, [nw-connector-builder](nw-conne
 - Structural + semantic validation via `prance` + `openapi-spec-validator`
 
 ### Auth
+
+The generator handles auth as follows:
 
 - One connector-level **default** scheme, chosen from the document's top-level `security` (or the
   most common scheme across operations if none is declared)
@@ -99,6 +103,8 @@ name.
 
 ### Codegen
 
+The generated package provides the following:
+
 - Actions discoverable via `@nw_action` on a generated `RestConnector` subclass (regex-scrapable
   by `nw-mcp-builder`, matching the hand-written-connector convention)
 - A shared, hardened REST executor (`node-wire-runtime`) owns base URL, path templating,
@@ -119,6 +125,8 @@ name.
 
 ### Testing & build gate
 
+The build gate runs the following checks:
+
 - Offline schema/contract tests only: parse the spec's `example` into the generated model when
   present, else synthesize one with `polyfactory`
 - Generated tests ship with the connector (`packages/connectors/<id>/tests/`)
@@ -127,6 +135,8 @@ name.
   leaves the repo untouched
 
 ### Wiring & hand-off
+
+The hand-off covers the following:
 
 - Optional `--wire`: upserts `config/connectors.yaml` (comment-preserving via `ruamel.yaml`) and
   appends secret placeholders / allowlist entries to `sample.env`
@@ -138,6 +148,8 @@ name.
 ## Out of scope
 
 ### Auth schemes
+
+The generator does not support the following auth schemes:
 
 - **OAuth2 / OpenID Connect acquisition for generated connectors** — Node Wire never *acquires*
   tokens for generated connectors, deliberately. Every `oauth2` flow and `openIdConnect` map to
@@ -157,6 +169,8 @@ name.
 
 ### Spec features
 
+The generator does not support the following spec features:
+
 - **Remote `$ref`s** (absolute URLs) — rejected outright; the input document must be
   self-contained aside from local relative/`#/` refs
 - **Path- or operation-level `servers` overrides** — ignored; only the connector-level base URL
@@ -167,6 +181,8 @@ name.
 
 ### Behavior not generated
 
+The generator does not produce the following behavior:
+
 - **Pagination** — no auto-pagination in v1, even when the spec documents cursor/offset
   patterns; generated actions return one page as-is
 - **Rate-limit / observability metadata** — not derived from the spec (for example, `x-ratelimit-*`
@@ -176,11 +192,15 @@ name.
 
 ### Testing depth
 
+The generated tests do not cover the following:
+
 - **Mock-server tests and live/integration tests against the real API are explicitly out of
   scope** — only offline schema/contract tests against generated models are produced
 - No contract testing against the live upstream service as part of the generator's gate
 
 ### Registration & deployment
+
+The generator does not do the following registration or deployment steps:
 
 - `--wire` never edits `connector_registry.py` or the root `pyproject.toml` — entry-point
   registration for editable monorepo installs is a manual follow-up step
@@ -193,6 +213,8 @@ name.
   the companion `nw-cli` orchestrator's scope too; see [nw-cli.md](nw-cli.md).
 
 ### Editing generated output
+
+The following limits apply to editing generated output:
 
 - Generated files are marked "do not hand-edit" — there is no supported workflow for
   incrementally patching a generated connector; the only supported update path is regenerating

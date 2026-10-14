@@ -12,6 +12,8 @@ state. No mocking — every test hits the real Stripe test-mode API.
 
 ## What is tested
 
+The suite contains the following tests:
+
 | Test | Action |
 |------|--------|
 | `test_stripe_charge_default` | `charge` — default values (2000 usd) |
@@ -62,6 +64,8 @@ Set these before running (`.env` is loaded automatically if present):
 | `NW_REST_AUTH_DISABLED` | Set to `true` to skip REST auth middleware |
 
 ## Optional environment variables (for subscription tests)
+
+These variables are optional:
 
 | Variable | Description |
 |----------|-------------|

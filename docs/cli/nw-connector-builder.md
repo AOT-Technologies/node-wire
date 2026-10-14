@@ -348,12 +348,12 @@ connectors:
     exposed_via: ["rest", "grpc", "mcp"]
     base_url: <derived or --base-url>
     auth:   # omitted when anonymous
-      provider: ...
-      secret_key: ...
+      provider: <provider>
+      secret_key: <secret-key>
     auth_schemes:   # only present when a divergent scheme needed its own auth_scheme=
       <scheme_name>:
-        provider: ...
-        secret_key: ...
+        provider: <provider>
+        secret_key: <secret-key>
 ```
 
 **`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (for example, `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme).

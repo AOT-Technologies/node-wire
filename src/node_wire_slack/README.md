@@ -27,6 +27,8 @@ The Slack connector provides high-level actions for messaging and file managemen
 
 ### Available operations
 
+The connector supports the following actions:
+
 | Action | Description |
 |---|---|
 | `post_message` | Send a message to a channel, group, or user |

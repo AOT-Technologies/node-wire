@@ -20,6 +20,8 @@ The runtime validates requests against the discriminated union in `schema.py`, t
 
 ### Action-spec layout
 
+The action-spec pattern has these pieces:
+
 | Piece | Role |
 |-------|------|
 | [`action_spec.py`](action_spec.py) | `GOOGLE_DRIVE_ACTION_SPECS`: per-action `SdkActionSpec` (resource path, method, field/body mapping, constants, optional `build_kwargs` / `post_process`). |
@@ -33,6 +35,8 @@ The runtime validates requests against the discriminated union in `schema.py`, t
 Use the same pattern: put declarative mapping in a connector-local `*_action_spec` module; `BaseConnector.__init_subclass__` auto-generates `@nw_action`-equivalent handlers from `action_specs`, so no manual `@nw_action` decorators are needed for spec-driven actions. Use `SdkActionSpec.build_kwargs` when the vendor API needs custom assembly (uploads, explicit `None` args, etc.).
 
 ### Available operations
+
+The connector supports the following actions:
 
 | Action | Description |
 |---|---|
@@ -273,6 +277,8 @@ All Google Drive errors are mapped into the platform error taxonomy using wrappe
 | `GDRIVE_FATAL` | `FATAL` | Any unhandled `HttpError` status or unexpected exception |
 
 ### HTTP status code mapping
+
+Each error category maps to an HTTP status:
 
 | Category | HTTP Status |
 |---|---|

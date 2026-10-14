@@ -80,21 +80,22 @@ The service account needs a key file so the platform can authenticate as it.
 4. Select **JSON** and click **Create**.
 5. Your browser downloads a `.json` file. **Keep this file safe** — it grants full access to anything the service account can access.
 
-The file looks like this:
+The file looks like the following excerpt; the downloaded file has a few more fields:
 
 ```json
 {
   "type": "service_account",
-  "project_id": "your-project-id",
-  "private_key_id": "abc123...",
-  "private_key": "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----\n",
-  "client_email": "node-wire-drive-connector@your-project.iam.gserviceaccount.com",
-  "client_id": "123456789",
+  "project_id": "<your-project-id>",
+  "private_key_id": "<private-key-id>",
+  "private_key": "<private-key>",
+  "client_email": "node-wire-drive-connector@<your-project-id>.iam.gserviceaccount.com",
+  "client_id": "<client-id>",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  ...
+  "token_uri": "https://oauth2.googleapis.com/token"
 }
 ```
+
+You don't edit these values: `<your-project-id>`, `<private-key-id>`, `<private-key>` (a PEM block), and `<client-id>` are filled in by Google Cloud.
 
 ### Step 5: Configure the connector
 

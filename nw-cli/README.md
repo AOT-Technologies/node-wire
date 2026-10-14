@@ -8,6 +8,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Unified CLI (`nw`) for the OpenAPI → connector → wheel → MCP → Docker pipeline.
 
+The package contains the following:
+
 | Path | Purpose |
 |------|---------|
 | `src/nw_cli/` | Typer app and stage helpers |

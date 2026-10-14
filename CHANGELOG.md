@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The manifests are a backend, a NetworkPolicy, a per-tenant proxy template, and stacklok's auth
   manifests. Swagger 2.0 specs, and JSON-Schema forms OpenAPI 3.0 rejects (`type: [x, null]`,
   tuple `items`, as in Slack's spec), are converted for stacklok's parser. See
-  `docs/stacklok-mcp-servers.md` and the runbook `docs/nw-cli-runbook.md`.
+  `docs/stacklok-mcp-servers.md`.
 - **stacklok Phases 1–3 in one `nw gen-stacklok --path` run**:
   - It prepares a local strict OpenAPI 3.0 copy of the spec. The connector is still built from the
     original (`x-nw-source`).
@@ -213,6 +213,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`node-wire-toolhive`** 1.1.0: `init_telemetry(service_name)`, which stacklok-built servers
   call at startup for the same redaction and opt-in OTLP export.
 
+- **`nw-cli`**: a new unified CLI (`nw`) for the OpenAPI → connector → wheel →
+  MCP → Docker pipeline, with `gen-all` (one-shot), and standalone `gen-whl`,
+  `gen-mcp`, and `docker-build` stages, prerequisite checks, and a Rich
+  progress UI (`nw-cli/`, `docs/nw-cli.md`).
+- **`nw-connector-builder`**: a new package that derives a connector
+  (auth, naming, operations, normalizers) from an OpenAPI/Swagger spec and
+  generates its codegen output, with a promotion gate for reviewing generated
+  connectors before they're wired in (`nw-connector-builder/`,
+  `docs/nw-connector-builder.md`, `docs/nw-connector-builder-scope.md`).
+- **`nw-mcp-builder`**: a new package that generates a standalone MCP server
+  project from an existing connector (`nw-mcp-builder/`), including
+  mcp-builder YAML configs for the Slack and Salesforce connectors.
+- Multi-tenancy support across all bindings (REST, gRPC, MCP) and the
+  playground: per-tenant configuration and secrets, tenant selection, and
+  per-tenant credential isolation for every connector (Google Drive, HTTP
+  generic, SMTP, Stripe, Epic FHIR, Cerner FHIR, Salesforce, Slack).
+- `node_wire_runtime.config_store` and `node_wire_runtime.tenant_persistence`
+  for durable per-tenant configuration storage, an expanded `secrets`
+  subsystem for per-tenant secret resolution, and `node_wire_runtime.identity`
+  for tenant identity resolution shared across bindings.
+- `TenantSessionOverlay` (`node_wire_runtime.tenant_session`), extracted from
+  the MCP server's private state, to isolate per-request tenant/config context.
+- Google Drive MCP upstream OIDC / bearer passthrough so MCP requests can forward
+  the caller’s OAuth token to Drive.
+- LLM provider/model switching in the playground (`agents/llm_factory.py`,
+  new `agents/llm_base.py`), with new Anthropic and Gemini providers alongside
+  updated OpenAI and Groq providers, and playground UI controls for selecting
+  a model per session.
+- Per-connector response normalizers (`normalizers.py`) for Google Drive,
+  Salesforce, SMTP, Epic FHIR, and Cerner FHIR.
+- Error taxonomy support in the connector codegen and mcp-builder pipelines.
+- A new query-parameter API key auth mechanism (`node_wire_runtime.auth.apikey_query`).
+- OpenTelemetry metrics and structured audit-trail events on connector
+  invocations.
+- REST `/ready` readiness endpoint (requires at least one REST or gRPC connector).
+- Automated release-tag workflow (`create-tag.yml`) and a lockstep package
+  version-bump script with changelog scaffolding.
+- Branded documentation site with architecture overview, published from CI
+  (`mkdocs.yml`, `docs/index.md`, `docs/mcp-servers.md`).
+- `scripts/build-mcp-server.sh` and `scripts/mcp-servers.registry` for
+  building per-connector MCP server images, and a `docs.yml` CI workflow to
+  publish the documentation site.
+- PR patch-coverage gate (80% overall, with an 80% floor on changed files) and
+  static security analysis on pull requests.
+- Broader automated test coverage for bindings, secrets, auth, metrics, and audit
+  trail.
+
 ### Changed
 
 - **One error taxonomy on every surface** (`docs/errors.md`). The runtime now owns every code,
@@ -367,22 +414,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name). The import package (`node_wire_http_generic`), the connector key, and
   the `node_wire.connectors` entry point (`http_generic`) are unchanged.
 
-### Security
-
-- **`nw gen-stacklok` manifests**: the backend no longer trusts `X-Tenant-ID` on the NetworkPolicy
-  alone. `deploy/proxy-secret.yaml` holds a shared secret every tenant proxy sends as
-  `X-NW-Proxy-Secret` (`headerForward.addHeadersFromSecret`); the backend reads it as
-  `NW_PROXY_SECRET`, and `node-wire-toolhive` rejects tenant requests without it
-  (`PROXY_AUTH_FAILED`). `deploy/README.md` states the NetworkPolicy-enforcing CNI requirement.
-  The generated placeholder value `REPLACE_ME_PROXY_SECRET` is always rejected, so a
-  `proxy-secret.yaml` applied unedited fails closed instead of sharing a publicly known secret.
-- **Generated stacklok image**: `.dockerignore` now allow-lists `config/connectors.yaml` instead of
-  excluding only `config/tenants.yaml`, so a tenants file under another name is never baked in.
-- **Headless AI scoping**: Claude Code runs with `--permission-mode dontAsk` and file edits
-  allowed only inside the scoping work directory (was `acceptEdits` across the repo), so a
-  prompt-injected spec cannot rewrite `.claude/` or the vendored skill.
-- **`nw gen-stacklok`**: `server.name` is checked as a DNS label when the scope is read, and
-  `--force` refuses to delete a project outside the output directory.
+- Collapsed the REST/gRPC binding invoke path into a shared `bindings/invoke.py`
+  helper, removing duplicated dispatch logic between transports.
+- Strengthened auth/scope-policy enforcement and connector isolation as part
+  of a connector framework optimization pass; removed the per-connector
+  `registration.py` modules and the shared `mcp_contract.py` /
+  `mcp_normalizers.py` in favor of the new normalizer-based registration path.
+- Rebuilt the wheel-build script for roughly an 80% reduction in build time.
+- Pinned the MCP SDK version until the codebase is compatible with the newer
+  release.
+- `nw-mcp-builder` generated Dockerfiles now use the same digest-pinned
+  `python:3.12-slim` base and non-root `USER` as checked-in images, with a
+  whitelist `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
+  application tree, and no default `NW_MCP_AUTH_DISABLED` in containers.
+- Node Wire branding refresh (README badges/logos, docs site theme).
+- Documentation updates for connector authoring, MCP servers, packaging/release
+  flow, configuration, architecture, multi-tenancy, and the connector builder
+  pipeline (`docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
+  `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`,
+  `docs/toolhive_agent_scenario.md`).
+- CI workflows hardened for consistency across quality, security, and publish
+  checks.
+- Publish workflow accepts PEP 440 pre-release tags (`aN` / `bN` / `rcN`) and
+  skips the GitHub Release prerequisite for those tags so betas can ship to
+  PyPI without a GitHub Release; Create Release Tag and `bump-version.py`
+  accept the same version shapes (`docs/packaging.md`, `docs/versioning.md`).
 
 ### Fixed
 
@@ -466,87 +522,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``error`` in the message and ``connector_id``) so Grafana's connector filter
   can count playground ``internal_execute`` failures instead of reporting 100%.
 
-## [1.1.0] - 2026-07-30
-
-### Added
-
-- **`nw-cli`**: a new unified CLI (`nw`) for the OpenAPI → connector → wheel →
-  MCP → Docker pipeline, with `gen-all` (one-shot), and standalone `gen-whl`,
-  `gen-mcp`, and `docker-build` stages, prerequisite checks, and a Rich
-  progress UI (`nw-cli/`, `docs/nw-cli.md`).
-- **`nw-connector-builder`**: a new package that derives a connector
-  (auth, naming, operations, normalizers) from an OpenAPI/Swagger spec and
-  generates its codegen output, with a promotion gate for reviewing generated
-  connectors before they're wired in (`nw-connector-builder/`,
-  `docs/nw-connector-builder.md`, `docs/nw-connector-builder-scope.md`).
-- **`nw-mcp-builder`**: a new package that generates a standalone MCP server
-  project from an existing connector (`nw-mcp-builder/`), including
-  mcp-builder YAML configs for the Slack and Salesforce connectors.
-- Multi-tenancy support across all bindings (REST, gRPC, MCP) and the
-  playground: per-tenant configuration and secrets, tenant selection, and
-  per-tenant credential isolation for every connector (Google Drive, HTTP
-  generic, SMTP, Stripe, Epic FHIR, Cerner FHIR, Salesforce, Slack).
-- `node_wire_runtime.config_store` and `node_wire_runtime.tenant_persistence`
-  for durable per-tenant configuration storage, an expanded `secrets`
-  subsystem for per-tenant secret resolution, and `node_wire_runtime.identity`
-  for tenant identity resolution shared across bindings.
-- `TenantSessionOverlay` (`node_wire_runtime.tenant_session`), extracted from
-  the MCP server's private state, to isolate per-request tenant/config context.
-- Google Drive MCP upstream OIDC / bearer passthrough so MCP requests can forward
-  the caller’s OAuth token to Drive.
-- LLM provider/model switching in the playground (`agents/llm_factory.py`,
-  new `agents/llm_base.py`), with new Anthropic and Gemini providers alongside
-  updated OpenAI and Groq providers, and playground UI controls for selecting
-  a model per session.
-- Per-connector response normalizers (`normalizers.py`) for Google Drive,
-  Salesforce, SMTP, Epic FHIR, and Cerner FHIR.
-- Error taxonomy support in the connector codegen and mcp-builder pipelines.
-- A new query-parameter API key auth mechanism (`node_wire_runtime.auth.apikey_query`).
-- OpenTelemetry metrics and structured audit-trail events on connector
-  invocations.
-- REST `/ready` readiness endpoint (requires at least one REST or gRPC connector).
-- Automated release-tag workflow (`create-tag.yml`) and a lockstep package
-  version-bump script with changelog scaffolding.
-- Branded documentation site with architecture overview, published from CI
-  (`mkdocs.yml`, `docs/index.md`, `docs/mcp-servers.md`).
-- `scripts/build-mcp-server.sh` and `scripts/mcp-servers.registry` for
-  building per-connector MCP server images, and a `docs.yml` CI workflow to
-  publish the documentation site.
-- PR patch-coverage gate (80% overall, with an 80% floor on changed files) and
-  static security analysis on pull requests.
-- Broader automated test coverage for bindings, secrets, auth, metrics, and audit
-  trail.
-
-### Changed
-
-- Collapsed the REST/gRPC binding invoke path into a shared `bindings/invoke.py`
-  helper, removing duplicated dispatch logic between transports.
-- Strengthened auth/scope-policy enforcement and connector isolation as part
-  of a connector framework optimization pass; removed the per-connector
-  `registration.py` modules and the shared `mcp_contract.py` /
-  `mcp_normalizers.py` in favor of the new normalizer-based registration path.
-- Rebuilt the wheel-build script for roughly an 80% reduction in build time.
-- Pinned the MCP SDK version until the codebase is compatible with the newer
-  release.
-- `nw-mcp-builder` generated Dockerfiles now use the same digest-pinned
-  `python:3.12-slim` base and non-root `USER` as checked-in images, with a
-  whitelist `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
-  application tree, and no default `NW_MCP_AUTH_DISABLED` in containers.
-- Node Wire branding refresh (README badges/logos, docs site theme).
-- Documentation updates for connector authoring, MCP servers, packaging/release
-  flow, configuration, architecture, multi-tenancy, and the connector builder
-  pipeline (`docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
-  `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`,
-  `docs/toolhive_agent_scenario.md`).
-- CI workflows hardened for consistency across quality, security, and publish
-  checks.
-- Publish workflow accepts PEP 440 pre-release tags (`aN` / `bN` / `rcN`) and
-  skips the GitHub Release prerequisite for those tags so betas can ship to
-  PyPI without a GitHub Release; Create Release Tag and `bump-version.py`
-  accept the same version shapes (`docs/packaging.md`, `docs/versioning.md`).
-
-### Fixed
-
 - Moved `grpcio-tools` out of core `node-wire` dependencies into the optional
   `grpc-codegen` extra (used only by `scripts/generate-grpc-stubs.sh`). Plain
   installs and CI `uv sync --extra agents --dev` no longer pull a native
@@ -562,6 +537,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cleanups across runtime, agents, playground scenarios, and connectors.
 - gRPC health-check behavior for readiness/liveness reporting.
 - Log-sanitization test isolation so logger filters do not leak across the suite.
+
+### Security
+
+- **`nw gen-stacklok` manifests**: the backend no longer trusts `X-Tenant-ID` on the NetworkPolicy
+  alone. `deploy/proxy-secret.yaml` holds a shared secret every tenant proxy sends as
+  `X-NW-Proxy-Secret` (`headerForward.addHeadersFromSecret`); the backend reads it as
+  `NW_PROXY_SECRET`, and `node-wire-toolhive` rejects tenant requests without it
+  (`PROXY_AUTH_FAILED`). `deploy/README.md` states the NetworkPolicy-enforcing CNI requirement.
+  The generated placeholder value `REPLACE_ME_PROXY_SECRET` is always rejected, so a
+  `proxy-secret.yaml` applied unedited fails closed instead of sharing a publicly known secret.
+- **Generated stacklok image**: `.dockerignore` now allow-lists `config/connectors.yaml` instead of
+  excluding only `config/tenants.yaml`, so a tenants file under another name is never baked in.
+- **Headless AI scoping**: Claude Code runs with `--permission-mode dontAsk` and file edits
+  allowed only inside the scoping work directory (was `acceptEdits` across the repo), so a
+  prompt-injected spec cannot rewrite `.claude/` or the vendored skill.
+- **`nw gen-stacklok`**: `server.name` is checked as a DNS label when the scope is read, and
+  `--force` refuses to delete a project outside the output directory.
 
 ## [1.0.0] - 2026-06-27
 
@@ -633,6 +625,6 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Dependency lockfile upgraded to resolve known CVEs in transitive packages.
 - Packaging, publish workflow, and security scanning aligned on the nine-package surface.
 
-[1.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.0
+[Unreleased]: https://github.com/AOT-Technologies/node-wire/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.0.0
 [0.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v0.1.0

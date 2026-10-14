@@ -60,6 +60,8 @@ Next, check it as in [Verifying a running server](#verifying-a-running-server).
 
 ## Names
 
+The commands and paths on this page use the following names:
+
 | Name | Comes from | Example |
 | --- | --- | --- |
 | `<id>` | `--connector-id`, or the scope's `runtime.connector_id` | `pet_store` |
@@ -80,8 +82,8 @@ The connector stage generates the connector and wires it in, like `nw gen-all` d
 | --- | --- |
 | `config/connectors.yaml` | adds the `<id>:` entry (tracked file) |
 | `sample.env` | adds `<id>` to `NW_ALLOWED_CONNECTORS`, plus the connector's secret names (tracked file) |
-| `src/node_wire_<id>/`, `packages/connectors/<id>/` | connector source and its wheels (new) |
-| `nw-stacklok-builder/scoping/<id>/` | the scope and `scoping-summary.md` (new) |
+| `src/node_wire_<id>/`, `packages/connectors/<id>/` | connector source and its wheels (created) |
+| `nw-stacklok-builder/scoping/<id>/` | the scope and `scoping-summary.md` (created) |
 | `nw-stacklok-builder/specs/<id>.openapi.json`, `nw-stacklok-builder/out/<server>-mcp/` | the prepared spec and the server project (gitignored) |
 
 Unlike `gen-all`, it doesn't add the connector to `ALL_PACKAGES` in `scripts/build-packages.sh`.
@@ -134,7 +136,7 @@ runtime:
    (`spec.base_url` is the connector's base URL). The connector covers every operation; the scope
    decides which ones become tools. The connector is always regenerated from the scope's spec, so
    endpoints map onto it; a hand-written connector with the same id is never overwritten.
-2. **Wheels for the MCP image**: compiled wheels for `node-wire-runtime`, `node-wire-bindings`,
+2. **Wheels for the MCP image** — compiled wheels for `node-wire-runtime`, `node-wire-bindings`,
    `node-wire-toolhive` and the connector.
    - They must match the image's Python ABI and C library, because node-wire wheels are
      binary-only. The target is read from the template's base image: stacklok's
@@ -176,7 +178,7 @@ runtime:
   context — not from middleware contextvars, which under stateful streamable HTTP keep the
   session's *first* request (a refreshed token would never be seen).
 - **Errors and logs.** A failed tool call reaches the MCP client as
-  `CODE [CATEGORY]: message (trace_id=...)`, for example, 
+  `CODE [CATEGORY]: message (trace_id=...)`, for example,
   `VALIDATION_ERROR [BUSINESS]: Input validation failed; ... (trace_id=5f0c...)`, the same codes
   as on every other surface ([Errors](errors.md)). The server logs the same `trace_id`. Each connector run writes `runtime.base_connector` lines with `trace_id`,
   `connector_id`, `action`, `audit_event` (`invocation_start`, `invocation_success`,
@@ -210,7 +212,7 @@ Why this is safe: ToolHive's `header-forward` middleware sets each configured he
 claiming a tenant:
 
 - the NetworkPolicy admits only the proxy pods. This needs a CNI that enforces NetworkPolicy
-  (Calico, Cilium, ...); on one that doesn't, the policy does nothing;
+  (for example, Calico or Cilium); on one that doesn't, the policy does nothing;
 - every proxy sends the shared secret from `proxy-secret.yaml` (`headerForward.addHeadersFromSecret`),
   and the backend rejects the tenant header without it.
 

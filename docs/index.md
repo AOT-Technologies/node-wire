@@ -6,11 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # <img src="images/nw-favicon-black.png" alt="" width="90" align="center"/>node wire
 
-[![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
-[![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
-[![PyPI runtime](https://img.shields.io/pypi/v/node-wire-runtime.svg?label=node-wire-runtime)](https://pypi.org/project/node-wire-runtime/)
+[![CI](https://img.shields.io/github/actions/workflow/status/AOT-Technologies/node-wire/pytest.yml?branch=main&label=CI)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/AOT-Technologies/node-wire/codeql.yml?branch=main&label=CodeQL)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
+[![PyPI runtime](https://img.shields.io/pypi/v/node-wire-runtime?label=node-wire-runtime)](https://pypi.org/project/node-wire-runtime/)
 [![GitHub Release](https://img.shields.io/github/v/release/AOT-Technologies/node-wire)](https://github.com/AOT-Technologies/node-wire/releases/latest)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE)
 
 <p align="center">
   <img src="images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
@@ -26,7 +26,7 @@ You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). The [Installation 
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --extra agents --dev
-cp sample.env .env                  # set NW_ALLOWED_CONNECTORS, e.g. http_generic
+cp sample.env .env                  # set NW_ALLOWED_CONNECTORS, for example http_generic
 export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/* and /ready return 503 until auth is configured
 MODE=API uv run node-wire
 ```

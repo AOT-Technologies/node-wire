@@ -26,6 +26,8 @@ uv run --directory nw-connector-builder nw-connector-builder mcp -c <connector_i
 uv run nw gen-mcp --connector-id <connector_id>
 ```
 
+Replace `<connector_id>` with the connector's id, as in `config/connectors.yaml` (for example, `google_drive`).
+
 The standalone `nw-mcp-builder` entry point remains supported.
 
 ---
@@ -205,6 +207,11 @@ uv run python -m <module_name>
 uv run python -m google_drive_nw_mcp
 ```
 
+Replace the following:
+
+- `<name>`: the connector id with `_` replaced by `-`, plus `-nw` (for example, `google-drive-nw` for `google_drive`).
+- `<module_name>`: the same name with `-` replaced by `_`, plus `_mcp` (for example, `google_drive_nw_mcp`).
+
 HTTP MCP (default) listens on port **8081**. For stdio (for example, Cursor / MCP Inspector):
 
 ```bash
@@ -225,6 +232,8 @@ docker build -t <image-name>:latest .
 # Example
 docker build -t google-drive-nw-mcp:latest .
 ```
+
+Replace `<name>` as in [Run the generated host](#run-the-generated-host), and `<image-name>` with any image name you choose.
 
 Point ToolHive at that image (for example, `google-drive-nw-mcp:latest`).
 
@@ -249,7 +258,7 @@ Also set `NW_ALLOWED_CONNECTORS=<connector_id>` if not already baked into the im
 
 | Setting | Value |
 |--|--|
-| **Host path** | `{repo}\node-wire\nw-mcp-builder\out\<name>-mcp\.env` (use the file picker) |
+| **Host path** | `<repo>\node-wire\nw-mcp-builder\out\<name>-mcp\.env` (use the file picker) |
 | **Container path** | `/app/.env` |
 | **Mode** | Read-only |
 
@@ -321,7 +330,7 @@ Minimal shape:
 version: "1"
 server:
   name: salesforce-nw
-  description: ...
+  description: <description>
 runtime:
   type: node_wire
   connector_id: salesforce
@@ -331,7 +340,7 @@ spec:
   base_url: https://unused.invalid
 groups:
   - name: connector
-    tools: [...]
+    tools: [<tool-names>]
 auth:
   type: none
 ```

@@ -12,6 +12,8 @@ state. No mocking — every test hits the real Slack API.
 
 ## What is tested
 
+The suite contains the following tests:
+
 | Test | Action |
 |------|--------|
 | `test_slack_post_message_default` | `post_message` — default message to test channel |
@@ -58,6 +60,8 @@ Set these before running (`.env` is loaded automatically if present):
 | `NW_REST_AUTH_DISABLED` | Set to `true` to skip REST auth middleware |
 
 ## Optional environment variables
+
+These variables are optional:
 
 | Variable | Description | Default |
 |----------|-------------|---------|

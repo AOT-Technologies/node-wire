@@ -6,16 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 
 # <img src="./docs/images/nw-favicon-black.png" alt="" width="90" align="center"/>node wire
 
-[![CI](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
-[![CodeQL](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml/badge.svg)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
-[![PyPI runtime](https://img.shields.io/pypi/v/node-wire-runtime.svg?label=node-wire-runtime)](https://pypi.org/project/node-wire-runtime/)
+[![CI](https://img.shields.io/github/actions/workflow/status/AOT-Technologies/node-wire/pytest.yml?branch=main&label=CI)](https://github.com/AOT-Technologies/node-wire/actions/workflows/pytest.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/AOT-Technologies/node-wire/codeql.yml?branch=main&label=CodeQL)](https://github.com/AOT-Technologies/node-wire/actions/workflows/codeql.yml)
+[![PyPI runtime](https://img.shields.io/pypi/v/node-wire-runtime?label=node-wire-runtime)](https://pypi.org/project/node-wire-runtime/)
 [![GitHub Release](https://img.shields.io/github/v/release/AOT-Technologies/node-wire)](https://github.com/AOT-Technologies/node-wire/releases/latest)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-`pip install node-wire-connectors` installs the runtime and every public connector.
 <p align="center">
   <img src="./docs/images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
 </p>
+
 node wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
 
 ## Quick start
@@ -26,12 +26,14 @@ You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). See [Installation]
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 uv sync --frozen --extra agents --dev
-cp sample.env .env                  # set NW_ALLOWED_CONNECTORS, e.g. http_generic
+cp sample.env .env                  # set NW_ALLOWED_CONNECTORS, for example http_generic
 export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/* and /ready return 503 until auth is configured
 MODE=API uv run node-wire
 ```
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI, or the [playground](http://localhost:8000/playground/) for interactive connector demos.
+
+To install the packages instead of a source checkout, `pip install node-wire-connectors` installs the runtime and every public connector. See [Client consumption model](docs/packaging.md#client-consumption-model) for installing a subset.
 
 ## Documentation
 

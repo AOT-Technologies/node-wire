@@ -12,6 +12,8 @@ pipeline state. No mocking — every test hits the real Google Drive API.
 
 ## What is tested
 
+The suite contains the following tests:
+
 | Test | Action |
 |------|--------|
 | `test_gdrive_list_files_default_page_size` | `files.list` — default page size |

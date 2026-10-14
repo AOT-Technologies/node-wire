@@ -13,6 +13,8 @@ every test makes a real HTTP POST via the `http_generic` connector.
 
 ## What is tested
 
+The suite contains the following tests:
+
 | Test | Action |
 |------|--------|
 | `test_http_connector_submit_incident_default` | IT incident report — pre-filled High severity Gateway Proxy incident, all 4 steps must succeed |

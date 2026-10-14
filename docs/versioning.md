@@ -79,3 +79,9 @@ projects as stable builds and do **not** create a GitHub Release. Public API
 guarantees in this document apply to the final `MAJOR.MINOR.PATCH` release; a
 pre-release does not change those guarantees early. Install with
 `pip install --pre …` or an exact version pin.
+
+## Related docs
+
+- [Packaging](packaging.md) — the release process and the package inventory
+- [Release rollback and unpublish runbook](release-rollback.md) — yank and corrective releases
+- [Public API](public-api.md) — the surface these guarantees cover

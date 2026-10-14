@@ -59,7 +59,7 @@ The central configuration was updated to include the `fhir_epic` entry.
 
 ### `pyproject.toml` — dependency management
 
-Two new dependencies were added to support the FHIR integration:
+Two dependencies were added to support the FHIR integration:
 
 - **`pyjwt[crypto]`**: Required to generate the RS384-signed JWTs for the SMART Backend Services authentication flow.
 - **`httpx`**: Used as the primary asynchronous HTTP client for all FHIR API interactions, chosen for its performance and native `asyncio` support.
@@ -124,6 +124,8 @@ Exercise the connector with the REST `curl` examples in [`docs/connectors.md`](.
 ---
 
 ## Directory structure
+
+The connector is organized as follows:
 
 | File / Path | Purpose |
 |---|---|

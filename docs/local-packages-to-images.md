@@ -175,3 +175,8 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 # 3) Verify image exists
 docker images --filter reference=nw-smtp
 ```
+
+## Related docs
+
+- [Packaging and publishing](packaging.md) — package inventory and release process
+- [ToolHive agent scenario](toolhive_agent_scenario.md) — register the images in ToolHive

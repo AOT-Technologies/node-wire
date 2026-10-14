@@ -100,7 +100,11 @@ ToolHive runs the connector platform in a secure Docker container, injects secre
 
 ## What does the Node Wire MCP server expose?
 
-When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), each per-connector server (`agents.stripe_mcp` and the others) advertises that connector's **full** action set, not only the one this workflow calls — Cerner and Epic 5 each, Google Drive 7 (`files.*` plus `permissions.create`), Stripe 5, SMTP 1, so about 23 tools in total. The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every registered connector enabled for MCP in `config/connectors.yaml` — about 35 with the bundled connectors, plus the `nw_*` tenant/config tools when multi-tenancy is on. This section follows the **five-tool** happy path (Cerner read patient, Epic read patient, Drive upload, a Stripe charge, SMTP send); the [architecture diagram](#architecture) shows only the four tools this workflow actually calls. See [nw-mcp-builder](cli/nw-mcp-builder.md) for the full surface.
+When running **this scenario’s** minimal multi-connector stack (one MCP server per connector image registered in ToolHive), each per-connector server (`agents.stripe_mcp` and the others) advertises that connector's **full** action set, not only the one this workflow calls — Cerner and Epic 5 each, Google Drive 7 (`files.*` plus `permissions.create`), Stripe 5, SMTP 1, so about 23 tools in total.
+
+The **unified** MCP server (`python -m agents.mcp_entrypoint`) exposes **all** manifest actions for every registered connector enabled for MCP in `config/connectors.yaml` — about 35 with the bundled connectors, plus the `nw_*` tenant/config tools when multi-tenancy is on.
+
+The following table lists the five tools this section covers: the four the workflow calls (Cerner read patient, Epic read patient, Drive upload, SMTP send), which the [architecture diagram](#architecture) shows, plus a Stripe charge that the stack registers but the workflow does not call. See [nw-mcp-builder](cli/nw-mcp-builder.md) for the full surface.
 
 | Tool | Description |
 |---|---|
@@ -126,6 +130,8 @@ The MCP server automatically masks sensitive health information before any data 
 
 ## Prerequisites
 
+You need the following:
+
 | Requirement | Notes |
 |---|---|
 | [ToolHive UI](https://stacklok.com/toolhive) installed | Download for macOS / Linux / Windows |
@@ -146,7 +152,7 @@ These two methods let a non-developer get the agent running quickly: the recomme
 1. Open the ToolHive UI on your machine.
 2. Build or pull the Docker image `node-wire:latest` (admins can do this for you), then Add a new Server / Container.
 3. Name it `node-wire-connectors`. Set Transport to `stdio`.
-4. In the server's Environment / Secrets section, add the variables from [Environment variables](#environment-variables-complete-list). For `GOOGLE_DRIVE_SA_JSON` paste the entire service account JSON into the secret value (do NOT upload a file path here).
+4. In the server's Environment / Secrets section, add the variables from [Environment variables](#environment-variables-complete-list). For `GOOGLE_DRIVE_SA_JSON` paste the entire service account JSON into the secret value (do not upload a file path here).
 5. Start the server. ToolHive shows an Endpoint URL like `http://localhost:<PORT>/sse` or a proxy URL that contains `/sse` or `/mcp`.
 6. Copy the proxy URL and paste it into a local `.env` or give it to the person running the agent as `TOOLHIVE_MCP_URL`.
 
@@ -157,40 +163,40 @@ Prerequisite: Install Python 3.13+ and Git. If you cannot install, ask an admini
 1. Open PowerShell and clone or navigate to the project folder.
 2. Create a `.env` file in the project root (replace placeholder values):
 
-```powershell
-Set-Content -Path .env -Value @'
-TOOLHIVE_MCP_URL=http://localhost:7977/mcp
-LLM_PROVIDER=groq
-GROQ_API_KEY=<your-groq-api-key>
-GROQ_MODEL=openai/gpt-oss-120b
-FROM_EMAIL=from@example.com
-SMTP_HOST=sandbox.smtp.mailtrap.io
-SMTP_PORT=2525
-SMTP_USERNAME=<your-smtp-username>
-SMTP_PASSWORD=<your-smtp-password>
-SMTP_USE_TLS=true
-GOOGLE_DRIVE_FOLDER_ID=<your-folder-id>
-'@
-```
+    ```powershell
+    Set-Content -Path .env -Value @'
+    TOOLHIVE_MCP_URL=http://localhost:7977/mcp
+    LLM_PROVIDER=groq
+    GROQ_API_KEY=<your-groq-api-key>
+    GROQ_MODEL=openai/gpt-oss-120b
+    FROM_EMAIL=from@example.com
+    SMTP_HOST=sandbox.smtp.mailtrap.io
+    SMTP_PORT=2525
+    SMTP_USERNAME=<your-smtp-username>
+    SMTP_PASSWORD=<your-smtp-password>
+    SMTP_USE_TLS=true
+    GOOGLE_DRIVE_FOLDER_ID=<your-folder-id>
+    '@
+    ```
 
-Replace the following:
+    Replace the following:
 
-- `<your-groq-api-key>`: your Groq API key.
-- `<your-smtp-username>` and `<your-smtp-password>`: your SMTP credentials.
-- `<your-folder-id>`: the ID of the Drive folder shared with the service account.
+    - `<your-groq-api-key>`: your Groq API key.
+    - `<your-smtp-username>` and `<your-smtp-password>`: your SMTP credentials.
+    - `<your-folder-id>`: the ID of the Drive folder shared with the service account.
 
 3. Install the Python extras (one-time):
 
-```powershell
-pip install -e ".[agents]"
-```
+    ```powershell
+    pip install -e ".[agents]"
+    ```
 
 4. Run the agent (example):
 
-```powershell
-#$env:TOOLHIVE_MCP_URL="http://localhost:7977/mcp"
-python -m agents.toolhive --patient-id 12724066 --recipient-email you@example.com
-```
+    ```powershell
+    #$env:TOOLHIVE_MCP_URL="http://localhost:7977/mcp"
+    python -m agents.toolhive --patient-id 12724066 --recipient-email you@example.com
+    ```
 
 Notes for non-developers:
 
@@ -299,7 +305,7 @@ thv secret set SMTP_PORT
 
 ToolHive starts the container and sets up a stdio-to-HTTP proxy on a local port.
 
-**Multi-tenancy (recommended for unified MCP):**
+For the unified MCP server, multi-tenancy is the recommended setup. Set the following variables:
 
 | Name | Value |
 |------|--------|
@@ -387,7 +393,7 @@ python -m agents.toolhive \
 
 Replace `<your-folder-id>` with the ID of the Drive folder shared with the service account.
 
-**Arguments:**
+The command takes the following arguments:
 
 | Argument | Required | Description |
 |---|---|---|
@@ -409,17 +415,22 @@ Set `LLM_PROVIDER` and the provider's API key on the command line:
 
 ```bash
 # Use OpenAI
-LLM_PROVIDER=openai OPENAI_API_KEY=sk-... python -m agents.toolhive ...
+LLM_PROVIDER=openai OPENAI_API_KEY=<openai-api-key> python -m agents.toolhive <arguments>
 
 # Use Claude (Anthropic)
-LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-... python -m agents.toolhive ...
+LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=<anthropic-api-key> python -m agents.toolhive <arguments>
 
 # Use Google Gemini
-LLM_PROVIDER=gemini GEMINI_API_KEY=AIza... python -m agents.toolhive ...
+LLM_PROVIDER=gemini GEMINI_API_KEY=<gemini-api-key> python -m agents.toolhive <arguments>
 
 # Use NVIDIA (OpenAI-compatible endpoint)
-LLM_PROVIDER=nvidia NVIDIA_API_KEY=nvapi-... python -m agents.toolhive ...
+LLM_PROVIDER=nvidia NVIDIA_API_KEY=<nvidia-api-key> python -m agents.toolhive <arguments>
 ```
+
+Replace the following:
+
+- `<openai-api-key>`, `<anthropic-api-key>`, `<gemini-api-key>`, and `<nvidia-api-key>`: the API key for the provider you select.
+- `<arguments>`: the arguments from the preceding table, for example, `--patient-id` and `--recipient-email`.
 
 ### Sample output
 
@@ -589,10 +600,12 @@ When running multiple MCP servers, configure the agent with **`TOOLHIVE_MCP_URLS
 
 ## Troubleshooting
 
+The following table lists common problems and their fixes:
+
 | Problem | Likely cause | Fix |
 |---|---|---|
 | `TOOLHIVE_MCP_URL is not set` | Missing env var | Copy the endpoint URL from ToolHive UI → Installed → `node-wire-connectors` and add to `.env` |
-| `Failed to list MCP tools: Connection refused` | ToolHive server stopped | Re-start via ToolHive UI, or run `thv run ...` again; check `thv list` to see running servers |
+| `Failed to list MCP tools: Connection refused` | ToolHive server stopped | Restart via ToolHive UI, or run `thv run ...` again; check `thv list` to see running servers |
 | `Secret 'CERNER_PRIVATE_KEY' is not configured` | Secret not stored in ToolHive | Run `thv secret set CERNER_PRIVATE_KEY` or add it via the ToolHive UI |
 | `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |
 | `SMTP authentication failed` | Wrong username or password | For Gmail, use an App Password not your regular password; confirm `SMTP_USERNAME` includes `@` |

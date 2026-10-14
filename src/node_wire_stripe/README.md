@@ -54,7 +54,7 @@ connectors:
 This action supports multiple payment integration flows:
 
 - **Saved payment method**: Pass `default_payment_method` with an existing `pm_xxx` ID.
-- **Card token**: Pass `card_token` (for example, `tok_visa`). The connector automatically creates a PaymentMethod and attach it to the customer before creating the subscription.
+- **Card token**: Pass `card_token` (for example, `tok_visa`). The connector automatically creates a PaymentMethod and attaches it to the customer before creating the subscription.
 - **SCA / action required**: If the subscription requires further action (like 3D Secure), the connector returns the `client_secret` from the associated Setup Intent or Payment Intent.
 
 ### `cancel_subscription`

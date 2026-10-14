@@ -38,3 +38,8 @@ By default, Node Wire logging is configured to provide operational visibility wi
 ## Security disclosures
 
 If you discover a potential privacy or security vulnerability within Node Wire, do not disclose it publicly. Refer to our [Security policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) for instructions on how to securely report issues to the maintainers.
+
+## Related docs
+
+- [HIPAA considerations](compliance/hipaa-considerations.md) — deployment guidance for PHI workloads
+- [Configuration](configuration.md) — log redaction and other security settings

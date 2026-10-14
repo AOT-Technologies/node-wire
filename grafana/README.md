@@ -64,7 +64,7 @@ you chose), not `localhost`.
 
 ```bash
 uv run python scripts/e2e_toolhive.py --otlp-endpoint http://host.docker.internal:4318
-uv run python scripts/e2e_toolhive.py --skip-build --otlp-endpoint ...   # images already built
+uv run python scripts/e2e_toolhive.py --skip-build --otlp-endpoint http://host.docker.internal:4318   # images already built
 ```
 
 Their logs appear under `nw-pet_store`, `nw-slack_web`, `petstore-mcp` and `slack-post-mcp`, and
@@ -78,7 +78,8 @@ script against the Petstore MCP host. It calls the public Petstore demo, read-on
 
 ```bash
 uv run python scripts/traffic_petstore.py --otlp-endpoint http://host.docker.internal:4318
-uv run python scripts/traffic_petstore.py --duration 600 --rate 1 --otlp-endpoint ...
+uv run python scripts/traffic_petstore.py --duration 600 --rate 1 \
+    --otlp-endpoint http://host.docker.internal:4318
 ```
 
 It shows up as Service `nw-pet_store`, and ends with the calls by tool and outcome to compare

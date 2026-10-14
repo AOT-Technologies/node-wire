@@ -14,6 +14,8 @@ In the node-wire repo, `scripts/mcp-servers.registry` and `scripts/build-mcp-ser
 
 ## Prerequisites
 
+The script needs the following tools:
+
 | Requirement | Notes |
 |-------------|--------|
 | [uv](https://docs.astral.sh/uv/) | On `PATH`, or set `UV` to the full path |
@@ -102,6 +104,8 @@ Aliases are defined in `mcp-servers.registry` (pipe-delimited):
 alias|scope_yaml|openapi_spec|download_url|server_name
 ```
 
+The registry defines these aliases:
+
 | Alias | Output directory |
 |-------|------------------|
 | `spotify` | `out/spotify-mcp` |
@@ -121,6 +125,8 @@ OpenAPI specs are downloaded on first run when a URL is configured (Slack uses a
 
 ## Options
 
+The script accepts the following options:
+
 | Option | Description |
 |--------|-------------|
 | `--root PATH` | Path to mcp-builder repo |
@@ -135,6 +141,8 @@ OpenAPI specs are downloaded on first run when a URL is configured (Slack uses a
 | `-h`, `--help` | Show help |
 
 ### Environment variables
+
+The script reads the following environment variables:
 
 | Variable | Description |
 |----------|-------------|
@@ -204,6 +212,8 @@ my-api|e2e/fixtures/real/my_api.yaml|e2e/fixtures/real/my_api_openapi.yaml|https
 scripts/build-mcp-server.sh my-api --root /path/to/mcp-builder
 ```
 
+Each registry line has these fields:
+
 | Field | Meaning |
 |-------|---------|
 | `alias` | CLI name |
@@ -232,6 +242,8 @@ Some OpenAPI specs contain non-ASCII content. The script sets `PYTHONUTF8=1` aut
 
 ## Troubleshooting
 
+The following table lists common problems and their fixes:
+
 | Problem | Solution |
 |---------|----------|
 | `uv` not found | Install uv or set `UV` to the full path |
@@ -245,8 +257,8 @@ Some OpenAPI specs contain non-ASCII content. The script sets `PYTHONUTF8=1` aut
 
 ## See also
 
-- [mcp-builder README](../README.md)
-- [e2e/download_openapi_specs.sh](../e2e/download_openapi_specs.sh)
+- [mcp-builder README](https://github.com/stacklok/mcp-builder/blob/main/README.md)
+- [e2e/download_openapi_specs.sh](https://github.com/stacklok/mcp-builder/blob/main/e2e/download_openapi_specs.sh) in the mcp-builder repo
 - [mcp-builder on GitHub](https://github.com/stacklok/mcp-builder) — upstream repo for `e2e/fixtures/` and `out/<server>-mcp/deploy/`
 - [Google Drive connector (OIDC / ToolHive manifests)](../docs/google_drive_connector.md#upstream_bearer)
 - [nw-mcp-builder](../docs/cli/nw-mcp-builder.md)
