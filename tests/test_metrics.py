@@ -17,7 +17,6 @@ from node_wire_runtime import BaseConnector, ErrorCategory, ErrorMapper, nw_acti
 import node_wire_runtime.base_connector as bc_module
 import node_wire_runtime.rate_limit as rl_module
 import node_wire_runtime.resilience as res_module
-from pybreaker import CircuitBreaker
 
 
 class _MIn(BaseModel):
@@ -142,7 +141,7 @@ def _register_retryable() -> None:
 async def test_retry_counter_incremented_on_retryable_error(_register_retryable: None) -> None:
     attempts = {"n": 0}
 
-    @res_module.with_resilience(CircuitBreaker(), connector_id="retry_cx", action="do")
+    @res_module.with_resilience(res_module.CircuitBreaker(), connector_id="retry_cx", action="do")
     async def flaky(*, trace_id: str = "t") -> str:
         attempts["n"] += 1
         if attempts["n"] < 2:
@@ -164,7 +163,7 @@ async def test_retry_counter_incremented_on_retryable_error(_register_retryable:
 
 @pytest.mark.asyncio
 async def test_circuit_breaker_rejection_counter_incremented() -> None:
-    breaker = CircuitBreaker()
+    breaker = res_module.CircuitBreaker()
     breaker.open()
 
     @res_module.with_resilience(breaker, connector_id="cb_cx", action="do")

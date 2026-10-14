@@ -5,11 +5,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from functools import wraps
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
 from opentelemetry import metrics
-from pybreaker import CircuitBreaker, CircuitBreakerError
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -37,6 +37,97 @@ _circuit_breaker_rejections = _meter.create_counter(
 T = TypeVar("T")
 
 
+class CircuitBreakerError(Exception):
+    """Raised when a call is rejected because the breaker is open."""
+
+
+class _BreakerState:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class CircuitBreaker:
+    """Async circuit breaker. One instance per tenant on each connector.
+
+    Simplified: one successful trial closes the breaker. No listeners and no
+    excluded-exception list; this runtime did not use those options.
+    """
+
+    def __init__(
+        self,
+        fail_max: int = 5,
+        reset_timeout: float = 60,
+        name: str | None = None,
+    ) -> None:
+        self.fail_max = fail_max
+        self.reset_timeout = reset_timeout
+        self.name = name
+        self._state_name = "closed"
+        self._fail_counter = 0
+        self._opened_at = 0.0
+        # Bumped on every trip and every move to half-open. A result carrying an
+        # older generation is from a call that started before that change.
+        self._generation = 0
+
+    @property
+    def fail_counter(self) -> int:
+        return self._fail_counter
+
+    @property
+    def state(self) -> _BreakerState:
+        return _BreakerState(self._state_name)
+
+    def open(self) -> None:
+        self._trip()
+
+    def _trip(self) -> None:
+        self._state_name = "open"
+        self._opened_at = time.monotonic()
+        self._generation += 1
+
+    def allow(self) -> int:
+        """Let the call through and return its generation, or raise ``CircuitBreakerError``.
+
+        After ``reset_timeout``, the next caller moves the breaker to half-open
+        and becomes the trial; a trial still running after another ``reset_timeout``
+        is replaced the same way. The check and the claim do not await, so two
+        tasks on this loop cannot both become the trial. Pass the returned
+        generation to :meth:`record_success` / :meth:`record_failure`.
+        """
+        if self._state_name == "closed":
+            return self._generation
+        # Simplified: a trial that outlives reset_timeout is abandoned, like an open period.
+        if time.monotonic() < self._opened_at + self.reset_timeout:
+            raise CircuitBreakerError("Circuit breaker is open")
+        self._state_name = "half-open"
+        self._opened_at = time.monotonic()
+        self._generation += 1
+        return self._generation
+
+    def record_success(self, generation: int) -> None:
+        # A call that started before the last trip cannot close the breaker or
+        # stand in for the half-open trial.
+        if generation != self._generation:
+            return
+        self._fail_counter = 0
+        self._state_name = "closed"
+
+    def record_failure(self, exc: BaseException, generation: int) -> None:
+        # A call that started before the last trip must not restart the timeout
+        # or hide its own exception behind CircuitBreakerError.
+        if generation != self._generation:
+            return
+        if self._state_name == "half-open":
+            self._trip()
+            return
+        self._fail_counter += 1
+        if self._fail_counter < self.fail_max:
+            return
+        self._trip()
+        if isinstance(exc, Exception):
+            raise CircuitBreakerError("Failures threshold reached, circuit breaker opened")
+
+
 class _AbortRetry(BaseException):
     """Wraps a non-retryable exception to escape tenacity's retry loop."""
 
@@ -48,8 +139,6 @@ class _AbortRetry(BaseException):
 def _resolve_breaker(
     breaker: CircuitBreaker | Callable[[], CircuitBreaker],
 ) -> CircuitBreaker:
-    # CircuitBreaker instances are callable (__call__); treat concrete instances
-    # before callable check so we don't invoke them like factory functions.
     if isinstance(breaker, CircuitBreaker):
         return breaker
     return breaker() if callable(breaker) else breaker
@@ -62,24 +151,11 @@ async def _run_through_breaker(
     kwargs: dict[str, Any],
     trace_id: str,
 ) -> T:
-    """Drive a single async call through a pybreaker circuit breaker.
-
-    pybreaker (1.x) exposes no clean asyncio-native public API: its only async
-    entry point (``CircuitBreaker.call_async``) is Tornado-based and internally
-    calls the very same ``CircuitBreakerState._handle_error`` /
-    ``_handle_success`` we use here. The counter and listener bookkeeping that
-    trips and resets the breaker lives inside those private wrappers (they also
-    touch ``_inc_counter`` / ``_state_storage``), so the public ``on_failure`` /
-    ``on_success`` cannot replace them without re-implementing pybreaker
-    internals. We therefore depend on these private methods deliberately, pin
-    ``pybreaker<2.0.0`` (see ``pyproject.toml``), and guard their continued
-    existence in ``tests/test_runtime_resilience.py``. The clean long-term fix is
-    migrating to an asyncio-native breaker (e.g. aiobreaker / purgatory).
-    """
+    """Run one async call through the breaker, awaiting the result."""
     current_breaker = _resolve_breaker(breaker)
-    breaker_state = current_breaker.state
-
-    if breaker_state.name == "open":
+    try:
+        generation = current_breaker.allow()
+    except CircuitBreakerError:
         logger.error(
             "Circuit breaker is OPEN; rejecting call",
             extra={
@@ -88,21 +164,14 @@ async def _run_through_breaker(
                 "error": "circuit open",
             },
         )
-        raise CircuitBreakerError("Circuit breaker is open")
-
-    breaker_state.before_call(fn, *args, **kwargs)
-    for listener in current_breaker.listeners:
-        listener.before_call(current_breaker, fn, *args, **kwargs)
+        raise
 
     try:
         result = await fn(*args, **kwargs)
     except BaseException as exc:
-        # Record the failure (updates counters/listeners, may trip the breaker),
-        # then re-raise explicitly instead of relying on _handle_error's default
-        # reraise=True — keeps the control flow visible at this call site.
-        breaker_state._handle_error(exc, reraise=False)
+        current_breaker.record_failure(exc, generation)
         raise
-    breaker_state._handle_success()
+    current_breaker.record_success(generation)
     return result
 
 
@@ -115,7 +184,7 @@ def with_resilience(
     action: str = "",
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Coroutine[Any, Any, T]]]:
     """
-    Decorator that applies retry (Tenacity) and circuit breaking (PyBreaker)
+    Decorator that applies retry (Tenacity) and a circuit breaker
     around an async function that may raise exceptions.
 
     ``connector_id`` and ``action`` are low-cardinality labels attached to the
