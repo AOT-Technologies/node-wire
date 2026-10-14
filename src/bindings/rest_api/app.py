@@ -309,8 +309,8 @@ async def config_init(
 ) -> JSONResponse:
     """Bulk init. With the tenant header: payload is that tenant's
     ``{connector_id: [docs]}`` map. Without it, when multitenancy is on:
-    full multi-tenant payload, platform-admin only. Single-tenant mode always
-    writes ``__default__`` and ignores the header."""
+    full multi-tenant payload, platform-admin only. Single-tenant mode targets
+    ``__default__``, which is YAML-only, so it is refused."""
     header_tenant = tenant_from_headers(request.headers)
     if is_multitenancy_enabled() and not header_tenant:
         identity = get_rest_caller_identity(request)

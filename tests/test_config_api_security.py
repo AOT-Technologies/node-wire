@@ -449,6 +449,8 @@ def test_init_refuses_default_tenant_and_keeps_yaml_default(
     )
     assert headed.status_code == 400, headed.text
 
+    # A full (headerless) init needs platform admin before __default__ is even considered.
+    monkeypatch.setenv("NW_REST_API_KEY_SCOPES", f"{_SCOPE} nw:platform:admin")
     bare = client.post(
         "/v1/config/init",
         json={DEFAULT_TENANT: slack_doc},
