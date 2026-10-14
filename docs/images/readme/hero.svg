@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-labelledby="t d">
+  <!--
+  SPDX-FileCopyrightText: 2026 AOT Technologies
+  SPDX-License-Identifier: Apache-2.0
+  -->
+  <title id="t">node wire at a glance</title>
+  <desc id="d">An OpenAPI spec or a hand-written adapter becomes a node wire connector. The runtime wraps every action with a tenant check, validation, scope policy, retries, a circuit breaker and error mapping inside an OpenTelemetry span, then serves it over REST, gRPC and MCP to applications, services and AI agents.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1c2733; }
+    .h { font-size: 15px; font-weight: 700; }
+    .s { font-size: 12px; fill: #4a5a6a; }
+    .chip { font-size: 12px; font-weight: 600; }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+    .flow { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 6 8; animation: dash 1.2s linear infinite; }
+    .pulse { animation: pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .chipbox { animation: glow 7.2s ease-in-out infinite; }
+    .c2 { animation-delay: 1.2s; } .c3 { animation-delay: 2.4s; } .c4 { animation-delay: 3.6s; } .c5 { animation-delay: 4.8s; }
+    .pkt { animation: travel 3.6s cubic-bezier(.45,.05,.55,.95) infinite; }
+    .pkt2 { animation-delay: 1.2s; } .pkt3 { animation-delay: 2.4s; }
+    @keyframes dash { to { stroke-dashoffset: -28; } }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+    @keyframes glow { 0%,12%,100% { fill: #fffaf0; } 4%,8% { fill: #fbe3a6; } }
+    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .flow, .pulse, .chipbox, .pkt { animation: none; } }
+  </style>
+
+  <rect width="960" height="400" rx="16" fill="#ffffff"/>
+  <rect x="1" y="1" width="958" height="398" rx="16" fill="none" stroke="#d8dee6"/>
+
+  <!-- Inputs -->
+  <text x="40" y="44" class="s" font-weight="700" letter-spacing="1">BRING</text>
+  <g>
+    <rect x="40" y="62" width="200" height="74" rx="12" fill="#f2f4f7" stroke="#8a9bac"/>
+    <text x="58" y="92" class="h">OpenAPI / Swagger</text>
+    <text x="58" y="116" class="mono" fill="#4a5a6a">nw gen-all --path spec</text>
+  </g>
+  <g>
+    <rect x="40" y="152" width="200" height="74" rx="12" fill="#f2f4f7" stroke="#8a9bac"/>
+    <text x="58" y="182" class="h">Hand-written adapter</text>
+    <text x="58" y="206" class="mono" fill="#4a5a6a">schema.py + logic.py</text>
+  </g>
+  <g>
+    <rect x="40" y="242" width="200" height="98" rx="12" fill="#fde2ea" stroke="#b81548"/>
+    <text x="58" y="270" class="h" fill="#3d0a1d">Shipped connectors</text>
+    <text x="58" y="292" class="s" fill="#3d0a1d">Google Drive · Salesforce</text>
+    <text x="58" y="310" class="s" fill="#3d0a1d">Slack · SMTP · Stripe</text>
+    <text x="58" y="328" class="s" fill="#3d0a1d">FHIR Epic · Cerner · HTTP</text>
+  </g>
+
+  <path class="flow" stroke="#8a9bac" d="M240 99 C 290 99, 290 200, 330 200"/>
+  <path class="flow" stroke="#8a9bac" d="M240 189 C 285 189, 290 200, 330 200"/>
+  <path class="flow" stroke="#b81548" d="M240 291 C 290 291, 290 200, 330 200"/>
+
+  <!-- Runtime core -->
+  <g class="pulse">
+    <rect x="330" y="58" width="300" height="284" rx="18" fill="#fffaf0" stroke="#b8860b" stroke-width="2"/>
+  </g>
+  <text x="480" y="92" class="h" text-anchor="middle" fill="#3a2c05" font-size="17">node wire runtime</text>
+  <text x="480" y="112" class="s" text-anchor="middle" fill="#6b5410">every action, inside an OpenTelemetry span</text>
+
+  <g class="chip">
+    <rect class="chipbox" fill="#fffaf0" x="352" y="128" width="256" height="30" rx="8" stroke="#b8860b"/>
+    <text x="480" y="148" text-anchor="middle" fill="#3a2c05">Tenant pin check</text>
+    <rect class="chipbox c2" fill="#fffaf0" x="352" y="164" width="256" height="30" rx="8" stroke="#b8860b"/>
+    <text x="480" y="184" text-anchor="middle" fill="#3a2c05">Pydantic validation</text>
+    <rect class="chipbox c3" fill="#fffaf0" x="352" y="200" width="256" height="30" rx="8" stroke="#b8860b"/>
+    <text x="480" y="220" text-anchor="middle" fill="#3a2c05">Scope policy (PolicyHook)</text>
+    <rect class="chipbox c4" fill="#fffaf0" x="352" y="236" width="256" height="30" rx="8" stroke="#b8860b"/>
+    <text x="480" y="256" text-anchor="middle" fill="#3a2c05">Retries · circuit breaker</text>
+    <rect class="chipbox c5" fill="#fffaf0" x="352" y="272" width="256" height="30" rx="8" stroke="#b8860b"/>
+    <text x="480" y="292" text-anchor="middle" fill="#3a2c05">Error mapping · taxonomy</text>
+  </g>
+  <text x="480" y="326" class="mono" text-anchor="middle" fill="#6b5410">→ ConnectorResponse</text>
+
+  <!-- Outputs -->
+  <path id="o1" class="flow" stroke="#1a88b0" d="M630 200 C 670 200, 670 99, 720 99"/>
+  <path id="o2" class="flow" stroke="#1a88b0" d="M630 200 L 720 200"/>
+  <path id="o3" class="flow" stroke="#1a88b0" d="M630 200 C 670 200, 670 301, 720 301"/>
+
+  <circle r="5" fill="#1a88b0" class="pkt" style="offset-path: path('M630 200 C 670 200, 670 99, 720 99')"/>
+  <circle r="5" fill="#1a88b0" class="pkt pkt2" style="offset-path: path('M630 200 L 720 200')"/>
+  <circle r="5" fill="#1a88b0" class="pkt pkt3" style="offset-path: path('M630 200 C 670 200, 670 301, 720 301')"/>
+
+  <text x="720" y="44" class="s" font-weight="700" letter-spacing="1">SERVE</text>
+  <g>
+    <rect x="720" y="66" width="200" height="66" rx="12" fill="#ddf1fb" stroke="#1a88b0"/>
+    <text x="738" y="94" class="h" fill="#0d2f3d">REST</text>
+    <text x="738" y="116" class="s" fill="#0d2f3d">FastAPI · apps and services</text>
+  </g>
+  <g>
+    <rect x="720" y="167" width="200" height="66" rx="12" fill="#ddf1fb" stroke="#1a88b0"/>
+    <text x="738" y="195" class="h" fill="#0d2f3d">gRPC</text>
+    <text x="738" y="217" class="s" fill="#0d2f3d">typed service-to-service</text>
+  </g>
+  <g>
+    <rect x="720" y="268" width="200" height="66" rx="12" fill="#ddf5f0" stroke="#12867a"/>
+    <text x="738" y="296" class="h" fill="#0b2f2a">MCP</text>
+    <text x="738" y="318" class="s" fill="#0b2f2a">stdio · HTTP · AI agents</text>
+  </g>
+
+  <text x="480" y="376" class="s" text-anchor="middle">Same connector, same envelope, same error codes on every transport</text>
+</svg>
