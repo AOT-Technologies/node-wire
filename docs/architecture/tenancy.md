@@ -81,7 +81,9 @@ startup (restart to change it):
 [{"key_id": "acme-prod", "hash": "<sha256 hex of the key>", "tenant": "acme", "scopes": ["mcp:acme.read"]}]
 ```
 
-Only the hash is stored. Make it with `printf %s "$KEY" | sha256sum`. A key is presented like any API
+Only the hash is stored. Generate the key with `openssl rand -hex 32` (keys must be random, not
+chosen: the hash is plain SHA-256, which is only safe for high-entropy secrets) and hash it with
+`printf %s "$KEY" | sha256sum`. A key is presented like any API
 key (`Authorization: Bearer` or `X-API-Key`) and its `scopes` apply to it alone;
 `NW_*_API_KEY_SCOPES` apply only to the shared key. A `tenant` of `__default__` is refused at load.
 To rotate, add a second entry for the same tenant, then remove the old one.

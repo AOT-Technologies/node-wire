@@ -84,11 +84,18 @@ class TenantIdentityMismatchError(ValueError):
     security review).
     """
 
-    def __init__(self, *, jwt_tenant: str, header_tenant: str) -> None:
+    def __init__(
+        self,
+        *,
+        jwt_tenant: Optional[str],
+        header_tenant: str,
+        message: Optional[str] = None,
+    ) -> None:
         self.jwt_tenant = jwt_tenant
         self.header_tenant = header_tenant
         super().__init__(
-            "tenant header/metadata "
+            message
+            or "tenant header/metadata "
             f"{header_tenant!r} does not match authenticated tenant {jwt_tenant!r}"
         )
 
@@ -98,12 +105,11 @@ class TenantRejectedError(TenantIdentityMismatchError):
 
     Simplified: a subclass of :class:`TenantIdentityMismatchError` so every binding's existing
     403 handling and the ``TENANT_IDENTITY_MISMATCH`` catalogue code apply without new mappings.
+    There is no authenticated tenant to compare against, so ``jwt_tenant`` is ``None``.
     """
 
     def __init__(self, message: str, *, header_tenant: str) -> None:
-        ValueError.__init__(self, message)
-        self.jwt_tenant = ""
-        self.header_tenant = header_tenant
+        super().__init__(jwt_tenant=None, header_tenant=header_tenant, message=message)
 
 
 def normalize_tenant_id(value: Optional[str]) -> Optional[str]:
@@ -179,12 +185,14 @@ def check_tenancy_config() -> None:
             "set NW_API_KEYS_FILE (tenant-bound keys) or "
             f"{TRUSTED_TENANT_HEADER_ENV}=true (an authenticating gateway sets X-Tenant-ID)"
         )
-    logger.info(
-        "Tenancy mode: multi-tenant (key_registry=%s, trusted_tenant_header=%s, "
-        "__default__=operator-only)",
-        registry,
-        trusted,
-    )
+    # Log a fixed label per mode, never the config values themselves.
+    if registry:
+        mode = "tenant-bound API keys"
+    elif trusted:
+        mode = "trusted gateway header"
+    else:
+        mode = "JWT tenant claims"
+    logger.info("Tenancy mode: multi-tenant, tenants from %s; __default__ is operator-only", mode)
 
 
 def tenant_from_headers(headers: Optional[Mapping[str, str]]) -> Optional[str]:

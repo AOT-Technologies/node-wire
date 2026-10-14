@@ -121,6 +121,10 @@ def api_key_registry_claims(token: str) -> dict[str, Any] | None:
     """JWT-style claims for a registry key matching ``token``, else ``None``."""
     if not api_key_registry_configured():
         return None
+    # Simplified: plain SHA-256, not a password KDF. Registry keys are machine-generated
+    # high-entropy secrets (``openssl rand -hex 32``), not human passwords, so there is nothing
+    # to brute-force; a slow KDF would only add ~300 ms of event-loop-blocking CPU to every
+    # request with a bad token. Same trade-off as GitHub/Stripe-style API-key storage.
     digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
     for entry in load_api_key_registry():
         if hmac.compare_digest(digest, str(entry["hash"]).lower()):
