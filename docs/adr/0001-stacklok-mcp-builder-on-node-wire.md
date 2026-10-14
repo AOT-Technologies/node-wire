@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Status:** Accepted
 - **Date:** 2026-09-26
+- **Superseded by:** ADR 0003 (the Python 3.13 decision only)
 
 !!! note "Frozen decision record"
     This page records why the decisions were made, as they stood on the date in its header. It is not

@@ -22,7 +22,7 @@ The Slack connector provides high-level actions for messaging and file managemen
 
 - **Schema validation**: All inputs are validated using Pydantic models in `schema.py`. The `action` field acts as a discriminator to route payloads to the correct handler.
 - **Channel resolution**: A specialized internal helper, `_resolve_channel_id`, automatically maps flexible target identifiers for messaging operations (Channel Names like `#general`, Channel IDs, or User IDs like `U...`) to the correct Slack identifiers. For `upload_file`, Slack's external upload API requires a real conversation ID, so unresolved channel names are rejected before upload begins.
-- **File uploads**: Implements Slack's recommended 3-step external upload flow (`getUploadURLExternal`), supporting both absolute filesystem paths and base64-encoded content.
+- **File uploads**: Implements Slack's recommended 3-step external upload flow (`getUploadURLExternal`), supporting both absolute filesystem paths (inside `NW_SLACK_ATTACHMENTS_DIR`) and base64-encoded content.
 - **Authentication**: Bot tokens (`xoxb-...`) are resolved at call-time via the `SecretProvider`, ensuring no credentials are ever logged or stored on the instance.
 
 ### Available operations
@@ -45,11 +45,11 @@ Sends a message to a Slack conversation. Supports plain text and rich Block Kit 
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `action` | string | ✅ | Must be `"post_message"` |
-| `channel` | string | ✅ | Target Channel ID (`C...`), Name (`#general`), or User ID (`U...`) |
-| `message` | string | ✅ | Plain-text fallback message (markdown supported) |
+| `action` | string | Yes | Must be `"post_message"` |
+| `channel` | string | Yes | Target Channel ID (`C...`), Name (`#general`), or User ID (`U...`) |
+| `message` | string | Yes | Plain-text fallback message (markdown supported) |
 | `blocks` | array / string | No | Block Kit payload as JSON string or pre-parsed list |
-| `token_secret_key` | string | No | SecretProvider key (Default: `SLACK_BOT_TOKEN`) |
+| `token_secret_key` | string | No | SecretProvider key (default: `SLACK_BOT_TOKEN`) |
 
 **Request body — with blocks:**
 
@@ -75,9 +75,9 @@ A specialized action for private communication. If a User ID is provided, the co
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `action` | string | ✅ | Must be `"send_direct_message"` |
-| `channel` | string | ✅ | Target User ID (`U...`), Channel ID (`D...`), or Name |
-| `message` | string | ✅ | Plain-text fallback message |
+| `action` | string | Yes | Must be `"send_direct_message"` |
+| `channel` | string | Yes | Target User ID (`U...`), Channel ID (`D...`), or Name |
+| `message` | string | Yes | Plain-text fallback message |
 | `blocks` | array / string | No | Optional Block Kit payload |
 
 **Request body:**
@@ -99,8 +99,8 @@ Unlike `chat.postMessage`, this Slack API requires a real conversation ID when s
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `action` | string | ✅ | Must be `"upload_file"` |
-| `channel` | string | ✅ | Target Channel, Name, or User ID to share the file with |
+| `action` | string | Yes | Must be `"upload_file"` |
+| `channel` | string | Yes | Target Channel, Name, or User ID to share the file with |
 | `filename` | string | No | Display name for the uploaded file |
 | `initial_comment` | string | No | Message posted alongside the file |
 | `filepath` | string | No* | Absolute path to local file (sandboxed). *Required if content_base64 is empty* |
@@ -123,7 +123,7 @@ Unlike `chat.postMessage`, this Slack API requires a real conversation ID when s
 
 All Slack API errors are mapped into the Node-Wire platform taxonomy. The connector translates `ok: false` responses into typed exceptions for consistent retry and troubleshooting.
 
-| Error Code | Category | Trigger Conditions |
+| Error code | Category | Trigger conditions |
 |---|---|---|
 | `SLACK_AUTH_ERROR` | `AUTH` | Token invalid, revoked, or account inactive |
 | `SLACK_PERMISSION_ERROR` | `AUTH` | Missing required OAuth scopes (for example, `chat:write`) |
@@ -133,4 +133,4 @@ All Slack API errors are mapped into the Node-Wire platform taxonomy. The connec
 
 ### Implementation note
 
-The connector enforces a default upload limit (configurable via `NW_SLACK_UPLOAD_LIMIT_MB`) to prevent memory exhaustion during base64 decoding.
+The connector enforces a default upload limit of 50 MB (configurable via `NW_SLACK_UPLOAD_LIMIT_MB`, capped at 100 MB) to prevent memory exhaustion during base64 decoding.

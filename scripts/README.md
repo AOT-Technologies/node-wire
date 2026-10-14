@@ -155,6 +155,8 @@ The script reads the following environment variables:
 
 ## What the script does
 
+The script runs these steps in order:
+
 1. Resolve mcp-builder root and load scope/spec paths from the registry.
 2. Download the OpenAPI spec if missing (unless `--skip-download`).
 3. Run `uv sync` in the mcp-builder repo.
@@ -199,18 +201,20 @@ npm install -g swagger2openapi
 
 ## Adding a server to the registry
 
+To add a server, follow these steps:
+
 1. Add a scope YAML under `e2e/fixtures/real/`.
 2. Add a line to `mcp-servers.registry`:
 
-```text
-my-api|e2e/fixtures/real/my_api.yaml|e2e/fixtures/real/my_api_openapi.yaml|https://example.com/openapi.yaml|my-api
-```
+   ```text
+   my-api|e2e/fixtures/real/my_api.yaml|e2e/fixtures/real/my_api_openapi.yaml|https://example.com/openapi.yaml|my-api
+   ```
 
-3. Build:
+3. Build the server:
 
-```bash
-scripts/build-mcp-server.sh my-api --root /path/to/mcp-builder
-```
+   ```bash
+   scripts/build-mcp-server.sh my-api --root /path/to/mcp-builder
+   ```
 
 Each registry line has these fields:
 

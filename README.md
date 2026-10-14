@@ -20,7 +20,7 @@ node wire is a three-layer Python platform that runs connector adapters (Google 
 
 ## Quick start
 
-You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). See [Installation](docs/installation.md) for everything else, including Windows commands. To start the REST API locally, run the following commands:
+You need Python 3.11, 3.12 or 3.13 and [`uv`](https://docs.astral.sh/uv/). See [Installation](docs/installation.md) for everything else, including Windows commands. To start the REST API locally, run the following commands:
 
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git

@@ -280,7 +280,7 @@ connectors:
 
 ### Step 5 — Auto-registration (nothing extra needed)
 
-`BaseConnector.__init_subclass__` registers your class in the global registry as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.** The one thing `auto_register()` does need is a `node_wire.connectors` entry point that names your `logic` module, plus the connector id in `NW_ALLOWED_CONNECTORS`. See the Root `pyproject.toml` row in [Packaging — Tier 1](packaging.md#tier-1-runtime-dev-always-required).
+`BaseConnector.__init_subclass__` registers your class in the global registry as soon as `logic.py` is imported. **`node_wire_runtime.connector_registry.auto_register()`** performs those imports at startup. **No manual factory branch is required.** `auto_register()` needs the connector id in `NW_ALLOWED_CONNECTORS` and a `node_wire.connectors` entry point that names your `logic` module. Without an entry point, it falls back to importing `node_wire_<connector_id>.logic` for each allowlisted id, but declare the entry point so installed packages are discovered. See the Root `pyproject.toml` row in [Packaging — Tier 1](packaging.md#tier-1-runtime-dev-always-required).
 
 ### Optional: `error_map` for ErrorMapper
 
@@ -683,7 +683,7 @@ For local scripts and auth-disabled bindings, set **`NW_MCP_SCOPE_POLICY_DEFAULT
 
 **gRPC (`bindings.grpc_server`)** — Configure **`NW_GRPC_API_KEY_SCOPES`** (and optionally **`NW_MCP_ACTION_SCOPE_MAP_JSON`**) so authenticated gRPC calls use the same scope rules as MCP/REST. Caller identity is propagated from the auth interceptor into `connector.run`.
 
-**REST API (`bindings.rest_api`)** — `GET /health`, `/docs`, `/redoc`, `/openapi.json`, `/playground/*`, and `/scenarios/*` are unauthenticated. Auth is required only for `/connectors/*` and `/ready`, via **`NW_REST_API_KEY`** (`Authorization: Bearer <key>` or `X-API-Key: <key>`) or optional **`NW_REST_JWT_SECRET`** for HS256 JWTs (with **`NW_JWT_AUDIENCE`** / **`NW_JWT_ISSUER`** and required `exp`/`iat`/`aud`/`iss` claims). API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
+**REST API (`bindings.rest_api`)** — `GET /health`, `/docs`, `/redoc`, `/openapi.json`, `/playground/*`, and `/scenarios/*` are unauthenticated. Every other path, including `/connectors/*`, `/v1/*` and `/ready`, requires auth, via **`NW_REST_API_KEY`** (`Authorization: Bearer <key>` or `X-API-Key: <key>`) or optional **`NW_REST_JWT_SECRET`** for HS256 JWTs (with **`NW_JWT_AUDIENCE`** / **`NW_JWT_ISSUER`** and required `exp`/`iat`/`aud`/`iss` claims). API key scopes use **`NW_REST_API_KEY_SCOPES`** (same format as MCP). Set **`NW_REST_AUTH_DISABLED=true`** only for local development. Production: set **`NW_REST_LOAD_DOTENV=false`** so secrets are not read from a `.env` file on disk.
 
 **Connector egress policies** — the `http_generic` and `smtp` outbound rules are listed with each connector in the [catalog](connector-reference.md#connector-catalog).
 

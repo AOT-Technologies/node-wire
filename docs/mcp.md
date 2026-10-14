@@ -12,6 +12,8 @@ Node Wire integrates with the Model Context Protocol to allow AI agents (like Cl
 
 ## Which MCP path?
 
+The following table compares the three ways to serve MCP:
+
 | Path | What you get | Choose it when | Start here |
 |---|---|---|---|
 | **1. Combined server** | One process, `python -m agents.mcp_entrypoint`, exposing every connector enabled for `mcp` in `config/connectors.yaml` | Local development, one agent using several connectors, one tenant selection covering all of them | [Transport modes](#transport-modes) |
@@ -172,7 +174,7 @@ To test the HTTP transport with Inspector v2, follow these steps:
 
     ![Inspector Add server dialog with Server ID node-wire, Transport streamable-http and URL http://127.0.0.1:8081/mcp](images/mcp-inspector-add-streamable-http.png)
 
-4. Turn on the switch on the new server card. When it shows **Connected**, open the **Tools**
+4. Turn on the switch on the server card. When it shows **Connected**, open the **Tools**
    tab to see the connector tools.
 
     ![Inspector Tools tab listing 12 node-wire tools, with tools/list answered OK in the Messages panel](images/mcp-inspector-tools.png)

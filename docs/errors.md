@@ -35,6 +35,8 @@ MISSING_TENANT [AUTH]: X-Tenant-ID is required when multitenancy is enabled (tra
 
 ## Categories
 
+The category decides the HTTP status REST uses for a connector failure:
+
 | Category | Meaning | HTTP status (REST, connector failures) |
 |---|---|---|
 | `BUSINESS` | The request is wrong; fix it and retry | 400 |
@@ -81,6 +83,8 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.
 
 ## Per surface
 
+The following table shows how each surface reports a failed call:
+
 | Surface | A failed call |
 |---|---|
 | REST | The envelope, plus `detail` (the message) for clients of the plain FastAPI errors. Connector failures: status from the [category](#categories). Refused before running: the status REST has always used, for example, 400 `MISSING_TENANT`, 403 `CONFIG_NOT_FOUND` (fail-closed), 404 `CONNECTOR_NOT_AVAILABLE`, 409 `CONFIG_NAME_CONFLICT`, 429 `RATE_LIMIT_EXCEEDED` with `Retry-After` |
@@ -102,6 +106,7 @@ The trace id is the key into the logs. Every failed call writes one line under i
 | `invocation_validation_failure` | `runtime.base_connector` or `runtime.errors` | the input or arguments didn't validate |
 | `invocation_rejected` | `runtime.errors` | the call was refused before the connector ran |
 | `policy_denial` | `runtime.base_connector` | the policy hook refused the action |
+| `tenant_mismatch` | `runtime.base_connector` | the instance's tenant pin refused a different `tenant_id` |
 
 With the `grafana/` stack, paste the trace id into the dashboard's `trace_id` box, or query
 Loki: `{service_name="<service>"} | trace_id="<trace-id>"`.

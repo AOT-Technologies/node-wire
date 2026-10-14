@@ -230,10 +230,10 @@ omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` blo
 
 ## Output
 
-Every command shows the same brand-colored `rich.progress` display (amber spinner, blue bar, pink on failure), then a bordered summary panel: each stage with ✓ / ✗ / – (skipped) and its duration, and the results (connector, MCP host, image). Commands to run next are printed below the panel so they copy cleanly.
+Every command shows the same brand-colored `rich.progress` display (amber spinner, blue bar, pink on failure), then a bordered summary panel: each stage with ✓ / ✗ / – (skipped) and its duration, and the results (connector, MCP host, image). Commands to run next are printed after the panel so they copy cleanly.
 
 - **On a terminal:** build tool output is kept out of the way. The running stage shows its latest line under the bars; `nw`'s own messages (tool mode, reused wheels, operation counts) always print.
-- **With `--verbose`, or without a terminal (CI):** build tool output streams line by line above the bars.
+- **With `--verbose`, or without a terminal (CI):** build tool output streams line by line alongside the bars.
 - **Every run** writes a full, timestamped log to `<tmp>/nw-logs/<command>-<time>.log`, printed as `Log:` under the panel.
 - **On failure** the panel names the stage and the reason, the last 15 lines of that stage's output (when they were not streamed), and a fix hint. The error is reported once; there is no traceback unless you pass `--debug`. An unexpected internal error is labelled as such, with a pointer to `--debug`.
 

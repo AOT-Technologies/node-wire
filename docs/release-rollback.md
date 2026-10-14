@@ -153,7 +153,7 @@ before public announcement.
 ## Docker images
 
 Demo MCP images built from yanked wheels should be rebuilt and re-tagged with the
-fixed version. Document the new tag in release notes; do not delete public images
+fixed version. Document the corrected tag in release notes; do not delete public images
 without a communications plan.
 
 ## Quick reference

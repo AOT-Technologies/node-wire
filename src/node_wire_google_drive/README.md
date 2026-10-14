@@ -28,7 +28,7 @@ The action-spec pattern has these pieces:
 | [`logic.py`](logic.py) | Client build, `_translate_and_raise_http_error`, `_execute_action_spec`, thin `@nw_action` methods. |
 | [`node_wire_runtime/sdk_action_spec.py`](../node_wire_runtime/sdk_action_spec.py) | Reusable primitives: `SdkActionSpec`, `default_build_kwargs`, `execute_spec_in_thread`. |
 
-**Adding a new operation:** Add a Pydantic variant in `schema.py` (with an `action` discriminator literal), extend the `GoogleDriveOperationInput` union, and add an entry to `GOOGLE_DRIVE_ACTION_SPECS` in `action_spec.py` (or a `build_kwargs` hook for non-generic cases such as multipart upload). `BaseConnector.__init_subclass__` auto-generates the handler — do **not** also add an `@nw_action` method for the same action name, as that will raise a `TypeError` at class-definition time.
+To add a new operation, add a Pydantic variant in `schema.py` (with an `action` discriminator literal), extend the `GoogleDriveOperationInput` union, and add an entry to `GOOGLE_DRIVE_ACTION_SPECS` in `action_spec.py` (or a `build_kwargs` hook for non-generic cases such as multipart upload). `BaseConnector.__init_subclass__` auto-generates the handler — do **not** also add an `@nw_action` method for the same action name, as that will raise a `TypeError` at class-definition time.
 
 ### Migrating other connectors
 
@@ -42,11 +42,11 @@ The connector supports the following actions:
 |---|---|
 | `files.list` | List or search files with optional query and fields mask |
 | `files.create` | Create file metadata (no content) or create inside a folder |
-| `permissions.create` | Grant a user access to a file (reader, commenter, writer, owner) |
+| `permissions.create` | Grant access to a file (reader, commenter, writer, owner) |
 | `files.get` | Fetch metadata for a specific file |
 | `files.update` | Update file metadata and parent relationships |
-| `files.upload` | Create a new file with text content |
-| `files.delete` | Delete a file |
+| `files.upload` | Create a new file with text or Base64 content |
+| `files.delete` | Move a file to the trash |
 
 ### Planned operations
 
@@ -61,6 +61,8 @@ The following operations are planned for future implementation:
 
 ## Operation reference
 
+In the examples, placeholders such as `<FILE_ID>` and `<FOLDER_ID>` stand for Google Drive file and folder IDs.
+
 ### `files.list`
 
 List or search files visible to the service account. The connector always sends a `fields` mask to the Drive API; if omitted, a performant default is used so only commonly needed metadata is returned.
@@ -71,6 +73,7 @@ List or search files visible to the service account. The connector always sends 
 | `page_size` | int | No | Default `10`, range `1–100`. Maximum files to return |
 | `query` | string | No | Drive search query (`q` parameter) |
 | `fields` | string | No | Fields mask. Default: `"nextPageToken, files(id, name, mimeType, webViewLink)"` |
+| `page_token` | string | No | Token for the next page, taken from a previous `files.list` response |
 
 **Request body — minimal (default fields):**
 
@@ -138,20 +141,23 @@ Create a new file metadata entry (no content) or create inside a folder. The ser
 
 ### `permissions.create`
 
-Grant a user access to a file. The service account must have permission to change sharing on the file.
+Grant a user, group, domain, or anyone access to a file. The service account must have permission to change sharing on the file.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `action` | string | ✅ | Must be `"permissions.create"` |
 | `file_id` | string | ✅ | ID of the target file |
 | `role` | string | ✅ | `"reader"`, `"commenter"`, `"writer"`, or `"owner"` |
-| `email_address` | string | ✅ | Email address to grant access to |
+| `type` | string | ✅ | `"user"`, `"group"`, `"domain"`, or `"anyone"` |
+| `email_address` | string | Conditional | Required when `type` is `user` or `group` |
+| `domain` | string | Conditional | Required when `type` is `domain` |
 
 ```json
 {
   "action": "permissions.create",
   "file_id": "<FILE_ID>",
   "role": "reader",
+  "type": "user",
   "email_address": "user@example.com"
 }
 ```
@@ -206,7 +212,7 @@ Update file metadata and parent relationships. The service account must have edi
 
 ### `files.upload`
 
-Create a new file with text content. Content is uploaded using `MediaInMemoryUpload`; suitable for small text payloads.
+Create a new file with text or Base64-encoded binary content. Content is uploaded using `MediaInMemoryUpload`; suitable for small payloads.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -214,7 +220,8 @@ Create a new file with text content. Content is uploaded using `MediaInMemoryUpl
 | `name` | string | ✅ | File name |
 | `mime_type` | string | ✅ | MIME type |
 | `parents` | array of string | No | Parent folder IDs |
-| `content` | string | ✅ | UTF-8 text content to upload |
+| `content` | string | Conditional | UTF-8 text content to upload. Provide exactly one of `content` or `content_base64` |
+| `content_base64` | string | Conditional | Base64-encoded binary content to upload. Provide exactly one of `content` or `content_base64` |
 
 ```json
 {
@@ -230,7 +237,7 @@ Create a new file with text content. Content is uploaded using `MediaInMemoryUpl
 
 ### `files.delete`
 
-Delete a file. The service account must have permission to delete the file.
+Move a file to the trash (the connector sets `trashed: true`; it does not permanently delete). The service account must have permission to trash the file.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

@@ -104,7 +104,7 @@ Stable exports (`node_wire_toolhive.__all__`) that stacklok-built MCP servers im
 
 - **REST** — routes and request/response schemas served by the API binding
   (Swagger UI at `/docs`).
-- **gRPC** — the `Connector` service defined by the committed protobuf contract.
+- **gRPC** — the `ConnectorService` service defined by the committed protobuf contract.
 - **MCP** — tool manifests exposed by the MCP servers (`nw-*`).
 
 ## Configuration
@@ -116,3 +116,8 @@ Stable exports (`node_wire_toolhive.__all__`) that stacklok-built MCP servers im
 
 `node-wire`, `nw-google-drive`, `nw-smartonfhir-epic`, `nw-smartonfhir-cerner`,
 `nw-smtp`, `nw-stripe`, `nw-salesforce`, `nw-slack`.
+
+## Next steps
+
+- [Versioning and stability policy](versioning.md): what counts as a breaking change.
+- [Errors](errors.md): the runtime-wide error codes behind `ErrorCode`.

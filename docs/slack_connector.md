@@ -70,7 +70,7 @@ Slack bots cannot "see" private channels unless they are explicitly invited.
 
 ## REST API reference
 
-The connector exposes actions as standard REST endpoints. Channel identifiers are flexible and automatically resolved.
+The connector exposes actions as standard REST endpoints. For messaging actions, channel identifiers are flexible and automatically resolved.
 
 ### Operations overview
 
@@ -92,7 +92,7 @@ Send a message to a channel, group, or user. Supports Slack `blocks`.
 
 | Form | Example | Behaviour |
 |---|---|---|
-| Channel name | `#general` | Resolved by name |
+| Channel name | `#general` | Passed to Slack, which resolves it by name |
 | Channel ID | `C…`, `G…`, `D…`, `Z…` | Used directly |
 | User ID | `U…`, `W…` | Automatically resolved to a DM channel |
 
@@ -108,7 +108,9 @@ Uploads a file to a Slack channel or DM. The content may be supplied two ways:
 | Field | Use |
 |---|---|
 | `content_base64` | Inline, base64-encoded file bytes |
-| `filepath` | Path on disk — **must** sit inside `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`) |
+| `filepath` | Absolute path on disk — **must** sit inside `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`) |
+
+Slack's external upload API needs a real conversation ID, so `channel` must be a channel ID or user ID, not a name such as `#general`. Uploads larger than `NW_SLACK_UPLOAD_LIMIT_MB` (default 50, maximum 100) are rejected with `SLACK_UPLOAD_ERROR`.
 
 ### Error taxonomy
 

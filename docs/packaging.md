@@ -66,11 +66,11 @@ Update the following files:
 | File | Purpose |
 |---|---|
 | `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point |
-| `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates) |
+| `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates). `nw-connector-builder` generates it for generated connectors. |
 | [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
 | [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to the `package` dropdown **and** the `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) |
 | [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) |
-| [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) |
+| [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to the `pip install` list in the connector audit job — see [CI allowlist updates](#ci-allowlist-updates) |
 | This doc — [Package inventory](#package-inventory) | Add row |
 | Root + all package `pyproject.toml` | Version bump on release via `./scripts/bump-version.py` (`nw-mcp-builder` excluded) |
 | `CHANGELOG.md` | Release section (scaffolded by the bump script; fill in notes before tagging) |
@@ -176,7 +176,7 @@ source of truth for its list. Add `packages/connectors/<name>` to each:
 |---|---|---|
 | [`publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | `on.workflow_dispatch.inputs.package.options` **and** the `allowed` set in the validate step | Both must agree. A path missing from `allowed` fails at validate; a path missing from the dropdown is unreachable. |
 | [`github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | `package_paths` in the release-manifest step | Lists what the release manifest covers. |
-| [`security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | `strategy.matrix.package_path` | Each entry gets a `pip-audit` job. |
+| [`security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | The `pip install` list in the **Install packages and audit tool** step | All listed packages install into one environment that a single `pip-audit` run scans. |
 
 Never add `packages/bindings` or `packages/toolhive` to them. Those are local-only wheels.
 
@@ -455,7 +455,7 @@ The pipeline runs the following steps:
 
 1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (CPython 3.11, 3.12, 3.13)
 2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
-3. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
+3. Merge artifacts; `pip-audit` CVE gate (any known vulnerability blocks publish)
 4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations
 
 The release-level SBOM is attached to the GitHub Release (step 3).
@@ -486,10 +486,10 @@ publish derives the pre-release suffix itself.
    stamping it into the wheel at build time. No changelog entry, git tag, or GitHub
    Release is required; pipeline steps are otherwise identical to stable.
 
-!!! note
-    `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
-    rejects a pre-release `project.version`. Keep the source tree on `X.Y.Z` and let
-    `channel: beta` derive the suffix.
+> [!NOTE]
+> `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
+> rejects a pre-release `project.version`. Keep the source tree on `X.Y.Z` and let
+> `channel: beta` derive the suffix.
 
 Install a beta with:
 

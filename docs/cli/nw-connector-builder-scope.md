@@ -160,9 +160,6 @@ The generator does not support the following auth schemes:
 - **Cookie-based API keys** — no `name=value` cookie formatting in `StaticTokenAuthProvider` yet;
   soft-dropped
 - **AND-combined** multi-scheme security (`security: [{a: [], b: []}]`) — soft-dropped
-- Automatic acquisition of OAuth2 / OIDC credentials by generated connectors — Node Wire
-  presents a host-supplied bearer token (see [Host-supplied auth tier](#host-supplied-auth-tier)) but never obtains, refreshes, or
-  detects its expiry
 
 (Host-supplied `oauth2` / `openIdConnect`, and multi-scheme connectors via per-action
 `auth_schemes:`, are in scope; see [Auth](#auth).)
@@ -204,9 +201,10 @@ The generator does not do the following registration or deployment steps:
 
 - `--wire` never edits `connector_registry.py` or the root `pyproject.toml` — entry-point
   registration for editable monorepo installs is a manual follow-up step
-- Publishing (PyPI wheel `setup.py`/Cython glue, `scripts/build-packages.sh` allowlist entries,
-  CI allowlists, standalone MCP Docker image rows) is a manual **Tier 2/3** checklist in
-  [packaging.md](../packaging.md) — the builder produces the runtime + package skeleton only
+- Publishing (CI allowlists, standalone MCP Docker image rows, and the
+  `scripts/build-packages.sh` entry unless `nw gen-all` adds it) is a manual **Tier 2/3**
+  checklist in [packaging.md](../packaging.md) — the builder produces the runtime + package
+  skeleton, including `setup.py`, only
 - No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
   `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-wheels)
   and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md). This was explicitly dropped from

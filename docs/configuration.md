@@ -22,12 +22,16 @@ copy sample.env .env
 
 ### Required variables
 
+The following variables control which connectors load:
+
 | Variable | Description |
 |----------|-------------|
 | `NW_ALLOWED_CONNECTORS` | **Required.** A comma-separated list of connector names to load (for example, `fhir_epic,http_generic`). Node Wire defaults to a fail-closed policy: unset or empty loads **no** connectors, even when they are `enabled` in `config/connectors.yaml`. |
 | `NW_CONNECTOR_MODULE_PREFIX` | Optional. Connectors whose entry-point target module does not start with this prefix are skipped with a warning. Default `node_wire_`; set to `""` to disable the check. |
 
 ### Connector secrets
+
+Each connector reads its credentials from the following variables:
 
 | Section | Key Variables | When Needed |
 |---------|---------------|-------------|
@@ -41,6 +45,8 @@ copy sample.env .env
 | **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL`, `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` / `OPENROUTER_MODEL` / `OPENROUTER_MODELS`, `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_API_KEY` (or other provider keys) | AI agent / ToolHive / playground LLM switcher (Groq, NVIDIA, OpenRouter, local Ollama). OpenRouter free models log prompts — do not send PHI/confidential data. |
 
 ### Transport & binding config
+
+The following variables control how each binding listens and who may call it:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -105,7 +111,7 @@ shared by every caller, so one noisy identity can still exhaust it for everyone.
 | `NW_RATE_LIMIT_PER_IDENTITY_MAX_TRACKED_KEYS` | LRU cap on tracked identities (bounds memory) | `10000` |
 | `NW_RATE_LIMIT_PER_IDENTITY_KEY_TTL_SECONDS` | Idle eviction for a tracked identity (bounds memory) | `3600` |
 
-How callers are keyed:
+The limiters key callers as follows:
 
 | Transport | Bucket key | Fallback |
 |---|---|---|
@@ -118,6 +124,8 @@ The REST-only `NW_REST_RATE_LIMIT_ENABLED` family (`_MAX_REQUESTS`, `_WINDOW_SEC
 `NW_RATE_LIMIT_PER_IDENTITY_*` names take precedence when both are set.
 
 ### Multi-tenancy
+
+The following variables control tenant resolution:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -134,6 +142,8 @@ tenant/config tools, the pin contract for embedded hosts) is described once, in
 [Tenancy](architecture/tenancy.md).
 
 ### nw CLI
+
+The `nw` CLI reads these variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -179,6 +189,8 @@ secret), category `FATAL`: the server is misconfigured, so REST answers 500, not
 
 ### Secret backend (`NW_SECRET_BACKEND`)
 
+The backend values behave as follows:
+
 | Value | Behavior |
 |---|---|
 | `env` _(default)_ | Reads from process environment. Raises `SecretNotFoundError` for absent keys (fail-closed). |
@@ -217,8 +229,8 @@ export GOOGLE_DRIVE_SA_JSON=$(cat /path/to/service_account.json)
 ## Security best practices
 
 - **Production REST:** Set `NW_REST_API_KEY` and send `Authorization: Bearer <key>` or `X-API-Key: <key>`.
-- **Disable Dotenv:** Set `NW_REST_LOAD_DOTENV=false` in production to prevent loading from a `.env` file on disk.
-- **Fail-Closed:** Always explicitly list allowed connectors in `NW_ALLOWED_CONNECTORS`.
+- **Disable dotenv:** Set `NW_REST_LOAD_DOTENV=false` in production to prevent loading from a `.env` file on disk.
+- **Fail closed:** Always explicitly list allowed connectors in `NW_ALLOWED_CONNECTORS`.
 - **Scope policy:** Unset `NW_MCP_SCOPE_POLICY_DEFAULT` defaults to **deny** in code. Configure `NW_MCP_API_KEY_SCOPES`, `NW_REST_API_KEY_SCOPES`, and `NW_GRPC_API_KEY_SCOPES` (or JWT claims) for each transport. Use `NW_MCP_SCOPE_POLICY_DEFAULT=allow` only for intentional local fail-open.
 - **JWT ingress auth:** When using `NW_MCP_JWT_SECRET`, `NW_REST_JWT_SECRET`, or `NW_GRPC_JWT_SECRET`, set `NW_JWT_AUDIENCE` and `NW_JWT_ISSUER`. Minted tokens must include `exp`, `iat`, `aud`, and `iss` (HS256; asymmetric RS256 is not yet supported for bindings).
 - **Log redaction:** A platform-wide logging filter redacts PHI-like field names and values (for example `search_params`, `body`, patient identifiers). FHIR connectors log operation mode, HTTP status, and counts only—not request parameters or raw FHIR response bodies.

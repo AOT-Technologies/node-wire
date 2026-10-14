@@ -17,7 +17,7 @@ so the MCP servers they generate run on the node-wire runtime and a node-wire co
 - Upstream commits, the exact files taken, and every node-wire change: [UPSTREAM.md](UPSTREAM.md).
 - node-wire code lives in `src/nw_stacklok/`; vendored files only gain hook calls.
 - Output goes to `out/` (gitignored).
-- Python 3.13 (stacklok's requirement).
+- Python 3.11, 3.12 or 3.13. Generated servers run on stacklok's Python 3.13 image.
 
 Tests: `uv run pytest tests/nw_stacklok_builder` (pristine parity, node-wire mode, and an
 in-process run of a generated server).

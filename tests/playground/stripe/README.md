@@ -19,13 +19,13 @@ The suite contains the following tests:
 | `test_stripe_charge_default` | `charge` — default values (2000 usd) |
 | `test_stripe_charge_custom_amount` | `charge` — custom amount + description |
 | `test_stripe_charge_no_description` | `charge` — empty description |
-| `test_stripe_payment_intent_default` | `payment_intent` — defaults (5000 usd, pm_card_visa) |
-| `test_stripe_payment_intent_custom_amount` | `payment_intent` — custom amount, result tag contains pi_ |
-| `test_stripe_payment_intent_no_payment_method` | `payment_intent` — no payment method |
+| `test_stripe_payment_intent_default` | `create_payment_intent` — defaults (5000 usd, pm_card_visa) |
+| `test_stripe_payment_intent_custom_amount` | `create_payment_intent` — custom amount, result tag contains pi_ |
+| `test_stripe_payment_intent_no_payment_method` | `create_payment_intent` — no payment method |
 | `test_stripe_cancel_subscription_invalid_id` | `cancel_subscription` — nonexistent ID, expects error state |
 | `test_stripe_cancel_subscription` | `cancel_subscription` — real subscription ID (requires env vars) |
-| `test_stripe_refund_by_charge_id` | `refund` — full refund against a real charge |
-| `test_stripe_refund_invalid_id` | `refund` — nonexistent ID, expects error state |
+| `test_stripe_refund_by_charge_id` | `issue_refund` — full refund against a real charge |
+| `test_stripe_refund_invalid_id` | `issue_refund` — nonexistent ID, expects error state |
 | `test_stripe_switch_charge_then_payment_intent` | Cross-action switch on same page |
 
 ## How it works

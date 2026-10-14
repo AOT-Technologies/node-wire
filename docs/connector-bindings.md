@@ -53,7 +53,7 @@ A failure's HTTP status, and what every other surface returns for it, is in [Err
 
 `src/bindings/mcp_server/server.py` registers one **MCP tool** per manifest entry. Advertised tool names are `{connector_id}_{action}` with dots in the action replaced by underscores (for example, `google_drive_files_list`, `google_drive_files_upload`) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.
 
-The MCP server calls `connector.run(args_dict)` and serialises the `ConnectorResponse` as the tool result.
+The MCP server runs the action through the shared `invoke()` seam (which calls `connector.run`) and serialises the `ConnectorResponse` as the tool result.
 
 The **resolved action** (from the advertised or legacy tool name) is authoritative: after normalizers run, the binding sets `action` from that name. A conflicting `action` in the payload is rejected (see `enforce_authoritative_action` in `src/node_wire_runtime/ingress.py`).
 
@@ -65,19 +65,19 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 
 ## gRPC binding
 
-`src/bindings/grpc_server/server.py` exposes the `Connector` service. The **`action` field on `InvokeRequest`** is authoritative: after argument normalizers run, ingress rejects a conflicting `action` inside `payload_json` (same rule as REST and MCP). The shared Binding invoke path in `src/bindings/invoke.py` performs factory resolution and `connector.run`.
+`src/bindings/grpc_server/server.py` exposes the `ConnectorService` service (package `aot.connectors`, one `Invoke` RPC). The **`action` field on `InvokeRequest`** is authoritative: after argument normalizers run, ingress rejects a conflicting `action` inside `payload_json` (same rule as REST and MCP). The shared Binding invoke path in `src/bindings/invoke.py` performs factory resolution and `connector.run`.
 
 ## Manifest
 
-`build_manifest(connectors)` (from `node_wire_runtime.manifest`) is the single source of truth for both bindings (by default it strips `action` from each entry’s `input_schema`). It returns one entry per `@sdk_action`:
+`build_manifest(connectors)` (from `node_wire_runtime.manifest`) is the single source of truth for all three bindings (by default it strips `action` from each entry’s `input_schema`). It returns one entry per `@sdk_action`:
 
 ```python
 [
   {
     "connector_id": "weather",
     "action": "current_weather",
-    "input_schema": { ... },   # JSON Schema from CurrentWeatherInput (action not required)
-    "output_schema": { ... },  # ConnectorResponse envelope; data typed to the action output model (nullable on errors)
+    "input_schema": {},   # JSON Schema from CurrentWeatherInput (action not required)
+    "output_schema": {},  # ConnectorResponse envelope; data typed to the action output model (nullable on errors)
   },
   {
     "connector_id": "google_drive",
@@ -96,6 +96,8 @@ The repo also ships **stdio MCP servers** for agents and ToolHive under `src/age
 ---
 
 ## Related documentation
+
+The following pages cover the neighbouring topics:
 
 | Doc | When to read it |
 |-----|-----------------|

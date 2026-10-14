@@ -109,27 +109,33 @@ NW_ALLOWED_CONNECTORS=http_generic NW_MCP_SCOPE_POLICY_DEFAULT=allow \
 MODE=API uv run node-wire
 ```
 
-The tenant always comes from the `X-Tenant-ID` header (or the caller's JWT tenant claim), never from the URL:
+The tenant always comes from the `X-Tenant-ID` header (or the caller's JWT tenant claim), never from the URL.
+
+To entitle `acme`, create a config for it. This writes to `NW_TENANTS_PATH` (default `config/tenants.yaml`):
 
 ```bash
-# Entitle acme (writes to NW_TENANTS_PATH, default config/tenants.yaml)
 curl -X POST localhost:8000/v1/connectors/http_generic/configs \
-  -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
-  -d '{"name": "default", "config": {}}'
-# → 201 {"name": "default", "default": true}
-
-# Call the connector as acme
-curl -X POST localhost:8000/connectors/http_generic/request \
-  -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
-  -d '{"method": "GET", "url": "https://httpbin.org/get"}'
-# → 200 {"success": true, "data": {"status_code": 200, ...}}
-
-# A tenant with no config
-curl -X POST localhost:8000/connectors/http_generic/request \
-  -H 'X-Tenant-ID: initech' -H 'Content-Type: application/json' \
-  -d '{"method": "GET", "url": "https://httpbin.org/get"}'
-# → 403
+    -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
+    -d '{"name": "default", "config": {}}'
 ```
+
+The response is `201` with `{"name": "default", "default": true}`. Next, call the connector as `acme`:
+
+```bash
+curl -X POST localhost:8000/connectors/http_generic/request \
+    -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
+    -d '{"method": "GET", "url": "https://httpbin.org/get"}'
+```
+
+The response is `200` with `"success": true` and the upstream `status_code` in `data`. A tenant with no config is refused:
+
+```bash
+curl -X POST localhost:8000/connectors/http_generic/request \
+    -H 'X-Tenant-ID: initech' -H 'Content-Type: application/json' \
+    -d '{"method": "GET", "url": "https://httpbin.org/get"}'
+```
+
+The response is `403`.
 
 Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_name": "<name>"` to the request body to pick a named config. The rest of the config API is `GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs/{name}` and `PUT …/{name}/default`. For MCP, the same store sits behind the `nw_list_tenants` / `nw_select_tenant` / `nw_select_config` tools. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 

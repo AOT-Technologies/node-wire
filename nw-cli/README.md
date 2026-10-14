@@ -36,6 +36,9 @@ uv run nw gen-whl --bindings
 uv run nw gen-whl --runtime --bindings
 uv run nw gen-mcp --connector-id pet_store --force-output
 uv run nw docker-build --connector-id pet_store --tag latest
+
+# stacklok-scoped MCP server (see docs/stacklok-mcp-servers.md)
+uv run nw gen-stacklok --path ./openapi.yaml --connector-id pet_store
 ```
 
 ToolHive deploy/verify stays manual — see [nw-mcp-builder](../docs/cli/nw-mcp-builder.md#platform-and-toolhive-wheels) and [toolhive_agent_scenario.md](../docs/toolhive_agent_scenario.md).

@@ -61,7 +61,7 @@ Set these before running (`.env` is loaded automatically if present):
 | `CERNER_TOKEN_URL` | Cerner token endpoint URL |
 | `CERNER_KID` | Key ID (`kid`) that matches the public key registered in Cerner |
 | `CERNER_FHIR_BASE_URL` | Base FHIR R4 URL including tenant ID (defaults to the Cerner code sandbox if unset) |
-| `CERNER_SCOPES` | Space-separated OAuth2 scopes (optional; defaults defined in `connectors.yaml`) |
+| `CERNER_SCOPES` | Space-separated OAuth2 scopes (optional; defaults defined in `config/connectors.yaml`) |
 | `NW_REST_AUTH_DISABLED` | Set to `true` to skip REST auth middleware |
 
 ## CI / GitHub Actions
@@ -78,6 +78,7 @@ Credentials are read from repository secrets:
 | `CERNER_TOKEN_URL` | `CERNER_TOKEN_URL` |
 | `CERNER_KID` | `CERNER_KID` |
 | `CERNER_FHIR_BASE_URL` | `CERNER_FHIR_BASE_URL` |
+| `CERNER_SCOPES` | `CERNER_SCOPES` |
 
 Set these under **Settings → Secrets and variables → Actions** before triggering
 the workflow.

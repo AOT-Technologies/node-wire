@@ -15,9 +15,9 @@ A local Grafana, Loki and OTLP stack that shows Node Wire's connector calls, tra
   (`provisioning/dashboards/node-wire.yaml`). Edits made in the UI last until the container is
   recreated; to keep one, export it over `connector-logs-status.json`.
 - Exposed ports:
-  - `3000` -> Grafana UI
-  - `4317` -> OTLP gRPC ingest
-  - `4318` -> OTLP HTTP ingest
+  - `3000` -> Grafana UI (override with `NW_GRAFANA_PORT`)
+  - `4317` -> OTLP gRPC ingest (override with `NW_OTLP_GRPC_PORT`)
+  - `4318` -> OTLP HTTP ingest (override with `NW_OTLP_HTTP_PORT`)
 
 ## Run with Docker
 
@@ -27,7 +27,7 @@ From the `grafana` folder:
 docker compose up -d
 ```
 
-If another collector already holds a port, pick others (the defaults are 3000, 4317 and 4318):
+If another collector already holds a port, pick others with `NW_GRAFANA_PORT`, `NW_OTLP_GRPC_PORT` and `NW_OTLP_HTTP_PORT` (the defaults are 3000, 4317 and 4318):
 
 ```bash
 NW_OTLP_GRPC_PORT=14317 NW_OTLP_HTTP_PORT=14318 docker compose up -d

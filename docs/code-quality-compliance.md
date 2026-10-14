@@ -69,12 +69,12 @@ Bandit, with the same scan roots and failure threshold as CI:
 
 ```bash
 uv run bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src nw-stacklok-builder/src \
   --severity-level high
 
 # Optional: JSON report + the same summary CI prints
 uv run bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src nw-stacklok-builder/src \
   -f json -o bandit-report.json --exit-zero
 python scripts/bandit_report_summary.py bandit-report.json
 ```
@@ -86,7 +86,7 @@ Secret scanning with [Gitleaks](https://github.com/gitleaks/gitleaks) (for examp
 
 ```bash
 gitleaks detect --source . --redact --verbose                        # working tree
-gitleaks detect --source . --redact --verbose --log-opts="--all"     # full history, as CI does
+gitleaks detect --source . --redact --verbose --log-opts="--all"     # full history, as CI does on push and schedule
 ```
 
 ## Docs checks

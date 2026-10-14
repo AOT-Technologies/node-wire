@@ -14,7 +14,7 @@ The Dockerfiles in this repo install local wheel artifacts from `packages/**/dis
 
 ## Prerequisites
 
-- Python 3.13+ available in your shell
+- Python 3.11, 3.12 or 3.13 available in your shell
 - Docker installed and running
 - Build tooling installed:
 
@@ -28,7 +28,7 @@ Run all commands from the repository root. The build context must be the reposit
 
 ## Build wheel packages locally
 
-Build all runtime + connector wheels:
+Build the wheels for every package (runtime, bindings, ToolHive and the connectors):
 
 ```bash
 bash scripts/build-packages.sh

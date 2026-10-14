@@ -20,7 +20,7 @@ The connector exposes several actions through the `@nw_action` decorator. Each a
 | `cancel_subscription` | Terminate or schedule the end of a subscription. | `subscription_id`, `cancel_at_period_end` |
 | `issue_refund` | Full or partial refund for a charge or payment intent. | `charge_id` or `payment_intent_id`, `amount` |
 
-## Setup & configuration
+## Setup and configuration
 
 ### Environment variables
 

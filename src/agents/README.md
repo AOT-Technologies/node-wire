@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Node Wire agents & MCP orchestration
+# Node Wire agents and MCP orchestration
 
 This folder contains the core intelligence and orchestration layer of **Node Wire**, enabling autonomous AI agents to interact with healthcare systems and cloud services via the **Model Context Protocol (MCP)**.
 
@@ -26,9 +26,9 @@ The `agents` module transforms static connectors (EHR, Google Drive, SMTP) into 
 
 Stdio MCP server using the official [Model Context Protocol Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
-- **Manifest-driven tools**: `McpServer` builds the tool list from connector metadata (`<connector_id>.<action>`) and dispatches via `connector.run()`.
+- **Manifest-driven tools**: `McpServer` builds the tool list from connector metadata (`{connector_id}_{action}`) and dispatches via `connector.run()`.
 - **Unified entrypoint**: `python -m agents.mcp_entrypoint` exposes every connector enabled for MCP in `config/connectors.yaml`.
-- **Per-connector images**: `fhir_cerner_mcp`, `fhir_epic_mcp`, `google_drive_mcp`, and `smtp_mcp` run the same server with a `connector_ids` filter.
+- **Per-connector images**: `fhir_cerner_mcp`, `fhir_epic_mcp`, `google_drive_mcp`, `smtp_mcp`, `salesforce_mcp`, `stripe_mcp`, and `slack_mcp` run the same server with a `connector_ids` filter.
 
 ### ToolHive agent (`toolhive.py`)
 
@@ -41,10 +41,10 @@ A reference implementation of a ReAct-style agent designed for the **ToolHive** 
 
 A modular factory system supporting diverse LLM backends:
 
-- **Groq** (Default): Optimized for speed with Llama-3-70b.
-- **OpenAI**: Industry standard with GPT-4o-mini.
-- **Google Gemini**: Large context windows with Gemini-2.0-flash.
-- **Anthropic**: High-reasoning capabilities with Claude-3.5-Haiku.
+- **Groq** (Default): Optimized for speed with `llama-3.3-70b-versatile`.
+- **OpenAI**: Industry standard with `gpt-4o-mini`.
+- **Google Gemini**: Large context windows with `gemini-2.0-flash`.
+- **Anthropic**: High-reasoning capabilities with `claude-3-5-haiku-20241022`.
 - **NVIDIA**: OpenAI-compatible endpoint, defaults to `nvidia/nemotron-3.5-lightning-30b-a3b`.
 - **OpenRouter**: OpenAI-compatible endpoint; playground catalog defaults to
   `poolside/laguna-s-2.1:free`, `liquid/lfm-2.5-2.6b:free`,
@@ -55,7 +55,7 @@ A modular factory system supporting diverse LLM backends:
 
 ## MCP tool naming
 
-`tools/list` advertises tools named **`{connector_id}_{action}`** — `.`/`-` in the action are replaced with `_` (see `_tool_name` in `bindings/mcp_server/server.py`, built from each connector's manifest in `connectors/manifest.py`). Legacy dotted names (`{connector_id}.{action}`) still work on `tools/call` but are not what `tools/list` returns. Examples:
+`tools/list` advertises tools named **`{connector_id}_{action}`** — `.`/`-` in the action are replaced with `_` (see `mcp_advertised_tool_name` in `src/bindings/mcp_server/server.py`, built from each connector's manifest in `src/node_wire_runtime/manifest.py`). Legacy dotted names (`{connector_id}.{action}`) still work on `tools/call` but are not what `tools/list` returns. Examples:
 
 | Public tool name (`tools/list`) | Legacy dotted alias | Connector |
 | :--- | :--- | :--- |
@@ -68,7 +68,7 @@ Use **`tools/list`** for the exact names and JSON Schemas your deployment expose
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Configuration is managed via environment variables in your `.env` file.
 
@@ -100,7 +100,7 @@ NVIDIA_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b
 # OLLAMA_API_KEY=ollama
 ```
 
-### MCP & orchestration
+### MCP and orchestration
 
 Point the agent at the MCP server and set the connector secrets:
 
@@ -131,9 +131,10 @@ python -m agents.mcp_entrypoint
 ```
 
 ### Execute the autonomous agent (CLI)
-The agent can be run directly from the command line to perform the reference healthcare workflow.
 
-**Search by patient name and send through the local server:**
+To perform the reference healthcare workflow, run the agent directly from the command line.
+
+To search by patient name and send through the local server, run:
 
 ```bash
 python -m agents.toolhive --local \
@@ -142,7 +143,7 @@ python -m agents.toolhive --local \
     --recipient-email clinical-team@hospital.org
 ```
 
-**Direct ID execution through the ToolHive proxy:**
+To execute by patient ID through the ToolHive proxy, run:
 
 ```bash
 python -m agents.toolhive \
@@ -151,7 +152,7 @@ python -m agents.toolhive \
     --drive-folder-id "1ABC..."
 ```
 
-**With multi-tenancy** (`NW_MULTITENANCY_ENABLED=true` on the MCP server): pin a tenant and a shared config name for the run:
+With multi-tenancy (`NW_MULTITENANCY_ENABLED=true` on the MCP server), pin a tenant and a shared config name for the run:
 
 ```bash
 python -m agents.toolhive \

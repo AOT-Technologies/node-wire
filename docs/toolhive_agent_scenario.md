@@ -118,12 +118,12 @@ Advertised names use underscores (`connector_id_action`). Legacy dotted names (f
 
 The agent uses an LLM's tool-calling capability to decide which tools to call, in what order, and with what parameters.
 
-### PHI protection built-in
+### PHI masking in the agent prompt
 
-The MCP server automatically masks sensitive health information before any data leaves the FHIR system:
+The agent's system prompt (`src/agents/toolhive.py`) instructs the LLM to mask sensitive health information before it uploads or emails anything. The MCP server itself does not mask FHIR data, so masking depends on the LLM following the prompt:
 
 - Date of birth: year is masked (`****-MM-DD`)
-- Patient IDs: partially masked (`123*****`)
+- Patient IDs: all but the first three digits are masked (`8877665` becomes `887****`)
 - When emailing summaries, the agent uploads data to Drive first and sends a **link** — not raw patient data
 
 ---
@@ -150,7 +150,7 @@ These two methods let a non-developer get the agent running quickly: the recomme
 ### Option A: ToolHive UI (recommended, no code)
 
 1. Open the ToolHive UI on your machine.
-2. Build or pull the Docker image `node-wire:latest` (admins can do this for you), then Add a new Server / Container.
+2. Build or pull the Docker image `node-wire:latest` (admins can do this for you), then add a Server / Container.
 3. Name it `node-wire-connectors`. Set Transport to `stdio`.
 4. In the server's Environment / Secrets section, add the variables from [Environment variables](#environment-variables-complete-list). For `GOOGLE_DRIVE_SA_JSON` paste the entire service account JSON into the secret value (do not upload a file path here).
 5. Start the server. ToolHive shows an Endpoint URL like `http://localhost:<PORT>/sse` or a proxy URL that contains `/sse` or `/mcp`.
@@ -158,7 +158,7 @@ These two methods let a non-developer get the agent running quickly: the recomme
 
 ### Option B: Local quick run (Windows PowerShell)
 
-Prerequisite: Install Python 3.13+ and Git. If you cannot install, ask an administrator to run Option A.
+Prerequisite: Install Python 3.11, 3.12 or 3.13, and Git. If you cannot install, ask an administrator to run Option A.
 
 1. Open PowerShell and clone or navigate to the project folder.
 2. Create a `.env` file in the project root (replace placeholder values):
@@ -440,13 +440,9 @@ A successful run prints output similar to the following:
 ============================================================
 Node Wire ToolHive Agent
 Provider : groq
-MCP URL  : http://localhost:34567/mcp
+MCP info : http://localhost:34567/mcp
 ============================================================
-Task: Patient ID: 12724066
-Please:
-1. Fetch the patient's details from Cerner FHIR (or Epic if the ID starts with 'e').
-2. Create a text file named 'patient_summary_12724066.txt' in Google Drive.
-3. Send an email to your-email@example.com with a link to the Drive file.
+Task: fetch patient details from FHIR, create a summary file in Google Drive, and email it to the recipient. (Patient identifiers and recipient address are withheld from logs.)
 
 ============================================================
 RESULT
@@ -461,10 +457,13 @@ I have completed all three steps:
 
 Steps executed (3):
   ✓ Step 1: fhir_cerner_read_patient
-       result : {"patient_id": "123*****", "full_name": "Nancy Smart", ...}
+       args   : {"resource_id": "12724066"}
+       result : {"patient_id": "12724066", "full_name": "Nancy Smart", ...}
   ✓ Step 2: google_drive_files_upload
+       args   : {...}
        result : {"file_id": "1XYZ...", "web_view_link": "https://docs.google.com/..."}
   ✓ Step 3: smtp_send_email
+       args   : {...}
        result : {"sent": true}
 ```
 
@@ -604,7 +603,7 @@ The following table lists common problems and their fixes:
 
 | Problem | Likely cause | Fix |
 |---|---|---|
-| `TOOLHIVE_MCP_URL is not set` | Missing env var | Copy the endpoint URL from ToolHive UI → Installed → `node-wire-connectors` and add to `.env` |
+| `TOOLHIVE_MCP_URL (single) or TOOLHIVE_MCP_URLS (comma-separated) is not set` | Missing env var | Copy the endpoint URL from ToolHive UI → Installed → `node-wire-connectors` and add to `.env`, or use `--local` |
 | `Failed to list MCP tools: Connection refused` | ToolHive server stopped | Restart via ToolHive UI, or run `thv run ...` again; check `thv list` to see running servers |
 | `Secret 'CERNER_PRIVATE_KEY' is not configured` | Secret not stored in ToolHive | Run `thv secret set CERNER_PRIVATE_KEY` or add it via the ToolHive UI |
 | `google_drive connector: authentication failed` | `GOOGLE_DRIVE_SA_JSON` is a file path, not JSON content | For ToolHive, paste the actual JSON *contents* of the file (not the file path) as the secret value; for local `.env`, use an absolute path to the JSON file per [Google Drive service account setup](google_drive_connector.md#google-drive-service-account-setup) |

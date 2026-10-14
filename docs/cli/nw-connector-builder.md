@@ -6,11 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-connector-builder
 
-!!! note "Advanced — most users want the `nw` CLI"
-    `nw-connector-builder` is the standalone entry point and exposes the full flag surface.
-    For the normal path (spec → connector → wheels → MCP host → image) use
-    [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a
-    flag `nw` does not pass through, or are debugging this stage on its own.
+> [!NOTE]
+> **Advanced — most users want the `nw` CLI.** `nw-connector-builder` is the standalone
+> entry point and exposes the full flag surface. For the normal path
+> (spec → connector → wheels → MCP host → image) use [`nw gen-all`](nw-cli.md), which calls
+> this tool for you. Read on when you need a flag `nw` does not pass through, or are
+> debugging this stage on its own.
 
 Self-contained tool inside the **node-wire** repo with two subcommands:
 
@@ -86,7 +87,7 @@ Promote never runs if the gate fails. MCP or `--wire` failures after a clean pro
 
 ## Requirements
 
-- **Python 3.13+**
+- **Python 3.11, 3.12 or 3.13**
 - **[uv](https://docs.astral.sh/uv/)** (recommended) or an editable install of the package
 - Run from / against a **node-wire** checkout (default `--node-wire-root` is the parent of `nw-connector-builder/`)
 - For URL specs: network access; fetches use Node Wire’s HTTP safety checks (`assert_safe_destination`) and do not follow redirects
@@ -200,7 +201,7 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 
 ### `mcp`
 
-Same flags as standalone `nw-mcp-builder` (see [nw-mcp-builder](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
+Same flags as standalone `nw-mcp-builder` (see [nw-mcp-builder](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `--tool-search` / `--full-tool-list` (mutually exclusive), `--max-tool-listing-kb` (default `25`), `-v`.
 
 To print help for each command:
 
@@ -231,10 +232,6 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 | Validation | Resolved with `prance` + validated with `openapi-spec-validator` |
 | Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see [Codegen behaviour](nw-connector-builder-codegen.md#draft-4-repair)) |
 | Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
-
-Draft-4 constructs that OpenAPI 3.0 forbids (and the Swagger 2.0 `examples` move) are
-rewritten rather than rejected — see [codegen behaviour](nw-connector-builder-codegen.md#spec-repair).
-
 
 ## Auth mapping
 
@@ -298,6 +295,7 @@ src/node_wire_<id>/
 
 packages/connectors/<id>/
   pyproject.toml     # entry point + deps
+  setup.py           # Cython build glue for binary wheels
   report.json        # full build report
   tests/
     test_<id>_models.py   # polyfactory round-trip (+ example parse when present)
@@ -429,7 +427,7 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 
 `nw-connector-builder` creates the runtime and package skeleton, and `--wire` covers the Tier 1
 wiring. `nw gen-all` also inserts the `ALL_PACKAGES` entry unless you pass `--no-wire`. The rest
-(`setup.py` for binary wheels, the CI allowlists, and an optional MCP image) is the Tier 2 / Tier 3
+(the CI allowlists and an optional MCP image) is the Tier 2 / Tier 3
 checklist in [Packaging](../packaging.md#adding-a-new-publishable-connector). The CI allowlists are
 always manual.
 

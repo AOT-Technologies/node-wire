@@ -262,6 +262,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Python 3.11, 3.12 and 3.13** are supported across the repository. The root project, `nw-cli`,
+  `nw-connector-builder`, `nw-mcp-builder` and `nw-stacklok-builder` now declare
+  `requires-python = ">=3.11"` (was `>=3.13`); Ruff targets `py311` and mypy checks as 3.11; CI
+  runs pytest on 3.11, 3.12 and 3.13 on Ubuntu. Generated MCP hosts and stacklok servers still
+  target Python 3.13 images. See [ADR 0003](docs/adr/0003-python-3-11-to-3-13.md).
+- **`nw-mcp-builder`**: the success message now suggests `uv sync --python 3.13` (was `3.14`).
 - **One error taxonomy on every surface** (`docs/errors.md`). The runtime now owns every code,
   including failures before a connector runs, and bindings only translate them. Codes shipped in
   1.0.0 keep their name and category.
@@ -314,7 +320,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   field, first sentence, 90-character cap. Previously every generated tool reached MCP clients
   with no description at all. Slack: 174/174 tools and 198/223 parameters now described. With the
   flattened bodies below, Slack's advertised input schemas go from 68 KB (no descriptions) to 79 KB.
-- **`node-wire-bindings`**: MCP tool-call validation errors now name the offending path — e.g.
+- **`node-wire-bindings`**: MCP tool-call validation errors now name the offending path — for example,
   `Input validation error: $.body: 'channel' is a required property` instead of
   `'channel' is a required property`. The SDK validates against `inputSchema` and reports only
   `exc.message`, dropping the `json_path` it already computed, so a message could not say whether
@@ -425,7 +431,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release.
 - `nw-mcp-builder` generated Dockerfiles now use the same digest-pinned
   `python:3.12-slim` base and non-root `USER` as checked-in images, with a
-  whitelist `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
+  allowlist-style `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
   application tree, and no default `NW_MCP_AUTH_DISABLED` in containers.
 - Node Wire branding refresh (README badges/logos, docs site theme).
 - Documentation updates for connector authoring, MCP servers, packaging/release

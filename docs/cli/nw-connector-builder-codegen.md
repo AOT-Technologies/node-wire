@@ -34,8 +34,6 @@ Tuple-form `items` means positional validation in draft-4, which no generated mo
 
 Swagger 2.0 input gets one more repair during conversion: response `examples` (keyed by mime type on the response object, which OAS 3 has no property for) moves to `content.<mime>.example`.
 
-
-
 ---
 
 ## Tool and parameter descriptions
@@ -74,7 +72,7 @@ Rules:
 - **Always sent** — an operation that declares a body sends one, `{}` when no property is set.
 - **`allOf`** parts at the top of the body schema are merged; `readOnly` properties are left out (a client never sends them).
 - **Enums** on string fields become `Literal[...]` types, so they are enforced, not only advertised.
-- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (for example, `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix, Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
+- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (for example, `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `self`, `cls`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix, Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
 - **Whole bodies** — bodies that are not objects with declared properties keep a single `body` argument: arrays (`list`), binary/string bodies (`str`), free-form maps, `oneOf`/`anyOf`, and media types other than JSON, form and multipart. `body` is required when the request body is.
 
 ---

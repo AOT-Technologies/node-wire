@@ -7,7 +7,7 @@ name = "node-wire"
 version = "1.0.0"
 description = "Node Wire — runtime, connectors, and bindings"
 license = "Apache-2.0"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 authors = [
   { name = "AOT Technologies", email = "opensource@aot-technologies.com" },
 ]
@@ -17,6 +17,8 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
@@ -169,7 +171,7 @@ omit = [
 ]
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py311"
 line-length = 100
 extend-exclude = [
   "*_pb2.py",
@@ -180,7 +182,7 @@ extend-exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.11"
 strict = false
 ignore_missing_imports = true
 # Default targets when invoking `mypy` with no paths (CI/pre-commit). Avoids repo-root `mypy .`

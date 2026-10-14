@@ -73,7 +73,17 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.changes.outputs.os) }}
-        python-version: ["3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
+        # Every supported Python runs on Ubuntu; macOS and Windows cover the newest only.
+        exclude:
+          - os: macos-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - name: Checkout repository
@@ -139,8 +149,8 @@ jobs:
           if-no-files-found: error
 
 
-  # The repo needs 3.13, but node-wire-runtime, -bindings and -toolhive are published for
-  # >=3.11 (cp311/cp312 wheels in publish.yml). Install just those, pure Python (editable
+  # node-wire-runtime, -bindings and -toolhive are published for >=3.11 (cp311/cp312
+  # wheels in publish.yml). Check they install on their own: just those, pure Python (editable
   # installs skip Cython), and run the tests that need nothing else: connectors pull in
   # their SDKs and the REST binding needs fastapi, neither of which ships in these packages.
   published-python:

@@ -180,7 +180,7 @@ To upload a test file, send a `files.upload` request (include `parents` with you
 | `GDRIVE_AUTH` / `401` or `403` | Service account key file path is wrong, or the JSON is invalid | Double-check `GOOGLE_DRIVE_SA_JSON` points to the correct absolute path |
 | `GDRIVE_AUTH` / `403` on a specific file | Service account doesn't have permission to that file/folder | Share the folder with the service account email |
 | `GDRIVE_BUSINESS_RULE` / `404` | Folder ID is wrong | Check the URL in Drive and re-copy the folder ID |
-| `FileNotFoundError` | `GOOGLE_DRIVE_SA_JSON` path doesn't exist | Use an absolute path, not a relative one |
+| `ValueError`: "service account file not found" | `GOOGLE_DRIVE_SA_JSON` is not inline JSON and its path doesn't exist | Use an absolute path, not a relative one |
 
 ### Security notes
 
@@ -281,7 +281,6 @@ models and published live — do not duplicate them here:
 - **MCP** — the same models drive the tool schemas in `tools/list`
 
 Field-level meaning lives on the models in `src/node_wire_google_drive/schema.py`.
-
 
 ### Error taxonomy
 

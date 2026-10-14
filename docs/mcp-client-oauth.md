@@ -18,7 +18,12 @@ This is **separate** from:
 Build a client configuration:
 
 ```python
-from node_wire_runtime.mcp_client import McpClientConfig, McpServerConfig, AuthConfig
+from node_wire_runtime.mcp_client import (
+    AuthClientConfig,
+    AuthConfig,
+    McpClientConfig,
+    McpServerConfig,
+)
 
 config = McpClientConfig(
     server=McpServerConfig(url="https://mcp.example.com/mcp"),
@@ -30,6 +35,8 @@ config = McpClientConfig(
 ```
 
 ### Settings
+
+The following settings control the client:
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
@@ -53,6 +60,7 @@ Run discovery against the server:
 ```python
 from node_wire_runtime.mcp_client import discover, discovery_cache_for_config
 
+cache = discovery_cache_for_config(config)
 result = await discover(config, www_authenticate=challenge_header, cache=cache)
 ```
 
@@ -60,7 +68,7 @@ Discovery runs on the first MCP request without a token, or after a `401` with `
 
 ## Authorization
 
-**Loopback (desktop):**
+For a desktop app, use the loopback flow:
 
 ```python
 from node_wire_runtime.mcp_client import AuthorizationCodeFlow
@@ -69,7 +77,7 @@ flow = AuthorizationCodeFlow(config)
 tokens = await flow.run_loopback_authorization(open_browser=True)
 ```
 
-**Configured URL (hosted / production):**
+For a hosted or production app, use the configured URL flow:
 
 ```python
 url = await flow.start_authorization(open_browser=True)

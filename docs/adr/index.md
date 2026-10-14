@@ -13,6 +13,7 @@ the living pages. Start at the [reading map](../reading.md) for those.
 |---|---|---|---|
 | [0001](0001-stacklok-mcp-builder-on-node-wire.md) | stacklok MCP builder on node-wire | Accepted | [stacklok MCP servers](../stacklok-mcp-servers.md) |
 | [0002](0002-documentation-lifecycle.md) | Documentation lifecycle | Accepted | [Changing the docs](../reading.md#changing-the-docs) |
+| [0003](0003-python-3-11-to-3-13.md) | Support Python 3.11 to 3.13 | Accepted | [Installation](../installation.md) |
 
 ## Rules
 

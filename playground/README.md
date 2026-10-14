@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 This folder contains a fully functional playground for **Node Wire**, showcasing how it orchestrates complex workflows across disparate systems like Electronic Health Records (EHR) and IT Service Management (ITSM) tools.
 
-## 🚀 Overview
+## Overview
 
 The demo provides a modern, interactive web interface to trigger, monitor, and verify end-to-end automation scenarios. It highlights the platform's ability to handle data mapping, authentication, and resource creation with transparency.
 
@@ -20,9 +20,9 @@ The demo provides a modern, interactive web interface to trigger, monitor, and v
 
 ---
 
-## 📖 Scenarios & implementation
+## Scenarios and implementation
 
-### 🏥 Scenario 1: EHR orchestration (Epic FHIR)
+### Scenario 1: EHR orchestration (Epic FHIR)
 This scenario automates the process of synchronizing clinical notes from a third-party application into a patient's chart in Epic.
 
 *   **Logic Flow**:
@@ -32,7 +32,7 @@ This scenario automates the process of synchronizing clinical notes from a third
     4.  **Verification**: Re-queries the EHR to confirm the document's existence and displays the raw FHIR JSON response.
 *   **Implementation**: Uses the `fhir_epic` connector, handling complex FHIR resource schemas and mapping internal data to US Core standards.
 
-### 🛠️ Scenario 2: IT ops automation (generic HTTP)
+### Scenario 2: IT ops automation (generic HTTP)
 This scenario demonstrates how the platform can integrate with any REST-enabled legacy system or internal tool without requiring a specific connector.
 
 *   **Logic Flow**:
@@ -42,7 +42,7 @@ This scenario demonstrates how the platform can integrate with any REST-enabled 
     4.  **Audit Log**: Triggers a background task to record the transaction in the system audit log.
 *   **Implementation**: Uses the `http_generic` connector. In this demo, it targets `httpbin.org/post` to echo and verify the dispatched data, showcasing universal connectivity.
 
-### 🛠️ Scenario 3: Cerner FHIR R4 orchestration
+### Scenario 3: Cerner FHIR R4 orchestration
 This scenario demonstrates advanced clinical note orchestration for Oracle Health (Cerner) legacy systems, handling proprietary coding and strict validation rules.
 
 *   **Logic Flow**:
@@ -52,7 +52,7 @@ This scenario demonstrates advanced clinical note orchestration for Oracle Healt
     4.  **EHR Verification**: Confirms the document creation by querying for the specific resource ID, ensuring it's properly indexed in the patient's record.
 *   **Implementation**: Uses the `fhir_cerner` connector, demonstrating automated handling of Cerner's strict 422/400 validation rules (for example, numeric practitioner IDs and specific search parameter combinations).
 
-### 🔒 Scenario 4: Secure document archival (Google Drive Vault)
+### Scenario 4: Secure document archival (Google Drive Vault)
 This scenario demonstrates secure archival of clinical documentation and incident reports into an access-controlled Google Drive Vault.
 
 *   **Logic Flow**:
@@ -62,7 +62,7 @@ This scenario demonstrates secure archival of clinical documentation and inciden
     4.  **Verify Integrity**: Constructs a secure web-view link and retrieves access logs through `files.get`.
 *   **Implementation**: Uses the `google_drive` connector loaded via `service_account.json` credentials, demonstrating how non-healthcare cloud platforms integrate seamlessly into the orchestration pipeline alongside FHIR standards.
 
-### 🤖 Scenario 5: AI agent orchestration (MCP)
+### Scenario 5: AI agent orchestration (MCP)
 This scenario demonstrates the platform's highest level of abstraction: an autonomous AI Assistant that uses the **Model Context Protocol (MCP)** to orchestrate complex healthcare workflows through natural language.
 
 *   **Logic Flow**:
@@ -138,7 +138,7 @@ uv run node-wire
 - **Header**: Tenant dropdown (existing tenants) and Config dropdown appear when multitenancy is on. Header **Add config** is hidden; use **Add config** on each System Connector page.
 - **Config dropdown**: lists configs for the **active connector** only under the selected tenant. Switching connectors clears a name that does not exist for the new connector.
 - **Agentic Workflow**: sends the header dropdown's `X-Tenant-ID` (and optional `config_name` query) as the **starting** pin if one is selected — but a dropdown pick is not required to send the first message. With nothing selected yet, the agent starts against the `__default__` tenant (or fully unpinned if `__default__` has no configs), and the chat's own `nw_select_tenant` / `nw_select_config` tool calls are how you name a tenant/config for the first time, same as any later switch. The chat response includes the effective tenant/config and the header dropdowns update to match. Local agent MCP runs **in-process** against the playground factory.
-- **MCP config discovery**: When MT is on, standalone MCP also loads `tenants.yaml` and exposes `nw_list_tenants`, `nw_select_tenant` (returns that tenant’s configs), `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that MCP process. Env/`X-Tenant-ID` is the default; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Configs are still created only via Add config / REST / YAML — not via MCP. Rebuild generated MCP images so vendored `server.py` includes these tools.
+- **MCP config discovery**: When MT is on, standalone MCP also loads `tenants.yaml` and exposes `nw_list_tenants`, `nw_select_tenant` (returns that tenant’s configs), `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that MCP process. On stdio the `NW_TENANT_ID` pin is the default and chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`; on streamable-http the request's `X-Tenant-ID` (or JWT tenant) always decides. Configs are still created only via Add config / REST / YAML — not via MCP. Rebuild generated MCP images so vendored `server.py` includes these tools.
 - **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (for example, `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
 - **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.
 - **Instance pin**: `factory.get(tenant_id=...)` pins the connector; `run()` may omit `tenant_id`. Mismatch returns `TENANT_MISMATCH`.
@@ -172,15 +172,15 @@ Then open Inspector, select `Streamable HTTP`, connect to `http://127.0.0.1:8081
 
 ---
 
-## 🛠️ Advanced platform features
+## Advanced platform features
 
-### 🛡️ Global resilience engine
+### Global resilience engine
 Every request in the platform is governed by an intelligent auto-retry mechanism.
 
-- **Exponential backoff**: Automatically retries failed requests with increasing delays (1s, 2s, 4s...) to handle transient network issues or rate limits.
+- **Exponential backoff**: Automatically retries failed requests (3 attempts by default) with exponentially increasing delays (starting at 0.5s, capped at 5s) to handle transient network issues or rate limits.
 - **Real-time visibility**: The UI displays retry counts for each step, providing transparency when the platform is actively recovering from a system error.
 
-### 🔍 Intelligent error classification
+### Intelligent error classification
 The platform distinguishes between different failure modes to provide actionable feedback:
 
 - **BUSINESS**: Data validation or permission issues (for example, "Patient not found").
@@ -191,14 +191,14 @@ Errors are color-coded and clearly labeled in the "Technical Audit" panel.
 
 ---
 
-## 🧪 Testing with real environments
+## Testing with real environments
 
 The demo is pre-configured with mock/sandbox endpoints for immediate use. To test with real systems, follow these steps:
 
 ### Testing real Epic/Cerner (EHR)
 
-1.  **Update Config**: Modify `config/connectors.yaml` to point to a real Epic/Cerner Sandbox or Production URL.
-2.  **Auth**: Ensure you have valid `CLIENT_ID` and `PRIVATE_KEY` for the EHR's Backend System OAuth2 flow (SMART on FHIR).
+1.  **Update Config**: Point the connector at a real Epic/Cerner Sandbox or Production URL by setting `EPIC_FHIR_BASE_URL` or `CERNER_FHIR_BASE_URL` (referenced by `base_url` in `config/connectors.yaml`).
+2.  **Auth**: Ensure you have valid credentials for the EHR's Backend System OAuth2 flow (SMART on FHIR): `EPIC_CLIENT_ID`, `EPIC_PRIVATE_KEY`, `EPIC_KID`, and `EPIC_TOKEN_URL` for Epic, or the matching `CERNER_*` variables for Cerner.
 3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment.
     - **Cerner Note**: Ensure you use numeric Practitioner IDs (for example, `593923`) and valid CodeSet 72 codes.
 
@@ -216,7 +216,7 @@ To test the Google Drive integration manually, follow these specialized setup st
     *   **Note Archival**: Switch to "Write Note", type a clinical summary, and verify it is archived as a `.txt` file.
     *   **IAM Check**: Check the "Share" settings on the archived file in Google Drive; the "Recipient Email" specified in the UI is added automatically as a "Reader".
 
-### 🤖 Configuring the AI agent (optional)
+### Configuring the AI agent (optional)
 To enable the AI Agent chat, configure an LLM provider by following these steps:
 
 1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `OPENAI_API_KEY` / `OPENAI_MODEL`, `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`, `NVIDIA_API_KEY` for Nemotron, and/or `OPENROUTER_API_KEY` plus `OPENROUTER_MODELS` (defaults: Laguna S 2.1, LFM 2.5, Nex N2.5 Pro, Ling 3.0 Flash) for OpenRouter. OpenRouter free endpoints log prompts — do not send confidential or personal data.
@@ -227,7 +227,7 @@ To enable the AI Agent chat, configure an LLM provider by following these steps:
 
 ---
 
-## 🛠️ How to run
+## How to run
 
 1.  Navigate to the project root.
 2.  Start the FastAPI server:

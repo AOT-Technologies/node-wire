@@ -172,6 +172,8 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
   `patient` / `patientId` → `patient_id` and `sort` → `_sort` on `search_encounter`). Encounter
   search requires a patient filter before any outbound call.
 
+The following table lists the main read and search actions:
+
 | Action | When to use | Example arguments |
 |--------|-------------|-------------------|
 | `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |

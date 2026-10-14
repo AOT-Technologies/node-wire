@@ -21,7 +21,7 @@ You need the following tools:
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Python | 3.13+ | Required to run the platform |
+| Python | 3.11, 3.12 or 3.13 | Required to run the platform |
 | `uv` | Latest | Recommended for dependency management and reproducible installs |
 | Git | Any recent version | |
 | Docker | Latest | Only needed for MCP server image builds |
@@ -53,7 +53,7 @@ locally before opening a PR:
 - **Type-check:** `uv run mypy` (uses the `src` target from `pyproject.toml`;
   avoid `mypy .`, which pulls in packaging `setup.py` files and produces
   duplicate-module noise)
-- **Security (SAST):** `uv run bandit -c pyproject.toml -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src`
+- **Security (SAST):** `uv run bandit -c pyproject.toml -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src nw-stacklok-builder/src`
 - **Tests:** `uv run pytest`
 
 See [docs/code-quality-compliance.md](docs/code-quality-compliance.md) and

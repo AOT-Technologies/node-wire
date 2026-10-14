@@ -6,11 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-mcp-builder
 
-!!! note "Advanced — most users want the `nw` CLI"
-    `nw-mcp-builder` is the standalone entry point and exposes the full flag surface.
-    For the normal path (spec → connector → wheels → MCP host → image) use
-    [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a
-    flag `nw` does not pass through, or are debugging this stage on its own.
+> [!NOTE]
+> **Advanced — most users want the `nw` CLI.** `nw-mcp-builder` is the standalone entry point and
+> exposes the full flag surface. For the normal path (spec → connector → wheels → MCP host → image)
+> use [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a flag `nw`
+> does not pass through, or are debugging this stage on its own.
 
 Self-contained tool inside the **node-wire** repo that turns a node-wire connector into a standalone MCP server project.
 
@@ -55,7 +55,7 @@ For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
    - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
    - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-wheels))
 3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
-   - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source
+   - Auto-generated from the actions the connector class registers (`nw_action_metas()` on the class in `logic.py`)
    - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
 4. **Generates** `out/<server-name>-mcp/` containing:
    - Copied wheels under `wheels/` (runtime, bindings, connector). The host imports everything from these installed wheels; no node-wire source tree is vendored into it
@@ -78,9 +78,9 @@ Server name in the fixture is always `{connector_id with _ → -}-nw` (for examp
 ## Requirements
 
 - **[uv](https://docs.astral.sh/uv/)** — package manager and runner
-- **Python 3.13+** for `nw-mcp-builder` itself
+- **Python 3.11, 3.12 or 3.13** for `nw-mcp-builder` itself
 - **Python version matching wheels** for generated hosts — the generated host must run the same
-  Python minor version the wheels were built for. The repo standardises on **3.13** (the
+  Python minor version the wheels were built for. Generated hosts target **3.13** (the
   generated Dockerfile uses `python:3.13-slim`). If your host wheels were built by a different
   interpreter, pin it explicitly:
 
@@ -284,6 +284,9 @@ uv run nw-mcp-builder -c <connector_id> [options]
 | `--force-fixture` | off | Overwrite `fixtures/<id>_nw.yaml` from connector source |
 | `--force-output` | off | Delete and regenerate `out/<server>-mcp/` if it exists |
 | `--python` | — | Python for wheel builds (sets `UV_PYTHON`) |
+| `--tool-search` | off | Serve tools through `nw_search_tools` + `nw_call_tool` (for large connectors). Mutually exclusive with `--full-tool-list` |
+| `--full-tool-list` | off | List every tool, even over the size budget (no prompt, no warning) |
+| `--max-tool-listing-kb` | `25` | Tool listing budget in KB. Over it, an interactive run asks you to choose full list or tool search; without a terminal the full list is used with a warning |
 | `-v`, `--verbose` | off | Debug logging |
 
 To print help, or log verbosely during generation:
@@ -321,10 +324,10 @@ The monorepo ships the following connectors:
 
 Scope YAML files describe the MCP server metadata for connector mode. They are **not** used to codegen HTTP clients — node-wire dispatches tools at runtime from the connector wheel.
 
-- **Auto-generated** — scans `logic.py` (and sibling `.py` files) for action names when the fixture is missing or `--force-fixture` is set
-- **Hand-maintained** — files like `fhir_epic_nw.yaml` can include richer tool descriptions; existing fixtures are kept unless you pass `--force-fixture`
+- **Auto-generated** — built from the connector's registered actions when the fixture is missing or `--force-fixture` is set
+- **Hand-maintained** — you can edit a fixture to add richer tool descriptions; an existing fixture is kept unless you pass `--force-fixture`
 
-Minimal shape:
+Shape (abridged; the generated file also carries `workflows` and per-tool `endpoint`, `response_kind` and `hints`):
 
 ```yaml
 version: "1"
@@ -340,7 +343,12 @@ spec:
   base_url: https://unused.invalid
 groups:
   - name: connector
-    tools: [<tool-names>]
+    description: <group-description>
+    tools:
+      - tool_name: <tool-name>
+        endpoint: POST /connectors/salesforce/<action>
+        description: <tool-description>
+        response_kind: json
 auth:
   type: none
 ```
@@ -377,8 +385,9 @@ Set these in `.env` (start from `.env.example`):
 | `NW_MCP_PORT` | `8081` | HTTP port when using streamable-http |
 | `NW_MCP_HOST` | loopback (see [Configuration](../configuration.md#transport-binding-config)) | Bind address for streamable-http. Set `0.0.0.0` inside a container, otherwise the published port answers with `Connection reset by peer` |
 | `NW_ALLOWED_CONNECTORS` | `<connector_id>` | Forced by the thin host |
-| `NW_MCP_AUTH_DISABLED` | `true` | Local dev / MCP Inspector |
-| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` | Local dev tool access |
+| `NW_MCP_TOOL_MODE` | chosen at generation (`list` or `search`) | `list` shows every tool; `search` lists only `nw_search_tools` + `nw_call_tool` |
+| `NW_MCP_AUTH_DISABLED` | `true` locally; unset in images | Local dev / MCP Inspector |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` locally; unset (`deny`) in images | Local dev tool access |
 | `NW_CONFIG_PATH` | `config/connectors.yaml` | Connector registry config |
 | `NW_MULTITENANCY_ENABLED` | `false` | When `true`, load `NW_TENANTS_PATH` and expose `nw_*` tenant/config tools |
 | `NW_TENANTS_PATH` | `config/tenants.yaml` | Runtime tenant/config + secret store |
@@ -456,7 +465,7 @@ current tools.
 
 | Problem | What to try |
 |---------|-------------|
-| `No node-wire-runtime wheel in .../dist` | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
+| `Missing runtime wheel in .../dist (omit --skip-build-wheels)` (or the bindings/connector equivalent) | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
 | Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.13-slim`) |
 | `Output project already exists` | Pass `--force-output` |
 | `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
@@ -485,7 +494,9 @@ nw-mcp-builder/
   out/                      # generated MCP hosts (gitignored content typical)
   src/nw_mcp_builder/
     cli.py                  # entrypoint: nw-mcp-builder
+    connector_class.py      # loads the connector class to read its actions
     from_connector.py       # wheels → fixture → pipeline → .env.example
+    tool_listing.py         # tool listing size check and list/search choice
     pipeline.py             # run_connector_pipeline
     generate/
       connector_project.py  # emit out/<server>-mcp/
@@ -493,7 +504,7 @@ nw-mcp-builder/
       models.py             # MCPScope validation for fixtures
 ```
 
-Dependencies: `pydantic`, `pyyaml` only (no mcp-builder dependency).
+Dependencies: `pydantic`, `pyyaml`, `node-wire-bindings` (measures the tool listing) and `node-wire-runtime` (loads connector classes). There is no mcp-builder dependency.
 
 Unit tests live under `tests/nw_mcp_builder/` (run from the node-wire repo root):
 

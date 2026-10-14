@@ -97,3 +97,8 @@ Provider types and fields: [Build a connector — Authentication](../connectors-
 the exception's MRO for the closest match, within the raising connector's own `error_map` only.
 Runtime-owned exceptions (`PolicyDenied`, `TenantMismatchError`) are registered globally. Writing
 an `error_map`: [Build a connector](../connectors-build.md#optional-error_map-for-errormapper).
+
+## Next steps
+
+- [The `run()` pipeline](../architecture.md#the-run-pipeline): what happens to every action, in order.
+- [Tenancy](tenancy.md): tenant resolution, entitlement and tenant secrets.

@@ -12,7 +12,7 @@ You need the following tools:
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| Python | 3.13+ | Required to run the platform |
+| Python | 3.11, 3.12 or 3.13 | Required to run the platform |
 | `uv` or `pip` | Latest | `uv` is recommended for local development |
 | Git | Any recent version | Required to clone the repository |
 | Docker | Latest | Required for MCP server image builds, Linux wheel builds (cibuildwheel, installed by the `dev` group) and `docker-compose.mcp.yml` |
@@ -43,6 +43,7 @@ cp sample.env .env
 # Windows (CMD)
 copy sample.env .env
 ```
+
 Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others. Unset or empty
 loads no connectors — fail-closed. Full reference:
 [Configuration — Required variables](configuration.md#required-variables).
@@ -51,7 +52,7 @@ The platform is single-tenant by default. To isolate callers by tenant, see [Ten
 
 ### Install dependencies
 
-**Using `uv` (recommended):**
+#### Using `uv` (recommended)
 
 The repository commits `uv.lock` for reproducible installs. Use `--frozen` in CI and local dev:
 
@@ -70,7 +71,9 @@ When you change dependencies in `pyproject.toml`, regenerate and commit the lock
 uv lock
 ```
 
-**Using `pip` (unpinned; not recommended for reproducible builds):**
+#### Using `pip` (unpinned; not recommended for reproducible builds)
+
+Choose the install that matches what you need:
 
 - Full install (including AI agents): `pip install -e ".[agents]"`
 - Minimal install (REST/gRPC only): `pip install -e .`

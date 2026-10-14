@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 > **Platform:** Node Wire
 > **Standard:** FHIR R4
-> **Auth Method:** SMART Backend Services — `private_key_jwt` (RS384)
+> **Auth method:** SMART Backend Services — `private_key_jwt` (RS384)
 > **Actions:** `read_patient` · `search_patients` · `search_encounter` · `create_document_reference` · `search_document_reference`
 > **Source:** `src/node_wire_fhir_cerner/`
 
@@ -30,22 +30,23 @@ A single configuration entry in `connectors.yaml` exposes multiple distinct oper
 
 The connector implements the **SMART Backend Services** specification (specifically the `private_key_jwt` flow) required by Cerner:
 
-1. **JWT Creation**: Generates a signed JWT using `RS384` with the provided `cerner_private_key`.
-2. **Secret Decryption**: Newlines in the private key (often escaped as `\n` in environment variables) are automatically processed.
-3. **Token Exchange**: The JWT is posted to the `cerner_token_url` to obtain a short-lived (5 min) `access_token`.
-4. **Request Execution**: The token is attached as a `Bearer` header to subsequent FHIR API calls.
+1. **JWT creation**: The runtime's OAuth2 auth provider signs a JWT using `RS384` with the `cerner_private_key` secret.
+2. **Secret decoding**: Newlines in the private key (often escaped as `\n` in environment variables) are automatically processed.
+3. **Token exchange**: The JWT (5-minute lifetime by default) is posted to the `cerner_token_url` secret to obtain an `access_token`, which is cached for the `expires_in` lifetime the server returns.
+4. **Request execution**: The token is attached as a `Bearer` header to subsequent FHIR API calls.
 
 ### Required secrets
 
 The connector reads these secrets:
 
-| Secret Key | Description |
+| Secret key | Description |
 |---|---|
 | `cerner_fhir_base_url` | Base URL for the Cerner FHIR R4 endpoint |
 | `cerner_private_key` | RSA private key PEM |
 | `cerner_kid` | Key ID registered in the Cerner Code Console |
 | `cerner_client_id` | Client ID from Cerner app registration |
-| `cerner_token_url` | OAuth2 token endpoint URL |
+| `cerner_token_url` | OAuth2 token endpoint URL (must not contain `/hosts/`) |
+| `cerner_scopes` | Optional. OAuth scopes, overriding the `scopes` list in `config/connectors.yaml` |
 
 ---
 
@@ -59,7 +60,7 @@ Retrieves patient details either by a direct resource ID or through search param
 
 | Field | Detail |
 |---|---|
-| **Input** | `resource_id` OR `search_params` |
+| **Input** | `resource_id`, name fields (`given_name`, `family_name`, `name`, `birthdate`), or `search_params` |
 | **Output** | Raw FHIR Patient resource |
 
 ---
@@ -81,7 +82,7 @@ Searches for medical encounters for a specific patient. This is often a prerequi
 
 | Field | Detail |
 |---|---|
-| **Input** | `search_params` (for example, `{"patient": "12345"}`) |
+| **Input** | `patient_id`, `status`, `date`, or `search_params` (for example, `{"patient": "12345"}`) |
 | **Output** | List of Encounter resources and the total count |
 
 ---
@@ -90,7 +91,7 @@ Searches for medical encounters for a specific patient. This is often a prerequi
 
 The most complex operation, designed to push clinical notes or documents into Cerner. It includes several **Auto-Injection** features to satisfy Cerner's strict validation:
 
-- **Automatic Base64 Encoding**: If `text` is provided instead of `data`, the connector handles the encoding for you.
+- **Automatic Base64 encoding**: If `text` is provided instead of `data`, the connector handles the encoding for you.
 - **Automatic Charset Injection**: Appends `;charset=utf-8` to `text/*` content types, which is mandatory for Cerner.
 - **Required Field Guardrails**:
   - **CodeSet 72**: Validates that document types use the proprietary Cerner system, not generic LOINC.
@@ -130,6 +131,7 @@ The connector is organized as follows:
 |---|---|
 | `src/node_wire_fhir_cerner/logic.py` | Core logic, authentication, and action dispatch |
 | `src/node_wire_fhir_cerner/schema.py` | Pydantic input/output models and field-level documentation |
+| `src/node_wire_fhir_cerner/normalizers.py` | MCP argument normalizers and search guards |
 | `src/node_wire_fhir_cerner/logic.py` (`error_map`) | Error mapping and exception handling specifically for Cerner API errors, scoped to `connector_id="fhir_cerner"` |
 | `tests/playground/cerner/` | Runnable end-to-end verification scripts |
 

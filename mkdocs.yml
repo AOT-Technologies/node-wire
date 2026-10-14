@@ -156,6 +156,7 @@ nav:
     - ADR Index: adr/index.md
     - "0001 stacklok MCP builder": adr/0001-stacklok-mcp-builder-on-node-wire.md
     - "0002 Documentation lifecycle": adr/0002-documentation-lifecycle.md
+    - "0003 Python 3.11 to 3.13": adr/0003-python-3-11-to-3-13.md
   - Project:
     - Code of Conduct: https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md
     - Governance: https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md
