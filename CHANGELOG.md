@@ -380,6 +380,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `NW_REST_API_KEY_SCOPES`. API keys, tenantless JWTs and single-tenant mode need
     `nw:platform:admin` for tenant routes. `NW_REST_AUTH_DISABLED` (local, playground) is
     unchanged.
+- **MCP streamable-HTTP resolves identity, tenant and upstream bearer per request.** A stateful
+  session kept the first request's caller for its lifetime, so a second credential on the same
+  `Mcp-Session-Id` ran as the creator, and refreshed tokens, narrower scopes, tenant headers and
+  rotated upstream bearers were ignored. The binding now runs the MCP SDK session manager
+  stateless: no `Mcp-Session-Id` is issued and `GET /mcp` returns `405`. `node_wire_toolhive`
+  already resolved these per message and is unchanged.
 - **Runtime config documents can no longer send process secrets to a caller-chosen host.**
   - Secret references (`secret_key` and every `*_secret` field in `auth` / `auth_schemes`) must be
     one of the connector's declared logical names (`declare_secret_shape`). An undeclared connector
