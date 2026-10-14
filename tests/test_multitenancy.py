@@ -614,7 +614,7 @@ def _write_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *keys: tupl
             "key_id": key_id,
             "hash": hashlib.sha256(secret.encode()).hexdigest(),
             "tenant": tenant,
-            "scopes": ["mcp:test.scope"],
+            "scopes": ["mcp:test.scope", "nw:config:read"],
         }
         for key_id, secret, tenant in keys
     ]
@@ -632,7 +632,7 @@ def test_registry_key_binds_tenant_for_rest_and_grpc(
     ok, ident = verify("acme-secret", api_key=None, jwt_secret=None)
     assert ok and ident is not None
     assert (ident.principal, ident.tenant_id) == ("acme-prod", "acme")
-    assert ident.scopes == ("mcp:test.scope",)
+    assert ident.scopes == ("mcp:test.scope", "nw:config:read")
     with pytest.raises(TenantIdentityMismatchError):
         resolve_tenant_id(headers={"X-Tenant-ID": "beta"}, jwt_identity=ident)
     assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident) == "acme"
