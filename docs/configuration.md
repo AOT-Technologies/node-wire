@@ -47,7 +47,8 @@ copy sample.env .env
 | `MODE` | Execution mode (`API` or `GRPC`). There is no working `MODE=MCP` — that value starts a stub process (`McpServer()` then an infinite sleep loop, no JSON-RPC handling) left over from an early proof of concept. Run MCP via `python -m agents.mcp_entrypoint` instead (see [MCP overview](mcp.md#which-mcp-path)). | `API` |
 | `PORT` | Port for the REST API | `8000` |
 | `NW_REST_HOST` | REST API bind address | `127.0.0.1` |
-| `NW_REST_PLAYGROUND_ENABLED` | Mount the interactive playground at `/playground/` when `true`; when unset, enabled only if a `playground/` directory exists at the repo root | _(auto)_ |
+| `NW_REST_PLAYGROUND_ENABLED` | Mount the interactive playground at `/playground/` and `/scenarios/*` when `true`. **Off by default** (checkout only: it is not in any wheel or image). The scenarios run connector actions with the server's credentials, so use it for local development with `NW_REST_AUTH_DISABLED=true` | `false` |
+| `NW_REST_PLAYGROUND_ALLOW_WITH_AUTH` | Allow the playground to mount when REST auth is configured (`NW_REST_API_KEY` / `NW_REST_JWT_SECRET`). Without it the playground is not mounted and an error is logged. `/scenarios/*` then requires credentials; the playground UI does not send them | `false` |
 | `NW_MCP_TRANSPORT` | MCP transport mode (`stdio` or `streamable-http`) | `stdio` |
 | `NW_MCP_HOST` | MCP streamable-http bind address | `127.0.0.1` |
 | `NW_MCP_PORT` | Port for streamable-http MCP | `8081` |

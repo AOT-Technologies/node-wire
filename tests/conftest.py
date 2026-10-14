@@ -26,6 +26,8 @@ os.environ["NW_ALLOWED_CONNECTORS"] = (
 )
 # Skip REST bind dotenv so repo `.env` cannot override the allowlist above during collection/import.
 os.environ["NW_REST_LOAD_DOTENV"] = "false"
+# The playground is opt-in; the tests that drive /scenarios need it mounted at import time.
+os.environ["NW_REST_PLAYGROUND_ENABLED"] = "true"
 # Keep the key present (empty) so later load_dotenv(override=False) cannot inject a local
 # `.env` value like google_user_oauth before collection-time factory.load().
 os.environ["GOOGLE_DRIVE_AUTH_PROVIDER"] = ""
