@@ -370,7 +370,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`/v1` config and secret admin API requires scopes.** Any authenticated caller could read
   and rewrite configs, push secrets, change defaults, run a full init and list every tenant.
   - `nw:config:read`, `nw:config:write`, `nw:secrets:write` (also for `secrets` inline in a
-    config) and `nw:platform:admin` (init, `GET /v1/tenants`). Admin or `*` satisfies all.
+    config) and `nw:platform:admin` (headerless full init, `GET /v1/tenants`). Admin satisfies
+    all; the connector wildcard `*` does not.
   - Without admin, a caller acts only on its JWT `tenant_id`.
   - `/v1` bodies are capped by `NW_REST_MAX_BODY_BYTES`. Each change logs an
     `audit_event=config_change` line with key names, never values.

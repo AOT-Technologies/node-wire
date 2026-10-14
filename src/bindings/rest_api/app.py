@@ -39,6 +39,7 @@ from node_wire_runtime.identity import (
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
+    tenant_from_headers,
 )
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -240,7 +241,8 @@ def _config_tenant(request: Request) -> str:
         raise Rejected(exc, 403) from exc
 
 
-# Admin scopes for /v1. nw:platform:admin (or "*") satisfies every one of them.
+# Admin scopes for /v1. nw:platform:admin satisfies every one of them; the connector
+# wildcard "*" does not (it grants invocation, not the admin plane).
 SCOPE_CONFIG_READ = "nw:config:read"
 SCOPE_CONFIG_WRITE = "nw:config:write"
 SCOPE_SECRETS_WRITE = "nw:secrets:write"
@@ -257,7 +259,7 @@ def _authorize(request: Request, scope: str, *, tenant_id: str | None = None) ->
         return
     identity = get_rest_caller_identity(request)
     scopes = set(identity.scopes) if identity is not None else set()
-    admin = bool(scopes & {SCOPE_PLATFORM_ADMIN, "*"})
+    admin = SCOPE_PLATFORM_ADMIN in scopes
     if not admin and scope not in scopes:
         raise Rejected(NodeWireError(ErrorCode.POLICY_DENIED, f"{scope} scope required"), 403)
     if tenant_id is not None and not admin:
@@ -339,10 +341,12 @@ def _map_config_error(exc: Exception) -> HTTPException:
     raise exc
 
 
+# Per-tenant init is a tenant config write; the headerless full init needs platform admin
+# (checked below, and fail-closed even with REST auth disabled).
 @app.post(
     "/v1/config/init",
     tags=["config"],
-    dependencies=[_requires(SCOPE_PLATFORM_ADMIN, tenant_bound=False)],
+    dependencies=[_requires(SCOPE_CONFIG_WRITE, tenant_bound=False)],
 )
 async def config_init(
     request: Request,
@@ -350,17 +354,34 @@ async def config_init(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     """Bulk init. With the tenant header: payload is that tenant's
-    ``{connector_id: [docs]}`` map. Without it: full multi-tenant payload."""
-    from node_wire_runtime.identity import tenant_from_headers
-
+    ``{connector_id: [docs]}`` map. Without it, when multitenancy is on:
+    full multi-tenant payload, platform-admin only. Single-tenant mode always
+    writes ``__default__`` and ignores the header."""
     header_tenant = tenant_from_headers(request.headers)
-    full_payload = {header_tenant: payload} if header_tenant else payload
+    if is_multitenancy_enabled() and not header_tenant:
+        identity = get_rest_caller_identity(request)
+        scopes = identity.scopes if identity is not None else ()
+        if SCOPE_PLATFORM_ADMIN not in scopes:
+            raise Rejected(
+                NodeWireError(ErrorCode.POLICY_DENIED, "platform admin scope required"),
+                403,
+            )
+        try:
+            factory_dep.store.init(payload)
+            _persist_tenants(factory_dep)
+        except Exception as exc:  # noqa: BLE001
+            raise _map_config_error(exc)
+        _audit_config_change(request, action="config.init", tenant_id="*")
+        return JSONResponse(status_code=200, content={"status": "ok"})
+
+    tenant_id = _config_tenant(request)
+    _authorize(request, SCOPE_CONFIG_WRITE, tenant_id=tenant_id)
     try:
-        factory_dep.store.init(full_payload)
+        factory_dep.store.replace_tenant(tenant_id, payload)
         _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
-    _audit_config_change(request, action="config.init", tenant_id=header_tenant or "*")
+    _audit_config_change(request, action="config.init", tenant_id=tenant_id)
     return JSONResponse(status_code=200, content={"status": "ok"})
 
 
