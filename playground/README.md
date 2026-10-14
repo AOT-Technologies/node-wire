@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Node Wire Playground
+# Node Wire playground
 
 This folder contains a fully functional playground for **Node Wire**, showcasing how it orchestrates complex workflows across disparate systems like Electronic Health Records (EHR) and IT Service Management (ITSM) tools.
 
@@ -12,16 +12,17 @@ This folder contains a fully functional playground for **Node Wire**, showcasing
 
 The demo provides a modern, interactive web interface to trigger, monitor, and verify end-to-end automation scenarios. It highlights the platform's ability to handle data mapping, authentication, and resource creation with transparency.
 
-### Core Technologies
+### Core technologies
+
 - **Frontend**: Vanilla HTML5, CSS3 (Glassmorphism), and Javascript.
 - **Backend API**: FastAPI (Python) serving orchestration logic via `playground/scenarios.py`.
 - **Connector layer**: Uses Node Wire connectors (`fhir_epic`, `fhir_cerner`, `http_generic`, and others) via the platform REST API and `ConnectorFactory` (see [docs/connectors.md](../docs/connectors.md)).
 
 ---
 
-## 📖 Scenarios & Implementation
+## 📖 Scenarios & implementation
 
-### 🏥 Scenario 1: EHR Orchestration (Epic FHIR)
+### 🏥 Scenario 1: EHR orchestration (Epic FHIR)
 This scenario automates the process of synchronizing clinical notes from a third-party application into a patient's chart in Epic.
 
 *   **Logic Flow**:
@@ -31,7 +32,7 @@ This scenario automates the process of synchronizing clinical notes from a third
     4.  **Verification**: Re-queries the EHR to confirm the document's existence and displays the raw FHIR JSON response.
 *   **Implementation**: Uses the `fhir_epic` connector, handling complex FHIR resource schemas and mapping internal data to US Core standards.
 
-### 🛠️ Scenario 2: IT Ops Automation (Generic HTTP)
+### 🛠️ Scenario 2: IT ops automation (generic HTTP)
 This scenario demonstrates how the platform can integrate with any REST-enabled legacy system or internal tool without requiring a specific connector.
 
 *   **Logic Flow**:
@@ -41,17 +42,17 @@ This scenario demonstrates how the platform can integrate with any REST-enabled 
     4.  **Audit Log**: Triggers a background task to record the transaction in the system audit log.
 *   **Implementation**: Uses the `http_generic` connector. In this demo, it targets `httpbin.org/post` to echo and verify the dispatched data, showcasing universal connectivity.
 
-### 🛠️ Scenario 3: Cerner FHIR R4 Orchestration
+### 🛠️ Scenario 3: Cerner FHIR R4 orchestration
 This scenario demonstrates advanced clinical note orchestration for Oracle Health (Cerner) legacy systems, handling proprietary coding and strict validation rules.
 
 *   **Logic Flow**:
-    1.  **Identity Verification**: Verifies patient identity (e.g., Nancy Smart) using the `fhir_cerner` connector.
-    2.  **Medical Visit Sync**: Locates specific encounters compatible with clinical documentation (e.g., `97957281`).
+    1.  **Identity Verification**: Verifies patient identity (for example, Nancy Smart) using the `fhir_cerner` connector.
+    2.  **Medical Visit Sync**: Locates specific encounters compatible with clinical documentation (for example, `97957281`).
     3.  **Secure Clinical Sync**: Handles Cerner's specific requirements, including **CodeSet 72** document types, mandatory `docStatus`, and synchronized clinical periods to avoid temporal validation errors.
     4.  **EHR Verification**: Confirms the document creation by querying for the specific resource ID, ensuring it's properly indexed in the patient's record.
-*   **Implementation**: Uses the `fhir_cerner` connector, demonstrating automated handling of Cerner's strict 422/400 validation rules (e.g., numeric practitioner IDs and specific search parameter combinations).
+*   **Implementation**: Uses the `fhir_cerner` connector, demonstrating automated handling of Cerner's strict 422/400 validation rules (for example, numeric practitioner IDs and specific search parameter combinations).
 
-### 🔒 Scenario 4: Secure Document Archival (Google Drive Vault)
+### 🔒 Scenario 4: Secure document archival (Google Drive Vault)
 This scenario demonstrates secure archival of clinical documentation and incident reports into an access-controlled Google Drive Vault.
 
 *   **Logic Flow**:
@@ -61,17 +62,17 @@ This scenario demonstrates secure archival of clinical documentation and inciden
     4.  **Verify Integrity**: Constructs a secure web-view link and retrieves access logs through `files.get`.
 *   **Implementation**: Uses the `google_drive` connector loaded via `service_account.json` credentials, demonstrating how non-healthcare cloud platforms integrate seamlessly into the orchestration pipeline alongside FHIR standards.
 
-### 🤖 Scenario 5: AI Agent Orchestration (MCP)
+### 🤖 Scenario 5: AI agent orchestration (MCP)
 This scenario demonstrates the platform's highest level of abstraction: an autonomous AI Assistant that uses the **Model Context Protocol (MCP)** to orchestrate complex healthcare workflows through natural language.
 
 *   **Logic Flow**:
-    1.  **Autonomous Reasoning**: The agent parses user intent (e.g., "Get Nancy Smart's record and email it to her") using a Large Language Model (LLM).
+    1.  **Autonomous Reasoning**: The agent parses user intent (for example, "Get Nancy Smart's record and email it to her") using a Large Language Model (LLM).
     2.  **Dynamic Tool Selection**: Automatically selects and sequences tools from the **Node Wire MCP Server**, including Cerner FHIR, Google Drive, and SMTP.
     3.  **Guardrailed Execution**: Follows strict healthcare-specific guardrails, asking for missing patient IDs or confirmation before performing sensitive actions.
     4.  **Transport-aware Interaction**: Shows the active MCP transport in the chat panel and adjusts rendering behavior to match it.
-*   **Implementation**: Leverages the `agents` module, providing a unified interface for LLMs to interact with any connector in the platform via a standard MCP bridge.
+*   **Implementation**: Uses the `agents` module, providing a unified interface for LLMs to interact with any connector in the platform via a standard MCP bridge.
 
-### Scenario 6: External Patient Viewer (Read-Only Retrieval)
+### Scenario 6: External patient viewer (read-only retrieval)
 This scenario loads a source EHR chart on demand for target viewer workflows without duplicating chart data or creating new FHIR resources.
 
 *   **Logic Flow**:
@@ -100,6 +101,8 @@ $env:NW_MCP_TRANSPORT="stdio"
 # Leave TOOLHIVE_MCP_URL empty unless ToolHive / a separate MCP server is running
 uv run node-wire
 ```
+
+To use streamable HTTP with a remote MCP proxy instead:
 
 ```powershell
 # Streamable HTTP UI + remote MCP proxy (requires something listening on the URL)
@@ -136,7 +139,7 @@ uv run node-wire
 - **Config dropdown**: lists configs for the **active connector** only under the selected tenant. Switching connectors clears a name that does not exist for the new connector.
 - **Agentic Workflow**: sends the header dropdown's `X-Tenant-ID` (and optional `config_name` query) as the **starting** pin if one is selected — but a dropdown pick is not required to send the first message. With nothing selected yet, the agent starts against the `__default__` tenant (or fully unpinned if `__default__` has no configs), and the chat's own `nw_select_tenant` / `nw_select_config` tool calls are how you name a tenant/config for the first time, same as any later switch. The chat response includes the effective tenant/config and the header dropdowns update to match. Local agent MCP runs **in-process** against the playground factory.
 - **MCP config discovery**: When MT is on, standalone MCP also loads `tenants.yaml` and exposes `nw_list_tenants`, `nw_select_tenant` (returns that tenant’s configs), `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that MCP process. Env/`X-Tenant-ID` is the default; chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`. Configs are still created only via Add config / REST / YAML — not via MCP. Rebuild generated MCP images so vendored `server.py` includes these tools.
-- **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (e.g. `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
+- **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (for example, `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
 - **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.
 - **Instance pin**: `factory.get(tenant_id=...)` pins the connector; `run()` may omit `tenant_id`. Mismatch returns `TENANT_MISMATCH`.
 
@@ -169,56 +172,62 @@ Then open Inspector, select `Streamable HTTP`, connect to `http://127.0.0.1:8081
 
 ---
 
-## 🛠️ Advanced Platform Features
+## 🛠️ Advanced platform features
 
-### 🛡️ Global Resilience Engine
-Every request in the platform is now governed by an intelligent auto-retry mechanism.
-- **Exponential Backoff**: Automatically retries failed requests with increasing delays (1s, 2s, 4s...) to handle transient network issues or rate limits.
-- **Real-time Visibility**: The UI displays retry counts for each step, providing transparency when the platform is actively recovering from a system error.
+### 🛡️ Global resilience engine
+Every request in the platform is governed by an intelligent auto-retry mechanism.
 
-### 🔍 Intelligent Error Classification
+- **Exponential backoff**: Automatically retries failed requests with increasing delays (1s, 2s, 4s...) to handle transient network issues or rate limits.
+- **Real-time visibility**: The UI displays retry counts for each step, providing transparency when the platform is actively recovering from a system error.
+
+### 🔍 Intelligent error classification
 The platform distinguishes between different failure modes to provide actionable feedback:
-- **BUSINESS**: Data validation or permission issues (e.g., "Patient not found").
+
+- **BUSINESS**: Data validation or permission issues (for example, "Patient not found").
 - **RETRYABLE**: Transient system errors that the resilience engine can handle.
 - **FATAL**: Critical infrastructure failures requiring manual intervention.
+
 Errors are color-coded and clearly labeled in the "Technical Audit" panel.
 
 ---
 
-## 🧪 Testing with Real Environments
+## 🧪 Testing with real environments
 
 The demo is pre-configured with mock/sandbox endpoints for immediate use. To test with real systems, follow these steps:
 
-### Testing Real Epic/Cerner (EHR)
+### Testing real Epic/Cerner (EHR)
+
 1.  **Update Config**: Modify `config/connectors.yaml` to point to a real Epic/Cerner Sandbox or Production URL.
 2.  **Auth**: Ensure you have valid `CLIENT_ID` and `PRIVATE_KEY` for the EHR's Backend System OAuth2 flow (SMART on FHIR).
 3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment.
-    - **Cerner Note**: Ensure you use numeric Practitioner IDs (e.g., `593923`) and valid CodeSet 72 codes.
+    - **Cerner Note**: Ensure you use numeric Practitioner IDs (for example, `593923`) and valid CodeSet 72 codes.
 
-### Testing Google Drive Vault (Manual End-to-End)
+### Testing Google Drive Vault (manual end-to-end)
 To test the Google Drive integration manually, follow these specialized setup steps:
+
 1.  **Service Account**: Create a Service Account in the Google Cloud Console with the **Google Drive API** enabled. Download the JSON key.
 2.  **Secret Configuration**:
-    *   Place the JSON key file somewhere safe on your machine (e.g., `/path/to/service_account.json`).
+    *   Place the JSON key file somewhere safe on your machine (for example, `/path/to/service_account.json`).
     *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=/path/to/service_account.json`.
-    *   *Note: The platform now supports direct file paths for easier local configuration.*
+    *   The platform accepts a direct file path for local configuration.
 3.  **Permissions**: If using a specific **Vault Folder ID**, ensure that folder is shared with the Service Account's email address (found in the JSON) with "Editor" or "Manager" permissions.
 4.  **Workflow Verification**:
     *   **Direct Upload**: Drag a PDF or Image into the "Upload File" zone. Verify the file appears in the drive with correct metadata.
     *   **Note Archival**: Switch to "Write Note", type a clinical summary, and verify it is archived as a `.txt` file.
-    *   **IAM Check**: Check the "Share" settings on the archived file in Google Drive; the "Recipient Email" specified in the UI should have been automatically added as a "Reader".
+    *   **IAM Check**: Check the "Share" settings on the archived file in Google Drive; the "Recipient Email" specified in the UI is added automatically as a "Reader".
 
-### 🤖 Configuring the AI Agent (Optional)
+### 🤖 Configuring the AI agent (optional)
 To enable the AI Agent chat, you need to configure an LLM provider:
+
 1.  **Add API Keys**: Set `GROQ_API_KEY` / `GROQ_MODEL` (default in the playground switcher). Optionally set `OPENAI_API_KEY` / `OPENAI_MODEL`, `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL`, `NVIDIA_API_KEY` for Nemotron, and/or `OPENROUTER_API_KEY` plus `OPENROUTER_MODELS` (defaults: Laguna S 2.1, LFM 2.5, Nex N2.5 Pro, Ling 3.0 Flash) for OpenRouter. OpenRouter free endpoints log prompts — do not send confidential or personal data.
 2.  **Switch models in the UI**: Use the `provider/model` selector next to the chat input (defaults to Groq when configured). Use **+ Add local model** to discover and add an Ollama model (`OLLAMA_BASE_URL` defaults to `http://127.0.0.1:11434/v1`).
-3.  **SMTP Setup**: (Optional) Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
+3.  Optional: **SMTP setup**: Add SMTP credentials (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`) to enable the agent to send emails.
 4.  **MCP URL**: In `streamable-http` mode, set `TOOLHIVE_MCP_URL` or `TOOLHIVE_MCP_URLS` to the HTTP MCP endpoint(s). In `stdio` mode, the playground ignores those URLs and uses local stdio.
-5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (e.g. `fhir_cerner,google_drive,smtp`).
+5.  **Allowed Connectors**: Ensure `NW_ALLOWED_CONNECTORS` in your `.env` includes the connectors used by the agent (for example, `fhir_cerner,google_drive,smtp`).
 
 ---
 
-## 🛠️ How to Run
+## 🛠️ How to run
 
 1.  Navigate to the project root.
 2.  Start the FastAPI server:

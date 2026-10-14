@@ -1,12 +1,14 @@
-# SPDX-FileCopyrightText: 2026 AOT Technologies
-#
-# SPDX-License-Identifier: Apache-2.0
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
 
-# Node Wire Connector — Stripe
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Node Wire connector — Stripe
 
 The Stripe connector provides a reliable, async adapter for processing payments and managing subscriptions using the Stripe Python SDK. It follows the Node Wire platform contract: consistent error handling, resilience (retries/circuit breaking), and standardized telemetry.
 
-## Supported Actions
+## Supported actions
 
 The connector exposes several actions through the `@nw_action` decorator. Each action is available via REST, gRPC, and MCP.
 
@@ -18,23 +20,25 @@ The connector exposes several actions through the `@nw_action` decorator. Each a
 | `cancel_subscription` | Terminate or schedule the end of a subscription. | `subscription_id`, `cancel_at_period_end` |
 | `issue_refund` | Full or partial refund for a charge or payment intent. | `charge_id` or `payment_intent_id`, `amount` |
 
-## Setup & Configuration
+## Setup & configuration
 
-### Environment Variables
+### Environment variables
 
 The connector requires a Stripe secret API key. By default, the `EnvSecretProvider` looks for:
 
-- `STRIPE_API_KEY`: Your Stripe secret key (e.g., `sk_test_...` or `sk_live_...`).
+- `STRIPE_API_KEY`: Your Stripe secret key (for example, `sk_test_...` or `sk_live_...`).
 
 Add this to your `.env` or system environment:
 
 ```bash
-STRIPE_API_KEY=sk_test_your_secret_key
+STRIPE_API_KEY=<your-stripe-secret-key>
 ```
 
-### Enabling the Connector
+Replace `<your-stripe-secret-key>` with your Stripe secret key.
 
-In `config/connectors.yaml`, ensuring the connector is enabled and exposed:
+### Enabling the connector
+
+In `config/connectors.yaml`, make sure the connector is enabled and exposed:
 
 ```yaml
 connectors:
@@ -43,24 +47,24 @@ connectors:
     exposed_via: ["rest", "grpc", "mcp"]
 ```
 
-## Detailed Action Reference
+## Detailed action reference
 
 ### `create_subscription`
 
 This action supports multiple payment integration flows:
 
-1.  **Saved Payment Method**: Pass `default_payment_method` with an existing `pm_xxx` ID.
-2.  **Card Token**: Pass `card_token` (e.g., `tok_visa`). The connector will automatically create a PaymentMethod and attach it to the customer before creating the subscription.
-3.  **SCA / Action Required**: If the subscription requires further action (like 3D Secure), the connector returns the `client_secret` from the associated Setup Intent or Payment Intent.
+- **Saved payment method**: Pass `default_payment_method` with an existing `pm_xxx` ID.
+- **Card token**: Pass `card_token` (for example, `tok_visa`). The connector automatically creates a PaymentMethod and attach it to the customer before creating the subscription.
+- **SCA / action required**: If the subscription requires further action (like 3D Secure), the connector returns the `client_secret` from the associated Setup Intent or Payment Intent.
 
 ### `cancel_subscription`
 
 - Set `cancel_at_period_end: true` to let the subscription finish its current cycle.
 - Set `cancel_at_period_end: false` (default) to terminate the subscription immediately.
 
-## Error Handling
+## Error handling
 
-Mapped Stripe exceptions to Node Wire error categories:
+The connector maps Stripe exceptions to Node Wire error categories:
 
 - `RateLimitError` -> `RETRYABLE` (`STRIPE_RATE_LIMIT`)
 - `CardError` -> `BUSINESS` (`STRIPE_CARD_ERROR`)

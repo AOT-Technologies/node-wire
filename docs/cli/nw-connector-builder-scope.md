@@ -38,13 +38,12 @@ the pipeline, the build report), see the how-to, [nw-connector-builder](nw-conne
 - Every `oauth2` flow (`clientCredentials`, `authorizationCode`, `implicit`, `password`, or
   none declared) and `openIdConnect` — mapped to a **host-supplied** bearer (`static_token`,
   `host_supplied: true`): Node Wire presents `<ID>_ACCESS_TOKEN` verbatim as a `Bearer` header
-  but never acquires, refreshes, or detects the expiry of it — see "Host-supplied auth tier"
-  below. The host owns minting and rotation; the connector only attaches the token.
+  but never acquires, refreshes, or detects the expiry of it — see [Host-supplied auth tier](#host-supplied-auth-tier). The host owns minting and rotation; the connector only attaches the token.
 - Operations needing a **different, still-presentable** scheme than the connector default are not
-  dropped — the generator emits it as an additional, named entry in `auth_schemes:` and routes just
+  dropped — the generator emits it as an additional, named entry in `auth_schemes:` and routes only
   those actions to it (`auth_scheme=<name>` per `@nw_action`, resolved at runtime by
-  `resolve_auth_provider`, which fails closed on an unknown name). A connector is no longer
-  necessarily single-scheme; see "Per-action auth schemes" below.
+  `resolve_auth_provider`, which fails closed on an unknown name). A connector can therefore
+  use more than one scheme; see [Per-action auth schemes](#per-action-auth-schemes).
 - Anonymous connectors (no scheme, or only unsupported schemes present) build as `auth: none`
 
 #### Host-supplied auth tier
@@ -88,11 +87,11 @@ deliberate hand-wiring step.
 A connector can serve **more than one** OpenAPI security scheme from a single instance. The
 connector-level default (`auth:` in `connectors.yaml`) still covers most operations; any operation
 whose declared security is a *different* scheme — but one that's still presentable (self-managed or
-host-supplied, i.e. not `mutualTLS`, cookie `apiKey`, AND-multi, or unrecognized) — gets its own
-named entry under the new, additive `auth_schemes:` config block, and the generated action passes
+host-supplied, that is, not `mutualTLS`, cookie `apiKey`, AND-multi, or unrecognized) — gets its own
+named entry under the additive `auth_schemes:` config block, and the generated action passes
 `auth_scheme=<name>` so the runtime resolves the right `AuthProvider` per call instead of per
-connector. This is what let petstore-style specs (an `apiKey` default alongside operations gated by
-an `oauth2` `implicit` scheme) stop soft-dropping those operations. Secret names are derived from
+connector. This is how petstore-style specs (an `apiKey` default alongside operations gated by
+an `oauth2` `implicit` scheme) keep those operations instead of soft-dropping them. Secret names are derived from
 the connector id and the credential kind, so two schemes of the same kind would otherwise share one
 secret; when an extra scheme's secret name is already taken, it is qualified with the scheme name
 (`<ID>_<SCHEME>_ACCESS_TOKEN`, `<ID>_<SCHEME>_API_KEY`, …) and the first claimant keeps the short
@@ -142,19 +141,19 @@ name.
 
 - **OAuth2 / OpenID Connect acquisition for generated connectors** — Node Wire never *acquires*
   tokens for generated connectors, deliberately. Every `oauth2` flow and `openIdConnect` map to
-  the host-supplied bearer tier above. Hand-written connectors that already use
+  the [host-supplied bearer tier](#host-supplied-auth-tier). Hand-written connectors that already use
   `OAuth2AuthProvider` are unchanged.
 - **mutualTLS** — genuinely unpresentable (a transport-layer client certificate, not a
   header/param); operations secured only by it are soft-dropped
 - **Cookie-based API keys** — no `name=value` cookie formatting in `StaticTokenAuthProvider` yet;
   soft-dropped
 - **AND-combined** multi-scheme security (`security: [{a: [], b: []}]`) — soft-dropped
-- Automatic acquisition of OAuth2 / OIDC credentials by generated connectors — Node Wire will
-  present a host-supplied bearer token (see above) but will never obtain, refresh, or
-  detect its expiry
+- Automatic acquisition of OAuth2 / OIDC credentials by generated connectors — Node Wire
+  presents a host-supplied bearer token (see [Host-supplied auth tier](#host-supplied-auth-tier)) but never obtains, refreshes, or
+  detects its expiry
 
 (Host-supplied `oauth2` / `openIdConnect`, and multi-scheme connectors via per-action
-`auth_schemes:`, are in scope above.)
+`auth_schemes:`, are in scope; see [Auth](#auth).)
 
 ### Spec features
 
@@ -170,7 +169,7 @@ name.
 
 - **Pagination** — no auto-pagination in v1, even when the spec documents cursor/offset
   patterns; generated actions return one page as-is
-- **Rate-limit / observability metadata** — not derived from the spec (e.g. `x-ratelimit-*`
+- **Rate-limit / observability metadata** — not derived from the spec (for example, `x-ratelimit-*`
   extensions are ignored); deferred, not designed
 - Complex/ambiguous request bodies and non-object success responses fall back to permissive
   typing (`Any` / `RestResponseOutput`) rather than a fully modeled schema
@@ -189,7 +188,7 @@ name.
   CI allowlists, standalone MCP Docker image rows) is a manual **Tier 2/3** checklist in
   [packaging.md](../packaging.md) — the builder produces the runtime + package skeleton only
 - No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
-  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first)
+  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-wheels)
   and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md). This was explicitly dropped from
   the companion `nw-cli` orchestrator's scope too; see [nw-cli.md](nw-cli.md).
 
@@ -203,7 +202,7 @@ name.
 
 ## Soft-drop vs. hard failure
 
-Everything above that's "soft-dropped" means: the operation is skipped and listed in
+Everything this page calls "soft-dropped" means: the operation is skipped and listed in
 `report.json`, but the build continues. The only way an out-of-scope feature aborts the build
 is if it leaves **zero usable operations** — that's a hard failure (`DeriveError`), since a
 connector with no actions isn't useful. A coverage warning is also printed when fewer than 50%

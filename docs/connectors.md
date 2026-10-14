@@ -12,16 +12,18 @@ Actions, auth, secrets and setup guides for every shipped connector are in the [
 
 Writing your own connector? See [Build a connector](connectors-build.md).
 
-The example below uses **`http_generic`** for two tenants.
+The following example uses **`http_generic`** for two tenants.
 
 ## In-process (Python)
+
+The following script entitles two tenants, runs an action, and shows the fail-closed cases:
 
 ```python
 import asyncio
 import os
 
 os.environ["NW_ALLOWED_CONNECTORS"] = "http_generic"
-os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"  # local only — see note below
+os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"  # local only — see the Scope policy note after the output
 os.environ["NW_HTTP_GENERIC_ALLOWED_HOSTS"] = "httpbin.org"
 
 from bindings.factory import ConnectorFactory
@@ -72,7 +74,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Output:
+The output is similar to the following:
 
 ```text
 acme: True 200
@@ -91,7 +93,7 @@ What each step relies on:
 | `run(payload)` | Validation → policy → retries → error mapping. The instance is pinned to its tenant, so leave `tenant_id` off; a different one returns `TENANT_MISMATCH` without calling out. |
 | `store.update` / `store.delete` | Take effect on the next `get()` — the cached instance for that config is dropped at once. |
 
-The store is in-process memory. Anything you add with `store.create()` is gone on restart unless you persist it. The REST config API below writes to `NW_TENANTS_PATH` for you.
+The store is in-process memory. Anything you add with `store.create()` is gone on restart unless you persist it. The [REST config API](#over-rest) writes to `NW_TENANTS_PATH` for you.
 
 **Scope policy.** `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is only for local scripts. In a real host, pass `scopes=("mcp:http_generic.request",)` (or `principal`) to `run()`. See [Security](connectors-build.md#security-rest-plugins-secrets).
 
@@ -137,7 +139,7 @@ Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_
 
 | Doc | When to read it |
 |-----|-----------------|
-| [connector-reference.md](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector catalog |
-| [connector-bindings.md](connector-bindings.md) | How actions map to REST routes, MCP tools and gRPC methods |
+| [Connector reference](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector catalog |
+| [Connectors on REST, MCP and gRPC](connector-bindings.md) | How actions map to REST routes, MCP tools and gRPC methods |
 | [Tenancy](architecture/tenancy.md) | Tenant resolution, entitlement and tenant secrets |
 | [Build a connector](connectors-build.md) | Writing a new connector by hand |

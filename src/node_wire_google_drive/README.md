@@ -4,17 +4,17 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Google Drive Connector — Technical Documentation
+# Google Drive connector — technical documentation
 
 > **Platform:** Node Wire
 > **Connector ID:** `google_drive`
-> **REST:** One route per operation, e.g. `POST /connectors/google_drive/files.list` (the `action` field is still set on the body for `BaseConnector` dispatch).
+> **REST:** One route per operation, for example, `POST /connectors/google_drive/files.list` (the `action` field is still set on the body for `BaseConnector` dispatch).
 > **Discriminator:** `action` field (discriminated-union payload)
 > **Source:** `src/node_wire_google_drive/`
 
 ---
 
-## 1. Operations Overview
+## Operations overview
 
 The runtime validates requests against the discriminated union in `schema.py`, then dispatches to `@nw_action` handlers on `GoogleDriveConnector`. Each handler delegates to an **action spec** in `action_spec.py` that maps the validated model to the Google Drive API v3 client (`googleapiclient`). Shared concerns (thread offload, `HttpError` translation, logging) stay in `logic.py`. All responses share a common output shape and error taxonomy enforced by the runtime.
 
@@ -32,7 +32,7 @@ The runtime validates requests against the discriminated union in `schema.py`, t
 
 Use the same pattern: put declarative mapping in a connector-local `*_action_spec` module; `BaseConnector.__init_subclass__` auto-generates `@nw_action`-equivalent handlers from `action_specs`, so no manual `@nw_action` decorators are needed for spec-driven actions. Use `SdkActionSpec.build_kwargs` when the vendor API needs custom assembly (uploads, explicit `None` args, etc.).
 
-### Available Operations
+### Available operations
 
 | Action | Description |
 |---|---|
@@ -44,7 +44,7 @@ Use the same pattern: put declarative mapping in a connector-local `*_action_spe
 | `files.upload` | Create a new file with text content |
 | `files.delete` | Delete a file |
 
-### Planned Operations
+### Planned operations
 
 The following operations are planned for future implementation:
 
@@ -55,7 +55,7 @@ The following operations are planned for future implementation:
 
 ---
 
-## 2. Operation Reference
+## Operation reference
 
 ### `files.list`
 
@@ -261,7 +261,7 @@ On success, the connector returns a synthetic confirmation payload:
 
 ---
 
-## 3. Error Taxonomy
+## Error taxonomy
 
 All Google Drive errors are mapped into the platform error taxonomy using wrapper exceptions. The connector never raises raw `HttpError` — it always translates errors into one of these exception classes so the platform can apply consistent retry and circuit-breaker behaviour.
 
@@ -272,7 +272,7 @@ All Google Drive errors are mapped into the platform error taxonomy using wrappe
 | `GDRIVE_BUSINESS_RULE` | `BUSINESS` | Invalid IDs, conflicts, not found (400, 404, 409) |
 | `GDRIVE_FATAL` | `FATAL` | Any unhandled `HttpError` status or unexpected exception |
 
-### HTTP Status Code Mapping
+### HTTP status code mapping
 
 | Category | HTTP Status |
 |---|---|

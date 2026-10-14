@@ -116,7 +116,7 @@ For the unified image over stdio, mount host `config/tenants.yaml` read-only at
 | Name | Value |
 |------|--------|
 | `NW_MCP_TRANSPORT` | `stdio` |
-| `NW_ALLOWED_CONNECTORS` | e.g. `google_drive,fhir_epic` |
+| `NW_ALLOWED_CONNECTORS` | for example, `google_drive,fhir_epic` |
 | `NW_MULTITENANCY_ENABLED` | `true` |
 | `NW_TENANTS_PATH` | `/app/config/tenants.yaml` |
 | `NW_MCP_AUTH_DISABLED` | `true` (local only) |
@@ -125,3 +125,8 @@ For the unified image over stdio, mount host `config/tenants.yaml` read-only at
 
 Connector credentials can live in the file's `secrets:` blocks or in per-tenant env vars, so flat
 ToolHive secrets are optional.
+
+## Next steps
+
+- [Use a connector](../connectors.md): call a connector per tenant, in-process or over REST.
+- [stacklok MCP servers](../stacklok-mcp-servers.md): how generated servers fix the tenant at the proxy.

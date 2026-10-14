@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Epic FHIR Playground Integration Tests
+# Epic FHIR playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the Epic FHIR (EHR) connector panel, click the run button with
@@ -30,6 +30,8 @@ selections are needed before clicking run.
 
 ## Running locally
 
+Install the browser once, then run the tests:
+
 ```bash
 # Install Playwright browsers (once)
 uv run python -m playwright install chromium
@@ -41,7 +43,8 @@ uv run pytest tests/playground/epic_fhir/ --no-cov -v
 PLAYGROUND_HEADED=true uv run pytest tests/playground/epic_fhir/ --no-cov -v -s
 ```
 
-> **Note:** Epic FHIR tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> Epic FHIR tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables

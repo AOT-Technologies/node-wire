@@ -20,7 +20,7 @@ The factory and manifest drive all bindings. Once a connector is registered and 
 
 `src/bindings/rest_api/app.py` calls `build_manifest(connectors)` and registers a `POST /connectors/{connector_id}/{action}` route for every manifest entry:
 
-```
+```http
 POST /connectors/google_drive/files.list
 Content-Type: application/json
 
@@ -51,7 +51,7 @@ A failure's HTTP status, and what every other surface returns for it, is in [Err
 
 ## MCP binding
 
-`src/bindings/mcp_server/server.py` registers one **MCP tool** per manifest entry. Advertised tool names are `{connector_id}_{action}` with dots in the action replaced by underscores (e.g. `google_drive_files_list`, `google_drive_files_upload`) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.
+`src/bindings/mcp_server/server.py` registers one **MCP tool** per manifest entry. Advertised tool names are `{connector_id}_{action}` with dots in the action replaced by underscores (for example, `google_drive_files_list`, `google_drive_files_upload`) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.
 
 The MCP server calls `connector.run(args_dict)` and serialises the `ConnectorResponse` as the tool result.
 
@@ -82,7 +82,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
   {
     "connector_id": "google_drive",
     "action": "files.upload",
-    ...
+    # input_schema and output_schema, as in the preceding entry
   }
 ]
 ```
@@ -91,7 +91,7 @@ Published **`input_schema` omits the `action` property** (manifest contract v2+)
 
 ## Optional: MCP under `src/agents/` (ToolHive / stdio)
 
-The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (e.g. `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image. Which deployment to use: [MCP overview](mcp.md#which-mcp-path). What a dedicated image needs: [Packaging — Tier 3](packaging.md#tier-3-standalone-mcp-server-optional).
+The repo also ships **stdio MCP servers** for agents and ToolHive under `src/agents/` (for example, `python -m agents.mcp_entrypoint`, per-connector modules). Those are separate from `MODE=MCP` on `node-wire`. Wiring a connector in `config/connectors.yaml` does not by itself add a ToolHive image. Which deployment to use: [MCP overview](mcp.md#which-mcp-path). What a dedicated image needs: [Packaging — Tier 3](packaging.md#tier-3-standalone-mcp-server-optional).
 
 ---
 
@@ -100,6 +100,6 @@ The repo also ships **stdio MCP servers** for agents and ToolHive under `src/age
 | Doc | When to read it |
 |-----|-----------------|
 | [Build a connector](connectors-build.md) | Writing the connector these bindings expose |
-| [connector-reference.md](connector-reference.md) | `connectors.yaml` keys and the factory API |
-| [architecture.md](architecture.md) | Where the bindings sit in the three-layer design |
-| [mcp.md](mcp.md) | MCP transports, tool search, multi-tenancy |
+| [Connector reference](connector-reference.md) | `connectors.yaml` keys and the factory API |
+| [Architecture](architecture.md) | Where the bindings sit in the three-layer design |
+| [MCP overview](mcp.md) | MCP transports, tool search, multi-tenancy |

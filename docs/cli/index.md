@@ -10,7 +10,7 @@ The command-line toolchain that turns an OpenAPI/Swagger spec into a Node Wire c
 wheels, an MCP host, and a Docker image (`nw gen-all` for the first three, `nw docker-build` for the image).
 
 `nw` is the orchestrator. It calls the other tools for you, so it is the only one most
-people need.
+people need. To generate a connector, wheels and an MCP host from a spec, run:
 
 ```bash
 uv run nw gen-all --connector-id pet_store --path path/to/openapi.yaml
@@ -33,8 +33,8 @@ uv run nw gen-all --connector-id pet_store --path path/to/openapi.yaml
 | Turn an OpenAPI/Swagger spec into a connector, wheels and MCP host | **`nw gen-all`** | [nw CLI](nw-cli.md#nw-gen-all) |
 | Build the Docker image for that MCP host | `nw docker-build` | [nw CLI](nw-cli.md#nw-docker-build) |
 | Build an MCP server whose tools are curated by AI scoping | **`nw gen-stacklok`** | [stacklok MCP servers](../stacklok-mcp-servers.md) |
-| Regenerate just the MCP host for an existing connector | `nw gen-mcp` | [nw CLI](nw-cli.md#nw-gen-mcp) |
-| Rebuild just the wheels | `nw gen-whl` | [nw CLI](nw-cli.md#nw-gen-whl) |
+| Regenerate only the MCP host for an existing connector | `nw gen-mcp` | [nw CLI](nw-cli.md#nw-gen-mcp) |
+| Rebuild only the wheels | `nw gen-whl` | [nw CLI](nw-cli.md#nw-gen-whl) |
 | Call an existing connector, per tenant | *no CLI*: `ConnectorFactory` or the REST API | [Use a connector](../connectors.md) |
 | Write a connector by hand (SDK-style or non-REST) | *no CLI*: author `schema.py` + `logic.py` | [Build a connector](../connectors-build.md) |
 | Deploy an MCP server to ToolHive and drive it with an agent | *no CLI*: `thv` + the bundled agent | [ToolHive scenario](../toolhive_agent_scenario.md) |

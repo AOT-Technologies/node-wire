@@ -15,6 +15,8 @@ For walkthroughs, see [Use a connector](connectors.md) and [Build a connector](c
 
 ## `config/connectors.yaml`
 
+Each connector entry has the following shape:
+
 ```yaml
 connectors:
   <connector_id>:
@@ -58,7 +60,7 @@ For the full run pipeline (YAML config, instantiation, protocol routing), use **
 
 Use `connector.run(dict)` for the full pipeline (validation, policy, retries, error mapping).
 
-Set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry-point names (e.g. `google_drive`) before calling `auto_register()` — without it, `auto_register()` loads nothing (fail-closed).
+Set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry-point names (for example, `google_drive`) before calling `auto_register()` — without it, `auto_register()` loads nothing (fail-closed).
 
 **Scope policy applies here too.** The factory attaches the same policy hook to every `run()`, however the instance was obtained. With the default `NW_MCP_SCOPE_POLICY_DEFAULT=deny`, a call with no `principal` or `scopes` fails with `POLICY_DENIED`. How to grant scopes, or switch to `allow` for local scripts: [Build a connector — Security](connectors-build.md#security-rest-plugins-secrets).
 
@@ -69,6 +71,8 @@ For a complete, runnable walkthrough — two tenants, the config store, `TENANT_
 For composing actions within a connector, use **`self.call_action`**. It routes through **`connector.run`** so **policy hooks**, **resilience**, and the **`ConnectorResponse`** error path apply (including MCP scope policy). It returns the nested action’s **output model** on success (validated from `run()`’s `data`). On policy denial it raises **`PolicyDenied`**, which the outer `run()` maps like any other action failure.
 
 Optional keyword args `principal`, `tenant_id`, and `scopes` override the caller identity for the nested call. When omitted, **`call_action` inherits** identity from the outer `run()` (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call. On a factory-pinned instance, an explicit nested `tenant_id` must agree with the instance pin.
+
+The following action creates a file, then reads it back through `call_action`:
 
 ```python
 from node_wire_runtime import BaseConnector, nw_action
@@ -182,6 +186,6 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 |-----|-----------------|
 | [Use a connector](connectors.md) | Calling a connector in-process or over REST, per tenant |
 | [Build a connector](connectors-build.md) | Writing a connector by hand |
-| [connector-bindings.md](connector-bindings.md) | How actions surface on REST / MCP / gRPC |
-| [configuration.md](configuration.md) | `NW_*` environment variables |
-| [public-api.md](public-api.md) | What is covered by SemVer |
+| [Connectors on REST, MCP and gRPC](connector-bindings.md) | How actions surface on REST / MCP / gRPC |
+| [Configuration](configuration.md) | `NW_*` environment variables |
+| [Public API](public-api.md) | What is covered by SemVer |

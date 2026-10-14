@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Stripe Playground Integration Tests
+# Stripe playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the Stripe connector panel, and assert on the rendered pipeline
@@ -35,6 +35,8 @@ No `page.route()` interception.
 
 ## Running locally
 
+Install the browser once, then run the tests:
+
 ```bash
 # Install Playwright browsers (once)
 uv run python -m playwright install chromium
@@ -46,7 +48,8 @@ uv run pytest tests/playground/stripe/ --no-cov -v
 PLAYGROUND_HEADED=true uv run pytest tests/playground/stripe/ --no-cov -v -s
 ```
 
-> **Note:** Stripe tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> Stripe tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables

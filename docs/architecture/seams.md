@@ -10,6 +10,8 @@ The interfaces where one layer hands off to another, and where a host can plug i
 implementation. Read the [overview](../architecture.md) and the [domain](domain.md) first. Read
 the [`run()` pipeline](../architecture.md#the-run-pipeline) next.
 
+The following diagram shows the seams and what the factory injects:
+
 ```mermaid
 flowchart LR
     B["Binding<br/>REST · gRPC · MCP"] --> I["invoke.py"]
@@ -80,7 +82,7 @@ It raises `PolicyDenied`, which maps to `POLICY_DENIED`. The factory always atta
   `NW_{TENANT}_{CONNECTOR}_{KEY}` and reads the `tenants.yaml` overlay before the backend
   ([Tenancy](tenancy.md#tenant-secrets)).
 
-Backend variables: [Configuration — Secrets Management](../configuration.md#secrets-management).
+Backend variables: [Configuration — Secrets management](../configuration.md#secrets-management).
 
 ## `AuthProvider`
 

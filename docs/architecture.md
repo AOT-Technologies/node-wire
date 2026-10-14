@@ -4,9 +4,9 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Node Wire Architecture
+# Node Wire architecture
 
-The Node Wire platform is designed as a three-layer Python platform that runs connector adapters over REST, gRPC, or MCP. Each connector talks to an external system (e.g., Google Drive, SMTP, Stripe); the runtime provides a consistent execution contract, error handling, and resilience.
+Node Wire is a three-layer Python platform that runs connector adapters over REST, gRPC, or MCP. Each connector talks to an external system (for example, Google Drive, SMTP, Stripe); the runtime provides a consistent execution contract, error handling, and resilience.
 
 This page is the overview. The detail lives on the topic pages. Read them in this order (the [reading map](reading.md) has the whole path):
 
@@ -19,7 +19,7 @@ This page is the overview. The detail lives on the topic pages. Read them in thi
 | [Tenancy](architecture/tenancy.md) | Tenant resolution, entitlement, tenant secrets, MCP tenant tools |
 | [Bindings](connector-bindings.md) | How an action becomes a REST route, an MCP tool and a gRPC method |
 
-## High-Level Architecture
+## High-level architecture
 
 The platform is split into three layers:
 
@@ -28,7 +28,8 @@ The platform is split into three layers:
 - **Layer C – Bindings** (`src/bindings/`): How the platform is exposed to the outside world—REST API, gRPC server, MCP server—and `ConnectorFactory`, which builds tenant-pinned connector instances. The factory reads `config/connectors.yaml` at startup (an external input, not part of the layer) and bootstraps it into the runtime `ConnectorConfigStore` (Layer A).
 
 External callers reach the platform over REST, gRPC, or MCP. Each binding adapter resolves
-transport-specific tenant and caller identity, then hands off to the shared invoke seam.
+transport-specific tenant and caller identity, then hands off to the shared invoke seam, as
+the following diagram shows:
 
 ```mermaid
 flowchart TB
@@ -88,6 +89,8 @@ flowchart TB
 
 ### Request lifecycle
 
+The following sequence follows one request from the client to the external API:
+
 ```mermaid
 %%{init: {"sequence": {"actorMargin": 28, "width": 110, "boxMargin": 6, "noteMargin": 6, "messageMargin": 28}}}%%
 sequenceDiagram
@@ -97,6 +100,7 @@ sequenceDiagram
     participant I as invoke.py
     participant R as run()
     participant X as Connector
+    participant E as External API
 
     C->>B: request
     Note over B: resolve tenant<br/>+ config
@@ -105,7 +109,8 @@ sequenceDiagram
     I->>R: run(payload, scopes)
     Note over R: validate → policy<br/>→ resilience
     R->>X: internal_execute
-    X->>X: outbound call
+    X->>E: outbound call
+    E-->>X: response / error
     X-->>R: result / exception
     Note over R: ErrorMapper
     R-->>I: ConnectorResponse
@@ -125,9 +130,9 @@ or an MCP tool error, but the connector contract is identical on all three.
 
 **Location:** `src/node_wire_runtime/`
 
-### Main Components
+### Main components
 
-- **BaseConnector**: Abstract base class for all connectors. It owns the `run()` pipeline below.
+- **BaseConnector**: Abstract base class for all connectors. It owns the [`run()` pipeline](#the-run-pipeline).
 - **ConnectorResponse / ErrorCategory / ErrorMapper**: the response envelope, the error taxonomy (`RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`), and the per-connector exception mapping. See [Domain](architecture/domain.md#results-and-errors).
 - **Resilience**: retries (Tenacity) and circuit breaking (PyBreaker).
 - **PolicyHook, SecretProvider, AuthProvider**: pluggable seams the factory injects. See [Seams](architecture/seams.md).
@@ -137,7 +142,7 @@ or an MCP tool error, but the connector contract is identical on all three.
 ### The `run()` pipeline
 
 Every action goes through the same sequence. The tenant pin is checked before the
-trace span opens; everything after it runs inside the span.
+trace span opens; everything after it runs inside the span, as the following diagram shows:
 
 ```mermaid
 flowchart TB
@@ -175,7 +180,7 @@ flowchart TB
 
 **Location:** `src/node_wire_<name>/`
 
-### Common Structure
+### Common structure
 
 - `schema.py`: Pydantic models for request and response.
 - `logic.py`: Connector class and external service logic, including an optional `error_map` class attribute that registers the connector's exception mappings — scoped to that connector's own `connector_id` so they can never be resolved for another connector's errors.
@@ -193,7 +198,7 @@ flowchart TB
 
 REST, MCP, and gRPC share one invoke seam in `src/bindings/invoke.py` ([Seams — `invoke.py`](architecture/seams.md#invokepy)). Transport-only concerns stay in each binding.
 
-### Bindings Offered
+### Bindings offered
 
 - **REST API (FastAPI)**: Dynamic routes at `POST /connectors/{connector_id}/{action}`.
 - **gRPC Server**: Protocol buffers based interface on port 50051.

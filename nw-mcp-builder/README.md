@@ -20,6 +20,8 @@ Auth, telemetry, and connector logic stay in node-wire. The generated project is
 
 ## Commands
 
+Run the builder from its folder:
+
 ```bash
 cd nw-mcp-builder
 
@@ -34,7 +36,7 @@ uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
 uv run nw-mcp-builder -c <connector_id> --force-output
 uv run nw-mcp-builder -c <connector_id> --force-fixture
 
-# Tool listing mode (see below)
+# Tool listing mode (see the following section)
 uv run nw-mcp-builder -c <connector_id> --tool-search
 uv run nw-mcp-builder -c <connector_id> --full-tool-list
 uv run nw-mcp-builder -c <connector_id> --max-tool-listing-kb 40
@@ -47,7 +49,7 @@ Before building wheels, the connector's MCP tool listing is measured with the bi
 1. **Full tool list** — every tool listed individually.
 2. **Tool search** — only `nw_search_tools` + `nw_call_tool` are listed (~2 KB); the model searches by keywords and gets tool schemas on demand. The prompt explains where this can fail (a model that guesses names instead of searching, wording that doesn't match the tool, clients that approve tools one by one, an extra round trip per task).
 
-The build never fails over the budget. Without a terminal (CI, piped output) the full list is generated and a warning names the flags. `--tool-search` / `--full-tool-list` choose up front with no prompt. The choice becomes the host's default `NW_MCP_TOOL_MODE` (in `__main__.py` and the Dockerfile `ENV`), still overridable at runtime. If the listing cannot be measured (e.g. the connector's own dependencies are not installed in this environment), the full list is used with a warning.
+The build never fails over the budget. Without a terminal (CI, piped output) the full list is generated and a warning names the flags. `--tool-search` / `--full-tool-list` choose up front with no prompt. The choice becomes the host's default `NW_MCP_TOOL_MODE` (in `__main__.py` and the Dockerfile `ENV`), still overridable at runtime. If the listing cannot be measured (for example, the connector's own dependencies are not installed in this environment), the full list is used with a warning.
 
 ### Tests
 
@@ -57,9 +59,11 @@ From the **node-wire** repo root (suite lives under `tests/nw_mcp_builder/`):
 uv run pytest tests/nw_mcp_builder -v --no-cov
 ```
 
-`<connector_id>` is any connector with `packages/connectors/<id>/` and `src/node_wire_<id>/` (e.g. `google_drive`, `salesforce`).
+`<connector_id>` is any connector with `packages/connectors/<id>/` and `src/node_wire_<id>/` (for example, `google_drive`, `salesforce`).
 
 ### Run the generated host
+
+Install and run a generated project:
 
 ```bash
 cd out/<name>-mcp
@@ -83,8 +87,8 @@ docker run --rm --env-file .env -e NW_MCP_HOST=0.0.0.0 -p 8081:8081 <name>-mcp
 
 `NW_MCP_HOST=0.0.0.0` is required in a container: the server binds loopback by default, so the published port resets connections without it. To check the running container answers and lists its tools, see [docs/cli/nw-mcp-builder.md — Verify the running container](../docs/cli/nw-mcp-builder.md#verify-the-running-container).
 
-`<name>-mcp` / `<module_name>` come from the connector id (underscores → hyphens in the folder name, e.g. `google_drive` → `out/google-drive-nw-mcp`, module `google_drive_nw_mcp`).
+`<name>-mcp` / `<module_name>` come from the connector id (underscores → hyphens in the folder name, for example, `google_drive` → `out/google-drive-nw-mcp`, module `google_drive_nw_mcp`).
 
 ### Multi-tenancy
 
-The generated host is a thin wrapper around the same `McpServer`, so it inherits multi-tenancy for free: set `NW_MULTITENANCY_ENABLED=true` and `NW_TENANTS_PATH` (mount `tenants.yaml` into the container) in its `.env` / Docker run env. See [docs/architecture/tenancy.md](../docs/architecture/tenancy.md) for tenant resolution and the tenant/config tool walkthrough.
+The generated host is a thin wrapper around the same `McpServer`, so it inherits multi-tenancy: set `NW_MULTITENANCY_ENABLED=true` and `NW_TENANTS_PATH` (mount `tenants.yaml` into the container) in its `.env` / Docker run env. See [docs/architecture/tenancy.md](../docs/architecture/tenancy.md) for tenant resolution and the tenant/config tool walkthrough.

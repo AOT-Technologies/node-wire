@@ -4,13 +4,13 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Security Policy
+# Security policy
 
 The Node Wire maintainers take the security of the project seriously. This
 document explains which versions receive security fixes and how to report a
 vulnerability responsibly.
 
-## Supported Versions
+## Supported versions
 
 Node Wire follows [Semantic Versioning](https://semver.org/). Security fixes are
 applied to the latest 1.x release and the `main` branch.
@@ -20,9 +20,9 @@ applied to the latest 1.x release and the `main` branch.
 | 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-**Please do not open a public GitHub issue for security vulnerabilities.**
+**Do not open a public GitHub issue for security vulnerabilities.**
 
 Report suspected vulnerabilities privately through either of the following:
 
@@ -31,14 +31,14 @@ Report suspected vulnerabilities privately through either of the following:
   form for this repository (preferred).
 - **Email** — send details to **opensource@aot-technologies.com**.
 
-When reporting, please include as much of the following as you can:
+When reporting, include as much of the following as you can:
 
 - A description of the vulnerability and its potential impact.
-- The component or file involved (e.g. a connector, binding, or runtime module).
+- The component or file involved (for example, a connector, binding, or runtime module).
 - Steps to reproduce, including a minimal proof of concept if available.
 - The version, commit, or deployment configuration affected.
 
-## What to Expect
+## What to expect
 
 - **Acknowledgement** within 3 business days of your report.
 - An initial assessment and severity triage within 10 business days.
@@ -46,7 +46,7 @@ When reporting, please include as much of the following as you can:
   disclosure timeline, and credit you in the advisory unless you prefer to
   remain anonymous.
 
-Please give us a reasonable opportunity to remediate the issue before any
+Give us a reasonable opportunity to remediate the issue before any
 public disclosure.
 
 ## Scope

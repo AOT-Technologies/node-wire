@@ -4,9 +4,9 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Salesforce Connector (`src/node_wire_salesforce`)
+# Salesforce connector (`src/node_wire_salesforce`)
 
-The Salesforce connector provides a secure, asynchronous interface for managing CRM records (Leads and Contacts). It leverages Node Wire's `OAuth2AuthProvider` to handle token refresh automatically, allowing for seamless integration into agentic workflows and medical-to-CRM pipelines.
+The Salesforce connector provides a secure, asynchronous interface for managing CRM records (Leads and Contacts). It uses Node Wire's `OAuth2AuthProvider` to refresh tokens automatically, so it fits agentic workflows and medical-to-CRM pipelines.
 
 ## Capabilities
 
@@ -41,9 +41,9 @@ connectors:
       refresh_token_secret: SALESFORCE_REFRESH_TOKEN
 ```
 
-## Environment Variables
+## Environment variables
 
-The following secrets must be provided (e.g., in `.env` or via your secret manager):
+The following secrets must be provided (for example, in `.env` or via your secret manager):
 
 | Variable | Example |
 |---|---|
@@ -53,13 +53,15 @@ The following secrets must be provided (e.g., in `.env` or via your secret manag
 | `SALESFORCE_CLIENT_SECRET` | `A1B2...` |
 | `SALESFORCE_REFRESH_TOKEN` | `5Aep...` |
 
-## Example Usage
+## Example usage
 
 ### REST API
 
+The following request creates a lead:
+
 ```bash
 curl -X POST http://localhost:8000/connectors/salesforce/create_lead \
-  -H "X-API-Key: your-key" \
+  -H "X-API-Key: <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "LastName": "Doe",
@@ -68,6 +70,8 @@ curl -X POST http://localhost:8000/connectors/salesforce/create_lead \
     "Status": "Open - Not Contacted"
   }'
 ```
+
+Replace `<your-api-key>` with your `NW_REST_API_KEY`.
 
 ### Agentic (MCP)
 
@@ -81,21 +85,28 @@ If registered via MCP, the agent can call the advertised tool `salesforce_create
 }
 ```
 
-## Playground Interface
+## Playground interface
 
 The Node Wire playground includes a **CRM Synchronization** panel specifically for Salesforce. This interface allows you to:
 
-1.  **Toggle between Lead and Contact management**: Use the action dropdown to switch contexts.
-2.  **Execute full CRUD operations**: The form dynamically adjusts based on whether you are creating, reading, updating, or deleting a record.
-3.  **Real-time Pipeline Visualization**: Watch the synchronization steps (Authentication → Fetch/Update → Verification) in real-time.
-4.  **Instant Record Validation**: See the exact Salesforce resource IDs and data returned by the API.
+- **Toggle between Lead and Contact management**: Use the action dropdown to switch contexts.
+- **Execute full CRUD operations**: The form dynamically adjusts based on whether you are creating, reading, updating, or deleting a record.
+- **Real-time pipeline visualization**: Watch the synchronization steps (Authentication → Fetch/Update → Verification) in real-time.
+- **Instant record validation**: See the exact Salesforce resource IDs and data returned by the API.
 
-Access the playground at `http://localhost:8000/playground` (when running locally).
+Access the playground at `http://localhost:8000/playground/` (when running locally), then select **Connectors** → **Salesforce**:
 
-## Security Note
+![Playground CRM Synchronization panel for Salesforce leads, with the Smart Pipeline steps and Technical Audit log beside it](images/playground-salesforce-crm.png)
+
+## Security note
 
 - **OAuth2**: Tokens are never logged or persisted to disk. `OAuth2AuthProvider` holds the resolved access token as a plain in-process value, scoped to the provider instance's lifetime — there is no additional encryption-at-rest or secure-memory mechanism.
 - **Refresh Token Support**: The connector is configured to use `grant_method: refresh_token`, ensuring it can stay authenticated for long-running agentic tasks.
 - **Traceability**: All actions are logged with a `trace_id` for auditing and idempotency tracking.
 - **PII Protection**: Ensure your logging levels are set correctly; by default, the connector logs the metadata of the transaction but not the full PII payload.
+
+## Related
+
+- [Connector reference — catalog](connector-reference.md#connector-catalog): every shipped connector's actions, auth and secrets.
+- [Use a connector](connectors.md): calling a connector in-process or over REST, per tenant.
 

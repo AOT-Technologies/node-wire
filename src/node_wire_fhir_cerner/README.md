@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# FHIR Cerner Connector — Technical Documentation
+# FHIR Cerner connector — technical documentation
 
 > **Platform:** Node Wire
 > **Standard:** FHIR R4
@@ -14,19 +14,19 @@ SPDX-License-Identifier: Apache-2.0
 
 ---
 
-## 1. Architecture Overview
+## Architecture overview
 
 The FHIR Cerner connector is designed to interface with Cerner EHR systems using the FHIR R4 standard. It follows the **"Fat Connector"** architecture, where a single connector class manages multiple related actions.
 
-### Logic Consolidation
+### Logic consolidation
 
 A single configuration entry in `connectors.yaml` exposes multiple distinct operations (actions), sharing the same authentication state and underlying infrastructure:
 
-- **`FhirCernerConnector`**: A single `BaseConnector` subclass that encapsulates all shared logic, authentication flows, and the per-action implementation methods. Each action is a method decorated with **`@sdk_action`** or **`@nw_action`** (e.g. `read_patient`, `search_patients`, `search_encounter`). The runtime derives routing and manifest entries from that decorator metadata (`sdk_action_metas()` → `build_manifest`) — there is no separate per-action wrapper class.
+- **`FhirCernerConnector`**: A single `BaseConnector` subclass that encapsulates all shared logic, authentication flows, and the per-action implementation methods. Each action is a method decorated with **`@sdk_action`** or **`@nw_action`** (for example, `read_patient`, `search_patients`, `search_encounter`). The runtime derives routing and manifest entries from that decorator metadata (`sdk_action_metas()` → `build_manifest`) — there is no separate per-action wrapper class.
 
 ---
 
-## 2. Authentication Flow
+## Authentication flow
 
 The connector implements the **SMART Backend Services** specification (specifically the `private_key_jwt` flow) required by Cerner:
 
@@ -35,7 +35,7 @@ The connector implements the **SMART Backend Services** specification (specifica
 3. **Token Exchange**: The JWT is posted to the `cerner_token_url` to obtain a short-lived (5 min) `access_token`.
 4. **Request Execution**: The token is attached as a `Bearer` header to subsequent FHIR API calls.
 
-### Required Secrets
+### Required secrets
 
 | Secret Key | Description |
 |---|---|
@@ -47,13 +47,13 @@ The connector implements the **SMART Backend Services** specification (specifica
 
 ---
 
-## 3. Supported Operations
+## Supported operations
 
 The connector exposes five primary actions, each with standardized request/response models.
 
 ### `read_patient`
 
-Retrieves patient details either by a direct resource ID or through search parameters (e.g., family/given name).
+Retrieves patient details either by a direct resource ID or through search parameters (for example, family/given name).
 
 | Field | Detail |
 |---|---|
@@ -79,7 +79,7 @@ Searches for medical encounters for a specific patient. This is often a prerequi
 
 | Field | Detail |
 |---|---|
-| **Input** | `search_params` (e.g., `{"patient": "12345"}`) |
+| **Input** | `search_params` (for example, `{"patient": "12345"}`) |
 | **Output** | List of Encounter resources and the total count |
 
 ---
@@ -104,23 +104,23 @@ Queries for existing documents for a patient.
 
 | Field | Detail |
 |---|---|
-| **Input** | `search_params` (e.g., `{"patient": "12345"}`) |
+| **Input** | `search_params` (for example, `{"patient": "12345"}`) |
 | **Output** | List of DocumentReference resources |
 
 ---
 
-## 4. Cerner-Specific Nuances
+## Cerner-specific nuances
 
 Cerner's FHIR implementation (especially in the sandbox) has several unique requirements that the connector handles internally:
 
 1. **CodeSet 72**: Unlike many EHRs that accept LOINC codes for document types, Cerner strictly requires proprietary codes from CodeSet 72.
-2. **Date Precision**: Cerner requires a full time component (e.g., `.000Z`) for many date fields; generic date strings like `2024-01-01` will be rejected.
+2. **Date Precision**: Cerner requires a full time component (for example, `.000Z`) for many date fields; generic date strings like `2024-01-01` are rejected.
 3. **Mandatory Authorship**: Clinical notes *must* have an author and an authenticator defined during the `POST` request.
-4. **No Identifiers on Create**: While many FHIR resources support external identifiers, Cerner will reject `DocumentReference` creation if an `identifier` field is present in the root of the JSON.
+4. **No Identifiers on Create**: While many FHIR resources support external identifiers, Cerner rejects `DocumentReference` creation if an `identifier` field is present in the root of the JSON.
 
 ---
 
-## 5. Directory Structure
+## Directory structure
 
 | File / Path | Purpose |
 |---|---|
@@ -131,7 +131,7 @@ Cerner's FHIR implementation (especially in the sandbox) has several unique requ
 
 ---
 
-## 6. Usage Example — `create_document_reference`
+## Usage example — `create_document_reference`
 
 When calling `create_document_reference`, ensure your `type` field uses the Cerner CodeSet 72 system:
 

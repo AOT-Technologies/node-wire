@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Build a connector (`src/node_wire_*`)
 
-How connectors fit into Node Wire, how to write one by hand, and how to wire its credentials and ship it. Connector implementations live under `src/node_wire_<connector_id>/` (e.g. `src/node_wire_google_drive/`); the shared base class lives at **`src/node_wire_runtime/base_connector.py`**.
+How connectors fit into Node Wire, how to write one by hand, and how to wire its credentials and ship it. Connector implementations live under `src/node_wire_<connector_id>/` (for example, `src/node_wire_google_drive/`); the shared base class lives at **`src/node_wire_runtime/base_connector.py`**.
 
 Only need to call a connector that already ships? Start at [Use a connector](connectors.md). Generating one from an OpenAPI spec instead? Use [`nw gen-all`](cli/nw-cli.md) — this page covers the hand-written path.
 
@@ -28,7 +28,7 @@ A connector is a Layer B package; the layers are described in [Architecture](arc
 
 ### Package layout and registration
 
-Each connector is a **top-level package** under `src/` (e.g. `node_wire_fhir_epic`):
+Each connector is a **top-level package** under `src/` (for example, `node_wire_fhir_epic`):
 
 | File | Role |
 |------|------|
@@ -55,6 +55,8 @@ There is one base class for all connectors: **`BaseConnector`** (`src/node_wire_
 
 Actions are declared either with the **`@nw_action("name")`** decorator on async methods, or by listing them in **`action_specs`** (the runtime generates equivalent handlers). A connector can have **one or many** actions — there is no separate "single-action" type.
 
+The following diagram shows how a configured connector becomes a running instance:
+
 ```mermaid
 flowchart TB
     yaml[/"config/connectors.yaml"/] --> load["ConnectorFactory.load"]
@@ -80,7 +82,7 @@ The production **Google Drive** connector (`src/node_wire_google_drive/`) is a g
 
 ### Step 1 — Define your schemas (`schema.py`)
 
-Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. You do **not** have to build the union yourself. When your class is defined, `BaseConnector` collects each action's input model and builds the discriminated union on `action` for you, wrapped in a `RootModel`. It finds that model from the `params` type hint of an `@nw_action` method, or from `input_model` on an `SdkActionSpec`. If the connector has only one action, the `RootModel` wraps that single model directly. Google Drive also exports its own `GoogleDriveOperationInput` union, shown below. That is optional: its tests use it, but the runtime does not.
+Each operation is a Pydantic model with an **`action`** field whose type is a `Literal["…"]` unique to that operation. You do **not** have to build the union yourself. When your class is defined, `BaseConnector` collects each action's input model and builds the discriminated union on `action` for you, wrapped in a `RootModel`. It finds that model from the `params` type hint of an `@nw_action` method, or from `input_model` on an `SdkActionSpec`. If the connector has only one action, the `RootModel` wraps that single model directly. Google Drive also exports its own `GoogleDriveOperationInput` union, shown in the following example. That is optional: its tests use it, but the runtime does not. The following excerpt shows two operations and the union:
 
 ```python
 # src/node_wire_google_drive/schema.py (conceptual excerpt)
@@ -131,13 +133,13 @@ class GoogleDriveOperationOutput(BaseModel):
     description: str
 ```
 
-Use `dict | list` for `raw` when vendor APIs return arrays (e.g. list endpoints); Pydantic validates either shape. Per-action output models can use typed fields instead of a shared envelope.
+Use `dict | list` for `raw` when vendor APIs return arrays (for example, list endpoints); Pydantic validates either shape. Per-action output models can use typed fields instead of a shared envelope.
 
 When a connector has only **one** action, its model still needs the `action` field. Dispatch reads `action` from the validated input to pick the handler. Give it a default (`action: Literal["send"] = "send"`) so callers can leave it out. REST fills it in from the URL path anyway.
 
 ### Step 2 — Map operations to the SDK (`action_spec.py`)
 
-**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/node_wire_google_drive/action_spec.py`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/action_spec.py).
+**`SdkActionSpec`** describes how to turn a validated model into a single SDK call: resource path (`resource_segments`), HTTP-style method name (`method_name`), and how to build `body` / keyword arguments from the model. The full Drive registry lives in [`src/node_wire_google_drive/action_spec.py`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/action_spec.py). The following excerpt shows two entries:
 
 ```python
 # src/node_wire_google_drive/action_spec.py (illustrative)
@@ -170,17 +172,17 @@ GOOGLE_DRIVE_ACTION_SPECS: dict[str, SdkActionSpec] = {
 
 #### Using `action_specs` for non-discovery SDKs
 
-The discovery-style shape above (`resource_segments` walked as zero-arg calls, then `.execute()`) is only the **default**. `SdkActionSpec` is not Google-specific — three fields let other vendor SDK shapes reuse the same declarative table instead of falling back to hand-written `@nw_action` methods:
+The preceding discovery-style shape (`resource_segments` walked as zero-arg calls, then `.execute()`) is only the **default**. `SdkActionSpec` is not Google-specific — three fields let other vendor SDK shapes reuse the same declarative table instead of falling back to hand-written `@nw_action` methods:
 
-- **`call_segments=False`** — for flat-class SDKs where `resource_segments` are plain attributes, not zero-arg calls (e.g. `stripe.Charge.create(...)`: `resource_segments=("Charge",), call_segments=False`).
-- **`resolve_method`** — full override `(spec, client) -> Callable` for navigation that needs an argument mid-path (e.g. PyGithub's `client.get_repo(name).get_issues`), where segment-walking alone can't express it.
+- **`call_segments=False`** — for flat-class SDKs where `resource_segments` are plain attributes, not zero-arg calls (for example, `stripe.Charge.create(...)`: `resource_segments=("Charge",), call_segments=False`).
+- **`resolve_method`** — full override `(spec, client) -> Callable` for navigation that needs an argument mid-path (for example, PyGithub's `client.get_repo(name).get_issues`), where segment-walking alone can't express it.
 - **`invoke`** — full override `(method, kwargs) -> Any` for SDKs whose methods return the result directly, with no `.execute()` step (most non-Google SDKs). Use **`execute_spec_async`** instead of `execute_spec_in_thread` when the vendor method is itself a coroutine function — `invoke` can return the coroutine, and `execute_spec_async` awaits it directly on the running loop without a thread hop.
 
-Leave all three unset and you get exactly the Drive/discovery behavior described above.
+Leave all three unset and you get exactly the Drive/discovery behavior described earlier in this step.
 
 ### Step 3 — Implement the connector class (`logic.py`)
 
-Subclass `BaseConnector`, set **`connector_id`**, **`output_model`**, and **`action_specs`**. The base class **generates** one async `@nw_action` handler per spec. Override **`_execute_action_spec`** to add logging, thread offload, and translation of vendor exceptions (e.g. `HttpError` → your `error_map` types).
+Subclass `BaseConnector`, set **`connector_id`**, **`output_model`**, and **`action_specs`**. The base class **generates** one async `@nw_action` handler per spec. Override **`_execute_action_spec`** to add logging, thread offload, and translation of vendor exceptions (for example, `HttpError` → your `error_map` types). The following excerpt shows the Drive connector class:
 
 ```python
 # src/node_wire_google_drive/logic.py (conceptual excerpt)
@@ -244,17 +246,20 @@ class GoogleDriveConnector(BaseConnector):
 
 #### What those pieces do
 
-Key points:
+The excerpt sets the following pieces:
+
 - **`connector_id`** — unique string; used for routing, config, and registry lookup.
-- **`output_model`** — the Pydantic class returned by every action. Shared envelopes often use `raw: dict | list` for list-heavy vendor APIs; per-action models can use typed fields instead (see SMS example below).
+- **`output_model`** — the Pydantic class returned by every action. Shared envelopes often use `raw: dict | list` for list-heavy vendor APIs; per-action models can use typed fields instead (see [Single-action connector example](#single-action-connector-example)).
 - **`error_map`** — maps exception types to `(ErrorCategory, error_code)`. Entries are registered with `ErrorMapper` automatically at class definition time.
 - **`build_client()`** — override to create the Google API client. `get_client()` caches the result in `self._client`.
-- **`action_specs`** — each key becomes a manifest action (e.g. `files.list`). Do **not** also add a manual `@nw_action` with the same name.
+- **`action_specs`** — each key becomes a manifest action (for example, `files.list`). Do **not** also add a manual `@nw_action` with the same name.
 - **`_execute_action_spec`** — **required** when using **`action_specs`**: each generated handler delegates here. Typically call **`execute_spec_in_thread`** for blocking SDKs (such as `googleapiclient`). Connectors that only use hand-written `@nw_action` methods do not implement this hook.
 
 **Adding a new Drive operation:** add a Pydantic variant and extend the union in `schema.py`, register a new `SdkActionSpec` in `action_spec.py`, and rely on auto-generated handlers (see [`src/node_wire_google_drive/README.md`](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_google_drive/README.md)).
 
 ### Step 4 — Register in `config/connectors.yaml`
+
+Add an entry for the connector:
 
 ```yaml
 connectors:
@@ -274,7 +279,7 @@ connectors:
 
 ### Optional: `error_map` for ErrorMapper
 
-Declare an `error_map` class attribute on your connector to translate raised exceptions into the standard error taxonomy — including exceptions raised outside the connector class or shared across modules (e.g. `.exceptions`):
+Declare an `error_map` class attribute on your connector to translate raised exceptions into the standard error taxonomy — including exceptions raised outside the connector class or shared across modules (for example, `.exceptions`).
 
 `src/node_wire_stripe/logic.py` is the worked example — one entry per SDK exception,
 covering all four categories:
@@ -300,16 +305,16 @@ class StripeConnector(BaseConnector):
 ```
 
 Dict order is irrelevant: resolution walks the raised exception's MRO and takes the
-closest match. `StripeError` is the base class of the rows above it, so it acts as the
+closest match. `StripeError` is the base class of the preceding rows, so it acts as the
 catch-all for any Stripe exception not named explicitly.
 
-`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. Under the hood it calls the scoped `ErrorMapper.register(connector_id, exc_type, category, code)` (`src/node_wire_runtime/errors.py`) on your behalf; connector code never calls `register()` directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (e.g. two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors). The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (e.g. `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
+`BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**. Internally it calls the scoped `ErrorMapper.register(connector_id, exc_type, category, code)` (`src/node_wire_runtime/errors.py`) on your behalf; connector code never calls `register()` directly, precisely so a connector can't accidentally register an unscoped mapping that another connector's errors could later resolve to (for example, two connectors both raising `httpx.HTTPStatusError` with different intended codes — each connector's mapping only ever applies to that connector's own errors). The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (for example, `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
 
 ---
 
 ### Single-action connector example
 
-A connector with one action is identical in structure — just add one `@nw_action` method. This is an illustrative sketch; `node_wire_sms` is not a shipped connector:
+A connector with one action is identical in structure — add one `@nw_action` method. This is an illustrative sketch; `node_wire_sms` is not a shipped connector:
 
 ```python
 # src/node_wire_sms/schema.py
@@ -326,6 +331,8 @@ class SmsSendOutput(BaseModel):
     message_sid: str
     status: str
 ```
+
+Then the connector class in `logic.py`:
 
 ```python
 # src/node_wire_sms/logic.py
@@ -350,7 +357,7 @@ class SmsConnector(BaseConnector):
 
 ### Minimal HTTP connector, end to end
 
-A complete, runnable `httpx` connector against the public [JSONPlaceholder](https://jsonplaceholder.typicode.com) API. It has no auth, two actions and no SDK. Copy it as the starting point for a hand-written HTTP connector. Add an empty `src/node_wire_jsonplaceholder/__init__.py` alongside these two files.
+A complete, runnable `httpx` connector against the public [JSONPlaceholder](https://jsonplaceholder.typicode.com) API. It has no auth, two actions and no SDK. Copy it as the starting point for a hand-written HTTP connector. Add an empty `src/node_wire_jsonplaceholder/__init__.py` alongside these two files. Start with `schema.py`:
 
 ```python
 # src/node_wire_jsonplaceholder/schema.py
@@ -377,6 +384,8 @@ class JsonPlaceholderOutput(BaseModel):
     status_code: int
     raw: dict | list
 ```
+
+Then the connector class in `logic.py`:
 
 ```python
 # src/node_wire_jsonplaceholder/logic.py
@@ -421,13 +430,15 @@ class JsonPlaceholderConnector(BaseConnector):
         return await self._get("/posts", params=query)
 ```
 
-Wire it up:
+To wire it up, add the entry point to the root `pyproject.toml`:
 
 ```toml
 # pyproject.toml (repo root), under the existing table
 [project.entry-points."node_wire.connectors"]
 jsonplaceholder = "node_wire_jsonplaceholder.logic"
 ```
+
+Then add the connector to `config/connectors.yaml`:
 
 ```yaml
 # config/connectors.yaml, under connectors:
@@ -497,16 +508,16 @@ def test_entry_point_auto_registers(monkeypatch):
 
 Node Wire provides a shared **`AuthProvider`** abstraction (`src/node_wire_runtime/auth/`) that handles token acquisition, JWT construction (for SMART on FHIR), caching, and expiry. This ensures that connector logic (`logic.py`) does not need to handle raw credentials or IdP-specific handshake details.
 
-### Using Auth in a Connector
+### Using auth in a connector
 
-To use authentication, call **`await self.get_auth_headers()`** (inherited from `BaseConnector`). This returns a dictionary of headers (e.g. `{"Authorization": "Bearer <token>"}`) injected by the configured provider.
+To use authentication, call **`await self.get_auth_headers()`** (inherited from `BaseConnector`). This returns a dictionary of headers (for example, `{"Authorization": "Bearer <token>"}`) injected by the configured provider.
 
 There are two patterns depending on how your connector talks to the vendor:
 
 **HTTP connectors** (direct REST calls via `httpx`) — create a short-lived client inside each `@nw_action` method. Do **not** override `build_client()`:
 
 ```python
-# logic.py — HTTP connector pattern (e.g. Slack, FHIR, GitHub)
+# logic.py — HTTP connector pattern (for example, Slack, FHIR, GitHub)
 # Base URL: read from the connector's own config, an env var, or a module constant.
 # There is no inherited _get_base_url() helper — connectors own their URL resolution.
 BASE_URL = "https://api.example.com"   # or: os.environ["MY_SERVICE_URL"]
@@ -517,13 +528,13 @@ async def read_resource(self, params: In, *, trace_id: str) -> Out:
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{BASE_URL}/resource", headers=headers)
         resp.raise_for_status()
-    ...
+    # Build and return Out from resp.
 ```
 
 **SDK connectors** (vendor Python SDK with a long-lived client object) — override `build_client()` so `get_client()` can cache the result across calls. Auth is handled inside `build_client()`, not via `get_auth_headers()`:
 
 ```python
-# logic.py — SDK connector pattern (e.g. Google Drive)
+# logic.py — SDK connector pattern (for example, Google Drive)
 def build_client(self) -> Any:
     # Read credential from secret provider and build the vendor client once.
     raw_sa = self.secret_provider.get_secret("MY_SA_JSON")
@@ -532,10 +543,10 @@ def build_client(self) -> Any:
 
 async def _execute_action_spec(self, action_name, params, *, trace_id, log_extra=None):
     client = self.get_client()  # cached; calls build_client() on first use
-    ...
+    # Run the spec against client and return the output model.
 ```
 
-### Supported Provider Types
+### Supported provider types
 
 Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 
@@ -544,8 +555,8 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 | **`none`** | (Default) No auth headers added. | `http_generic` |
 | **`static_token`** | Uses a fixed token from a secret (Bearer, Basic, or custom). | `stripe`, `slack` |
 | **`apikey_query`** | Appends an API key as a query-string parameter instead of a header. | — |
-| **`upstream_bearer`** | Passes through the caller's own bearer token to the vendor API (per-request, not cached). Credential relay, not an ordinary provider — requires the connector to also be listed in `NW_UPSTREAM_BEARER_CONNECTORS` (fails closed otherwise); Node Wire does not verify the token's audience matches the vendor API, that's the host's job. See [google_drive_connector.md](google_drive_connector.md#upstream_bearer). | `google_drive` (opt-in override) |
-| **`static_credentials`** | Username + password pair (e.g. SMTP relay). | `smtp` |
+| **`upstream_bearer`** | Passes through the caller's own bearer token to the vendor API (per-request, not cached). Credential relay, not an ordinary provider — requires the connector to also be listed in `NW_UPSTREAM_BEARER_CONNECTORS` (fails closed otherwise); Node Wire does not verify the token's audience matches the vendor API, that's the host's job. See [Google Drive — upstream bearer](google_drive_connector.md#upstream_bearer). | `google_drive` (opt-in override) |
+| **`static_credentials`** | Username + password pair (for example, SMTP relay). | `smtp` |
 | **`service_account`** | Google-style service account JSON + scopes. | `google_drive` |
 | **`oauth2`** | Token exchange (`private_key_jwt`, `refresh_token`, `client_secret_post`, etc.). Handles caching and expiry. | `fhir_epic`, `salesforce` |
 
@@ -555,11 +566,11 @@ Choose a provider in your **`connectors.yaml`** via the `auth:` block:
 |-------|----------|---------|-------|
 | `secret_key` | Yes | — | Env var name holding the raw token value (`EnvSecretProvider` tries the key as-is, then uppercased). |
 | `header_name` | No | `Authorization` | HTTP header the token is injected into. |
-| `prefix` | No | `Bearer` (no trailing space) | String prepended to the token value. The provider inserts a single space between `prefix` and the token itself — do **not** add a trailing space to `prefix` yourself, or you'll get a double space. Set `prefix: ""` for APIs that expect the raw token (e.g. Stripe). Set `prefix: "token"` for APIs that require the `token` scheme (check your vendor's auth docs). |
+| `prefix` | No | `Bearer` (no trailing space) | String prepended to the token value. The provider inserts a single space between `prefix` and the token itself — do **not** add a trailing space to `prefix` yourself, or you'll get a double space. Set `prefix: ""` for APIs that expect the raw token (for example, Stripe). Set `prefix: "token"` for APIs that require the `token` scheme (check your vendor's auth docs). |
 
 So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
 
-The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (e.g. redeploy) if the underlying secret is rotated.
+The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (for example, redeploy) if the underlying secret is rotated.
 
 ### Multiple auth schemes per connector
 
@@ -582,6 +593,8 @@ connectors:
 Select a named scheme per call with `await self.get_auth_headers(auth_scheme="legacy_bearer")` (or the lower-level `self.resolve_auth_provider("legacy_bearer")`) instead of the connector default. **`resolve_auth_provider`** fails closed with `ValueError` on an unknown scheme name — there's no silent fallback to the default provider. This is the same mechanism `nw-connector-builder` uses to generate `auth_scheme=` on divergent per-action calls (see the [generator contract](cli/nw-connector-builder-scope.md#per-action-auth-schemes)); hand-written connectors can use it directly for the same reason — an upstream API that requires more than one security scheme across its operations.
 
 ### Auth blocks in `connectors.yaml`
+
+The following entries show one `auth:` block per common provider type:
 
 ```yaml
 connectors:
@@ -626,7 +639,7 @@ connectors:
 
 ### Adding a new connector (checklist)
 
-> **OpenAPI / Swagger APIs:** Prefer [nw-connector-builder](cli/nw-connector-builder.md) (or the full [`nw gen-all`](cli/nw-cli.md) pipeline) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the hand-written steps above for SDK-style or non-REST connectors.
+For OpenAPI or Swagger APIs, prefer [nw-connector-builder](cli/nw-connector-builder.md) (or the full [`nw gen-all`](cli/nw-cli.md) pipeline) to generate `schema.py`, `logic.py`, package metadata, and optional MCP + `--wire` config from a spec. Use the [hand-written steps](#write-a-connector-step-by-step) for SDK-style or non-REST connectors.
 
 Rules to follow while writing it:
 
@@ -652,9 +665,9 @@ image) are in one checklist: [Packaging — Adding a new publishable connector](
 
 **Connector egress policies** — the `http_generic` and `smtp` outbound rules are listed with each connector in the [catalog](connector-reference.md#connector-catalog).
 
-**Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (e.g. `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
+**Connector entry points** — Any installed distribution may register `node_wire.connectors`. For production, set **`NW_ALLOWED_CONNECTORS`** to a comma-separated list of entry point names (for example, `fhir_epic,http_generic`). **`NW_CONNECTOR_MODULE_PREFIX`** defaults to `node_wire_`; modules not under that prefix are skipped.
 
-**Secrets** — lookups are fail-closed (`SecretNotFoundError`). Backends and lookup rules: [Configuration — Secrets Management](configuration.md#secrets-management).
+**Secrets** — lookups are fail-closed (`SecretNotFoundError`). Backends and lookup rules: [Configuration — Secrets management](configuration.md#secrets-management).
 
 ---
 
@@ -663,10 +676,10 @@ image) are in one checklist: [Packaging — Adding a new publishable connector](
 | Doc | When to read it |
 |-----|-----------------|
 | [Use a connector](connectors.md) | Calling a connector in-process or over REST, per tenant |
-| [connector-reference.md](connector-reference.md) | `connectors.yaml`, factory/registry APIs, connector inventory |
-| [connector-bindings.md](connector-bindings.md) | REST / MCP / gRPC exposure and the manifest |
-| [nw-connector-builder.md](cli/nw-connector-builder.md) | Generating a connector from OpenAPI instead |
-| [configuration.md](configuration.md) | `NW_*` environment variables and multi-tenancy |
-| [architecture.md](architecture.md) | The three-layer design |
-| [packaging.md](packaging.md) | Publishing a connector to PyPI |
+| [Connector reference](connector-reference.md) | `connectors.yaml`, factory/registry APIs, connector inventory |
+| [Connectors on REST, MCP and gRPC](connector-bindings.md) | REST / MCP / gRPC exposure and the manifest |
+| [nw-connector-builder](cli/nw-connector-builder.md) | Generating a connector from OpenAPI instead |
+| [Configuration](configuration.md) | `NW_*` environment variables and multi-tenancy |
+| [Architecture](architecture.md) | The three-layer design |
+| [Packaging](packaging.md) | Publishing a connector to PyPI |
 | [nw-mcp-builder](cli/nw-mcp-builder.md) | Generating a standalone MCP host for a connector |

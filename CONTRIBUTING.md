@@ -6,16 +6,18 @@ SPDX-License-Identifier: Apache-2.0
 
 # Contributing to Node Wire
 
-Thanks for your interest in contributing! This guide covers how to set up a
+Thanks for your interest in contributing. This guide covers how to set up a
 development environment, the quality checks we enforce, and the conventions for
 submitting changes. By contributing you agree that your contributions are
 licensed under the project's [Apache License 2.0](LICENSE) and that you sign off
 each commit under the
 [Developer Certificate of Origin](#developer-certificate-of-origin-dco).
 
-Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).
+Also read our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Prerequisites
+
+You need the following tools:
 
 | Requirement | Version | Notes |
 |---|---|---|
@@ -24,7 +26,7 @@ Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).
 | Git | Any recent version | |
 | Docker | Latest | Only needed for MCP server image builds |
 
-## Development Setup
+## Development setup
 
 Install the project and all development dependencies from the committed
 lockfile:
@@ -41,7 +43,7 @@ Install the pre-commit hooks so checks run automatically before each commit:
 pre-commit install
 ```
 
-## Quality Checks
+## Quality checks
 
 All of the following run in CI on pull requests against `main`. Run them
 locally before opening a PR:
@@ -58,11 +60,11 @@ See [docs/code-quality-compliance.md](docs/code-quality-compliance.md) and
 [docs/quality-security-gates.md](docs/quality-security-gates.md) for the full
 tooling reference.
 
-## Licensing & REUSE Compliance
+## Licensing & REUSE compliance
 
 This project is [REUSE](https://reuse.software/) compliant. **Every new file
 must carry an SPDX header.** For source and Markdown files use the project's
-standard header, e.g. for Python:
+standard header, for example, for Python:
 
 ```python
 # SPDX-FileCopyrightText: 2026 AOT Technologies
@@ -73,25 +75,25 @@ standard header, e.g. for Python:
 and for Markdown/HTML, an HTML comment with the same two SPDX tags. The
 pre-commit and CI checks will fail if a file is missing its header.
 
-## Git Identity
+## Git identity
 
-> **Configure your git identity before committing.** Commits must use your real
-> name and a valid email so attribution is accurate:
->
-> ```bash
-> git config user.name "Your Name"
-> git config user.email "you@example.com"
-> ```
->
-> Do not commit with placeholder identities (e.g. an unconfigured `My Name`
-> default). Misconfigured identities get carried into the project history via
-> squash-merge co-author trailers and are difficult to remove later.
+Configure your git identity before committing. Commits must use your real
+name and a valid email so attribution is accurate:
+
+```bash
+git config user.name "<your-name>"
+git config user.email "<your-email>"
+```
+
+Do not commit with placeholder identities (for example, an unconfigured `My Name`
+default). Misconfigured identities get carried into the project history through
+squash-merge co-author trailers and are difficult to remove later.
 
 ## Developer Certificate of Origin (DCO)
 
 This project uses the [Developer Certificate of Origin](https://developercertificate.org/)
 (DCO) instead of a CLA. There is no agreement to sign and no paperwork — you
-simply add a `Signed-off-by` trailer to **every commit**, certifying that you
+add a `Signed-off-by` trailer to **every commit**, certifying that you
 have the right to submit it under the project's license.
 
 Git adds the trailer automatically when you commit with `-s`:
@@ -101,9 +103,9 @@ git commit -s -m "Your commit message"
 ```
 
 This appends a line matching your configured git identity (so set it correctly
-first, per the section above):
+first, per [Git identity](#git-identity)):
 
-```
+```text
 Signed-off-by: Your Name <you@example.com>
 ```
 
@@ -149,21 +151,21 @@ By signing off, you certify the following:
 >     may be redistributed consistent with this project or the open source
 >     license(s) involved.
 
-## Submitting Changes
+## Submitting changes
 
 1. Fork the repository and create a feature branch from `main`
-   (e.g. `feature/short-description` or `fix/short-description`).
+   (for example, `feature/short-description` or `fix/short-description`).
 2. Make your change, including tests and documentation updates where relevant.
    For docs, edit the page that owns the fact and delete any copy you find — see
    [Changing the docs](docs/reading.md#changing-the-docs). Sign off every commit with `git commit -s` (see
    [DCO](#developer-certificate-of-origin-dco)).
-3. Ensure all quality checks above pass locally.
+3. Ensure all the preceding quality checks pass locally.
 4. Open a pull request against `main` with a clear description of the change and
    the motivation behind it. Link any related issue.
 5. A maintainer will review your PR. Address review feedback by pushing
    additional commits to your branch.
 
-## Reporting Bugs & Requesting Features
+## Reporting bugs & requesting features
 
 Use the GitHub issue templates. For **security vulnerabilities**, do not open a
 public issue — follow the [Security Policy](SECURITY.md) instead.

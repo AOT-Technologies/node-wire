@@ -37,6 +37,6 @@ via the automated workflow. See [CHANGELOG.md](CHANGELOG.md).
 Sustained, high-quality contributions may lead to an invitation to become a
 maintainer, at the discretion of the existing maintainers.
 
-## Code of Conduct
+## Code of conduct
 
 All participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).

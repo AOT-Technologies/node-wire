@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# MCP Client OAuth (Outbound)
+# MCP client OAuth (outbound)
 
 Node Wire can act as an **OAuth 2.1 client** when connecting to **remote HTTP MCP servers** that require authorization per the MCP Authorization specification (2025-11-25).
 
@@ -13,26 +13,9 @@ This is **separate** from:
 - **Inbound MCP server auth** (`NW_MCP_API_KEY`, `NW_MCP_JWT_SECRET`) — clients calling *node-wire’s* MCP server.
 - **Connector OAuth** (`OAuth2AuthProvider`) — Epic/Cerner/Salesforce credentials for connector actions. (Stripe uses `static_token`, not OAuth2.)
 
-## Package
-
-Implementation lives in `src/node_wire_runtime/mcp_client/`:
-
-| Module | Purpose |
-|--------|---------|
-| `config.py` | Operator settings (Section 10) |
-| `env_config.py` | Builds `McpClientConfig` from `NW_MCP_OAUTH_*` env vars |
-| `discovery.py` | RFC 9728 + RFC 8414 metadata discovery |
-| `dcr.py` | RFC 7591 dynamic client registration |
-| `oauth_flow.py` | Authorization code + PKCE + resource parameter |
-| `redirect_listener.py` | Loopback redirect callback (desktop) |
-| `storage.py` | Persisted DCR registrations per issuer |
-| `token_storage.py` | Persisted access/refresh tokens per issuer |
-| `token_manager.py` | `TokenManager` — caches and refreshes tokens ahead of expiry |
-| `client.py` | `McpOAuthClient` / `create_http_mcp_client()` — the client factory used by ToolHive/playground integration |
-| `challenges.py` | PKCE challenge/verifier generation |
-| `exceptions.py` | `McpOAuthConfigurationError` and related error types |
-
 ## Configuration
+
+Build a client configuration:
 
 ```python
 from node_wire_runtime.mcp_client import McpClientConfig, McpServerConfig, AuthConfig
@@ -46,7 +29,7 @@ config = McpClientConfig(
 )
 ```
 
-### Section 10 settings
+### Settings
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
@@ -65,13 +48,15 @@ config = McpClientConfig(
 
 ## Discovery
 
+Run discovery against the server:
+
 ```python
 from node_wire_runtime.mcp_client import discover, discovery_cache_for_config
 
 result = await discover(config, www_authenticate=challenge_header, cache=cache)
 ```
 
-Triggered on first MCP request without a token or after `401` with `WWW-Authenticate` `resource_metadata`.
+Discovery runs on the first MCP request without a token, or after a `401` with `WWW-Authenticate` `resource_metadata`.
 
 ## Authorization
 
@@ -113,11 +98,9 @@ NW_MCP_OAUTH_REDIRECT_URL=https://app.example.com/oauth/mcp/callback
 
 Desktop / local development keeps the default (`NW_MCP_OAUTH_PRODUCTION` unset or `false`) with `auth.redirect.mode=loopback`.
 
-## STDIO
+## Token manager and HTTP client
 
-STDIO MCP transports use environment credentials only; this OAuth client does not apply.
-
-## Token manager and HTTP client (Phases 4–5)
+Create an HTTP MCP client and list its tools:
 
 ```python
 from node_wire_runtime.mcp_client import McpOAuthClient, create_http_mcp_client
@@ -133,15 +116,45 @@ tools = await client.list_tools()
 
 Environment variables: see `sample.env` (`NW_MCP_OAUTH_*`).
 
-## ToolHive / playground integration (Phase 6)
+## STDIO
+
+STDIO MCP transports use environment credentials only; this OAuth client does not apply.
+
+## ToolHive and playground integration
 
 `agents.toolhive` and `playground/scenarios.py` call `create_http_mcp_client()` for HTTP MCP URLs:
 
 1. `TOOLHIVE_MCP_BEARER_TOKEN` / `TOOLHIVE_MCP_API_KEY` → legacy static Bearer (no OAuth).
 2. `NW_MCP_OAUTH_ENABLED=true` → `McpOAuthClient` with discovery, DCR, PKCE, token refresh.
 
+## Package layout
+
+Implementation lives in `src/node_wire_runtime/mcp_client/`:
+
+| Module | Purpose |
+|--------|---------|
+| `config.py` | Operator settings ([Settings](#settings)) |
+| `env_config.py` | Builds `McpClientConfig` from `NW_MCP_OAUTH_*` env vars |
+| `discovery.py` | RFC 9728 + RFC 8414 metadata discovery |
+| `dcr.py` | RFC 7591 dynamic client registration |
+| `oauth_flow.py` | Authorization code + PKCE + resource parameter |
+| `redirect_listener.py` | Loopback redirect callback (desktop) |
+| `storage.py` | Persisted DCR registrations per issuer |
+| `token_storage.py` | Persisted access/refresh tokens per issuer |
+| `token_manager.py` | `TokenManager` — caches and refreshes tokens ahead of expiry |
+| `client.py` | `McpOAuthClient` / `create_http_mcp_client()` — the client factory used by ToolHive/playground integration |
+| `challenges.py` | PKCE challenge/verifier generation |
+| `exceptions.py` | `McpOAuthConfigurationError` and related error types |
+
 ## Internal demo script
+
+Run the mock OAuth demo:
 
 ```bash
 uv run python scripts/demo_mcp_oauth_mock.py
 ```
+
+## Related
+
+- [MCP overview](mcp.md): the inbound MCP paths and transports.
+- [Configuration](configuration.md): inbound MCP auth variables.

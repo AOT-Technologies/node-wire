@@ -30,14 +30,75 @@ The standalone `nw-mcp-builder` entry point remains supported.
 
 ---
 
-## Platform and ToolHive (read this first)
+## What this folder is
 
-Wheels for runtime and connectors are **Cython / platform-specific**. What you build must match how you run the host.
+| Path | Purpose |
+|------|---------|
+| `src/nw_mcp_builder/` | Python package: CLI, fixture writer, project generator |
+| `fixtures/` | Connector-mode scope YAML files (`<connector_id>_nw.yaml`) |
+| `out/` | Generated MCP host projects (one folder per connector) |
+
+Generated hosts are **thin wrappers** around node-wire’s `McpServer`. Auth, telemetry, and connector logic stay in node-wire — the host only wires wheels, config, and env.
+
+---
+
+## What it does (end to end)
+
+For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
+
+1. **Validates** the connector exists under `packages/connectors/<id>` and `src/node_wire_<id>/logic.py`
+2. **Builds wheels** (unless `--skip-build-wheels`):
+   - `packages/runtime/dist/node_wire_runtime-*.whl`
+   - `packages/bindings/dist/node_wire_bindings-*.whl`
+   - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
+   - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-wheels))
+3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
+   - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source
+   - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
+4. **Generates** `out/<server-name>-mcp/` containing:
+   - Copied wheels under `wheels/` (runtime, bindings, connector). The host imports everything from these installed wheels; no node-wire source tree is vendored into it
+   - `config/connectors.yaml` from the monorepo
+   - Thin `__main__.py` that runs `McpServer(connector_ids=[...])`
+   - `pyproject.toml`, `README.md`, `Dockerfile`, `.env.example`
+
+Example mapping:
+
+| `connector_id` | Generated folder | Python module |
+|----------------|------------------|---------------|
+| `google_drive` | `out/google-drive-nw-mcp/` | `google_drive_nw_mcp` |
+| `salesforce` | `out/salesforce-nw-mcp/` | `salesforce_nw_mcp` |
+| `fhir_epic` | `out/fhir-epic-nw-mcp/` | `fhir_epic_nw_mcp` |
+
+Server name in the fixture is always `{connector_id with _ → -}-nw` (for example, `google-drive-nw`).
+
+---
+
+## Requirements
+
+- **[uv](https://docs.astral.sh/uv/)** — package manager and runner
+- **Python 3.13+** for `nw-mcp-builder` itself
+- **Python version matching wheels** for generated hosts — the generated host must run the same
+  Python minor version the wheels were built for. The repo standardises on **3.13** (the
+  generated Dockerfile uses `python:3.13-slim`). If your host wheels were built by a different
+  interpreter, pin it explicitly:
+
+  ```bash
+  uv sync --python 3.13
+  ```
+
+- **Docker** — required for Linux wheels via `scripts/build-packages.sh` and for ToolHive local MCP images
+- Connector secrets from node-wire `sample.env` / `config/connectors.yaml` (copied into generated `.env.example`)
+
+---
+
+## Platform and ToolHive wheels
+
+Read this before [Quick start](#quick-start). Wheels for runtime and connectors are **Cython / platform-specific**. What you build must match how you run the host.
 
 | Goal | Wheel platform | How to build wheels |
 |------|----------------|---------------------|
-| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`linux_*` / manylinux) for the **same CPU architecture as the image** — `*_aarch64` on Apple Silicon / ARM hosts, `*_x86_64` on Intel/AMD — Python **3.13** (matches `python:3.13-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see below); `nw gen-all` does this for you and picks your machine's architecture |
-| **Local run / MCP Inspector / ToolHive remote MCP** on the same OS as your machine | Host OS (e.g. Windows → `*win_amd64*`) | Built automatically by `uv run nw-mcp-builder -c <connector_id>` |
+| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`linux_*` / manylinux) for the **same CPU architecture as the image** — `*_aarch64` on Apple Silicon / ARM hosts, `*_x86_64` on Intel/AMD — Python **3.13** (matches `python:3.13-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see [Linux wheels for ToolHive Docker](#linux-wheels-for-toolhive-docker-local-mcp-server)); `nw gen-all` does this for you and picks your machine's architecture |
+| **Local run / MCP Inspector / ToolHive remote MCP** on the same OS as your machine | Host OS (for example, Windows → `*win_amd64*`) | Built automatically by `uv run nw-mcp-builder -c <connector_id>` |
 
 ### Linux wheels for ToolHive Docker (local MCP server)
 
@@ -69,11 +130,13 @@ uv run nw-mcp-builder -c google_drive --skip-build-wheels --force-output
 
 ### Host-OS wheels (`nw-mcp-builder` without a prior Linux build)
 
+Run the builder without `--skip-build-wheels`:
+
 ```bash
 uv run nw-mcp-builder -c <connector_id>
 ```
 
-builds wheels for **whatever OS/Python you are on** (Windows → `win_amd64`, Linux → linux, etc.) and copies the newest `.whl` into `out/<name>-mcp/wheels/`. Those host wheels are fine for:
+This builds wheels for **whatever OS/Python you are on** (Windows → `win_amd64`, Linux → linux, etc.) and copies the newest `.whl` into `out/<name>-mcp/wheels/`. Those host wheels are fine for:
 
 - running the generated host locally (`uv run python -m …`)
 - **MCP Inspector**
@@ -83,70 +146,11 @@ They are **not** suitable for the generated **Linux Docker** image used as a Too
 
 ---
 
-## What this folder is
-
-| Path | Purpose |
-|------|---------|
-| `src/nw_mcp_builder/` | Python package: CLI, fixture writer, project generator |
-| `fixtures/` | Connector-mode scope YAML files (`<connector_id>_nw.yaml`) |
-| `out/` | Generated MCP host projects (one folder per connector) |
-
-Generated hosts are **thin wrappers** around node-wire’s `McpServer`. Auth, telemetry, and connector logic stay in node-wire — the host only wires wheels, config, and env.
-
----
-
-## What it does (end to end)
-
-For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
-
-1. **Validates** the connector exists under `packages/connectors/<id>` and `src/node_wire_<id>/logic.py`
-2. **Builds wheels** (unless `--skip-build-wheels`):
-   - `packages/runtime/dist/node_wire_runtime-*.whl`
-   - `packages/bindings/dist/node_wire_bindings-*.whl`
-   - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
-   - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-read-this-first))
-3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
-   - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source
-   - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
-4. **Generates** `out/<server-name>-mcp/` containing:
-   - Copied wheels under `wheels/` (runtime, bindings, connector). The host imports everything from these installed wheels; no node-wire source tree is vendored into it
-   - `config/connectors.yaml` from the monorepo
-   - Thin `__main__.py` that runs `McpServer(connector_ids=[...])`
-   - `pyproject.toml`, `README.md`, `Dockerfile`, `.env.example`
-
-Example mapping:
-
-| `connector_id` | Generated folder | Python module |
-|----------------|------------------|---------------|
-| `google_drive` | `out/google-drive-nw-mcp/` | `google_drive_nw_mcp` |
-| `salesforce` | `out/salesforce-nw-mcp/` | `salesforce_nw_mcp` |
-| `fhir_epic` | `out/fhir-epic-nw-mcp/` | `fhir_epic_nw_mcp` |
-
-Server name in the fixture is always `{connector_id with _ → -}-nw` (e.g. `google-drive-nw`).
-
----
-
-## Requirements
-
-- **[uv](https://docs.astral.sh/uv/)** — package manager and runner
-- **Python 3.13+** for `nw-mcp-builder` itself
-- **Python version matching wheels** for generated hosts — the generated host must run the same
-  Python minor version the wheels were built for. The repo standardises on **3.13** (the
-  generated Dockerfile uses `python:3.13-slim`). If your host wheels were built by a different
-  interpreter, pin it explicitly:
-
-  ```bash
-  uv sync --python 3.13
-  ```
-
-- **Docker** — required for Linux wheels via `scripts/build-packages.sh` and for ToolHive local MCP images
-- Connector secrets from node-wire `sample.env` / `config/connectors.yaml` (copied into generated `.env.example`)
-
----
-
 ## Quick start
 
-### 1. Install the tool
+### Install the tool
+
+Change into the tool's directory:
 
 ```bash
 cd nw-mcp-builder
@@ -158,7 +162,9 @@ From the node-wire repo root:
 uv run --directory nw-mcp-builder nw-mcp-builder --help
 ```
 
-### 2. Generate an MCP host
+### Generate an MCP host
+
+The following commands cover the common generation modes:
 
 ```bash
 # Full run: build host-OS wheels + use/create fixture + generate project
@@ -184,7 +190,9 @@ uv run nw-mcp-builder -c <connector_id> --force-fixture
 uv run nw-mcp-builder -c slack --force-fixture
 ```
 
-### 3. Run the generated host
+### Run the generated host
+
+Change into the generated project, install it, and run it:
 
 ```bash
 cd out/<name>-mcp
@@ -197,7 +205,7 @@ uv run python -m <module_name>
 uv run python -m google_drive_nw_mcp
 ```
 
-HTTP MCP (default) listens on port **8081**. For stdio (e.g. Cursor / MCP Inspector):
+HTTP MCP (default) listens on port **8081**. For stdio (for example, Cursor / MCP Inspector):
 
 ```bash
 NW_MCP_TRANSPORT=stdio uv run python -m <module_name>
@@ -207,7 +215,7 @@ NW_MCP_TRANSPORT=stdio uv run python -m google_drive_nw_mcp
 
 #### ToolHive local MCP (Docker image from the generated host)
 
-If you will run this as a **local MCP server in ToolHive**, build the Docker image from the generated project (after placing **Linux** wheels — see [Platform and ToolHive](#platform-and-toolhive-read-this-first)):
+If you run this as a **local MCP server in ToolHive**, build the Docker image from the generated project (after placing **Linux** wheels — see [Platform and ToolHive](#platform-and-toolhive-wheels)):
 
 ```bash
 cd nw-mcp-builder/out/<name>-mcp
@@ -218,12 +226,12 @@ docker build -t <image-name>:latest .
 docker build -t google-drive-nw-mcp:latest .
 ```
 
-Point ToolHive at that image (e.g. `google-drive-nw-mcp:latest`).
+Point ToolHive at that image (for example, `google-drive-nw-mcp:latest`).
 
 **Secrets / env** — pick one (or combine: process env wins; project `.env` only fills unset keys):
 
-1. **ToolHive Secrets** — set connector credentials directly (e.g. `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`).
-2. **Volume-mounted `.env`** — copy from `.env.example` (or values from node-wire `sample.env`), fill secrets, then mount the file into the container.
+- **ToolHive Secrets** — set connector credentials directly (for example, `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID`).
+- **Volume-mounted `.env`** — copy from `.env.example` (or values from node-wire `sample.env`), fill secrets, then mount the file into the container.
 
 **Recommended ToolHive environment variables:**
 
@@ -231,7 +239,7 @@ Point ToolHive at that image (e.g. `google-drive-nw-mcp:latest`).
 |------|--------|
 | `NW_MCP_TRANSPORT` | `streamable-http` |
 | `NW_MCP_HOST` | `0.0.0.0` |
-| `NW_MCP_PORT` | Same as ToolHive `FASTMCP_PORT` / `MCP_PORT` (e.g. if those are `33622`, set `NW_MCP_PORT=33622`) |
+| `NW_MCP_PORT` | Same as ToolHive `FASTMCP_PORT` / `MCP_PORT` (for example, if those are `33622`, set `NW_MCP_PORT=33622`) |
 | `NW_MCP_PATH` | `/mcp` |
 | `NW_MCP_AUTH_DISABLED` | `true` |
 
@@ -239,7 +247,7 @@ Also set `NW_ALLOWED_CONNECTORS=<connector_id>` if not already baked into the im
 
 **Volume example** (optional if all secrets are in ToolHive Secrets):
 
-| | |
+| Setting | Value |
 |--|--|
 | **Host path** | `{repo}\node-wire\nw-mcp-builder\out\<name>-mcp\.env` (use the file picker) |
 | **Container path** | `/app/.env` |
@@ -251,7 +259,9 @@ Example host path: `G:\SPACE\node-wire\nw-mcp-builder\out\google-drive-nw-mcp\.e
 
 ## CLI reference
 
-```
+The command takes the following form:
+
+```bash
 uv run nw-mcp-builder -c <connector_id> [options]
 ```
 
@@ -267,7 +277,7 @@ uv run nw-mcp-builder -c <connector_id> [options]
 | `--python` | — | Python for wheel builds (sets `UV_PYTHON`) |
 | `-v`, `--verbose` | off | Debug logging |
 
-Help:
+To print help, or log verbosely during generation:
 
 ```bash
 uv run nw-mcp-builder --help
@@ -280,12 +290,12 @@ uv run nw-mcp-builder -c <connector_id> -v   # verbose logging during generation
 
 Any connector with this layout in the node-wire repo:
 
-```
+```text
 packages/connectors/<connector_id>/pyproject.toml
 src/node_wire_<connector_id>/logic.py
 ```
 
-Currently in this monorepo:
+The monorepo ships the following connectors:
 
 - `google_drive`
 - `salesforce`
@@ -332,13 +342,13 @@ auth:
 
 Each `out/<name>-mcp/` folder is a deployable MCP host:
 
-```
+```text
 out/google-drive-nw-mcp/
   pyproject.toml          # deps from local wheels
   Dockerfile
   README.md
   .env.example            # NW + connector secret env names
-  .dockerignore           # whitelist: wheels/, config/connectors.yaml, src/
+  .dockerignore           # allowlist: wheels/, config/connectors.yaml, src/
   wheels/                 # runtime + bindings + connector .whl
   config/connectors.yaml
   src/google_drive_nw_mcp/
@@ -368,15 +378,13 @@ Set these in `.env` (start from `.env.example`):
 
 Connector-specific secrets (any connector) are listed in `.env.example` when auto-detected from `config/connectors.yaml` and `sample.env`. Provide them via process env (ToolHive/Docker) or copy into the **generated project** `.env` for unset keys — do not rely on the monorepo `.env`.
 
-**Note:** MCP Inspector “Bearer token” is for MCP server auth, not upstream API credentials. Put connector secrets in process env or the generated project’s `.env`.
+MCP Inspector's “Bearer token” is for MCP server auth, not upstream API credentials. Put connector secrets in process env or the generated project’s `.env`.
 
 ---
 
 ## Docker
 
-From a generated project (use **Linux** wheels for this path — see [Platform and ToolHive](#platform-and-toolhive-read-this-first)):
-
-From the **node-wire** repo root (`nw docker-build --connector-id <id>` runs the same build and tags `<id-dashed>-nw-mcp:latest` — see [nw CLI](nw-cli.md#nw-docker-build)):
+Build and run a generated project from the **node-wire** repo root. Use **Linux** wheels for this path (see [Platform and ToolHive](#platform-and-toolhive-wheels)). `nw docker-build --connector-id <id>` runs the same build and tags `<id-dashed>-nw-mcp:latest` (see [nw CLI](nw-cli.md#nw-docker-build)):
 
 ```bash
 cd nw-mcp-builder/out/<name>-mcp
@@ -414,13 +422,24 @@ curl -s "$URL" "${H[@]}" -H "Mcp-Session-Id: $SID" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | grep -o '"name":"<connector_id>_[^"]*"'
 ```
 
-Replace `<connector_id>` with your id (e.g. `petstore_review`). Works in bash and zsh. A healthy host prints a session id, `202`, then one line per tool (20 for the Swagger Petstore v2 spec). An empty session id means the port is not reachable — check `NW_MCP_HOST`. A session but no tool names means `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is missing (see below). A plain `curl http://localhost:8081/mcp` returns `406 Not Acceptable`; that only proves the port answers.
+Replace `<connector_id>` with your id (for example, `petstore_review`). Works in bash and zsh. A healthy host prints a session id, `202`, then one line per tool (20 for the Swagger Petstore v2 spec). An empty session id means the port is not reachable — check `NW_MCP_HOST`. A session but no tool names means `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is missing (see the next paragraph). A plain `curl http://localhost:8081/mcp` returns `406 Not Acceptable`; that only proves the port answers.
 
-The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host package (`src/<module>/`, copied to `/app/src` and put on `PYTHONPATH=/app/src`; the entrypoint is `python -m <module>`). No node-wire source tree is vendored: runtime, bindings and connector come only from the installed wheels. `.dockerignore` is a whitelist so `.env`, tenant YAML, and keys never enter the build context. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use (the generated `.env.example` already contains both).
+The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host package (`src/<module>/`, copied to `/app/src` and put on `PYTHONPATH=/app/src`; the entrypoint is `python -m <module>`). No node-wire source tree is vendored: runtime, bindings and connector come only from the installed wheels. `.dockerignore` is an allowlist so `.env`, tenant YAML, and keys never enter the build context. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use (the generated `.env.example` already contains both).
 
 `--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
 
 **MCP SDK:** Pin `mcp>=1.6.0,<2`. MCP SDK 2.x breaks `@server.list_tools()` on the current server binding.
+
+---
+
+## Multi-tenancy (MCP)
+
+A generated host is a thin wrapper around the same `McpServer`, so it has the same multi-tenancy:
+set `NW_MULTITENANCY_ENABLED=true` and provide `NW_TENANTS_PATH` (see the
+[environment table](#environment-variables-generated-host)). Tenant resolution per transport, the
+`nw_*` tenant/config tools and the ToolHive recipe are in [Tenancy](../architecture/tenancy.md).
+After upgrading node-wire, regenerate and rebuild the host so its bundled bindings wheel picks up the
+current tools.
 
 ---
 
@@ -445,20 +464,11 @@ The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha
 
 ---
 
-## Multi-tenancy (MCP)
-
-A generated host is a thin wrapper around the same `McpServer`, so it has the same multi-tenancy:
-set `NW_MULTITENANCY_ENABLED=true` and provide `NW_TENANTS_PATH` (see the
-[environment table](#environment-variables-generated-host)). Tenant resolution per transport, the
-`nw_*` tenant/config tools and the ToolHive recipe are in [Tenancy](../architecture/tenancy.md).
-After upgrading node-wire, regenerate and rebuild the host so its bundled bindings wheel picks up the
-current tools.
-
----
-
 ## Package layout (source)
 
-```
+The tool's source tree:
+
+```text
 nw-mcp-builder/
   pyproject.toml
   README.md

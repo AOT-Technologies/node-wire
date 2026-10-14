@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Support
 
-Thanks for using Node Wire! Here's how to get help.
+Thanks for using Node Wire. Here's how to get help.
 
 ## Questions & discussion
 

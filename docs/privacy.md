@@ -4,28 +4,28 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Privacy Policy and Compliance
+# Privacy policy and compliance
 
 The Node Wire project is committed to ensuring privacy and secure data handling out-of-the-box. As a framework facilitating the orchestration of integrations between Large Language Models (LLMs) and various enterprise/healthcare systems, Node Wire adheres to strict principles to prevent inadvertent data exposure.
 
-## Core Privacy Principles
+## Core privacy principles
 
 1. **No Phone Home:**
    Node Wire does not send usage data, telemetry, or analytics to AOT Technologies or any vendor endpoint. It does emit OpenTelemetry signals to an endpoint *you* control: the REST/gRPC entrypoint calls `init_observability()` at startup, which installs OTLP trace, log, and metric exporters (default: a local collector, overridable with the standard `OTEL_EXPORTER_OTLP_*` variables). Exports are sanitized, and they only leave the process when a collector is reachable.
 
 2. **No Data Persistence by Default:**
-   Node Wire acts as an orchestration and routing layer. It does not contain a built-in database for persistent storage of transaction data, logs, or payloads. Any data persistence must be explicitly configured by the user via connectors (e.g., storing a file in Google Drive).
+   Node Wire acts as an orchestration and routing layer. It does not contain a built-in database for persistent storage of transaction data, logs, or payloads. Any data persistence must be explicitly configured by the user via connectors (for example, storing a file in Google Drive).
 
 3. **Zero PII/PHI in Source Control:**
    The repository is routinely audited to ensure no Personally Identifiable Information (PII) or Protected Health Information (PHI) is committed to source control.
 
-## Testing and Dummy Data
+## Testing and placeholder data
 
-All unit tests, integration tests, and example scenarios within the `tests/` and `playground/` directories strictly utilize fabricated placeholder data.
+All unit tests, integration tests, and example scenarios within the `tests/` and `playground/` directories strictly use fabricated placeholder data.
 
-- **Dummy Emails:** `doc@example.com`, `patient@example.com`, `noreply@node-wire.local`
-- **Dummy Patient IDs:** `12724066`, `eXYZ123`
-- **Dummy Credentials:** Credentials in tests use explicit `dummy`, `test`, or `mock` markers (e.g., `sk_test_mock`).
+- **Placeholder emails:** `doc@example.com`, `patient@example.com`, `noreply@node-wire.local`
+- **Placeholder patient IDs:** `12724066`, `eXYZ123`
+- **Placeholder credentials:** Credentials in tests use explicit `dummy`, `test`, or `mock` markers (for example, `sk_test_mock`).
 
 If you are contributing to Node Wire, you **must** ensure that no real data from your environment is included in your commits.
 
@@ -35,6 +35,6 @@ By default, Node Wire logging is configured to provide operational visibility wi
 
 **Guidance:** Do not run Node Wire in `DEBUG` logging mode in production environments to prevent the accidental leakage of sensitive data into system logs.
 
-## Security Disclosures
+## Security disclosures
 
-If you discover a potential privacy or security vulnerability within Node Wire, please do not disclose it publicly. Refer to our [Security Policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) for instructions on how to securely report issues to the maintainers.
+If you discover a potential privacy or security vulnerability within Node Wire, do not disclose it publicly. Refer to our [Security policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) for instructions on how to securely report issues to the maintainers.

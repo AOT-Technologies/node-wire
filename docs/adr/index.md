@@ -19,4 +19,4 @@ the living pages. Start at the [reading map](../reading.md) for those.
 - Each record starts with `Status:` (`Accepted` or `Superseded`) and `Date:`.
 - To change a decision, write a new ADR with `Supersedes: ADR NNNN`. Then add
   `Superseded by: ADR MMMM` to the old one. That back-pointer is the only edit an accepted ADR gets.
-- Number ADRs in order (`NNNN-short-title.md`) and add a row to the table above.
+- Number ADRs in order (`NNNN-short-title.md`) and add a row to the preceding table.

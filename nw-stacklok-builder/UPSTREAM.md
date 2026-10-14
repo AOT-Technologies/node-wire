@@ -31,6 +31,7 @@ for the file-level copyright annotation.
 - `agents/` — `spec-analyzer.md`, `endpoint-scoper.md`
 
 Not taken:
+
 - `skills/ai-validation/`, `skills/deploy-assist/`, and `agents/code-validator.md` /
   `polish-suggester.md` (Phase 4 and deploy review the httpx client node-wire replaces);
 - `tests/`, `e2e/`, `docs/`;
@@ -50,8 +51,8 @@ node-wire logic lives in `src/nw_stacklok/`; edits to the vendored files are lim
 it. The first commit of this folder is the pristine copy, so `git diff <that commit> --
 nw-stacklok-builder/src/mcp_builder nw-stacklok-builder/template` shows every node-wire change.
 
-Five vendored generator files are edited (each imports from `nw_stacklok` under a `# node-wire:` comment); edits only
-adds optional fields or calls into `nw_stacklok`. The template (`template/`) is unmodified — the
+Five vendored generator files are edited (each imports from `nw_stacklok` under a `# node-wire:` comment); the edits only
+add optional fields or calls into `nw_stacklok`. The template (`template/`) is unmodified — the
 node-wire project changes are applied to the *generated* copy by `nw_stacklok.project`.
 
 | File | Change |
@@ -63,6 +64,7 @@ node-wire project changes are applied to the *generated* copy by `nw_stacklok.pr
 | `pipeline.py` | `run_pipeline(..., node_wire: NodeWireOptions \| None = None)`; calls `nw_stacklok.hooks` to bind the plan (`attach`), render `client.py`, finish the project, and render manifests |
 
 Phase 1 files have three edits:
+
 - `skills/ai-scoping/SKILL.md`: `task generate-schema` → `uv run mcp-builder-schema`
   (`nw_stacklok.schema`; no go-task dependency).
 - `assets/pipeline-context.md`: the same command name.
@@ -92,8 +94,8 @@ A scope without `runtime:` takes none of these branches (tested by
 ## Updating to a newer upstream commit
 
 1. Re-copy the same file lists from the new upstream commits and commit them alone as the new
-   pristine base (update the table above).
-2. Re-apply the node-wire changes listed above (`git diff <old pristine> <old head>` for these
+   pristine base (update the table in the preceding section).
+2. Re-apply the node-wire changes listed in the preceding sections (`git diff <old pristine> <old head>` for these
    two directories, applied on top).
 3. Run `uv run pytest tests/nw_stacklok_builder` — the pristine-parity test checks that the
    generator still behaves exactly like upstream when a scope has no `runtime:` block.

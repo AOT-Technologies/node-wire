@@ -20,7 +20,7 @@ node wire is a three-layer Python platform that runs connector adapters (Google 
 
 ## Quick start
 
-You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). See [Installation](docs/installation.md) for everything else, including Windows commands.
+You need Python 3.13+ and [`uv`](https://docs.astral.sh/uv/). See [Installation](docs/installation.md) for everything else, including Windows commands. To start the REST API locally, run the following commands:
 
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git
@@ -35,7 +35,7 @@ Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI
 
 ## Documentation
 
-The full documentation is published at **[aot-technologies.github.io/node-wire](https://aot-technologies.github.io/node-wire/)** and lives in [`docs/`](docs/). Start with:
+The full documentation is published at **[aot-technologies.github.io/node-wire](https://aot-technologies.github.io/node-wire/)** and lives in [`docs/`](docs/). Start with the following pages:
 
 | I want to… | Read |
 |---|---|
@@ -48,13 +48,14 @@ The full documentation is published at **[aot-technologies.github.io/node-wire](
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for
 the development setup, quality checks, and PR conventions, and our
-[Code of Conduct](CODE_OF_CONDUCT.md).
+[Code of Conduct](CODE_OF_CONDUCT.md). For questions and bug reports, see
+[Support](SUPPORT.md).
 
 ## Security
 
-To report a vulnerability, please follow our [Security Policy](SECURITY.md). Do
+To report a vulnerability, follow our [Security Policy](SECURITY.md). Do
 not open a public issue for security reports.
 
 ---
@@ -62,4 +63,4 @@ not open a public issue for security reports.
 ## License
 
 This project is licensed under the Apache License 2.0.
-See the LICENSE file for details.
+See [LICENSE](LICENSE) for details.

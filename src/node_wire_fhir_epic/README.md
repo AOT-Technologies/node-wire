@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# FHIR Epic Connector — Technical Documentation
+# FHIR Epic connector — technical documentation
 
 > **Platform:** Node Wire
 > **Standard:** FHIR R4
@@ -14,50 +14,50 @@ SPDX-License-Identifier: Apache-2.0
 
 ---
 
-## 1. Architecture Overview
+## Architecture overview
 
 The FHIR Epic connector is designed to interface with Epic EHR systems using the FHIR R4 standard. Unlike simpler connectors, this connector is **multi-action**, meaning a single configuration entry in `connectors.yaml` exposes multiple distinct operations (actions).
 
-### Logic Consolidation
+### Logic consolidation
 
 All actions live in a single **"Fat Connector"** class rather than one class per action:
 
-- **`FhirEpicConnector`**: A single `BaseConnector` subclass that encapsulates all shared logic, authentication flows (JWT/OAuth2), and the per-action implementation methods. Each action is a method decorated with **`@sdk_action`** or **`@nw_action`** (e.g. `read_patient`, `search_patients`, `search_encounter`). The base class derives routing and manifest entries from that decorator metadata — there is no separate per-action wrapper class.
+- **`FhirEpicConnector`**: A single `BaseConnector` subclass that encapsulates all shared logic, authentication flows (JWT/OAuth2), and the per-action implementation methods. Each action is a method decorated with **`@sdk_action`** or **`@nw_action`** (for example, `read_patient`, `search_patients`, `search_encounter`). The base class derives routing and manifest entries from that decorator metadata — there is no separate per-action wrapper class.
 
 ---
 
-## 2. Framework Integration & Decisions
+## Framework integration & decisions
 
 To support this consolidated architecture while maintaining a clean codebase, several key changes were made to the platform's core bindings.
 
-### `factory.py` — Multi-Action Support
+### `factory.py` — multi-action support
 
 The `ConnectorFactory` was updated to support connectors that manage many actions internally.
 
 - **Design Decision**: Instead of the factory returning a list of different connector instances for `fhir_epic`, it returns **one instance** of the `FhirEpicConnector` class. This keeps the `_connectors` dictionary clean (one entry per `connector_id`).
 - **Action Discovery**: The runtime discovers actions from the `@sdk_action`/`@nw_action` metadata on the connector (`sdk_action_metas()` → `build_manifest` in `node_wire_runtime/manifest.py`), emitting one manifest entry and one REST route per action.
 
-### `app.py` — 422 Unprocessable Entity Fix
+### `app.py` — 422 Unprocessable Entity fix
 
 When generating dynamic REST routes, we encountered a critical `422` error where FastAPI would fail to validate the request body.
 
 - **The Problem**: In dynamic route generation loops, FastAPI's automatic type introspection fails to correctly resolve Pydantic models when they are part of a Python closure. It would incorrectly fall back to treating the payload as a query parameter.
 - **The Solution**: We updated the dynamic endpoint to accept `fastapi.Request` directly and parse the JSON body manually (`await request.json()`). This bypasses the faulty introspection layer while still using the Pydantic models for validation later in the `connector.run()` flow.
 
-### Runtime Logging — Avoiding Collisions
+### Runtime logging — avoiding collisions
 
 We synchronized a change across `base.py` and `resilience.py` to rename the log attribute `message` to `error_message`.
 
 - **The Problem**: The Python `logging` module uses `message` as a reserved internal attribute on `LogRecord` objects. Overwriting it in the `extra` dictionary can lead to lost data or crashes in some logging formatters.
 - **The Solution**: By using `error_message`, we ensure that the technical details of the exception are preserved and distinctly visible in structured logging backends (like OpenTelemetry) without conflicting with the standard log event description.
 
-### `config/connectors.yaml` — Connector Configuration
+### `config/connectors.yaml` — connector configuration
 
 The central configuration was updated to include the `fhir_epic` entry.
 
 - **Why**: This allows the `ConnectorFactory` to recognize and instantiate the FHIR connector. It contains the environment-specific URLs and credentials (like the JWT Key ID) needed for the Epic Sandbox.
 
-### `pyproject.toml` — Dependency Management
+### `pyproject.toml` — dependency management
 
 Two new dependencies were added to support the FHIR integration:
 
@@ -66,9 +66,9 @@ Two new dependencies were added to support the FHIR integration:
 
 ---
 
-## 3. Implementation Details
+## Implementation details
 
-### Authentication Flow
+### Authentication flow
 
 The connector follows the **SMART Backend Services** specification for Epic:
 
@@ -76,14 +76,14 @@ The connector follows the **SMART Backend Services** specification for Epic:
 2. **Token Exchange**: Posts the JWT to the `epic_token_url` to obtain a short-lived (5 min) `access_token`.
 3. **Request Execution**: Attaches the token as a `Bearer` header to subsequent FHIR API calls.
 
-### Resilience and Runtime
+### Resilience and runtime
 
 Each action execution is wrapped by the platform's **Base Runtime**:
 
 - **`BaseConnector`**: Handles trace ID generation, logging, and performance metrics.
-- **`resilience.py`**: Automatically applies **Exponential Backoff Retries** (Tenacity) and **Circuit Breaking** (PyBreaker) per action. If Epic returns a 503 or transient error, the system will automatically retry before failing.
+- **`resilience.py`**: Automatically applies **Exponential Backoff Retries** (Tenacity) and **Circuit Breaking** (PyBreaker) per action. If Epic returns a 503 or transient error, the system retries automatically before failing.
 
-### Standardised Payload Output — `ConnectorResponse`
+### Standardised payload output — `ConnectorResponse`
 
 The AOT platform solves the "error chaos" problem by intercepting hundreds of unique API exceptions and mapping them into a unified, predictable taxonomy. Every action returns a consistent JSON payload:
 
@@ -97,7 +97,7 @@ class ConnectorResponse(BaseModel):
     trace_id: str
 ```
 
-### Unified Error Taxonomy
+### Unified error taxonomy
 
 By using this standardized model, client consumers can handle errors predictably. Whether the error stems from an Axios timeout, a 401 Unauthorized from Epic, or a Pydantic validation failure, the response structure remains identical:
 
@@ -110,7 +110,7 @@ By using this standardized model, client consumers can handle errors predictably
 
 ---
 
-## 4. Manual Verification
+## Manual verification
 
 Exercise the connector with the REST `curl` examples in [`docs/connectors.md`](../../docs/connectors.md) / the Swagger UI at `http://localhost:8000/docs`, or the runnable scripts under `tests/playground/epic_fhir/`.
 
@@ -123,7 +123,7 @@ Exercise the connector with the REST `curl` examples in [`docs/connectors.md`](.
 
 ---
 
-## 5. Directory Structure
+## Directory structure
 
 | File / Path | Purpose |
 |---|---|

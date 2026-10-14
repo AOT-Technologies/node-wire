@@ -26,7 +26,7 @@ A failure is a `ConnectorResponse` with `success: false`:
 }
 ```
 
-`details` is set for some codes, e.g. `VALIDATION_ERROR` lists `{"loc": [...], "msg": ...}` per
+`details` is set for some codes, for example, `VALIDATION_ERROR` lists `{"loc": [...], "msg": ...}` per
 bad field. On MCP the same failure also reads as one line:
 
 ```text
@@ -45,7 +45,7 @@ MISSING_TENANT [AUTH]: X-Tenant-ID is required when multitenancy is enabled (tra
 ## Where a code comes from
 
 - **Inside a connector run**, `ErrorMapper` maps the exception: first the connector's own
-  `error_map` (e.g. `GDRIVE_RATE_LIMIT`), then the runtime-wide codes below. An exception
+  `error_map` (for example, `GDRIVE_RATE_LIMIT`), then the [runtime-wide codes](#runtime-wide-codes). An exception
   neither knows is reported under its class name, with `FATAL`.
 - **Before the connector runs** (arguments, tenant, config, rate limit, unknown tool), the binding
   raises `NodeWireError(code, message)`, and `node_wire_runtime.errors.reject()` builds the
@@ -73,7 +73,7 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.
 | `CONFIG_NAME_CONFLICT` | `BUSINESS` | Creating a config whose name already exists |
 | `CONFIG_DEFAULT_REQUIRED` | `BUSINESS` | Deleting the default config without naming a new one |
 | `CONFIG_INVALID` | `BUSINESS` | Any other config-store refusal |
-| `POLICY_DENIED` | `AUTH` | The policy hook (e.g. the MCP scope policy) refused the action |
+| `POLICY_DENIED` | `AUTH` | The policy hook (for example, the MCP scope policy) refused the action |
 | `PROXY_AUTH_FAILED` | `AUTH` | stacklok servers: the request lacks the ToolHive tenant proxy's `X-NW-Proxy-Secret` |
 | `UPSTREAM_TOKEN_MISSING` | `AUTH` | stacklok servers: ToolHive forwarded no `Authorization: Bearer` credential |
 | `SECRET_NOT_FOUND` | `FATAL` | The server lacks a secret it is configured to read (a misconfiguration, so REST answers 500) |
@@ -83,7 +83,7 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.
 
 | Surface | A failed call |
 |---|---|
-| REST | The envelope, plus `detail` (the message) for clients of the plain FastAPI errors. Connector failures: status from the category (table above). Refused before running: the status REST has always used, e.g. 400 `MISSING_TENANT`, 403 `CONFIG_NOT_FOUND` (fail-closed), 404 `CONNECTOR_NOT_AVAILABLE`, 409 `CONFIG_NAME_CONFLICT`, 429 `RATE_LIMIT_EXCEEDED` with `Retry-After` |
+| REST | The envelope, plus `detail` (the message) for clients of the plain FastAPI errors. Connector failures: status from the [category](#categories). Refused before running: the status REST has always used, for example, 400 `MISSING_TENANT`, 403 `CONFIG_NOT_FOUND` (fail-closed), 404 `CONNECTOR_NOT_AVAILABLE`, 409 `CONFIG_NAME_CONFLICT`, 429 `RATE_LIMIT_EXCEEDED` with `Retry-After` |
 | gRPC | `InvokeResponse` with `success`, `error_code`, `error_category`, `message`, `trace_id` |
 | MCP, node-wire host | `isError: true`; the text is the one-line form; `structuredContent` is the envelope (the tools' declared output schema) |
 | MCP, stacklok-built server | `isError: true`; the text is the one-line form (after FastMCP's `Error executing tool <name>: ` for failures inside a tool) |
@@ -104,4 +104,9 @@ The trace id is the key into the logs. Every failed call writes one line under i
 | `policy_denial` | `runtime.base_connector` | the policy hook refused the action |
 
 With the `grafana/` stack, paste the trace id into the dashboard's `trace_id` box, or query
-Loki: `{service_name="<service>"} | trace_id="<trace id>"`.
+Loki: `{service_name="<service>"} | trace_id="<trace-id>"`.
+
+## Related
+
+- [Troubleshooting](troubleshooting.md): common errors and their fixes.
+- [Tenancy](architecture/tenancy.md): where the tenant codes come from.

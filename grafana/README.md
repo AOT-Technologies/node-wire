@@ -4,7 +4,9 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Grafana Quick Guide
+# Grafana quick guide
+
+A local Grafana, Loki and OTLP stack that shows Node Wire's connector calls, traces and logs.
 
 ## What is included
 
@@ -40,7 +42,7 @@ docker compose down
 ## Open Grafana
 
 1. Open `http://localhost:3000` (no login).
-2. **Dashboards** -> **node-wire** -> **Connector Calls & Logs**.
+2. Go to **Dashboards** -> **node-wire** -> **Connector Calls & Logs**.
 
 ## Which services it shows
 
@@ -48,8 +50,8 @@ The **Service** picker lists every `service_name` Loki has seen, one per process
 logs:
 
 - `node-wire`: the REST API / MCP entrypoints;
-- `nw-<connector_id>`: MCP hosts built by `nw gen-all` / `nw gen-mcp` (e.g. `nw-pet_store`);
-- `<server>-mcp`: stacklok-built servers (e.g. `petstore-mcp`, `slack-post-mcp`).
+- `nw-<connector_id>`: MCP hosts built by `nw gen-all` / `nw gen-mcp` (for example, `nw-pet_store`);
+- `<server>-mcp`: stacklok-built servers (for example, `petstore-mcp`, `slack-post-mcp`).
 
 A server exports only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set in its environment. From a
 container, the collector is at `http://host.docker.internal:4318` (or the `NW_OTLP_HTTP_PORT`
@@ -105,3 +107,8 @@ first sample and extrapolates, which reads wrong at low volume. Calls rejected b
 connector ran (invalid arguments, no tenant, unknown config) are their `invocation_rejected` /
 `invocation_validation_failure` lines from other loggers. Latency comes from the
 `connector_duration_ms` histogram, exported about once a minute; logs arrive within seconds.
+
+## Related
+
+- [Errors — Following a failure](../docs/errors.md#following-a-failure): the `audit_event` lines and how to trace one call.
+- [Installation](../docs/installation.md): starting the stack alongside the platform.

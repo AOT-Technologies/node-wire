@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 - **Date:** 2026-09-26
 
 !!! note "Frozen decision record"
-    This page records why the decisions were made, as they stood on the date above. It is not
+    This page records why the decisions were made, as they stood on the date in its header. It is not
     updated when the code changes. For how `nw gen-stacklok` behaves today, read
     [stacklok MCP servers](../stacklok-mcp-servers.md). A later change of direction is a new ADR
     that points back here with `Supersedes:`.
