@@ -8,10 +8,13 @@ import asyncio
 
 import pytest
 from pydantic import BaseModel
-from pybreaker import CircuitBreaker, CircuitBreakerError
-
 from node_wire_runtime import BaseConnector, ErrorCategory, ErrorMapper, nw_action
-from node_wire_runtime.resilience import _resolve_breaker, with_resilience
+from node_wire_runtime.resilience import (
+    CircuitBreaker,
+    CircuitBreakerError,
+    _resolve_breaker,
+    with_resilience,
+)
 
 
 class RetryableTestError(Exception):
@@ -207,20 +210,6 @@ def test_with_resilience_opens_breaker_after_repeated_failures() -> None:
         asyncio.run(fail(trace_id="t3"))
 
 
-def test_pybreaker_private_contract_still_present() -> None:
-    """Guard for Q-2: the resilience adapter depends on pybreaker private methods.
-
-    pybreaker exposes no clean asyncio public API, so ``_run_through_breaker``
-    deliberately uses ``CircuitBreakerState._handle_error`` / ``_handle_success``
-    and pins ``pybreaker<2.0.0``. If a future upgrade removes these, this test
-    fails loudly in CI instead of the breaker silently mis-counting failures.
-    """
-    from pybreaker import CircuitBreakerState
-
-    assert hasattr(CircuitBreakerState, "_handle_error")
-    assert hasattr(CircuitBreakerState, "_handle_success")
-
-
 def test_with_resilience_success_resets_failure_counter() -> None:
     """A successful call after a failure resets the breaker's failure counter."""
     breaker = CircuitBreaker(fail_max=3, reset_timeout=30)
@@ -240,3 +229,226 @@ def test_with_resilience_success_resets_failure_counter() -> None:
     assert asyncio.run(sometimes(trace_id="t2")) == "ok"
     assert breaker.fail_counter == 0
     assert breaker.state.name == "closed"
+
+
+def test_open_breaker_allows_one_trial_after_reset_timeout() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    calls = {"n": 0}
+
+    @with_resilience(breaker, max_attempts=1)
+    async def call(*, trace_id: str = "t") -> str:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RetryableTestError("down")
+        return "ok"
+
+    async def scenario() -> None:
+        with pytest.raises(CircuitBreakerError):
+            await call(trace_id="t1")
+        assert breaker.state.name == "open"
+        assert calls["n"] == 1
+
+        with pytest.raises(CircuitBreakerError):
+            await call(trace_id="t2")
+        assert calls["n"] == 1
+
+        await asyncio.sleep(0.08)
+        assert await call(trace_id="t3") == "ok"
+        assert breaker.state.name == "closed"
+        assert breaker.fail_counter == 0
+        assert await call(trace_id="t4") == "ok"
+
+    asyncio.run(scenario())
+
+
+def test_failed_trial_reopens_breaker_and_restarts_timeout() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    calls = {"n": 0}
+
+    @with_resilience(breaker, max_attempts=1)
+    async def call(*, trace_id: str = "t") -> str:
+        calls["n"] += 1
+        raise RetryableTestError("still down")
+
+    async def scenario() -> None:
+        with pytest.raises(CircuitBreakerError):
+            await call(trace_id="t1")
+        await asyncio.sleep(0.08)
+        with pytest.raises(RetryableTestError):
+            await call(trace_id="t2")
+        assert calls["n"] == 2
+        assert breaker.state.name == "open"
+        with pytest.raises(CircuitBreakerError):
+            await call(trace_id="t3")
+        assert calls["n"] == 2
+
+    asyncio.run(scenario())
+
+
+def test_half_open_allows_only_one_trial() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    calls = {"n": 0}
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def call(*, trace_id: str = "t") -> str:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RetryableTestError("down")
+        started.set()
+        await release.wait()
+        return "ok"
+
+    async def scenario() -> None:
+        with pytest.raises(CircuitBreakerError):
+            await call(trace_id="trip")
+        await asyncio.sleep(0.08)
+        tasks = [asyncio.create_task(call(trace_id=f"c{i}")) for i in range(5)]
+        await asyncio.wait_for(started.wait(), timeout=1)
+        await asyncio.sleep(0.05)
+        rejected = [task for task in tasks if task.done()]
+        assert len(rejected) == 4
+        for task in rejected:
+            with pytest.raises(CircuitBreakerError):
+                task.result()
+        assert calls["n"] == 2
+        release.set()
+        pending = [task for task in tasks if not task.done()]
+        assert len(pending) == 1
+        assert await pending[0] == "ok"
+        assert breaker.state.name == "closed"
+        assert calls["n"] == 2
+
+    asyncio.run(scenario())
+
+
+def test_late_success_does_not_close_an_open_breaker() -> None:
+    """A slow call that started before the trip cannot skip the reset_timeout cool-down."""
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=60)
+    release = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def slow(*, trace_id: str = "t") -> str:
+        await release.wait()
+        return "ok"
+
+    @with_resilience(breaker, max_attempts=1)
+    async def failing(*, trace_id: str = "t") -> str:
+        raise RetryableTestError("down")
+
+    async def scenario() -> None:
+        straggler = asyncio.create_task(slow(trace_id="slow"))
+        await asyncio.sleep(0)
+        with pytest.raises(CircuitBreakerError):
+            await failing(trace_id="trip")
+        release.set()
+        assert await straggler == "ok"
+        assert breaker.state.name == "open"
+
+    asyncio.run(scenario())
+
+
+def test_late_success_does_not_close_a_half_open_breaker() -> None:
+    """Only the trial can close a half-open breaker."""
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    release_straggler = asyncio.Event()
+    release_trial = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def wait_for(event: asyncio.Event, *, trace_id: str = "t") -> str:
+        await event.wait()
+        return "ok"
+
+    @with_resilience(breaker, max_attempts=1)
+    async def failing(*, trace_id: str = "t") -> str:
+        raise RetryableTestError("down")
+
+    async def scenario() -> None:
+        straggler = asyncio.create_task(wait_for(release_straggler, trace_id="slow"))
+        await asyncio.sleep(0)
+        with pytest.raises(CircuitBreakerError):
+            await failing(trace_id="trip")
+        await asyncio.sleep(0.08)
+        trial = asyncio.create_task(wait_for(release_trial, trace_id="trial"))
+        await asyncio.sleep(0)
+        assert breaker.state.name == "half-open"
+
+        release_straggler.set()
+        assert await straggler == "ok"
+        assert breaker.state.name == "half-open"
+
+        release_trial.set()
+        assert await trial == "ok"
+        assert breaker.state.name == "closed"
+
+    asyncio.run(scenario())
+
+
+def test_late_failure_keeps_timeout_and_its_own_exception() -> None:
+    """A slow failure that lands while open neither restarts the timer nor becomes CircuitBreakerError."""
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=60)
+    release = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def slow_failing(*, trace_id: str = "t") -> str:
+        await release.wait()
+        raise RetryableTestError("late")
+
+    @with_resilience(breaker, max_attempts=1)
+    async def failing(*, trace_id: str = "t") -> str:
+        raise RetryableTestError("down")
+
+    async def scenario() -> None:
+        straggler = asyncio.create_task(slow_failing(trace_id="slow"))
+        await asyncio.sleep(0)
+        with pytest.raises(CircuitBreakerError):
+            await failing(trace_id="trip")
+        opened_at = breaker._opened_at
+        release.set()
+        with pytest.raises(RetryableTestError, match="late"):
+            await asyncio.wait_for(straggler, timeout=1)
+        assert breaker._opened_at == opened_at
+        assert breaker.state.name == "open"
+
+    asyncio.run(scenario())
+
+
+def test_hung_trial_is_replaced_after_reset_timeout() -> None:
+    """A trial that never finishes cannot hold the breaker half-open forever."""
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    release = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def hung(*, trace_id: str = "t") -> str:
+        await release.wait()
+        raise RetryableTestError("late")
+
+    @with_resilience(breaker, max_attempts=1)
+    async def failing(*, trace_id: str = "t") -> str:
+        raise RetryableTestError("down")
+
+    @with_resilience(breaker, max_attempts=1)
+    async def ok(*, trace_id: str = "t") -> str:
+        return "ok"
+
+    async def scenario() -> None:
+        with pytest.raises(CircuitBreakerError):
+            await failing(trace_id="trip")
+        await asyncio.sleep(0.08)
+        trial = asyncio.create_task(hung(trace_id="trial"))
+        await asyncio.sleep(0)
+        assert breaker.state.name == "half-open"
+        with pytest.raises(CircuitBreakerError):
+            await ok(trace_id="during")
+
+        await asyncio.sleep(0.08)
+        assert await ok(trace_id="replacement") == "ok"
+        assert breaker.state.name == "closed"
+
+        release.set()
+        with pytest.raises(RetryableTestError, match="late"):
+            await asyncio.wait_for(trial, timeout=1)
+        assert breaker.state.name == "closed"
+
+    asyncio.run(scenario())
