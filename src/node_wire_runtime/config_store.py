@@ -102,7 +102,68 @@ def redact(doc: Any) -> Any:
     return doc
 
 
-def _validate_doc(doc: Any) -> Dict[str, Any]:
+def _secret_ref_fields(block: Any) -> List[tuple[str, str]]:
+    """``secret_key`` and ``*_secret`` string fields on one auth block."""
+    if not isinstance(block, dict):
+        return []
+    refs: List[tuple[str, str]] = []
+    for key, value in block.items():
+        if not isinstance(value, str):
+            continue
+        if key == "secret_key" or key.endswith("_secret"):
+            refs.append((key, value))
+    return refs
+
+
+def _check_secret_refs(connector_id: str, doc: Dict[str, Any]) -> None:
+    # Lazy: tenant_persistence imports this module.
+    from node_wire_runtime.tenant_persistence import assert_secret_ref
+
+    blocks = []
+    auth = doc.get("auth")
+    if isinstance(auth, dict):
+        blocks.append(auth)
+    schemes = doc.get("auth_schemes")
+    if isinstance(schemes, dict):
+        for scheme in schemes.values():
+            if isinstance(scheme, dict):
+                blocks.append(scheme)
+    for block in blocks:
+        for ref_field, value in _secret_ref_fields(block):
+            try:
+                assert_secret_ref(connector_id, value, field=ref_field)
+            except ValueError as exc:
+                raise ConfigStoreError(str(exc)) from exc
+
+
+def _check_base_urls(connector_id: str, doc: Dict[str, Any]) -> None:
+    urls: List[str] = []
+    for raw in (
+        doc.get("base_url"),
+        (doc.get("config") or {}).get("base_url") if isinstance(doc.get("config"), dict) else None,
+    ):
+        if isinstance(raw, str) and raw.strip():
+            urls.append(raw.strip())
+    if not urls:
+        return
+    # Lazy: base_connector imports this module.
+    from node_wire_runtime.base_connector import get_connector_registry
+    from node_wire_runtime.http_safety import assert_base_url_allowed
+    from node_wire_runtime.rest import RestConnector
+
+    connector_cls = get_connector_registry().get(connector_id)
+    # Simplified: only RestConnector consumes base_url; every other connector refuses it.
+    if not (isinstance(connector_cls, type) and issubclass(connector_cls, RestConnector)):
+        raise ConfigStoreError("base_url is not allowed")
+    baked = str(getattr(connector_cls, "default_base_url", "") or "")
+    for url in urls:
+        try:
+            assert_base_url_allowed(url, baked_base_url=baked)
+        except ValueError as exc:
+            raise ConfigStoreError(str(exc)) from exc
+
+
+def _validate_doc(doc: Any, connector_id: str) -> Dict[str, Any]:
     """Validate a single config document at the trust boundary.
 
     Callers (bindings) may pass arbitrary JSON; enforce shape here rather than
@@ -131,6 +192,8 @@ def _validate_doc(doc: Any) -> Dict[str, Any]:
                 raise ConfigStoreError(
                     f"config 'auth_schemes[{scheme_name!r}]' must be a JSON object"
                 )
+    _check_secret_refs(connector_id, doc)
+    _check_base_urls(connector_id, doc)
     return doc
 
 
@@ -187,6 +250,38 @@ class ConnectorConfigStore:
             for tenant_id, connector_id, name in previous:
                 self._invalidate(tenant_id, connector_id, [name])
 
+    def replace_tenant(self, tenant_id: str, connectors: Dict[str, Any]) -> None:
+        """Replace one tenant's configs. Other tenants stay.
+
+        Shape: ``{ connector_id: [ config_doc, ... ] }``. An empty map removes
+        the tenant. An empty map for ``__default__`` is rejected so this path
+        cannot drop that tenant. Invalidates cached instances for this tenant only.
+        """
+        if not isinstance(connectors, dict):
+            raise ConfigStoreError(f"init payload for tenant {tenant_id!r} must be a JSON object")
+        tenant_map: Dict[str, Dict[str, ConfigRecord]] = {}
+        for connector_id, docs in connectors.items():
+            if not isinstance(docs, list):
+                raise ConfigStoreError(
+                    f"init payload for {tenant_id!r}/{connector_id!r} must be a list"
+                )
+            tenant_map[connector_id] = self._build_scope(tenant_id, connector_id, docs)
+
+        if not tenant_map and tenant_id == DEFAULT_TENANT:
+            raise ConfigStoreError("cannot drop the __default__ tenant")
+
+        with self._lock:
+            previous: List[tuple[str, str]] = []
+            for connector_id, records in self._data.get(tenant_id, {}).items():
+                for name in records:
+                    previous.append((connector_id, name))
+            if tenant_map:
+                self._data[tenant_id] = tenant_map
+            else:
+                self._data.pop(tenant_id, None)
+            for connector_id, name in previous:
+                self._invalidate(tenant_id, connector_id, [name])
+
     def _build_scope(
         self, tenant_id: str, connector_id: str, docs: List[Any]
     ) -> Dict[str, ConfigRecord]:
@@ -194,7 +289,7 @@ class ConnectorConfigStore:
         records: Dict[str, ConfigRecord] = {}
         default_seen: Optional[str] = None
         for doc in docs:
-            doc = _validate_doc(doc)
+            doc = _validate_doc(doc, connector_id)
             name = doc["name"]
             if name in records:
                 raise ConfigNameConflictError(
@@ -225,7 +320,7 @@ class ConnectorConfigStore:
     def create(self, tenant_id: str, connector_id: str, doc: Dict[str, Any]) -> ConfigRecord:
         """Add one named config. Name must be unique in scope. The first config
         for a scope becomes the default automatically."""
-        doc = _validate_doc(doc)
+        doc = _validate_doc(doc, connector_id)
         name = doc["name"]
         with self._lock:
             scope = self._data.setdefault(tenant_id, {}).setdefault(connector_id, {})
@@ -256,7 +351,7 @@ class ConnectorConfigStore:
     ) -> ConfigRecord:
         """Replace the named config's contents. The name itself is immutable
         (delete + create to rename), keeping instance keys unambiguous."""
-        doc = _validate_doc(doc)
+        doc = _validate_doc(doc, connector_id)
         if doc["name"] != name:
             raise ConfigStoreError(
                 f"config name is immutable: cannot rename {name!r} to {doc['name']!r} "

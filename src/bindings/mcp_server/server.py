@@ -1765,15 +1765,23 @@ class McpServer:
 
         anyio.run(self._run_stdio_async)
 
-    def _build_streamable_http_app(self, *, session_manager: Any, path: str) -> Any:
+    def _build_streamable_http_app(self, *, session_manager: Any = None, path: str) -> Any:
         from contextlib import asynccontextmanager
 
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
         from starlette.applications import Starlette
         from starlette.middleware.base import BaseHTTPMiddleware
         from starlette.requests import Request
         from starlette.responses import JSONResponse
         from starlette.routing import Route
 
+        if session_manager is None:
+            # Simplified: stateless, so the SDK runs each request's server in that request's
+            # context. A stateful session keeps the first request's identity, tenant and
+            # upstream bearer for its lifetime; this binding keeps no MCP session state.
+            session_manager = StreamableHTTPSessionManager(
+                self._setup_lowlevel_server(), json_response=True, stateless=True
+            )
         upstream_passthrough = self._upstream_passthrough
         upstream_granted_scopes = self._upstream_passthrough_scopes
         factory_store = self._factory.store
@@ -1803,8 +1811,7 @@ class McpServer:
                         headers=headers,
                     )
 
-                setattr(request.state, "nw_mcp_identity", identity)
-                # §6.3: pin tenant for this HTTP request/session context; never use
+                # §6.3: pin tenant for this HTTP request; never use
                 # process NW_TENANT_ID (stdio-only) so it cannot override X-Tenant-ID.
                 try:
                     session_tenant = resolve_tenant_id(
@@ -1857,7 +1864,8 @@ class McpServer:
                 Route(
                     path,
                     endpoint=_ASGIApp(session_manager.handle_request),
-                    methods=["GET", "POST"],
+                    # POST only: with no session there is nothing to push on a GET stream.
+                    methods=["POST"],
                 )
             ],
         )
@@ -1865,7 +1873,6 @@ class McpServer:
         return starlette_app
 
     async def _run_streamable_http_async(self) -> None:
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
         import uvicorn
 
         host = resolve_mcp_host()
@@ -1881,9 +1888,7 @@ class McpServer:
 
         log_effective_mcp_auth_state()
 
-        low = self._setup_lowlevel_server()
-        session_manager = StreamableHTTPSessionManager(low, json_response=True)
-        starlette_app = self._build_streamable_http_app(session_manager=session_manager, path=path)
+        starlette_app = self._build_streamable_http_app(path=path)
 
         logger.info(f"Starting MCP streamable-http server on {host}:{port}{path}")
         config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")

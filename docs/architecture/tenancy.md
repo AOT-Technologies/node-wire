@@ -30,7 +30,8 @@ The format is shown in the `config/tenants.example.yaml` that `nw gen-stacklok` 
   `config_name` (the `factory.get` argument, the REST body field or the MCP tool argument).
 - Configs are created, changed and deleted through the store: the REST API
   (`POST`/`GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs[/{name}]`, `PUT …/{name}/default`), the
-  playground, or by editing `tenants.yaml`. **MCP never writes configs.**
+  playground, or by editing `tenants.yaml`. **MCP never writes configs.** `__default__` is the
+  exception: it comes from `connectors.yaml` only, and `/v1` writes to it return `400`.
 - A store write takes effect on the next `get()`, because the cached instance for that config is
   dropped at once.
 
@@ -48,8 +49,11 @@ The highest source wins:
   connector-tool argument.
 - With multi-tenancy on, a request with no tenant fails with `400 MISSING_TENANT`. On
   streamable-http, a request with no tenant falls back to `__default__` if that tenant exists in the store.
-- On streamable-http the per-request tenant always wins, so one session's `nw_select_tenant` can
-  never shadow another concurrent session's tenant. `NW_TENANT_ID` is read only on stdio.
+- On streamable-http the per-request tenant always wins, so one client's `nw_select_tenant` can
+  never shadow another concurrent client's tenant. `NW_TENANT_ID` is read only on stdio.
+- Streamable-http is stateless: every `POST` is authenticated and its tenant and upstream bearer
+  resolved on its own, so a refreshed token or a new `X-Tenant-ID` applies to the next call. No
+  `Mcp-Session-Id` is issued, and `GET` (server-to-client stream) returns `405`.
 - A JWT `tenant` claim that disagrees with the header or session tenant fails closed with
   `403 TENANT_IDENTITY_MISMATCH`. It is never silently overridden.
 

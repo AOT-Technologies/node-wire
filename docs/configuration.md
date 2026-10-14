@@ -73,7 +73,7 @@ The following variables control how each binding listens and who may call it:
 | `NW_JWT_ISSUER` | Expected JWT `iss` claim when any `*_JWT_SECRET` is set | _(required with JWT secret)_ |
 | `NW_SMTP_ALLOWED_HOSTS` | Optional comma-separated SMTP relay hostnames permitted for `smtp.send_email` (recommended for production) | _(unset = env relay only)_ |
 | `NW_HTTP_GENERIC_ALLOWED_HOSTS` | Optional egress allowlist for the `http_generic` connector only | _(unset)_ |
-| `NW_REST_ALLOWED_HOSTS` | Optional egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. | _(unset)_ |
+| `NW_REST_ALLOWED_HOSTS` | Egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. **Required** for any `base_url` (YAML, `tenants.yaml` or `/v1`) whose host differs from the connector's spec server; without it such configs are rejected at write time and at call time. | _(unset)_ |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
 
 ### Authentication & request limits
@@ -90,7 +90,7 @@ Defaults in the following table are the values in code, not recommendations — 
 | `NW_MCP_JWT_SECRET` | HS256 secret for MCP JWT ingress auth | _(unset)_ |
 | `NW_GRPC_JWT_SECRET` | HS256 secret for gRPC JWT ingress auth | _(unset)_ |
 | `NW_REST_LOAD_DOTENV` | Load `.env` from disk at startup. Set `false` in production | `true` |
-| `NW_REST_MAX_BODY_BYTES` | Max JSON body on `/connectors/*` and `/scenarios/*`, rejected before parsing | `10485760` (10 MiB) |
+| `NW_REST_MAX_BODY_BYTES` | Max JSON body on `/connectors/*`, `/scenarios/*` and `/v1/*`, rejected before parsing | `10485760` (10 MiB) |
 | `NW_REST_TRUSTED_PROXY_HOPS` | Number of reverse proxies in front of the app, so REST's client-IP fallback cannot be spoofed via `X-Forwarded-For`. `0` ignores the header | `0` |
 
 ### Rate limiting
@@ -235,7 +235,8 @@ export GOOGLE_DRIVE_SA_JSON=$(cat /path/to/service_account.json)
 - **JWT ingress auth:** When using `NW_MCP_JWT_SECRET`, `NW_REST_JWT_SECRET`, or `NW_GRPC_JWT_SECRET`, set `NW_JWT_AUDIENCE` and `NW_JWT_ISSUER`. Minted tokens must include `exp`, `iat`, `aud`, and `iss` (HS256; asymmetric RS256 is not yet supported for bindings).
 - **Log redaction:** A platform-wide logging filter redacts PHI-like field names and values (for example `search_params`, `body`, patient identifiers). FHIR connectors log operation mode, HTTP status, and counts only—not request parameters or raw FHIR response bodies.
 - **Rate limiting:** The always-on global bucket is shared by every caller, so it only gives coarse DoS protection. Set `NW_RATE_LIMIT_PER_IDENTITY_ENABLED=true` to isolate callers from each other, and set `NW_REST_TRUSTED_PROXY_HOPS` to your reverse-proxy depth so the REST IP fallback is not spoofable. Full reference: [Rate limiting](#rate-limiting).
-- **REST body size:** Set `NW_REST_MAX_BODY_BYTES` (default 10 MiB) to cap JSON bodies on `/connectors/*` and `/scenarios/*` before handlers parse them. Also set `client_max_body_size` (or equivalent) on your reverse proxy for defense in depth.
+- **REST body size:** Set `NW_REST_MAX_BODY_BYTES` (default 10 MiB) to cap JSON bodies on `/connectors/*`, `/scenarios/*` and `/v1/*` before handlers parse them. Also set `client_max_body_size` (or equivalent) on your reverse proxy for defense in depth.
+- **Config admin API (`/v1`):** every route needs a scope in the caller's JWT `scopes` or in `NW_REST_API_KEY_SCOPES`. Config reads (including secret key names) need `nw:config:read`; config create/update/delete/set-default need `nw:config:write`; secret writes, including `secrets` sent inline with a config, need `nw:secrets:write`. `POST /v1/config/init` for one tenant (with `X-Tenant-ID`) needs `nw:config:write`; the headerless full init and `GET /v1/tenants` need `nw:platform:admin`. `nw:platform:admin` satisfies every scope; the connector wildcard `*` does not. Without admin, a caller acts only on its JWT `tenant_id`, so API keys, tenantless JWTs and single-tenant (`__default__`) writes need admin. Each change logs one `audit_event=config_change` line (principal, tenant, connector, config and the number of secret keys written; never names or values).
 - **Network bindings:** MCP streamable-http defaults to `NW_MCP_HOST=127.0.0.1`; set `0.0.0.0` only when intentionally exposing beyond localhost. For gRPC, set `NW_GRPC_TLS_CERT_PATH` and `NW_GRPC_TLS_KEY_PATH`, or enable `NW_GRPC_REQUIRE_TLS=true` in production to refuse plaintext startup. Terminate TLS at a reverse proxy if not terminating in-process.
 
 ## Related

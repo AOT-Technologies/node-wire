@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
+import httpx
 import pytest
 
 from bindings.mcp_server.server import (
@@ -510,3 +512,197 @@ def test_streamable_http_mt_missing_header_uses_default(
     response = client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "tools/list"})
     assert response.status_code == 200
     assert response.json()["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Streamable HTTP: identity, tenant and upstream bearer are resolved per request,
+# driven through the real app and the real SDK session manager.
+# ---------------------------------------------------------------------------
+
+_JWT_SECRET = "mcp-per-request-secret"
+_ACCEPT = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
+
+
+def _http_app(
+    monkeypatch: pytest.MonkeyPatch, connector_ids: list[str]
+) -> tuple[McpServer, object]:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.setenv("NW_MCP_AUTH_DISABLED", "false")
+    monkeypatch.setenv("NW_MCP_JWT_SECRET", _JWT_SECRET)
+    server = McpServer(connector_ids=connector_ids)
+    return server, server._build_streamable_http_app(path="/mcp")
+
+
+def _jwt(sub: str, tenant: str, scopes: list[str] | None = None) -> str:
+    from tests.jwt_test_helpers import mint_test_jwt
+
+    return mint_test_jwt({"sub": sub, "tenant_id": tenant, "scopes": scopes or []}, _JWT_SECRET)
+
+
+def _call(client, bearer: str, name: str, arguments: dict, **headers: str) -> dict:
+    body = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": arguments},
+    }
+    response = client.post(
+        "/mcp",
+        headers={**_ACCEPT, "Authorization": f"Bearer {bearer}", **headers},
+        content=json.dumps(body),
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["result"]
+
+
+def _tool(client, bearer: str, fragment: str) -> str:
+    body = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
+    response = client.post(
+        "/mcp", headers={**_ACCEPT, "Authorization": f"Bearer {bearer}"}, content=json.dumps(body)
+    )
+    return next(t["name"] for t in response.json()["result"]["tools"] if fragment in t["name"])
+
+
+def _tenant_of(result: dict) -> str:
+    return json.loads(result["content"][0]["text"])["tenant_id"]
+
+
+def test_streamable_http_second_principal_runs_as_itself(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi.testclient import TestClient
+
+    server, app = _http_app(monkeypatch, ["http_generic"])
+    for tenant in ("acme", "beta"):
+        server._factory.store.create(tenant, "http_generic", {"name": tenant, "default": True})
+    with TestClient(app) as client:
+        init = client.post(
+            "/mcp",
+            headers={**_ACCEPT, "Authorization": f"Bearer {_jwt('alice', 'acme')}"},
+            content=json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 0,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2025-06-18",
+                        "capabilities": {},
+                        "clientInfo": {"name": "t", "version": "1"},
+                    },
+                }
+            ),
+        )
+        assert init.status_code == 200
+        assert "mcp-session-id" not in init.headers
+
+        alice = _call(client, _jwt("alice", "acme"), "nw_list_configs", {})
+        mallory = _call(
+            client, _jwt("mallory", "beta"), "nw_list_configs", {}, **{"mcp-session-id": "x" * 32}
+        )
+
+    assert _tenant_of(alice) == "acme"
+    assert _tenant_of(mallory) == "beta"
+
+
+def test_streamable_http_tenant_header_change_uses_the_new_tenant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("NW_MCP_API_KEY", "per-request-key")
+    server, app = _http_app(monkeypatch, ["http_generic"])
+    for tenant in ("acme", "beta"):
+        server._factory.store.create(tenant, "http_generic", {"name": tenant, "default": True})
+    with TestClient(app) as client:
+        first = _call(client, "per-request-key", "nw_list_configs", {}, **{"X-Tenant-ID": "acme"})
+        second = _call(client, "per-request-key", "nw_list_configs", {}, **{"X-Tenant-ID": "beta"})
+
+    assert _tenant_of(first) == "acme"
+    assert _tenant_of(second) == "beta"
+
+
+def test_streamable_http_narrowed_scopes_apply_on_next_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    monkeypatch.setenv(
+        "NW_MCP_ACTION_SCOPE_MAP_JSON", '{"http_generic.request":"mcp:http_generic.request"}'
+    )
+    server, app = _http_app(monkeypatch, ["http_generic"])
+    server._factory.store.create("acme", "http_generic", {"name": "default", "default": True})
+    args = {"method": "GET", "url": "https://example.com"}
+    upstream: list[str] = []
+    real_client = httpx.AsyncClient
+
+    def record(request: httpx.Request) -> httpx.Response:
+        upstream.append(str(request.url))
+        return httpx.Response(200, json={})
+
+    def offline_client(*a, **kw):
+        kw["transport"] = httpx.MockTransport(record)
+        return real_client(*a, **kw)
+
+    async def no_dns(url: str) -> None:
+        return None
+
+    monkeypatch.setattr("node_wire_http_generic.logic.httpx.AsyncClient", offline_client)
+    monkeypatch.setattr("node_wire_http_generic.logic._assert_safe_destination", no_dns)
+    with TestClient(app) as client:
+        tool = _tool(client, _jwt("alice", "acme", ["mcp:http_generic.request"]), "request")
+        allowed = _call(client, _jwt("alice", "acme", ["mcp:http_generic.request"]), tool, args)
+        narrowed = _call(client, _jwt("alice", "acme", []), tool, args)
+
+    assert not allowed.get("isError"), allowed
+    assert narrowed["structuredContent"]["error_code"] == "POLICY_DENIED"
+    assert len(upstream) == 1
+
+
+def test_streamable_http_rotated_upstream_bearer_used_on_next_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from node_wire_runtime.auth.base import get_upstream_bearer
+
+    monkeypatch.setenv("GOOGLE_DRIVE_AUTH_PROVIDER", "upstream_bearer")
+    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
+    server, app = _http_app(monkeypatch, ["google_drive"])
+    assert server._upstream_passthrough is True
+    seen: list[str | None] = []
+
+    async def fake_invoke(name, arguments, *, identity=None):
+        seen.append(get_upstream_bearer())
+        return {"success": True, "data": {}, "trace_id": "t"}
+
+    monkeypatch.setattr(server, "invoke_tool", fake_invoke)
+    with TestClient(app) as client:
+        tool = _tool(client, "google-token-0", "files_list")
+        for bearer in ("google-token-1", "google-token-2"):
+            client.post(
+                "/mcp",
+                headers={**_ACCEPT, "Authorization": f"Bearer {bearer}", "X-Tenant-ID": "acme"},
+                content=json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "tools/call",
+                        "params": {"name": tool, "arguments": {}},
+                    }
+                ),
+            )
+
+    assert seen == ["google-token-1", "google-token-2"]
+
+
+def test_streamable_http_get_is_not_served(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No session, so there is no server-to-client stream to open."""
+    from fastapi.testclient import TestClient
+
+    monkeypatch.setenv("NW_MCP_API_KEY", "per-request-key")
+    _, app = _http_app(monkeypatch, ["http_generic"])
+    with TestClient(app) as client:
+        response = client.get(
+            "/mcp", headers={"Accept": "text/event-stream", "X-API-Key": "per-request-key"}
+        )
+
+    assert response.status_code == 405

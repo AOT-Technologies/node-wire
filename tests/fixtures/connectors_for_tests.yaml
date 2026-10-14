@@ -43,7 +43,6 @@ connectors:
   fhir_epic:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
-    base_url: "${EPIC_FHIR_BASE_URL:https://fhir.epic.sandbox/api/FHIR/R4}"
     auth:
       provider: oauth2
       grant_method: private_key_jwt
@@ -56,7 +55,6 @@ connectors:
   fhir_cerner:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
-    base_url: "${CERNER_FHIR_BASE_URL:https://fhir-ehr-code.cerner.com/r4/your-tenant-id}"
     auth:
       provider: oauth2
       grant_method: private_key_jwt

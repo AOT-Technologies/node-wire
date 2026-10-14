@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
+import os
 import threading
+from pathlib import Path
 from typing import Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
@@ -18,6 +21,7 @@ from bindings.factory import ConnectorFactory
 from bindings.rest_api.app import app, get_factory
 from node_wire_runtime import BaseConnector, sdk_action
 from node_wire_runtime.config_store import (
+    DEFAULT_TENANT,
     ConfigNameConflictError,
     ConfigNotFoundError,
     ConnectorConfigStore,
@@ -42,6 +46,7 @@ from node_wire_runtime.secrets import (
     TenantSecretNotFoundError,
     TenantSecretProvider,
 )
+from tests.jwt_test_helpers import mint_test_jwt
 
 # --------------------------------------------------------------------------- #
 # Config store lifecycle
@@ -691,9 +696,17 @@ def test_rest_config_create_upserts_on_conflict(monkeypatch: pytest.MonkeyPatch)
     assert got.get("config", {}).get("channel") == "#updated"
 
 
+def _persisted_tenants() -> dict:
+    raw = yaml.safe_load(Path(os.environ["NW_TENANTS_PATH"]).read_text(encoding="utf-8"))
+    return raw["tenants"]
+
+
 def test_rest_config_init_with_tenant_header(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("old", default=True))
+    factory.store.create("beta", "slack", _doc("keep", default=True))
+    factory.store.create(DEFAULT_TENANT, "slack", _doc("base", default=True))
     app.dependency_overrides[get_factory] = lambda: factory
     try:
         client = TestClient(app)
@@ -706,6 +719,156 @@ def test_rest_config_init_with_tenant_header(monkeypatch: pytest.MonkeyPatch):
         app.dependency_overrides.clear()
     assert resp.status_code == 200
     assert factory.store.resolve("acme", "slack", None).name == "boot"
+    assert factory.store.resolve("beta", "slack", None).name == "keep"
+    assert factory.store.resolve(DEFAULT_TENANT, "slack", None).name == "base"
+    persisted = _persisted_tenants()
+    assert persisted["acme"]["slack"][0]["name"] == "boot"
+    assert persisted["beta"]["slack"][0]["name"] == "keep"
+    assert persisted[DEFAULT_TENANT]["slack"][0]["name"] == "base"
+
+
+def test_rest_config_init_rejects_jwt_tenant_header_mismatch(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    secret = "rest-jwt-test-secret-at-least-32bytes!!"
+    monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
+    tok = mint_test_jwt(
+        {"sub": "alice", "tenant_id": "acme", "scopes": ["mcp:test.scope"]},
+        secret,
+    )
+    factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("keep", default=True))
+    factory.store.create("beta", "slack", _doc("beta-keep", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={"slack": [{"name": "boot", "default": True, "config": {}}]},
+            headers={"Authorization": f"Bearer {tok}", "X-Tenant-ID": "beta"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 403
+    assert factory.store.resolve("acme", "slack", None).name == "keep"
+    assert factory.store.resolve("beta", "slack", None).name == "beta-keep"
+
+
+def test_rest_config_init_single_tenant_refuses_default_and_ignores_stray_header(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Single-tenant init targets __default__, which is YAML-only, so it is refused."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    factory = _config_factory()
+    factory.store.create(DEFAULT_TENANT, "slack", _doc("base", default=True))
+    factory.store.create("beta", "slack", _doc("keep", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={"slack": [{"name": "boot", "default": True, "config": {}}]},
+            headers={"X-Tenant-ID": "stray"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 400
+    assert factory.store.resolve(DEFAULT_TENANT, "slack", None).name == "base"
+    assert factory.store.resolve("beta", "slack", None).name == "keep"
+    assert "stray" not in factory.store.list_tenants()
+    assert DEFAULT_TENANT in factory.store.list_tenants()
+
+
+def test_rest_config_init_empty_body_keeps_default_tenant(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    factory = _config_factory()
+    factory.store.create(DEFAULT_TENANT, "slack", _doc("base", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={},
+            headers={"X-Tenant-ID": "stray"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 400
+    assert factory.store.resolve(DEFAULT_TENANT, "slack", None).name == "base"
+    assert "stray" not in factory.store.list_tenants()
+
+
+def _mint_rest_jwt(monkeypatch: pytest.MonkeyPatch, scopes: list[str]) -> str:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    secret = "rest-jwt-test-secret-at-least-32bytes!!"
+    monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
+    return mint_test_jwt({"sub": "alice", "tenant_id": "acme", "scopes": scopes}, secret)
+
+
+def test_rest_config_init_headerless_requires_platform_admin(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("keep", default=True))
+    factory.store.create("beta", "slack", _doc("beta-keep", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={"acme": {"slack": [{"name": "boot", "default": True, "config": {}}]}},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 403
+    assert factory.store.resolve("acme", "slack", None).name == "keep"
+    assert factory.store.resolve("beta", "slack", None).name == "beta-keep"
+
+
+@pytest.mark.parametrize("scopes", [["mcp:test.scope"], ["*"]])
+def test_rest_config_init_headerless_rejects_without_platform_admin(
+    monkeypatch: pytest.MonkeyPatch, scopes: list[str]
+):
+    tok = _mint_rest_jwt(monkeypatch, scopes)
+    factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("keep", default=True))
+    factory.store.create("beta", "slack", _doc("beta-keep", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={"acme": {"slack": [{"name": "boot", "default": True, "config": {}}]}},
+            headers={"Authorization": f"Bearer {tok}"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 403
+    assert factory.store.resolve("acme", "slack", None).name == "keep"
+    assert factory.store.resolve("beta", "slack", None).name == "beta-keep"
+
+
+def test_rest_config_init_headerless_allows_platform_admin(monkeypatch: pytest.MonkeyPatch):
+    tok = _mint_rest_jwt(monkeypatch, ["nw:platform:admin"])
+    factory = _config_factory()
+    factory.store.create("acme", "slack", _doc("keep", default=True))
+    factory.store.create("beta", "slack", _doc("beta-keep", default=True))
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        resp = client.post(
+            "/v1/config/init",
+            json={"acme": {"slack": [{"name": "boot", "default": True, "config": {}}]}},
+            headers={"Authorization": f"Bearer {tok}"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    assert factory.store.resolve("acme", "slack", None).name == "boot"
+    with pytest.raises(ConfigNotFoundError):
+        factory.store.resolve("beta", "slack", None)
 
 
 def test_rest_config_delete_default_without_replacement_returns_400(
