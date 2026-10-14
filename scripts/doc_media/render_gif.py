@@ -27,11 +27,24 @@ from playwright.sync_api import sync_playwright
 
 FPS = 12
 PALETTE = {
-    "default": "#d4dae3", "black": "#5c6370", "red": "#e06c87", "green": "#7fb98a",
-    "brown": "#d8b46a", "yellow": "#d8b46a", "blue": "#7aaed6", "magenta": "#b69ad8",
-    "cyan": "#6fc3d9", "white": "#aeb6c2", "brightblack": "#6b7280", "brightred": "#ea8aa1",
-    "brightgreen": "#94c99e", "brightbrown": "#e2c486", "brightyellow": "#e2c486",
-    "brightblue": "#93bfe2", "brightmagenta": "#c7b0e3", "brightcyan": "#8dd0e2",
+    "default": "#d4dae3",
+    "black": "#5c6370",
+    "red": "#e06c87",
+    "green": "#7fb98a",
+    "brown": "#d8b46a",
+    "yellow": "#d8b46a",
+    "blue": "#7aaed6",
+    "magenta": "#b69ad8",
+    "cyan": "#6fc3d9",
+    "white": "#aeb6c2",
+    "brightblack": "#6b7280",
+    "brightred": "#ea8aa1",
+    "brightgreen": "#94c99e",
+    "brightbrown": "#e2c486",
+    "brightyellow": "#e2c486",
+    "brightblue": "#93bfe2",
+    "brightmagenta": "#c7b0e3",
+    "brightcyan": "#8dd0e2",
     "brightwhite": "#eef1f5",
 }
 BG = "#16191e"
