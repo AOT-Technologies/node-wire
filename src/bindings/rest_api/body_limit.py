@@ -9,7 +9,7 @@ import os
 from typing import Any, Awaitable, Callable
 
 _LIMIT_METHODS = frozenset({"POST", "PUT", "PATCH"})
-_LIMIT_PATH_PREFIXES = ("/connectors/", "/scenarios/")
+_LIMIT_PATH_PREFIXES = ("/connectors/", "/scenarios/", "/v1/")
 
 
 class BodyTooLarge(Exception):
