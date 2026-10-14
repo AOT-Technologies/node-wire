@@ -39,6 +39,7 @@ from node_wire_runtime.identity import (
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
+    tenant_from_headers,
 )
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -275,6 +276,9 @@ def _map_config_error(exc: Exception) -> HTTPException:
     raise exc
 
 
+_PLATFORM_ADMIN_SCOPE = "nw:platform:admin"
+
+
 @app.post("/v1/config/init", tags=["config"])
 async def config_init(
     request: Request,
@@ -282,13 +286,28 @@ async def config_init(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     """Bulk init. With the tenant header: payload is that tenant's
-    ``{connector_id: [docs]}`` map. Without it: full multi-tenant payload."""
-    from node_wire_runtime.identity import tenant_from_headers
-
+    ``{connector_id: [docs]}`` map. Without it, when multitenancy is on:
+    full multi-tenant payload, platform-admin only. Single-tenant mode always
+    writes ``__default__`` and ignores the header."""
     header_tenant = tenant_from_headers(request.headers)
-    full_payload = {header_tenant: payload} if header_tenant else payload
+    if is_multitenancy_enabled() and not header_tenant:
+        identity = get_rest_caller_identity(request)
+        scopes = identity.scopes if identity is not None else ()
+        if _PLATFORM_ADMIN_SCOPE not in scopes:
+            raise Rejected(
+                NodeWireError(ErrorCode.POLICY_DENIED, "platform admin scope required"),
+                403,
+            )
+        try:
+            factory_dep.store.init(payload)
+            _persist_tenants(factory_dep)
+        except Exception as exc:  # noqa: BLE001
+            raise _map_config_error(exc)
+        return JSONResponse(status_code=200, content={"status": "ok"})
+
+    tenant_id = _config_tenant(request)
     try:
-        factory_dep.store.init(full_payload)
+        factory_dep.store.replace_tenant(tenant_id, payload)
         _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
