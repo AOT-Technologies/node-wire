@@ -261,7 +261,11 @@ def _authorize(request: Request, scope: str, *, tenant_id: str | None = None) ->
     scopes = set(identity.scopes) if identity is not None else set()
     admin = SCOPE_PLATFORM_ADMIN in scopes
     if not admin and scope not in scopes:
-        raise Rejected(NodeWireError(ErrorCode.POLICY_DENIED, f"{scope} scope required"), 403)
+        # The scope goes in details (returned, not logged): reject() logs the message.
+        denied = NodeWireError(
+            ErrorCode.POLICY_DENIED, "required scope missing", details={"required_scope": scope}
+        )
+        raise Rejected(denied, 403)
     if tenant_id is not None and not admin:
         if identity is None or identity.tenant_id != tenant_id:
             raise Rejected(
