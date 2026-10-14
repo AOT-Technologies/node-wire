@@ -2758,8 +2758,11 @@ the named configs and per-tenant secret overlays. REST, gRPC and standalone MCP
   connector-tool argument.</li>
 <li>With multi-tenancy on, a request with no tenant fails with <code>400 MISSING_TENANT</code>. On
   streamable-http, <code>initialize</code> falls back to <code>__default__</code> if that tenant exists in the store.</li>
-<li>On streamable-http the per-request header always wins, so one session's <code>nw_select_tenant</code> can
-  never shadow another concurrent session's tenant.</li>
+<li>On streamable-http the per-request header always wins, so one client's <code>nw_select_tenant</code> can
+  never shadow another concurrent client's tenant.</li>
+<li>Streamable-http is stateless: every <code>POST</code> is authenticated and its tenant and upstream bearer
+  resolved on its own, so a refreshed token or a new <code>X-Tenant-ID</code> applies to the next call. No
+  <code>Mcp-Session-Id</code> is issued, and <code>GET</code> (server-to-client stream) returns <code>405</code>.</li>
 <li>A JWT <code>tenant</code> claim that disagrees with the header or session tenant fails closed with
   <code>403 TENANT_IDENTITY_MISMATCH</code>. It is never silently overridden.</li>
 </ul>
