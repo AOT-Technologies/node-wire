@@ -566,16 +566,16 @@ def _without_inline_secrets(node: Any) -> Any:
     return node
 
 
-def _count_inline_secrets(node: Any) -> int:
-    """How many inline secret fields ``node`` holds. Counts names only, returns no data."""
+def _has_inline_secrets(node: Any) -> bool:
+    """Whether ``node`` holds any inline secret field. Returns a flag, never any data."""
     if isinstance(node, dict):
-        return sum(
-            1 if _is_inline_secret_field(key, value) else _count_inline_secrets(value)
+        return any(
+            _is_inline_secret_field(key, value) or _has_inline_secrets(value)
             for key, value in node.items()
         )
     if isinstance(node, list):
-        return sum(_count_inline_secrets(item) for item in node)
-    return 0
+        return any(_has_inline_secrets(item) for item in node)
+    return False
 
 
 def save_tenants(store: ConnectorConfigStore) -> None:
@@ -583,13 +583,11 @@ def save_tenants(store: ConnectorConfigStore) -> None:
     secret_store = tenant_secret_store()
     with _lock:
         exported = store.export_all()
-        # The count is computed from field names alone, so no config data reaches the log call.
-        dropped = _count_inline_secrets(exported)
-        if dropped:
+        # Fixed message behind a flag: nothing derived from the config data reaches the log call.
+        if _has_inline_secrets(exported):
             logger.warning(
-                "Not persisting %d inline secret field(s) in tenant configs; "
-                "store secrets via the secrets API",
-                dropped,
+                "Not persisting inline secret fields in tenant configs; "
+                "store secrets via the secrets API"
             )
         tenants = _without_inline_secrets(exported)
         mirror = _export_secrets_mirror()

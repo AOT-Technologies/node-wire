@@ -887,7 +887,7 @@ def test_inline_secret_fields_are_not_persisted(tmp_path: Path, caplog: pytest.L
     assert doc["auth"] == {"token_secret": "SLACK_BOT_TOKEN"}  # the reference stays
     assert doc["config"] == {"channel": "#ops"}
     assert "INLINE-123" not in text
-    assert "1 inline secret field" in caplog.text
+    assert "Not persisting inline secret fields" in caplog.text
     # The in-memory store is unchanged (resolve() still sees it).
     assert store.resolve("acme", "slack", "main").raw["auth"]["token_value"] == "INLINE-123"
 
