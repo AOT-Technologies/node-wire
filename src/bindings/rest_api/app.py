@@ -152,7 +152,7 @@ async def _rejected(_: Request, exc: Rejected) -> JSONResponse:
 
 FastAPIInstrumentor.instrument_app(app)
 _max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
-# Body limit runs outermost (added last); auth is next; protects /connectors/* and /scenarios/*.
+# Body limit runs outermost (added last); auth is next; protects /connectors/*, /scenarios/*, /v1/*.
 app.add_middleware(RestAuthMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 
@@ -227,9 +227,8 @@ async def ready() -> Dict[str, str]:
 
 
 # --- Runtime connector config API (thin wrappers over ConnectorConfigStore) ---
-# Tenant scope comes from the tenant header (never the path). The embedding
-# application authenticates callers before these endpoints are reachable
-# (RestAuthMiddleware); node-wire does not.
+# Tenant scope comes from the tenant header (never the path). RestAuthMiddleware
+# authenticates; every /v1 route also declares the scope it needs (_requires).
 
 
 def _reject_default_tenant_write(tenant_id: str) -> None:
@@ -262,6 +261,80 @@ def _config_tenant(request: Request) -> str:
         raise Rejected(exc, 400) from exc
     except TenantIdentityMismatchError as exc:
         raise Rejected(exc, 403) from exc
+
+
+# Admin scopes for /v1. nw:platform:admin satisfies every one of them; the connector
+# wildcard "*" does not (it grants invocation, not the admin plane).
+SCOPE_CONFIG_READ = "nw:config:read"
+SCOPE_CONFIG_WRITE = "nw:config:write"
+SCOPE_SECRETS_WRITE = "nw:secrets:write"
+SCOPE_PLATFORM_ADMIN = "nw:platform:admin"
+
+
+def _authorize(request: Request, scope: str, *, tenant_id: str | None = None) -> None:
+    """403 unless the caller holds ``scope`` and, for a tenant route, carries that tenant.
+
+    Only a platform admin acts on a tenant other than its JWT tenant claim, so API keys and
+    tenantless JWTs need admin for tenant routes, and so does single-tenant ``__default__``.
+    """
+    if _truthy(os.environ.get("NW_REST_AUTH_DISABLED")):
+        return
+    identity = get_rest_caller_identity(request)
+    scopes = set(identity.scopes) if identity is not None else set()
+    admin = SCOPE_PLATFORM_ADMIN in scopes
+    if not admin and scope not in scopes:
+        # The scope goes in details (returned, not logged): reject() logs the message.
+        denied = NodeWireError(
+            ErrorCode.POLICY_DENIED, "required scope missing", details={"required_scope": scope}
+        )
+        raise Rejected(denied, 403)
+    if tenant_id is not None and not admin:
+        if identity is None or identity.tenant_id != tenant_id:
+            raise Rejected(
+                NodeWireError(ErrorCode.POLICY_DENIED, "caller is not bound to this tenant"), 403
+            )
+
+
+def _requires(scope: str, *, tenant_bound: bool = True) -> Any:
+    """Route dependency declaring the scope a /v1 route needs (checked by a route-table test)."""
+
+    def dependency(request: Request) -> None:
+        # Scope first, so a caller without it gets 403 rather than a tenant-resolution error.
+        _authorize(request, scope)
+        if tenant_bound:
+            _authorize(request, scope, tenant_id=_config_tenant(request))
+
+    dependency.nw_scope = scope  # type: ignore[attr-defined]
+    return Depends(dependency)
+
+
+def _audit_config_change(
+    request: Request,
+    *,
+    action: str,
+    tenant_id: str,
+    connector_id: str | None = None,
+    config_name: str | None = None,
+    key_count: int = 0,
+) -> None:
+    """One audit line per config/secret change: who, where, and how many secret keys.
+
+    Simplified: a count, not key names; names come from the secrets dict, which
+    CodeQL treats as sensitive (py/clear-text-logging-sensitive-data).
+    """
+    identity = get_rest_caller_identity(request)
+    # Inline replace so CodeQL treats newline stripping as a sanitizer.
+    logger.info(
+        "Config change | op=%s | principal=%s | tenant_id=%s | connector=%s | config_name=%s"
+        " | keys_changed=%d",
+        str(action).replace("\r", " ").replace("\n", " "),
+        str(identity.principal if identity else "-").replace("\r", " ").replace("\n", " "),
+        str(tenant_id).replace("\r", " ").replace("\n", " "),
+        str(connector_id or "-").replace("\r", " ").replace("\n", " "),
+        str(config_name or "-").replace("\r", " ").replace("\n", " "),
+        key_count,
+        extra={"audit_event": "config_change"},
+    )
 
 
 def _log_tenant_action(
@@ -298,10 +371,13 @@ def _map_config_error(exc: Exception) -> HTTPException:
     raise exc
 
 
-_PLATFORM_ADMIN_SCOPE = "nw:platform:admin"
-
-
-@app.post("/v1/config/init", tags=["config"])
+# Per-tenant init is a tenant config write; the headerless full init needs platform admin
+# (checked below, and fail-closed even with REST auth disabled).
+@app.post(
+    "/v1/config/init",
+    tags=["config"],
+    dependencies=[_requires(SCOPE_CONFIG_WRITE, tenant_bound=False)],
+)
 async def config_init(
     request: Request,
     payload: Dict[str, Any],
@@ -315,7 +391,7 @@ async def config_init(
     if is_multitenancy_enabled() and not header_tenant:
         identity = get_rest_caller_identity(request)
         scopes = identity.scopes if identity is not None else ()
-        if _PLATFORM_ADMIN_SCOPE not in scopes:
+        if SCOPE_PLATFORM_ADMIN not in scopes:
             raise Rejected(
                 NodeWireError(ErrorCode.POLICY_DENIED, "platform admin scope required"),
                 403,
@@ -325,26 +401,35 @@ async def config_init(
             _persist_tenants(factory_dep)
         except Exception as exc:  # noqa: BLE001
             raise _map_config_error(exc)
+        _audit_config_change(request, action="config.init", tenant_id="*")
         return JSONResponse(status_code=200, content={"status": "ok"})
 
     tenant_id = _config_tenant(request)
+    _authorize(request, SCOPE_CONFIG_WRITE, tenant_id=tenant_id)
     try:
         _reject_default_tenant_write(tenant_id)
         factory_dep.store.replace_tenant(tenant_id, payload)
         _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
+    _audit_config_change(request, action="config.init", tenant_id=tenant_id)
     return JSONResponse(status_code=200, content={"status": "ok"})
 
 
-@app.get("/v1/tenants", tags=["config"])
+@app.get(
+    "/v1/tenants",
+    tags=["config"],
+    dependencies=[_requires(SCOPE_PLATFORM_ADMIN, tenant_bound=False)],
+)
 async def list_tenants(
     factory_dep: ConnectorFactory = Depends(get_factory),
 ) -> JSONResponse:
     return JSONResponse(status_code=200, content={"tenants": factory_dep.store.list_tenants()})
 
 
-@app.put("/v1/connectors/{cid}/secrets", tags=["config"])
+@app.put(
+    "/v1/connectors/{cid}/secrets", tags=["config"], dependencies=[_requires(SCOPE_SECRETS_WRITE)]
+)
 async def secrets_upsert(
     cid: str,
     request: Request,
@@ -367,12 +452,6 @@ async def secrets_upsert(
             status_code=400,
             detail="config_name is required (body.config_name or ?config_name=)",
         )
-    _log_tenant_action(
-        action="secrets.upsert",
-        tenant_id=tenant_id,
-        connector_id=cid,
-        config_name=config_name,
-    )
     try:
         _reject_default_tenant_write(tenant_id)
         keys = upsert_tenant_secrets(
@@ -387,10 +466,20 @@ async def secrets_upsert(
         raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
     factory_dep.invalidate_configs(tenant_id, cid, [config_name])
     _persist_tenants(factory_dep)
+    _audit_config_change(
+        request,
+        action="secrets.upsert",
+        tenant_id=tenant_id,
+        connector_id=cid,
+        config_name=config_name,
+        key_count=len(secrets),
+    )
     return JSONResponse(status_code=200, content={"keys": keys, "config_name": config_name})
 
 
-@app.get("/v1/connectors/{cid}/secrets", tags=["config"])
+@app.get(
+    "/v1/connectors/{cid}/secrets", tags=["config"], dependencies=[_requires(SCOPE_CONFIG_READ)]
+)
 async def secrets_list_keys(
     cid: str,
     request: Request,
@@ -411,7 +500,9 @@ async def secrets_list_keys(
     )
 
 
-@app.post("/v1/connectors/{cid}/configs", tags=["config"])
+@app.post(
+    "/v1/connectors/{cid}/configs", tags=["config"], dependencies=[_requires(SCOPE_CONFIG_WRITE)]
+)
 async def config_create(
     cid: str,
     request: Request,
@@ -426,12 +517,8 @@ async def config_create(
         body = dict(doc)
         secrets = _pop_secrets(body)
         config_name = str(body.get("name") or "").strip()
-        _log_tenant_action(
-            action="config.create",
-            tenant_id=tenant_id,
-            connector_id=cid,
-            config_name=config_name or None,
-        )
+        if secrets is not None:
+            _authorize(request, SCOPE_SECRETS_WRITE, tenant_id=tenant_id)
         if secrets is not None:
             try:
                 upsert_tenant_secrets(tenant_id, cid, secrets, config_name=config_name)
@@ -443,6 +530,14 @@ async def config_create(
             name = str(body.get("name") or "")
             record = factory_dep.store.update(tenant_id, cid, name, body)
         _persist_tenants(factory_dep)
+        _audit_config_change(
+            request,
+            action="config.create",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=record.name,
+            key_count=len(secrets or {}),
+        )
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -450,7 +545,9 @@ async def config_create(
     return JSONResponse(status_code=201, content={"name": record.name, "default": record.default})
 
 
-@app.get("/v1/connectors/{cid}/configs", tags=["config"])
+@app.get(
+    "/v1/connectors/{cid}/configs", tags=["config"], dependencies=[_requires(SCOPE_CONFIG_READ)]
+)
 async def config_list(
     cid: str,
     request: Request,
@@ -461,7 +558,11 @@ async def config_list(
     return JSONResponse(status_code=200, content=factory_dep.store.list(tenant_id, cid))
 
 
-@app.get("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+@app.get(
+    "/v1/connectors/{cid}/configs/{name}",
+    tags=["config"],
+    dependencies=[_requires(SCOPE_CONFIG_READ)],
+)
 async def config_get(
     cid: str,
     name: str,
@@ -475,7 +576,11 @@ async def config_get(
     return JSONResponse(status_code=200, content=doc)
 
 
-@app.put("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+@app.put(
+    "/v1/connectors/{cid}/configs/{name}",
+    tags=["config"],
+    dependencies=[_requires(SCOPE_CONFIG_WRITE)],
+)
 async def config_update(
     cid: str,
     name: str,
@@ -490,12 +595,8 @@ async def config_update(
         _reject_default_tenant_write(tenant_id)
         body = dict(doc)
         secrets = _pop_secrets(body)
-        _log_tenant_action(
-            action="config.update",
-            tenant_id=tenant_id,
-            connector_id=cid,
-            config_name=name,
-        )
+        if secrets:
+            _authorize(request, SCOPE_SECRETS_WRITE, tenant_id=tenant_id)
         if secrets:
             try:
                 upsert_tenant_secrets(tenant_id, cid, secrets, config_name=name)
@@ -503,6 +604,14 @@ async def config_update(
                 raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
         record = factory_dep.store.update(tenant_id, cid, name, body)
         _persist_tenants(factory_dep)
+        _audit_config_change(
+            request,
+            action="config.update",
+            tenant_id=tenant_id,
+            connector_id=cid,
+            config_name=name,
+            key_count=len(secrets or {}),
+        )
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -510,7 +619,11 @@ async def config_update(
     return JSONResponse(status_code=200, content={"name": record.name, "default": record.default})
 
 
-@app.delete("/v1/connectors/{cid}/configs/{name}", tags=["config"])
+@app.delete(
+    "/v1/connectors/{cid}/configs/{name}",
+    tags=["config"],
+    dependencies=[_requires(SCOPE_CONFIG_WRITE)],
+)
 async def config_delete(
     cid: str,
     name: str,
@@ -521,12 +634,6 @@ async def config_delete(
     try:
         tenant_id = _config_tenant(request)
         _reject_default_tenant_write(tenant_id)
-        _log_tenant_action(
-            action="config.delete",
-            tenant_id=tenant_id,
-            connector_id=cid,
-            config_name=name,
-        )
         factory_dep.store.delete(tenant_id, cid, name, new_default=new_default)
         # Secrets are per named config; clear this config's vault.
         from node_wire_runtime.tenant_persistence import (
@@ -538,12 +645,19 @@ async def config_delete(
         if not factory_dep.store.has_config(tenant_id, cid):
             clear_tenant_connector_secrets(tenant_id, cid)
         _persist_tenants(factory_dep)
+        _audit_config_change(
+            request, action="config.delete", tenant_id=tenant_id, connector_id=cid, config_name=name
+        )
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=200, content={"status": "ok"})
 
 
-@app.put("/v1/connectors/{cid}/configs/{name}/default", tags=["config"])
+@app.put(
+    "/v1/connectors/{cid}/configs/{name}/default",
+    tags=["config"],
+    dependencies=[_requires(SCOPE_CONFIG_WRITE)],
+)
 async def config_set_default(
     cid: str,
     name: str,
@@ -553,14 +667,15 @@ async def config_set_default(
     try:
         tenant_id = _config_tenant(request)
         _reject_default_tenant_write(tenant_id)
-        _log_tenant_action(
+        factory_dep.store.set_default(tenant_id, cid, name)
+        _persist_tenants(factory_dep)
+        _audit_config_change(
+            request,
             action="config.set_default",
             tenant_id=tenant_id,
             connector_id=cid,
             config_name=name,
         )
-        factory_dep.store.set_default(tenant_id, cid, name)
-        _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     return JSONResponse(status_code=200, content={"status": "ok"})

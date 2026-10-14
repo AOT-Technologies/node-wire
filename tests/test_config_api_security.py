@@ -68,7 +68,8 @@ def _auth_env(monkeypatch: pytest.MonkeyPatch, *, multitenancy: bool) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", _API_KEY)
     monkeypatch.setenv("NW_REST_JWT_SECRET", _JWT)
-    monkeypatch.setenv("NW_REST_API_KEY_SCOPES", _SCOPE)
+    # The /v1 admin API needs its own scope tier on top of the connector scope.
+    monkeypatch.setenv("NW_REST_API_KEY_SCOPES", f"{_SCOPE} nw:platform:admin")
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
     monkeypatch.delenv("NW_MCP_ACTION_SCOPE_MAP_JSON", raising=False)
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true" if multitenancy else "false")

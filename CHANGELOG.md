@@ -367,6 +367,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`/v1` config and secret admin API requires scopes.** Any authenticated caller could read
+  and rewrite configs, push secrets, change defaults, run a full init and list every tenant.
+  - `nw:config:read`, `nw:config:write`, `nw:secrets:write` (also for `secrets` inline in a
+    config) and `nw:platform:admin` (headerless full init, `GET /v1/tenants`). Admin satisfies
+    all; the connector wildcard `*` does not.
+  - Without admin, a caller acts only on its JWT `tenant_id`.
+  - `/v1` bodies are capped by `NW_REST_MAX_BODY_BYTES`. Each change logs an
+    `audit_event=config_change` line with the number of secret keys written, never
+    names or values.
+  - **Upgrade note:** with REST auth on, `/v1` callers need these scopes in their JWT or
+    `NW_REST_API_KEY_SCOPES`. API keys, tenantless JWTs and single-tenant mode need
+    `nw:platform:admin` for tenant routes. `NW_REST_AUTH_DISABLED` (local, playground) is
+    unchanged.
 - **MCP streamable-HTTP resolves identity, tenant and upstream bearer per request.** A stateful
   session kept the first request's caller for its lifetime, so a second credential on the same
   `Mcp-Session-Id` ran as the creator, and refreshed tokens, narrower scopes, tenant headers and
