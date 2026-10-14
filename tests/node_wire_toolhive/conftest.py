@@ -10,6 +10,7 @@ import contextlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar, Dict, Iterator, List, Literal, Mapping, Type
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -19,8 +20,14 @@ from pydantic import BaseModel, ConfigDict, Field
 import node_wire_runtime.rest as rest_module
 from mcp.server.lowlevel.server import request_ctx
 from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime.tenant_persistence import declare_secret_shape
 
 CONNECTOR_ID = "th_demo"
+
+# Secret refs in config documents must be declared logical names.
+declare_secret_shape(
+    CONNECTOR_ID, formats={"T": "opaque_secret", "K": "opaque_secret", "Q": "opaque_secret"}
+)
 
 
 class GetPetInput(BaseModel):
@@ -154,6 +161,15 @@ def node_wire_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", CONNECTOR_ID)
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", CONNECTOR_ID)
+    monkeypatch.setenv(
+        "NW_REST_ALLOWED_HOSTS",
+        ",".join(
+            urlsplit(doc["base_url"]).hostname or ""
+            for docs in TENANTS.values()
+            for doc in docs[CONNECTOR_ID]
+        )
+        + ",default.example.test",
+    )
     return config
 
 

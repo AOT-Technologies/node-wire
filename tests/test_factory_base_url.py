@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from bindings.factory import ConnectorFactory
 from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime.config_store import ConfigStoreError
 
 
 class _ProbeInput(BaseModel):
@@ -34,6 +35,9 @@ class _BaseUrlProbeConnector(RestConnector):
 @pytest.fixture(autouse=True)
 def _allow_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+    monkeypatch.setenv(
+        "NW_REST_ALLOWED_HOSTS", "override.example.test,top.example.test,nested.example.test"
+    )
 
 
 async def test_connectors_yaml_base_url_overrides_the_baked_default(tmp_path: Path) -> None:
@@ -90,3 +94,22 @@ async def test_without_override_the_baked_default_is_used(tmp_path: Path) -> Non
 
     assert isinstance(connector, RestConnector)
     assert connector.resolve_base_url() == "https://baked.example.test"
+
+
+def test_yaml_base_url_off_the_allowlist_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An override host must be in NW_REST_ALLOWED_HOSTS, YAML included."""
+    monkeypatch.delenv("NW_REST_ALLOWED_HOSTS")
+    config = tmp_path / "connectors.yaml"
+    config.write_text(
+        "connectors:\n"
+        "  base_url_probe:\n"
+        "    enabled: true\n"
+        "    exposed_via: [mcp]\n"
+        "    base_url: https://override.example.test\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigStoreError, match="base_url host is not allowed"):
+        ConnectorFactory(config).load()

@@ -9,6 +9,17 @@ from __future__ import annotations
 import pytest
 
 from node_wire_runtime.config_store import ConfigStoreError, ConnectorConfigStore
+from node_wire_runtime.tenant_persistence import declare_secret_shape
+
+
+def _declare_pet_store() -> None:
+    declare_secret_shape(
+        "pet_store",
+        formats={
+            "PET_STORE_API_KEY": "opaque_secret",
+            "PET_STORE_ACCESS_TOKEN": "opaque_secret",
+        },
+    )
 
 
 def test_auth_schemes_must_be_an_object() -> None:
@@ -31,6 +42,7 @@ def test_auth_schemes_entry_must_be_an_object() -> None:
 
 def test_auth_schemes_accepted_alongside_auth() -> None:
     """Default `auth` plus one extra named scheme is accepted."""
+    _declare_pet_store()
     store = ConnectorConfigStore()
     doc = {
         "name": "default",
@@ -50,6 +62,7 @@ def test_auth_schemes_accepted_alongside_auth() -> None:
 def test_auth_schemes_without_inline_secrets_are_not_redacted() -> None:
     """secret_key is a *reference* (bare logical name), not an inline secret value —
     same convention `auth` already follows — so it must pass through `get()` unmasked."""
+    _declare_pet_store()
     store = ConnectorConfigStore()
     doc = {
         "name": "default",
@@ -67,6 +80,6 @@ def test_connector_without_auth_schemes_is_unaffected() -> None:
     """The overwhelming majority of connectors never set auth_schemes at all — must
     still validate and round-trip with zero behavior change."""
     store = ConnectorConfigStore()
-    doc = {"name": "default", "auth": {"provider": "static_token", "secret_key": "STRIPE_API_KEY"}}
+    doc = {"name": "default", "auth": {"provider": "static_token", "secret_key": "stripe_api_key"}}
     record = store.create("__default__", "stripe", doc)
     assert "auth_schemes" not in record.raw

@@ -28,6 +28,7 @@ from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
 from node_wire_runtime.config_store import (
+    DEFAULT_TENANT,
     ConfigNameConflictError,
     ConfigNotFoundError,
     ConfigStoreError,
@@ -233,6 +234,27 @@ async def ready() -> Dict[str, str]:
 # (RestAuthMiddleware); node-wire does not.
 
 
+def _reject_default_tenant_write(tenant_id: str) -> None:
+    """``__default__`` is YAML-only. API writes to it are rejected in both tenancy modes."""
+    if tenant_id == DEFAULT_TENANT:
+        raise ConfigStoreError(
+            "__default__ configs are read-only via the API; edit connectors.yaml"
+        )
+
+
+def _init_payload_keeping_default(store: Any, full_payload: Any) -> Any:
+    """``store.init`` replaces every tenant: refuse ``__default__`` in the payload and
+    carry the YAML-sourced ``__default__`` configs over unchanged."""
+    if not isinstance(full_payload, dict):
+        return full_payload
+    if DEFAULT_TENANT in full_payload:
+        _reject_default_tenant_write(DEFAULT_TENANT)
+    current_default = store.export_all().get(DEFAULT_TENANT)
+    if current_default:
+        return {**full_payload, DEFAULT_TENANT: current_default}
+    return full_payload
+
+
 def _config_tenant(request: Request) -> str:
     try:
         return resolve_tenant_id(
@@ -289,8 +311,8 @@ async def config_init(
 ) -> JSONResponse:
     """Bulk init. With the tenant header: payload is that tenant's
     ``{connector_id: [docs]}`` map. Without it, when multitenancy is on:
-    full multi-tenant payload, platform-admin only. Single-tenant mode always
-    writes ``__default__`` and ignores the header."""
+    full multi-tenant payload, platform-admin only. Single-tenant mode targets
+    ``__default__``, which is YAML-only, so it is refused."""
     header_tenant = tenant_from_headers(request.headers)
     if is_multitenancy_enabled() and not header_tenant:
         identity = get_rest_caller_identity(request)
@@ -301,7 +323,7 @@ async def config_init(
                 403,
             )
         try:
-            factory_dep.store.init(payload)
+            factory_dep.store.init(_init_payload_keeping_default(factory_dep.store, payload))
             _persist_tenants(factory_dep)
         except Exception as exc:  # noqa: BLE001
             raise _map_config_error(exc)
@@ -309,6 +331,7 @@ async def config_init(
 
     tenant_id = _config_tenant(request)
     try:
+        _reject_default_tenant_write(tenant_id)
         factory_dep.store.replace_tenant(tenant_id, payload)
         _persist_tenants(factory_dep)
     except Exception as exc:  # noqa: BLE001
@@ -353,12 +376,15 @@ async def secrets_upsert(
         config_name=config_name,
     )
     try:
+        _reject_default_tenant_write(tenant_id)
         keys = upsert_tenant_secrets(
             tenant_id,
             cid,
             {str(k): str(v) for k, v in secrets.items()},
             config_name=config_name,
         )
+    except ConfigStoreError as exc:
+        raise _map_config_error(exc) from exc
     except ValueError as exc:
         raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
     factory_dep.invalidate_configs(tenant_id, cid, [config_name])
@@ -398,6 +424,7 @@ async def config_create(
 
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         body = dict(doc)
         secrets = _pop_secrets(body)
         config_name = str(body.get("name") or "").strip()
@@ -462,6 +489,7 @@ async def config_update(
 
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         body = dict(doc)
         secrets = _pop_secrets(body)
         _log_tenant_action(
@@ -494,6 +522,7 @@ async def config_delete(
 ) -> JSONResponse:
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         _log_tenant_action(
             action="config.delete",
             tenant_id=tenant_id,
@@ -525,6 +554,7 @@ async def config_set_default(
 ) -> JSONResponse:
     try:
         tenant_id = _config_tenant(request)
+        _reject_default_tenant_write(tenant_id)
         _log_tenant_action(
             action="config.set_default",
             tenant_id=tenant_id,
