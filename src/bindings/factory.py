@@ -37,6 +37,7 @@ from node_wire_runtime.secrets import (
     TenantSecretProvider,
     tenant_scoped_secret_key,
 )
+from node_wire_runtime.tenant_persistence import assert_secret_ref
 
 logger = logging.getLogger("bindings.factory")
 
@@ -222,6 +223,18 @@ def _build_policy_hook() -> PolicyHook | None:
         },
     )
     return ScopePolicyHook(action_scope_map, default_mode=default_mode)
+
+
+class _LogicalSecretProvider(SecretProvider):
+    """Reject secret refs that are not this connector's logical names, then delegate."""
+
+    def __init__(self, inner: SecretProvider, connector_id: str) -> None:
+        self._inner = inner
+        self._connector_id = connector_id
+
+    def get_secret(self, key: str) -> str:
+        assert_secret_ref(self._connector_id, key)
+        return self._inner.get_secret(key)
 
 
 @dataclass
@@ -586,15 +599,17 @@ class ConnectorFactory:
         # Simplified: the __default__ tenant keeps the plain (legacy) secret names
         # so existing single-tenant env vars (e.g. EPIC_FHIR_BASE_URL) keep working.
         # Named tenants are scoped to NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}.
+        # Both paths refuse a reference that is not this connector's logical name.
         if record.tenant_id == DEFAULT_TENANT:
-            scoped: SecretProvider = self._secret_provider
+            inner: SecretProvider = self._secret_provider
         else:
-            scoped = TenantSecretProvider(
+            inner = TenantSecretProvider(
                 self._secret_provider,
                 record.tenant_id,
                 record.connector_id,
                 config_name=record.name,
             )
+        scoped = _LogicalSecretProvider(inner, record.connector_id)
 
         auth_provider = self._build_auth_provider(
             record.connector_id,

@@ -83,6 +83,7 @@ def server(
         "NW_MCP_SCOPE_POLICY_DEFAULT": "allow",
         "NW_ALLOWED_CONNECTORS": CONNECTOR_ID,
         "NW_UPSTREAM_BEARER_CONNECTORS": CONNECTOR_ID,
+        "NW_REST_ALLOWED_HOSTS": "acme.example.test,globex.example.test",
     }.items():
         monkeypatch.setenv(key, value)
     monkeypatch.chdir(tmp_path)  # the template's Settings reads ./.env
