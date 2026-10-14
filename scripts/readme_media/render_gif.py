@@ -7,6 +7,7 @@ Usage: python render_gif.py REC.json OUT.gif "DISPLAYED COMMAND" [--speed 1.0] [
 Needs pyte, pillow and playwright. Set CHROMIUM_PATH to use a
 Chromium other than the one bundled with the installed playwright.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,11 +24,24 @@ from playwright.sync_api import sync_playwright
 
 FPS = 12
 PALETTE = {
-    "default": "#e6edf3", "black": "#484f58", "red": "#ff7b72", "green": "#3fb950",
-    "brown": "#d29922", "yellow": "#d29922", "blue": "#58a6ff", "magenta": "#bc8cff",
-    "cyan": "#39c5cf", "white": "#b1bac4", "brightblack": "#6e7681", "brightred": "#ffa198",
-    "brightgreen": "#56d364", "brightbrown": "#e3b341", "brightyellow": "#e3b341",
-    "brightblue": "#79c0ff", "brightmagenta": "#d2a8ff", "brightcyan": "#56d4dd",
+    "default": "#e6edf3",
+    "black": "#484f58",
+    "red": "#ff7b72",
+    "green": "#3fb950",
+    "brown": "#d29922",
+    "yellow": "#d29922",
+    "blue": "#58a6ff",
+    "magenta": "#bc8cff",
+    "cyan": "#39c5cf",
+    "white": "#b1bac4",
+    "brightblack": "#6e7681",
+    "brightred": "#ffa198",
+    "brightgreen": "#56d364",
+    "brightbrown": "#e3b341",
+    "brightyellow": "#e3b341",
+    "brightblue": "#79c0ff",
+    "brightmagenta": "#d2a8ff",
+    "brightcyan": "#56d4dd",
     "brightwhite": "#ffffff",
 }
 BG = "#0d1117"
@@ -110,7 +124,9 @@ def build_frames(rec: dict, command: str, speed: float, hold: float):
 
 
 def max_row(screen: pyte.Screen) -> int:
-    rows = [y for y in range(screen.lines) if "".join(c.data for c in screen.buffer[y].values()).strip()]
+    rows = [
+        y for y in range(screen.lines) if "".join(c.data for c in screen.buffer[y].values()).strip()
+    ]
     return max(rows + [screen.cursor.y])
 
 
@@ -129,8 +145,13 @@ def encode_gif(frame_dir: Path, durations: list[float], out: Path) -> None:
         full.paste(frame, (0, 0))
         canvas.append(full.quantize(palette=palette, dither=Image.Dither.NONE))
     canvas[0].save(
-        out, save_all=True, append_images=canvas[1:], loop=0, optimize=False,
-        duration=[max(20, round(d * 1000)) for d in durations], disposal=1,
+        out,
+        save_all=True,
+        append_images=canvas[1:],
+        loop=0,
+        optimize=False,
+        duration=[max(20, round(d * 1000)) for d in durations],
+        disposal=1,
     )
 
 

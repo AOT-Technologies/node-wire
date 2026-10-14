@@ -4,6 +4,7 @@
 
 Usage: python record.py OUT.json COLS ROWS -- CMD [ARGS...]
 """
+
 from __future__ import annotations
 
 import fcntl
