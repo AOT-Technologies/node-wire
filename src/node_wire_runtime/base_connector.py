@@ -30,7 +30,6 @@ from typing import (
 from opentelemetry import metrics, trace
 from opentelemetry.trace import Tracer
 from opentelemetry.util.types import AttributeValue
-from pybreaker import CircuitBreaker
 from pydantic import BaseModel, Field, RootModel, ValidationError
 
 from .auth import AuthProvider, NoAuthProvider
@@ -50,7 +49,7 @@ from .identity import (
 )
 from .policy import PolicyContext, PolicyHook, PolicyDenied
 from .log_sanitization import reset_log_connector_id, redact_credentials, set_log_connector_id
-from .resilience import with_resilience
+from .resilience import CircuitBreaker, with_resilience
 from .secrets import SecretNotFoundError, SecretProvider, TenantSecretNotFoundError
 from .sdk_action_spec import SdkActionSpec
 
