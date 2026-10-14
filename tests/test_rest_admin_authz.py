@@ -142,5 +142,6 @@ def test_config_change_is_audited_without_values(
     line = audits[0].getMessage()
     assert "principal=caller" in line
     assert "tenant_id=acme" in line
-    assert "API_TOKEN" in line
+    assert "keys_changed=1" in line
+    assert "API_TOKEN" not in caplog.text
     assert "do-not-log" not in caplog.text

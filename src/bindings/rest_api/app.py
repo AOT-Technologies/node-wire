@@ -293,20 +293,24 @@ def _audit_config_change(
     tenant_id: str,
     connector_id: str | None = None,
     config_name: str | None = None,
-    secret_keys: Any = (),
+    key_count: int = 0,
 ) -> None:
-    """One audit line per config/secret change: who, where, and key names (never values)."""
+    """One audit line per config/secret change: who, where, and how many secret keys.
+
+    Simplified: a count, not key names; names come from the secrets dict, which
+    CodeQL treats as sensitive (py/clear-text-logging-sensitive-data).
+    """
     identity = get_rest_caller_identity(request)
     # Inline replace so CodeQL treats newline stripping as a sanitizer.
     logger.info(
         "Config change | op=%s | principal=%s | tenant_id=%s | connector=%s | config_name=%s"
-        " | secret_keys=%s",
+        " | keys_changed=%d",
         str(action).replace("\r", " ").replace("\n", " "),
         str(identity.principal if identity else "-").replace("\r", " ").replace("\n", " "),
         str(tenant_id).replace("\r", " ").replace("\n", " "),
         str(connector_id or "-").replace("\r", " ").replace("\n", " "),
         str(config_name or "-").replace("\r", " ").replace("\n", " "),
-        ",".join(sorted(str(k) for k in secret_keys)).replace("\r", " ").replace("\n", " "),
+        key_count,
         extra={"audit_event": "config_change"},
     )
 
@@ -442,7 +446,7 @@ async def secrets_upsert(
         tenant_id=tenant_id,
         connector_id=cid,
         config_name=config_name,
-        secret_keys=secrets.keys(),
+        key_count=len(secrets),
     )
     return JSONResponse(status_code=200, content={"keys": keys, "config_name": config_name})
 
@@ -505,7 +509,7 @@ async def config_create(
             tenant_id=tenant_id,
             connector_id=cid,
             config_name=record.name,
-            secret_keys=(secrets or {}).keys(),
+            key_count=len(secrets or {}),
         )
     except HTTPException:
         raise
@@ -578,7 +582,7 @@ async def config_update(
             tenant_id=tenant_id,
             connector_id=cid,
             config_name=name,
-            secret_keys=(secrets or {}).keys(),
+            key_count=len(secrets or {}),
         )
     except HTTPException:
         raise

@@ -374,7 +374,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     all; the connector wildcard `*` does not.
   - Without admin, a caller acts only on its JWT `tenant_id`.
   - `/v1` bodies are capped by `NW_REST_MAX_BODY_BYTES`. Each change logs an
-    `audit_event=config_change` line with key names, never values.
+    `audit_event=config_change` line with the number of secret keys written, never
+    names or values.
   - **Upgrade note:** with REST auth on, `/v1` callers need these scopes in their JWT or
     `NW_REST_API_KEY_SCOPES`. API keys, tenantless JWTs and single-tenant mode need
     `nw:platform:admin` for tenant routes. `NW_REST_AUTH_DISABLED` (local, playground) is
