@@ -755,7 +755,10 @@ def test_rest_config_init_rejects_jwt_tenant_header_mismatch(monkeypatch: pytest
     assert factory.store.resolve("beta", "slack", None).name == "beta-keep"
 
 
-def test_rest_config_init_single_tenant_ignores_stray_header(monkeypatch: pytest.MonkeyPatch):
+def test_rest_config_init_single_tenant_refuses_default_and_ignores_stray_header(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Single-tenant init targets __default__, which is YAML-only, so it is refused."""
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
     factory = _config_factory()
     factory.store.create(DEFAULT_TENANT, "slack", _doc("base", default=True))
@@ -770,8 +773,8 @@ def test_rest_config_init_single_tenant_ignores_stray_header(monkeypatch: pytest
         )
     finally:
         app.dependency_overrides.clear()
-    assert resp.status_code == 200
-    assert factory.store.resolve(DEFAULT_TENANT, "slack", None).name == "boot"
+    assert resp.status_code == 400
+    assert factory.store.resolve(DEFAULT_TENANT, "slack", None).name == "base"
     assert factory.store.resolve("beta", "slack", None).name == "keep"
     assert "stray" not in factory.store.list_tenants()
     assert DEFAULT_TENANT in factory.store.list_tenants()
