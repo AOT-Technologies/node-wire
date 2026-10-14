@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Render a recording from record.py into a terminal-window GIF.
 
-Usage: python render_gif.py REC.json OUT.gif "DISPLAYED COMMAND" [--speed 1.0] [--hold 4]
+Usage: python render_gif.py OUT.gif --step REC.json "DISPLAYED COMMAND" [--step ...]
+                             [--speed 1.0] [--hold 4]
+
+Each --step types its command at a prompt, then replays its recording.
 
 Needs pyte, pillow and playwright. Set CHROMIUM_PATH to use a
 Chromium other than the one bundled with the installed playwright.
@@ -92,9 +95,11 @@ pre span{white-space:pre}
 <pre id="term"></pre></div></body></html>"""
 
 
-def build_frames(rec: dict, command: str, speed: float, hold: float):
-    """Yield (duration_seconds, screen_html) pairs, typing the command first."""
-    cols, rows = rec["cols"], rec["rows"] + 2
+def build_frames(steps: list[tuple[dict, str]], speed: float, hold: float):
+    """Return (duration_seconds, screen_html) pairs, typing each command first."""
+    cols = steps[0][0]["cols"]
+    # Tall enough that no step scrolls an earlier one off screen; unused rows are cropped.
+    rows = sum(rec["rows"] + len(cmd) // cols + 2 for rec, cmd in steps) + 2
     screen = pyte.Screen(cols, rows)
     stream = pyte.Stream(screen)
     frames = []
@@ -104,19 +109,25 @@ def build_frames(rec: dict, command: str, speed: float, hold: float):
 
     stream.feed(PROMPT)
     snap(0.8)
-    for ch in command:
-        stream.feed(ch)
-        snap(0.035)
-    snap(0.5)
-    stream.feed("\r\n")
-    chunks, i, t, step = rec["chunks"], 0, 0.0, 1 / FPS
-    end = chunks[-1][0] if chunks else 0
-    while t <= end + step:
-        while i < len(chunks) and chunks[i][0] <= t:
-            stream.feed(chunks[i][1])
-            i += 1
-        snap(step / speed, cursor=False)
-        t += step
+    for n, (rec, command) in enumerate(steps):
+        if n:
+            stream.feed(PROMPT)
+            snap(1.2)
+        # Long commands type faster, so no command takes more than ~2.5s to appear.
+        per_frame = max(1, round(len(command) / 80))
+        for start in range(0, len(command), per_frame):
+            stream.feed(command[start : start + per_frame])
+            snap(min(0.03 * per_frame, 2.5 * per_frame / len(command)))
+        snap(0.5)
+        stream.feed("\r\n")
+        chunks, i, t, step = rec["chunks"], 0, 0.0, 1 / FPS
+        end = chunks[-1][0] if chunks else 0
+        while t <= end + step:
+            while i < len(chunks) and chunks[i][0] <= t:
+                stream.feed(chunks[i][1])
+                i += 1
+            snap(step / speed, cursor=False)
+            t += step
     stream.feed(PROMPT)
     snap(hold)
     used = max(f[2] for f in frames) + 1
@@ -157,20 +168,20 @@ def encode_gif(frame_dir: Path, durations: list[float], out: Path) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("recording")
     ap.add_argument("out")
-    ap.add_argument("command")
+    ap.add_argument("--step", nargs=2, action="append", required=True, metavar=("REC", "CMD"))
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--hold", type=float, default=4.0)
     ap.add_argument("--title", default="node-wire — zsh")
     args = ap.parse_args()
-    rec = json.loads(Path(args.recording).read_text())
+    steps = [(json.loads(Path(rec).read_text()), cmd) for rec, cmd in args.step]
     # Machine-specific temp paths (log file locations) read as noise in docs.
     tmpdir = os.environ.get("TMPDIR", "").rstrip("/")
     if tmpdir:
-        for chunk in rec["chunks"]:
-            chunk[1] = chunk[1].replace(tmpdir, "$TMPDIR")
-    frames = build_frames(rec, args.command, args.speed, args.hold)
+        for rec, _ in steps:
+            for chunk in rec["chunks"]:
+                chunk[1] = chunk[1].replace(tmpdir, "$TMPDIR")
+    frames = build_frames(steps, args.speed, args.hold)
 
     merged = []
     for duration, body in frames:

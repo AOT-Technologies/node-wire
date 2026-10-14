@@ -83,6 +83,10 @@ mismatch: False TENANT_MISMATCH
 acme after delete: no config for tenant 'acme' / connector 'http_generic'
 ```
 
+The following recording shows the script running, saved as `tenants_demo.py`, with log output hidden:
+
+![Terminal running the tenants_demo.py script: acme succeeds with status 200, initech has no config, the pinned instance refuses globex with TENANT_MISMATCH, and acme is refused after its config is deleted.](images/media/connector-tenants.gif)
+
 What each step relies on:
 
 | Step | Behaviour |
@@ -136,6 +140,10 @@ curl -X POST localhost:8000/connectors/http_generic/request \
 ```
 
 The response is `403`.
+
+The following recording shows the same calls against a local server, plus a health check:
+
+![Terminal running curl against the REST API: health returns ok, creating acme's config returns default true, the request as acme returns success true with status 200, and the request as initech returns 403.](images/media/rest-tenants.gif)
 
 Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_name": "<name>"` to the request body to pick a named config. The rest of the config API is `GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs/{name}` and `PUT …/{name}/default`. For MCP, the same store sits behind the `nw_list_tenants` / `nw_select_tenant` / `nw_select_config` tools. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 

@@ -123,6 +123,10 @@ For connectors with many tools (for example, a large generated OpenAPI connector
 - **`nw_search_tools`** `{query, limit?}` — BM25 keyword search over tool names, descriptions and argument names/descriptions. Returns up to `limit` (default 5, max 20) matching tools, each with its full `inputSchema`, so the model can call one straight away.
 - **`nw_call_tool`** `{name, arguments}` — validates `arguments` against that tool's schema (same validator and messages as a direct `tools/call`) and runs it.
 
+The following diagram compares the two modes:
+
+![In list mode, tools/list returns every tool and schema. In search mode it returns two tools: the agent searches with nw_search_tools, then runs a match with nw_call_tool.](images/media/mcp-tool-search.svg)
+
 The listing stays around 1–2 KB whatever the connector size. Behaviour to know:
 
 - Scope policy applies: a tool hidden from a caller is neither returned by search nor callable through `nw_call_tool` (it reads as unknown).
@@ -131,6 +135,10 @@ The listing stays around 1–2 KB whatever the connector size. Behaviour to know
 - Search is lexical: a request worded differently from the tool ("DM someone" vs `conversations_open`) can miss. Clients that show, approve or filter tools one by one see only `nw_call_tool`.
 
 Default is `list` (unchanged). Modelled on FastMCP's search transform.
+
+The following recording runs the combined server in search mode through the [MCP Inspector](#testing-with-mcp-inspector) CLI. `tools/list` returns the two search tools, and a search for `create lead` returns the matching Salesforce tools:
+
+![Terminal showing an mcp.json with NW_MCP_TOOL_MODE=search, then Inspector CLI calls: tools/list returns nw_search_tools and nw_call_tool, and nw_search_tools for create lead returns salesforce_create_lead first.](images/media/mcp-inspector-search.gif)
 
 ---
 

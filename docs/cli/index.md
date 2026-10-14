@@ -16,6 +16,14 @@ people need. To generate a connector, wheels and an MCP host from a spec, run:
 uv run nw gen-all --connector-id pet_store --path path/to/openapi.yaml
 ```
 
+`gen-all` chains four stages in one process, and each stage is also a command of its own, as the following diagram shows:
+
+![nw gen-all runs codegen, wheels, MCP host and wire. nw docker-build turns the MCP host into an image. gen-whl, gen-mcp and gen-stacklok run single stages.](../images/media/cli-pipeline.svg)
+
+Run `uv run nw --help` from the repository root to list the commands:
+
+![Terminal running uv run nw --help, listing the gen-all, gen-whl, gen-mcp, docker-build and gen-stacklok commands.](../images/media/nw-help.gif)
+
 ## Pages
 
 | Page | What it covers |

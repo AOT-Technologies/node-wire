@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="t d">
+  <!--
+  SPDX-FileCopyrightText: 2026 AOT Technologies
+  SPDX-License-Identifier: Apache-2.0
+  -->
+  <title id="t">MCP tool search mode</title>
+  <desc id="d">In list mode, tools/list returns every tool with its schema, so the listing grows with the connector. In search mode it returns two tools. The agent calls nw_search_tools with keywords, gets the best matches with their input schemas, then runs one through nw_call_tool, which validates the arguments and returns the ConnectorResponse.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1c2733; }
+    .h { font-size: 13px; font-weight: 700; }
+    .s { font-size: 11px; fill: #4a5a6a; }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
+    .msg { opacity: 0; animation: msg 9s ease-in-out infinite; }
+    .m2 { animation-delay: 1.5s; } .m3 { animation-delay: 3s; } .m4 { animation-delay: 4.5s; }
+    .grow { animation: grow 9s ease-in-out infinite; transform-box: fill-box; transform-origin: left; }
+    @keyframes msg { 0% { opacity: 0; transform: translateY(6px); } 6%,80% { opacity: 1; transform: none; } 90%,100% { opacity: 0; } }
+    @keyframes grow { 0% { transform: scaleX(.15); } 40%,85% { transform: scaleX(1); } 100% { transform: scaleX(.15); } }
+    @media (prefers-reduced-motion: reduce) { .msg, .grow { animation: none; opacity: 1; } }
+  </style>
+
+  <rect width="960" height="300" rx="16" fill="#ffffff"/>
+  <rect x="1" y="1" width="958" height="298" rx="16" fill="none" stroke="#d8dee6"/>
+
+  <!-- List mode -->
+  <text x="32" y="44" class="s" font-weight="700" letter-spacing="1">LIST MODE (DEFAULT)</text>
+  <text x="32" y="68" class="mono">tools/list →</text>
+  <rect x="32" y="80" width="320" height="22" rx="5" fill="#f2f4f7"/>
+  <rect class="grow" x="32" y="80" width="320" height="22" rx="5" fill="#fde2ea" stroke="#b81548"/>
+  <text x="40" y="96" class="mono" fill="#3d0a1d">every tool + every schema</text>
+  <text x="32" y="124" class="s">The listing grows with the connector and is sent to the</text>
+  <text x="32" y="140" class="s">model on every request.</text>
+
+  <text x="32" y="184" class="s" font-weight="700" letter-spacing="1">SEARCH MODE</text>
+  <text x="32" y="206" class="mono">NW_MCP_TOOL_MODE=search</text>
+  <text x="32" y="230" class="mono">tools/list →</text>
+  <rect x="32" y="242" width="64" height="22" rx="5" fill="#ddf5f0" stroke="#12867a"/>
+  <text x="104" y="258" class="s">2 tools, about 1–2 KB whatever the size</text>
+
+  <!-- Conversation -->
+  <line x1="420" y1="28" x2="420" y2="276" stroke="#d8dee6"/>
+  <text x="460" y="44" class="h">AI agent</text>
+  <text x="900" y="44" class="h" text-anchor="end">node wire MCP server</text>
+
+  <g class="msg">
+    <rect x="460" y="60" width="300" height="38" rx="10" fill="#ddf1fb" stroke="#1a88b0"/>
+    <text x="474" y="84" class="mono" fill="#0d2f3d">nw_search_tools {"query": "create lead"}</text>
+  </g>
+  <g class="msg m2">
+    <rect x="600" y="108" width="300" height="62" rx="10" fill="#ddf5f0" stroke="#12867a"/>
+    <text x="614" y="128" class="mono" fill="#0b2f2a">salesforce_create_lead + inputSchema</text>
+    <text x="614" y="146" class="mono" fill="#0b2f2a">salesforce_create_contact + …</text>
+    <text x="886" y="158" class="s" text-anchor="end" fill="#0b2f2a">BM25 over names, descriptions, args</text>
+  </g>
+  <g class="msg m3">
+    <rect x="460" y="174" width="390" height="38" rx="10" fill="#ddf1fb" stroke="#1a88b0"/>
+    <text x="474" y="198" class="mono" fill="#0d2f3d">nw_call_tool {"name": "salesforce_create_lead", …}</text>
+  </g>
+  <g class="msg m4">
+    <rect x="640" y="222" width="260" height="44" rx="10" fill="#ddf5f0" stroke="#12867a"/>
+    <text x="654" y="242" class="mono" fill="#0b2f2a">ConnectorResponse</text>
+    <text x="654" y="258" class="s" fill="#0b2f2a">same validation and scope policy</text>
+  </g>
+</svg>

@@ -16,7 +16,22 @@ SPDX-License-Identifier: Apache-2.0
   <img src="images/nw-primary-logo-tag.png" alt="Node Wire — Layered Connector Framework" />
 </p>
 
-Node Wire is a three-layer Python platform that runs connector adapters (Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, and more) and exposes them over REST, gRPC, or MCP. It provides a consistent execution contract with built-in validation, resilience, and telemetry.
+![An OpenAPI spec, a hand-written adapter or a shipped connector runs inside the Node Wire runtime, which checks, validates, retries and maps errors, then serves it over REST, gRPC and MCP.](images/media/hero.svg)
+
+**Node Wire is an open source Python connector framework.** You write or generate a connector once, and Node Wire runs it with the same validation, policy, resilience, error handling and telemetry, whether the caller is a web app over REST, a service over gRPC, or an AI agent over the Model Context Protocol (MCP).
+
+Each connector is an adapter for one external system: Google Drive, SMTP, Stripe, FHIR, Salesforce, Slack, or any HTTP API with an OpenAPI spec. The runtime gives every action one execution contract and one response envelope, so a failure from Stripe and a failure from Salesforce reach the caller with the same shape and the same error categories.
+
+## What it provides
+
+Node Wire gives every connector the following:
+
+- One connector contract served over REST (FastAPI), gRPC and MCP (stdio and streamable HTTP), with no transport code in the connector. See [Bindings](connector-bindings.md).
+- A `run()` pipeline on every action: tenant pin check, Pydantic validation, scope policy, retries with a circuit breaker, and error mapping, all inside an OpenTelemetry span. See [Architecture](architecture.md#the-run-pipeline).
+- A stable error taxonomy: every failure carries an `error_code` and one of `RETRYABLE`, `BUSINESS`, `AUTH` or `FATAL`. See [Errors](errors.md).
+- Multi-tenancy with per-tenant named configs and secrets, resolved per request. See [Tenancy](architecture/tenancy.md).
+- MCP features for AI agents: tenant and config selection tools, scope policy, and a [tool search mode](mcp.md#tool-search-mode) for connectors with hundreds of tools.
+- Code generation from OpenAPI and Swagger specs with the [`nw` CLI](cli/index.md), plus `nw gen-stacklok` for ToolHive-ready MCP servers with an AI-curated tool set.
 
 ## Quick start
 
@@ -32,6 +47,10 @@ MODE=API uv run node-wire
 ```
 
 Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI, or the [playground](http://localhost:8000/playground/) for interactive connector demos.
+
+To generate a connector from an OpenAPI spec instead, use `nw gen-all`. The following recording shows a trial run on the Swagger Petstore spec:
+
+![Terminal running nw gen-all on the Petstore spec: 19 of 19 operations generated, a progress bar for each stage, and a summary panel naming the new connector package.](images/media/nw-gen-all.gif)
 
 ## Where to start
 

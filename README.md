@@ -17,7 +17,7 @@ SPDX-License-Identifier: Apache-2.0
 </p>
 
 <p align="center">
-  <img src="./docs/images/readme/hero.svg" width="900"
+  <img src="./docs/images/media/hero.svg" width="900"
        alt="An OpenAPI spec, a hand-written adapter or a shipped connector runs inside the node wire runtime, which checks, validates, retries and maps errors, then serves it over REST, gRPC and MCP.">
 </p>
 
@@ -115,8 +115,8 @@ changes. See [The `nw` CLI](#the-nw-cli) for the full pipeline.
 
 ### One contract, three transports
 
-A connector declares actions; bindings expose each action as a REST route, a
-gRPC method and an MCP tool. To serve the enabled connectors over each
+A connector declares actions; bindings expose each action as a REST route, an
+MCP tool and a gRPC `Invoke` call. To serve the enabled connectors over each
 transport, run one of the following commands:
 
 ```bash
@@ -136,7 +136,7 @@ connector enabled for MCP as a tool:
 ### The same pipeline on every action
 
 <p align="center">
-  <img src="./docs/images/readme/run-pipeline.svg" width="900"
+  <img src="./docs/images/media/run-pipeline.svg" width="900"
        alt="run() checks the tenant pin, validates, applies the PolicyHook and retries, then executes the connector. Any failure goes to the ErrorMapper. Both paths return a ConnectorResponse.">
 </p>
 
@@ -185,7 +185,7 @@ policy decides which caller can see and call which tool. See
 ### Multi-tenant from the start
 
 <p align="center">
-  <img src="./docs/images/readme/tenancy.svg" width="900"
+  <img src="./docs/images/media/tenancy.svg" width="900"
        alt="Requests from tenants acme and globex get instances pinned to their own config and credentials. Tenant initech has no config and is refused.">
 </p>
 
@@ -235,7 +235,7 @@ interactive demos for the shipped connectors:
 the repository root after the dev install in the [Quick start](#quick-start):
 
 <p align="center">
-  <img src="./docs/images/readme/nw-help.gif" width="760"
+  <img src="./docs/images/media/nw-help.gif" width="760"
        alt="Terminal running uv run nw --help, listing the gen-all, gen-whl, gen-mcp, docker-build and gen-stacklok commands.">
 </p>
 
@@ -243,7 +243,7 @@ the repository root after the dev install in the [Quick start](#quick-start):
 command of its own:
 
 <p align="center">
-  <img src="./docs/images/readme/cli-pipeline.svg" width="900"
+  <img src="./docs/images/media/cli-pipeline.svg" width="900"
        alt="nw gen-all runs codegen, wheels, MCP host and wire. nw docker-build turns the MCP host into an image. gen-whl, gen-mcp and gen-stacklok run single stages.">
 </p>
 
@@ -268,7 +268,7 @@ uv run nw gen-all --connector-id petstore_demo --path petstore.json \
 The run generates all 19 Petstore operations and reports each stage:
 
 <p align="center">
-  <img src="./docs/images/readme/nw-gen-all.gif" width="760"
+  <img src="./docs/images/media/nw-gen-all.gif" width="760"
        alt="Terminal running nw gen-all on the Petstore spec: 19 of 19 operations generated, Rich progress bars for each stage, and a summary panel naming the new connector package.">
 </p>
 

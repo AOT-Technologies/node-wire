@@ -28,6 +28,10 @@ Use this table to find the section you need:
 
 A connector is a Layer B package; the layers are described in [Architecture](architecture.md), and the vocabulary in [Domain](architecture/domain.md).
 
+The following diagram shows the parts of a connector and where each action ends up:
+
+![A connector package holds schema.py and logic.py. auto_register loads it through an entry point, and each action becomes a REST route, a gRPC Invoke call and an MCP tool.](images/media/connector-anatomy.svg)
+
 ### Package layout and registration
 
 Each connector is a **top-level package** under `src/` (for example, `node_wire_fhir_epic`):

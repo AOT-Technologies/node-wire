@@ -50,6 +50,10 @@ uv run nw gen-all \
   --path path/to/openapi.yaml
 ```
 
+The following recording shows a trial run on a copy of the Swagger Petstore spec, with the wheel, MCP host and wire stages skipped:
+
+![Terminal running nw gen-all with --no-wheel --no-mcp --no-wire on the Petstore spec: 19 of 19 operations generated, then a summary panel naming packages/connectors/petstore_demo.](../images/media/nw-gen-all.gif)
+
 **Trial run, or keeping the connector?** By default `gen-all` wires the connector into `config/connectors.yaml`, `sample.env` and `scripts/build-packages.sh`. From then on `tests/test_docs_lifecycle.py` fails until the connector has a [Package inventory](../packaging.md#package-inventory) row (see [When wire is enabled](#when-wire-is-enabled)).
 
 - **Keeping it:** add the inventory row.

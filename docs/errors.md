@@ -10,6 +10,12 @@ Every failed call, on every surface, carries the same four facts: an error **cod
 **category**, a **message** and a **trace id**. The runtime decides all four. A binding only
 turns them into its transport: an HTTP status, a gRPC reply, an MCP `isError` result.
 
+The following diagram shows where errors come from. A failure at any step of `run()` goes to the `ErrorMapper`, so both paths end in the same envelope:
+
+![run() checks the tenant pin, validates, applies the PolicyHook and retries, then executes the connector. Any failure goes to the ErrorMapper. Both paths return a ConnectorResponse.](images/media/run-pipeline.svg)
+
+The [`run()` pipeline](architecture.md#the-run-pipeline) in Architecture has the detailed diagram.
+
 ## The envelope
 
 A failure is a `ConnectorResponse` with `success: false`:

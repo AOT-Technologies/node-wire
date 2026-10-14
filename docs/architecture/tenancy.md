@@ -13,6 +13,10 @@ A runnable walkthrough is in [Use a connector](../connectors.md).
 
 Read [Domain](domain.md#tenancy) and [Seams](seams.md) first.
 
+The following diagram shows the model in brief. Each tenant gets an instance pinned to its own config and secrets, and a tenant with no config is refused:
+
+![Requests from tenants acme and globex get instances pinned to their own config and credentials. Tenant initech has no config and is refused.](../images/media/tenancy.svg)
+
 ## Single-tenant by default
 
 With `NW_MULTITENANCY_ENABLED` unset or `false`, every call resolves to `__default__`, and the
