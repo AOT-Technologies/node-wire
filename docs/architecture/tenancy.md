@@ -48,8 +48,11 @@ The highest source wins:
   connector-tool argument.
 - With multi-tenancy on, a request with no tenant fails with `400 MISSING_TENANT`. On
   streamable-http, `initialize` falls back to `__default__` if that tenant exists in the store.
-- On streamable-http the per-request header always wins, so one session's `nw_select_tenant` can
-  never shadow another concurrent session's tenant.
+- On streamable-http the per-request header always wins, so one client's `nw_select_tenant` can
+  never shadow another concurrent client's tenant.
+- Streamable-http is stateless: every `POST` is authenticated and its tenant and upstream bearer
+  resolved on its own, so a refreshed token or a new `X-Tenant-ID` applies to the next call. No
+  `Mcp-Session-Id` is issued, and `GET` (server-to-client stream) returns `405`.
 - A JWT `tenant` claim that disagrees with the header or session tenant fails closed with
   `403 TENANT_IDENTITY_MISMATCH`. It is never silently overridden.
 

@@ -367,6 +367,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **MCP streamable-HTTP resolves identity, tenant and upstream bearer per request.** A stateful
+  session kept the first request's caller for its lifetime, so a second credential on the same
+  `Mcp-Session-Id` ran as the creator, and refreshed tokens, narrower scopes, tenant headers and
+  rotated upstream bearers were ignored. The binding now runs the MCP SDK session manager
+  stateless: no `Mcp-Session-Id` is issued and `GET /mcp` returns `405`. `node_wire_toolhive`
+  already resolved these per message and is unchanged.
 - **`nw gen-stacklok` manifests**: the backend no longer trusts `X-Tenant-ID` on the NetworkPolicy
   alone. `deploy/proxy-secret.yaml` holds a shared secret every tenant proxy sends as
   `X-NW-Proxy-Secret` (`headerForward.addHeadersFromSecret`); the backend reads it as
