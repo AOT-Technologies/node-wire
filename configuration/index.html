@@ -3228,6 +3228,16 @@ shared by every caller, so one noisy identity can still exhaust it for everyone.
 <td><code>X-Tenant-ID</code></td>
 </tr>
 <tr>
+<td><code>NW_API_KEYS_FILE</code></td>
+<td>JSON file of tenant-bound API keys <code>[{key_id, hash, tenant, scopes}]</code> (SHA-256 hashes), used by REST, gRPC and MCP. See <a href="../architecture/tenancy/#tenant-bound-api-keys">Tenancy</a>.</td>
+<td>unset</td>
+</tr>
+<tr>
+<td><code>NW_TRUSTED_TENANT_HEADER</code></td>
+<td><code>true</code> when an authenticating gateway sets the tenant header, so tenant-less credentials may use it. Required for the shared API key in multi-tenant mode unless <code>NW_API_KEYS_FILE</code> is set.</td>
+<td><code>false</code></td>
+</tr>
+<tr>
 <td><code>NW_TENANTS_PATH</code></td>
 <td>Path to the YAML file that persists runtime named configs + tenant secret overlays (<code>config/tenants.yaml</code> by default; gitignored). Loaded by REST, gRPC, and standalone MCP (<code>McpServer</code> / <code>agents.mcp_entrypoint</code>) at startup.</td>
 <td><code>config/tenants.yaml</code></td>

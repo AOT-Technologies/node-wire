@@ -2787,7 +2787,7 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.</p>
 <tr>
 <td><code>TENANT_IDENTITY_MISMATCH</code></td>
 <td><code>AUTH</code></td>
-<td>The JWT's tenant claim disagrees with the requested tenant</td>
+<td>The credential's tenant disagrees with the requested tenant, the caller asked for the operator-only <code>__default__</code>, or a tenant-less credential sent a tenant header without <code>NW_TRUSTED_TENANT_HEADER</code></td>
 </tr>
 <tr>
 <td><code>CONFIG_NOT_FOUND</code></td>

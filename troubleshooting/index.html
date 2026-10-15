@@ -2694,7 +2694,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><strong><code>403 TENANT_IDENTITY_MISMATCH</code></strong></td>
-<td>A JWT <code>tenant</code> claim disagrees with the caller-supplied header/session tenant.</td>
+<td>A JWT <code>tenant</code> claim or tenant-bound key disagrees with the caller-supplied header/session tenant; or the caller asked for <code>__default__</code> (operator-only); or a tenant-less credential sent a tenant header without <code>NW_TRUSTED_TENANT_HEADER=true</code>.</td>
 <td>Use a token whose tenant claim matches the <code>X-Tenant-ID</code> header (or the session's selected/pinned tenant) — never silently overridden.</td>
 </tr>
 <tr>

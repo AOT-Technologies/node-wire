@@ -923,6 +923,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-may-pick-a-tenant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who may pick a tenant
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Who may pick a tenant">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tenant-bound-api-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenant-bound API keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pin-contract-hosts-embedding-the-factory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2572,6 +2611,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-may-pick-a-tenant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who may pick a tenant
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Who may pick a tenant">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tenant-bound-api-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenant-bound API keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#upgrading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pin-contract-hosts-embedding-the-factory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2735,13 +2813,13 @@ the named configs and per-tenant secret overlays. REST, gRPC and standalone MCP
 <tbody>
 <tr>
 <td>REST / gRPC</td>
-<td><code>X-Tenant-ID</code> header or JWT <code>tenant</code> claim (per request)</td>
+<td>The caller's tenant (tenant-bound key or JWT <code>tenant</code> claim), else <code>X-Tenant-ID</code> header (see below)</td>
 <td>—</td>
 <td>—</td>
 </tr>
 <tr>
 <td>MCP streamable-http</td>
-<td><code>X-Tenant-ID</code> header or JWT claim (per request)</td>
+<td>The caller's tenant, else <code>X-Tenant-ID</code> header (per request)</td>
 <td><code>nw_select_tenant</code> selection</td>
 <td><code>NW_TENANT_ID</code> pin</td>
 </tr>
@@ -2756,16 +2834,80 @@ the named configs and per-tenant secret overlays. REST, gRPC and standalone MCP
 <ul>
 <li><code>NW_TENANT_ID_HEADER</code> renames the header. The tenant never comes from the URL, and it is never a
   connector-tool argument.</li>
-<li>With multi-tenancy on, a request with no tenant fails with <code>400 MISSING_TENANT</code>. On
-  streamable-http, <code>initialize</code> falls back to <code>__default__</code> if that tenant exists in the store.</li>
+<li>With multi-tenancy on, a request with no tenant fails with <code>400 MISSING_TENANT</code>. There is no
+  fallback to <code>__default__</code>.</li>
 <li>On streamable-http the per-request header always wins, so one client's <code>nw_select_tenant</code> can
-  never shadow another concurrent client's tenant.</li>
+  never shadow another concurrent client's tenant. A tool's <code>tenant_id</code> argument cannot leave the
+  request tenant either.</li>
 <li>Streamable-http is stateless: every <code>POST</code> is authenticated and its tenant and upstream bearer
   resolved on its own, so a refreshed token or a new <code>X-Tenant-ID</code> applies to the next call. No
   <code>Mcp-Session-Id</code> is issued, and <code>GET</code> (server-to-client stream) returns <code>405</code>.</li>
-<li>A JWT <code>tenant</code> claim that disagrees with the header or session tenant fails closed with
+<li>A tenant claim (JWT or key) that disagrees with the header or session tenant fails closed with
   <code>403 TENANT_IDENTITY_MISMATCH</code>. It is never silently overridden.</li>
 </ul>
+<h2 id="who-may-pick-a-tenant">Who may pick a tenant<a class="headerlink" href="#who-may-pick-a-tenant" title="Anchor link to this section">&para;</a></h2>
+<p>The <code>X-Tenant-ID</code> header is supplied by the caller, so node-wire does not trust it on its own.</p>
+<ul>
+<li><strong><code>__default__</code> is operator-only.</strong> A caller can never select it, by header or by token claim
+  (<code>403 TENANT_IDENTITY_MISMATCH</code>). It is reached only through the <code>NW_TENANT_ID</code> stdio pin and
+  operator/YAML configuration. It holds the operator's env-backed secrets.</li>
+<li><strong>Tenant-bound credentials</strong> carry their own tenant, so the header can only agree with it.
+  Use a JWT with a <code>tenant_id</code> claim, or an API-key registry file.</li>
+<li><strong>Tenant-less credentials</strong> (the shared <code>NW_*_API_KEY</code>, or a JWT with no tenant claim) may supply a
+  header only when <code>NW_TRUSTED_TENANT_HEADER=true</code>, meaning an authenticating gateway in front sets
+  it. Otherwise the request is rejected with <code>403 TENANT_IDENTITY_MISMATCH</code>.</li>
+<li>With auth disabled (local development) or an embedding host that authenticates itself, there is
+  no identity and the header is taken as given.</li>
+</ul>
+<p>At startup, with multi-tenancy on, each binding refuses to start if <strong>its own</strong> shared API key is
+configured (<code>NW_REST_API_KEY</code> for REST, <code>NW_GRPC_API_KEY</code> for gRPC, <code>NW_MCP_API_KEY</code> for MCP over
+HTTP) unless <code>NW_API_KEYS_FILE</code> or <code>NW_TRUSTED_TENANT_HEADER=true</code> is set. Another binding's key left
+in a shared <code>.env</code> does not matter, and MCP over stdio has no such rule: it has no header, so a
+shared key cannot pick a tenant there. It logs the chosen tenancy mode.</p>
+<h3 id="tenant-bound-api-keys">Tenant-bound API keys<a class="headerlink" href="#tenant-bound-api-keys" title="Anchor link to this section">&para;</a></h3>
+<p>Point <code>NW_API_KEYS_FILE</code> at a JSON array. It is used by REST, gRPC and MCP, and is read once at
+startup (restart to change it):</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">[{</span><span class="nt">"key_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"acme-prod"</span><span class="p">,</span><span class="w"> </span><span class="nt">"hash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;sha256 hex of the key&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tenant"</span><span class="p">:</span><span class="w"> </span><span class="s2">"acme"</span><span class="p">,</span><span class="w"> </span><span class="nt">"scopes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"mcp:acme.read"</span><span class="p">]}]</span>
+</span></code></pre></div>
+<p>Only the hash is stored. Generate the key with <code>openssl rand -hex 32</code> (keys must be random, not
+chosen: the hash is plain SHA-256, which is only safe for high-entropy secrets) and hash it with
+<code>printf %s "$KEY" | sha256sum</code>. A key is presented like any API
+key (<code>Authorization: Bearer</code> or <code>X-API-Key</code>) and its <code>scopes</code> apply to it alone;
+<code>NW_*_API_KEY_SCOPES</code> apply only to the shared key.</p>
+<p>The file is validated when the server starts, and a bad entry fails startup naming it (<code>entry 2</code>;
+the hash is never printed). Each entry needs a non-blank <code>key_id</code>, <code>hash</code> and <code>tenant</code>; <code>hash</code> must
+be 64 hex characters; <code>scopes</code>, if present, must be a list of strings; <code>tenant</code> cannot be
+<code>__default__</code>; and no two entries may share a <code>hash</code> or a <code>key_id</code>. A blank tenant is refused
+because it would make a tenant-less key, which can pick any tenant by header when
+<code>NW_TRUSTED_TENANT_HEADER=true</code>.
+To rotate, add a second entry for the same tenant, then remove the old one.</p>
+<h3 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Migration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Callers can no longer select <code>__default__</code></td>
+<td>Use a named tenant.</td>
+</tr>
+<tr>
+<td>MCP streamable-http with no tenant is <code>400</code>, not <code>__default__</code></td>
+<td>Send a tenant header, or use a tenant-bound key.</td>
+</tr>
+<tr>
+<td>Multi-tenant + shared API key refuses to start</td>
+<td>Set <code>NW_API_KEYS_FILE</code>, or <code>NW_TRUSTED_TENANT_HEADER=true</code> behind a gateway.</td>
+</tr>
+<tr>
+<td>A JWT with no tenant claim can no longer pick a tenant by header</td>
+<td>Add a <code>tenant_id</code> claim, or set <code>NW_TRUSTED_TENANT_HEADER=true</code>.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="the-pin-contract-hosts-embedding-the-factory">The pin contract (hosts embedding the factory)<a class="headerlink" href="#the-pin-contract-hosts-embedding-the-factory" title="Anchor link to this section">&para;</a></h2>
 <p>Resolve the request tenant once, with <code>resolve_tenant_id</code> in bindings or your own auth, then call
 <code>ConnectorFactory.get(tenant_id=...)</code>. <strong>Omitting <code>tenant_id</code> on <code>get</code> always resolves
@@ -2825,10 +2967,10 @@ per-call <code>config_name</code>, which overrides <code>nw_select_config</code>
   (<a href="../../stacklok-mcp-servers/#what-the-generated-server-does">stacklok MCP servers</a>).</li>
 </ul>
 <p>A typical session:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>1. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>2. tools/call nw_select_tenant { "tenant_id": "&lt;id from step 1&gt;" }  # returns configs
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>3. tools/call nw_select_config { "config_name": "&lt;name from step 2&gt;" }
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>4. tools/call google_drive_files_list  { ... }
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>1. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2. tools/call nw_select_tenant { "tenant_id": "&lt;id from step 1&gt;" }  # returns configs
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>3. tools/call nw_select_config { "config_name": "&lt;name from step 2&gt;" }
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>4. tools/call google_drive_files_list  { ... }
 </span></code></pre></div>
 <h3 id="running-one-multi-tenant-mcp-container-under-toolhive">Running one multi-tenant MCP container under ToolHive<a class="headerlink" href="#running-one-multi-tenant-mcp-container-under-toolhive" title="Anchor link to this section">&para;</a></h3>
 <p>For the unified image over stdio, mount host <code>config/tenants.yaml</code> read-only at
