@@ -2947,8 +2947,13 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><code>NW_REST_PLAYGROUND_ENABLED</code></td>
-<td>Mount the interactive playground at <code>/playground/</code> when <code>true</code>; when unset, enabled only if a <code>playground/</code> directory exists at the repo root</td>
-<td><em>(auto)</em></td>
+<td>Mount the interactive playground at <code>/playground/</code> and <code>/scenarios/*</code> when <code>true</code>. <strong>Off by default</strong> (checkout only: it is not in any wheel or image). The scenarios run connector actions with the server's credentials, so use it for local development with <code>NW_REST_AUTH_DISABLED=true</code></td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>NW_REST_PLAYGROUND_ALLOW_WITH_AUTH</code></td>
+<td>Allow the playground to mount when REST auth is configured (<code>NW_REST_API_KEY</code> / <code>NW_REST_JWT_SECRET</code>). Without it the playground is not mounted and an error is logged. <code>/scenarios/*</code> then requires credentials; the playground UI does not send them</td>
+<td><code>false</code></td>
 </tr>
 <tr>
 <td><code>NW_MCP_TRANSPORT</code></td>
