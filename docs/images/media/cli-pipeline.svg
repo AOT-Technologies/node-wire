@@ -14,19 +14,16 @@
     .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
     .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
     .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
-    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
-           animation-delay: var(--w, 0s); opacity: 0; }
+    .route { offset-rotate: 0deg; opacity: 0; }
     .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
     .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
-    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
-                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
     @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
     @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
                         92%, 100% { opacity: 0; } }
     .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
     @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
     @media (prefers-reduced-motion: reduce) {
-      .dot, .hl { animation: none; opacity: 0; }
+      .hl, .route { animation: none !important; opacity: 0; }
       .in, .bar { animation: none; opacity: 1; }
     }
   </style>

@@ -11,6 +11,7 @@ so they play inside <img> on GitHub and MkDocs, and stop under reduced motion.
 
 from __future__ import annotations
 
+import re
 import sys
 from html import escape
 from pathlib import Path
@@ -24,6 +25,8 @@ SURFACE = "#f9fafb"
 ACCENT = "#1a9fc8"
 ACCENT_SOFT = "#e8f6fb"
 ERROR = "#e01d5a"
+# One colour per transport, for traffic in the hero. Brand pink stays reserved for errors.
+TRANSPORT = {"REST": ACCENT, "gRPC": "#c9971c", "MCP": "#12867a"}
 
 SANS = "Inter, 'SF Pro Text', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 MONO = "'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace"
@@ -37,22 +40,48 @@ STYLE = f"""
     .mi {{ font-family: {MONO}; font-size: 11px; fill: {INK}; }}
     .ln {{ fill: none; stroke: {LINE}; stroke-width: 1; }}
     .er {{ fill: none; stroke: {ERROR}; stroke-width: 1; stroke-opacity: .45; }}
-    .dot {{ offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
-           animation-delay: var(--w, 0s); opacity: 0; }}
+    .route {{ offset-rotate: 0deg; opacity: 0; }}
     .hl {{ opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }}
     .in {{ opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }}
-    @keyframes travel {{ 0% {{ offset-distance: 0%; opacity: 0; }} 10% {{ opacity: 1; }}
-                        85% {{ opacity: 1; }} 100% {{ offset-distance: 100%; opacity: 0; }} }}
     @keyframes hl {{ 0%, 22%, 100% {{ opacity: 0; }} 4%, 16% {{ opacity: 1; }} }}
     @keyframes fadein {{ 0% {{ opacity: 0; transform: translateY(4px); }} 8%, 82% {{ opacity: 1; transform: none; }}
                         92%, 100% {{ opacity: 0; }} }}
     .bar {{ transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }}
     @keyframes grow {{ 0% {{ transform: scaleX(0); }} 70%, 90% {{ transform: scaleX(1); }} 100% {{ transform: scaleX(0); }} }}
     @media (prefers-reduced-motion: reduce) {{
-      .dot, .hl {{ animation: none; opacity: 0; }}
+      .hl, .route {{ animation: none !important; opacity: 0; }}
       .in, .bar {{ animation: none; opacity: 1; }}
     }}
 """
+
+
+def path_length(d: str) -> float:
+    """Length of an absolute path made of M, L and C commands (curves are sampled)."""
+    tokens = re.findall(r"[MLC]|-?[0-9.]+", d)
+    length, x, y, i, cmd = 0.0, 0.0, 0.0, 0, "M"
+    while i < len(tokens):
+        if tokens[i] in "MLC":
+            cmd = tokens[i]
+            i += 1
+        n = 6 if cmd == "C" else 2
+        v = [float(t) for t in tokens[i : i + n]]
+        i += n
+        if cmd == "M":
+            x, y = v
+        elif cmd == "L":
+            length += ((v[0] - x) ** 2 + (v[1] - y) ** 2) ** 0.5
+            x, y = v
+        else:
+            (x1, y1, x2, y2, x3, y3), px, py = v, x, y
+            for k in range(1, 33):
+                t = k / 32
+                u = 1 - t
+                qx = u**3 * x + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t**3 * x3
+                qy = u**3 * y + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t**3 * y3
+                length += ((qx - px) ** 2 + (qy - py) ** 2) ** 0.5
+                px, py = qx, qy
+            x, y = x3, y3
+    return length
 
 
 class Svg:
@@ -113,10 +142,25 @@ class Svg:
     def line(self, d, cls="ln") -> None:
         self.add(f'<path class="{cls}" d="{d}"/>')
 
-    def dot(self, d, dur=3.0, delay=0.0, color=ACCENT, r=3) -> None:
+    def route(self, d, period, delay, speed=240.0, color=ACCENT, r=3) -> None:
+        """A dot that travels a polyline at a constant speed, once per shared period.
+
+        Every route uses the same speed, so a dot looks the same in every element it
+        crosses; the shared period keeps several routes evenly staggered.
+        """
+        travel = path_length(d) / speed
+        end = min(travel / period, 1.0) * 100
+        name = f"r{len(self.parts)}"
         self.add(
-            f'<circle class="dot" r="{r}" fill="{color}" '
-            f"style=\"offset-path: path('{d}'); --d: {dur}s; --w: {delay}s\"/>"
+            f"<style>@keyframes {name} {{ 0% {{ offset-distance: 0%; opacity: 0; }} "
+            f"1% {{ opacity: 1; }} {end - 1:.2f}% {{ opacity: 1; }} "
+            f"{end:.2f}% {{ offset-distance: 100%; opacity: 0; }} "
+            f"100% {{ offset-distance: 100%; opacity: 0; }} }}</style>"
+        )
+        self.add(
+            f'<circle class="route" r="{r}" fill="{color}" '
+            f"style=\"offset-path: path('{d}'); animation: {name} {period}s linear "
+            f'{delay}s infinite"/>'
         )
 
     def highlight(self, x, y, w, h, dur, delay) -> None:
@@ -135,14 +179,15 @@ def hero() -> Svg:
     """Request path, matching the layer diagram in docs/architecture.md."""
     s = Svg(
         1080,
-        350,
+        360,
         "Node Wire at a glance",
         "A caller reaches a binding: REST, gRPC or MCP. The binding resolves the tenant, and "
         "ConnectorFactory resolves that tenant's named config and returns a tenant-pinned "
         "connector instance with its secrets, auth and policy. BaseConnector.run checks the tenant pin, then validates, applies scope policy, "
         "retries behind a circuit breaker and maps errors inside an OpenTelemetry span. The "
         "connector action calls the external API, and run returns the same ConnectorResponse "
-        "through every transport.",
+        "through every transport. Traffic dots are blue for REST, amber for gRPC and teal for "
+        "MCP; the returning response is grey.",
     )
     s.add(
         f'<defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" '
@@ -158,19 +203,41 @@ def hero() -> Svg:
         )
         s.label(x + 14, 50, f"{name} · {layer}")
 
+    # Layering, back to front: group panels, traffic dots, then element boxes and arrows.
+    # Element boxes are opaque, so a dot is hidden while it is inside one.
+    group(168, 312, "Bindings", "Layer C")
+    group(504, 248, "Runtime", "Layer A")
+    group(776, 160, "Connectors", "Layer B")
+
+    # Request path: one route per binding, through the centre line of every element
+    period = 6.0
+    for i, (name, start, y) in enumerate(
+        (("REST", 121, 101), ("gRPC", 121, 173), ("MCP", 221, 245))
+    ):
+        s.route(
+            f"M142 {start} L 182 {y} L 399 {y} L 399 111 L 1008 111",
+            period,
+            i * period / 3,
+            color=TRANSPORT[name],
+        )
+    # Response path: run() returns the envelope back through the binding to the caller.
+    # Neutral, because the same envelope goes back on every transport.
+    s.route("M628 288 L 628 320 L 83 320 L 83 246", period, 3.4, color=MUTED)
+
     # Callers
     s.label(24, 50, "Callers")
     s.box(24, 96, 118, 50, "Apps", "services")
     s.box(24, 196, 118, 50, "AI agents", "MCP clients")
 
     # Layer C: bindings
-    group(168, 312, "Bindings", "Layer C")
     for y, t, sub in (
         (76, "REST", "tenant: header, JWT"),
         (148, "gRPC", "tenant: metadata"),
         (220, "MCP", "tenant: session"),
     ):
         s.box(182, y, 124, 50, t, sub)
+        # Key: the dot colour this transport's traffic uses
+        s.add(f'<circle cx="292" cy="{y + 16}" r="3" fill="{TRANSPORT[t]}"/>')
     s.box(326, 76, 146, 194)
     s.text(340, 100, "invoke.py", "mi")
     s.text(340, 120, "ConnectorFactory", "t")
@@ -180,7 +247,6 @@ def hero() -> Svg:
         s.text(340, 146 + i * 18, line, "m" if i == 0 else "b")
 
     # Layer A: runtime
-    group(504, 248, "Runtime", "Layer A")
     s.text(518, 82, "BaseConnector.run()", "mi")
     s.box(518, 94, 220, 28)
     s.highlight(518, 94, 220, 28, 7, 0.9)
@@ -194,7 +260,6 @@ def hero() -> Svg:
         s.text(542, y + 17, step, "b", fill=INK)
 
     # Layer B: connectors
-    group(776, 160, "Connectors", "Layer B")
     s.box(790, 76, 132, 70)
     s.highlight(790, 76, 132, 70, 7, 3.0)
     s.text(808, 102, "Connector", "t")
@@ -209,24 +274,19 @@ def hero() -> Svg:
     s.label(960, 50, "External")
     s.box(960, 86, 96, 50, "APIs", "SaaS · FHIR")
 
-    # Request path
+    # Request path arrows
     arrow("M142 121 L 182 101")
     arrow("M142 121 L 182 173")
     arrow("M142 221 L 182 245")
     for y in (101, 173, 245):
         arrow(f"M306 {y} L 326 {y}")
-    arrow("M466 108 L 518 108")
+    arrow("M472 111 L 518 111")
     arrow("M738 111 L 790 111")
     arrow("M922 111 L 960 111")
-    s.dot("M142 121 L 182 101 L 306 101 L 326 101", 1.6, 0)
-    s.dot("M466 108 L 518 108", 0.9, 0.6)
-    s.dot("M738 111 L 790 111 L 922 111 L 960 111", 1.4, 2.6)
 
-    # Response path: run() returns the envelope back through the binding to the caller
+    # Response path arrow
     arrow("M628 288 L 628 320 L 83 320 L 83 246")
-    s.add('<rect x="170" y="310" width="380" height="20" fill="#ffffff"/>')
-    s.text(360, 324, "ConnectorResponse · same envelope on every transport", "m", "middle")
-    s.dot("M628 288 L 628 320 L 83 320 L 83 246", 2.6, 3.6)
+    s.text(360, 340, "ConnectorResponse · same envelope on every transport", "m", "middle")
     return s
 
 
@@ -240,37 +300,39 @@ def run_pipeline() -> Svg:
         "the ErrorMapper. Both paths end in one ConnectorResponse. Everything after the tenant "
         "check runs inside an OpenTelemetry span.",
     )
+    steps = [
+        ("Tenant", "pin check", 146, 96),
+        ("Validate", "Pydantic", 264, 96),
+        ("Policy", "PolicyHook", 382, 96),
+        ("Resilience", "retries · breaker", 500, 128),
+        ("Execute", "connector", 652, 118),
+    ]
+    speed, period, start = 240.0, 7.0, 78
+
+    # Layering, back to front: lines, traffic dots, then boxes (which hide a dot inside them).
     s.label(40, 40, "Every action, every transport")
-    # span bracket
     s.line("M244 64 L 244 58 L 770 58 L 770 64")
     s.text(507, 52, "OpenTelemetry span", "k", "middle")
-    s.box(32, 80, 92, 40, "run()", center=True, title_mono=True)
-    steps = [
-        ("Tenant", "pin check", 146),
-        ("Validate", "Pydantic", 264),
-        ("Policy", "PolicyHook", 382),
-        ("Resilience", "retries · breaker", 500),
-        ("Execute", "connector", 652),
-    ]
-    widths = {146: 96, 264: 96, 382: 96, 500: 128, 652: 118}
     s.line("M124 100 L 790 100")
-    for i, (t, sub, x) in enumerate(steps):
-        w = widths[x]
+    for _, _, x, w in steps:
+        s.line(f"M{x + w / 2} 124 L {x + w / 2} 176", "er")
+    s.line("M770 196 L 860 196 L 860 120", "er")
+    s.route(f"M{start} 100 L 860 100", period, 0, speed)
+    # A failure at validation, shown after the success run has finished
+    s.route("M312 100 L 312 196 L 860 196 L 860 100", period, 3.6, speed, ERROR)
+
+    s.box(32, 80, 92, 40, "run()", center=True, title_mono=True)
+    for t, sub, x, w in steps:
         s.box(x, 76, w, 48)
-        s.highlight(x, 76, w, 48, 5, 0.35 + i * 0.5)
+        # Light each step as the success dot reaches it
+        arrive = (x + w / 2 - start) / speed
+        s.highlight(x, 76, w, 48, period, max(arrive - 0.35, 0))
         s.text(x + w / 2, 96, t, "t", "middle")
         s.text(x + w / 2, 112, sub, "b", "middle")
     s.box(790, 80, 140, 40, "ConnectorResponse", center=True, title_mono=True)
-    # error branch
-    for i, (_, _, x) in enumerate(steps):
-        cx = x + widths[x] / 2
-        s.line(f"M{cx} 124 L {cx} 176", "er")
     s.box(160, 176, 610, 40)
     s.text(176, 200, "ErrorMapper", "t")
     s.text(270, 200, "stable error_code · RETRYABLE · BUSINESS · AUTH · FATAL", "m")
-    s.line("M770 196 L 860 196 L 860 120", "er")
-    s.dot("M124 100 L 790 100", 5, 0.2, r=3.5)
-    s.dot("M312 124 L 312 196 L 860 196 L 860 120", 5, 2.7, ERROR)
     return s
 
 
@@ -283,8 +345,30 @@ def tenancy() -> Svg:
         "own config and secrets from the config store and returns an instance pinned to that "
         "tenant. A tenant with no config, initech, is refused.",
     )
+    # Layering, back to front: lines, traffic dots, then boxes (which hide a dot inside them).
+    for y in (81, 145, 209):
+        s.line(f"M220 {y} C 305 {y}, 305 125, 390 125")
+    s.line("M570 125 C 655 125, 655 81, 740 81")
+    s.line("M570 125 L 740 145")
+    s.line("M570 125 C 655 125, 655 209, 740 209", "er")
+    s.line("M480 154 L 480 184")
+    period = 6.0
+    for i, (y, out, color) in enumerate(
+        (
+            (81, "C 655 125, 655 81, 740 81 L 835 81", ACCENT),
+            (145, "L 740 145 L 835 145", ACCENT),
+            (209, "C 655 125, 655 209, 740 209 L 835 209", ERROR),
+        )
+    ):
+        s.route(
+            f"M130 {y} L 220 {y} C 305 {y}, 305 125, 390 125 L 570 125 {out}",
+            period,
+            i * period / 3,
+            color=color,
+        )
+
     s.label(40, 40, "Callers")
-    s.box(40, 56, 180, 50, "acme", "X-Tenant-ID header", mono_sub=False)
+    s.box(40, 56, 180, 50, "acme", "X-Tenant-ID header")
     s.box(40, 120, 180, 50, "globex", "JWT tenant claim")
     s.box(40, 184, 180, 50, "initech", "no config")
     s.label(390, 40, "Resolve")
@@ -300,21 +384,10 @@ def tenancy() -> Svg:
         stroke=LINE,
     )
     s.box(400, 184, 160, 50, "Config store", "configs · secrets")
-    s.line("M480 154 L 480 184")
     s.label(740, 40, "Instances")
     s.box(740, 56, 190, 50, "Pinned to acme", "acme's credentials only")
     s.box(740, 120, 190, 50, "Pinned to globex", "globex's credentials only")
     s.box(740, 184, 190, 50, "Refused", "fails closed · 403", stroke="#f3c0cf")
-    for y in (81, 145, 209):
-        s.line(f"M220 {y} C 305 {y}, 305 125, 390 125")
-    s.line("M570 125 C 655 125, 655 81, 740 81")
-    s.line("M570 125 L 740 145")
-    s.line("M570 125 C 655 125, 655 209, 740 209", "er")
-    s.dot("M220 81 C 305 81, 305 125, 390 125 L 570 125 C 655 125, 655 81, 740 81", 4, 0)
-    s.dot("M220 145 C 305 145, 305 125, 390 125 L 570 125 L 740 145", 4, 1.3)
-    s.dot(
-        "M220 209 C 305 209, 305 125, 390 125 L 570 125 C 655 125, 655 209, 740 209", 4, 2.6, ERROR
-    )
     return s
 
 
@@ -377,6 +450,24 @@ def connector_anatomy() -> Svg:
         "auto_register loads it through the node_wire.connectors entry point, which also registers "
         "its error_map. Each action then becomes a REST route, an MCP tool and a gRPC Invoke call.",
     )
+    outs = [
+        ("REST route", "POST /connectors/<id>/send", "REST"),
+        ("gRPC Invoke", 'action: "send"', "gRPC"),
+        ("MCP tool", "<id>_send", "MCP"),
+    ]
+    # Layering, back to front: lines, traffic dots, then boxes (which hide a dot inside them).
+    s.line("M372 150 L 440 150")
+    period = 6.0
+    for i, (_, _, transport) in enumerate(outs):
+        y = 81 + i * 64
+        s.line(f"M630 150 C 675 150, 675 {y}, 720 {y}")
+        s.route(
+            f"M372 150 L 535 150 L 630 150 C 675 150, 675 {y}, 720 {y} L 825 {y}",
+            period,
+            i * period / 3,
+            color=TRANSPORT[transport],
+        )
+
     s.label(32, 40, "Package")
     s.text(32, 62, "src/node_wire_<id>/", "mi")
     s.box(32, 76, 340, 72)
@@ -400,20 +491,12 @@ def connector_anatomy() -> Svg:
     s.text(456, 138, "auto_register()", "mi")
     s.text(456, 156, "entry point node_wire.connectors", "b")
     s.text(456, 172, "registry + scoped error_map", "b")
-    s.line("M372 150 L 440 150")
 
     s.label(720, 40, "Exposed as")
-    outs = [
-        ("REST route", "POST /connectors/<id>/send"),
-        ("gRPC Invoke", 'action: "send"'),
-        ("MCP tool", "<id>_send"),
-    ]
-    for i, (t, sub) in enumerate(outs):
+    for i, (t, sub, transport) in enumerate(outs):
         y = 56 + i * 64
         s.box(720, y, 210, 50, t, sub, mono_sub=True)
-        s.line(f"M630 150 C 675 150, 675 {y + 25}, 720 {y + 25}")
-        s.dot(f"M630 150 C 675 150, 675 {y + 25}, 720 {y + 25}", 2, 1.6 + i * 0.4)
-    s.dot("M372 150 L 440 150", 1.6, 0)
+        s.add(f'<circle cx="916" cy="{y + 16}" r="3" fill="{TRANSPORT[transport]}"/>')
     return s
 
 

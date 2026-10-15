@@ -14,24 +14,34 @@
     .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
     .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
     .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
-    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
-           animation-delay: var(--w, 0s); opacity: 0; }
+    .route { offset-rotate: 0deg; opacity: 0; }
     .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
     .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
-    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
-                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
     @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
     @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
                         92%, 100% { opacity: 0; } }
     .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
     @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
     @media (prefers-reduced-motion: reduce) {
-      .dot, .hl { animation: none; opacity: 0; }
+      .hl, .route { animation: none !important; opacity: 0; }
       .in, .bar { animation: none; opacity: 1; }
     }
   </style>
   <rect width="960" height="250" rx="12" fill="#ffffff"/>
   <rect x=".5" y=".5" width="959" height="249" rx="12" fill="none" stroke="#e5e7eb"/>
+  <path class="ln" d="M220 81 C 305 81, 305 125, 390 125"/>
+  <path class="ln" d="M220 145 C 305 145, 305 125, 390 125"/>
+  <path class="ln" d="M220 209 C 305 209, 305 125, 390 125"/>
+  <path class="ln" d="M570 125 C 655 125, 655 81, 740 81"/>
+  <path class="ln" d="M570 125 L 740 145"/>
+  <path class="er" d="M570 125 C 655 125, 655 209, 740 209"/>
+  <path class="ln" d="M480 154 L 480 184"/>
+  <style>@keyframes r7 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 49.04% { opacity: 1; } 50.04% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#1a9fc8" style="offset-path: path('M130 81 L 220 81 C 305 81, 305 125, 390 125 L 570 125 C 655 125, 655 81, 740 81 L 835 81'); animation: r7 6.0s linear 0.0s infinite"/>
+  <style>@keyframes r9 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 48.15% { opacity: 1; } 49.15% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#1a9fc8" style="offset-path: path('M130 145 L 220 145 C 305 145, 305 125, 390 125 L 570 125 L 740 145 L 835 145'); animation: r9 6.0s linear 2.0s infinite"/>
+  <style>@keyframes r11 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 51.55% { opacity: 1; } 52.55% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#e01d5a" style="offset-path: path('M130 209 L 220 209 C 305 209, 305 125, 390 125 L 570 125 C 655 125, 655 209, 740 209 L 835 209'); animation: r11 6.0s linear 4.0s infinite"/>
   <text x="40" y="40" class="k" text-anchor="start">CALLERS</text>
   <rect x="40" y="56" width="180" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="54" y="78.0" class="t" text-anchor="start">acme</text>
@@ -49,7 +59,6 @@
   <rect x="400" y="184" width="160" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="414" y="206.0" class="t" text-anchor="start">Config store</text>
   <text x="414" y="222.0" class="b" text-anchor="start">configs · secrets</text>
-  <path class="ln" d="M480 154 L 480 184"/>
   <text x="740" y="40" class="k" text-anchor="start">INSTANCES</text>
   <rect x="740" y="56" width="190" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="754" y="78.0" class="t" text-anchor="start">Pinned to acme</text>
@@ -60,13 +69,4 @@
   <rect x="740" y="184" width="190" height="50" rx="7" fill="#ffffff" stroke="#f3c0cf"/>
   <text x="754" y="206.0" class="t" text-anchor="start">Refused</text>
   <text x="754" y="222.0" class="b" text-anchor="start">fails closed · 403</text>
-  <path class="ln" d="M220 81 C 305 81, 305 125, 390 125"/>
-  <path class="ln" d="M220 145 C 305 145, 305 125, 390 125"/>
-  <path class="ln" d="M220 209 C 305 209, 305 125, 390 125"/>
-  <path class="ln" d="M570 125 C 655 125, 655 81, 740 81"/>
-  <path class="ln" d="M570 125 L 740 145"/>
-  <path class="er" d="M570 125 C 655 125, 655 209, 740 209"/>
-  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M220 81 C 305 81, 305 125, 390 125 L 570 125 C 655 125, 655 81, 740 81'); --d: 4s; --w: 0s"/>
-  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M220 145 C 305 145, 305 125, 390 125 L 570 125 L 740 145'); --d: 4s; --w: 1.3s"/>
-  <circle class="dot" r="3" fill="#e01d5a" style="offset-path: path('M220 209 C 305 209, 305 125, 390 125 L 570 125 C 655 125, 655 209, 740 209'); --d: 4s; --w: 2.6s"/>
 </svg>

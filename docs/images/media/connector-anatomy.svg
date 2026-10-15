@@ -14,24 +14,31 @@
     .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
     .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
     .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
-    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
-           animation-delay: var(--w, 0s); opacity: 0; }
+    .route { offset-rotate: 0deg; opacity: 0; }
     .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
     .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
-    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
-                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
     @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
     @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
                         92%, 100% { opacity: 0; } }
     .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
     @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
     @media (prefers-reduced-motion: reduce) {
-      .dot, .hl { animation: none; opacity: 0; }
+      .hl, .route { animation: none !important; opacity: 0; }
       .in, .bar { animation: none; opacity: 1; }
     }
   </style>
   <rect width="960" height="270" rx="12" fill="#ffffff"/>
   <rect x=".5" y=".5" width="959" height="269" rx="12" fill="none" stroke="#e5e7eb"/>
+  <path class="ln" d="M372 150 L 440 150"/>
+  <path class="ln" d="M630 150 C 675 150, 675 81, 720 81"/>
+  <style>@keyframes r2 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 32.48% { opacity: 1; } 33.48% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#1a9fc8" style="offset-path: path('M372 150 L 535 150 L 630 150 C 675 150, 675 81, 720 81 L 825 81'); animation: r2 6.0s linear 0.0s infinite"/>
+  <path class="ln" d="M630 150 C 675 150, 675 145, 720 145"/>
+  <style>@keyframes r5 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 30.47% { opacity: 1; } 31.47% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#c9971c" style="offset-path: path('M372 150 L 535 150 L 630 150 C 675 150, 675 145, 720 145 L 825 145'); animation: r5 6.0s linear 2.0s infinite"/>
+  <path class="ln" d="M630 150 C 675 150, 675 209, 720 209"/>
+  <style>@keyframes r8 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 32.01% { opacity: 1; } 33.01% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#12867a" style="offset-path: path('M372 150 L 535 150 L 630 150 C 675 150, 675 209, 720 209 L 825 209'); animation: r8 6.0s linear 4.0s infinite"/>
   <text x="32" y="40" class="k" text-anchor="start">PACKAGE</text>
   <text x="32" y="62" class="mi" text-anchor="start">src/node_wire_&lt;id&gt;/</text>
   <rect x="32" y="76" width="340" height="72" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
@@ -50,22 +57,17 @@
   <text x="456" y="138" class="mi" text-anchor="start">auto_register()</text>
   <text x="456" y="156" class="b" text-anchor="start">entry point node_wire.connectors</text>
   <text x="456" y="172" class="b" text-anchor="start">registry + scoped error_map</text>
-  <path class="ln" d="M372 150 L 440 150"/>
   <text x="720" y="40" class="k" text-anchor="start">EXPOSED AS</text>
   <rect x="720" y="56" width="210" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="734" y="78.0" class="t" text-anchor="start">REST route</text>
   <text x="734" y="94.0" class="m" text-anchor="start">POST /connectors/&lt;id&gt;/send</text>
-  <path class="ln" d="M630 150 C 675 150, 675 81, 720 81"/>
-  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M630 150 C 675 150, 675 81, 720 81'); --d: 2s; --w: 1.6s"/>
+  <circle cx="916" cy="72" r="3" fill="#1a9fc8"/>
   <rect x="720" y="120" width="210" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="734" y="142.0" class="t" text-anchor="start">gRPC Invoke</text>
   <text x="734" y="158.0" class="m" text-anchor="start">action: &quot;send&quot;</text>
-  <path class="ln" d="M630 150 C 675 150, 675 145, 720 145"/>
-  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M630 150 C 675 150, 675 145, 720 145'); --d: 2s; --w: 2.0s"/>
+  <circle cx="916" cy="136" r="3" fill="#c9971c"/>
   <rect x="720" y="184" width="210" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="734" y="206.0" class="t" text-anchor="start">MCP tool</text>
   <text x="734" y="222.0" class="m" text-anchor="start">&lt;id&gt;_send</text>
-  <path class="ln" d="M630 150 C 675 150, 675 209, 720 209"/>
-  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M630 150 C 675 150, 675 209, 720 209'); --d: 2s; --w: 2.4000000000000004s"/>
-  <circle class="dot" r="3" fill="#1a9fc8" style="offset-path: path('M372 150 L 440 150'); --d: 1.6s; --w: 0s"/>
+  <circle cx="916" cy="200" r="3" fill="#12867a"/>
 </svg>

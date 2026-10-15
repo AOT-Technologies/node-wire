@@ -14,19 +14,16 @@
     .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
     .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
     .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
-    .dot { offset-rotate: 0deg; animation: travel var(--d, 3s) cubic-bezier(.45,0,.55,1) infinite;
-           animation-delay: var(--w, 0s); opacity: 0; }
+    .route { offset-rotate: 0deg; opacity: 0; }
     .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
     .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
-    @keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 10% { opacity: 1; }
-                        85% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
     @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
     @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
                         92%, 100% { opacity: 0; } }
     .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
     @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
     @media (prefers-reduced-motion: reduce) {
-      .dot, .hl { animation: none; opacity: 0; }
+      .hl, .route { animation: none !important; opacity: 0; }
       .in, .bar { animation: none; opacity: 1; }
     }
   </style>
@@ -35,40 +32,42 @@
   <text x="40" y="40" class="k" text-anchor="start">EVERY ACTION, EVERY TRANSPORT</text>
   <path class="ln" d="M244 64 L 244 58 L 770 58 L 770 64"/>
   <text x="507" y="52" class="k" text-anchor="middle">OpenTelemetry span</text>
-  <rect x="32" y="80" width="92" height="40" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <text x="78.0" y="104.5" class="mi" text-anchor="middle">run()</text>
   <path class="ln" d="M124 100 L 790 100"/>
-  <rect x="146" y="76" width="96" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <g class="hl" style="--d: 5s; --w: 0.35s"><rect x="146" y="76" width="96" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
-  <text x="194.0" y="96" class="t" text-anchor="middle">Tenant</text>
-  <text x="194.0" y="112" class="b" text-anchor="middle">pin check</text>
-  <rect x="264" y="76" width="96" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <g class="hl" style="--d: 5s; --w: 0.85s"><rect x="264" y="76" width="96" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
-  <text x="312.0" y="96" class="t" text-anchor="middle">Validate</text>
-  <text x="312.0" y="112" class="b" text-anchor="middle">Pydantic</text>
-  <rect x="382" y="76" width="96" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <g class="hl" style="--d: 5s; --w: 1.35s"><rect x="382" y="76" width="96" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
-  <text x="430.0" y="96" class="t" text-anchor="middle">Policy</text>
-  <text x="430.0" y="112" class="b" text-anchor="middle">PolicyHook</text>
-  <rect x="500" y="76" width="128" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <g class="hl" style="--d: 5s; --w: 1.85s"><rect x="500" y="76" width="128" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
-  <text x="564.0" y="96" class="t" text-anchor="middle">Resilience</text>
-  <text x="564.0" y="112" class="b" text-anchor="middle">retries · breaker</text>
-  <rect x="652" y="76" width="118" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <g class="hl" style="--d: 5s; --w: 2.35s"><rect x="652" y="76" width="118" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
-  <text x="711.0" y="96" class="t" text-anchor="middle">Execute</text>
-  <text x="711.0" y="112" class="b" text-anchor="middle">connector</text>
-  <rect x="790" y="80" width="140" height="40" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <text x="860.0" y="104.5" class="mi" text-anchor="middle">ConnectorResponse</text>
   <path class="er" d="M194.0 124 L 194.0 176"/>
   <path class="er" d="M312.0 124 L 312.0 176"/>
   <path class="er" d="M430.0 124 L 430.0 176"/>
   <path class="er" d="M564.0 124 L 564.0 176"/>
   <path class="er" d="M711.0 124 L 711.0 176"/>
+  <path class="er" d="M770 196 L 860 196 L 860 120"/>
+  <style>@keyframes r10 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 45.55% { opacity: 1; } 46.55% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#1a9fc8" style="offset-path: path('M78 100 L 860 100'); animation: r10 7.0s linear 0s infinite"/>
+  <style>@keyframes r12 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 43.05% { opacity: 1; } 44.05% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#e01d5a" style="offset-path: path('M312 100 L 312 196 L 860 196 L 860 100'); animation: r12 7.0s linear 3.6s infinite"/>
+  <rect x="32" y="80" width="92" height="40" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="78.0" y="104.5" class="mi" text-anchor="middle">run()</text>
+  <rect x="146" y="76" width="96" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7.0s; --w: 0.13333333333333336s"><rect x="146" y="76" width="96" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="194.0" y="96" class="t" text-anchor="middle">Tenant</text>
+  <text x="194.0" y="112" class="b" text-anchor="middle">pin check</text>
+  <rect x="264" y="76" width="96" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7.0s; --w: 0.625s"><rect x="264" y="76" width="96" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="312.0" y="96" class="t" text-anchor="middle">Validate</text>
+  <text x="312.0" y="112" class="b" text-anchor="middle">Pydantic</text>
+  <rect x="382" y="76" width="96" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7.0s; --w: 1.1166666666666667s"><rect x="382" y="76" width="96" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="430.0" y="96" class="t" text-anchor="middle">Policy</text>
+  <text x="430.0" y="112" class="b" text-anchor="middle">PolicyHook</text>
+  <rect x="500" y="76" width="128" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7.0s; --w: 1.6749999999999998s"><rect x="500" y="76" width="128" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="564.0" y="96" class="t" text-anchor="middle">Resilience</text>
+  <text x="564.0" y="112" class="b" text-anchor="middle">retries · breaker</text>
+  <rect x="652" y="76" width="118" height="48" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7.0s; --w: 2.2875s"><rect x="652" y="76" width="118" height="48" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="711.0" y="96" class="t" text-anchor="middle">Execute</text>
+  <text x="711.0" y="112" class="b" text-anchor="middle">connector</text>
+  <rect x="790" y="80" width="140" height="40" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="860.0" y="104.5" class="mi" text-anchor="middle">ConnectorResponse</text>
   <rect x="160" y="176" width="610" height="40" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="176" y="200" class="t" text-anchor="start">ErrorMapper</text>
   <text x="270" y="200" class="m" text-anchor="start">stable error_code · RETRYABLE · BUSINESS · AUTH · FATAL</text>
-  <path class="er" d="M770 196 L 860 196 L 860 120"/>
-  <circle class="dot" r="3.5" fill="#1a9fc8" style="offset-path: path('M124 100 L 790 100'); --d: 5s; --w: 0.2s"/>
-  <circle class="dot" r="3" fill="#e01d5a" style="offset-path: path('M312 124 L 312 196 L 860 196 L 860 120'); --d: 5s; --w: 2.7s"/>
 </svg>
