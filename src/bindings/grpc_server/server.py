@@ -184,7 +184,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
 
 def serve(port: int = 50051) -> None:
-    check_tenancy_config()
+    check_tenancy_config(("NW_GRPC_API_KEY",))
     _async_runner.start()
     interceptor = GrpcAuthInterceptor()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(interceptor,))

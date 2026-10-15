@@ -73,8 +73,11 @@ The `X-Tenant-ID` header is supplied by the caller, so node-wire does not trust 
 - With auth disabled (local development) or an embedding host that authenticates itself, there is
   no identity and the header is taken as given.
 
-At startup, with multi-tenancy on and a shared API key configured, node-wire refuses to start unless
-`NW_API_KEYS_FILE` or `NW_TRUSTED_TENANT_HEADER=true` is set. It logs the chosen tenancy mode.
+At startup, with multi-tenancy on, each binding refuses to start if **its own** shared API key is
+configured (`NW_REST_API_KEY` for REST, `NW_GRPC_API_KEY` for gRPC, `NW_MCP_API_KEY` for MCP over
+HTTP) unless `NW_API_KEYS_FILE` or `NW_TRUSTED_TENANT_HEADER=true` is set. Another binding's key left
+in a shared `.env` does not matter, and MCP over stdio has no such rule: it has no header, so a
+shared key cannot pick a tenant there. It logs the chosen tenancy mode.
 
 ### Tenant-bound API keys
 
@@ -89,7 +92,14 @@ Only the hash is stored. Generate the key with `openssl rand -hex 32` (keys must
 chosen: the hash is plain SHA-256, which is only safe for high-entropy secrets) and hash it with
 `printf %s "$KEY" | sha256sum`. A key is presented like any API
 key (`Authorization: Bearer` or `X-API-Key`) and its `scopes` apply to it alone;
-`NW_*_API_KEY_SCOPES` apply only to the shared key. A `tenant` of `__default__` is refused at load.
+`NW_*_API_KEY_SCOPES` apply only to the shared key.
+
+The file is validated when the server starts, and a bad entry fails startup naming it (`entry 2`;
+the hash is never printed). Each entry needs a non-blank `key_id`, `hash` and `tenant`; `hash` must
+be 64 hex characters; `scopes`, if present, must be a list of strings; `tenant` cannot be
+`__default__`; and no two entries may share a `hash` or a `key_id`. A blank tenant is refused
+because it would make a tenant-less key, which can pick any tenant by header when
+`NW_TRUSTED_TENANT_HEADER=true`.
 To rotate, add a second entry for the same tenant, then remove the old one.
 
 ### Upgrading

@@ -1725,7 +1725,7 @@ class McpServer:
         raw = os.getenv("NW_TENANT_ID")
         self._tenant_session.set_env_pin(raw.strip() if raw and raw.strip() else None)
 
-        check_tenancy_config()
+        check_tenancy_config(())  # stdio: no header, so no shared-key rule
         log_effective_mcp_auth_state()
 
         low = self._setup_lowlevel_server()
@@ -1891,7 +1891,7 @@ class McpServer:
                 extra={"host": host, "port": port},
             )
 
-        check_tenancy_config()
+        check_tenancy_config(("NW_MCP_API_KEY",))
         log_effective_mcp_auth_state()
 
         starlette_app = self._build_streamable_http_app(path=path)

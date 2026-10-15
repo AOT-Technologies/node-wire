@@ -49,7 +49,6 @@ logger = logging.getLogger("runtime.identity")
 TENANT_HEADER = os.getenv("NW_TENANT_ID_HEADER", "x-tenant-id").lower()
 
 TRUSTED_TENANT_HEADER_ENV = "NW_TRUSTED_TENANT_HEADER"
-_SHARED_API_KEY_ENVS = ("NW_REST_API_KEY", "NW_GRPC_API_KEY", "NW_MCP_API_KEY")
 
 MISSING_TENANT_MESSAGE = "X-Tenant-ID is required when multitenancy is enabled"
 
@@ -164,12 +163,16 @@ def is_multitenancy_enabled() -> bool:
     return _env_flag("NW_MULTITENANCY_ENABLED")
 
 
-def check_tenancy_config() -> None:
+def check_tenancy_config(shared_key_envs: tuple[str, ...]) -> None:
     """Fail startup on unsafe multi-tenant auth config, and log the tenancy mode once.
 
     A shared API key carries no tenant, so multi-tenant mode needs either a key registry
     (``NW_API_KEYS_FILE``) or ``NW_TRUSTED_TENANT_HEADER=true`` (a gateway authenticates the
     header). JWT-only deployments pass: their tokens carry the tenant claim.
+
+    ``shared_key_envs`` are the shared-key variables of the binding that is starting. Another
+    binding's key in a shared ``.env`` is not this process's concern, and MCP over stdio passes
+    none: it has no header, so a shared key cannot pick a tenant there.
     """
     # Simplified: the registry is read once here and cached; changes need a restart.
     registry = api_key_registry_configured()
@@ -179,7 +182,7 @@ def check_tenancy_config() -> None:
         logger.info("Tenancy mode: single-tenant (all calls use __default__)")
         return
     trusted = _env_flag(TRUSTED_TENANT_HEADER_ENV)
-    if any(os.getenv(name) for name in _SHARED_API_KEY_ENVS) and not (registry or trusted):
+    if any(os.getenv(name) for name in shared_key_envs) and not (registry or trusted):
         raise RuntimeError(
             "NW_MULTITENANCY_ENABLED=true with a shared API key but no tenant-bound credentials: "
             "set NW_API_KEYS_FILE (tenant-bound keys) or "

@@ -95,21 +95,55 @@ def api_key_registry_configured() -> bool:
     return bool(os.environ.get(API_KEYS_FILE_ENV, "").strip())
 
 
+_SHA256_HEX = re.compile(r"[0-9a-fA-F]{64}")
+
+
+def _registry_entry(index: int, entry: Any) -> dict[str, Any]:
+    """One validated, normalised registry entry. Errors name the entry and never echo its hash."""
+    where = f"{API_KEYS_FILE_ENV}: entry {index}"
+    if not isinstance(entry, dict):
+        raise ValueError(f"{where} must be a JSON object")
+    for field in ("key_id", "hash", "tenant"):
+        value = entry.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{where} needs a non-empty string {field!r}")
+    key_id, digest, tenant = (entry[field].strip() for field in ("key_id", "hash", "tenant"))
+    if not _SHA256_HEX.fullmatch(digest):
+        raise ValueError(f"{where} ({key_id!r}): 'hash' must be a SHA-256 hex digest")
+    # A blank tenant would make a tenant-less key, which can pick any tenant by header.
+    if tenant == DEFAULT_TENANT:
+        raise ValueError(f"{where} ({key_id!r}) cannot bind {DEFAULT_TENANT!r}")
+    scopes = entry.get("scopes", [])
+    if not isinstance(scopes, list) or not all(isinstance(scope, str) for scope in scopes):
+        raise ValueError(f"{where} ({key_id!r}): 'scopes' must be a list of strings")
+    return {"key_id": key_id, "hash": digest.lower(), "tenant": tenant, "scopes": scopes}
+
+
 @lru_cache(maxsize=None)
 def _read_api_key_registry(path: str) -> tuple[Mapping[str, Any], ...]:
-    entries = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(entries, list):
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:  # JSONDecodeError and UnicodeDecodeError are ValueErrors
+        raise ValueError(
+            f"{API_KEYS_FILE_ENV}: cannot read the key registry ({type(exc).__name__})"
+        ) from exc
+    if not isinstance(raw, list):
         raise ValueError(f"{API_KEYS_FILE_ENV} must contain a JSON array")
-    for entry in entries:
-        if entry["tenant"] == DEFAULT_TENANT:
-            raise ValueError(
-                f"{API_KEYS_FILE_ENV}: key {entry['key_id']!r} cannot bind {DEFAULT_TENANT!r}"
-            )
+    entries = [_registry_entry(index, entry) for index, entry in enumerate(raw)]
+    # The same key twice would bind it to whichever tenant comes first.
+    for field in ("hash", "key_id"):
+        values = [entry[field] for entry in entries]
+        if len(set(values)) != len(values):
+            raise ValueError(f"{API_KEYS_FILE_ENV}: two entries share the same {field!r}")
     return tuple(entries)
 
 
 def load_api_key_registry() -> tuple[Mapping[str, Any], ...]:
     """Tenant-bound keys from ``NW_API_KEYS_FILE``: ``[{key_id, hash, tenant, scopes}]``.
+
+    Every entry is validated here (non-blank ``key_id`` / ``hash`` / ``tenant``, a SHA-256 hex
+    ``hash``, ``scopes`` a list, no ``__default__``, no duplicates) so a typo in the file fails
+    startup naming the entry, instead of becoming a tenant-less key or a ``KeyError`` per request.
 
     ``hash`` is the hex SHA-256 of the key; the key itself is never stored. Simplified: read
     once per path and cached; changes need a restart.
@@ -127,11 +161,11 @@ def api_key_registry_claims(token: str) -> dict[str, Any] | None:
     # request with a bad token. Same trade-off as GitHub/Stripe-style API-key storage.
     digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
     for entry in load_api_key_registry():
-        if hmac.compare_digest(digest, str(entry["hash"]).lower()):
+        if hmac.compare_digest(digest, entry["hash"]):
             return {
                 "sub": entry["key_id"],
                 "tenant_id": entry["tenant"],
-                "scopes": entry.get("scopes", []),
+                "scopes": entry["scopes"],
             }
     return None
 
