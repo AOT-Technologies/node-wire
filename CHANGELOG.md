@@ -432,7 +432,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (tenant, config) instance.
   - Only `RETRYABLE` failures and transport-level `FATAL` ones (`OSError`, `httpx.TransportError`)
     count. `BUSINESS`, `AUTH` and any other `FATAL` never do, and they reset the consecutive
-    count, because the upstream answered. A cancelled call is ignored.
+    count, because the upstream answered. A cancelled call is ignored; if it was the half-open
+    trial, the next caller becomes the trial at once instead of waiting another `reset_timeout`.
   - One invocation counts at most once, however many attempts it needed. **Upgrade note:**
     opening now takes `fail_max` failed invocations (up to 15 attempts at the default 5), not 5
     attempts; lower `fail_max` for a connector to restore the old sensitivity.

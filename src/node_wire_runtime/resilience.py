@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from functools import wraps
@@ -93,7 +94,7 @@ class CircuitBreaker:
         and becomes the trial; a trial still running after another ``reset_timeout``
         is replaced the same way. The check and the claim do not await, so two
         tasks on this loop cannot both become the trial. Pass the returned
-        generation to :meth:`record_success` / :meth:`record_failure`.
+        generation to :meth:`record_success`, :meth:`record_failure` or :meth:`release`.
         """
         if self._state_name == "closed":
             return self._generation
@@ -104,6 +105,19 @@ class CircuitBreaker:
         self._opened_at = time.monotonic()
         self._generation += 1
         return self._generation
+
+    def release(self, generation: int) -> None:
+        """Give up a half-open trial that produced no result, so the next caller can be the trial.
+
+        For a trial that was cancelled (e.g. a client disconnect): it says nothing about the
+        upstream, but must not keep the breaker half-open for another ``reset_timeout``. The breaker
+        goes back to open with the timer already expired. Does nothing in any other state, or for
+        a call that is not the live trial (it started before the last change).
+        """
+        if generation != self._generation or self._state_name != "half-open":
+            return
+        self._state_name = "open"
+        self._opened_at = time.monotonic() - self.reset_timeout
 
     def record_success(self, generation: int) -> None:
         # A call that started before the last trip cannot close the breaker or
@@ -256,6 +270,12 @@ def with_resilience(
             # says nothing about the upstream, so it neither counts nor closes the breaker.
             try:
                 result = await _with_retries(trace_id, args, kwargs)
+            except asyncio.CancelledError:
+                # Simplified: only cancellation; KeyboardInterrupt and SystemExit end the process.
+                # If this was the half-open trial, hand the slot to the next caller instead of
+                # leaving everyone rejected for another reset_timeout.
+                current_breaker.release(generation)
+                raise
             except Exception as exc:  # noqa: BLE001
                 category = ErrorMapper.resolve(exc, connector_id=connector_id).category
                 if _counts_against_breaker(exc, category):

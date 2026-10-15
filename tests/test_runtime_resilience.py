@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import time
 from functools import partial
 
 import httpx
@@ -724,3 +726,157 @@ def test_a_bad_class_attribute_fails_when_the_connector_is_built(
 
     with pytest.raises(ValueError, match="NW_BREAKER_TEST_BREAKER_PROBE_FAIL_MAX"):
         BreakerProbe()
+
+
+# --------------------------------------------------------------------------- #
+# A cancelled half-open trial hands its slot to the next caller
+# --------------------------------------------------------------------------- #
+
+
+def _trial_probe(breaker: CircuitBreaker):
+    """A wrapped call whose behaviour is switched through the returned ``mode`` dict."""
+    mode = {"v": "fail"}
+    gate = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def call(*, trace_id: str = "t") -> str:
+        if mode["v"] == "fail":
+            raise RetryableTestError("down")
+        if mode["v"] == "hang":
+            await asyncio.sleep(10)
+        if mode["v"] == "gate":
+            await gate.wait()
+        return "ok"
+
+    return call, mode, gate
+
+
+async def _open_and_wait_out_the_timeout(call, breaker: CircuitBreaker) -> None:
+    # The call that trips the breaker raises its own error or CircuitBreakerError; either is fine.
+    with contextlib.suppress(RetryableTestError, CircuitBreakerError):
+        await call(trace_id="trip")
+    assert breaker.state.name == "open"
+    await asyncio.sleep(breaker.reset_timeout + 0.03)
+
+
+async def test_a_cancelled_trial_hands_the_slot_to_the_next_caller() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    call, mode, _ = _trial_probe(breaker)
+    await _open_and_wait_out_the_timeout(call, breaker)
+
+    mode["v"] = "hang"
+    trial = asyncio.create_task(call(trace_id="trial"))
+    await asyncio.sleep(0)  # the trial is under way
+    assert breaker.state.name == "half-open"
+
+    trial.cancel()  # the client disconnects
+    await asyncio.wait({trial})
+
+    assert trial.cancelled()
+    assert breaker.state.name == "open"  # not stuck half-open
+    mode["v"] = "ok"
+    assert await call(trace_id="next") == "ok"  # no second reset_timeout to wait out
+    assert breaker.state.name == "closed"
+
+
+async def test_a_trial_stopped_by_asyncio_timeout_releases_the_slot() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    call, mode, _ = _trial_probe(breaker)
+    await _open_and_wait_out_the_timeout(call, breaker)
+
+    mode["v"] = "hang"
+    with pytest.raises(TimeoutError):
+        async with asyncio.timeout(0.02):
+            await call(trace_id="trial")
+
+    assert breaker.state.name == "open"
+    mode["v"] = "ok"
+    assert await call(trace_id="next") == "ok"
+
+
+async def test_cancelling_a_call_in_a_closed_breaker_changes_nothing() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=30)
+    call, mode, _ = _trial_probe(breaker)
+    mode["v"] = "hang"
+    task = asyncio.create_task(call(trace_id="t"))
+    await asyncio.sleep(0)
+
+    task.cancel()
+    await asyncio.wait({task})
+
+    assert task.cancelled()
+    assert breaker.state.name == "closed"
+    assert breaker.fail_counter == 0
+
+
+async def test_cancelling_a_replaced_trial_leaves_the_new_trial_alone() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    call, mode, gate = _trial_probe(breaker)
+    await _open_and_wait_out_the_timeout(call, breaker)
+
+    mode["v"] = "hang"
+    first = asyncio.create_task(call(trace_id="first"))
+    await asyncio.sleep(0)  # the first trial is under way
+    await asyncio.sleep(breaker.reset_timeout + 0.03)  # it outlives reset_timeout...
+    mode["v"] = "gate"
+    second = asyncio.create_task(call(trace_id="second"))
+    await asyncio.sleep(0)  # ...so the second call replaces it as the trial
+    assert breaker.state.name == "half-open"
+
+    first.cancel()  # the stale trial is cancelled
+    await asyncio.wait({first})
+
+    assert breaker.state.name == "half-open"  # the second trial still holds the slot
+    with pytest.raises(CircuitBreakerError):
+        await call(trace_id="during")
+    gate.set()
+    assert await second == "ok"
+    assert breaker.state.name == "closed"
+
+
+def test_release_only_applies_to_the_live_half_open_trial() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01)
+
+    closed_generation = breaker.allow()
+    breaker.release(closed_generation)  # closed: nothing to release
+    assert breaker.state.name == "closed"
+    assert breaker.fail_counter == 0
+
+    breaker.open()
+    breaker.release(closed_generation)  # open, and a stale generation anyway
+    assert breaker.state.name == "open"
+
+    time.sleep(0.02)
+    trial = breaker.allow()  # half-open: this call is the live trial
+    assert breaker.state.name == "half-open"
+    breaker.release(trial)
+    assert breaker.state.name == "open"
+    assert breaker.allow() == trial + 1  # the next caller becomes the trial immediately
+
+    breaker.release(trial)  # that trial is now a stale generation
+    assert breaker.state.name == "half-open"
+
+
+async def test_a_retry_loop_that_yields_no_attempt_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard after the loop: tenacity should always return or raise, never just stop."""
+
+    class _NoAttempts:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def __aiter__(self) -> "_NoAttempts":
+            return self
+
+        async def __anext__(self) -> None:
+            raise StopAsyncIteration
+
+    monkeypatch.setattr("node_wire_runtime.resilience.AsyncRetrying", _NoAttempts)
+
+    @with_resilience(CircuitBreaker())
+    async def call(*, trace_id: str = "t") -> str:
+        return "unreachable"
+
+    with pytest.raises(RuntimeError, match="Exhausted retries without success"):
+        await call(trace_id="t")
