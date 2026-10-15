@@ -514,6 +514,42 @@ jobs:
 
           print(f"PASS: building {pyproject.parent} at version {version}")
 
+      # pyproject.toml pins release minimums, which no beta satisfies (1.0.0b1 <
+      # 1.0.0). A beta meta lowers each node-wire-* minimum to its first beta so
+      # it pulls beta siblings; a release meta keeps the release-only pins.
+      - name: Lower node-wire-* minimums to betas (beta channel only)
+        if: needs.prerequisites.outputs.channel == 'beta'
+        shell: python
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          pyproject = pathlib.Path(os.environ["PACKAGE_PATH"]) / "pyproject.toml"
+          text = pyproject.read_text(encoding="utf-8")
+
+          def to_beta(match: re.Match[str]) -> str:
+              parts = match.group(2).split(".")
+              base = ".".join(parts + ["0"] * (3 - len(parts)))
+              return f'"{match.group(1)}>={base}b1,'
+
+          patched = re.sub(r'"(node-wire-[a-z0-9-]+)>=(\d+(?:\.\d+){0,2}),', to_beta, text)
+
+          deps = tomllib.loads(patched)["project"]["dependencies"]
+          ours = [d for d in deps if d.startswith("node-wire-")]
+          unpatched = [d for d in ours if not re.search(r">=\d+\.\d+\.\d+b1,", d)]
+          if not ours or unpatched:
+              print(f"ERROR: node-wire-* deps not lowered to betas: {unpatched or deps}", file=sys.stderr)
+              sys.exit(1)
+          pyproject.write_text(patched, encoding="utf-8")
+
+          for dep in ours:
+              print(f"PASS: {dep}")
+
       - name: Build pure wheel
         run: |
           python -m pip install "build==1.2.2"
@@ -638,13 +674,36 @@ jobs:
       # dist/ holds wheels for all platforms; only the linux cp313 wheel is
       # installable on this runner (Python 3.13 / ubuntu). The dependency tree
       # audited by pip-audit is identical across platform wheels.
+      # Connectors depend on node-wire-runtime, and meta on runtime plus every
+      # connector; those may not be on PyPI yet at a satisfying version (or with
+      # a cp313 wheel), so install them from this commit, as security-pr.yml
+      # does. Beta wheels depend on beta siblings, so --pre.
       - name: Install built wheels for CVE scan
         shell: bash
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
+          CHANNEL: ${{ needs.prerequisites.outputs.channel }}
         run: |
-          if [[ "${{ needs.prerequisites.outputs.package_path }}" == "packages/meta" ]]; then
-            pip install dist/*.whl
+          pre=()
+          if [[ "${CHANNEL}" == "beta" ]]; then
+            pre=(--pre)
+          fi
+          if [[ "${PACKAGE_PATH}" == "packages/meta" ]]; then
+            pip install "${pre[@]}" \
+              packages/runtime \
+              packages/connectors/http_generic \
+              packages/connectors/stripe \
+              packages/connectors/smtp \
+              packages/connectors/google_drive \
+              packages/connectors/fhir_cerner \
+              packages/connectors/fhir_epic \
+              packages/connectors/salesforce \
+              packages/connectors/slack \
+              dist/*.whl
+          elif [[ "${PACKAGE_PATH}" == "packages/runtime" ]]; then
+            pip install "${pre[@]}" dist/*cp313*manylinux*.whl
           else
-            pip install dist/*cp313*manylinux*.whl
+            pip install "${pre[@]}" packages/runtime dist/*cp313*manylinux*.whl
           fi
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
