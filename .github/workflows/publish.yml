@@ -677,33 +677,52 @@ jobs:
       # Connectors depend on node-wire-runtime, and meta on runtime plus every
       # connector; those may not be on PyPI yet at a satisfying version (or with
       # a cp313 wheel), so install them from this commit, as security-pr.yml
-      # does. Beta wheels depend on beta siblings, so --pre.
+      # does. For meta, the local paths are derived from its pyproject so a
+      # newly added connector can't silently fall through to PyPI.
+      # No --pre: it would apply to third-party deps too, so pip-audit would
+      # scan versions users never resolve. Beta node-wire-* requirements
+      # (>=X.Y.Zb1) already admit pre-releases under PEP 440.
       - name: Install built wheels for CVE scan
         shell: bash
         env:
           PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
-          CHANNEL: ${{ needs.prerequisites.outputs.channel }}
         run: |
-          pre=()
-          if [[ "${CHANNEL}" == "beta" ]]; then
-            pre=(--pre)
-          fi
           if [[ "${PACKAGE_PATH}" == "packages/meta" ]]; then
-            pip install "${pre[@]}" \
-              packages/runtime \
-              packages/connectors/http_generic \
-              packages/connectors/stripe \
-              packages/connectors/smtp \
-              packages/connectors/google_drive \
-              packages/connectors/fhir_cerner \
-              packages/connectors/fhir_epic \
-              packages/connectors/salesforce \
-              packages/connectors/slack \
-              dist/*.whl
+            deps_file="${RUNNER_TEMP:-/tmp}/meta-local-deps.txt"
+            python - > "${deps_file}" <<'EOF'
+          import glob, re, sys, tomllib
+
+          def norm(name):
+              return re.sub(r"[-_.]+", "-", name).lower()
+
+          def dist_name(path):
+              with open(f"{path}/pyproject.toml", "rb") as f:
+                  return norm(tomllib.load(f)["project"]["name"])
+
+          candidates = ["packages/runtime"] + sorted(
+              p.removesuffix("/pyproject.toml")
+              for p in glob.glob("packages/connectors/*/pyproject.toml")
+          )
+          paths = {dist_name(p): p for p in candidates}
+
+          with open("packages/meta/pyproject.toml", "rb") as f:
+              deps = tomllib.load(f)["project"]["dependencies"]
+          ours = [norm(re.match(r"[A-Za-z0-9._-]+", d).group()) for d in deps]
+          ours = [n for n in ours if n.startswith("node-wire-")]
+
+          missing = [n for n in ours if n not in paths]
+          if missing:
+              print(f"ERROR: no local package for meta deps: {missing}", file=sys.stderr)
+              sys.exit(1)
+          print("\n".join(paths[n] for n in ours))
+          EOF
+            local_deps=()
+            while IFS= read -r dep; do local_deps+=("${dep}"); done < "${deps_file}"
+            pip install "${local_deps[@]}" dist/*.whl
           elif [[ "${PACKAGE_PATH}" == "packages/runtime" ]]; then
-            pip install "${pre[@]}" dist/*cp313*manylinux*.whl
+            pip install dist/*cp313*manylinux*.whl
           else
-            pip install "${pre[@]}" packages/runtime dist/*cp313*manylinux*.whl
+            pip install packages/runtime dist/*cp313*manylinux*.whl
           fi
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
