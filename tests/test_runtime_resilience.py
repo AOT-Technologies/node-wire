@@ -260,7 +260,7 @@ def test_with_resilience_opens_breaker_after_repeated_failures() -> None:
     with pytest.raises(RetryableTestError):
         asyncio.run(fail(trace_id="t1"))
 
-    with pytest.raises(CircuitBreakerError):
+    with pytest.raises(RetryableTestError):  # the failure that opens it reports its own error
         asyncio.run(fail(trace_id="t2"))
 
     assert breaker.state.name == "open"
@@ -302,7 +302,7 @@ def test_open_breaker_allows_one_trial_after_reset_timeout() -> None:
         return "ok"
 
     async def scenario() -> None:
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError):  # the failure that opens it
             await call(trace_id="t1")
         assert breaker.state.name == "open"
         assert calls["n"] == 1
@@ -330,7 +330,7 @@ def test_failed_trial_reopens_breaker_and_restarts_timeout() -> None:
         raise RetryableTestError("still down")
 
     async def scenario() -> None:
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError):  # the failure that opens it
             await call(trace_id="t1")
         await asyncio.sleep(0.08)
         with pytest.raises(RetryableTestError):
@@ -360,7 +360,7 @@ def test_half_open_allows_only_one_trial() -> None:
         return "ok"
 
     async def scenario() -> None:
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError):  # the failure that opens it
             await call(trace_id="trip")
         await asyncio.sleep(0.08)
         tasks = [asyncio.create_task(call(trace_id=f"c{i}")) for i in range(5)]
@@ -399,7 +399,7 @@ def test_late_success_does_not_close_an_open_breaker() -> None:
     async def scenario() -> None:
         straggler = asyncio.create_task(slow(trace_id="slow"))
         await asyncio.sleep(0)
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError):  # the failure that opens it
             await failing(trace_id="trip")
         release.set()
         assert await straggler == "ok"
@@ -426,7 +426,7 @@ def test_late_success_does_not_close_a_half_open_breaker() -> None:
     async def scenario() -> None:
         straggler = asyncio.create_task(wait_for(release_straggler, trace_id="slow"))
         await asyncio.sleep(0)
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError):  # the failure that opens it
             await failing(trace_id="trip")
         await asyncio.sleep(0.08)
         trial = asyncio.create_task(wait_for(release_trial, trace_id="trial"))
@@ -461,7 +461,7 @@ def test_late_failure_keeps_timeout_and_its_own_exception() -> None:
     async def scenario() -> None:
         straggler = asyncio.create_task(slow_failing(trace_id="slow"))
         await asyncio.sleep(0)
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError, match="down"):  # the failure that opens it
             await failing(trace_id="trip")
         opened_at = breaker._opened_at
         release.set()
@@ -492,7 +492,7 @@ def test_hung_trial_is_replaced_after_reset_timeout() -> None:
         return "ok"
 
     async def scenario() -> None:
-        with pytest.raises(CircuitBreakerError):
+        with pytest.raises(RetryableTestError):  # the failure that opens it
             await failing(trace_id="trip")
         await asyncio.sleep(0.08)
         trial = asyncio.create_task(hung(trace_id="trial"))
@@ -617,7 +617,7 @@ async def test_a_trial_that_ends_in_a_business_error_closes_the_breaker() -> Non
         outcome = results.pop(0)
         raise RetryableTestError(outcome) if outcome == "down" else NotFoundTestError(outcome)
 
-    with pytest.raises(CircuitBreakerError):  # the failure that trips it
+    with pytest.raises(RetryableTestError):  # the failure that trips it reports its own error
         await call(trace_id="t1")
     assert breaker.state.name == "open"
 
@@ -752,8 +752,8 @@ def _trial_probe(breaker: CircuitBreaker):
 
 
 async def _open_and_wait_out_the_timeout(call, breaker: CircuitBreaker) -> None:
-    # The call that trips the breaker raises its own error or CircuitBreakerError; either is fine.
-    with contextlib.suppress(RetryableTestError, CircuitBreakerError):
+    # The call that trips the breaker reports its own error.
+    with contextlib.suppress(RetryableTestError):
         await call(trace_id="trip")
     assert breaker.state.name == "open"
     await asyncio.sleep(breaker.reset_timeout + 0.03)
@@ -880,3 +880,107 @@ async def test_a_retry_loop_that_yields_no_attempt_fails_loudly(
 
     with pytest.raises(RuntimeError, match="Exhausted retries without success"):
         await call(trace_id="t")
+
+
+# --------------------------------------------------------------------------- #
+# Opening the breaker keeps the failing call's own error (CNP-115)
+# --------------------------------------------------------------------------- #
+
+
+class _ExitLike(BaseException):
+    """Stands in for KeyboardInterrupt / SystemExit, which asyncio treats specially."""
+
+
+async def test_v2_3_case_d_a_cancelled_run_is_not_an_envelope_and_does_not_open_a_fail_max_1_breaker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(BreakerProbe, "breaker_fail_max", 1)
+    connector = BreakerProbe()
+    task = asyncio.create_task(_go(connector, "slow"))
+    await asyncio.sleep(0.05)  # inside the action
+
+    task.cancel()
+    await asyncio.wait({task})
+
+    assert task.cancelled()  # CancelledError, not a FATAL ConnectorResponse
+    assert _breaker(connector).fail_counter == 0
+    assert _breaker(connector).state.name == "closed"
+
+
+async def test_v2_3_case_d2_asyncio_timeout_raises_timeout_error_and_is_not_counted() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=30)
+    call, mode, _ = _trial_probe(breaker)
+    mode["v"] = "hang"
+
+    with pytest.raises(TimeoutError):
+        async with asyncio.timeout(0.02):
+            await call(trace_id="t")
+
+    assert breaker.fail_counter == 0
+    assert breaker.state.name == "closed"
+
+
+async def test_v2_3_case_e_the_call_that_opens_the_breaker_reports_its_own_error() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=30)
+    call, _, _ = _trial_probe(breaker)
+
+    with pytest.raises(RetryableTestError, match="down"):
+        await call(trace_id="opens")
+    assert breaker.state.name == "open"
+
+    with pytest.raises(CircuitBreakerError):  # only the next call sees the open circuit
+        await call(trace_id="next")
+
+
+async def test_v2_3_case_e_through_run_the_threshold_caller_gets_its_own_error_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(BreakerProbe, "breaker_fail_max", 1)
+    connector = BreakerProbe()
+
+    opens = await _go(connector, "oserror")  # transport-level FATAL: counts, is not retried
+    rejected = await _go(connector, "oserror")
+
+    assert opens.error_code == "OSError"
+    assert opens.error_category == ErrorCategory.FATAL
+    assert rejected.error_code == "CircuitBreakerError"
+    assert connector.attempts == 1  # the rejected call never reached the action
+
+
+async def test_a_failure_that_is_not_an_exception_propagates_unchanged_and_is_not_counted() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=30)
+
+    @with_resilience(breaker, max_attempts=1)
+    async def call(*, trace_id: str = "t") -> str:
+        raise _ExitLike
+
+    with pytest.raises(_ExitLike):
+        await call(trace_id="t")
+
+    assert breaker.fail_counter == 0
+    assert breaker.state.name == "closed"
+
+
+def test_record_failure_at_the_threshold_opens_the_breaker_without_raising() -> None:
+    breaker = CircuitBreaker(fail_max=2, reset_timeout=30)
+    generation = breaker.allow()
+
+    assert breaker.record_failure(generation) is None
+    assert breaker.state.name == "closed"
+    assert breaker.record_failure(generation) is None
+    assert breaker.state.name == "open"
+
+
+def test_the_breaker_logs_a_warning_when_it_opens(caplog: pytest.LogCaptureFixture) -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=30, name="probe_breaker")
+
+    with caplog.at_level("WARNING", logger="runtime.resilience"):
+        breaker.record_failure(breaker.allow())
+
+    opened = [r for r in caplog.records if r.getMessage() == "Circuit breaker opened"]
+    assert len(opened) == 1
+    assert (opened[0].breaker, opened[0].fail_max, opened[0].reset_timeout) == (
+        "probe_breaker",
+        1,
+        30,
+    )
