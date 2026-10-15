@@ -82,6 +82,7 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#smtp)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)
 - [Error codes](https://aot-technologies.github.io/node-wire/errors/)

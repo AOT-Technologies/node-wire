@@ -156,6 +156,7 @@ Anything not listed there, or named with a leading underscore, is internal. See 
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Node Wire documentation](https://aot-technologies.github.io/node-wire/)
 - [Build a connector](https://aot-technologies.github.io/node-wire/connectors-build/)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)

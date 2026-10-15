@@ -87,6 +87,7 @@ resource bodies. See [Privacy](https://aot-technologies.github.io/node-wire/priv
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#fhir_epic-and-fhir_cerner)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)
 - [Error codes](https://aot-technologies.github.io/node-wire/errors/)

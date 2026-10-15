@@ -85,6 +85,7 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Google Drive setup guide](https://aot-technologies.github.io/node-wire/google_drive_connector/): service-account setup, per-user access and error codes
 - [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#google_drive)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)

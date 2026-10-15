@@ -74,6 +74,7 @@ absolute, and is refused if it resolves outside that directory, including throug
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Slack setup guide](https://aot-technologies.github.io/node-wire/slack_connector/): bot setup, channel resolution and error codes
 - [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#slack)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)

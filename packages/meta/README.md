@@ -75,6 +75,7 @@ A stable release depends only on stable releases of the runtime and connectors.
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Node Wire documentation](https://aot-technologies.github.io/node-wire/)
 - [Connector catalog](https://aot-technologies.github.io/node-wire/connector-reference/#connector-catalog)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)

@@ -84,6 +84,7 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [Salesforce setup guide](https://aot-technologies.github.io/node-wire/salesforce_connector/): configuration and examples
 - [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#salesforce)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)

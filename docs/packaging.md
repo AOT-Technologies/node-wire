@@ -267,6 +267,7 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 
 ## Documentation
 
+- [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
 - [<Service> setup guide](<url>) <!-- optional -->
 - [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#<connector_id>)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)
