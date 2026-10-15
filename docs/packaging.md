@@ -59,8 +59,10 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 
 | File | Purpose |
 |---|---|
-| `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point |
+| `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point — see [Tier 2 templates](#tier-2-templates) below |
 | `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates) below |
+| `packages/connectors/<name>/README.md` | The PyPI project page — see [`README.md` template](#readmemd-template) below |
+| `packages/connectors/<name>/LICENSE` | Copy of the repository `LICENSE`; `license-files` ships it in the wheel |
 | [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
 | [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to the `package` dropdown **and** the `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
 | [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
@@ -71,26 +73,64 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 
 ### Tier 2 templates
 
+Every connector package uses the same `pyproject.toml` and `README.md` layout, so the PyPI pages read
+alike. Only the marked fields change from one connector to the next.
+
 #### `pyproject.toml` template
 
 ```toml
-# packages/connectors/<name>/pyproject.toml
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+
 [project]
-name = "node-wire-<name>"
+name = "node-wire-<dist-name>"
 version = "1.0.0"
-description = "Node Wire connector — <short description>"
+# "Node Wire connector for <Service>: <the actions, in plain words>"
+description = "Node Wire connector for <Service>: <what it does>"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+maintainers = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+# Always node-wire, connector, mcp; then the service and its domain.
+keywords = ["node-wire", "connector", "mcp", "<service>", "<domain>"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Cython",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  # Plus one or two Topic classifiers for the service's domain, e.g.
+  # "Topic :: Communications :: Email".
+]
 
 dependencies = [
     "node-wire-runtime>=1.0.0",
     # Add vendor SDK or HTTP client here, e.g.:
-    # "httpx>=0.27.0,<0.28.0",
+    # "httpx[http2]>=0.27.0,<0.28.0",
 ]
 
 [project.entry-points."node_wire.connectors"]
 <connector_id> = "node_wire_<name>.logic"
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+# The connector's setup guide if it has one, else its connector-reference entry.
+Documentation = "https://aot-technologies.github.io/node-wire/connector-reference/#<connector_id>"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
@@ -151,7 +191,96 @@ if __name__ == "__main__":
     )
 ```
 
-Replace `<name>` with the connector's snake_case name (e.g. `my_service`) and `<connector_id>` with the entry-point key (same string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`).
+#### `README.md` template
+
+The README is the PyPI project page, so every link is an absolute URL — relative links break on
+PyPI. Keep the sections in this order and drop an optional one rather than leave it empty.
+
+````markdown
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# node-wire-<dist-name>
+
+<One or two sentences: which service, and what an agent or app can do with it.>
+
+Part of [Node Wire](https://github.com/AOT-Technologies/node-wire). Every call runs through the
+Node Wire runtime, so it gets input validation, retries with a circuit breaker, scope policy,
+a shared error taxonomy, and OpenTelemetry tracing. A Node Wire host exposes each action over REST,
+gRPC and MCP.
+
+## Install
+
+```bash
+pip install node-wire-<dist-name>
+```
+
+This pulls in [`node-wire-runtime`](https://pypi.org/project/node-wire-runtime/). Pre-releases
+are published as `X.Y.ZbN`; install one with `pip install --pre node-wire-<dist-name>`. To install
+every connector at once, use [`node-wire-connectors`](https://pypi.org/project/node-wire-connectors/).
+
+Wheels are compiled with Cython and contain no Python source. They are built for CPython 3.11,
+3.12 and 3.13 on Linux x86_64 (manylinux and musllinux), macOS arm64 and Windows x64.
+
+## Actions
+
+The connector registers as `<connector_id>`. MCP tool names are `<connector_id>_<action>`, with
+dots replaced by underscores.
+
+| Action | MCP tool | What it does |
+|---|---|---|
+| `<action>` | `<connector_id>_<action>` | <one line> |
+
+## Configuration
+
+Add the connector to `config/connectors.yaml`:
+
+```yaml
+connectors:
+  <connector_id>:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    auth:
+      provider: <provider>
+      # ...
+```
+
+Secrets are read through the configured secret provider (environment variables by default):
+
+| Variable | Purpose |
+|---|---|
+| `<VAR>` | <what it holds> |
+
+## Usage
+
+Set `NW_ALLOWED_CONNECTORS=<connector_id>` (comma-separate several). Node Wire loads only the
+connectors listed there, and discovers them through the `node_wire.connectors` entry point.
+A Node Wire host (the REST, gRPC or MCP server, or `ConnectorFactory`) then builds the connector
+from the configuration above. See [Use a connector](https://aot-technologies.github.io/node-wire/connectors/).
+
+## Security notes
+
+<Optional. Egress restrictions, sandboxing, privacy of logged data.>
+
+## Documentation
+
+- [<Service> setup guide](<url>) <!-- optional -->
+- [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#<connector_id>)
+- [Configuration](https://aot-technologies.github.io/node-wire/configuration/)
+- [Error codes](https://aot-technologies.github.io/node-wire/errors/)
+- [Changelog](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md)
+
+## License
+
+Apache-2.0. See [LICENSE](https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE).
+````
+
+Replace `<name>` with the connector's snake_case name (e.g. `my_service`), `<dist-name>` with the
+same name in kebab case (e.g. `my-service`), and `<connector_id>` with the entry-point key (same
+string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`).
 
 ### CI allowlist updates
 

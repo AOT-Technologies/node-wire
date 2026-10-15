@@ -5,10 +5,28 @@
 [project]
 name = "node-wire-connectors"
 version = "1.0.0"
-description = "Node Wire runtime and all public connectors"
+description = "Install the Node Wire runtime and all eight official connectors (HTTP, SMTP, Stripe, Slack, Salesforce, Google Drive, Epic and Cerner FHIR) in one step"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+maintainers = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+keywords = ["node-wire", "connectors", "mcp", "ai-agents", "integration", "meta-package"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 
 dependencies = [
     "node-wire-runtime>=1.1,<2",
@@ -21,6 +39,13 @@ dependencies = [
     "node-wire-fhir-epic>=1.0,<2",
     "node-wire-fhir-cerner>=1.0,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+Documentation = "https://aot-technologies.github.io/node-wire/connector-reference/#connector-catalog"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=69.0.0", "wheel"]
