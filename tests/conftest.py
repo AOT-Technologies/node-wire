@@ -117,6 +117,11 @@ def _tenants_isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep tenants.yaml off the repo and clear overlay between tests."""
     path = tmp_path / "tenants.yaml"
     monkeypatch.setenv("NW_TENANTS_PATH", str(path))
+    # Tenant secrets need a durable store; give every test an encrypted one under tmp_path.
+    # Tests of the "no store configured" behaviour delete NW_ALLOW_LOCAL_SECRET_FILE.
+    monkeypatch.setenv("NW_ALLOW_LOCAL_SECRET_FILE", "true")
+    monkeypatch.setenv("NW_LOCAL_SECRET_KEY", "6tKDDLMAFlYiuc8xOB2Ij5N8rG_kPWuKCrx3lpzWXzE=")
+    monkeypatch.setenv("NW_LOCAL_SECRET_FILE", str(tmp_path / "secrets" / "tenant_secrets.enc"))
     from node_wire_runtime.secrets import OverlaySecretProvider
     import node_wire_runtime.tenant_persistence as pt
 
