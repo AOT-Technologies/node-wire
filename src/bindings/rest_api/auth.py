@@ -30,6 +30,7 @@ from starlette.responses import JSONResponse, Response
 
 from node_wire_runtime.caller_identity import (
     CallerIdentity,
+    api_key_registry_configured,
     verify_bearer_token_and_identity,
 )
 
@@ -180,7 +181,7 @@ class RestAuthMiddleware(BaseHTTPMiddleware):
         api_key = os.environ.get("NW_REST_API_KEY")
         jwt_secret = os.environ.get("NW_REST_JWT_SECRET")
 
-        if not api_key and not jwt_secret:
+        if not api_key and not jwt_secret and not api_key_registry_configured():
             return JSONResponse(
                 status_code=503,
                 content={

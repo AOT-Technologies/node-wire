@@ -43,6 +43,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setenv("NW_REST_AUTH_DISABLED", "false")
     monkeypatch.setenv("NW_REST_JWT_SECRET", _SECRET)
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    # A JWT with no tenant claim only picks its tenant by header behind an authenticating gateway.
+    monkeypatch.setenv("NW_TRUSTED_TENANT_HEADER", "true")
     factory = ConnectorFactory()
     for tenant in ("acme", "beta"):
         factory.store.create(tenant, "http_generic", {"name": "a", "default": True, "config": {}})

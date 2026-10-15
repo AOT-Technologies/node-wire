@@ -25,6 +25,7 @@ import grpc
 
 from node_wire_runtime.caller_identity import (
     CallerIdentity,
+    api_key_registry_configured,
     verify_bearer_token_and_identity,
 )
 
@@ -114,7 +115,7 @@ class GrpcAuthInterceptor(grpc.ServerInterceptor):
 
             return grpc.unary_unary_rpc_method_handler(abort)
 
-        if not api_key and not jwt_secret:
+        if not api_key and not jwt_secret and not api_key_registry_configured():
             return _abort_with_status(
                 grpc.StatusCode.UNAVAILABLE,
                 "gRPC API authentication is not configured. Set NW_GRPC_API_KEY "
