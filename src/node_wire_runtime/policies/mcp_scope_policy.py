@@ -20,6 +20,7 @@ logger = logging.getLogger("runtime.policy.scope")
 # Public for tests and MCP tool listing (must match hook behavior).
 DEFAULT_SCOPE_MODE_ALLOW = "allow"
 DEFAULT_SCOPE_MODE_DENY = "deny"
+DEFAULT_SCOPE_MODE_ENV = "NW_MCP_SCOPE_POLICY_DEFAULT"
 
 
 @lru_cache(maxsize=None)
@@ -32,20 +33,39 @@ def _warn_implicit_scope_default() -> None:
     )
 
 
-def _truthy_default_mode(val: str) -> str:
-    v = val.strip().lower()
-    if v in ("deny", "default-deny", "closed"):
+def _parse_default_mode(raw: str) -> str:
+    """``allow`` or ``deny`` (trimmed, any case). Anything else is a configuration error.
+
+    A typo must never read as ``allow``: that would silently switch off tool authorization for
+    every action without a scope-map entry.
+    """
+    value = raw.strip().lower()
+    if value == DEFAULT_SCOPE_MODE_ALLOW:
+        return DEFAULT_SCOPE_MODE_ALLOW
+    if value == DEFAULT_SCOPE_MODE_DENY:
         return DEFAULT_SCOPE_MODE_DENY
-    return DEFAULT_SCOPE_MODE_ALLOW
+    raise ValueError(f"{DEFAULT_SCOPE_MODE_ENV} must be 'allow' or 'deny', not {raw!r}")
 
 
 def load_scope_policy_default_from_env() -> str:
-    """Return ``allow`` or ``deny`` from ``NW_MCP_SCOPE_POLICY_DEFAULT`` (default: deny)."""
-    raw = os.environ.get("NW_MCP_SCOPE_POLICY_DEFAULT")
+    """Return ``allow`` or ``deny`` from ``NW_MCP_SCOPE_POLICY_DEFAULT`` (default: deny).
+
+    Raises ``ValueError`` for any other non-blank value.
+    """
+    raw = os.environ.get(DEFAULT_SCOPE_MODE_ENV)
     if not raw or not str(raw).strip():
         _warn_implicit_scope_default()
         return DEFAULT_SCOPE_MODE_DENY
-    return _truthy_default_mode(str(raw))
+    return _parse_default_mode(str(raw))
+
+
+def check_scope_policy_config() -> None:
+    """Fail startup on an invalid scope-policy default, and log the mode once.
+
+    Simplified: validated here, but still read from the environment where it is used.
+    """
+    # Log the module constant, never the raw environment text.
+    logger.info("Scope policy default: %s", load_scope_policy_default_from_env())
 
 
 def resolve_required_scope_for_action(

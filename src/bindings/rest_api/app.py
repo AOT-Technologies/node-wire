@@ -47,6 +47,7 @@ from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+from node_wire_runtime.policies.mcp_scope_policy import check_scope_policy_config
 from node_wire_runtime.rate_limit import (
     RateLimitExceeded,
     get_per_identity_rate_limiter,
@@ -171,6 +172,7 @@ async def _rejected(_: Request, exc: Rejected) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=body, headers=exc.headers)
 
 
+check_scope_policy_config()
 check_tenancy_config(("NW_REST_API_KEY",))
 FastAPIInstrumentor.instrument_app(app)
 _max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
