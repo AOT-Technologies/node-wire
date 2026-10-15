@@ -5,7 +5,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import time
+from functools import partial
 
+import httpx
 import pytest
 from pydantic import BaseModel
 from node_wire_runtime import BaseConnector, ErrorCategory, ErrorMapper, nw_action
@@ -23,6 +27,14 @@ class RetryableTestError(Exception):
 
 class FatalTestError(Exception):
     pass
+
+
+class NotFoundTestError(Exception):
+    """A caller's own mistake (BUSINESS)."""
+
+
+class DeniedTestError(Exception):
+    """The caller may not do this (AUTH)."""
 
 
 class RetryInput(BaseModel):
@@ -66,6 +78,42 @@ class FlakyConnector(BaseConnector):
             self.internal_execute = original_internal_execute  # type: ignore[method-assign]
 
 
+class ProbeInput(BaseModel):
+    action: str = "go"
+    mode: str = "ok"
+
+
+class BreakerProbe(BaseConnector):
+    """One action that fails the way ``mode`` says; counts every attempt it makes."""
+
+    connector_id = "test_breaker_probe"
+    output_model = RetryOutput
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.attempts = 0
+
+    @nw_action("go")
+    async def go(self, params: ProbeInput, *, trace_id: str) -> RetryOutput:
+        self.attempts += 1
+        mode = params.mode
+        if mode == "notfound":
+            raise NotFoundTestError("no such thing")
+        if mode == "denied":
+            raise DeniedTestError("not allowed")
+        if mode == "timeout":
+            raise RetryableTestError("timed out")
+        if mode == "connect":
+            raise httpx.ConnectError("refused")
+        if mode == "oserror":
+            raise OSError("connection reset")
+        if mode == "bug":
+            raise RuntimeError("unmapped bug")
+        if mode == "slow":
+            await asyncio.sleep(10)
+        return RetryOutput(attempts=self.attempts)
+
+
 @pytest.fixture(autouse=True)
 def reset_error_mapper_registry() -> None:
     original_global = dict(ErrorMapper._global_registry)
@@ -78,6 +126,17 @@ def reset_error_mapper_registry() -> None:
             RetryableTestError,
             ErrorCategory.RETRYABLE,
             code="RETRYABLE_TEST",
+        )
+        # The decorator-only tests below pass no connector id; an unmapped error is FATAL and does
+        # not count against the breaker, so map this one globally as the upstream failure it models.
+        ErrorMapper.register_global(
+            RetryableTestError, ErrorCategory.RETRYABLE, code="RETRYABLE_TEST"
+        )
+        ErrorMapper.register(
+            "test_breaker_probe", NotFoundTestError, ErrorCategory.BUSINESS, code="NOT_FOUND"
+        )
+        ErrorMapper.register(
+            "test_breaker_probe", DeniedTestError, ErrorCategory.AUTH, code="DENIED"
         )
         yield
     finally:
@@ -452,3 +511,372 @@ def test_hung_trial_is_replaced_after_reset_timeout() -> None:
         assert breaker.state.name == "closed"
 
     asyncio.run(scenario())
+
+
+# --------------------------------------------------------------------------- #
+# The breaker counts upstream-health failures, once per invocation (CNP-114)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the real retry count (3) but not the real 0.5 s / 1 s waits."""
+    monkeypatch.setattr(
+        "node_wire_runtime.base_connector.with_resilience",
+        partial(with_resilience, base_wait=0.001, max_wait=0.002),
+    )
+
+
+async def _go(connector: BreakerProbe, mode: str) -> object:
+    return await connector.run({"action": "go", "mode": mode}, tenant_id="t1")
+
+
+def _breaker(connector: BreakerProbe) -> CircuitBreaker:
+    return connector._breaker_for_tenant("t1")
+
+
+async def test_v2_2_case_a_business_and_auth_failures_never_trip_the_breaker() -> None:
+    connector = BreakerProbe()
+
+    for _ in range(10):
+        assert (await _go(connector, "notfound")).error_code == "NOT_FOUND"
+    for _ in range(10):
+        assert (await _go(connector, "denied")).error_code == "DENIED"
+
+    # Every caller got its own error back (never CircuitBreakerError) and none was retried.
+    assert connector.attempts == 20
+    assert _breaker(connector).state.name == "closed"
+    assert _breaker(connector).fail_counter == 0
+    assert (await _go(connector, "ok")).success is True
+
+
+@pytest.mark.usefixtures("fast_retries")
+async def test_v2_2_case_b_an_invocation_that_exhausts_its_retries_counts_once() -> None:
+    connector = BreakerProbe()
+
+    first = await _go(connector, "timeout")
+
+    assert first.error_code == "RETRYABLE_TEST"  # its own error, not CircuitBreakerError
+    assert connector.attempts == 3  # all three attempts still ran
+    assert _breaker(connector).fail_counter == 1  # but it is one failure
+
+    await _go(connector, "timeout")  # the old probe opened the breaker here (3 + 2 attempts)
+    assert connector.attempts == 6
+    assert _breaker(connector).fail_counter == 2
+    assert _breaker(connector).state.name == "closed"
+
+
+@pytest.mark.usefixtures("fast_retries")
+async def test_breaker_opens_after_fail_max_failed_invocations() -> None:
+    connector = BreakerProbe()
+
+    for _ in range(4):
+        await _go(connector, "timeout")
+    assert _breaker(connector).state.name == "closed"
+
+    await _go(connector, "timeout")
+    assert _breaker(connector).state.name == "open"
+    assert connector.attempts == 15  # five invocations of three attempts each
+
+
+@pytest.mark.parametrize(
+    ("mode", "counted"),
+    [("connect", 1), ("oserror", 1), ("bug", 0)],
+)
+async def test_only_transport_level_fatal_errors_count(mode: str, counted: int) -> None:
+    connector = BreakerProbe()
+
+    response = await _go(connector, mode)
+
+    assert response.success is False
+    assert connector.attempts == 1  # FATAL is not retried
+    assert _breaker(connector).fail_counter == counted
+
+
+@pytest.mark.usefixtures("fast_retries")
+async def test_an_error_that_does_not_count_resets_the_consecutive_count() -> None:
+    connector = BreakerProbe()
+
+    await _go(connector, "timeout")
+    await _go(connector, "timeout")
+    assert _breaker(connector).fail_counter == 2
+
+    await _go(connector, "notfound")  # the upstream answered
+    assert _breaker(connector).fail_counter == 0
+
+    await _go(connector, "timeout")
+    assert _breaker(connector).fail_counter == 1
+
+
+async def test_a_trial_that_ends_in_a_business_error_closes_the_breaker() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    results = ["down", "not-found"]
+
+    @with_resilience(breaker, max_attempts=1, connector_id="test_breaker_probe")
+    async def call(*, trace_id: str = "t") -> str:
+        outcome = results.pop(0)
+        raise RetryableTestError(outcome) if outcome == "down" else NotFoundTestError(outcome)
+
+    with pytest.raises(CircuitBreakerError):  # the failure that trips it
+        await call(trace_id="t1")
+    assert breaker.state.name == "open"
+
+    await asyncio.sleep(0.08)
+    with pytest.raises(NotFoundTestError):  # the trial: the upstream answered
+        await call(trace_id="t2")
+
+    assert breaker.state.name == "closed"
+    assert breaker.fail_counter == 0
+
+
+async def test_a_cancelled_call_does_not_count_against_the_breaker() -> None:
+    connector = BreakerProbe()
+    task = asyncio.create_task(_go(connector, "slow"))
+    await asyncio.sleep(0.05)  # inside the action
+
+    task.cancel()
+    await asyncio.wait({task})
+
+    assert task.cancelled()
+    assert _breaker(connector).fail_counter == 0
+    assert _breaker(connector).state.name == "closed"
+
+
+async def test_an_open_breaker_rejects_without_running_or_retrying() -> None:
+    breaker = CircuitBreaker()
+    breaker.open()
+    calls = {"n": 0}
+
+    @with_resilience(breaker)
+    async def call(*, trace_id: str = "t") -> str:
+        calls["n"] += 1
+        return "unreachable"
+
+    with pytest.raises(CircuitBreakerError):
+        await call(trace_id="t1")
+
+    assert calls["n"] == 0
+
+
+# --- configuration ---------------------------------------------------------------------
+
+
+def test_breaker_defaults_are_five_failures_and_thirty_seconds() -> None:
+    breaker = _breaker(BreakerProbe())
+
+    assert (breaker.fail_max, breaker.reset_timeout) == (5, 30)
+
+
+def test_breaker_class_attributes_override_the_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(BreakerProbe, "breaker_fail_max", 2)
+    monkeypatch.setattr(BreakerProbe, "breaker_reset_timeout", 7.5)
+
+    breaker = _breaker(BreakerProbe())
+
+    assert (breaker.fail_max, breaker.reset_timeout) == (2, 7.5)
+
+
+async def test_a_lower_fail_max_opens_the_breaker_sooner(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(BreakerProbe, "breaker_fail_max", 2)
+    connector = BreakerProbe()
+
+    await _go(connector, "connect")
+    assert _breaker(connector).state.name == "closed"
+    await _go(connector, "connect")
+
+    assert _breaker(connector).state.name == "open"
+
+
+def test_breaker_env_overrides_the_class_attribute(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(BreakerProbe, "breaker_fail_max", 2)
+    monkeypatch.setenv("NW_BREAKER_TEST_BREAKER_PROBE_FAIL_MAX", "9")
+    monkeypatch.setenv("NW_BREAKER_TEST_BREAKER_PROBE_RESET_TIMEOUT", "0.25")
+
+    breaker = _breaker(BreakerProbe())
+
+    assert (breaker.fail_max, breaker.reset_timeout) == (9, 0.25)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "value"),
+    [
+        ("FAIL_MAX", "0"),
+        ("FAIL_MAX", "-1"),
+        ("FAIL_MAX", "abc"),
+        ("FAIL_MAX", "1.5"),
+        ("RESET_TIMEOUT", "0"),
+        ("RESET_TIMEOUT", "nan"),
+        ("RESET_TIMEOUT", "soon"),
+    ],
+)
+def test_a_bad_breaker_setting_fails_when_the_connector_is_built(
+    monkeypatch: pytest.MonkeyPatch, suffix: str, value: str
+) -> None:
+    name = f"NW_BREAKER_TEST_BREAKER_PROBE_{suffix}"
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValueError, match=f"{name} must be a positive number"):
+        BreakerProbe()
+
+
+def test_a_bad_class_attribute_fails_when_the_connector_is_built(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(BreakerProbe, "breaker_fail_max", 0)
+
+    with pytest.raises(ValueError, match="NW_BREAKER_TEST_BREAKER_PROBE_FAIL_MAX"):
+        BreakerProbe()
+
+
+# --------------------------------------------------------------------------- #
+# A cancelled half-open trial hands its slot to the next caller
+# --------------------------------------------------------------------------- #
+
+
+def _trial_probe(breaker: CircuitBreaker):
+    """A wrapped call whose behaviour is switched through the returned ``mode`` dict."""
+    mode = {"v": "fail"}
+    gate = asyncio.Event()
+
+    @with_resilience(breaker, max_attempts=1)
+    async def call(*, trace_id: str = "t") -> str:
+        if mode["v"] == "fail":
+            raise RetryableTestError("down")
+        if mode["v"] == "hang":
+            await asyncio.sleep(10)
+        if mode["v"] == "gate":
+            await gate.wait()
+        return "ok"
+
+    return call, mode, gate
+
+
+async def _open_and_wait_out_the_timeout(call, breaker: CircuitBreaker) -> None:
+    # The call that trips the breaker raises its own error or CircuitBreakerError; either is fine.
+    with contextlib.suppress(RetryableTestError, CircuitBreakerError):
+        await call(trace_id="trip")
+    assert breaker.state.name == "open"
+    await asyncio.sleep(breaker.reset_timeout + 0.03)
+
+
+async def test_a_cancelled_trial_hands_the_slot_to_the_next_caller() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    call, mode, _ = _trial_probe(breaker)
+    await _open_and_wait_out_the_timeout(call, breaker)
+
+    mode["v"] = "hang"
+    trial = asyncio.create_task(call(trace_id="trial"))
+    await asyncio.sleep(0)  # the trial is under way
+    assert breaker.state.name == "half-open"
+
+    trial.cancel()  # the client disconnects
+    await asyncio.wait({trial})
+
+    assert trial.cancelled()
+    assert breaker.state.name == "open"  # not stuck half-open
+    mode["v"] = "ok"
+    assert await call(trace_id="next") == "ok"  # no second reset_timeout to wait out
+    assert breaker.state.name == "closed"
+
+
+async def test_a_trial_stopped_by_asyncio_timeout_releases_the_slot() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    call, mode, _ = _trial_probe(breaker)
+    await _open_and_wait_out_the_timeout(call, breaker)
+
+    mode["v"] = "hang"
+    with pytest.raises(TimeoutError):
+        async with asyncio.timeout(0.02):
+            await call(trace_id="trial")
+
+    assert breaker.state.name == "open"
+    mode["v"] = "ok"
+    assert await call(trace_id="next") == "ok"
+
+
+async def test_cancelling_a_call_in_a_closed_breaker_changes_nothing() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=30)
+    call, mode, _ = _trial_probe(breaker)
+    mode["v"] = "hang"
+    task = asyncio.create_task(call(trace_id="t"))
+    await asyncio.sleep(0)
+
+    task.cancel()
+    await asyncio.wait({task})
+
+    assert task.cancelled()
+    assert breaker.state.name == "closed"
+    assert breaker.fail_counter == 0
+
+
+async def test_cancelling_a_replaced_trial_leaves_the_new_trial_alone() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.05)
+    call, mode, gate = _trial_probe(breaker)
+    await _open_and_wait_out_the_timeout(call, breaker)
+
+    mode["v"] = "hang"
+    first = asyncio.create_task(call(trace_id="first"))
+    await asyncio.sleep(0)  # the first trial is under way
+    await asyncio.sleep(breaker.reset_timeout + 0.03)  # it outlives reset_timeout...
+    mode["v"] = "gate"
+    second = asyncio.create_task(call(trace_id="second"))
+    await asyncio.sleep(0)  # ...so the second call replaces it as the trial
+    assert breaker.state.name == "half-open"
+
+    first.cancel()  # the stale trial is cancelled
+    await asyncio.wait({first})
+
+    assert breaker.state.name == "half-open"  # the second trial still holds the slot
+    with pytest.raises(CircuitBreakerError):
+        await call(trace_id="during")
+    gate.set()
+    assert await second == "ok"
+    assert breaker.state.name == "closed"
+
+
+def test_release_only_applies_to_the_live_half_open_trial() -> None:
+    breaker = CircuitBreaker(fail_max=1, reset_timeout=0.01)
+
+    closed_generation = breaker.allow()
+    breaker.release(closed_generation)  # closed: nothing to release
+    assert breaker.state.name == "closed"
+    assert breaker.fail_counter == 0
+
+    breaker.open()
+    breaker.release(closed_generation)  # open, and a stale generation anyway
+    assert breaker.state.name == "open"
+
+    time.sleep(0.02)
+    trial = breaker.allow()  # half-open: this call is the live trial
+    assert breaker.state.name == "half-open"
+    breaker.release(trial)
+    assert breaker.state.name == "open"
+    assert breaker.allow() == trial + 1  # the next caller becomes the trial immediately
+
+    breaker.release(trial)  # that trial is now a stale generation
+    assert breaker.state.name == "half-open"
+
+
+async def test_a_retry_loop_that_yields_no_attempt_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard after the loop: tenacity should always return or raise, never just stop."""
+
+    class _NoAttempts:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def __aiter__(self) -> "_NoAttempts":
+            return self
+
+        async def __anext__(self) -> None:
+            raise StopAsyncIteration
+
+    monkeypatch.setattr("node_wire_runtime.resilience.AsyncRetrying", _NoAttempts)
+
+    @with_resilience(CircuitBreaker())
+    async def call(*, trace_id: str = "t") -> str:
+        return "unreachable"
+
+    with pytest.raises(RuntimeError, match="Exhausted retries without success"):
+        await call(trace_id="t")

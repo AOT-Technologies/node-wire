@@ -14,11 +14,7 @@ from typing import Dict
 sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from node_wire_fhir_epic.logic import FhirEpicConnector
-from node_wire_fhir_epic.schema import (
-    FhirPatientReadInput,
-    FhirEncounterSearchInput,
-    FhirDocumentReferenceCreateInput,
-)
+from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
 from node_wire_runtime import SecretProvider
 
 # Set up basic logging
@@ -51,7 +47,8 @@ async def run_scenario():
     # Load env vars for secrets
     from dotenv import load_dotenv
 
-    load_dotenv()
+    if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+        load_dotenv(override=False)
 
     secrets = {
         "epic_fhir_base_url": os.getenv(
@@ -71,16 +68,14 @@ async def run_scenario():
         )
 
     connector = FhirEpicConnector(secret_provider=EnvSecretProvider(secrets))
-    trace_id = "scenario-trace-123"
 
     print("\n=== STEP 1: Patient Discovery ===")
     patient_search_params = {"family": "Smith", "given": "Jason", "birthdate": "1985-01-01"}
     logger.info("Searching for patient by fields: %s", ", ".join(sorted(patient_search_params)))
 
     try:
-        patient_result = await connector.internal_execute(
-            FhirPatientReadInput(action="read_patient", search_params=patient_search_params),
-            trace_id=trace_id,
+        patient_result = await connector.call_action(
+            "read_patient", {"search_params": patient_search_params}
         )
         patient_id = patient_result.resource.get("id")
         logger.info("Patient resolved successfully")
@@ -94,21 +89,17 @@ async def run_scenario():
     logger.info(f"Finding encounter for resolved patient on {today}")
 
     try:
-        enc_result = await connector.internal_execute(
-            FhirEncounterSearchInput(action="search_encounter", search_params=encounter_params),
-            trace_id=trace_id,
+        enc_result = await connector.call_action(
+            "search_encounter", {"search_params": encounter_params}
         )
 
         if not enc_result.resources:
             logger.warning(
                 "No encounters found for this patient today. Falling back to most recent."
             )
-            enc_result = await connector.internal_execute(
-                FhirEncounterSearchInput(
-                    action="search_encounter",
-                    search_params={"patient": patient_id, "status": "finished"},
-                ),
-                trace_id=trace_id,
+            enc_result = await connector.call_action(
+                "search_encounter",
+                {"search_params": {"patient": patient_id, "status": "finished"}},
             )
 
         if not enc_result.resources:
@@ -144,7 +135,9 @@ async def run_scenario():
 
     logger.info("Uploading clinical note for selected encounter")
     try:
-        doc_result = await connector.internal_execute(doc_input, trace_id=trace_id)
+        doc_result = await connector.call_action(
+            "create_document_reference", doc_input.model_dump(mode="json")
+        )
         logger.info(f"SUCCESS! Created DocumentReference: {doc_result.resource_id}")
         print(f"\nWorkflow Complete. Resource Created: {doc_result.resource_id}")
     except Exception as e:

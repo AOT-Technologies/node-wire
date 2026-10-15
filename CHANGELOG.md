@@ -367,6 +367,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **The playground is opt-in and its scenarios run through the runtime.** From a checkout, the
+  REST app mounted `/playground` and `/scenarios` whenever a `playground/` directory existed,
+  with `/scenarios` unauthenticated. Its scenarios called `internal_execute` directly (no
+  validation, policy, breaker or audit) and retried up to 4 times, so an unauthenticated
+  client could charge, refund and delete with the server's credentials.
+  - Mounts only with `NW_REST_PLAYGROUND_ENABLED=true`, and refuses to mount when REST auth
+    is configured unless `NW_REST_PLAYGROUND_ALLOW_WITH_AUTH=true`. `/scenarios` is no longer a
+    public path.
+  - Scenarios call `connector.call_action`, so they get the normal envelope, policy check
+    and audit events. The playground's own blanket retry loop is removed: it re-ran permanent
+    failures (bad config, auth, validation) and non-idempotent writes. Retries now follow the
+    runtime's rule, like any `/connectors` call: only errors classed as transient, with backoff
+    and the circuit breaker.
+  - `/scenarios/llm-discover-ollama` checks its target like any outbound call. Only the
+    configured Ollama (`OLLAMA_BASE_URL`, default `http://127.0.0.1:11434`) may be loopback or
+    private; everything else must be a public host.
+  - `playground/scenarios.py` honours `NW_REST_LOAD_DOTENV`.
+  - A tenant mismatch or rejection on `/scenarios` is a `403` (it was an unhandled `500`), and
+    agent chat no longer starts an authenticated caller on `__default__` when no tenant is sent
+    (an unauthenticated local-dev caller keeps that convenience).
+  - **Upgrade note:** to use the playground locally set `NW_REST_PLAYGROUND_ENABLED=true` and
+    `NW_REST_AUTH_DISABLED=true`. Set `OLLAMA_BASE_URL` only for an Ollama other than the local
+    default.
 - **`/v1` config and secret admin API requires scopes.** Any authenticated caller could read
   and rewrite configs, push secrets, change defaults, run a full init and list every tenant.
   - `nw:config:read`, `nw:config:write`, `nw:secrets:write` (also for `secrets` inline in a
@@ -426,6 +449,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The circuit breaker counts only upstream-health failures, once per invocation.** It
+  counted every exception, and every retry attempt, so a caller's own bad input (`NOT_FOUND`,
+  an auth error) or a couple of slow calls opened the breaker for every caller sharing that
+  (tenant, config) instance.
+  - Only `RETRYABLE` failures and transport-level `FATAL` ones (`OSError`, `httpx.TransportError`)
+    count. `BUSINESS`, `AUTH` and any other `FATAL` never do, and they reset the consecutive
+    count, because the upstream answered. A cancelled call is ignored; if it was the half-open
+    trial, the next caller becomes the trial at once instead of waiting another `reset_timeout`.
+  - One invocation counts at most once, however many attempts it needed. **Upgrade note:**
+    opening now takes `fail_max` failed invocations (up to 15 attempts at the default 5), not 5
+    attempts; lower `fail_max` for a connector to restore the old sensitivity.
+  - Configurable per connector: `breaker_fail_max` / `breaker_reset_timeout` class attributes, or
+    `NW_BREAKER_<CONNECTOR_ID>_FAIL_MAX` / `_RESET_TIMEOUT` (the variable wins). Defaults stay
+    5 and 30. A non-positive or non-numeric value fails when the connector is built.
 - **nw-mcp-builder**: the MCP host project's `config/connectors.yaml` holds only its own
   connector. It used to copy the repo's whole file, so every start logged "Connector enabled in
   configuration but not registered" for each of the other connectors, and baked their base URLs

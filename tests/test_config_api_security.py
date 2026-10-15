@@ -68,6 +68,8 @@ def _auth_env(monkeypatch: pytest.MonkeyPatch, *, multitenancy: bool) -> None:
     monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_REST_API_KEY", _API_KEY)
     monkeypatch.setenv("NW_REST_JWT_SECRET", _JWT)
+    # The shared API key carries no tenant, so its X-Tenant-ID header needs the gateway flag.
+    monkeypatch.setenv("NW_TRUSTED_TENANT_HEADER", "true")
     # The /v1 admin API needs its own scope tier on top of the connector scope.
     monkeypatch.setenv("NW_REST_API_KEY_SCOPES", f"{_SCOPE} nw:platform:admin")
     monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
@@ -281,20 +283,23 @@ def test_default_tenant_config_writes_rejected(
     client = _client(factory)
     headers = _headers(**{"X-Tenant-ID": DEFAULT_TENANT})
     body = {"name": "keep", "config": {}}
+    # Multi-tenant: a caller can never select __default__, refused at identity resolution (403).
+    # Single-tenant: every request is __default__ and /v1 writes are refused (400).
+    refused = 403 if multitenancy else 400
     created = client.post("/v1/connectors/slack/configs", json=body, headers=headers)
-    assert created.status_code == 400
+    assert created.status_code == refused
     updated = client.put("/v1/connectors/slack/configs/keep", json=body, headers=headers)
-    assert updated.status_code == 400
+    assert updated.status_code == refused
     deleted = client.delete("/v1/connectors/slack/configs/keep", headers=headers)
-    assert deleted.status_code == 400
+    assert deleted.status_code == refused
     made_default = client.put("/v1/connectors/slack/configs/keep/default", headers=headers)
-    assert made_default.status_code == 400
+    assert made_default.status_code == refused
     secrets = client.put(
         "/v1/connectors/slack/secrets",
         json={"config_name": "keep", "secrets": {"SLACK_BOT_TOKEN": "xoxb-abc"}},
         headers=headers,
     )
-    assert secrets.status_code == 400
+    assert secrets.status_code == refused
     app.dependency_overrides.clear()
 
 
@@ -448,7 +453,8 @@ def test_init_refuses_default_tenant_and_keeps_yaml_default(
         json=slack_doc,
         headers=_headers(**{"X-Tenant-ID": DEFAULT_TENANT}),
     )
-    assert headed.status_code == 400, headed.text
+    # A caller can never select __default__: refused at identity resolution.
+    assert headed.status_code == 403, headed.text
 
     # A full (headerless) init needs platform admin before __default__ is even considered.
     monkeypatch.setenv("NW_REST_API_KEY_SCOPES", f"{_SCOPE} nw:platform:admin")
