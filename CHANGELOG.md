@@ -426,6 +426,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The circuit breaker counts only upstream-health failures, once per invocation.** It
+  counted every exception, and every retry attempt, so a caller's own bad input (`NOT_FOUND`,
+  an auth error) or a couple of slow calls opened the breaker for every caller sharing that
+  (tenant, config) instance.
+  - Only `RETRYABLE` failures and transport-level `FATAL` ones (`OSError`, `httpx.TransportError`)
+    count. `BUSINESS`, `AUTH` and any other `FATAL` never do, and they reset the consecutive
+    count, because the upstream answered. A cancelled call is ignored.
+  - One invocation counts at most once, however many attempts it needed. **Upgrade note:**
+    opening now takes `fail_max` failed invocations (up to 15 attempts at the default 5), not 5
+    attempts; lower `fail_max` for a connector to restore the old sensitivity.
+  - Configurable per connector: `breaker_fail_max` / `breaker_reset_timeout` class attributes, or
+    `NW_BREAKER_<CONNECTOR_ID>_FAIL_MAX` / `_RESET_TIMEOUT` (the variable wins). Defaults stay
+    5 and 30. A non-positive or non-numeric value fails when the connector is built.
 - **nw-mcp-builder**: the MCP host project's `config/connectors.yaml` holds only its own
   connector. It used to copy the repo's whole file, so every start logged "Connector enabled in
   configuration but not registered" for each of the other connectors, and baked their base URLs
