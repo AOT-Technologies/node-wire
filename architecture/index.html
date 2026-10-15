@@ -2930,7 +2930,7 @@ or an MCP tool error, but the connector contract is identical on all three.</p>
 <ul>
 <li><strong>BaseConnector</strong>: Abstract base class for all connectors. It owns the <code>run()</code> pipeline below.</li>
 <li><strong>ConnectorResponse / ErrorCategory / ErrorMapper</strong>: the response envelope, the error taxonomy (<code>RETRYABLE</code>, <code>BUSINESS</code>, <code>AUTH</code>, <code>FATAL</code>), and the per-connector exception mapping. See <a href="domain/#results-and-errors">Domain</a>.</li>
-<li><strong>Resilience</strong>: retries (Tenacity) and circuit breaking (PyBreaker).</li>
+<li><strong>Resilience</strong>: retries (Tenacity) and the runtime's own circuit breaker, which counts only upstream-health failures, once per invocation.</li>
 <li><strong>PolicyHook, SecretProvider, AuthProvider</strong>: pluggable seams the factory injects. See <a href="seams/">Seams</a>.</li>
 <li><strong>ConnectorConfigStore and tenant pinning</strong>: per-tenant named configs, and instances bound to one tenant. See <a href="tenancy/">Tenancy</a>.</li>
 <li><strong>Telemetry</strong>: OpenTelemetry integration for tracing.</li>
@@ -2945,7 +2945,7 @@ trace span opens; everything after it runs inside the span.</p>
 
     Val["Pydantic validation&lt;br/&gt;discriminated union on action"]
     Pol["PolicyHook · allow / deny&lt;br/&gt;always set on factory instances"]
-    Res["Retries + circuit breaker&lt;br/&gt;Tenacity · PyBreaker"]
+    Res["Retries + circuit breaker&lt;br/&gt;Tenacity · circuit breaker"]
     Exec["internal_execute&lt;br/&gt;dispatch to Layer B"]
     Val --&gt; Pol --&gt; Res --&gt; Exec
     Otel(["OpenTelemetry span"]) -. "wraps validate → error mapping" .-&gt; Val

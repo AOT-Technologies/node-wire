@@ -3156,6 +3156,16 @@ shared by every caller, so one noisy identity can still exhaust it for everyone.
 <td><code>false</code></td>
 </tr>
 <tr>
+<td><code>NW_BREAKER_&lt;CONNECTOR_ID&gt;_FAIL_MAX</code></td>
+<td>Failed invocations that open that connector's circuit breaker, per tenant instance. <code>&lt;CONNECTOR_ID&gt;</code> is upper-cased with non-alphanumerics as <code>_</code> (<code>http_generic</code> is <code>HTTP_GENERIC</code>). A connector can also set the <code>breaker_fail_max</code> class attribute; the variable wins. Only upstream-health failures count (see <a href="../architecture/domain/#results-and-errors">Domain</a>)</td>
+<td><code>5</code></td>
+</tr>
+<tr>
+<td><code>NW_BREAKER_&lt;CONNECTOR_ID&gt;_RESET_TIMEOUT</code></td>
+<td>Seconds the breaker stays open before one trial call is allowed. Class attribute: <code>breaker_reset_timeout</code></td>
+<td><code>30</code></td>
+</tr>
+<tr>
 <td><code>NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS</code></td>
 <td>Requests allowed per window, per identity</td>
 <td><code>120</code></td>
