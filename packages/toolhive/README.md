@@ -27,18 +27,16 @@ repository, generates a server that already uses it, and the server's image inst
 
 ## Install
 
+This package is not published to PyPI. `nw gen-stacklok` builds its wheel, copies it into the
+generated project's `wheels/` directory and pins it in `[tool.uv.sources]`, so the server's image
+installs that local copy. For development, install it from a Node Wire checkout:
+
 ```bash
-pip install node-wire-toolhive
+uv pip install -e packages/runtime -e packages/bindings -e packages/toolhive
 ```
 
-This pulls in [`node-wire-runtime`](https://pypi.org/project/node-wire-runtime/),
-[`node-wire-bindings`](https://pypi.org/project/node-wire-bindings/) and the
-[MCP Python SDK](https://pypi.org/project/mcp/). Install the connector the server runs on
-separately. Pre-releases are published as `X.Y.ZbN`; install one with
-`pip install --pre node-wire-toolhive`.
-
-Wheels are compiled with Cython and contain no Python source. They are built for CPython 3.11,
-3.12 and 3.13 on Linux x86_64 (manylinux and musllinux), macOS arm64 and Windows x64.
+It depends on `node-wire-runtime`, `node-wire-bindings` and the
+[MCP Python SDK](https://pypi.org/project/mcp/).
 
 ## Usage
 
