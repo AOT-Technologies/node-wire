@@ -19,6 +19,8 @@ def _phase2_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_llm_discover_ollama_returns_models(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The operator-configured Ollama is the one private address discovery may reach.
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
     mock_response.json.return_value = {
@@ -44,6 +46,60 @@ def test_llm_discover_ollama_returns_models(monkeypatch: pytest.MonkeyPatch) -> 
     assert data["models"] == ["llama3:latest", "qwen2.5:7b"]
     assert data["base_url"] == "http://127.0.0.1:11434/v1"
     assert data["error"] is None
+
+
+@pytest.mark.parametrize(
+    ("configured", "requested"),
+    [
+        ("http://127.0.0.1:11434/v1", "http://169.254.169.254"),  # cloud metadata
+        ("http://127.0.0.1:11434/v1", "http://127.0.0.1:8080"),  # another local port
+        ("http://127.0.0.1:11434/v1", "http://10.0.0.5:11434"),  # private network
+        ("", "http://127.0.0.1:8080"),  # nothing configured: only the default Ollama is allowed
+    ],
+)
+def test_llm_discover_ollama_blocks_internal_destinations(
+    monkeypatch: pytest.MonkeyPatch, configured: str, requested: str
+) -> None:
+    if configured:
+        monkeypatch.setenv("OLLAMA_BASE_URL", configured)
+    else:
+        monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+
+    with patch("httpx.AsyncClient") as client_cls:
+        from bindings.rest_api.app import app
+
+        resp = TestClient(app).get("/scenarios/llm-discover-ollama", params={"base_url": requested})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["models"] == []
+    assert data["base_url"] is None
+    assert "Blocked destination" in data["error"]
+    client_cls.assert_not_called()  # nothing was fetched
+
+
+def test_llm_discover_ollama_allows_the_default_local_ollama(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no OLLAMA_BASE_URL set, the built-in local default still works for the UI."""
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = {"models": [{"name": "qwen2.5:7b"}]}
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.get = AsyncMock(return_value=mock_response)
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        from bindings.rest_api.app import app
+
+        resp = TestClient(app).get(
+            "/scenarios/llm-discover-ollama", params={"base_url": "http://127.0.0.1:11434"}
+        )
+
+    assert resp.json()["models"] == ["qwen2.5:7b"]
+    assert resp.json()["error"] is None
 
 
 def test_llm_discover_ollama_rejects_invalid_scheme() -> None:

@@ -85,8 +85,6 @@ def _is_public_path(path: str) -> bool:
         or p.startswith("/docs/")
         or p == "/playground"
         or p.startswith("/playground/")
-        or p == "/scenarios"
-        or p.startswith("/scenarios/")
     )
 
 
