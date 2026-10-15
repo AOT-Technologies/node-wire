@@ -101,6 +101,8 @@ shared by every caller, so one noisy identity can still exhaust it for everyone.
 | `NW_RATE_LIMIT_BURST` | Global bucket capacity | `50` |
 | `NW_RATE_LIMIT_REFILL_RATE` | Global bucket refill, tokens per second | `10.0` |
 | `NW_RATE_LIMIT_PER_IDENTITY_ENABLED` | Enable the per-identity sliding-window limiter | `false` |
+| `NW_BREAKER_<CONNECTOR_ID>_FAIL_MAX` | Failed invocations that open that connector's circuit breaker, per tenant instance. `<CONNECTOR_ID>` is upper-cased with non-alphanumerics as `_` (`http_generic` is `HTTP_GENERIC`). A connector can also set the `breaker_fail_max` class attribute; the variable wins. Only upstream-health failures count (see [Domain](architecture/domain.md#results-and-errors)) | `5` |
+| `NW_BREAKER_<CONNECTOR_ID>_RESET_TIMEOUT` | Seconds the breaker stays open before one trial call is allowed. Class attribute: `breaker_reset_timeout` | `30` |
 | `NW_RATE_LIMIT_PER_IDENTITY_MAX_REQUESTS` | Requests allowed per window, per identity | `120` |
 | `NW_RATE_LIMIT_PER_IDENTITY_WINDOW_SECONDS` | Window size in seconds | `60` |
 | `NW_RATE_LIMIT_PER_IDENTITY_MAX_TRACKED_KEYS` | LRU cap on tracked identities (bounds memory) | `10000` |
