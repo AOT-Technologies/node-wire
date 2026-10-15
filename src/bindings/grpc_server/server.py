@@ -23,6 +23,7 @@ from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
+    check_tenancy_config,
     resolve_config_name,
     resolve_tenant_id,
 )
@@ -183,6 +184,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
 
 def serve(port: int = 50051) -> None:
+    check_tenancy_config(("NW_GRPC_API_KEY",))
     _async_runner.start()
     interceptor = GrpcAuthInterceptor()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), interceptors=(interceptor,))

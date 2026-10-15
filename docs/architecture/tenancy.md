@@ -41,21 +41,75 @@ The highest source wins:
 
 | Transport | 1st | 2nd | 3rd |
 |---|---|---|---|
-| REST / gRPC | `X-Tenant-ID` header or JWT `tenant` claim (per request) | — | — |
-| MCP streamable-http | `X-Tenant-ID` header or JWT claim (per request) | `nw_select_tenant` selection | `NW_TENANT_ID` pin |
+| REST / gRPC | The caller's tenant (tenant-bound key or JWT `tenant` claim), else `X-Tenant-ID` header (see below) | — | — |
+| MCP streamable-http | The caller's tenant, else `X-Tenant-ID` header (per request) | `nw_select_tenant` selection | `NW_TENANT_ID` pin |
 | MCP stdio | `nw_select_tenant` selection, unless `NW_MCP_TENANT_PIN_LOCKED=true` | `NW_TENANT_ID` pin | — |
 
 - `NW_TENANT_ID_HEADER` renames the header. The tenant never comes from the URL, and it is never a
   connector-tool argument.
-- With multi-tenancy on, a request with no tenant fails with `400 MISSING_TENANT`. On
-  streamable-http, `initialize` falls back to `__default__` if that tenant exists in the store.
+- With multi-tenancy on, a request with no tenant fails with `400 MISSING_TENANT`. There is no
+  fallback to `__default__`.
 - On streamable-http the per-request header always wins, so one client's `nw_select_tenant` can
-  never shadow another concurrent client's tenant.
+  never shadow another concurrent client's tenant. A tool's `tenant_id` argument cannot leave the
+  request tenant either.
 - Streamable-http is stateless: every `POST` is authenticated and its tenant and upstream bearer
   resolved on its own, so a refreshed token or a new `X-Tenant-ID` applies to the next call. No
   `Mcp-Session-Id` is issued, and `GET` (server-to-client stream) returns `405`.
-- A JWT `tenant` claim that disagrees with the header or session tenant fails closed with
+- A tenant claim (JWT or key) that disagrees with the header or session tenant fails closed with
   `403 TENANT_IDENTITY_MISMATCH`. It is never silently overridden.
+
+## Who may pick a tenant
+
+The `X-Tenant-ID` header is supplied by the caller, so node-wire does not trust it on its own.
+
+- **`__default__` is operator-only.** A caller can never select it, by header or by token claim
+  (`403 TENANT_IDENTITY_MISMATCH`). It is reached only through the `NW_TENANT_ID` stdio pin and
+  operator/YAML configuration. It holds the operator's env-backed secrets.
+- **Tenant-bound credentials** carry their own tenant, so the header can only agree with it.
+  Use a JWT with a `tenant_id` claim, or an API-key registry file.
+- **Tenant-less credentials** (the shared `NW_*_API_KEY`, or a JWT with no tenant claim) may supply a
+  header only when `NW_TRUSTED_TENANT_HEADER=true`, meaning an authenticating gateway in front sets
+  it. Otherwise the request is rejected with `403 TENANT_IDENTITY_MISMATCH`.
+- With auth disabled (local development) or an embedding host that authenticates itself, there is
+  no identity and the header is taken as given.
+
+At startup, with multi-tenancy on, each binding refuses to start if **its own** shared API key is
+configured (`NW_REST_API_KEY` for REST, `NW_GRPC_API_KEY` for gRPC, `NW_MCP_API_KEY` for MCP over
+HTTP) unless `NW_API_KEYS_FILE` or `NW_TRUSTED_TENANT_HEADER=true` is set. Another binding's key left
+in a shared `.env` does not matter, and MCP over stdio has no such rule: it has no header, so a
+shared key cannot pick a tenant there. It logs the chosen tenancy mode.
+
+### Tenant-bound API keys
+
+Point `NW_API_KEYS_FILE` at a JSON array. It is used by REST, gRPC and MCP, and is read once at
+startup (restart to change it):
+
+```json
+[{"key_id": "acme-prod", "hash": "<sha256 hex of the key>", "tenant": "acme", "scopes": ["mcp:acme.read"]}]
+```
+
+Only the hash is stored. Generate the key with `openssl rand -hex 32` (keys must be random, not
+chosen: the hash is plain SHA-256, which is only safe for high-entropy secrets) and hash it with
+`printf %s "$KEY" | sha256sum`. A key is presented like any API
+key (`Authorization: Bearer` or `X-API-Key`) and its `scopes` apply to it alone;
+`NW_*_API_KEY_SCOPES` apply only to the shared key.
+
+The file is validated when the server starts, and a bad entry fails startup naming it (`entry 2`;
+the hash is never printed). Each entry needs a non-blank `key_id`, `hash` and `tenant`; `hash` must
+be 64 hex characters; `scopes`, if present, must be a list of strings; `tenant` cannot be
+`__default__`; and no two entries may share a `hash` or a `key_id`. A blank tenant is refused
+because it would make a tenant-less key, which can pick any tenant by header when
+`NW_TRUSTED_TENANT_HEADER=true`.
+To rotate, add a second entry for the same tenant, then remove the old one.
+
+### Upgrading
+
+| Change | Migration |
+|---|---|
+| Callers can no longer select `__default__` | Use a named tenant. |
+| MCP streamable-http with no tenant is `400`, not `__default__` | Send a tenant header, or use a tenant-bound key. |
+| Multi-tenant + shared API key refuses to start | Set `NW_API_KEYS_FILE`, or `NW_TRUSTED_TENANT_HEADER=true` behind a gateway. |
+| A JWT with no tenant claim can no longer pick a tenant by header | Add a `tenant_id` claim, or set `NW_TRUSTED_TENANT_HEADER=true`. |
 
 ## The pin contract (hosts embedding the factory)
 

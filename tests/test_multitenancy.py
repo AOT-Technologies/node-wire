@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import threading
 from pathlib import Path
@@ -18,8 +20,11 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from bindings.factory import ConnectorFactory
+from bindings.grpc_server.auth import verify_grpc_token_and_identity
 from bindings.rest_api.app import app, get_factory
+from bindings.rest_api.auth import verify_rest_token_and_identity
 from node_wire_runtime import BaseConnector, sdk_action
+from node_wire_runtime.caller_identity import api_key_registry_claims, load_api_key_registry
 from node_wire_runtime.config_store import (
     DEFAULT_TENANT,
     ConfigNameConflictError,
@@ -32,6 +37,8 @@ from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
     TenantMismatchError,
+    TenantRejectedError,
+    check_tenancy_config,
     effective_run_tenant_id,
     is_multitenancy_enabled,
     normalize_tenant_id,
@@ -228,14 +235,13 @@ def test_conflicting_header_and_jwt_tenant_raises(monkeypatch: pytest.MonkeyPatc
         resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident)
 
 
-def test_header_matching_default_alias_of_jwt_tenant_is_allowed(monkeypatch: pytest.MonkeyPatch):
-    """``__default__`` and the unset header are treated as the same tenant."""
+def test_jwt_default_tenant_claim_is_rejected(monkeypatch: pytest.MonkeyPatch):
+    """``__default__`` is operator-only: a token cannot claim it either."""
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     ident = MagicMock()
     ident.tenant_id = "__default__"
-    assert resolve_tenant_id(headers={"X-Tenant-ID": "__default__"}, jwt_identity=ident) == (
-        "__default__"
-    )
+    with pytest.raises(TenantRejectedError, match="operator-only"):
+        resolve_tenant_id(headers={}, jwt_identity=ident)
 
 
 def test_env_pin_wins_over_everything(monkeypatch: pytest.MonkeyPatch):
@@ -552,9 +558,33 @@ def test_resolve_tenant_id_enabled_reads_header(monkeypatch: pytest.MonkeyPatch)
     assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}) == "acme"
 
 
-def test_resolve_tenant_id_enabled_allows_explicit_default(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize("has_identity", [False, True])
+@pytest.mark.parametrize("claim", [None, "acme"])
+def test_header_default_tenant_is_rejected_for_every_caller(
+    monkeypatch: pytest.MonkeyPatch, has_identity: bool, claim: str | None
+):
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
-    assert resolve_tenant_id(headers={"X-Tenant-ID": "__default__"}) == "__default__"
+    monkeypatch.setenv("NW_TRUSTED_TENANT_HEADER", "true")  # the gateway flag never allows it
+    ident = MagicMock(tenant_id=claim) if has_identity else None
+    with pytest.raises(TenantRejectedError, match="operator-only"):
+        resolve_tenant_id(headers={"X-Tenant-ID": "__default__"}, jwt_identity=ident)
+
+
+def test_env_pin_may_still_be_default(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    assert resolve_tenant_id(headers={}, env_pin="__default__") == "__default__"
+
+
+def test_tenantless_identity_header_needs_trusted_gateway(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.delenv("NW_TRUSTED_TENANT_HEADER", raising=False)
+    ident = MagicMock(tenant_id=None)
+    with pytest.raises(TenantRejectedError, match="not bound to a tenant"):
+        resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident)
+    monkeypatch.setenv("NW_TRUSTED_TENANT_HEADER", "true")
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident) == "acme"
+    with pytest.raises(MissingTenantError):
+        resolve_tenant_id(headers={}, jwt_identity=ident)
 
 
 def test_resolve_tenant_id_enabled_missing_raises(monkeypatch: pytest.MonkeyPatch):
@@ -570,6 +600,283 @@ def test_resolve_tenant_id_enabled_env_pin_wins(monkeypatch: pytest.MonkeyPatch)
     assert (
         resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, env_pin="stdio-tenant") == "stdio-tenant"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Tenant-bound API keys (NW_API_KEYS_FILE) and startup check
+# --------------------------------------------------------------------------- #
+
+
+def _write_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *keys: tuple[str, str, str]):
+    """``keys`` are ``(key_id, secret, tenant)``; only the SHA-256 of the secret is stored."""
+    entries = [
+        {
+            "key_id": key_id,
+            "hash": hashlib.sha256(secret.encode()).hexdigest(),
+            "tenant": tenant,
+            "scopes": ["mcp:test.scope", "nw:config:read"],
+        }
+        for key_id, secret, tenant in keys
+    ]
+    path = tmp_path / "keys.json"
+    path.write_text(json.dumps(entries), encoding="utf-8")
+    monkeypatch.setenv("NW_API_KEYS_FILE", str(path))
+
+
+@pytest.mark.parametrize("verify", [verify_rest_token_and_identity, verify_grpc_token_and_identity])
+def test_registry_key_binds_tenant_for_rest_and_grpc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, verify
+):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    _write_registry(tmp_path, monkeypatch, ("acme-prod", "acme-secret", "acme"))
+    ok, ident = verify("acme-secret", api_key=None, jwt_secret=None)
+    assert ok and ident is not None
+    assert (ident.principal, ident.tenant_id) == ("acme-prod", "acme")
+    assert ident.scopes == ("mcp:test.scope", "nw:config:read")
+    with pytest.raises(TenantIdentityMismatchError):
+        resolve_tenant_id(headers={"X-Tenant-ID": "beta"}, jwt_identity=ident)
+    assert resolve_tenant_id(headers={"X-Tenant-ID": "acme"}, jwt_identity=ident) == "acme"
+    assert resolve_tenant_id(headers={}, jwt_identity=ident) == "acme"
+    assert verify("wrong", api_key=None, jwt_secret=None) == (False, None)
+
+
+def test_registry_rejects_default_tenant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    _write_registry(tmp_path, monkeypatch, ("root", "s3cret", "__default__"))
+    with pytest.raises(ValueError, match="__default__"):
+        load_api_key_registry()
+
+
+_GOOD_HASH = hashlib.sha256(b"secret").hexdigest()
+_GOOD_ENTRY = {"key_id": "good", "hash": hashlib.sha256(b"other").hexdigest(), "tenant": "acme"}
+
+
+def _registry_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, entries: object) -> None:
+    path = tmp_path / "keys.json"
+    path.write_text(json.dumps(entries), encoding="utf-8")
+    monkeypatch.setenv("NW_API_KEYS_FILE", str(path))
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        ({"key_id": "k", "hash": _GOOD_HASH}, "'tenant'"),
+        ({"key_id": "k", "hash": _GOOD_HASH, "tenant": ""}, "'tenant'"),
+        ({"key_id": "k", "hash": _GOOD_HASH, "tenant": "   "}, "'tenant'"),
+        ({"key_id": "k", "hash": _GOOD_HASH, "tenant": None}, "'tenant'"),
+        ({"key_id": "k", "hash": _GOOD_HASH, "tenant": 7}, "'tenant'"),
+        ({"hash": _GOOD_HASH, "tenant": "acme"}, "'key_id'"),
+        ({"key_id": "k", "tenant": "acme"}, "'hash'"),
+        ({"key_id": "k", "hash": "", "tenant": "acme"}, "'hash'"),
+        ({"key_id": "k", "hash": "not-a-digest", "tenant": "acme"}, "SHA-256 hex digest"),
+        ({"key_id": "k", "hash": _GOOD_HASH, "tenant": " __default__ "}, "__default__"),
+        (
+            {"key_id": "k", "hash": _GOOD_HASH, "tenant": "acme", "scopes": "nw:config:read"},
+            "'scopes'",
+        ),
+        ({"key_id": "k", "hash": _GOOD_HASH, "tenant": "acme", "scopes": [1]}, "'scopes'"),
+        ("just-a-string", "must be a JSON object"),
+        (42, "must be a JSON object"),
+    ],
+)
+def test_registry_rejects_an_invalid_entry_and_names_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, entry: object, message: str
+):
+    _registry_file(tmp_path, monkeypatch, [_GOOD_ENTRY, entry])  # the bad one is entry 1
+
+    with pytest.raises(ValueError, match="entry 1") as exc:
+        load_api_key_registry()
+
+    assert message in str(exc.value)
+    assert _GOOD_HASH not in str(exc.value)  # never echo a hash
+
+
+def test_a_blank_tenant_key_never_becomes_a_tenantless_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """With the gateway flag a tenant-less key can pick any tenant by header; refuse it at load."""
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.setenv("NW_TRUSTED_TENANT_HEADER", "true")
+    _registry_file(tmp_path, monkeypatch, [{"key_id": "k", "hash": _GOOD_HASH, "tenant": ""}])
+
+    with pytest.raises(ValueError, match="'tenant'"):
+        check_tenancy_config(("NW_REST_API_KEY",))
+    with pytest.raises(ValueError, match="'tenant'"):
+        api_key_registry_claims("secret")  # it can never authenticate
+
+
+@pytest.mark.parametrize("field", ["hash", "key_id"])
+def test_registry_rejects_duplicate_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, field: str
+):
+    other = {"key_id": "second", "hash": hashlib.sha256(b"another").hexdigest(), "tenant": "beta"}
+    other[field] = _GOOD_ENTRY[field]  # the same key (or id) bound to a second tenant
+    _registry_file(tmp_path, monkeypatch, [_GOOD_ENTRY, other])
+
+    with pytest.raises(ValueError, match=f"share the same '{field}'"):
+        load_api_key_registry()
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        (None, r"cannot read the key registry \(FileNotFoundError\)"),
+        ("{not json", r"cannot read the key registry \(JSONDecodeError\)"),
+        ('{"key_id": "k"}', "must contain a JSON array"),
+    ],
+)
+def test_registry_file_problems_name_the_variable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: str | None, message: str
+):
+    path = tmp_path / "keys.json"
+    if content is not None:
+        path.write_text(content, encoding="utf-8")
+    monkeypatch.setenv("NW_API_KEYS_FILE", str(path))
+
+    with pytest.raises(ValueError, match=message) as exc:
+        load_api_key_registry()
+
+    assert "NW_API_KEYS_FILE" in str(exc.value)
+
+
+def test_registry_normalises_a_valid_entry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    entry = {"key_id": " k ", "hash": _GOOD_HASH.upper(), "tenant": " acme "}
+    _registry_file(tmp_path, monkeypatch, [entry])
+
+    claims = api_key_registry_claims("secret")
+
+    assert claims == {"sub": "k", "tenant_id": "acme", "scopes": []}
+
+
+def test_rest_registry_key_cannot_cross_tenants(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_REST_API_KEY", raising=False)
+    monkeypatch.delenv("NW_REST_JWT_SECRET", raising=False)
+    _write_registry(tmp_path, monkeypatch, ("acme-prod", "acme-secret", "acme"))
+    factory = _config_factory()
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        client = TestClient(app)
+        for tenant in ("beta", "__default__"):
+            resp = client.get(
+                "/v1/connectors/slack/configs",
+                headers={"X-API-Key": "acme-secret", "X-Tenant-ID": tenant},
+            )
+            assert resp.status_code == 403, tenant
+        ok = client.get("/v1/connectors/slack/configs", headers={"X-API-Key": "acme-secret"})
+    finally:
+        app.dependency_overrides.clear()
+    assert ok.status_code == 200
+
+
+_SHARED_KEYS = ("NW_REST_API_KEY", "NW_GRPC_API_KEY", "NW_MCP_API_KEY")
+
+
+def _clear_tenancy_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("NW_API_KEYS_FILE", "NW_TRUSTED_TENANT_HEADER", *_SHARED_KEYS):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_startup_refuses_shared_key_without_registry_or_gateway(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    _clear_tenancy_env(monkeypatch)
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.setenv("NW_REST_API_KEY", "shared")
+    with pytest.raises(RuntimeError, match="NW_API_KEYS_FILE"):
+        check_tenancy_config(("NW_REST_API_KEY",))
+    monkeypatch.setenv("NW_TRUSTED_TENANT_HEADER", "true")
+    check_tenancy_config(("NW_REST_API_KEY",))
+    monkeypatch.delenv("NW_TRUSTED_TENANT_HEADER")
+    _write_registry(tmp_path, monkeypatch, ("acme-prod", "acme-secret", "acme"))
+    check_tenancy_config(("NW_REST_API_KEY",))
+
+
+@pytest.mark.parametrize(
+    ("own", "foreign"),
+    [
+        ("NW_REST_API_KEY", "NW_MCP_API_KEY"),
+        ("NW_GRPC_API_KEY", "NW_REST_API_KEY"),
+        ("NW_MCP_API_KEY", "NW_GRPC_API_KEY"),
+    ],
+)
+def test_startup_only_considers_the_starting_bindings_own_key(
+    monkeypatch: pytest.MonkeyPatch, own: str, foreign: str
+):
+    """Another binding's key in a shared .env must not stop this one from starting."""
+    _clear_tenancy_env(monkeypatch)
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.setenv(foreign, "shared")
+    check_tenancy_config((own,))
+
+    monkeypatch.setenv(own, "shared")
+    with pytest.raises(RuntimeError, match="NW_API_KEYS_FILE"):
+        check_tenancy_config((own,))
+
+
+def test_startup_has_no_shared_key_rule_for_stdio(monkeypatch: pytest.MonkeyPatch):
+    """Stdio has no header, so a shared key cannot pick a tenant there."""
+    _clear_tenancy_env(monkeypatch)
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    for name in _SHARED_KEYS:
+        monkeypatch.setenv(name, "shared")
+    check_tenancy_config(())
+
+
+def test_startup_allows_jwt_only_and_single_tenant(monkeypatch: pytest.MonkeyPatch):
+    _clear_tenancy_env(monkeypatch)
+    monkeypatch.setenv("NW_REST_JWT_SECRET", "x" * 32)
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    check_tenancy_config(("NW_REST_API_KEY",))
+    monkeypatch.setenv("NW_REST_API_KEY", "shared")
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
+    check_tenancy_config(("NW_REST_API_KEY",))
+
+
+class _Stop(Exception):
+    """Ends a startup path right after the tenancy check."""
+
+
+def _record_check(monkeypatch: pytest.MonkeyPatch, module: str) -> list[tuple[str, ...]]:
+    """Replace ``check_tenancy_config`` in ``module``; the startup path stops right after it."""
+    seen: list[tuple[str, ...]] = []
+
+    def record(shared_key_envs: tuple[str, ...]) -> None:
+        seen.append(shared_key_envs)
+        raise _Stop
+
+    monkeypatch.setattr(f"{module}.check_tenancy_config", record)
+    return seen
+
+
+def test_mcp_stdio_start_applies_no_shared_key_rule(monkeypatch: pytest.MonkeyPatch):
+    from bindings.mcp_server.server import McpServer
+
+    seen = _record_check(monkeypatch, "bindings.mcp_server.server")
+    with pytest.raises(_Stop):
+        McpServer(connector_ids=["http_generic"]).run_stdio()
+
+    assert seen == [()]
+
+
+def test_mcp_http_start_checks_only_the_mcp_key(monkeypatch: pytest.MonkeyPatch):
+    from bindings.mcp_server.server import McpServer
+
+    seen = _record_check(monkeypatch, "bindings.mcp_server.server")
+    with pytest.raises(_Stop):
+        McpServer(connector_ids=["http_generic"]).run_streamable_http()
+
+    assert seen == [("NW_MCP_API_KEY",)]
+
+
+def test_grpc_start_checks_only_the_grpc_key(monkeypatch: pytest.MonkeyPatch):
+    from bindings.grpc_server.server import serve
+
+    seen = _record_check(monkeypatch, "bindings.grpc_server.server")
+    with pytest.raises(_Stop):
+        serve()
+
+    assert seen == [("NW_GRPC_API_KEY",)]
 
 
 def test_resolve_config_name_disabled_returns_none(monkeypatch: pytest.MonkeyPatch):
