@@ -981,6 +981,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Tenant secrets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-tenant-secrets-are-stored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where tenant secrets are stored
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2669,6 +2686,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Tenant secrets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-tenant-secrets-are-stored" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where tenant secrets are stored
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2924,6 +2958,63 @@ without running the action. Nested <code>call_action</code> calls inherit the pi
 overlay that is checked first), then from the environment. Non-alphanumeric characters become <code>_</code> and the name is upper-cased: config <code>test-drive</code> for tenant
 <code>acme</code> on Google Drive reads <code>NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON</code>. A missing secret fails
 with <code>tenant secret not found: &lt;tenant&gt;/&lt;connector&gt;/...</code>.</p>
+<h3 id="where-tenant-secrets-are-stored">Where tenant secrets are stored<a class="headerlink" href="#where-tenant-secrets-are-stored" title="Anchor link to this section">&para;</a></h3>
+<p>Secrets sent through <code>/v1</code> (<code>PUT /v1/connectors/{cid}/secrets</code>, or <code>secrets</code> in a config body) are
+never written to <code>tenants.yaml</code>. That file holds configs and secret <strong>names</strong> only, and is created
+<code>0600</code>. Values go to a secret store, and <strong>with no store configured those requests fail with
+<code>400</code></strong> (nothing is saved).</p>
+<p>For development, enable the encrypted local file:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NW_ALLOW_LOCAL_SECRET_FILE</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NW_LOCAL_SECRET_KEY</code></td>
+<td>a Fernet key: <code>python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code></td>
+</tr>
+<tr>
+<td><code>NW_LOCAL_SECRET_FILE</code></td>
+<td>absolute path <strong>outside the source tree</strong> (and outside <code>/app</code> in the image), e.g. a mounted volume</td>
+</tr>
+</tbody>
+</table>
+<p>The file is Fernet-encrypted and created <code>0600</code>. Startup refuses a missing key, a relative path or a
+path inside the source tree. A wrong key is an error, never an empty store. There is no key
+rotation yet. In production, supply secrets through environment variables or a cloud secret backend
+(<code>NW_SECRET_BACKEND</code>), which is read-only.</p>
+<p>Inline secret fields in a config (<code>*_value</code>, <code>password</code>, ...) are not read by any connector and are
+dropped, with a warning, when <code>tenants.yaml</code> is written.</p>
+<h4 id="upgrading_1">Upgrading<a class="headerlink" href="#upgrading_1" title="Anchor link to this section">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Migration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/v1</code> secret writes return <code>400</code> until a store is configured</td>
+<td>Enable the local file (above), or use env vars / a cloud backend.</td>
+</tr>
+<tr>
+<td>An existing <code>tenants.yaml</code> with plaintext <code>secrets:</code></td>
+<td>With a store configured it migrates automatically on the next start and the file is rewritten as names only. With no store it still loads (a warning is logged) and is kept <code>0600</code>.</td>
+</tr>
+<tr>
+<td>Inline secret fields are no longer written</td>
+<td>None needed.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="mcp-tenant-and-config-tools">MCP tenant and config tools<a class="headerlink" href="#mcp-tenant-and-config-tools" title="Anchor link to this section">&para;</a></h2>
 <p>With multi-tenancy on, every Node Wire MCP server (<code>agents.mcp_entrypoint</code>, per-connector images
 and <code>nw-mcp-builder</code> hosts) adds these tools:</p>
