@@ -68,7 +68,7 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.
 | `TENANT_NOT_ALLOWED` | `AUTH` | The tenant is unknown, or excluded by `NW_MCP_ALLOWED_TENANTS` |
 | `TENANT_PIN_LOCKED` | `AUTH` | `nw_select_tenant` while `NW_MCP_TENANT_PIN_LOCKED=true` |
 | `TENANT_MISMATCH` | `AUTH` | A connector instance pinned to one tenant was run for another |
-| `TENANT_IDENTITY_MISMATCH` | `AUTH` | The JWT's tenant claim disagrees with the requested tenant |
+| `TENANT_IDENTITY_MISMATCH` | `AUTH` | The credential's tenant disagrees with the requested tenant, the caller asked for the operator-only `__default__`, or a tenant-less credential sent a tenant header without `NW_TRUSTED_TENANT_HEADER` |
 | `CONFIG_NOT_FOUND` | `AUTH` | No config for this tenant and connector, or an unknown config name (the two are indistinguishable on purpose) |
 | `CONFIG_NAME_CONFLICT` | `BUSINESS` | Creating a config whose name already exists |
 | `CONFIG_DEFAULT_REQUIRED` | `BUSINESS` | Deleting the default config without naming a new one |
