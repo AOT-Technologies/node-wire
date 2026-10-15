@@ -633,9 +633,9 @@ async def test_a_cancelled_call_does_not_count_against_the_breaker() -> None:
     await asyncio.sleep(0.05)  # inside the action
 
     task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
+    await asyncio.wait({task})
 
+    assert task.cancelled()
     assert _breaker(connector).fail_counter == 0
     assert _breaker(connector).state.name == "closed"
 
