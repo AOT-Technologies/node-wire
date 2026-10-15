@@ -8,8 +8,10 @@ import base64
 import json
 import logging
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -17,11 +19,15 @@ from pydantic import BaseModel, ValidationError, model_validator
 from dotenv import load_dotenv
 import os
 import asyncio
+from node_wire_runtime.base_connector import NestedConnectorActionError
+from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.errors import ErrorMapper
+from node_wire_runtime.http_safety import SsrfBlockedError, assert_safe_destination
 from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
+    TenantIdentityMismatchError,
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
@@ -66,17 +72,12 @@ from node_wire_slack.schema import (
 )
 from .ext_patient_viewer.schema import ExternalPatientViewerInput
 
-load_dotenv()
+if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
+    load_dotenv(override=False)
 
 
 ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
 ErrorMapper.register_global(ValueError, ErrorCategory.BUSINESS, code="VALIDATION_ERROR")
-
-
-load_dotenv()
-
-
-ErrorMapper.register_global(ValidationError, ErrorCategory.BUSINESS, code="UNSUPPORTED_OPERATION")
 
 
 logger = logging.getLogger("playground.scenarios")
@@ -251,7 +252,6 @@ class ScenarioStep(BaseModel):
     details: Optional[str] = None
     display_name: Optional[str] = None  # For "Plain English" UI labels
     data: Optional[Any] = None
-    retries: int = 0
 
 
 class ScenarioResponse(BaseModel):
@@ -273,6 +273,22 @@ def _safe_error_return(
 
     # Scenario steps span multiple connectors, so there's no single connector_id to
     # scope this to — only the runtime-wide mappings registered above apply here.
+    if isinstance(e, NestedConnectorActionError):
+        # run() already mapped the failure; surface its code, category and message.
+        failed = e.response
+        category = failed.error_category.value if failed.error_category else None
+        steps[-1].status = "error"
+        steps[-1].details = f"[{category}] {failed.message}"
+        steps[-1].data = {
+            "error_code": failed.error_code,
+            "error_category": category,
+            "raw": {"error": failed.message},
+        }
+        log.warning(f"{step_msg}: {failed.error_code}")
+        return ScenarioResponse(
+            success=False, steps=steps, trace_id=trace_id, error_message=step_msg
+        )
+
     mapped_err = ErrorMapper.resolve(e, connector_id="playground")
     safe_msg = (
         str(e)
@@ -304,36 +320,29 @@ def _safe_error_return(
     return ScenarioResponse(success=False, steps=steps, trace_id=trace_id, error_message=step_msg)
 
 
-async def execute_with_retry(
-    action: Any,
-    input_data: Any,
-    trace_id: str,
-    step: ScenarioStep,
-    max_retries: int = 3,
-    base_delay: float = 1.0,
-) -> Any:
-    last_exception = None
-    delay = base_delay
-    for attempt in range(max_retries + 1):
-        try:
-            return await action.internal_execute(input_data, trace_id=trace_id)
-        except Exception as e:
-            last_exception = e
-            if attempt < max_retries:
-                logger.warning(
-                    f"Action failed (attempt {attempt + 1}/{max_retries + 1}): {e}. Retrying in {delay}s..."
-                )
-                step.retries += 1
-                await asyncio.sleep(delay)
-                delay *= 2
-            else:
-                logger.error(f"Action failed after {max_retries + 1} attempts: {e}")
-                raise last_exception
-    # Only reachable when max_retries < 0 leaves the loop with zero iterations.
-    raise (
-        last_exception
-        if last_exception
-        else RuntimeError(f"execute_with_retry made no attempts (max_retries={max_retries})")
+# The caller of the current scenario request, set by resolve_connector so run_action can pass
+# it to the runtime (policy scopes, audit principal).
+_scenario_caller: ContextVar[Optional[CallerIdentity]] = ContextVar(
+    "_scenario_caller", default=None
+)
+
+
+async def run_action(connector: Any, input_data: Any) -> Any:
+    """Run one connector action through ``run()`` and return its typed output.
+
+    Goes through input validation, the policy hook, the circuit breaker and audit logging, like
+    a ``/connectors`` call. Simplified: no retry loop of its own. ``run()`` already retries errors
+    the runtime classes as transient (with backoff and the breaker); a blanket retry on top would
+    also re-run permanent failures (bad config, auth, validation) and stack with that one.
+    Failures raise ``PolicyDenied`` / ``NestedConnectorActionError``.
+    """
+    root = getattr(input_data, "root", input_data)
+    who = _scenario_caller.get()
+    return await connector.call_action(
+        root.action,
+        root.model_dump(mode="json"),
+        principal=who.principal if who else None,
+        scopes=who.scopes if who else None,
     )
 
 
@@ -368,6 +377,7 @@ async def resolve_connector(
     from bindings.rest_api.auth import get_rest_caller_identity
 
     factory = get_playground_factory()
+    _scenario_caller.set(get_rest_caller_identity(request))
     if not factory.is_exposed(connector_id, "rest"):
         raise HTTPException(
             status_code=500, detail=f"Connector {connector_id!r} is not configured for REST"
@@ -380,6 +390,9 @@ async def resolve_connector(
         )
     except MissingTenantError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except TenantIdentityMismatchError as exc:
+        # Includes TenantRejectedError (reserved __default__, untrusted header).
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     name = resolve_config_name((config_name or "").strip() or None)
     if is_multitenancy_enabled():
         # Inline replace so CodeQL treats newline stripping as a sanitizer.
@@ -467,8 +480,8 @@ async def post_consultation_scenario(
     try:
         if payload.patient_id:
             logger.info("Performing direct Patient ID lookup")
-            p_res = await execute_with_retry(
-                connector, FhirPatientReadInput(resource_id=payload.patient_id), trace_id, steps[-1]
+            p_res = await run_action(
+                connector, FhirPatientReadInput(resource_id=payload.patient_id)
             )
             patient_id = payload.patient_id
         else:
@@ -492,11 +505,8 @@ async def post_consultation_scenario(
                 "Searching for patient by fields: %s",
                 ", ".join(sorted(k for k, present in provided_fields.items() if present)),
             )
-            p_res = await execute_with_retry(
-                connector,
-                FhirPatientReadInput(search_params=patient_search_params),
-                trace_id,
-                steps[-1],
+            p_res = await run_action(
+                connector, FhirPatientReadInput(search_params=patient_search_params)
             )
             patient_id = p_res.resource.get("id")
 
@@ -534,25 +544,21 @@ async def post_consultation_scenario(
                 visit_date.replace("\r", "").replace("\n", ""),
                 extra={"trace_id": trace_id},
             )
-            enc_res = await execute_with_retry(
+            enc_res = await run_action(
                 connector,
                 FhirEncounterSearchInput(
                     search_params={"patient": patient_id, "status": "finished", "date": visit_date}
                 ),
-                trace_id,
-                steps[-1],
             )
 
             resources = enc_res.resources
             if not resources:
                 # Fallback to any finished encounter
-                enc_res = await execute_with_retry(
+                enc_res = await run_action(
                     connector,
                     FhirEncounterSearchInput(
                         search_params={"patient": patient_id, "status": "finished"}
                     ),
-                    trace_id,
-                    steps[-1],
                 )
                 resources = enc_res.resources
 
@@ -623,7 +629,7 @@ async def post_consultation_scenario(
             context={"encounter": [{"reference": f"Encounter/{encounter_id}"}]},
         )
 
-        doc_res = await execute_with_retry(connector, doc_input, trace_id, steps[-1])
+        doc_res = await run_action(connector, doc_input)
 
         steps[-1].status = "success"
         steps[-1].details = f"EHR Updated. ID: {doc_res.resource_id}"
@@ -642,13 +648,11 @@ async def post_consultation_scenario(
         # STEP 4: Verification / Visualization
         add_step("Document Verification", "pending", display_name="Verify EHR Update")
         try:
-            verify_res = await execute_with_retry(
+            verify_res = await run_action(
                 connector,
                 FhirDocumentReferenceSearchInput(
                     search_params={"patient": patient_id, "_id": doc_res.resource_id}
                 ),
-                trace_id,
-                steps[-1],
             )
 
             resources = verify_res.resources
@@ -782,7 +786,7 @@ async def report_incident_scenario(
         )
 
         http_action = connector
-        response = await execute_with_retry(http_action, request_input, trace_id, steps[-1])
+        response = await run_action(http_action, request_input)
 
         resp_body = json.loads(response.body)
 
@@ -864,11 +868,8 @@ async def cerner_post_consultation_scenario(
     try:
         if payload.patient_id:
             logger.info("Cerner: direct Patient ID lookup")
-            p_res = await execute_with_retry(
-                connector,
-                FhirCernerPatientReadInput(resource_id=payload.patient_id),
-                trace_id,
-                steps[-1],
+            p_res = await run_action(
+                connector, FhirCernerPatientReadInput(resource_id=payload.patient_id)
             )
             patient_id = payload.patient_id
         else:
@@ -892,11 +893,8 @@ async def cerner_post_consultation_scenario(
                 "Cerner: searching for patient by fields: %s",
                 ", ".join(sorted(k for k, present in provided_fields.items() if present)),
             )
-            p_res = await execute_with_retry(
-                connector,
-                FhirCernerPatientReadInput(search_params=search_params),
-                trace_id,
-                steps[-1],
+            p_res = await run_action(
+                connector, FhirCernerPatientReadInput(search_params=search_params)
             )
             patient_id = p_res.resource.get("id")
 
@@ -929,25 +927,21 @@ async def cerner_post_consultation_scenario(
             selected_enc = {"id": encounter_id, "note": "Manual ID used"}
         else:
             visit_date = payload.visit_date or datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
-            enc_res = await execute_with_retry(
+            enc_res = await run_action(
                 connector,
                 FhirCernerEncounterSearchInput(
                     search_params={"patient": patient_id, "status": "finished", "date": visit_date}
                 ),
-                trace_id,
-                steps[-1],
             )
             resources = enc_res.resources
 
             if not resources:
                 # Fallback: any finished encounter for this patient
-                enc_res = await execute_with_retry(
+                enc_res = await run_action(
                     connector,
                     FhirCernerEncounterSearchInput(
                         search_params={"patient": patient_id, "status": "finished"}
                     ),
-                    trace_id,
-                    steps[-1],
                 )
                 resources = enc_res.resources
 
@@ -1026,7 +1020,7 @@ async def cerner_post_consultation_scenario(
             },
         )
 
-        doc_res = await execute_with_retry(connector, doc_input, trace_id, steps[-1])
+        doc_res = await run_action(connector, doc_input)
 
         steps[-1].status = "success"
         steps[-1].details = f"Cerner EHR Updated. ID: {doc_res.resource_id}"
@@ -1045,11 +1039,9 @@ async def cerner_post_consultation_scenario(
         # STEP 4: Verification
         add_step("Document Verification", "pending", display_name="Verify EHR Update")
         try:
-            verify_res = await execute_with_retry(
+            verify_res = await run_action(
                 connector,
                 FhirCernerDocumentReferenceSearchInput(search_params={"_id": doc_res.resource_id}),
-                trace_id,
-                steps[-1],
             )
 
             resources = verify_res.resources
@@ -1162,7 +1154,7 @@ async def stripe_charge_scenario(
             description=payload.description,
         )
 
-        charge_res = await execute_with_retry(connector, charge_input, trace_id, steps[-1])
+        charge_res = await run_action(connector, charge_input)
 
         steps[-1].status = "success"
         steps[-1].details = f"Charge Processed: {charge_res.charge_id}"
@@ -1235,7 +1227,7 @@ async def stripe_payment_intent_scenario(
             payment_method=payload.payment_method,
             confirm=payload.confirm,
         )
-        res = await execute_with_retry(connector, pi_input, trace_id, steps[-1])
+        res = await run_action(connector, pi_input)
         steps[-1].status = "success"
         steps[-1].details = f"Created Intent: {res.payment_intent_id}"
         steps[-1].data = {"raw": res.model_dump()}
@@ -1291,7 +1283,7 @@ async def stripe_subscription_scenario(
             price_id=payload.price_id,
             card_token=payload.card_token,
         )
-        res = await execute_with_retry(connector, sub_input, trace_id, steps[-1])
+        res = await run_action(connector, sub_input)
         steps[-1].status = "success"
         steps[-1].details = f"Subscription Created: {res.subscription_id}"
         steps[-1].data = {"raw": res.model_dump()}
@@ -1341,7 +1333,7 @@ async def stripe_cancel_subscription_scenario(
         from node_wire_stripe.schema import CancelSubscriptionInput
 
         can_input = CancelSubscriptionInput(subscription_id=payload.subscription_id)
-        res = await execute_with_retry(connector, can_input, trace_id, steps[-1])
+        res = await run_action(connector, can_input)
         steps[-1].status = "success"
         steps[-1].details = f"Cancelled Sub: {res.subscription_id}"
         steps[-1].data = {"raw": res.model_dump()}
@@ -1397,7 +1389,7 @@ async def stripe_refund_scenario(
             payment_intent_id=payload.payment_intent_id,
             amount=payload.amount,
         )
-        res = await execute_with_retry(connector, ref_input, trace_id, steps[-1])
+        res = await run_action(connector, ref_input)
         steps[-1].status = "success"
         steps[-1].details = f"Refund Processed: {res.refund_id}"
         steps[-1].data = {"raw": res.model_dump()}
@@ -1459,7 +1451,7 @@ async def gdrive_archival_scenario(
             list_input = GoogleDriveOperationInput.model_validate(
                 list_op.model_dump(exclude_none=True)
             )
-            res = await execute_with_retry(connector, list_input, trace_id, steps[-1])
+            res = await run_action(connector, list_input)
             n = len(res.raw.get("files") or [])
             steps[-1].status = "success"
             steps[-1].details = f"Retrieved {n} file(s) (page_size={page_size})"
@@ -1490,7 +1482,7 @@ async def gdrive_archival_scenario(
             get_input = GoogleDriveOperationInput.model_validate(
                 get_op.model_dump(exclude_none=True)
             )
-            res = await execute_with_retry(connector, get_input, trace_id, steps[-1])
+            res = await run_action(connector, get_input)
             got_id = res.raw.get("id") or fid
             name = res.raw.get("name", "")
             steps[-1].status = "success"
@@ -1547,7 +1539,7 @@ async def gdrive_archival_scenario(
 
         add_step("Drive Update", "pending", display_name="Apply file update")
         try:
-            res = await execute_with_retry(connector, upd_input, trace_id, steps[-1])
+            res = await run_action(connector, upd_input)
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update failed")
 
@@ -1568,7 +1560,7 @@ async def gdrive_archival_scenario(
             get_input = GoogleDriveOperationInput.model_validate(
                 get_op.model_dump(exclude_none=True)
             )
-            get_res = await execute_with_retry(connector, get_input, trace_id, steps[-1])
+            get_res = await run_action(connector, get_input)
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update verify failed")
 
@@ -1629,7 +1621,7 @@ async def gdrive_archival_scenario(
 
         upload_input = GoogleDriveOperationInput.model_validate(op_payload)
 
-        res = await execute_with_retry(connector, upload_input, trace_id, steps[-1])
+        res = await run_action(connector, upload_input)
         file_id = res.raw.get("id")
 
         if not file_id:
@@ -1654,7 +1646,7 @@ async def gdrive_archival_scenario(
                 type="user",
             )
         )
-        perm_res = await execute_with_retry(connector, perm_input, trace_id, steps[-1])
+        perm_res = await run_action(connector, perm_input)
 
         steps[-1].status = "success"
         steps[-1].details = f"Read access granted to {payload.recipient_email}"
@@ -1673,7 +1665,7 @@ async def gdrive_archival_scenario(
                 fields="id, name, mimeType, webViewLink, size, createdTime, owners",
             )
         )
-        get_res = await execute_with_retry(connector, get_input, trace_id, steps[-1])
+        get_res = await run_action(connector, get_input)
         file_metadata = get_res.raw
 
         beautiful_data = {
@@ -1750,7 +1742,7 @@ async def slack_scenario(
 
     add_step("Dispatch to Slack API", "pending", display_name="Dispatch to Slack API")
     try:
-        slack_res = await execute_with_retry(connector, input_model, trace_id, steps[-1])
+        slack_res = await run_action(connector, input_model)
         steps[-1].status = "success"
         steps[-1].details = "API Accepted Request"
         steps[-1].display_name = "Dispatched via API"
@@ -1932,9 +1924,31 @@ async def llm_options() -> Dict[str, Any]:
     return LLMProviderFactory.list_playground_options()
 
 
+def _is_configured_ollama(origin: str) -> bool:
+    """True when ``origin`` is the Ollama this server is configured for.
+
+    That is ``OLLAMA_BASE_URL`` when set, else the built-in local default. It is one fixed,
+    operator-side address, so it may be loopback or internal. Any other caller-supplied address
+    must pass the outbound destination check.
+    """
+    from agents.llm_factory import DEFAULT_OLLAMA_BASE_URL, ollama_origin_from_base_url
+
+    configured = os.environ.get("OLLAMA_BASE_URL", "").strip() or DEFAULT_OLLAMA_BASE_URL
+    try:
+        trusted = urlsplit(ollama_origin_from_base_url(configured))
+    except ValueError:
+        return False
+    candidate = urlsplit(origin)
+    return (trusted.scheme, trusted.netloc.lower()) == (candidate.scheme, candidate.netloc.lower())
+
+
 @router.get("/llm-discover-ollama")
 async def llm_discover_ollama(base_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
-    """Discover model tags from a running Ollama server."""
+    """Discover model tags from a running Ollama server.
+
+    The URL is caller input and the model names are read back, so it is checked like any other
+    outbound target unless it is the configured Ollama (``OLLAMA_BASE_URL``, default local).
+    """
     import httpx
 
     from agents.llm_factory import normalize_openai_compatible_base_url, ollama_origin_from_base_url
@@ -1949,6 +1963,20 @@ async def llm_discover_ollama(base_url: str = "http://127.0.0.1:11434") -> Dict[
             "models": [],
             "base_url": None,
             "error": "Invalid Ollama URL. Use http or https.",
+        }
+
+    try:
+        if not _is_configured_ollama(origin):
+            await assert_safe_destination(tags_url)
+    except SsrfBlockedError:
+        logger.warning("Ollama discover blocked an outbound destination")
+        return {
+            "models": [],
+            "base_url": None,
+            "error": (
+                "Blocked destination. Only public hosts are allowed; "
+                "set OLLAMA_BASE_URL on the server to use a private Ollama."
+            ),
         }
 
     try:
@@ -2063,17 +2091,21 @@ def _resolve_agent_mcp_tenant(request: Request) -> str:
     `__default__` when it's a configured tenant, else return "" so the agent
     starts unpinned and the LLM can call `nw_list_tenants` / `nw_select_tenant`
     itself for the first turn.
+
+    Simplified: the `__default__` fallback applies only to an unauthenticated caller (local
+    development). `__default__` is operator-only, so an authenticated caller who sends no tenant
+    starts unpinned instead of inheriting the operator's tenant.
     """
     from bindings.rest_api.auth import get_rest_caller_identity
 
+    identity = get_rest_caller_identity(request)
     try:
-        return resolve_tenant_id(
-            headers=request.headers,
-            jwt_identity=get_rest_caller_identity(request),
-        )
+        return resolve_tenant_id(headers=request.headers, jwt_identity=identity)
+    except TenantIdentityMismatchError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except MissingTenantError:
         store = get_playground_factory().store
-        if DEFAULT_TENANT in store.list_tenants():
+        if identity is None and DEFAULT_TENANT in store.list_tenants():
             return DEFAULT_TENANT
         return ""
 
@@ -2567,7 +2599,7 @@ async def salesforce_create_lead_scenario(
     )
 
     try:
-        res = await execute_with_retry(connector, sf_input, trace_id, steps[-1])
+        res = await run_action(connector, sf_input)
         steps[-1].status = "success"
         steps[-1].details = "Lead record created"
         steps[-1].data = {"resource_id": res.resource_id, "raw": res.data}
@@ -2609,7 +2641,7 @@ async def salesforce_create_contact_scenario(
     )
 
     try:
-        res = await execute_with_retry(connector, sf_input, trace_id, steps[-1])
+        res = await run_action(connector, sf_input)
         steps[-1].status = "success"
         steps[-1].details = "Contact record created"
         steps[-1].data = {"resource_id": res.resource_id, "raw": res.data}
@@ -2637,9 +2669,7 @@ async def salesforce_read_lead_scenario(
 
     add_step("Read Lead", "pending", "Fetching Lead Details")
     try:
-        res = await execute_with_retry(
-            connector, ReadLeadInput(record_id=payload.record_id), trace_id, steps[-1]
-        )
+        res = await run_action(connector, ReadLeadInput(record_id=payload.record_id))
         steps[-1].status = "success"
         steps[-1].details = "Lead data retrieved"
         steps[-1].data = res.data
@@ -2679,11 +2709,8 @@ async def salesforce_update_lead_scenario(
         sf_fields["Email"] = fields["email"]
 
     try:
-        res = await execute_with_retry(
-            connector,
-            UpdateLeadInput(record_id=payload.record_id, fields=sf_fields),
-            trace_id,
-            steps[-1],
+        res = await run_action(
+            connector, UpdateLeadInput(record_id=payload.record_id, fields=sf_fields)
         )
         steps[-1].status = "success"
         steps[-1].details = "Lead updated"
@@ -2717,9 +2744,7 @@ async def salesforce_delete_lead_scenario(
 
     add_step("Delete Lead", "pending", "Removing Lead Record")
     try:
-        await execute_with_retry(
-            connector, DeleteLeadInput(record_id=payload.record_id), trace_id, steps[-1]
-        )
+        await run_action(connector, DeleteLeadInput(record_id=payload.record_id))
         steps[-1].status = "success"
         steps[-1].details = "Lead deleted"
         return ScenarioResponse(
@@ -2746,9 +2771,7 @@ async def salesforce_read_contact_scenario(
 
     add_step("Read Contact", "pending", "Fetching Contact Details")
     try:
-        res = await execute_with_retry(
-            connector, ReadContactInput(record_id=payload.record_id), trace_id, steps[-1]
-        )
+        res = await run_action(connector, ReadContactInput(record_id=payload.record_id))
         steps[-1].status = "success"
         steps[-1].details = "Contact data retrieved"
         steps[-1].data = res.data
@@ -2787,11 +2810,8 @@ async def salesforce_update_contact_scenario(
         sf_fields["AccountId"] = fields["account_id"]
 
     try:
-        res = await execute_with_retry(
-            connector,
-            UpdateContactInput(record_id=payload.record_id, fields=sf_fields),
-            trace_id,
-            steps[-1],
+        res = await run_action(
+            connector, UpdateContactInput(record_id=payload.record_id, fields=sf_fields)
         )
         steps[-1].status = "success"
         steps[-1].details = "Contact updated"
@@ -2825,9 +2845,7 @@ async def salesforce_delete_contact_scenario(
 
     add_step("Delete Contact", "pending", "Removing Contact Record")
     try:
-        await execute_with_retry(
-            connector, DeleteContactInput(record_id=payload.record_id), trace_id, steps[-1]
-        )
+        await run_action(connector, DeleteContactInput(record_id=payload.record_id))
         steps[-1].status = "success"
         steps[-1].details = "Contact deleted"
         return ScenarioResponse(
@@ -2890,18 +2908,12 @@ async def external_patient_viewer_scenario(
                 extra={"trace_id": trace_id},
             )
             if is_epic:
-                p_res = await execute_with_retry(
-                    connector,
-                    FhirPatientReadInput(resource_id=payload.patient_id),
-                    trace_id,
-                    steps[-1],
+                p_res = await run_action(
+                    connector, FhirPatientReadInput(resource_id=payload.patient_id)
                 )
             else:
-                p_res = await execute_with_retry(
-                    connector,
-                    FhirCernerPatientReadInput(resource_id=payload.patient_id),
-                    trace_id,
-                    steps[-1],
+                p_res = await run_action(
+                    connector, FhirCernerPatientReadInput(resource_id=payload.patient_id)
                 )
             patient_id = payload.patient_id
             patient_resource = p_res.resource or {}
@@ -2935,18 +2947,12 @@ async def external_patient_viewer_scenario(
                 extra={"trace_id": trace_id},
             )
             if is_epic:
-                p_res = await execute_with_retry(
-                    connector,
-                    FhirPatientReadInput(search_params=search_params),
-                    trace_id,
-                    steps[-1],
+                p_res = await run_action(
+                    connector, FhirPatientReadInput(search_params=search_params)
                 )
             else:
-                p_res = await execute_with_retry(
-                    connector,
-                    FhirCernerPatientReadInput(search_params=search_params),
-                    trace_id,
-                    steps[-1],
+                p_res = await run_action(
+                    connector, FhirCernerPatientReadInput(search_params=search_params)
                 )
             patient_resource = p_res.resource or {}
             patient_id = patient_resource.get("id")
@@ -2989,22 +2995,18 @@ async def external_patient_viewer_scenario(
         max_enc = max(1, min(20, payload.max_encounters))
 
         if is_epic:
-            enc_res = await execute_with_retry(
+            enc_res = await run_action(
                 connector,
                 FhirEncounterSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_enc)}
                 ),
-                trace_id,
-                steps[-1],
             )
         else:
-            enc_res = await execute_with_retry(
+            enc_res = await run_action(
                 connector,
                 FhirCernerEncounterSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_enc)}
                 ),
-                trace_id,
-                steps[-1],
             )
 
         encounters = enc_res.resources or []
@@ -3050,22 +3052,18 @@ async def external_patient_viewer_scenario(
         max_docs = max(1, min(50, payload.max_documents))
 
         if is_epic:
-            doc_res = await execute_with_retry(
+            doc_res = await run_action(
                 connector,
                 FhirDocumentReferenceSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_docs)}
                 ),
-                trace_id,
-                steps[-1],
             )
         else:
-            doc_res = await execute_with_retry(
+            doc_res = await run_action(
                 connector,
                 FhirCernerDocumentReferenceSearchInput(
                     search_params={"patient": patient_id, "_count": str(max_docs)}
                 ),
-                trace_id,
-                steps[-1],
             )
 
         documents = doc_res.resources or []

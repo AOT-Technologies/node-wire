@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
 import types
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -27,6 +29,7 @@ from node_wire_runtime.secrets.base import (
     SecretProviderError,
 )
 from node_wire_runtime.secrets.chained import ChainedSecretProvider
+from node_wire_runtime.secrets.local_file import LocalEncryptedFileStore, write_private_file
 
 
 # ---------------------------------------------------------------------------
@@ -478,3 +481,63 @@ def test_chained_raises_not_found_when_all_providers_miss() -> None:
     chain = ChainedSecretProvider(_StaticProvider({}), _StaticProvider({}))
     with pytest.raises(SecretNotFoundError, match="not found in any of 2 provider"):
         chain.get_secret("missing")
+
+
+# --------------------------------------------------------------------------- #
+# SecretStore port: encrypted local file
+# --------------------------------------------------------------------------- #
+
+_FERNET_KEY = "6tKDDLMAFlYiuc8xOB2Ij5N8rG_kPWuKCrx3lpzWXzE="
+_DOC = {"acme": {"slack": {"main": {"SLACK_BOT_TOKEN": "xoxb-plaintext-canary"}}}}
+_POSIX_ONLY = pytest.mark.skipif(os.name != "posix", reason="file modes are POSIX-only")
+
+
+def test_local_store_roundtrip_and_empty_default(tmp_path: Path) -> None:
+    store = LocalEncryptedFileStore(tmp_path / "s" / "secrets.enc", _FERNET_KEY)
+    assert store.load() == {}
+    store.save(_DOC)
+    assert LocalEncryptedFileStore(tmp_path / "s" / "secrets.enc", _FERNET_KEY).load() == _DOC
+
+
+def test_local_store_file_is_encrypted(tmp_path: Path) -> None:
+    path = tmp_path / "secrets.enc"
+    LocalEncryptedFileStore(path, _FERNET_KEY).save(_DOC)
+    blob = path.read_bytes()
+    assert b"xoxb-plaintext-canary" not in blob
+    assert b"SLACK_BOT_TOKEN" not in blob
+
+
+@_POSIX_ONLY
+def test_local_store_file_is_private(tmp_path: Path) -> None:
+    path = tmp_path / "secrets.enc"
+    LocalEncryptedFileStore(path, _FERNET_KEY).save(_DOC)
+    assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_local_store_wrong_key_errors_and_keeps_the_file(tmp_path: Path) -> None:
+    from cryptography.fernet import Fernet
+
+    path = tmp_path / "secrets.enc"
+    LocalEncryptedFileStore(path, _FERNET_KEY).save(_DOC)
+    before = path.read_bytes()
+    other = LocalEncryptedFileStore(path, Fernet.generate_key().decode())
+    with pytest.raises(SecretProviderError, match="cannot decrypt"):
+        other.load()  # an error, never "empty": the next save would wipe the store
+    assert path.read_bytes() == before
+
+
+def test_local_store_rejects_an_invalid_key(tmp_path: Path) -> None:
+    with pytest.raises(SecretProviderError, match="Fernet key"):
+        LocalEncryptedFileStore(tmp_path / "secrets.enc", "not-a-key")
+
+
+@_POSIX_ONLY
+def test_write_private_file_replaces_a_stale_world_readable_temp(tmp_path: Path) -> None:
+    path = tmp_path / "out.yaml"
+    stale = tmp_path / "out.yaml.tmp"
+    stale.write_text("old")
+    stale.chmod(0o644)
+    write_private_file(path, b"new")
+    assert path.read_bytes() == b"new"
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert not stale.exists()
