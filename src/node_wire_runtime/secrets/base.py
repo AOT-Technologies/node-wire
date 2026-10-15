@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from typing import Any, Mapping
 
 
 class SecretNotFoundError(KeyError):
@@ -31,6 +32,25 @@ class SecretProvider(ABC):
     @abstractmethod
     def get_secret(self, key: str) -> str:
         """Return the secret value for the given key, or raise SecretNotFoundError."""
+        raise NotImplementedError
+
+
+class SecretStore(ABC):
+    """Writable port: the durable home of tenant secrets, kept as one nested document.
+
+    The document is ``{tenant: {connector: {config_name: {logical_key: value}}}}``.
+    Simplified: whole-document ``load``/``save`` rather than per-key CRUD; a cloud backend maps
+    it to a single JSON bundle.
+    """
+
+    @abstractmethod
+    def load(self) -> dict[str, Any]:
+        """Return the stored document (``{}`` when nothing was stored yet)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def save(self, data: Mapping[str, Any]) -> None:
+        """Replace the stored document. Must be durable before returning."""
         raise NotImplementedError
 
 
