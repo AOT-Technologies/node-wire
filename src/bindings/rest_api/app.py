@@ -37,6 +37,7 @@ from node_wire_runtime.config_store import (
 from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
+    check_tenancy_config,
     is_multitenancy_enabled,
     resolve_config_name,
     resolve_tenant_id,
@@ -73,11 +74,21 @@ def _truthy_env(value: str | None) -> bool:
 
 
 def _playground_enabled() -> bool:
-    """Return True when demo playground routes/static files should be mounted."""
-    raw = os.environ.get("NW_REST_PLAYGROUND_ENABLED")
-    if raw is not None and raw.strip():
-        return _truthy_env(raw)
-    return (_REPO_ROOT / "playground").is_dir()
+    """Return True when demo playground routes/static files should be mounted.
+
+    Opt-in only: the playground runs connector actions with the server's credentials, so it
+    never mounts just because a ``playground/`` directory sits next to the code.
+    """
+    return (
+        _truthy_env(os.environ.get("NW_REST_PLAYGROUND_ENABLED"))
+        and (_REPO_ROOT / "playground").is_dir()
+    )
+
+
+def _rest_auth_configured() -> bool:
+    if _truthy_env(os.environ.get("NW_REST_AUTH_DISABLED")):
+        return False
+    return bool(os.environ.get("NW_REST_API_KEY") or os.environ.get("NW_REST_JWT_SECRET"))
 
 
 def _mount_playground(app: FastAPI) -> None:
@@ -85,7 +96,17 @@ def _mount_playground(app: FastAPI) -> None:
     if not _playground_enabled():
         logger.info(
             "REST playground disabled",
-            extra={"reason": "NW_REST_PLAYGROUND_ENABLED=false or playground/ missing"},
+            extra={"reason": "set NW_REST_PLAYGROUND_ENABLED=true to enable (checkout only)"},
+        )
+        return
+    # Simplified: skip rather than crash, so a development flag cannot take a server down.
+    if _rest_auth_configured() and not _truthy_env(
+        os.environ.get("NW_REST_PLAYGROUND_ALLOW_WITH_AUTH")
+    ):
+        logger.error(
+            "REST playground NOT mounted: REST authentication is configured. "
+            "Set NW_REST_PLAYGROUND_ALLOW_WITH_AUTH=true to mount it anyway "
+            "(/scenarios then requires credentials)."
         )
         return
 
@@ -150,6 +171,7 @@ async def _rejected(_: Request, exc: Rejected) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=body, headers=exc.headers)
 
 
+check_tenancy_config(("NW_REST_API_KEY",))
 FastAPIInstrumentor.instrument_app(app)
 _max_body_bytes = int(os.environ.get("NW_REST_MAX_BODY_BYTES", "10485760"))
 # Body limit runs outermost (added last); auth is next; protects /connectors/*, /scenarios/*, /v1/*.

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import threading
 from pathlib import Path
@@ -18,12 +19,14 @@ from bindings.factory import ConnectorFactory
 from bindings.rest_api.app import app, get_factory
 from node_wire_runtime.tenant_persistence import (
     SecretShapeNotDeclaredError,
+    SecretStoreNotConfiguredError,
     declare_secret_shape,
     load_tenants,
     save_tenants,
     secret_shape_policy,
     upsert_tenant_secrets,
 )
+from node_wire_runtime.config_store import ConnectorConfigStore
 from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
 
 
@@ -147,9 +150,9 @@ def test_tenants_persist_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert path.is_file()
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert "acme" in raw["tenants"]
-    assert raw["secrets"]["acme"]["google_drive"]["test"]["GOOGLE_DRIVE_SA_JSON"] == (
-        '{"type":"service_account","client_email":"a@b.c"}'
-    )
+    # References only: the YAML names the secret, the store holds its value.
+    assert raw["secrets"]["acme"]["google_drive"]["test"] == ["GOOGLE_DRIVE_SA_JSON"]
+    assert "client_email" not in path.read_text(encoding="utf-8")
 
     OverlaySecretProvider.instance().clear()
     fresh = _factory()
@@ -785,3 +788,169 @@ def test_load_tenants_restores_undeclared_secrets_and_reports_them(
     scoped = tenant_scoped_secret_key("acme", "legacy_undeclared_cx", "TOKEN", config_name="cfg")
     assert OverlaySecretProvider.instance().get_secret(scoped) == "v"
     assert "legacy_undeclared_cx" in tp.undeclared_persisted_connectors()
+
+
+# --------------------------------------------------------------------------- #
+# Secrets at rest: fail closed, references-only YAML, encrypted store
+# --------------------------------------------------------------------------- #
+
+_CANARY = "xoxb-plaintext-canary-0123456789"
+_POSIX_ONLY = pytest.mark.skipif(os.name != "posix", reason="file modes are POSIX-only")
+
+
+def _slack_store() -> ConnectorConfigStore:
+    store = ConnectorConfigStore()
+    store.create("acme", "slack", {"name": "main", "default": True, "config": {}, "auth": {}})
+    return store
+
+
+def _everything_on_disk(tmp_path: Path) -> bytes:
+    return b"".join(p.read_bytes() for p in tmp_path.rglob("*") if p.is_file())
+
+
+def test_upsert_without_a_store_fails_closed_and_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.delenv("NW_ALLOW_LOCAL_SECRET_FILE")
+    store = _slack_store()
+    with pytest.raises(SecretStoreNotConfiguredError, match="no secret store is configured"):
+        upsert_tenant_secrets("acme", "slack", {"SLACK_BOT_TOKEN": _CANARY}, config_name="main")
+    save_tenants(store)
+    assert OverlaySecretProvider.instance().export() == {}
+    assert _CANARY.encode() not in _everything_on_disk(tmp_path)
+
+
+def test_rest_secret_put_without_a_store_is_a_400(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("NW_ALLOW_LOCAL_SECRET_FILE")
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    factory = _factory()
+    app.dependency_overrides[get_factory] = lambda: factory
+    try:
+        resp = TestClient(app).put(
+            "/v1/connectors/slack/secrets",
+            json={"config_name": "main", "secrets": {"SLACK_BOT_TOKEN": _CANARY}},
+            headers={"X-Tenant-ID": "acme"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 400
+    assert "secret store" in resp.json()["detail"]
+
+
+def test_secrets_never_reach_tenants_yaml_and_round_trip_a_restart(tmp_path: Path):
+    store = _slack_store()
+    upsert_tenant_secrets("acme", "slack", {"SLACK_BOT_TOKEN": _CANARY}, config_name="main")
+    save_tenants(store)
+
+    yaml_text = (tmp_path / "tenants.yaml").read_text(encoding="utf-8")
+    assert _CANARY not in yaml_text
+    assert yaml.safe_load(yaml_text)["secrets"] == {
+        "acme": {"slack": {"main": ["SLACK_BOT_TOKEN"]}}
+    }
+    assert _CANARY.encode() not in _everything_on_disk(tmp_path)  # the store file is encrypted
+
+    # Restart: a new process has an empty overlay and an empty config store
+    # (load_tenants rebuilds the secrets mirror itself).
+    OverlaySecretProvider.instance().clear()
+    fresh = ConnectorConfigStore()
+    load_tenants(fresh)
+    key = tenant_scoped_secret_key("acme", "slack", "SLACK_BOT_TOKEN", config_name="main")
+    assert OverlaySecretProvider.instance().get_secret(key) == _CANARY
+    assert fresh.has_config("acme", "slack")
+
+
+@_POSIX_ONLY
+def test_tenants_yaml_and_secret_file_are_private(tmp_path: Path):
+    store = _slack_store()
+    upsert_tenant_secrets("acme", "slack", {"SLACK_BOT_TOKEN": _CANARY}, config_name="main")
+    save_tenants(store)
+    assert (tmp_path / "tenants.yaml").stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / "secrets" / "tenant_secrets.enc").stat().st_mode & 0o777 == 0o600
+
+
+def test_inline_secret_fields_are_not_persisted(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    store = ConnectorConfigStore()
+    store.create(
+        "acme",
+        "slack",
+        {
+            "name": "main",
+            "default": True,
+            "config": {"channel": "#ops"},
+            "auth": {"token_value": "INLINE-123", "token_secret": "SLACK_BOT_TOKEN"},
+        },
+    )
+    with caplog.at_level("WARNING"):
+        save_tenants(store)
+    text = (tmp_path / "tenants.yaml").read_text(encoding="utf-8")
+    doc = yaml.safe_load(text)["tenants"]["acme"]["slack"][0]
+    assert doc["auth"] == {"token_secret": "SLACK_BOT_TOKEN"}  # the reference stays
+    assert doc["config"] == {"channel": "#ops"}
+    assert "INLINE-123" not in text
+    assert "Not persisting inline secret fields" in caplog.text
+    # The in-memory store is unchanged (resolve() still sees it).
+    assert store.resolve("acme", "slack", "main").raw["auth"]["token_value"] == "INLINE-123"
+
+
+def _write_legacy_yaml(path: Path) -> None:
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "tenants": {
+                    "acme": {"slack": [{"name": "main", "default": True, "config": {}, "auth": {}}]}
+                },
+                "secrets": {"acme": {"slack": {"main": {"SLACK_BOT_TOKEN": _CANARY}}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_legacy_plaintext_yaml_migrates_into_the_store(tmp_path: Path):
+    path = tmp_path / "tenants.yaml"
+    _write_legacy_yaml(path)
+    load_tenants(ConnectorConfigStore())
+
+    assert _CANARY not in path.read_text(encoding="utf-8")  # rewritten as references
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["secrets"] == {
+        "acme": {"slack": {"main": ["SLACK_BOT_TOKEN"]}}
+    }
+    assert _CANARY.encode() not in _everything_on_disk(tmp_path)
+    key = tenant_scoped_secret_key("acme", "slack", "SLACK_BOT_TOKEN", config_name="main")
+    assert OverlaySecretProvider.instance().get_secret(key) == _CANARY
+
+
+def test_legacy_plaintext_yaml_without_a_store_still_loads_and_warns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.delenv("NW_ALLOW_LOCAL_SECRET_FILE")
+    _write_legacy_yaml(tmp_path / "tenants.yaml")
+    with caplog.at_level("WARNING"):
+        load_tenants(ConnectorConfigStore())
+    key = tenant_scoped_secret_key("acme", "slack", "SLACK_BOT_TOKEN", config_name="main")
+    assert OverlaySecretProvider.instance().get_secret(key) == _CANARY
+    assert "plaintext secrets" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("env", "value", "match"),
+    [
+        ("NW_LOCAL_SECRET_KEY", "", "requires"),
+        ("NW_LOCAL_SECRET_FILE", "", "requires"),
+        ("NW_LOCAL_SECRET_FILE", "relative/secrets.enc", "absolute path outside the source tree"),
+    ],
+)
+def test_misconfigured_local_store_is_refused(
+    monkeypatch: pytest.MonkeyPatch, env: str, value: str, match: str
+):
+    monkeypatch.setenv(env, value)
+    with pytest.raises(SecretStoreNotConfiguredError, match=match):
+        load_tenants(ConnectorConfigStore())
+
+
+def test_local_store_inside_the_source_tree_is_refused(monkeypatch: pytest.MonkeyPatch):
+    from node_wire_runtime import tenant_persistence as tp
+
+    monkeypatch.setenv("NW_LOCAL_SECRET_FILE", str(tp._REPO_ROOT / "config" / "secrets.enc"))
+    with pytest.raises(SecretStoreNotConfiguredError, match="outside the source tree"):
+        load_tenants(ConnectorConfigStore())
