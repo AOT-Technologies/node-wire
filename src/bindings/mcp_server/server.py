@@ -37,6 +37,7 @@ from node_wire_runtime.identity import (
 )
 from node_wire_runtime.policies.mcp_scope_policy import (
     action_allowed_for_identity_scopes,
+    check_scope_policy_config,
     load_scope_map_from_env,
     load_scope_policy_default_from_env,
     resolve_required_scope_for_action,
@@ -1725,6 +1726,7 @@ class McpServer:
         raw = os.getenv("NW_TENANT_ID")
         self._tenant_session.set_env_pin(raw.strip() if raw and raw.strip() else None)
 
+        check_scope_policy_config()
         check_tenancy_config(())  # stdio: no header, so no shared-key rule
         log_effective_mcp_auth_state()
 
@@ -1891,6 +1893,7 @@ class McpServer:
                 extra={"host": host, "port": port},
             )
 
+        check_scope_policy_config()
         check_tenancy_config(("NW_MCP_API_KEY",))
         log_effective_mcp_auth_state()
 

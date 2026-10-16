@@ -5,22 +5,31 @@
 [project]
 name = "node-wire-runtime"
 version = "1.1.0"
-description = "Node Wire runtime — connector framework, resilience, observability, and pluggable secrets"
+description = "Core runtime for Node Wire connectors: typed actions, retries and circuit breaking, error taxonomy, auth, pluggable secrets, multi-tenancy and OpenTelemetry"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+maintainers = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 readme = "README.md"
-keywords = ["connectors", "mcp", "rest", "grpc", "integration", "runtime"]
+keywords = ["node-wire", "connectors", "mcp", "ai-agents", "integration", "runtime", "rest", "grpc", "opentelemetry", "resilience"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
+  "Framework :: Pydantic :: 2",
   "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Cython",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
-  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Topic :: Internet :: WWW/HTTP",
   "Topic :: System :: Networking",
 ]
 
