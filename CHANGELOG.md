@@ -457,6 +457,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing warning, and the chosen mode is logged at startup.
   - **Upgrade note:** the undocumented aliases `default-deny` and `closed` are no longer
     accepted; use `deny`.
+- **The call that opens the circuit breaker reports its own error.** At the failure
+  threshold the breaker raised `CircuitBreakerError` from inside the failing call, replacing
+  that call's real error (with `fail_max=1` the very first failure was hidden). Now it opens,
+  logs a warning (`Circuit breaker opened`), and the original exception propagates; only the
+  next call is rejected with `CircuitBreakerError`. The `error_code` and `error_category` the
+  threshold caller sees are now those of the real failure.
 - **The circuit breaker counts only upstream-health failures, once per invocation.** It
   counted every exception, and every retry attempt, so a caller's own bad input (`NOT_FOUND`,
   an auth error) or a couple of slow calls opened the breaker for every caller sharing that

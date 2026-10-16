@@ -86,6 +86,14 @@ class CircuitBreaker:
         self._state_name = "open"
         self._opened_at = time.monotonic()
         self._generation += 1
+        logger.warning(
+            "Circuit breaker opened",
+            extra={
+                "breaker": self.name,
+                "fail_max": self.fail_max,
+                "reset_timeout": self.reset_timeout,
+            },
+        )
 
     def allow(self) -> int:
         """Let the call through and return its generation, or raise ``CircuitBreakerError``.
@@ -127,9 +135,13 @@ class CircuitBreaker:
         self._fail_counter = 0
         self._state_name = "closed"
 
-    def record_failure(self, exc: BaseException, generation: int) -> None:
-        # A call that started before the last trip must not restart the timeout
-        # or hide its own exception behind CircuitBreakerError.
+    def record_failure(self, generation: int) -> None:
+        """Count one failed invocation; open the breaker at ``fail_max``.
+
+        Never raises: the call that opens the breaker reports its own error. Only the next call
+        sees ``CircuitBreakerError``, from :meth:`allow`.
+        """
+        # A call that started before the last trip must not restart the timeout.
         if generation != self._generation:
             return
         if self._state_name == "half-open":
@@ -139,8 +151,6 @@ class CircuitBreaker:
         if self._fail_counter < self.fail_max:
             return
         self._trip()
-        if isinstance(exc, Exception):
-            raise CircuitBreakerError("Failures threshold reached, circuit breaker opened")
 
 
 class _AbortRetry(BaseException):
@@ -279,7 +289,7 @@ def with_resilience(
             except Exception as exc:  # noqa: BLE001
                 category = ErrorMapper.resolve(exc, connector_id=connector_id).category
                 if _counts_against_breaker(exc, category):
-                    current_breaker.record_failure(exc, generation)
+                    current_breaker.record_failure(generation)
                 else:
                     # Simplified: an error that does not count is reported as a success. The
                     # upstream answered, so it resets the consecutive-failure count and resolves
