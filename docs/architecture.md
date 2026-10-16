@@ -134,7 +134,7 @@ or an MCP tool error, but the connector contract is identical on all three.
 
 - **BaseConnector**: Abstract base class for all connectors. It owns the [`run()` pipeline](#the-run-pipeline).
 - **ConnectorResponse / ErrorCategory / ErrorMapper**: the response envelope, the error taxonomy (`RETRYABLE`, `BUSINESS`, `AUTH`, `FATAL`), and the per-connector exception mapping. See [Domain](architecture/domain.md#results-and-errors).
-- **Resilience**: retries (Tenacity) and circuit breaking (PyBreaker).
+- **Resilience**: retries (Tenacity) and the runtime's own circuit breaker, which counts only upstream-health failures, once per invocation.
 - **PolicyHook, SecretProvider, AuthProvider**: pluggable seams the factory injects. See [Seams](architecture/seams.md).
 - **ConnectorConfigStore and tenant pinning**: per-tenant named configs, and instances bound to one tenant. See [Tenancy](architecture/tenancy.md).
 - **Telemetry**: OpenTelemetry integration for tracing.
@@ -152,7 +152,7 @@ flowchart TB
 
     Val["Pydantic validation<br/>discriminated union on action"]
     Pol["PolicyHook · allow / deny<br/>always set on factory instances"]
-    Res["Retries + circuit breaker<br/>Tenacity · PyBreaker"]
+    Res["Retries + circuit breaker<br/>Tenacity · circuit breaker"]
     Exec["internal_execute<br/>dispatch to Layer B"]
     Val --> Pol --> Res --> Exec
     Otel(["OpenTelemetry span"]) -. "wraps validate → error mapping" .-> Val

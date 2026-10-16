@@ -354,3 +354,216 @@ def test_tenancy_from_mcp_client_without_server_attr_passes_through() -> None:
     tenant, config = _tenancy_from_mcp_client(SimpleNamespace(), "acme", "primary")
     assert tenant == "acme"
     assert config == "primary"
+
+
+# --------------------------------------------------------------------------- #
+# Scenarios go through the runtime (run(): validation, policy, audit), behind auth
+# --------------------------------------------------------------------------- #
+
+_INCIDENT = {"title": "t", "severity": "high", "component": "api", "description": "d"}
+_SCOPE = "mcp:http_generic.request"
+
+
+def _offline_upstream(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Replace the network under http_generic; return the URLs it was asked to call."""
+    seen: list[str] = []
+    real_client = httpx.AsyncClient
+
+    def record(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"ok": True})
+
+    def offline_client(*args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(record)
+        return real_client(*args, **kwargs)
+
+    async def no_dns(url: str) -> None:
+        return None
+
+    monkeypatch.setattr("node_wire_http_generic.logic.httpx.AsyncClient", offline_client)
+    monkeypatch.setattr("node_wire_http_generic.logic._assert_safe_destination", no_dns)
+    return seen
+
+
+def _fresh_playground_factory(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A factory built now, so the scope policy read from the environment applies."""
+    from bindings.factory import ConnectorFactory
+    from node_wire_runtime.connector_registry import auto_register
+
+    auto_register()
+    factory = ConnectorFactory()
+    factory.load()
+    monkeypatch.setattr("playground.scenarios._playground_factory", factory)
+
+
+def _audit_events(caplog: pytest.LogCaptureFixture) -> set[str]:
+    return {getattr(r, "audit_event", "") for r in caplog.records} - {""}
+
+
+def test_scenario_runs_through_run_and_emits_audit_events(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from bindings.rest_api.app import app
+
+    seen = _offline_upstream(monkeypatch)
+    _fresh_playground_factory(monkeypatch)
+    with caplog.at_level("INFO"):
+        resp = TestClient(app).post("/scenarios/report-incident", json=_INCIDENT)
+
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    assert {"invocation_start", "invocation_success"} <= _audit_events(caplog)
+    assert seen == ["https://httpbin.org/post"]
+
+
+def test_scenario_is_subject_to_the_scope_policy(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from bindings.rest_api.app import app
+
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    monkeypatch.setenv("NW_MCP_ACTION_SCOPE_MAP_JSON", json.dumps({"http_generic.request": _SCOPE}))
+    seen = _offline_upstream(monkeypatch)
+    _fresh_playground_factory(monkeypatch)
+    with caplog.at_level("INFO"):
+        resp = TestClient(app).post("/scenarios/report-incident", json=_INCIDENT)
+
+    body = resp.json()
+    assert body["success"] is False
+    assert body["steps"][-1]["data"]["error_code"] == "POLICY_DENIED"
+    assert "policy_denial" in _audit_events(caplog)
+    assert seen == []  # the connector never ran
+
+
+def test_scenario_passes_the_caller_identity_to_the_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from bindings.rest_api.app import app
+
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "scenario-key")
+    monkeypatch.setenv("NW_MCP_SCOPE_POLICY_DEFAULT", "deny")
+    monkeypatch.setenv("NW_MCP_ACTION_SCOPE_MAP_JSON", json.dumps({"http_generic.request": _SCOPE}))
+    _offline_upstream(monkeypatch)
+    _fresh_playground_factory(monkeypatch)
+    client = TestClient(app)
+    headers = {"X-API-Key": "scenario-key"}
+
+    monkeypatch.setenv("NW_REST_API_KEY_SCOPES", _SCOPE)
+    allowed = client.post("/scenarios/report-incident", json=_INCIDENT, headers=headers)
+    monkeypatch.setenv("NW_REST_API_KEY_SCOPES", "")
+    denied = client.post("/scenarios/report-incident", json=_INCIDENT, headers=headers)
+
+    assert allowed.json()["success"] is True
+    assert denied.json()["steps"][-1]["data"]["error_code"] == "POLICY_DENIED"
+
+
+def test_scenarios_require_authentication_when_auth_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from bindings.rest_api.app import app
+
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("NW_REST_API_KEY", "scenario-key")
+    client = TestClient(app)
+
+    assert client.get("/scenarios/agent-transport").status_code == 401
+    assert (
+        client.get("/scenarios/agent-transport", headers={"X-API-Key": "wrong"}).status_code == 403
+    )
+    ok = client.get("/scenarios/agent-transport", headers={"X-API-Key": "scenario-key"})
+    assert ok.status_code == 200
+    # The static UI stays public: it holds no data and must load before credentials exist.
+    assert client.get("/playground/feature-flags").status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_run_action_has_no_retry_loop_of_its_own() -> None:
+    from types import SimpleNamespace
+
+    from playground.scenarios import run_action
+
+    calls: list[str] = []
+
+    class _Connector:
+        async def call_action(self, name, params, *, principal=None, scopes=None):
+            calls.append(name)
+            raise RuntimeError("upstream failed")
+
+    action_input = SimpleNamespace(action="charge", model_dump=lambda mode: {"action": "charge"})
+    with pytest.raises(RuntimeError, match="upstream failed"):
+        await run_action(_Connector(), action_input)
+
+    assert calls == ["charge"]  # retrying is run()'s job (transient errors only)
+
+
+# --------------------------------------------------------------------------- #
+# Tenancy rejections are a clean 403, and __default__ is never handed to a caller
+# --------------------------------------------------------------------------- #
+
+
+def test_scenario_with_a_mismatched_tenant_header_is_403_not_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from bindings.rest_api.app import app
+    from tests.jwt_test_helpers import mint_test_jwt
+
+    secret = "playground-jwt-secret-at-least-32-bytes!"
+    monkeypatch.delenv("NW_REST_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("NW_REST_JWT_SECRET", secret)
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    token = mint_test_jwt({"sub": "alice", "tenant_id": "acme", "scopes": []}, secret)
+
+    resp = TestClient(app, raise_server_exceptions=False).post(
+        "/scenarios/report-incident",
+        json=_INCIDENT,
+        headers={"Authorization": f"Bearer {token}", "X-Tenant-ID": "beta"},
+    )
+
+    assert resp.status_code == 403
+    assert "does not match" in resp.json()["detail"]
+
+
+def _agent_request(identity, headers: dict[str, str] | None = None):
+    from types import SimpleNamespace
+
+    from bindings.rest_api.auth import REST_CALLER_STATE_KEY
+
+    return SimpleNamespace(
+        headers=headers or {}, state=SimpleNamespace(**{REST_CALLER_STATE_KEY: identity})
+    )
+
+
+def test_agent_tenant_never_falls_back_to_default_for_an_authenticated_caller(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from node_wire_runtime.caller_identity import build_caller_identity
+    from playground.scenarios import _resolve_agent_mcp_tenant
+
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    monkeypatch.setattr(
+        "playground.scenarios.get_playground_factory",
+        lambda: SimpleNamespace(store=SimpleNamespace(list_tenants=lambda: ["__default__"])),
+    )
+    api_key_caller = build_caller_identity({"sub": "k", "tenant_id": None}, auth_type="api_key")
+
+    # Local dev (no identity) keeps the convenience fallback; an authenticated caller does not.
+    assert _resolve_agent_mcp_tenant(_agent_request(None)) == "__default__"
+    assert _resolve_agent_mcp_tenant(_agent_request(api_key_caller)) == ""
+
+
+def test_agent_tenant_mismatch_is_a_403(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+
+    from node_wire_runtime.caller_identity import build_caller_identity
+    from playground.scenarios import _resolve_agent_mcp_tenant
+
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
+    acme = build_caller_identity({"sub": "a", "tenant_id": "acme"}, auth_type="jwt")
+
+    with pytest.raises(HTTPException) as exc:
+        _resolve_agent_mcp_tenant(_agent_request(acme, {"x-tenant-id": "beta"}))
+
+    assert exc.value.status_code == 403

@@ -13,6 +13,7 @@ Baseline (always available):
     EnvSecretProvider       — reads from os.environ (default for all deployments)
     SecretNotFoundError     — key absent in this provider
     SecretProviderError     — provider itself is broken (auth / network / config)
+    SecretStore             — writable port for durable tenant secrets
     ChainedSecretProvider   — tries providers in order; only falls through on NotFound
 
 Cloud backends (installed as extras):
@@ -28,6 +29,7 @@ from node_wire_runtime.secrets.base import (
     SecretNotFoundError,
     SecretProvider,
     SecretProviderError,
+    SecretStore,
     TenantSecretNotFoundError,
     TenantSecretProvider,
     tenant_scoped_secret_key,
@@ -40,6 +42,7 @@ __all__ = [
     "OverlaySecretProvider",
     "SecretNotFoundError",
     "SecretProviderError",
+    "SecretStore",
     "TenantSecretNotFoundError",
     "TenantSecretProvider",
     "tenant_scoped_secret_key",

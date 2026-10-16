@@ -7,6 +7,7 @@ from __future__ import annotations
 import contextvars
 import inspect
 import logging
+import os
 import time
 import uuid
 from abc import ABC
@@ -51,6 +52,7 @@ from .policy import PolicyContext, PolicyHook, PolicyDenied
 from .log_sanitization import reset_log_connector_id, redact_credentials, set_log_connector_id
 from .resilience import CircuitBreaker, with_resilience
 from .secrets import SecretNotFoundError, SecretProvider, TenantSecretNotFoundError
+from .secrets.base import _sanitize_secret_segment
 from .sdk_action_spec import SdkActionSpec
 
 logger = logging.getLogger("runtime.base_connector")
@@ -302,6 +304,19 @@ class NwActionMeta:
     deprecated: bool = False
 
 
+def _breaker_setting(connector_id: str, suffix: str, default: Any, cast: Any) -> Any:
+    """A circuit-breaker setting: ``NW_BREAKER_<CONNECTOR_ID>_<SUFFIX>``, else ``default``."""
+    name = f"NW_BREAKER_{_sanitize_secret_segment(connector_id)}_{suffix}"
+    raw = os.environ.get(name, "").strip()
+    try:
+        value = cast(raw) if raw else default
+    except ValueError:
+        raise ValueError(f"{name} must be a positive number") from None
+    if not value > 0:
+        raise ValueError(f"{name} must be a positive number")
+    return value
+
+
 class BaseConnector(ABC):
     """
     Base class for all connectors.
@@ -320,6 +335,10 @@ class BaseConnector(ABC):
 
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {}
     output_model: ClassVar[Type[BaseModel]]
+    # Circuit breaker, per tenant instance. A connector overrides these in its subclass; an operator
+    # overrides either with NW_BREAKER_<CONNECTOR_ID>_FAIL_MAX / _RESET_TIMEOUT (env wins).
+    breaker_fail_max: ClassVar[int] = 5
+    breaker_reset_timeout: ClassVar[float] = 30.0
     # Intermediate bases (e.g. RestConnector) set this to skip action/registry validation.
     _nw_abstract_base: ClassVar[bool] = False
 
@@ -465,6 +484,14 @@ class BaseConnector(ABC):
         )
         # Named providers for multi-scheme connectors; empty for single-scheme.
         self._auth_providers: Dict[str, AuthProvider] = dict(auth_providers or {})
+        # Resolved here, so a bad setting fails when the connector is built, not on a first call.
+        connector_id = getattr(cls, "connector_id", cls.__name__)
+        self._breaker_fail_max: int = _breaker_setting(
+            connector_id, "FAIL_MAX", cls.breaker_fail_max, int
+        )
+        self._breaker_reset_timeout: float = _breaker_setting(
+            connector_id, "RESET_TIMEOUT", cls.breaker_reset_timeout, float
+        )
         self._breakers: dict[str, CircuitBreaker] = defaultdict(self._create_breaker)
         self._client: Any = None
 
@@ -481,8 +508,8 @@ class BaseConnector(ABC):
     def _create_breaker(self) -> CircuitBreaker:
         cls = type(self)
         return CircuitBreaker(
-            fail_max=5,
-            reset_timeout=30,
+            fail_max=self._breaker_fail_max,
+            reset_timeout=self._breaker_reset_timeout,
             name=f"{cls.__name__}_breaker",
         )
 

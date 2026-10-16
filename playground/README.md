@@ -92,6 +92,20 @@ The Agentic Workflow panel displays the active transport as a pill:
 - `Transport: stdio`: the browser calls `/scenarios/agent-chat`. The UI shows the loader while the backend agent completes, then renders tool cards and the final response together.
 - `Transport: Streamable HTTP`: the browser calls `/scenarios/agent-chat-stream`. Tool cards appear as each MCP tool finishes, and the final answer is appended progressively as streamed chunks arrive.
 
+The playground is **off by default**. Enable it for local development before starting
+the REST API (it runs connector actions with the server's credentials, so it refuses to
+mount when REST auth is configured unless `NW_REST_PLAYGROUND_ALLOW_WITH_AUTH=true`):
+
+```powershell
+$env:NW_REST_PLAYGROUND_ENABLED="true"
+$env:NW_REST_AUTH_DISABLED="true"   # local only
+```
+
+Ollama model discovery in the UI works against a local Ollama at the default
+`http://127.0.0.1:11434` out of the box. To use another private Ollama, set `OLLAMA_BASE_URL`
+on the server; that one address (or the default) is the only private one discovery may
+reach, and any other host must be public.
+
 Set the mode before starting the REST API:
 
 ```powershell
@@ -137,7 +151,7 @@ uv run node-wire
 - **Tenant ID required**: connector/scenario calls without `X-Tenant-ID` return **400**. Explicit `__default__` is allowed.
 - **Header**: Tenant dropdown (existing tenants) and Config dropdown appear when multitenancy is on. Header **Add config** is hidden; use **Add config** on each System Connector page.
 - **Config dropdown**: lists configs for the **active connector** only under the selected tenant. Switching connectors clears a name that does not exist for the new connector.
-- **Agentic Workflow**: sends the header dropdown's `X-Tenant-ID` (and optional `config_name` query) as the **starting** pin if one is selected — but a dropdown pick is not required to send the first message. With nothing selected yet, the agent starts against the `__default__` tenant (or fully unpinned if `__default__` has no configs), and the chat's own `nw_select_tenant` / `nw_select_config` tool calls are how you name a tenant/config for the first time, same as any later switch. The chat response includes the effective tenant/config and the header dropdowns update to match. Local agent MCP runs **in-process** against the playground factory.
+- **Agentic Workflow**: sends the header dropdown's `X-Tenant-ID` (and optional `config_name` query) as the **starting** pin if one is selected — but a dropdown pick is not required to send the first message. With nothing selected yet, the agent starts against the `__default__` tenant for an unauthenticated local-dev caller (or fully unpinned if `__default__` has no configs, or the caller is authenticated), and the chat's own `nw_select_tenant` / `nw_select_config` tool calls are how you name a tenant/config for the first time, same as any later switch. The chat response includes the effective tenant/config and the header dropdowns update to match. Local agent MCP runs **in-process** against the playground factory.
 - **MCP config discovery**: When MT is on, standalone MCP also loads `tenants.yaml` and exposes `nw_list_tenants`, `nw_select_tenant` (returns that tenant’s configs), `nw_list_configs`, and `nw_select_config`. One select applies to every connector on that MCP process. On stdio the `NW_TENANT_ID` pin is the default and chat can switch unless `NW_MCP_TENANT_PIN_LOCKED=true`; on streamable-http the request's `X-Tenant-ID` (or JWT tenant) always decides. Configs are still created only via Add config / REST / YAML — not via MCP. Rebuild generated MCP images so vendored `server.py` includes these tools.
 - **Per-connector Add config**: On a connector page, **Add config** opens a modal for that connector only (tenant free-text for new tenants, config name, default flag, and varying credentials). Each named config has its **own** credential vault (`NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}`). Shared host env (for example, `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`) is copied into that config’s secret overlay when omitted. Persist file: gitignored `config/tenants.yaml` (holds secrets — do not commit).
 - **Tenant in logs**: When multitenancy is on, server INFO lines include `tenant_id` / `config_name` for Agent chat, connector scenarios, config mutations, REST connector calls, and MCP tool resolution. The playground Technical Audit panel also prints Tenant/Config for those actions.

@@ -4,11 +4,13 @@
 #
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from functools import wraps
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
+import httpx
 from opentelemetry import metrics
 from tenacity import (
     AsyncRetrying,
@@ -84,6 +86,14 @@ class CircuitBreaker:
         self._state_name = "open"
         self._opened_at = time.monotonic()
         self._generation += 1
+        logger.warning(
+            "Circuit breaker opened",
+            extra={
+                "breaker": self.name,
+                "fail_max": self.fail_max,
+                "reset_timeout": self.reset_timeout,
+            },
+        )
 
     def allow(self) -> int:
         """Let the call through and return its generation, or raise ``CircuitBreakerError``.
@@ -92,7 +102,7 @@ class CircuitBreaker:
         and becomes the trial; a trial still running after another ``reset_timeout``
         is replaced the same way. The check and the claim do not await, so two
         tasks on this loop cannot both become the trial. Pass the returned
-        generation to :meth:`record_success` / :meth:`record_failure`.
+        generation to :meth:`record_success`, :meth:`record_failure` or :meth:`release`.
         """
         if self._state_name == "closed":
             return self._generation
@@ -104,6 +114,19 @@ class CircuitBreaker:
         self._generation += 1
         return self._generation
 
+    def release(self, generation: int) -> None:
+        """Give up a half-open trial that produced no result, so the next caller can be the trial.
+
+        For a trial that was cancelled (e.g. a client disconnect): it says nothing about the
+        upstream, but must not keep the breaker half-open for another ``reset_timeout``. The breaker
+        goes back to open with the timer already expired. Does nothing in any other state, or for
+        a call that is not the live trial (it started before the last change).
+        """
+        if generation != self._generation or self._state_name != "half-open":
+            return
+        self._state_name = "open"
+        self._opened_at = time.monotonic() - self.reset_timeout
+
     def record_success(self, generation: int) -> None:
         # A call that started before the last trip cannot close the breaker or
         # stand in for the half-open trial.
@@ -112,9 +135,13 @@ class CircuitBreaker:
         self._fail_counter = 0
         self._state_name = "closed"
 
-    def record_failure(self, exc: BaseException, generation: int) -> None:
-        # A call that started before the last trip must not restart the timeout
-        # or hide its own exception behind CircuitBreakerError.
+    def record_failure(self, generation: int) -> None:
+        """Count one failed invocation; open the breaker at ``fail_max``.
+
+        Never raises: the call that opens the breaker reports its own error. Only the next call
+        sees ``CircuitBreakerError``, from :meth:`allow`.
+        """
+        # A call that started before the last trip must not restart the timeout.
         if generation != self._generation:
             return
         if self._state_name == "half-open":
@@ -124,8 +151,6 @@ class CircuitBreaker:
         if self._fail_counter < self.fail_max:
             return
         self._trip()
-        if isinstance(exc, Exception):
-            raise CircuitBreakerError("Failures threshold reached, circuit breaker opened")
 
 
 class _AbortRetry(BaseException):
@@ -144,35 +169,21 @@ def _resolve_breaker(
     return breaker() if callable(breaker) else breaker
 
 
-async def _run_through_breaker(
-    breaker: CircuitBreaker | Callable[[], CircuitBreaker],
-    fn: Callable[..., Awaitable[T]],
-    args: tuple[Any, ...],
-    kwargs: dict[str, Any],
-    trace_id: str,
-) -> T:
-    """Run one async call through the breaker, awaiting the result."""
-    current_breaker = _resolve_breaker(breaker)
-    try:
-        generation = current_breaker.allow()
-    except CircuitBreakerError:
-        logger.error(
-            "Circuit breaker is OPEN; rejecting call",
-            extra={
-                "trace_id": trace_id,
-                "component": "resilience",
-                "error": "circuit open",
-            },
-        )
-        raise
+# Transport-level failures: the upstream or the network to it is unhealthy. A connector may map
+# these to FATAL (e.g. http_generic maps ``httpx.RequestError``), so the category alone is not enough.
+_TRANSPORT_ERRORS = (OSError, httpx.TransportError)
 
-    try:
-        result = await fn(*args, **kwargs)
-    except BaseException as exc:
-        current_breaker.record_failure(exc, generation)
-        raise
-    current_breaker.record_success(generation)
-    return result
+
+def _counts_against_breaker(exc: Exception, category: ErrorCategory) -> bool:
+    """Whether a failed invocation says the upstream is unhealthy.
+
+    RETRYABLE failures and transport-level FATAL ones do. BUSINESS and AUTH mean the upstream
+    answered; any other FATAL is a bug or input no connector mapped. None of those may trip the
+    breaker, or one caller's bad input would take the connector down for everyone sharing it.
+    """
+    if category is ErrorCategory.RETRYABLE:
+        return True
+    return category is ErrorCategory.FATAL and isinstance(exc, _TRANSPORT_ERRORS)
 
 
 def with_resilience(
@@ -187,16 +198,16 @@ def with_resilience(
     Decorator that applies retry (Tenacity) and a circuit breaker
     around an async function that may raise exceptions.
 
+    The breaker sees one invocation, not each retry: it is asked once up front, and told once
+    at the end whether the upstream looked healthy (see :func:`_counts_against_breaker`).
+
     ``connector_id`` and ``action`` are low-cardinality labels attached to the
     retry and circuit-breaker metrics; they carry no request-specific identity.
     """
     _metric_attrs = {"connector.id": connector_id, "connector.action": action}
 
     def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Coroutine[Any, Any, T]]:
-        @wraps(fn)
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
-            trace_id: str = kwargs.get("trace_id", "unknown-trace")
-
+        async def _with_retries(trace_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> T:
             try:
                 async for attempt in AsyncRetrying(
                     retry=retry_if_exception_type(Exception),
@@ -206,11 +217,9 @@ def with_resilience(
                 ):
                     with attempt:
                         try:
-                            return await _run_through_breaker(breaker, fn, args, kwargs, trace_id)
+                            return await fn(*args, **kwargs)
                         except Exception as exc:  # noqa: BLE001
                             mapped = ErrorMapper.resolve(exc, connector_id=connector_id)
-                            if isinstance(exc, CircuitBreakerError):
-                                _circuit_breaker_rejections.add(1, attributes=_metric_attrs)
                             if mapped.category is not ErrorCategory.RETRYABLE:
                                 # Non-retryable: escape the retry loop entirely. The failure is
                                 # logged once, at error level, by BaseConnector.run (with its
@@ -248,6 +257,47 @@ def with_resilience(
 
             # Should not be reached because reraise=True ensures RetryError is propagated.
             raise RuntimeError("Exhausted retries without success")
+
+        @wraps(fn)
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
+            trace_id: str = kwargs.get("trace_id", "unknown-trace")
+            current_breaker = _resolve_breaker(breaker)
+            try:
+                generation = current_breaker.allow()
+            except CircuitBreakerError:
+                logger.error(
+                    "Circuit breaker is OPEN; rejecting call",
+                    extra={
+                        "trace_id": trace_id,
+                        "component": "resilience",
+                        "error": "circuit open",
+                    },
+                )
+                _circuit_breaker_rejections.add(1, attributes=_metric_attrs)
+                raise
+
+            # ``Exception``, not ``BaseException``: a cancelled call (e.g. a client disconnect)
+            # says nothing about the upstream, so it neither counts nor closes the breaker.
+            try:
+                result = await _with_retries(trace_id, args, kwargs)
+            except asyncio.CancelledError:
+                # Simplified: only cancellation; KeyboardInterrupt and SystemExit end the process.
+                # If this was the half-open trial, hand the slot to the next caller instead of
+                # leaving everyone rejected for another reset_timeout.
+                current_breaker.release(generation)
+                raise
+            except Exception as exc:  # noqa: BLE001
+                category = ErrorMapper.resolve(exc, connector_id=connector_id).category
+                if _counts_against_breaker(exc, category):
+                    current_breaker.record_failure(generation)
+                else:
+                    # Simplified: an error that does not count is reported as a success. The
+                    # upstream answered, so it resets the consecutive-failure count and resolves
+                    # a half-open trial (the same as pybreaker's ``exclude=`` did).
+                    current_breaker.record_success(generation)
+                raise
+            current_breaker.record_success(generation)
+            return result
 
         return wrapper
 
