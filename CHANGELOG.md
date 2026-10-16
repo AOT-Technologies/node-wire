@@ -449,6 +449,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`NW_MCP_SCOPE_POLICY_DEFAULT` accepts only `allow` or `deny`.** Any other value (a typo
+  such as `denied`, or `true`, `1`, `false`, `Deny-All`) silently became `allow`, switching off
+  tool authorization for every action without a scope-map entry. The value is now trimmed and
+  case-insensitive, and anything else fails startup with a message naming the variable, for
+  REST (at import, not at the first request), gRPC and MCP. Unset still means `deny`, with the
+  existing warning, and the chosen mode is logged at startup.
+  - **Upgrade note:** the undocumented aliases `default-deny` and `closed` are no longer
+    accepted; use `deny`.
 - **The call that opens the circuit breaker reports its own error.** At the failure
   threshold the breaker raised `CircuitBreakerError` from inside the failing call, replacing
   that call's real error (with `fail_max=1` the very first failure was hidden). Now it opens,
