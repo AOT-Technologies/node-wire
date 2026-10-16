@@ -60,11 +60,13 @@ def load_scope_policy_default_from_env() -> str:
 
 
 def check_scope_policy_config() -> None:
-    """Fail startup on an invalid scope-policy default, and log the mode once.
+    """Validate ``NW_MCP_SCOPE_POLICY_DEFAULT`` at startup and log the resolved mode.
 
-    Simplified: validated here, but still read from the environment where it is used.
+    An invalid value raises ``ValueError``, so the server fails to start. Simplified: the mode is
+    not cached; each use still reads it from the environment, and this call only makes a bad
+    value fail early.
     """
-    # Log the module constant, never the raw environment text.
+    # Log the resolved mode, never the raw environment text.
     logger.info("Scope policy default: %s", load_scope_policy_default_from_env())
 
 
