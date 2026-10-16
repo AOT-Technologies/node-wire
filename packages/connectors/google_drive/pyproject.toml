@@ -5,10 +5,32 @@
 [project]
 name = "node-wire-google-drive"
 version = "1.0.0"
-description = "Node Wire connector — Google Drive API v3 (files and permissions)"
+description = "Node Wire connector for Google Drive API v3: list, read, create, upload, update and delete files, and share them"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+maintainers = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+keywords = ["node-wire", "connector", "mcp", "google-drive", "google", "drive", "files"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Cython",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Internet",
+  "Topic :: Office/Business",
+]
 
 dependencies = [
     "node-wire-runtime>=1.0.0",
@@ -18,6 +40,13 @@ dependencies = [
 
 [project.entry-points."node_wire.connectors"]
 google_drive = "node_wire_google_drive.logic"
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+Documentation = "https://aot-technologies.github.io/node-wire/google_drive_connector/"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]

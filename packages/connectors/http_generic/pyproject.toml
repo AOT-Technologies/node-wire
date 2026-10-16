@@ -5,23 +5,30 @@
 [project]
 name = "node-wire-http"
 version = "1.0.0"
-description = "Node Wire connector — generic HTTP REST client (GET/POST/PUT/DELETE/PATCH)"
+description = "Node Wire connector for generic HTTP: call any REST endpoint (GET, POST, PUT, PATCH, DELETE) with SSRF protection"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
-readme = "README.md"
-keywords = ["connectors", "mcp", "rest", "http", "integration", "node-wire"]
+maintainers = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+keywords = ["node-wire", "connector", "mcp", "http", "rest", "api", "ssrf"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
   "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Cython",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Internet :: WWW/HTTP",
-  "Topic :: System :: Networking",
 ]
 
 dependencies = [
@@ -34,9 +41,9 @@ http_generic = "node_wire_http_generic.logic"
 
 [project.urls]
 Homepage = "https://github.com/AOT-Technologies/node-wire"
+Documentation = "https://aot-technologies.github.io/node-wire/connector-reference/#http_generic"
 Repository = "https://github.com/AOT-Technologies/node-wire"
 Issues = "https://github.com/AOT-Technologies/node-wire/issues"
-Documentation = "https://aot-technologies.github.io/node-wire/"
 Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]

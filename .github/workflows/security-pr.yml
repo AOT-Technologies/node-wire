@@ -48,6 +48,7 @@ jobs:
               - "packages/meta/**"
               - ".github/workflows/security-pr.yml"
               - ".github/workflows/publish.yml"
+              - "scripts/meta_local_deps.py"
               - "pyproject.toml"
               - "uv.lock"
 
@@ -118,21 +119,18 @@ jobs:
 
       # Connector packages declare node-wire-runtime>=1.0.0 as a PyPI-style dep; install
       # packages/runtime from the repo so pip resolves it without requiring a published wheel.
+      # The runtime + connector list is derived from packages/meta/pyproject.toml, and
+      # scripts/meta_local_deps.py fails if a meta dependency has no local package.
       - name: Install packages and audit tool
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           python -m pip install --upgrade "setuptools>=83.0.0"
-          python -m pip install \
-            "packages/runtime" \
-            "packages/connectors/http_generic" \
-            "packages/connectors/stripe" \
-            "packages/connectors/smtp" \
-            "packages/connectors/google_drive" \
-            "packages/connectors/fhir_cerner" \
-            "packages/connectors/fhir_epic" \
-            "packages/connectors/salesforce" \
-            "packages/connectors/slack" \
-            "packages/meta"
+          deps_file="${RUNNER_TEMP}/meta-local-deps.txt"
+          python scripts/meta_local_deps.py > "${deps_file}"
+          local_deps=()
+          while IFS= read -r dep; do local_deps+=("${dep}"); done < "${deps_file}"
+          python -m pip install "${local_deps[@]}" "packages/meta"
           python -m pip install "pip-audit==${{ env.PIP_AUDIT_VERSION }}"
 
       - name: Vulnerability scan (blocks any vulnerability)
