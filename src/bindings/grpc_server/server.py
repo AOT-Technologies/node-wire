@@ -27,6 +27,7 @@ from node_wire_runtime.identity import (
     resolve_config_name,
     resolve_tenant_id,
 )
+from node_wire_runtime.policies.mcp_scope_policy import check_scope_policy_config
 from node_wire_runtime.rate_limit import (
     RateLimitExceeded,
     get_per_identity_rate_limiter,
@@ -184,6 +185,7 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
 
 
 def serve(port: int = 50051) -> None:
+    check_scope_policy_config()
     check_tenancy_config(("NW_GRPC_API_KEY",))
     _async_runner.start()
     interceptor = GrpcAuthInterceptor()

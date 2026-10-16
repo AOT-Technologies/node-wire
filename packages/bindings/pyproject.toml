@@ -5,11 +5,30 @@
 [project]
 name = "node-wire-bindings"
 version = "1.1.0"
-description = "Node Wire bindings — MCP host surface (factory, invoke, mcp_server)"
+description = "MCP host surface for Node Wire: ConnectorFactory, shared invoke, and the MCP server used by Node Wire MCP images"
+readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
-readme = "README.md"
+maintainers = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
+keywords = ["node-wire", "mcp", "mcp-server", "connectors", "ai-agents"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Cython",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 
 dependencies = [
     "node-wire-runtime>=1.0.0",
@@ -18,6 +37,13 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/AOT-Technologies/node-wire"
+Documentation = "https://aot-technologies.github.io/node-wire/mcp/"
+Repository = "https://github.com/AOT-Technologies/node-wire"
+Issues = "https://github.com/AOT-Technologies/node-wire/issues"
+Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
