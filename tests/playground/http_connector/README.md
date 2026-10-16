@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# HTTP Connector Playground Integration Tests
+# HTTP connector playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the HTTP connector (IT Ops) panel, click the run button with the
@@ -12,6 +12,8 @@ pre-filled defaults, and assert on the rendered pipeline state. No mocking —
 every test makes a real HTTP POST via the `http_generic` connector.
 
 ## What is tested
+
+The suite contains the following tests:
 
 | Test | Action |
 |------|--------|
@@ -31,6 +33,8 @@ needed before clicking run.
 
 ## Running locally
 
+Install the browser once, then run the tests:
+
 ```bash
 # Install Playwright browsers (once)
 uv run python -m playwright install chromium
@@ -42,7 +46,8 @@ uv run pytest tests/playground/http_connector/ --no-cov -v
 PLAYGROUND_HEADED=true uv run pytest tests/playground/http_connector/ --no-cov -v -s
 ```
 
-> **Note:** HTTP connector tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> HTTP connector tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables

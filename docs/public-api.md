@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Public API Reference (1.x)
+# Public API reference (1.x)
 
 This page enumerates the **stable public API** covered by the
 [versioning & stability policy](versioning.md). Anything not listed here — and
@@ -18,7 +18,7 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 ### Connector authoring
 - `BaseConnector`, `RestConnector` — base classes for connectors (`RestConnector` adds the shared HTTP-request scaffolding used by OpenAPI-generated connectors).
 - `RestResponseOutput` — shared output model for `RestConnector`-based connectors.
-- `RestEnvelopeError` — raised by `RestConnector` when a 2xx response's declared success flag (`envelope_ok_field`, e.g. Slack's `ok`) reports failure.
+- `RestEnvelopeError` — raised by `RestConnector` when a 2xx response's declared success flag (`envelope_ok_field`, for example, Slack's `ok`) reports failure.
 - `get_connector_registry()` — returns a copy of the connector-id → class registry.
 - `nw_action`, `sdk_action` — action decorators.
 - `SdkActionSpec`, `default_build_kwargs`, `default_resolve_method`, `default_invoke`, `execute_spec_in_thread`, `execute_spec_async`.
@@ -104,7 +104,7 @@ Stable exports (`node_wire_toolhive.__all__`) that stacklok-built MCP servers im
 
 - **REST** — routes and request/response schemas served by the API binding
   (Swagger UI at `/docs`).
-- **gRPC** — the `Connector` service defined by the committed protobuf contract.
+- **gRPC** — the `ConnectorService` service defined by the committed protobuf contract.
 - **MCP** — tool manifests exposed by the MCP servers (`nw-*`).
 
 ## Configuration
@@ -116,3 +116,8 @@ Stable exports (`node_wire_toolhive.__all__`) that stacklok-built MCP servers im
 
 `node-wire`, `nw-google-drive`, `nw-smartonfhir-epic`, `nw-smartonfhir-cerner`,
 `nw-smtp`, `nw-stripe`, `nw-salesforce`, `nw-slack`.
+
+## Next steps
+
+- [Versioning and stability policy](versioning.md): what counts as a breaking change.
+- [Errors](errors.md): the runtime-wide error codes behind `ErrorCode`.

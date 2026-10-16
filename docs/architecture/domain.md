@@ -11,6 +11,8 @@ The words the rest of the docs use, each with one meaning. Read the
 
 ## Connectors and actions
 
+The following terms describe what a connector is and how it is exposed:
+
 | Term | Meaning |
 |---|---|
 | **Connector** | An adapter for one external system, such as `google_drive`, `stripe` or `fhir_epic`. It is a `BaseConnector` subclass in its own package, `src/node_wire_<connector_id>/`, and it registers through the `node_wire.connectors` entry-point group. Generated connectors subclass `RestConnector`. |
@@ -18,9 +20,11 @@ The words the rest of the docs use, each with one meaning. Read the
 | **Action** | One operation a connector exposes (`files.list`, `charge`, `read_patient`). It is declared with `@nw_action` / `@sdk_action` or an `action_specs` entry. Each action has a Pydantic input model with an `action: Literal[...]` discriminator. |
 | **Manifest** | The list of `(connector_id, action, input_schema, output_schema)` entries built by `build_manifest()`. REST routes, MCP tools and gRPC dispatch are all derived from it ([bindings](../connector-bindings.md#manifest)). |
 | **Tool name** | An action's MCP name: `<connector_id>_<action>`, with dots in the action replaced by underscores (`google_drive_files_list`). Legacy dotted names still work on `tools/call`. |
-| **Normalizer** | An optional per-action function (`mcp_normalize`) that maps LLM-friendly argument aliases to canonical fields before validation. It runs on REST and MCP. |
+| **Normalizer** | An optional per-action function (`mcp_normalize`) that maps LLM-friendly argument aliases to canonical fields before validation. It runs on REST, MCP and gRPC. |
 
 ## Results and errors
+
+The following terms describe what a call returns and how a failure is classified:
 
 | Term | Meaning |
 |---|---|
@@ -29,6 +33,8 @@ The words the rest of the docs use, each with one meaning. Read the
 | **Error code** | A stable string such as `GDRIVE_RATE_LIMIT` or `MISSING_TENANT`. A connector's own codes come from its `error_map`, scoped to that connector's id; the runtime-wide ones, for failures inside or before a run, are listed in [Errors](../errors.md). |
 
 ## Tenancy
+
+The following terms describe how a call is tied to a tenant:
 
 | Term | Meaning |
 |---|---|
@@ -40,8 +46,15 @@ The words the rest of the docs use, each with one meaning. Read the
 
 ## Callers and policy
 
+The following terms describe who is calling and whether the call is allowed:
+
 | Term | Meaning |
 |---|---|
 | **Principal / scopes** | The caller identity a binding passes to `run()`, from an API key or a JWT. |
 | **Scope** | A permission string. By convention an action needs `mcp:<connector_id>.<action>`. `NW_MCP_ACTION_SCOPE_MAP_JSON` can override this per action. |
 | **Scope policy** | The allow/deny decision made before an action runs, by `ScopePolicyHook` ([Seams](seams.md#policyhook)). |
+
+## Next steps
+
+- [Seams](seams.md): where the layers hand off and what the factory injects.
+- [Errors](../errors.md): every runtime-wide error code.

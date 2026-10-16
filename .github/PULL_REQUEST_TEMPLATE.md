@@ -8,11 +8,11 @@ SPDX-License-Identifier: Apache-2.0
 
 <!-- What does this PR change, and why? -->
 
-## Related Issue
+## Related issue
 
-<!-- e.g. Closes #123 -->
+<!-- For example: Closes #123 -->
 
-## Type of Change
+## Type of change
 
 - [ ] Bug fix
 - [ ] New feature

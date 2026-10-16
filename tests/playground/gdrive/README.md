@@ -4,13 +4,15 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Google Drive Playground Integration Tests
+# Google Drive playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the Google Drive connector panel, and assert on the rendered
 pipeline state. No mocking — every test hits the real Google Drive API.
 
 ## What is tested
+
+The suite contains the following tests:
 
 | Test | Action |
 |------|--------|
@@ -35,6 +37,8 @@ No `page.route()` interception.
 
 ## Running locally
 
+Install the browser once, then run the tests:
+
 ```bash
 # Install Playwright browsers (once)
 uv run python -m playwright install chromium
@@ -46,7 +50,8 @@ uv run pytest tests/playground/gdrive/ --no-cov -v
 PLAYGROUND_HEADED=true uv run pytest tests/playground/gdrive/ --no-cov -v -s
 ```
 
-> **Note:** GDrive tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> GDrive tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables

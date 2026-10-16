@@ -14,9 +14,7 @@ Workflow: `.github/workflows/quality-gates.yml`
 
 Runs on every pull request and on pushes to `main`.
 
-Required jobs:
-
-- `bandit`: writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step. Scan roots: `src/`, `nw-cli/src/`, `nw-mcp-builder/src/`, `nw-connector-builder/src/`.
+Required job: `bandit`. It writes `bandit-report.json` (with `--exit-zero` so low/medium findings do not fail the job before the gate), prints a log summary, uploads the artifact, then fails only on **high**-severity findings in the enforce step. Scan roots: `src/`, `nw-cli/src/`, `nw-mcp-builder/src/`, `nw-connector-builder/src/`, `nw-stacklok-builder/src/`.
 
 Workflow: `.github/workflows/codeql.yml`
 
@@ -24,9 +22,18 @@ Runs GitHub CodeQL static analysis for Python on pull requests, pushes to `main`
 
 Workflow: `.github/workflows/pytest.yml`
 
-Runs the full test suite on **Linux, macOS, and Windows** (Python 3.13) with coverage on every pull request and push to `main`.
-Branch protection requires the **Ubuntu** cells only; macOS/Windows remain
+Runs the full test suite with coverage on every pull request to `main` and on pushes to `main`.
+Ubuntu runs Python 3.11, 3.12 and 3.13; macOS and Windows run 3.13.
+Pushes and manual runs use **Linux, macOS, and Windows**. A pull request runs on Ubuntu only, unless it
+touches the Cython inputs (`src/**`, `packages/**/setup.py`, or the workflow file), which adds macOS and Windows.
+Branch protection requires the **Ubuntu** Python 3.13 cell only; macOS/Windows remain
 informational (OSS portability signal without blocking merges on runner flakiness).
+The workflow also runs these jobs:
+
+- `Published packages`: installs `node-wire-runtime`, `-bindings`, and `-toolhive` on Python 3.11 and 3.12 and runs the tests that need nothing else.
+- `Pytest matrix complete`: an always-run gate that reports the matrix result under one stable check name.
+- `Patch coverage`: on pull requests, fails when changed lines are covered less than 80%.
+
 Playground integration tests remain manual (`workflow_dispatch`) on Ubuntu only.
 
 Workflow: `.github/workflows/lint.yml` also runs `lockfile-check` (`uv lock --check`) to fail PRs when `pyproject.toml` changes without an updated `uv.lock`.
@@ -42,9 +49,9 @@ require **that** check name in branch protection, not the path-filtered job.
 Workflow: `.github/workflows/secret-scan.yml`
 
 Runs [Gitleaks](https://github.com/gitleaks/gitleaks) on pull requests, pushes to
-`main`, weekly (Mondays), and on manual dispatch. The workflow checks
-out **full git history** (`fetch-depth: 0`) so secrets in past commits are
-scanned, not only the working tree.
+`main`, weekly (Mondays), and on manual dispatch. Pull requests scan only the commits
+on the branch. Pushes, the weekly run, and manual runs check out **full git history**
+(`fetch-depth: 0`) so secrets in past commits are scanned, not only the working tree.
 
 Required checks to add in branch protection:
 
@@ -61,7 +68,7 @@ Required checks to add in branch protection:
 Configure branch protection so pull requests cannot merge unless all required checks pass.
 
 Informational (run in CI, not required to merge): macOS/Windows pytest cells;
-connector-package `pip-audit` matrix (path-filtered on PRs, always on schedule);
+the connector-package `pip-audit` scan (path-filtered on PRs, always on schedule);
 REUSE lint (still runs in `lint.yml`); DCO (skips bot PRs — do not require it or
 Dependabot merges will stick on a skipped check).
 
@@ -73,10 +80,10 @@ Dependabot merges will stick on a skipped check).
   (or lockfile / related workflows) change, and on the daily schedule — not
   required in branch protection.
 - Release-time scanning remains in `.github/workflows/publish.yml` as defense in depth.
-- The PR/push gate (`security-pr.yml`) runs `pip-audit` with no `--fail-on` threshold, so it **blocks on any vulnerability**. The release workflow (`publish.yml`) uses `pip-audit --fail-on HIGH` as defense in depth.
+- Both the PR/push gate (`security-pr.yml`) and the release workflow (`publish.yml`) run `pip-audit` with no severity threshold, so each **blocks on any vulnerability**.
 - Scheduled scans catch newly disclosed CVEs even when code does not change.
 
-**Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=1.0.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** each matrix package (`pip install packages/runtime "<matrix path>"`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.
+**Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=1.0.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** every connector package and `packages/meta` in one environment (`pip install packages/runtime packages/connectors/<name> …`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.
 
 ## Secret scanning
 
@@ -102,7 +109,7 @@ By default, **Bandit exits with a non-zero status whenever it reports any findin
 CI splits responsibilities:
 
 1. **JSON artifact + log summary** — `bandit ... -f json -o bandit-report.json --exit-zero` so the workflow always produces the report and runs `scripts/bandit_report_summary.py` for readable logs. Low/medium issues are visible here without failing the job.
-2. **Enforcement** — `bandit ... --severity-level high` fails the job only on high-severity findings (matches branch-protection intent).
+2. **Enforcement** — `scripts/bandit_report_summary.py bandit-report.json --fail-on high` reads that JSON and fails the job only on high-severity findings (matches branch-protection intent).
 
 Locally, mirror CI with the commands in [Code quality — Security scans](code-quality-compliance.md#security-scans).
 
@@ -111,7 +118,7 @@ Locally, mirror CI with the commands in [Code quality — Security scans](code-q
 Policy:
 
 - Scan targets: `src/` (runtime, bindings, in-tree connectors), plus `nw-cli/src/`,
-  `nw-mcp-builder/src/`, and `nw-connector-builder/src/` (CLI → MCP pipeline).
+  `nw-mcp-builder/src/`, `nw-connector-builder/src/`, and `nw-stacklok-builder/src/` (CLI → MCP pipeline).
 - Exclude: `.venv`, `venv`, `tests`, `playground`, `dist`, `htmlcov`.
 - CI enforcement threshold: `--severity-level high`.
 - **Packages tree:** connector distributions under `packages/connectors/*` are audited for CVEs in `.github/workflows/security-pr.yml` (`pip-audit`). Run Bandit against those paths separately if you need SAST on a standalone checkout.
@@ -132,3 +139,8 @@ CycloneDX SBOM (`sbom.json`) is generated by:
 - MCP pipeline integrity: `mcp-builder-e2e.yml` gate required; heavy pet-store job path-filtered.
 - Developers run checks locally: documented commands and pre-commit (Bandit).
 - Config version-controlled: `pyproject.toml`, `.pre-commit-config.yaml`, workflow files.
+
+## Related
+
+- [Code quality](code-quality-compliance.md): run the same checks locally.
+- [Release rollback](release-rollback.md): what to do when a bad release ships.
