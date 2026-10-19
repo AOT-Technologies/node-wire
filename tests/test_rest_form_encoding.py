@@ -52,7 +52,7 @@ def test_scalars_are_unchanged() -> None:
 
 def test_multipart_form_fields_use_the_same_rendering() -> None:
     out = _encode_request_body({"ok": True, "meta": {"a": 1}, "skip": None}, MULTIPART)
-    assert out["data"] == {"ok": "true", "meta": '{"a":1}'}
+    assert out["files"] == [("ok", (None, "true")), ("meta", (None, '{"a":1}'))]
 
 
 def test_non_object_form_body_still_rejected() -> None:

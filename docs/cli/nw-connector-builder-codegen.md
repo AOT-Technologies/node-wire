@@ -36,6 +36,24 @@ Only schemas are repaired. Values under `example`, `examples`, `default`, `enum`
 
 Swagger 2.0 input gets one more repair during conversion: response `examples` (keyed by mime type on the response object, which OAS 3 has no property for) moves to `content.<mime>.example`.
 
+### Recursive schemas
+
+Generated models are built from a fully inlined document, and inlining never ends on a `$ref`
+cycle. Large real-world specs have cycles. Microsoft Graph's `chatMessage.replies` is a list of
+`chatMessage`, and `team` and `channel` point at each other. So the loader cuts each cycle where it
+closes. The `$ref` that would re-enter a schema already being expanded becomes:
+
+```yaml
+type: object
+additionalProperties: true
+x-recursive-ref: <the $ref that was cut>
+```
+
+On that field, the generated model accepts any object, one level below the last fully typed one.
+Here, `replies` becomes a list of free-form objects. Top-level tool arguments keep their types.
+The build logs the cut schemas by name (`Cut recursive $ref cycles at N schema(s) …`). Specs
+without cycles are unaffected.
+
 ### Invalid operations
 
 A spec that fails validation is not rejected outright. Each operation and each component is validated on its own, the invalid ones are removed, and the rest is validated again. Removed operations are soft-dropped with `invalid OpenAPI: <reason>`; removed components are named in the report's `notes`. Twitch's community spec, for example, lists `type` twice in one `required` list: only `get-hype-train-status` is dropped, and the other 148 operations build.
@@ -88,6 +106,52 @@ Rules:
 - **Whole bodies** — bodies that are not objects with declared properties keep a single `body` argument: arrays (`list`), binary/string bodies (`str`), free-form maps, `oneOf`/`anyOf`, and media types other than JSON, form and multipart. `body` is required when the request body is.
 
 ---
+
+## Parameter serialization
+
+Every parameter keeps its OpenAPI `in`, `style` and `explode` in the field's metadata
+(`nw_in`, `nw_style`, `nw_explode`), and `node_wire_runtime.rest` serializes it as the spec
+defines:
+
+| Location | Styles | Notes |
+|---|---|---|
+| `path` | `simple`, `label`, `matrix` | Values percent-encoded, separators (`,` `.` `;` `=`) kept |
+| `query` | `form`, `spaceDelimited`, `pipeDelimited`, `deepObject` | `allowReserved: true` sends reserved characters as-is (`nw_allow_reserved`) |
+| `header` | `simple` | Objects as `k,v` or, exploded, `k=v` |
+| `cookie` | `form` | One `Cookie` header, values percent-encoded |
+| `querystring` (3.2) | — | The whole query string, from an object (form-encoded) or a string |
+
+Booleans are sent as `true` / `false`, nested values as compact JSON. A parameter declared with
+`content` instead of `schema` is sent as that media type's text, e.g. JSON (`nw_media_type`).
+
+`Accept`, `Content-Type` and `Authorization` header parameters are ignored, as OpenAPI requires:
+the body media type and auth set those. An operation parameter overrides a path-level one with
+the same name and location. An optional parameter the connector cannot send (Swagger 2.0
+`collectionFormat: tsv`) is left out and named in the report's `notes`; a required one soft-drops
+the operation.
+
+## Schema constraints
+
+Constraints become Pydantic field constraints, so every binding rejects a bad value before the
+call: `minimum` / `maximum` (with 3.0's boolean and 3.1's numeric `exclusiveMinimum` /
+`exclusiveMaximum`), `multipleOf`, `minLength` / `maxLength`, `minItems` / `maxItems`, and `enum`
+or `const` as a `Literal` (string, integer or boolean values; `null` in an enum is dropped).
+`pattern` and `format` are advertised in the tool schema but not enforced: spec patterns are
+ECMA-262 regular expressions, which Python does not always read the same way, and the upstream API
+validates anyway.
+
+## Request bodies by media type
+
+| Media type | Argument | Sent as |
+|---|---|---|
+| JSON, `+json` | one per property (object bodies), else `body` | JSON |
+| `application/x-www-form-urlencoded` | one per property | form fields; arrays of scalars as repeated keys, objects as JSON text |
+| `multipart/*` | one per property | multipart parts, always (never downgraded to urlencoded); binary properties as file parts with the Encoding Object's `contentType` |
+| `text/*`, XML, other | `body: str` | the string as-is |
+| binary (`format: binary` / `byte`; 3.1+ `contentEncoding: base64` or a non-text `contentMediaType`), `application/octet-stream` | `body: str` (base64) | decoded bytes |
+
+A media type with no `schema` still takes a free-form body. Only one media type per operation is
+used: JSON first, otherwise the first listed.
 
 ## Credential parameters
 

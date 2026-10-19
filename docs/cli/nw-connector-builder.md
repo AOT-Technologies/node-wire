@@ -219,12 +219,14 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 | Topic | Behavior |
 |-------|----------|
 | Formats | YAML or JSON, UTF-8. YAML is read as JSON data: `yes` / `no` / `on` / `off` stay strings, unquoted dates stay strings, and keys such as `200:` become `"200"` |
-| Versions | Swagger `2.0` (normalized to OpenAPI 3) or OpenAPI `3.x` |
+| Versions | Swagger `2.0` (normalized to OpenAPI 3), OpenAPI `3.0`, `3.1` and `3.2`. Field-by-field coverage: [OpenAPI coverage](openapi-coverage.md) |
 | Sources | Local file path, or `http` / `https` URL |
 | Remote `$ref` | **Rejected** — absolute remote refs are not fetched; keep a self-contained document (local relative/`#/` refs OK) |
+| Extensions | `x-` keys are removed before `$ref` resolution (the generator reads none); property and header names starting with `x-` are kept |
+| Recursion | `$ref` cycles are cut where they close (see [recursive schemas](nw-connector-builder-codegen.md#recursive-schemas)) |
 | Validation | Resolved with `prance` + validated with `openapi-spec-validator`. When the whole document fails, each operation and component is validated on its own; the invalid ones are removed (operations soft-dropped with `invalid OpenAPI: <reason>`, components named in `notes`) and the rest is validated again. Anything still invalid fails the build |
 | Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see below) |
-| Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
+| Base URL | From `--base-url`, else the first `servers[]` entry with variables at their defaults. A relative server URL, or no `servers`, is resolved against the spec's URL when it was fetched over HTTP(S); for a local file it hard-fails (pass `--base-url`). Swagger 2.0: `schemes` prefers `https`, and a missing `host` means the host the spec came from |
 
 Draft-4 constructs that OpenAPI 3.0 forbids (and the Swagger 2.0 `examples` move) are
 rewritten rather than rejected — see [codegen behaviour](nw-connector-builder-codegen.md#spec-repair).
@@ -260,7 +262,9 @@ above (`<ID>_TOKEN` or `<ID>_API_KEY`), and the report's `notes` say it came fro
 `oauth2` and `openIdConnect` become a **host-supplied** bearer: Node Wire presents
 `<ID>_ACCESS_TOKEN` but never obtains, refreshes or detects the expiry of it. Operations that need a
 different but still-presentable scheme get a named entry under `auth_schemes:` instead of being
-dropped. `mutualTLS`, cookie API keys, AND-combined requirements and unrecognized types are
+dropped. An AND-combined requirement is sent when each scheme puts its credential in a different
+place (the action passes `auth_scheme=(<scheme>, …)`, `None` standing for the default). `mutualTLS`,
+cookie API keys, AND requirements that need one place twice and unrecognized types are
 soft-dropped. What each of these means, and why: the generator contract's
 [host-supplied tier](nw-connector-builder-scope.md#host-supplied-auth-tier) and
 [per-action auth schemes](nw-connector-builder-scope.md#per-action-auth-schemes).

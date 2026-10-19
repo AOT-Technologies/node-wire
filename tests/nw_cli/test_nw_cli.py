@@ -483,6 +483,8 @@ def test_gen_all_passes_auth_and_headers_to_the_connector_build(fake_root: Path)
                 "spec.json",
                 "--auth",
                 "bearer",
+                "--base-url",
+                "https://ghe.example.com/api/v3",
                 "--header",
                 "X-GitHub-Api-Version=2022-11-28",
                 "--no-wheel",
@@ -492,6 +494,7 @@ def test_gen_all_passes_auth_and_headers_to_the_connector_build(fake_root: Path)
         )
     assert result.exit_code == 0, result.output
     assert rb.call_args.kwargs["auth"] == "bearer"
+    assert rb.call_args.kwargs["base_url"] == "https://ghe.example.com/api/v3"
     assert rb.call_args.kwargs["headers"] == {"X-GitHub-Api-Version": "2022-11-28"}
 
 

@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# OpenAPI 3.1 conformance fixture: JSON Schema 2020-12 forms and 3.1-only fields.
+openapi: 3.1.2
+info: {title: Coverage 3.1, version: "1", summary: short}
+jsonSchemaDialect: https://spec.openapis.org/oas/3.1/dialect/base
+servers: [{url: https://api.example.com}]
+webhooks:
+  newThing:
+    post:
+      requestBody: {content: {application/json: {schema: {type: object}}}}
+      responses: {"200": {description: ok}}
+paths:
+  /things:
+    $ref: "#/components/pathItems/Things"
+  /upload:
+    post:
+      operationId: upload31
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: {type: string, contentEncoding: base64, contentMediaType: image/png}
+                token: {type: string, contentEncoding: base64url}
+      responses: {"200": {description: ok}}
+components:
+  pathItems:
+    Things:
+      get:
+        operationId: listThings
+        parameters:
+          - name: kind
+            in: query
+            required: true
+            schema: {type: string, const: widget}
+          - {name: size, in: query, schema: {type: [integer, "null"], exclusiveMinimum: 0}}
+          - {name: label, in: query, schema: {$ref: "#/components/schemas/Label", description: sibling}}
+          - {name: anything, in: query, schema: true}
+          - {name: scale, in: query, schema: {type: number, enum: [0.5, 1.5]}}
+        responses:
+          "200":
+            description: ok
+            content:
+              application/json:
+                schema:
+                  type: array
+                  prefixItems: [{type: string}]
+                  items: {type: integer}
+  schemas:
+    Label:
+      type: string
+      maxLength: 20
+      examples: [red]

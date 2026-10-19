@@ -11,7 +11,7 @@ license = "Apache-2.0"
 authors = [{ name = "AOT Technologies", email = "opensource@aot-technologies.com" }]
 
 dependencies = [
-    "node-wire-runtime>=1.0.0",
+    "node-wire-runtime>=1.1.0",
     "google-auth>=2.0.0",
     "google-api-python-client>=2.100.0",
 ]

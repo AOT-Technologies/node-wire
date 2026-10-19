@@ -63,6 +63,7 @@ uv run nw gen-all \
 | `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration. The MCP stage needs the `connectors.yaml` entry, so combine with `--no-mcp` unless the connector is already wired |
 | `--force` | Overwrite existing connector / MCP output |
 | `--rebuild-wheels` | Rebuild every wheel, even those whose sources are unchanged |
+| `--base-url` | API base URL when the spec has none, or only a relative one (overrides `servers[0]`) |
 | `--auth` | For a spec that declares **no** auth: `bearer`, `header:<name>` or `query:<name>` (GitHub's REST spec needs `bearer`). Refused when the spec declares a scheme. See [auth mapping](nw-connector-builder.md#auth-mapping) |
 | `--header` | `NAME=VALUE`, repeatable: a header the connector sends on every request, such as Twitch's `'Client-Id=${TWITCH_CLIENT_ID}'`. `${VAR}` is read from the environment at run time. See [`headers`](../connector-reference.md#configconnectorsyaml) |
 | `--tool-search` | MCP host serves tools through `nw_search_tools` + `nw_call_tool` (no prompt) |

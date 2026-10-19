@@ -186,7 +186,7 @@ def _load_strict(spec_source: str) -> tuple[Dict[str, Any], str, bool, bool]:
     doc, origin, from_url = load_raw_document(spec_source)
     changed = detect_version(doc) == "2.0"
     if changed:
-        doc = normalize_swagger2_to_openapi3(doc)
+        doc = normalize_swagger2_to_openapi3(doc, source_url=origin if from_url else None)
     if str(doc.get("openapi", "")).startswith("3.0"):
         changed = strict_openapi30(doc) or changed
     return doc, origin, from_url, changed

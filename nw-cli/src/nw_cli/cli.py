@@ -333,6 +333,12 @@ def gen_all(
     header: Optional[list[str]] = typer.Option(
         None, "--header", help=_HEADER_HELP, rich_help_panel="Connector"
     ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        help="API base URL, when the spec has none or only a relative one (overrides servers[0])",
+        rich_help_panel="Connector",
+    ),
     tool_search: bool = typer.Option(
         False, "--tool-search", help=_TOOL_SEARCH_HELP, rich_help_panel="Tool listing"
     ),
@@ -399,6 +405,7 @@ def gen_all(
                 connector_id=id,
                 wire=not no_wire,
                 force=force,
+                base_url=base_url,
                 auth=auth,
                 headers=headers,
             ),

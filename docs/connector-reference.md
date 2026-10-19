@@ -43,7 +43,7 @@ when the connector makes a call, because VAR was not set, the call fails with an
 VAR instead of sending the placeholder. Tenant config documents (`tenants.yaml`, `/v1`) can set
 `headers` too, top level or under `config`; their values are used as written, with no `${VAR}`
 substitution, so give the value itself there. `nw gen-all --header` and `nw gen-stacklok --header`
-write this key for a generated connector. Needs `node-wire-runtime` 1.2.0 or later.
+write this key for a generated connector. Needs `node-wire-runtime` 1.1.0 or later.
 
 ## `ConnectorFactory` API
 

@@ -127,7 +127,7 @@ def test_headers_are_wired_documented_and_pin_the_runtime(tmp_path: Path) -> Non
     assert _report(root)["headers"]["Client-Id"] == "${UNRULY_CLIENT_ID}"
     readme = (root / "src" / "node_wire_unruly" / "README.md").read_text()
     assert "### Fixed headers" in readme
-    assert _runtime_floor(root) == "node-wire-runtime>=1.2.0"
+    assert _runtime_floor(root) == "node-wire-runtime>=1.1.0"
 
 
 @pytest.mark.parametrize("bad", ["Client-Id", "=x", "Authorization=Bearer x", "Bad Name=x"])

@@ -28,7 +28,8 @@ def _runtime_requirement() -> Requirement:
     return req
 
 
-def test_generated_package_requires_the_runtime_with_body_properties() -> None:
+def test_generated_package_requires_the_runtime_that_serializes_every_style() -> None:
+    """1.1.0 sends cookie / querystring parameters, every style, and ``headers:``."""
     assert not _runtime_requirement().specifier.contains("1.0.0")
     assert _runtime_requirement().specifier.contains("1.1.0")
 
@@ -37,12 +38,3 @@ def test_required_runtime_is_not_newer_than_the_runtime_in_this_repo() -> None:
     """Otherwise a freshly generated connector cannot install against the local runtime."""
     runtime = tomllib.loads((_REPO / "packages" / "runtime" / "pyproject.toml").read_text())
     assert _runtime_requirement().specifier.contains(Version(runtime["project"]["version"]))
-
-
-def test_connectors_with_headers_require_the_runtime_that_sends_them() -> None:
-    """An older runtime ignores ``headers:``; every call would then fail upstream."""
-    project = tomllib.loads(generate_package_pyproject("demo", static_headers=True))["project"]
-    (req,) = [Requirement(d) for d in project["dependencies"] if d.startswith("node-wire-runtime")]
-    assert not req.specifier.contains("1.1.0")
-    runtime = tomllib.loads((_REPO / "packages" / "runtime" / "pyproject.toml").read_text())
-    assert req.specifier.contains(Version(runtime["project"]["version"]))

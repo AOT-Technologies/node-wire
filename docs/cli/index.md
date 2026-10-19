@@ -24,6 +24,7 @@ uv run nw gen-all --connector-id pet_store --path path/to/openapi.yaml
 | [nw-connector-builder](nw-connector-builder.md) | The OpenAPI → connector generator, run directly |
 | [Generator contract](nw-connector-builder-scope.md) | What the generator supports, and what it deliberately does not. This is the contract; the how-to is nw-connector-builder |
 | [Codegen behaviour](nw-connector-builder-codegen.md) | Why generated code looks the way it does — read this when output surprises you |
+| [OpenAPI coverage](openapi-coverage.md) | Every field of Swagger 2.0 and OpenAPI 3.0–3.2, and how the generator handles it |
 | [nw-mcp-builder](nw-mcp-builder.md) | Turning a connector into a standalone MCP server project, run directly |
 | [Tutorial: GitHub](tutorial-github.md) | `nw gen-stacklok` end to end on GitHub's official OpenAPI spec: token, spec fixes, AI scoping and fine-tuning the tools |
 | [Tutorial: Twitch](tutorial-twitch.md) | `nw gen-stacklok` end to end on the community Helix spec: app registration, tokens, the `Client-Id` header, AI scoping and fine-tuning the tools |

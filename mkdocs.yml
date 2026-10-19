@@ -131,6 +131,7 @@ nav:
     - nw CLI: cli/nw-cli.md
     - nw-connector-builder: cli/nw-connector-builder.md
     - Generator Contract: cli/nw-connector-builder-scope.md
+    - OpenAPI Coverage: cli/openapi-coverage.md
     - Codegen Behaviour: cli/nw-connector-builder-codegen.md
     - nw-mcp-builder: cli/nw-mcp-builder.md
     - "Tutorial: GitHub": cli/tutorial-github.md

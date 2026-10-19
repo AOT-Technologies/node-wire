@@ -66,6 +66,36 @@ def _string_keys(node: Any) -> Any:
     return node
 
 
+def drop_extensions(node: Any, *, _name_map: bool = False) -> None:  # noqa: C901
+    """Remove ``x-`` specification extensions in place, before ``$ref`` resolution.
+
+    The generator reads none of them (its own ``x-nw-`` markers excepted), and resolving
+    everything inside them is how a
+    dangling ``$ref`` in an unused vendor extension used to fail the whole build.
+    Keys of name maps (a property or header called ``x-request-id``) are names, not
+    extensions, and example data is left alone.
+    """
+    from nw_connector_builder.normalize_v2 import _DATA_KEYS, _NAME_MAP_KEYS
+
+    if isinstance(node, dict):
+        for key in list(node):
+            # `x-nw-` keys are this generator's own markers (set by the 2.0 converter).
+            if not _name_map and str(key).startswith("x-") and not str(key).startswith("x-nw-"):
+                del node[key]
+                continue
+            # An empty YAML field (`parameters:`) is null, which no OpenAPI field allows
+            # outside data; the validator crashes on it. Data nulls (`default: null`) stay.
+            if not _name_map and node[key] is None and key not in _DATA_KEYS:
+                del node[key]
+                continue
+            if not _name_map and key in _DATA_KEYS:
+                continue
+            drop_extensions(node[key], _name_map=not _name_map and key in _NAME_MAP_KEYS)
+    elif isinstance(node, list):
+        for item in node:
+            drop_extensions(item)
+
+
 def _is_url(source: str) -> bool:
     parsed = urlparse(source)
     return parsed.scheme in {"http", "https"}
@@ -142,6 +172,7 @@ def resolve_and_validate(
     relative-file ``$ref``s resolve when ``base_url`` is the absolute path of the
     root file. Absolute remote ``$ref``s are rejected by the pre-scan first.
     """
+    drop_extensions(doc)
     remotes = collect_remote_refs(doc, from_url=from_url)
     if remotes:
         listed = "\n".join(f"  - {r}" for r in remotes)
@@ -159,12 +190,27 @@ def resolve_and_validate(
             "Internal error: RefResolver requires a base_url for fragment $ref resolution"
         )
 
+    cut_refs: set[str] = set()
+
+    def _cut_recursive_ref(_limit: int, parsed_url: Any, _recursions: Any = ()) -> dict[str, Any]:
+        # A $ref cycle (Graph's chatMessage.replies, team <-> channel) never finishes
+        # inlining. Replace the edge that re-enters a schema with a permissive object.
+        target = parsed_url.geturl()
+        cut_refs.add(target.rsplit("/", 1)[-1])
+        return {"type": "object", "additionalProperties": True, "x-recursive-ref": target}
+
     try:
-        resolver = RefResolver(doc, url=base_url)
+        resolver = RefResolver(doc, url=base_url, recursion_limit_handler=_cut_recursive_ref)
         resolver.resolve_references()
         resolved = resolver.specs
         if not isinstance(resolved, dict):
             raise SpecLoadError("ref resolver returned a non-object specification")
+        if cut_refs:
+            logger.warning(
+                "Cut recursive $ref cycles at %d schema(s), now permissive objects: %s",
+                len(cut_refs),
+                ", ".join(sorted(cut_refs)),
+            )
         # After resolution so inlined $ref targets are covered too.
         repaired = sanitize_draft4_schemas(resolved)
         if repaired:
@@ -185,7 +231,16 @@ def resolve_and_validate(
 # validation on their own and were removed, so the rest of the spec still builds.
 INVALID_OPERATIONS_KEY = "x-nw-invalid-operations"
 INVALID_COMPONENTS_KEY = "x-nw-invalid-components"
-_HTTP_METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace")
+_HTTP_METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace", "query")
+
+
+class _ValidatorCrash:
+    """Stands in for a validation error when the validator raises on a part."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        self.context: list[Any] = []
+        self.absolute_path: list[Any] = []
 
 
 def _leaf_reason(error: Any) -> str:
@@ -231,20 +286,34 @@ def _validate_dropping_invalid_parts(resolved: dict[str, Any]) -> None:
     base = {k: resolved[k] for k in ("openapi", "info") if k in resolved}
 
     def _errors(probe: dict[str, Any]) -> list[Any]:
-        return list(validator_cls({**base, **probe}).iter_errors())
+        try:
+            return list(validator_cls({**base, **probe}).iter_errors())
+        except Exception as exc:  # noqa: BLE001 - the validator itself failed on this part
+            return [_ValidatorCrash(f"could not be validated ({type(exc).__name__}: {exc})")]
 
     invalid_ops: list[dict[str, Any]] = []
     for path, item in list((resolved.get("paths") or {}).items()):
         if not isinstance(item, dict):
             continue
-        shared = {k: v for k, v in item.items() if k not in _HTTP_METHODS}
-        for method in _HTTP_METHODS:
-            op = item.get(method)
+        shared = {
+            k: v for k, v in item.items() if k not in _HTTP_METHODS and k != "additionalOperations"
+        }
+        extra = item.get("additionalOperations")
+        candidates = [(m, item, m) for m in _HTTP_METHODS] + (
+            [(m, extra, m) for m in list(extra)] if isinstance(extra, dict) else []
+        )
+        for method, owner, key in candidates:
+            op = owner.get(key)
             if not isinstance(op, dict):
                 continue
-            errors = _errors({"paths": {path: {**shared, method: op}}})
+            probe_item = (
+                {**shared, method: op}
+                if owner is item
+                else {**shared, "additionalOperations": {key: op}}
+            )
+            errors = _errors({"paths": {path: probe_item}})
             if errors:
-                del item[method]
+                del owner[key]
                 invalid_ops.append(
                     {
                         "method": method,
@@ -287,7 +356,7 @@ def load_openapi_document(
 
     if version == "2.0":
         logger.info("Normalizing Swagger 2.0 → OpenAPI 3.0")
-        doc = normalize_swagger2_to_openapi3(doc)
+        doc = normalize_swagger2_to_openapi3(doc, source_url=origin if from_url else None)
 
     # RefResolver needs a base URL even for same-document ``#/…`` fragments.
     # URL-fetched specs: use the origin http(s) URL (remote absolute/relative
@@ -304,4 +373,25 @@ def load_openapi_document(
         resolved = resolve_and_validate(doc, from_url=from_url, base_url=base_url)
     except SpecLoadError as exc:
         raise SpecLoadError(str(exc), meta=meta) from exc
+    if from_url:
+        _resolve_server_urls(resolved, origin)
     return resolved, meta
+
+
+def _resolve_server_urls(doc: dict[str, Any], origin: str) -> None:
+    """Server URLs relative to where the document was fetched from, as OpenAPI 3 says.
+
+    "A relative server URL is relative to the location where the OpenAPI document is
+    being served"; with no ``servers`` at all the default is ``/``.
+    """
+    from urllib.parse import urljoin
+
+    servers = doc.get("servers")
+    if not isinstance(servers, list) or not servers:
+        doc["servers"] = [{"url": urljoin(origin, "/")}]
+        return
+    for server in servers:
+        if isinstance(server, dict) and isinstance(server.get("url"), str):
+            url = server["url"]
+            if "://" not in url and "{" not in url.split("/", 1)[0]:
+                server["url"] = urljoin(origin, url)

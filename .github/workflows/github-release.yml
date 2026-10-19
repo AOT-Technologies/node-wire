@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 env:
-  CYCLONEDX_BOM_VERSION: "4.6.1"
+  CYCLONEDX_BOM_VERSION: "7.5.0"
 
 jobs:
   github-release:

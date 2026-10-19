@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# Swagger 2.0 conformance fixture: converter coverage.
+swagger: "2.0"
+info: {title: Coverage 2.0, version: "1"}
+host: api.example.com
+basePath: /v2
+schemes: [http, https]
+produces: [application/xml, application/json]
+securityDefinitions:
+  key: {type: apiKey, in: query, name: api_key}
+security: [{key: []}]
+parameters:
+  Limit: {name: limit, in: query, type: integer, minimum: 1}
+  Payload: {name: payload, in: body, required: true, schema: {$ref: "#/definitions/Thing"}}
+responses:
+  NotFound: {description: missing}
+definitions:
+  Thing: {type: object, properties: {name: {type: string}}}
+  Pet:
+    type: object
+    discriminator: kind
+    required: [kind]
+    properties:
+      kind: {type: string}
+paths:
+  /things/{ids}:
+    get:
+      operationId: getThings
+      parameters:
+        - {name: ids, in: path, required: true, type: array, items: {type: string}, collectionFormat: csv}
+        - {name: words, in: query, type: array, items: {type: string}, collectionFormat: ssv}
+        - {name: tabs, in: query, type: array, items: {type: string}, collectionFormat: tsv}
+        - {$ref: "#/parameters/Limit"}
+      responses:
+        "200": {description: ok, schema: {$ref: "#/definitions/Thing"}}
+        "404": {$ref: "#/responses/NotFound"}
+  /things:
+    post:
+      operationId: createThing
+      parameters: [{$ref: "#/parameters/Payload"}]
+      responses: {"201": {description: created}}
+  /pets/{id}:
+    parameters:
+      - {name: id, in: path, required: true, type: string}
+      - {name: fields, in: query, type: string}
+    get:
+      operationId: getPet
+      schemes: [https]
+      parameters:
+        # Redefines the path-level `fields` (same name and `in`).
+        - {name: fields, in: query, type: array, items: {type: array, items: {type: string}, collectionFormat: csv}}
+      responses:
+        "200":
+          description: ok
+          schema: {$ref: "#/definitions/Pet"}
+          headers:
+            X-Tags: {type: array, items: {type: string}, collectionFormat: csv}
+  /download:
+    get:
+      operationId: download
+      produces: [application/octet-stream]
+      responses:
+        "200": {description: the file, schema: {type: file}}
+  /files:
+    post:
+      operationId: sendForm
+      consumes: [multipart/form-data]
+      parameters:
+        - {name: note, in: formData, type: string}
+      responses: {"200": {description: ok}}

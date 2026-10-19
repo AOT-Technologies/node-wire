@@ -56,29 +56,120 @@ def _py_type(hint: str, required: bool, default: Any) -> str:
     return base
 
 
+def binary_format(schema: Any) -> str | None:
+    """``"binary"`` when a schema describes raw bytes, which callers pass base64-encoded.
+
+    OAS 3.0 says ``format: binary`` / ``byte``; 3.1+ says ``contentEncoding: base64`` or a
+    non-text ``contentMediaType``.
+    """
+    if not isinstance(schema, dict):
+        return None
+    if schema.get("contentEncoding") == "base64url":
+        return "base64url"
+    if schema.get("format") in ("binary", "byte") or schema.get("contentEncoding") == "base64":
+        return "binary"
+    media = str(schema.get("contentMediaType") or "").lower()
+    if media and not (media.startswith("text/") or "json" in media or "xml" in media):
+        return "binary"
+    return None
+
+
 def _field_extra(plan_param) -> str:  # noqa: ANN001
     style = repr(plan_param.style) if plan_param.style is not None else "None"
     explode = repr(plan_param.explode) if plan_param.explode is not None else "None"
     media = repr(plan_param.media_type) if plan_param.media_type is not None else "None"
-    return (
-        "{"
-        f'"nw_in": {plan_param.location!r}, '
-        f'"nw_wire_name": {plan_param.wire_name!r}, '
-        f'"nw_style": {style}, '
-        f'"nw_explode": {explode}, '
-        f'"nw_media_type": {media}'
-        "}"
-    )
+    extra = [
+        f'"nw_in": {plan_param.location!r}',
+        f'"nw_wire_name": {plan_param.wire_name!r}',
+        f'"nw_style": {style}',
+        f'"nw_explode": {explode}',
+        f'"nw_media_type": {media}',
+    ]
+    if getattr(plan_param, "allow_reserved", False):
+        extra.append('"nw_allow_reserved": True')
+    if getattr(plan_param, "part_content_type", None):
+        extra.append(f'"nw_part_content_type": {plan_param.part_content_type!r}')
+    if binary_format(plan_param.schema):
+        extra.append(f'"nw_format": {binary_format(plan_param.schema)!r}')
+    schema = plan_param.schema if isinstance(plan_param.schema, dict) else {}
+    # Advertised to the caller, not enforced: spec regexes are ECMA dialect, and
+    # upstream validates. `format` tells an agent what a string should look like.
+    if isinstance(schema.get("pattern"), str) and _scalar_hint(plan_param) == "str":
+        extra.append(f'"pattern": {schema["pattern"]!r}')
+    if isinstance(schema.get("format"), str) and not binary_format(schema):
+        extra.append(f'"format": {schema["format"]!r}')
+    enum = schema.get("enum")
+    if (
+        _scalar_hint(plan_param) == "float"
+        and isinstance(enum, list)
+        and enum
+        and all(_number(v) for v in enum)
+    ):
+        # Literal cannot hold floats; advertise the allowed numbers instead.
+        extra.append(f'"enum": {enum!r}')
+    return "{" + ", ".join(extra) + "}"
 
 
-def _string_enum(param) -> list[str] | None:  # noqa: ANN001
-    """The param's enum when it is a non-empty list of strings on a string field."""
-    enum = param.schema.get("enum") if isinstance(param.schema, dict) else None
-    if param.python_type_hint != "str" or not isinstance(enum, list) or not enum:
+def _scalar_hint(param) -> str:  # noqa: ANN001
+    return param.python_type_hint
+
+
+def _number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _constraint_kwargs(param) -> str:  # noqa: ANN001
+    """Pydantic ``Field`` constraints from the parameter's schema (validated on every call).
+
+    ``exclusiveMinimum`` / ``exclusiveMaximum`` are booleans beside ``minimum`` /
+    ``maximum`` in OpenAPI 3.0 and numbers of their own in 3.1+.
+    """
+    schema = param.schema if isinstance(param.schema, dict) else {}
+    hint = param.python_type_hint
+    kwargs: list[str] = []
+    if hint in ("int", "float"):
+        lo, hi = schema.get("minimum"), schema.get("maximum")
+        ex_lo, ex_hi = schema.get("exclusiveMinimum"), schema.get("exclusiveMaximum")
+        if _number(ex_lo):
+            kwargs.append(f"gt={ex_lo!r}")
+        elif _number(lo):
+            kwargs.append(f"{'gt' if ex_lo is True else 'ge'}={lo!r}")
+        if _number(ex_hi):
+            kwargs.append(f"lt={ex_hi!r}")
+        elif _number(hi):
+            kwargs.append(f"{'lt' if ex_hi is True else 'le'}={hi!r}")
+        if _number(schema.get("multipleOf")) and schema["multipleOf"] > 0:
+            kwargs.append(f"multiple_of={schema['multipleOf']!r}")
+    elif hint == "str":
+        for key, kw in (("minLength", "min_length"), ("maxLength", "max_length")):
+            if isinstance(schema.get(key), int) and not isinstance(schema.get(key), bool):
+                kwargs.append(f"{kw}={schema[key]!r}")
+    elif hint.startswith("list["):
+        for key, kw in (("minItems", "min_length"), ("maxItems", "max_length")):
+            if isinstance(schema.get(key), int) and not isinstance(schema.get(key), bool):
+                kwargs.append(f"{kw}={schema[key]!r}")
+    return "".join(f", {k}" for k in kwargs)
+
+
+def _string_enum(param) -> list[Any] | None:  # noqa: ANN001
+    """The param's allowed values (``enum``, or a scalar ``const``) matching its type.
+
+    ``None`` in an enum (a nullable enum) is dropped: an unset field is already
+    ``None``, and nulls are never sent.
+    """
+    schema = param.schema if isinstance(param.schema, dict) else {}
+    enum = schema.get("enum")
+    if "const" in schema and not isinstance(schema["const"], (dict, list)):
+        enum = [schema["const"]]
+    if not isinstance(enum, list):
         return None
-    if not all(isinstance(v, str) for v in enum):
+    values = [v for v in enum if v is not None]
+    kind = {"str": str, "int": int, "bool": bool}.get(param.python_type_hint)
+    if not values or kind is None:
         return None
-    return list(dict.fromkeys(enum))
+    if not all(type(v) is kind for v in values):
+        return None
+    return list(dict.fromkeys(values))
 
 
 def _type_hint(param) -> str:  # noqa: ANN001
@@ -108,12 +199,20 @@ def _alias_needed(param, wire_counts: dict[str, int], field_names: set[str]) -> 
     return wire_counts[param.wire_name] == 1 and param.wire_name not in field_names
 
 
-def _whole_body_type(schema: Any) -> str:
+def _whole_body_type(schema: Any, media_type: str | None = None) -> str:
     """Annotation for a single ``body`` argument, from the body schema's type.
 
     Object and unknown bodies stay ``dict[str, Any]`` rather than ``Any``: Pydantic
-    emits ``anyOf[{}, null]`` for ``Any``, which MCP clients reject.
+    emits ``anyOf[{}, null]`` for ``Any``, which MCP clients reject. Media types that
+    are neither JSON nor form fields (``text/*``, XML, ``application/octet-stream``,
+    images, …) take the body as one string: text as-is, binary base64-encoded.
     """
+    mt = (media_type or "application/json").lower()
+    is_fields = (
+        "json" in mt or mt == "application/x-www-form-urlencoded" or mt.startswith("multipart/")
+    )
+    if not is_fields:
+        return "str"
     t = schema.get("type") if isinstance(schema, dict) else None
     if t == "array":
         return "list[Any]"
@@ -123,23 +222,39 @@ def _whole_body_type(schema: Any) -> str:
 
 
 def _example_placeholder(param) -> Any:  # noqa: ANN001
+    """A value for a required field in the example test that meets its constraints."""
     if param.default is not None:
         return param.default
     enum = _string_enum(param)
     if enum:
         return enum[0]
+    schema = param.schema if isinstance(param.schema, dict) else {}
     hint = param.python_type_hint
-    if hint == "int":
-        return 1
+    if hint in ("int", "float"):
+        import math
+
+        lo = schema.get("exclusiveMinimum") if _number(schema.get("exclusiveMinimum")) else None
+        lo = lo if lo is not None else schema.get("minimum")
+        value = (math.floor(lo) + 1) if _number(lo) else 1
+        step = schema.get("multipleOf")
+        if _number(step) and step > 0:
+            value = math.ceil(value / step) * step
+        return int(value) if hint == "int" else float(value)
     if hint == "bool":
         return True
-    if hint == "float":
-        return 1.0
     if hint.startswith("list["):
-        return []
+        n = schema.get("minItems") if isinstance(schema.get("minItems"), int) else 0
+        item = schema.get("items") if isinstance(schema.get("items"), dict) else {}
+        sample = {"string": "example", "integer": 1, "number": 1.0, "boolean": True}
+        return [sample.get(str(item.get("type")), "example") for _ in range(n)]
     if hint.startswith("dict["):
         return {}
-    return "example"
+    text = "example"
+    if isinstance(schema.get("minLength"), int):
+        text = text.ljust(schema["minLength"], "x")
+    if isinstance(schema.get("maxLength"), int):
+        text = text[: schema["maxLength"]]
+    return text
 
 
 # Emitted into every generated schema.py and hooked into each model's
@@ -207,9 +322,11 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 default = repr(p.default) if p.default is not None else "None"
             desc = _short_description(p.description)
             description = f", description={desc!r}" if desc else ""
+            constraints = "" if _string_enum(p) else _constraint_kwargs(p)
             lines.append(
                 f"    {p.field_name}: {typ} = Field("
-                f"{default}{alias}{description}, json_schema_extra={_field_extra(p)})"
+                f"{default}{alias}{description}{constraints}, "
+                f"json_schema_extra={_field_extra(p)})"
             )
         has_whole_body = action.body_schema is not None and not action.body_flattened
         if has_whole_body:
@@ -223,7 +340,9 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 "nw_explode": None,
                 "nw_media_type": action.body_media_type or "application/json",
             }
-            body_type = _whole_body_type(action.body_schema)
+            if binary_format(action.body_schema):
+                body_extra["nw_format"] = binary_format(action.body_schema)
+            body_type = _whole_body_type(action.body_schema, action.body_media_type)
             if action.body_required:
                 lines.append(
                     f"    body: {body_type} = Field(..., json_schema_extra={body_extra!r})"
@@ -371,11 +490,14 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         out_name = _pascal(a.name) + "Output"
         auth_kw = "" if a.auth else ", auth=False"
         decorator_kw = "" if a.auth else ", requires_auth=False"
+        if a.deprecated:
+            decorator_kw += ", deprecated=True"
         # auth_scheme_name is an OpenAPI securitySchemes key — always emit via !r.
         scheme_kw = f", auth_scheme={a.auth_scheme_name!r}" if a.auth_scheme_name else ""
         # The spec declares this response's success flag; a 2xx body reporting
         # failure must not read as a successful call.
         envelope_kw = f", envelope_ok_field={a.envelope_ok_field!r}" if a.envelope_ok_field else ""
+        server_kw = f", server_url={a.server_url!r}" if a.server_url else ""
         lines += [
             f'    @nw_action("{a.name}"{decorator_kw})',
             f"    async def {a.name}(self, params: {in_name}, *, trace_id: str) -> {out_name}:",
@@ -384,7 +506,7 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
             f"            path_template={a.path!r},",
             "            params=params,",
             f"            output_model={out_name},",
-            f"            trace_id=trace_id{auth_kw}{scheme_kw}{envelope_kw},",
+            f"            trace_id=trace_id{auth_kw}{scheme_kw}{envelope_kw}{server_kw},",
             "        )",
             "",
         ]
@@ -460,16 +582,16 @@ def generate_init_module(connector_id: str) -> str:
 # RestEnvelopeError, declare_secret_shape. Raise it whenever codegen starts
 # emitting a newer runtime API, or a generated wheel installs against a runtime
 # that fails at import or at call time.
+# 1.1.0: connectors.yaml `headers:`, cookie / querystring parameters, every OpenAPI style,
+# `nw_allow_reserved` / `nw_format` / `nw_part_content_type`, AND-combined auth schemes. An
+# older runtime would silently drop or mis-encode them.
 _MIN_RUNTIME_VERSION = "1.1.0"
-# Connectors built with `--header` need the runtime that sends connectors.yaml `headers:`;
-# an older one would ignore them and every call would fail upstream.
-_MIN_RUNTIME_VERSION_HEADERS = "1.2.0"
 
 
-def generate_package_pyproject(connector_id: str, *, static_headers: bool = False) -> str:
+def generate_package_pyproject(connector_id: str) -> str:
     _validate_connector_id(connector_id)
     dist = connector_id.replace("_", "-")
-    min_runtime = _MIN_RUNTIME_VERSION_HEADERS if static_headers else _MIN_RUNTIME_VERSION
+    min_runtime = _MIN_RUNTIME_VERSION
     return textwrap.dedent(
         f"""\
         # Generated by nw-connector-builder — do not hand-edit.
@@ -592,6 +714,13 @@ def generate_model_tests(connector_id: str, result: DeriveResult) -> str:
         if example is not None:
             # YAML specs load dates as datetime objects, whose repr() is not a literal.
             example = json.loads(json.dumps(example, default=str))
+        if (
+            example is not None
+            and not a.body_flattened
+            and _whole_body_type(a.body_schema, a.body_media_type) == "str"
+            and not isinstance(example, str)
+        ):
+            example = None  # a text/binary body takes a string; the example is not one
         if example is not None and a.body_schema is not None:
             # Build a payload that satisfies every required field so the
             # example→model gate does not abort on otherwise-valid specs. Values
@@ -783,10 +912,7 @@ def write_staging(
     (src_pkg / "README.md").write_text(
         generate_package_readme(connector_id, result), encoding="utf-8"
     )
-    (pkg / "pyproject.toml").write_text(
-        generate_package_pyproject(connector_id, static_headers=bool(result.static_headers)),
-        encoding="utf-8",
-    )
+    (pkg / "pyproject.toml").write_text(generate_package_pyproject(connector_id), encoding="utf-8")
     (pkg / "setup.py").write_text(generate_package_setup(connector_id), encoding="utf-8")
     (tests / f"test_{connector_id}_models.py").write_text(
         generate_model_tests(connector_id, result), encoding="utf-8"

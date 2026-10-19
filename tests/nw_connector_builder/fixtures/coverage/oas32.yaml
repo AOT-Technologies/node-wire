@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# OpenAPI 3.2 conformance fixture: the QUERY method, additionalOperations, querystring.
+openapi: 3.2.0
+info: {title: Coverage 3.2, version: "1"}
+servers: [{url: https://api.example.com}]
+tags:
+  - {name: search, summary: Search, kind: nav}
+  - {name: advanced, parent: search}
+paths:
+  /search:
+    query:
+      operationId: search
+      tags: [advanced]
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object, properties: {q: {type: string}}}
+            examples:
+              simple: {dataValue: {q: cats}}
+      responses:
+        "200": {description: ok, summary: Results}
+    additionalOperations:
+      PURGE:
+        operationId: purgeSearch
+        responses: {"204": {description: purged}}
+  /files/{path}:
+    get:
+      operationId: getFile
+      parameters:
+        - {name: path, in: path, required: true, allowReserved: true, schema: {type: string}}
+        - {name: sid, in: cookie, style: cookie, schema: {type: string}}
+      responses: {"200": {description: ok}}
+  /filtered:
+    get:
+      operationId: filtered
+      parameters:
+        - name: q
+          in: querystring
+          content:
+            application/x-www-form-urlencoded:
+              schema: {type: object, additionalProperties: {type: string}}
+      responses: {"200": {description: ok}}
+components:
+  securitySchemes:
+    device:
+      type: oauth2
+      flows:
+        deviceAuthorization:
+          deviceAuthorizationUrl: https://auth.example.com/device
+          tokenUrl: https://auth.example.com/token
+          scopes: {}
+security:
+  - device: []
