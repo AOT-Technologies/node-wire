@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`headers:` in `connectors.yaml`** (`node-wire-runtime` 1.2.0): fixed headers a REST connector
+  sends on every request, for APIs that need more than the credential (Twitch's `Client-Id`).
+  `${VAR}` is replaced from the environment when the file loads; a placeholder still unresolved at
+  call time fails with an error naming VAR. Credential and transport headers (`Authorization`,
+  `Cookie`, `Host`, `Content-Type`, …) are refused, and `auth` wins over any header set here.
+  Tenant config documents can set `headers` too (top level or under `config`).
+- **`--auth` and `--header` for `nw gen-all`, `nw gen-stacklok` and `nw-connector-builder`**:
+  `--auth bearer|header:<name>|query:<name>` declares the auth of a spec that declares none
+  (GitHub's REST description), and is refused when the spec declares any scheme. `--header
+  NAME=VALUE` writes `headers:` for the connector, adds a `sample.env` placeholder for each
+  `${VAR}`, and makes the generated package require `node-wire-runtime>=1.2.0`. `gen-stacklok`
+  remembers both with the prepared spec for later `--scope` runs.
+
 - **`node-wire-connectors`**: `pip install node-wire-connectors` installs the runtime and every public connector. A subset is the connector packages by name (`pip install node-wire-smtp node-wire-google-drive`). The meta package has no extras.
 - **`nw gen-stacklok`**: builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder)
   server from a stacklok `mcp-scope.yaml` on the node-wire runtime. It runs three stages:
@@ -448,6 +461,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--force` refuses to delete a project outside the output directory.
 
 ### Fixed
+
+- **nw-connector-builder builds public specs as published**:
+  - Spec repair no longer rewrites example payloads, defaults or enum values as schemas. An
+    example with an `items` list of strings (GitHub's search example) crashed the build.
+  - YAML specs are read as JSON data: `yes` / `no` / `on` / `off` and unquoted dates stay
+    strings, and keys like `200:` become strings. GitHub's emoji example crashed the build.
+  - A request body field named `action` no longer collides with the input model's `action`
+    discriminator. Its generated tests failed the gate (GitHub, Twitch).
+  - A request example that contradicts its own schema is not used as a generated test (GitHub's
+    `markdown/render-raw`); the operations are named in the report's `notes`.
+  - A spec that fails validation in one operation or component no longer fails the whole build:
+    the invalid parts are removed and reported (soft-dropped with `invalid OpenAPI: <reason>`), and
+    the rest builds. Twitch's community spec loses only `get-hype-train-status`.
+  - `nw gen-stacklok`'s strict-OpenAPI 3.0 preparation uses the same repair, so it no longer
+    rewrites example payloads either.
 
 - **The call that opens the circuit breaker reports its own error.** At the failure
   threshold the breaker raised `CircuitBreakerError` from inside the failing call, replacing

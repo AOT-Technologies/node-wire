@@ -416,7 +416,9 @@ def discover_secret_env_names(connector_id: str, node_wire_root: Path) -> list[s
     if connectors_yaml.is_file():
         raw = yaml.safe_load(connectors_yaml.read_text(encoding="utf-8")) or {}
         cfg = (raw.get("connectors") or {}).get(connector_id) or {}
-        for _key, val in cfg.items():
+        headers = cfg.get("headers")
+        values = [*cfg.values(), *(headers.values() if isinstance(headers, dict) else [])]
+        for val in values:
             if isinstance(val, str):
                 for m in re.finditer(r"\$\{([A-Z0-9_]+)(?::[^}]*)?\}", val):
                     _add(m.group(1))

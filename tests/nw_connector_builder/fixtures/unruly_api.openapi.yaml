@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2026 AOT Technologies
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# A spec with the problems real public specs have: no auth declared at all (GitHub's REST
+# spec), a body field named `action` (GitHub, Twitch), one invalid operation (Twitch's
+# duplicate `required` entry), and a request example that contradicts its own schema
+# (GitHub's markdown/render-raw).
+openapi: 3.0.3
+info:
+  title: Unruly API
+  version: "1"
+servers:
+  - url: https://api.unruly.example
+paths:
+  /items:
+    get:
+      operationId: items/list
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {type: string}
+              example: {items: ["not", "a", "schema"]}
+  /reviews:
+    post:
+      operationId: reviews/decide
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, action]
+              properties:
+                id: {type: string}
+                action: {type: string, enum: [ALLOW, DENY]}
+            example: {id: "42", action: ALLOW}
+      responses:
+        "204":
+          description: decided
+  /render:
+    post:
+      operationId: render/raw
+      requestBody:
+        content:
+          text/plain:
+            schema: {type: string}
+            example: {text: "an object, though the schema says string"}
+      responses:
+        "200":
+          description: rendered
+  /broken:
+    get:
+      operationId: broken/status
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [type, total, type]
+                properties:
+                  type: {type: string}
+                  total: {type: integer}

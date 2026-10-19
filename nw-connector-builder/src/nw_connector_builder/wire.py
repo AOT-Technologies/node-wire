@@ -14,6 +14,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from nw_connector_builder.options import header_env_vars
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,7 @@ def wire_connectors_yaml(
     base_url: str,
     auth_block: dict[str, Any],
     extra_auth_blocks: dict[str, dict[str, Any]] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     try:
         from ruamel.yaml import YAML
@@ -75,6 +78,9 @@ def wire_connectors_yaml(
     if extra_auth_blocks:
         # Named schemes beyond the connector default (multi-scheme specs).
         block["auth_schemes"] = extra_auth_blocks
+    if headers:
+        # Sent on every request; `${VAR}` is substituted from the environment on load.
+        block["headers"] = dict(headers)
     data["connectors"][connector_id] = block
 
     out = io.StringIO()
@@ -89,7 +95,9 @@ def wire_sample_env(
     secret_keys: list[str],
     secret_defaults: dict[str, str] | None = None,
     host_supplied_keys: frozenset[str] = frozenset(),
+    header_env: dict[str, str] | None = None,
 ) -> None:
+    """``header_env``: ``{VAR: header name}`` for ``${VAR}`` in connectors.yaml ``headers:``."""
     if not path.is_file():
         # Create minimal file
         path.write_text("", encoding="utf-8")
@@ -135,6 +143,12 @@ def wire_sample_env(
             # and a repeated key must not emit a second assignment line.
             existing_keys.add(key)
 
+    for var, header in (header_env or {}).items():
+        if var not in existing_keys:
+            new_lines.append(f"# {var}: sent as the {header} header ({connector_id} headers:)")
+            new_lines.append(f"{var}=")
+            existing_keys.add(var)
+
     _replace_atomically(path, "\n".join(new_lines) + "\n")
 
 
@@ -148,6 +162,7 @@ def apply_wire(
     secret_defaults: dict[str, str] | None = None,
     host_supplied: bool = False,
     extra_auth_plans: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """``extra_auth_plans``: scheme_name -> plan with ``.yaml_block`` / secrets / ``.tier``.
 
@@ -174,6 +189,7 @@ def apply_wire(
         base_url=base_url,
         auth_block=auth_block,
         extra_auth_blocks=extra_auth_blocks,
+        headers=headers,
     )
     wire_sample_env(
         env_path,
@@ -181,5 +197,6 @@ def apply_wire(
         secret_keys=[k for k in all_secret_keys if k],
         secret_defaults=all_secret_defaults,
         host_supplied_keys=frozenset(k for k in host_supplied_keys if k),
+        header_env=header_env_vars(headers or {}),
     )
     logger.info("--wire updated %s and %s", yaml_path, env_path)

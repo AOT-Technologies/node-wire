@@ -98,3 +98,51 @@ def test_swagger2_response_examples_move_into_content() -> None:
     err = converted["paths"]["/x"]["get"]["responses"]["default"]
     assert "examples" not in err
     assert err["content"]["application/json"] == {"example": {"ok": False}}
+
+
+def test_example_payloads_are_data_not_schemas() -> None:
+    """GitHub's search example has ``items: [...]`` of strings; repairing it crashed the build."""
+    payload = {"total_count": 2, "items": ["a", "b"], "type": ["x", "y"]}
+    doc: dict[str, Any] = {
+        "components": {
+            "examples": {"search": {"value": payload}},
+            "schemas": {
+                "Thing": {
+                    "type": "object",
+                    "example": {"items": ["c"]},
+                    "default": {"items": ["d"]},
+                    "x-sample": {"items": ["e"]},
+                    "properties": {
+                        # Property names are not data keys, even when they look like one.
+                        "example": {"type": ["string", "null"]},
+                        "default": {"type": "array", "items": [{"type": "integer"}]},
+                    },
+                }
+            },
+        },
+        "paths": {
+            "/t": {
+                "get": {
+                    "responses": {
+                        "default": {
+                            "description": "d",
+                            "content": {
+                                "application/json": {"schema": {"type": ["integer", "null"]}}
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    }
+    counts = sanitize_draft4_schemas(doc)
+    assert doc["components"]["examples"]["search"]["value"] == payload
+    thing = doc["components"]["schemas"]["Thing"]
+    assert thing["example"] == {"items": ["c"]}
+    assert thing["default"] == {"items": ["d"]}
+    assert thing["x-sample"] == {"items": ["e"]}
+    assert thing["properties"]["example"] == {"type": "string", "nullable": True}
+    assert thing["properties"]["default"]["items"] == {"type": "integer"}
+    schema = doc["paths"]["/t"]["get"]["responses"]["default"]["content"]["application/json"]
+    assert schema["schema"] == {"type": "integer", "nullable": True}
+    assert counts == {"type_unions": 2, "item_tuples": 1}

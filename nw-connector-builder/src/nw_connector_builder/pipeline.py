@@ -17,6 +17,7 @@ from nw_connector_builder.derive.operations import DeriveError
 from nw_connector_builder.gate import run_gate
 from nw_connector_builder.load import SpecLoadError, load_openapi_document
 from nw_connector_builder.mcp_handoff import run_mcp_handoff
+from nw_connector_builder.options import apply_auth_override, parse_headers
 from nw_connector_builder.promote import PromoteError, assert_generator_owned, promote
 from nw_connector_builder.report import build_report, print_report, write_report
 from nw_connector_builder.wire import WireError, apply_wire
@@ -42,9 +43,20 @@ def run_build(
     no_mcp: bool = False,
     base_url: str | None = None,
     report_path: Path | None = None,
+    auth: str | None = None,
+    headers: list[str] | dict[str, str] | None = None,
 ) -> int:
-    """Return process exit code (0 success, 1 hard/post-promote failure)."""
+    """Return process exit code (0 success, 1 hard/post-promote failure).
+
+    ``auth``: ``--auth`` (``bearer`` / ``header:<name>`` / ``query:<name>``) for a spec that
+    declares no auth. ``headers``: ``--header NAME=VALUE`` strings (or a parsed mapping) sent
+    on every request.
+    """
     abort_report_path = report_path or (Path.cwd() / "report.json")
+    try:
+        static_headers = headers if isinstance(headers, dict) else parse_headers(headers)
+    except ValueError as exc:
+        raise UsageError(str(exc)) from exc
 
     # Before deriving, staging, or importing anything: the gate imports the
     # generated module in-process, so a colliding id would mutate global runtime
@@ -58,7 +70,16 @@ def run_build(
 
     try:
         doc, meta = load_openapi_document(spec, base_url_override=base_url)
+        auth_note = None
+        if auth:
+            try:
+                auth_note = apply_auth_override(doc, auth)
+            except ValueError as exc:
+                raise UsageError(str(exc)) from exc
         result = derive_operations(doc, connector_id=connector_id, base_url_override=base_url)
+        if auth_note:
+            result.notes.append(auth_note)
+        result.static_headers = dict(static_headers)
     except SpecLoadError as exc:
         report = build_report(
             connector_id=connector_id,
@@ -145,6 +166,7 @@ def run_build(
                     secret_defaults=result.auth_plan.secret_defaults,
                     host_supplied=result.auth_plan.tier == "host_supplied",
                     extra_auth_plans=result.extra_auth_plans,
+                    headers=result.static_headers,
                 )
                 wire_info = {"ok": True, "wired": True}
             except WireError as exc:

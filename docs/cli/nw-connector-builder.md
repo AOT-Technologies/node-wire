@@ -188,6 +188,8 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 | `--base-url` | `servers[0]` | Override baked-in default base URL (required if the spec has no absolute server URL) |
 | `--node-wire-root` | Parent of `nw-connector-builder/` | Monorepo root used for promote / wire / MCP |
 | `--report-path` | `./report.json` | Where to write `report.json` on **abort** (success writes beside the package) |
+| `--auth` | — | Auth for a spec that declares **none**: `bearer`, `header:<name>` or `query:<name>`. Refused when the spec declares any scheme (see [Auth mapping](#auth-mapping)) |
+| `--header` | — | `NAME=VALUE`, repeatable: a header sent on every request (`headers:` in `connectors.yaml`); `${VAR}` is read from the environment |
 | `-v`, `--verbose` | off | Debug logging |
 
 ### `mcp`
@@ -208,7 +210,7 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 |------|---------|
 | `0` | Clean build (gate + promote OK; MCP/wire OK or skipped) |
 | `1` | Hard failure (load/derive/gate) **or** post-promote MCP/`--wire` failure |
-| `2` | Usage error (bad `--id`, destination exists without `--force`, etc.) |
+| `2` | Usage error (bad `--id`, destination exists without `--force`, bad `--auth` / `--header`, `--auth` on a spec that declares auth, etc.) |
 
 ---
 
@@ -216,11 +218,11 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 
 | Topic | Behavior |
 |-------|----------|
-| Formats | YAML or JSON, UTF-8 |
+| Formats | YAML or JSON, UTF-8. YAML is read as JSON data: `yes` / `no` / `on` / `off` stay strings, unquoted dates stay strings, and keys such as `200:` become `"200"` |
 | Versions | Swagger `2.0` (normalized to OpenAPI 3) or OpenAPI `3.x` |
 | Sources | Local file path, or `http` / `https` URL |
 | Remote `$ref` | **Rejected** — absolute remote refs are not fetched; keep a self-contained document (local relative/`#/` refs OK) |
-| Validation | Resolved with `prance` + validated with `openapi-spec-validator` |
+| Validation | Resolved with `prance` + validated with `openapi-spec-validator`. When the whole document fails, each operation and component is validated on its own; the invalid ones are removed (operations soft-dropped with `invalid OpenAPI: <reason>`, components named in `notes`) and the rest is validated again. Anything still invalid fails the build |
 | Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see below) |
 | Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
 
@@ -248,6 +250,12 @@ under `auth_schemes:` with its name folded in — `<ID>_<SCHEME>_ACCESS_TOKEN`,
 `auth.notes` name the scheme and, when the OpenAPI document declares them, the
 `authorizationUrl` / `tokenUrl` for the host to call — those URLs are documentation only;
 the connector never POSTs to a token endpoint.
+
+**A spec that declares no auth at all** (GitHub's REST description is one) would build an
+anonymous connector that never sends a credential. Pass `--auth bearer`, `--auth header:<name>`
+or `--auth query:<name>` to declare the scheme the API really uses; it then maps like the table
+above (`<ID>_TOKEN` or `<ID>_API_KEY`), and the report's `notes` say it came from `--auth`.
+`--auth` is refused when the spec declares any scheme, so it can never contradict one.
 
 `oauth2` and `openIdConnect` become a **host-supplied** bearer: Node Wire presents
 `<ID>_ACCESS_TOKEN` but never obtains, refreshes or detects the expiry of it. Operations that need a
@@ -347,9 +355,11 @@ connectors:
       <scheme_name>:
         provider: ...
         secret_key: ...
+    headers:        # only with --header
+      <NAME>: <VALUE>
 ```
 
-**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (e.g. `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme).
+**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (e.g. `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme), plus one for each `${VAR}` a `--header` value reads, with a comment naming the header.
 
 Wire edits preserve YAML comments via `ruamel.yaml`. Failures set exit code `1` but do not roll back the promoted connector.
 
@@ -382,6 +392,8 @@ Stdout summary plus JSON:
 | `generated_actions` | method, path, action name, auth flag |
 | `skipped` | soft-dropped ops + reasons |
 | `auth` | chosen provider / secret key / yaml block |
+| `headers` | the `--header` values, when given |
+| `notes` | build notes: dropped credential parameters, removed invalid components, request examples not used as tests, `--auth` |
 | `gate` / `mcp` / `wire` | stage outcomes when run |
 
 On success: `packages/connectors/<id>/report.json`

@@ -27,7 +27,9 @@ the pipeline, the build report), see the how-to, [nw-connector-builder](nw-conne
   `assert_safe_destination`, no redirects followed)
 - In-house Swagger 2.0 → OpenAPI 3.0 normalization at the front door
 - Local relative `$ref`s and in-document `#/` refs
-- Structural + semantic validation via `prance` + `openapi-spec-validator`
+- Structural + semantic validation via `prance` + `openapi-spec-validator`; an operation or
+  component that fails on its own is soft-dropped (or removed) instead of failing the whole
+  build — see [codegen behaviour](nw-connector-builder-codegen.md#invalid-operations)
 
 ### Auth
 
@@ -46,6 +48,11 @@ the pipeline, the build report), see the how-to, [nw-connector-builder](nw-conne
   `resolve_auth_provider`, which fails closed on an unknown name). A connector is no longer
   necessarily single-scheme; see "Per-action auth schemes" below.
 - Anonymous connectors (no scheme, or only unsupported schemes present) build as `auth: none`
+- A spec that declares **no** auth can be given one with `--auth bearer|header:<name>|query:<name>`
+  (refused when the spec declares any scheme)
+- Fixed non-credential headers an API needs on every call (Twitch's `Client-Id`) via
+  `--header NAME=VALUE`, written to `headers:` in `connectors.yaml` and sent by the runtime
+  (`node-wire-runtime` 1.2.0 or later, which the generated package then requires)
 
 #### Host-supplied auth tier
 
@@ -121,7 +128,7 @@ name.
 ### Testing & build gate
 
 - Offline schema/contract tests only: parse the spec's `example` into the generated model when
-  present, else synthesize one with `polyfactory`
+  present and valid against its own schema, else synthesize one with `polyfactory`
 - Generated tests ship with the connector (`packages/connectors/<id>/tests/`)
 - Import smoke test + `pytest` on staged output is a hard gate — promote only happens on green
 - Atomic two-phase promote into `src/node_wire_<id>/` and `packages/connectors/<id>/`; abort

@@ -242,6 +242,8 @@ def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
     62 between the two — so repair them rather than reject the whole spec.
     """
     types = node.get("type")
+    if isinstance(types, list) and not all(isinstance(t, str) for t in types):
+        types = None
     if types == "null":
         # Draft-4 spells "this is always null" as a type; OAS 3.0 has no null type.
         node.pop("type", None)
@@ -262,7 +264,7 @@ def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
         counts["type_unions"] = counts.get("type_unions", 0) + 1
 
     items = node.get("items")
-    if isinstance(items, list):
+    if isinstance(items, list) and all(isinstance(i, dict) for i in items):
         concrete_items = [i for i in items if not (isinstance(i, dict) and i.get("type") == "null")]
         nullable = len(concrete_items) < len(items)
         if len(concrete_items) == 1:
@@ -279,18 +281,53 @@ def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
         counts["item_tuples"] = counts.get("item_tuples", 0) + 1
 
 
-def sanitize_draft4_schemas(doc: Any, counts: dict[str, int] | None = None) -> dict[str, int]:
+# Keys whose values are instance data (examples, defaults, enum members), not schemas.
+# A payload such as ``{"items": ["a", "b"]}`` must not be "repaired" as a tuple schema.
+_DATA_KEYS = frozenset({"example", "examples", "default", "enum", "const"})
+# Maps keyed by user-chosen names: a property may be called ``example`` or ``default``,
+# and ``responses`` has a real ``default`` entry. Their keys are never data keys.
+_NAME_MAP_KEYS = frozenset(
+    {
+        "properties",
+        "patternProperties",
+        "definitions",
+        "$defs",
+        "schemas",
+        "responses",
+        "parameters",
+        "headers",
+        "requestBodies",
+        "securitySchemes",
+        "links",
+        "callbacks",
+        "paths",
+        "content",
+        "encoding",
+    }
+)
+
+
+def sanitize_draft4_schemas(
+    doc: Any, counts: dict[str, int] | None = None, *, _name_map: bool = False
+) -> dict[str, int]:
     """Repair draft-4-only schema constructs in place, returning what was changed.
 
     Applied to every document (converted or natively OpenAPI 3), because the
     constructs are invalid in OAS 3.0 wherever they came from. Keyed on shape, not
     location: only nodes that actually carry a list ``type`` / ``items`` are touched.
+    Example payloads, defaults, enum members and ``x-`` extensions are data and are
+    left alone.
     """
     counts = {} if counts is None else counts
     if isinstance(doc, dict):
-        _sanitize_schema_node(doc, counts)
-        for value in doc.values():
-            sanitize_draft4_schemas(value, counts)
+        if not _name_map:
+            _sanitize_schema_node(doc, counts)
+        for key, value in doc.items():
+            if not _name_map and (key in _DATA_KEYS or str(key).startswith("x-")):
+                continue
+            sanitize_draft4_schemas(
+                value, counts, _name_map=not _name_map and key in _NAME_MAP_KEYS
+            )
     elif isinstance(doc, list):
         for value in doc:
             sanitize_draft4_schemas(value, counts)

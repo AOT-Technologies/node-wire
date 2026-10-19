@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -30,6 +31,39 @@ class SpecLoadError(Exception):
     def __init__(self, message: str, *, meta: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.meta = meta or {}
+
+
+class _SpecLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # type: ignore[misc]
+    """YAML loader that reads what a JSON parser would.
+
+    PyYAML follows YAML 1.1, where ``yes`` / ``no`` / ``on`` / ``off`` are booleans and
+    unquoted dates become ``datetime``. OpenAPI documents are JSON data, so those must stay
+    strings: GitHub's spec has an emoji map keyed ``yes`` and ``no`` next to string keys.
+    """
+
+
+_SpecLoader.yaml_implicit_resolvers = {
+    first: [
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag not in ("tag:yaml.org,2002:bool", "tag:yaml.org,2002:timestamp")
+    ]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_SpecLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
+    list("tTfF"),
+)
+
+
+def _string_keys(node: Any) -> Any:
+    """JSON object keys are strings; YAML lets ``200:`` through as an int."""
+    if isinstance(node, dict):
+        return {str(k): _string_keys(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_string_keys(v) for v in node]
+    return node
 
 
 def _is_url(source: str) -> bool:
@@ -77,7 +111,7 @@ def load_raw_document(source: str) -> tuple[dict[str, Any], str, bool]:
         raise SpecLoadError("Spec is not valid UTF-8") from exc
 
     try:
-        doc = yaml.safe_load(text)
+        doc = _string_keys(yaml.load(text, Loader=_SpecLoader))  # nosec B506 - safe loader
     except Exception as exc:  # noqa: BLE001
         raise SpecLoadError(f"Failed to parse YAML/JSON: {exc}") from exc
 
@@ -114,7 +148,6 @@ def resolve_and_validate(
         raise SpecLoadError(f"Remote $ref values are not allowed:\n{listed}")
 
     try:
-        from openapi_spec_validator import validate
         from prance.util.resolver import RefResolver
     except ImportError as exc:
         raise SpecLoadError(
@@ -139,13 +172,102 @@ def resolve_and_validate(
                 "Repaired draft-4 schema constructs invalid in OpenAPI 3.0: %s",
                 ", ".join(f"{k}={v}" for k, v in sorted(repaired.items())),
             )
-        validate(resolved)
+        _validate_dropping_invalid_parts(resolved)
     except SpecLoadError:
         raise
     except Exception as exc:  # noqa: BLE001
         raise SpecLoadError(f"OpenAPI validation/deref failed: {exc}") from exc
 
     return resolved
+
+
+# Set on the resolved document for derive: operations and components that failed
+# validation on their own and were removed, so the rest of the spec still builds.
+INVALID_OPERATIONS_KEY = "x-nw-invalid-operations"
+INVALID_COMPONENTS_KEY = "x-nw-invalid-components"
+_HTTP_METHODS = ("get", "put", "post", "delete", "options", "head", "patch", "trace")
+
+
+def _leaf_reason(error: Any) -> str:
+    """The most specific message under a validation error, kept short.
+
+    ``oneOf`` failures repeat the whole offending object in their message; the deepest
+    sub-error says what is actually wrong (``... has non-unique elements``).
+    """
+    leaves = [error]
+    stack = list(getattr(error, "context", None) or [])
+    while stack:
+        sub = stack.pop()
+        children = list(getattr(sub, "context", None) or [])
+        if children:
+            stack.extend(children)
+        else:
+            leaves.append(sub)
+    best = max(leaves, key=lambda e: len(list(e.absolute_path)) - len(e.message) / 10_000)
+    message = " ".join(str(best.message).split())
+    return message if len(message) <= 160 else message[:157] + "..."
+
+
+def _validate_dropping_invalid_parts(resolved: dict[str, Any]) -> None:
+    """Validate ``resolved``; if it fails, drop just the operations and components that fail.
+
+    Community specs are often valid except for one operation (Twitch's scraped spec lists a
+    ``required`` entry twice in one response). Rejecting the whole document for that would
+    leave nothing to build. Each operation and component is checked on its own (references
+    are already inlined), the invalid ones are removed and recorded under
+    :data:`INVALID_OPERATIONS_KEY` / :data:`INVALID_COMPONENTS_KEY`, and the rest is validated
+    again; anything still invalid fails the build as before.
+    """
+    from openapi_spec_validator import validate
+    from openapi_spec_validator.shortcuts import get_validator_cls
+
+    try:
+        validate(resolved)
+        return
+    except Exception:  # noqa: BLE001 - narrowed below, part by part
+        pass
+
+    validator_cls = get_validator_cls(resolved)
+    base = {k: resolved[k] for k in ("openapi", "info") if k in resolved}
+
+    def _errors(probe: dict[str, Any]) -> list[Any]:
+        return list(validator_cls({**base, **probe}).iter_errors())
+
+    invalid_ops: list[dict[str, Any]] = []
+    for path, item in list((resolved.get("paths") or {}).items()):
+        if not isinstance(item, dict):
+            continue
+        shared = {k: v for k, v in item.items() if k not in _HTTP_METHODS}
+        for method in _HTTP_METHODS:
+            op = item.get(method)
+            if not isinstance(op, dict):
+                continue
+            errors = _errors({"paths": {path: {**shared, method: op}}})
+            if errors:
+                del item[method]
+                invalid_ops.append(
+                    {
+                        "method": method,
+                        "path": path,
+                        "operationId": op.get("operationId"),
+                        "reason": _leaf_reason(errors[0]),
+                    }
+                )
+
+    invalid_components: list[str] = []
+    for kind, entries in list((resolved.get("components") or {}).items()):
+        if not isinstance(entries, dict):
+            continue
+        for name, obj in list(entries.items()):
+            if _errors({"paths": {}, "components": {kind: {name: obj}}}):
+                del entries[name]
+                invalid_components.append(f"{kind}/{name}")
+
+    if invalid_ops:
+        resolved[INVALID_OPERATIONS_KEY] = invalid_ops
+    if invalid_components:
+        resolved[INVALID_COMPONENTS_KEY] = invalid_components
+    validate(resolved)
 
 
 def load_openapi_document(

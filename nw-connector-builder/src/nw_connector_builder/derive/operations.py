@@ -93,6 +93,9 @@ class DeriveResult:
     notes: list[str] = field(default_factory=list)
     # Non-default schemes used by >=1 generated action; empty for single-scheme connectors.
     extra_auth_plans: dict[str, ConnectorAuthPlan] = field(default_factory=dict)
+    # `--header NAME=VALUE`: sent on every request (connectors.yaml `headers:`); set by the
+    # pipeline, not derived from the spec.
+    static_headers: dict[str, str] = field(default_factory=dict)
 
 
 class DeriveError(Exception):
@@ -420,6 +423,31 @@ def resolve_base_url(doc: dict[str, Any], override: str | None) -> str:
     return url.rstrip("/")
 
 
+def _media_examples(media: dict[str, Any]) -> list[Any]:
+    """A media type's ``example`` and its first ``examples`` value, in that order."""
+    found: list[Any] = []
+    if "example" in media:
+        found.append(media["example"])
+    ex = media.get("examples")
+    if isinstance(ex, dict) and ex:
+        first = next(iter(ex.values()))
+        if isinstance(first, dict) and "value" in first:
+            found.append(first["value"])
+    return found
+
+
+def _example_matches(example: Any, schema: Any) -> bool:
+    """Whether ``example`` validates against an OpenAPI 3.0 ``schema`` (no schema: yes)."""
+    if not isinstance(schema, dict):
+        return True
+    from openapi_schema_validator import OAS30Validator
+
+    try:
+        return OAS30Validator(schema).is_valid(example)
+    except Exception:  # noqa: BLE001 - an unusable schema says nothing about the example
+        return True
+
+
 def derive_operations(
     doc: dict[str, Any],
     *,
@@ -455,11 +483,28 @@ def derive_operations(
             cand = str(oid) if oid else fallback_operation_name(method, path)
             raw_ops.append((method.lower(), path, op, cand))
 
-    total = len(raw_ops)
+    # Removed by the loader because they fail OpenAPI validation on their own.
+    invalid = [i for i in doc.get("x-nw-invalid-operations") or [] if isinstance(i, dict)]
+    total = len(raw_ops) + len(invalid)
     names = uniquify_names([c for *_, c in raw_ops], max_len=action_name_budget(connector_id))
 
     actions: list[ActionPlan] = []
-    drops: list[SoftDrop] = []
+    drops: list[SoftDrop] = [
+        SoftDrop(
+            str(i.get("method")),
+            str(i.get("path")),
+            i.get("operationId"),
+            f"invalid OpenAPI: {i.get('reason')}",
+        )
+        for i in invalid
+    ]
+    invalid_components = doc.get("x-nw-invalid-components") or []
+    if invalid_components:
+        notes.append(
+            "Removed component(s) that fail OpenAPI validation: "
+            + ", ".join(str(c) for c in invalid_components)
+        )
+    mismatched_examples: list[str] = []
 
     for (method, path, op, _cand), name in zip(raw_ops, names):
         sec = evaluate_operation_security(op.get("security"), doc.get("security"), schemes, fp)
@@ -552,18 +597,22 @@ def derive_operations(
         out_schema, use_envelope = _success_response_schema(op)
 
         examples: dict[str, Any] = {}
-        # Collect request/response examples when present
+        # The request example becomes a generated test, so only one that matches its own
+        # schema is kept: a spec whose example contradicts it (GitHub's markdown/render-raw
+        # shows a JSON object for a text/plain body) would otherwise fail the build gate.
         if isinstance(rb, dict):
             content = rb.get("content") or {}
-            for mt, media in content.items():
-                if isinstance(media, dict) and "example" in media:
-                    examples.setdefault("request", media["example"])
-                if isinstance(media, dict) and "examples" in media:
-                    ex = media["examples"]
-                    if isinstance(ex, dict) and ex:
-                        first = next(iter(ex.values()))
-                        if isinstance(first, dict) and "value" in first:
-                            examples.setdefault("request", first["value"])
+            mismatched = False
+            for _mt, media in content.items():
+                if not isinstance(media, dict):
+                    continue
+                for candidate in _media_examples(media):
+                    if _example_matches(candidate, media.get("schema")):
+                        examples.setdefault("request", candidate)
+                    else:
+                        mismatched = True
+            if mismatched and "request" not in examples:
+                mismatched_examples.append(name)
 
         actions.append(
             ActionPlan(
@@ -588,6 +637,12 @@ def derive_operations(
 
     if not actions:
         raise DeriveError("Zero usable operations after soft-drops; cannot build connector")
+
+    if mismatched_examples:
+        notes.append(
+            "Request example(s) that do not match their own schema were not used as tests: "
+            + ", ".join(sorted(mismatched_examples))
+        )
 
     coverage_warning = len(actions) < (total * 0.5)
     if credential_params:

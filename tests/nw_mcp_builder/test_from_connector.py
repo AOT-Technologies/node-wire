@@ -156,6 +156,22 @@ def test_discover_secrets_and_env_example(fake_node_wire: Path, tmp_path: Path) 
             assert line.endswith("=") and line.count("=") == 1
 
 
+def test_header_variables_are_listed_with_the_secrets(tmp_path: Path) -> None:
+    """``headers:`` values read env vars too (``nw gen-all --header``); the host must list them."""
+    root = tmp_path / "nw"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "connectors.yaml").write_text(
+        "connectors:\n"
+        "  twitch:\n"
+        "    auth: {provider: static_token, secret_key: TWITCH_ACCESS_TOKEN}\n"
+        "    headers:\n"
+        "      Client-Id: ${TWITCH_CLIENT_ID}\n",
+        encoding="utf-8",
+    )
+    names = discover_secret_env_names("twitch", root)
+    assert names == ["TWITCH_CLIENT_ID", "TWITCH_ACCESS_TOKEN"]
+
+
 def test_run_from_connector_skip_wheels_generates_project(
     fake_node_wire: Path, package_root: Path
 ) -> None:

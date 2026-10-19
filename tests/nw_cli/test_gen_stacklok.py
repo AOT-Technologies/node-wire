@@ -89,6 +89,8 @@ def test_stages_run_in_order_with_exact_arguments(fake_root: Path, tmp_path: Pat
         "force": True,  # always rebuilt from the scope's spec
         "no_mcp": True,
         "base_url": "https://petstore3.swagger.io/api/v3",
+        "auth": None,
+        "headers": {},
     }
     wheel_args, wheel_kwargs = calls[1][1]
     assert wheel_args == (fake_root, "pet_store")
@@ -272,9 +274,19 @@ def test_strict_openapi30_rewrites_json_schema_forms() -> None:
     assert schemas["nullable"] == {"type": "string", "nullable": True}
     assert schemas["only_null"] == {"nullable": True}
     assert schemas["multi"] == {"anyOf": [{"type": "string"}, {"type": "integer"}]}
-    assert schemas["tuple"]["items"] == {"anyOf": [{"type": "integer"}, {"nullable": True}]}
+    assert schemas["tuple"]["items"] == {"type": "integer", "nullable": True}
     assert schemas["fine"] == {"type": "string"}
     assert strict_openapi30(doc) is False
+
+
+def test_strict_openapi30_leaves_example_payloads_alone() -> None:
+    example = {"total_count": 1, "items": ["not", "a", "schema"]}
+    doc = {
+        "openapi": "3.0.3",
+        "components": {"examples": {"search": {"value": example}}},
+    }
+    assert strict_openapi30(doc) is False
+    assert doc["components"]["examples"]["search"]["value"] == example
 
 
 def _swagger2(tmp_path: Path) -> Path:
@@ -342,7 +354,8 @@ def _invoke_path(
     def fake_phase3(
         progress: Any, node_wire_root: Path, scope_file: Path, *rest: Any, **kwargs: Any
     ) -> Path:
-        assert kwargs == {"reviewed": True}  # Phase 2 validated it and settled replacing
+        # Phase 2 validated it and settled replacing
+        assert kwargs == {"reviewed": True, "auth": None, "headers": {}}
         calls.append(("phase3", scope_file))
         return root / "out" / "petstore-mcp"
 
@@ -650,3 +663,65 @@ def test_an_invalid_scope_fails_before_any_build(fake_root: Path, tmp_path: Path
     assert result.exit_code == 1
     assert "fails stacklok validation" in result.output
     assert calls == []  # no codegen, no wheels
+
+
+def test_prepared_spec_declares_and_remembers_auth_and_headers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--auth`` reaches the AI scoping (prepared copy) and later ``--scope`` connector builds."""
+    from nw_cli.stacklok import prepare_spec
+
+    origin = _swagger2(tmp_path)  # declares no auth, like GitHub's REST spec
+    prepared = prepare_spec(
+        str(origin),
+        tmp_path / "specs" / "demo.openapi.json",
+        auth="bearer",
+        headers={"Client-Id": "${DEMO_CLIENT_ID}"},
+    )
+    doc = json.loads(prepared.read_text())
+    assert doc["components"]["securitySchemes"]["nw_auth"] == {"type": "http", "scheme": "bearer"}
+    assert doc["security"] == [{"nw_auth": []}]
+
+    monkeypatch.chdir(tmp_path)
+    scope = _scope(tmp_path)
+    scope_doc = yaml.safe_load(scope.read_text())
+    scope_doc["spec"]["source"] = str(prepared)
+    scope.write_text(yaml.safe_dump(scope_doc), encoding="utf-8")
+    scoped = read_scope(scope, "demo")
+    assert scoped.connector_auth == "bearer"
+    assert scoped.connector_headers == {"Client-Id": "${DEMO_CLIENT_ID}"}
+
+
+def test_prepare_spec_refuses_auth_for_a_spec_that_declares_it(tmp_path: Path) -> None:
+    from nw_cli.stacklok import prepare_spec
+
+    with pytest.raises(StageError, match="only for specs that declare no auth"):
+        prepare_spec(str(FIXTURES / "petstore_openapi.json"), tmp_path / "p.json", auth="bearer")
+
+
+def test_scope_run_flags_reach_the_connector_build(fake_root: Path, tmp_path: Path) -> None:
+    scope = _scope(tmp_path)
+    calls: list[tuple[str, Any]] = []
+    result = _invoke(
+        fake_root,
+        ["--scope", str(scope), "--connector-id", "pet_store", "--header", "Client-Id=${CID}"],
+        calls,
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0][1]["headers"] == {"Client-Id": "${CID}"}
+    assert calls[0][1]["auth"] is None
+
+
+def test_run_steps_pass_the_header_variables_to_docker(tmp_path: Path) -> None:
+    from nw_cli.cli import _run_steps
+
+    project = tmp_path / "twitch-mcp"
+    (project / "config").mkdir(parents=True)
+    (project / "config" / "connectors.yaml").write_text(
+        yaml.safe_dump(
+            {"connectors": {"twitch": {"headers": {"Client-Id": "${TWITCH_CLIENT_ID}"}}}}
+        ),
+        encoding="utf-8",
+    )
+    commands = " ".join(step.command or "" for step in _run_steps(project, "twitch"))
+    assert "-e TWITCH_CLIENT_ID=<TWITCH_CLIENT_ID> twitch-mcp" in commands

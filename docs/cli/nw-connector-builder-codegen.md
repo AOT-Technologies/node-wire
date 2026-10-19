@@ -32,7 +32,17 @@ Real-world specs — Slack's published Web API spec among them — carry JSON Sc
 
 Tuple-form `items` means positional validation in draft-4, which no generated model can express; the specs that use it mean "A or B", so that is how it is read. Documents without these constructs are untouched.
 
+Only schemas are repaired. Values under `example`, `examples`, `default`, `enum`, `const` and `x-` extensions are data, so a payload such as GitHub's search example `{"items": ["…"]}` is left as it is. Property names are not data keys: a property called `example` or `default` is still a schema and is still repaired.
+
 Swagger 2.0 input gets one more repair during conversion: response `examples` (keyed by mime type on the response object, which OAS 3 has no property for) moves to `content.<mime>.example`.
+
+### Invalid operations
+
+A spec that fails validation is not rejected outright. Each operation and each component is validated on its own, the invalid ones are removed, and the rest is validated again. Removed operations are soft-dropped with `invalid OpenAPI: <reason>`; removed components are named in the report's `notes`. Twitch's community spec, for example, lists `type` twice in one `required` list: only `get-hype-train-status` is dropped, and the other 148 operations build.
+
+### Request examples
+
+The generated tests parse each operation's request example into its input model. An example that does not match its own schema (GitHub's `markdown/render-raw` shows a JSON object for a `text/plain` body) is not used as a test, so a documentation mistake in the spec cannot fail the build gate. Those operations are named in the report's `notes`.
 
 
 
@@ -74,7 +84,7 @@ Rules:
 - **Always sent** — an operation that declares a body sends one, `{}` when no property is set.
 - **`allOf`** parts at the top of the body schema are merged; `readOnly` properties are left out (a client never sends them).
 - **Enums** on string fields become `Literal[...]` types, so they are enforced, not only advertised.
-- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (e.g. `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix, Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
+- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (e.g. `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix (a field renamed from `action` is never aliased back to `action`, which is the input model's dispatch discriminator), Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
 - **Whole bodies** — bodies that are not objects with declared properties keep a single `body` argument: arrays (`list`), binary/string bodies (`str`), free-form maps, `oneOf`/`anyOf`, and media types other than JSON, form and multipart. `body` is required when the request body is.
 
 ---

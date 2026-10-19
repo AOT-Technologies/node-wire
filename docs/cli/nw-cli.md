@@ -63,6 +63,8 @@ uv run nw gen-all \
 | `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration. The MCP stage needs the `connectors.yaml` entry, so combine with `--no-mcp` unless the connector is already wired |
 | `--force` | Overwrite existing connector / MCP output |
 | `--rebuild-wheels` | Rebuild every wheel, even those whose sources are unchanged |
+| `--auth` | For a spec that declares **no** auth: `bearer`, `header:<name>` or `query:<name>` (GitHub's REST spec needs `bearer`). Refused when the spec declares a scheme. See [auth mapping](nw-connector-builder.md#auth-mapping) |
+| `--header` | `NAME=VALUE`, repeatable: a header the connector sends on every request, such as Twitch's `'Client-Id=${TWITCH_CLIENT_ID}'`. `${VAR}` is read from the environment at run time. See [`headers`](../connector-reference.md#configconnectorsyaml) |
 | `--tool-search` | MCP host serves tools through `nw_search_tools` + `nw_call_tool` (no prompt) |
 | `--full-tool-list` | MCP host lists every tool, even over budget (no prompt, no warning) |
 | `--max-tool-listing-kb` | Tool listing budget in KB (default `25`) |
@@ -181,6 +183,11 @@ uv run nw gen-stacklok --path <spec path or URL> --connector-id pet_store \
 uv run nw gen-stacklok --scope mcp-scope.yaml --connector-id pet_store      # reviewed scope → Phase 3
 uv run nw gen-stacklok --scope mcp-scope.yaml --force --no-wheel --no-lock --output-dir out/
 ```
+
+`--auth` and `--header` work as in [`gen-all`](#nw-gen-all). With `--path`, `--auth` is also
+declared in the prepared spec, so the AI scoping sees the same auth, and both are remembered with
+it: a later `--scope` run builds the same connector without repeating them (flags given then win).
+The printed `docker run` passes each `${VAR}` a header reads (`-e TWITCH_CLIENT_ID=<…>`).
 
 With `--path` it runs stacklok's Phases 1–3 in one go:
 1. prepares the spec;

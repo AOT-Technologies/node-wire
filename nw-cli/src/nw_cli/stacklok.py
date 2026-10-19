@@ -12,7 +12,7 @@ import platform
 import re
 import shutil
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict
 
@@ -29,6 +29,9 @@ STACKLOK_BUILDER_DIR = "nw-stacklok-builder"
 # Set on specs prepared by `nw gen-stacklok --path`: the original spec the file was made from.
 # The connector is built from that original; stacklok's tools read the prepared copy.
 PREPARED_SOURCE_KEY = "x-nw-source"
+# Also set by `--path` when given: the `--auth` / `--header` the connector is built with, so
+# a later `--scope` run builds the same connector without repeating them.
+PREPARED_BUILD_KEY = "x-nw-build"
 
 
 def stacklok_packages(connector_id: str) -> list[str]:
@@ -64,6 +67,8 @@ class StacklokScope:
     base_url: str | None
     server_name: str
     document: Dict[str, Any]
+    connector_auth: str | None = None  # remembered `--auth`
+    connector_headers: Dict[str, str] = field(default_factory=dict)  # remembered `--header`
 
     def write(self, work_dir: Path) -> Path:
         """Write the effective scope (with ``runtime: node_wire``) into ``work_dir``."""
@@ -115,6 +120,10 @@ def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
             "digits and hyphens, starting and ending with a letter or digit (max 63)"
         )
     spec_source = _resolve_source(source, scope_path.parent)
+    prepared = _prepared_doc(spec_source) or {}
+    build = prepared.get(PREPARED_BUILD_KEY)
+    build = build if isinstance(build, dict) else {}
+    headers = build.get("headers")
     return StacklokScope(
         path=scope_path,
         connector_id=cid,
@@ -123,6 +132,10 @@ def read_scope(scope_path: Path, connector_id: str | None) -> StacklokScope:
         base_url=(str(spec["base_url"]).strip() or None) if spec.get("base_url") else None,
         server_name=server,
         document=document,
+        connector_auth=str(build["auth"]) if build.get("auth") else None,
+        connector_headers={str(k): str(v) for k, v in headers.items()}
+        if isinstance(headers, dict)
+        else {},
     )
 
 
@@ -140,8 +153,8 @@ def _resolve_source(source: str, scope_dir: Path) -> str:
     return str((scope_dir / path).resolve())
 
 
-def _prepared_origin(spec_source: str) -> str | None:
-    """The original spec behind a file written by :func:`prepare_spec`, if it is one."""
+def _prepared_doc(spec_source: str) -> Dict[str, Any] | None:
+    """The document of a file written by :func:`prepare_spec`, if ``spec_source`` is one."""
     path = Path(spec_source)
     if spec_source.startswith(("http://", "https://")) or not path.is_file():
         return None
@@ -150,8 +163,15 @@ def _prepared_origin(spec_source: str) -> str | None:
         doc = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
     except (OSError, ValueError, yaml.YAMLError):
         return None
-    origin = doc.get(PREPARED_SOURCE_KEY) if isinstance(doc, dict) else None
-    return str(origin) if origin else None
+    if not isinstance(doc, dict) or not doc.get(PREPARED_SOURCE_KEY):
+        return None
+    return doc
+
+
+def _prepared_origin(spec_source: str) -> str | None:
+    """The original spec behind a file written by :func:`prepare_spec`, if it is one."""
+    doc = _prepared_doc(spec_source)
+    return str(doc[PREPARED_SOURCE_KEY]) if doc else None
 
 
 def _load_strict(spec_source: str) -> tuple[Dict[str, Any], str, bool, bool]:
@@ -172,14 +192,31 @@ def _load_strict(spec_source: str) -> tuple[Dict[str, Any], str, bool, bool]:
     return doc, origin, from_url, changed
 
 
-def prepare_spec(spec_source: str, target: Path) -> Path:
+def prepare_spec(
+    spec_source: str,
+    target: Path,
+    *,
+    auth: str | None = None,
+    headers: Dict[str, str] | None = None,
+) -> Path:
     """Write the local OpenAPI 3.0 file stacklok's Phase 1 (ai-scoping) and Phase 3 read.
 
     Always written (see :func:`_load_strict`); records the original under ``x-nw-source`` so the
-    connector is still built from it.
+    connector is still built from it. ``auth`` (``--auth``) is declared in the prepared copy too,
+    so the AI scoping sees the same auth as the connector; it and ``headers`` are recorded under
+    ``x-nw-build`` for later ``--scope`` runs.
     """
+    from nw_connector_builder.options import apply_auth_override
+
     doc, origin, from_url, _changed = _load_strict(spec_source)
     doc[PREPARED_SOURCE_KEY] = origin if from_url else str(Path(origin).resolve())
+    if auth:
+        try:
+            apply_auth_override(doc, auth)
+        except ValueError as exc:
+            raise StageError(str(exc)) from exc
+    if auth or headers:
+        doc[PREPARED_BUILD_KEY] = {"auth": auth, "headers": dict(headers or {})}
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(doc, indent=1, default=str), encoding="utf-8")
     return target
@@ -205,39 +242,12 @@ def strict_openapi30(node: Any) -> bool:
     """Rewrite, in place, JSON-Schema forms that OpenAPI 3.0 does not allow; True if any.
 
     Some specs (Slack's among them) use ``type: [string, "null"]``, ``type: "null"`` and tuple
-    ``items: [...]``. nw-connector-builder tolerates them; stacklok's strict parser does not.
-    They become ``nullable: true``, ``anyOf`` and a single ``items`` schema.
+    ``items: [...]``. nw-connector-builder repairs them the same way before it builds the
+    connector; stacklok's strict parser would reject them. Example payloads are left alone.
     """
-    changed = False
-    if isinstance(node, list):
-        for item in node:
-            changed = strict_openapi30(item) or changed
-        return changed
-    if not isinstance(node, dict):
-        return False
-    kind = node.get("type")
-    if isinstance(kind, list):
-        types = [k for k in kind if k != "null"]
-        if len(types) < len(kind):
-            node["nullable"] = True
-        if len(types) == 1:
-            node["type"] = types[0]
-        else:
-            del node["type"]
-            if types:
-                node["anyOf"] = [{"type": k} for k in types]
-        changed = True
-    elif kind == "null":
-        del node["type"]
-        node["nullable"] = True
-        changed = True
-    items = node.get("items")
-    if isinstance(items, list):
-        node["items"] = items[0] if len(items) == 1 else ({"anyOf": items} if items else {})
-        changed = True
-    for value in node.values():
-        changed = strict_openapi30(value) or changed
-    return changed
+    from nw_connector_builder.normalize_v2 import sanitize_draft4_schemas
+
+    return bool(sanitize_draft4_schemas(node))
 
 
 _WHEEL_ARCH_ALIASES = {

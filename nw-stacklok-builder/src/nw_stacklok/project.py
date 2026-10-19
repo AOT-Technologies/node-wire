@@ -196,11 +196,19 @@ def _write_config(project_dir: Path, node_wire_root: Path, connector_id: str) ->
     }
     if entry.get("auth_schemes"):
         doc["auth_schemes"] = entry["auth_schemes"]
+    header_note = ""
+    if isinstance(entry.get("headers"), dict) and entry["headers"]:
+        doc["headers"] = dict(entry["headers"])
+        header_note = (
+            "# headers: values here are used as written (no ${VAR} substitution); replace each\n"
+            "# ${VAR} with this tenant's value, e.g. its own Client-Id.\n"
+        )
     example = {"tenants": {"example-tenant": {connector_id: [doc]}}}
     (config_dir / "tenants.example.yaml").write_text(
         "# One entry per tenant; the ToolHive proxy for that tenant sets X-Tenant-ID to its key.\n"
         "# Mount the real file at NW_TENANTS_PATH (default /app/tenants/tenants.yaml).\n"
         "# Credentials never go here: ToolHive forwards them per request.\n"
+        + header_note
         + yaml.safe_dump(example, sort_keys=False),
         encoding="utf-8",
     )

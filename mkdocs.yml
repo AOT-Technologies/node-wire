@@ -133,6 +133,8 @@ nav:
     - Generator Contract: cli/nw-connector-builder-scope.md
     - Codegen Behaviour: cli/nw-connector-builder-codegen.md
     - nw-mcp-builder: cli/nw-mcp-builder.md
+    - "Tutorial: GitHub": cli/tutorial-github.md
+    - "Tutorial: Twitch": cli/tutorial-twitch.md
   - MCP:
     - Overview: mcp.md
     - stacklok MCP servers (nw gen-stacklok): stacklok-mcp-servers.md

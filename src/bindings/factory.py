@@ -642,6 +642,10 @@ class ConnectorFactory:
         base_url = record.raw.get("base_url") or (record.raw.get("config") or {}).get("base_url")
         if issubclass(connector_cls, RestConnector) and base_url:
             kwargs["base_url"] = base_url
+        # `headers` follows the same rule as `base_url`.
+        headers = record.raw.get("headers") or (record.raw.get("config") or {}).get("headers")
+        if issubclass(connector_cls, RestConnector) and headers:
+            kwargs["headers"] = headers
         return connector_cls(**kwargs)
 
     async def get(

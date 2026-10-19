@@ -325,3 +325,35 @@ def test_missing_wheels_are_reported(node_wire_checkout: NodeWireCheckout, tmp_p
         shutil.rmtree(dist)
     with pytest.raises(WheelsMissingError, match="No cp313 musllinux .* wheel for"):
         _generate(checkout, tmp_path, wheels=True)
+
+
+def test_tenants_example_carries_headers_with_a_note(tmp_path: Path) -> None:
+    """``--header`` values reach tenant configs too, which get no ``${VAR}`` substitution."""
+    from nw_stacklok.project import _write_config
+
+    root = tmp_path / "nw"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "connectors.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "connectors": {
+                    "twitch": {
+                        "base_url": "https://api.twitch.tv/helix",
+                        "auth": {"provider": "static_token", "secret_key": "TWITCH_ACCESS_TOKEN"},
+                        "headers": {"Client-Id": "${TWITCH_CLIENT_ID}"},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    project = tmp_path / "twitch-mcp"
+    project.mkdir()
+    _write_config(project, root, "twitch")
+
+    text = (project / "config" / "tenants.example.yaml").read_text()
+    assert "no ${VAR} substitution" in text
+    doc = yaml.safe_load(text)["tenants"]["example-tenant"]["twitch"][0]
+    assert doc["headers"] == {"Client-Id": "${TWITCH_CLIENT_ID}"}
+    image_config = yaml.safe_load((project / "config" / "connectors.yaml").read_text())
+    assert image_config["connectors"]["twitch"]["headers"] == {"Client-Id": "${TWITCH_CLIENT_ID}"}

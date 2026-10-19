@@ -10,6 +10,7 @@ import base64
 import json
 import logging
 import os
+import re
 from typing import Any, ClassVar, Dict, Mapping, Optional, Type
 from urllib.parse import quote
 
@@ -33,7 +34,47 @@ __all__ = [
     "SsrfBlockedError",
     "encode_param_value",
     "split_params_by_location",
+    "validate_static_headers",
 ]
+
+# RFC 9110 field-name token.
+_HEADER_NAME = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+# A `${VAR}` connectors.yaml substitution left in place because VAR was not set.
+_UNRESOLVED_VAR = re.compile(r"\$\{([A-Za-z0-9_]+)(?::[^}]*)?\}")
+# Set by the auth provider or the HTTP client; a fixed value here would either be
+# overridden or break the request, and credentials belong in `auth`.
+_RESERVED_HEADERS = frozenset(
+    {
+        "authorization",
+        "proxy-authorization",
+        "cookie",
+        "host",
+        "content-length",
+        "content-type",
+        "transfer-encoding",
+        "connection",
+    }
+)
+
+
+def validate_static_headers(headers: Any) -> Dict[str, str]:
+    """Check a ``headers:`` config block and return it as a plain dict.
+
+    Raises ``ValueError`` naming the offending header. Values are literal: credentials
+    belong in ``auth``, which also wins over any header set here.
+    """
+    if not isinstance(headers, Mapping):
+        raise ValueError("headers must be a mapping of header name to value")
+    out: Dict[str, str] = {}
+    for name, value in headers.items():
+        if not isinstance(name, str) or not _HEADER_NAME.fullmatch(name):
+            raise ValueError(f"header name {name!r} is not a valid HTTP field name")
+        if name.lower() in _RESERVED_HEADERS:
+            raise ValueError(f"header {name!r} cannot be set in headers")
+        if not isinstance(value, str) or any(c in value for c in "\r\n\0"):
+            raise ValueError(f"header {name!r} must be a single-line string")
+        out[name] = value
+    return out
 
 
 class RestResponseOutput(BaseModel):
@@ -380,7 +421,8 @@ class RestConnector(BaseConnector):
 
     Subclasses set ``default_base_url`` (baked at generation time). Runtime
     ``connectors.yaml`` ``base_url`` overrides via the factory-injected
-    ``base_url=`` constructor argument.
+    ``base_url=`` constructor argument. ``headers=`` (``connectors.yaml``
+    ``headers:``) are sent on every request; see :meth:`resolve_static_headers`.
     """
 
     _nw_abstract_base: ClassVar[bool] = True
@@ -398,6 +440,7 @@ class RestConnector(BaseConnector):
         base_url: Optional[str] = None,
         tenant_id: Optional[str] = None,
         config_name: Optional[str] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         super().__init__(
             secret_provider=secret_provider,
@@ -409,6 +452,26 @@ class RestConnector(BaseConnector):
             config_name=config_name,
         )
         self._base_url_override = base_url
+        self._static_headers = validate_static_headers(headers or {})
+
+    def resolve_static_headers(self) -> Dict[str, str]:
+        """The configured ``headers:``, refusing a ``${VAR}`` that was never substituted.
+
+        ``connectors.yaml`` replaces ``${VAR}`` from the environment when it loads; a value
+        still holding one means VAR was unset (or the value came from a tenant config, which
+        is not substituted), and sending the placeholder upstream would only come back as an
+        unexplained auth error.
+        """
+        for name, value in self._static_headers.items():
+            unresolved = _UNRESOLVED_VAR.search(value)
+            if unresolved:
+                var = unresolved.group(1)
+                raise RuntimeError(
+                    f"{type(self).__name__}: header {name!r} still holds ${{{var}}}: set {var} "
+                    "in the environment before connectors.yaml loads, or give the value itself "
+                    "in the tenant config (tenants.yaml values are not substituted)"
+                )
+        return dict(self._static_headers)
 
     def resolve_base_url(self) -> str:
         if self._base_url_override and str(self._base_url_override).strip():
@@ -454,6 +517,8 @@ class RestConnector(BaseConnector):
 
         query_pairs = _build_query_pairs(query_params)
         headers = _build_headers(header_params)
+        # Operator config beats caller input; auth (below) beats both.
+        headers.update(self.resolve_static_headers())
 
         if auth:
             provider = self.resolve_auth_provider(auth_scheme)
