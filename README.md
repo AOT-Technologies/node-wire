@@ -21,11 +21,15 @@ SPDX-License-Identifier: Apache-2.0
        alt="Request path: callers, REST, gRPC or MCP bindings, ConnectorFactory, run() checks, connector, external API, then one ConnectorResponse back.">
 </p>
 
-**node wire is an open source Python connector framework.** You write or
-generate a connector once, and node wire runs it with the same validation,
-policy, resilience, error handling and telemetry, whether the caller is a web
-app over REST, a service over gRPC, or an AI agent over the Model Context
-Protocol (MCP).
+**node wire is an open-source connector framework that gives organizations
+control over how enterprise systems connect to business workflows and AI
+agents.** Build a connector once and expose it over REST for process
+automation, Model Context Protocol (MCP) for AI agents, or gRPC, all without
+depending on an externally hosted integration platform. Deploy on premises, in
+a private cloud or in sovereign cloud infrastructure, and keep the freedom to
+choose your workflow engines and AI frameworks. OpenAPI-based connector and MCP
+generation, tenant-specific configuration and a shared runtime with built-in
+validation, resilience and telemetry reduce integration effort.
 
 Each connector is an adapter for one external system: Google Drive, SMTP,
 Stripe, FHIR, Salesforce, Slack, or any HTTP API with an OpenAPI spec. The
@@ -70,7 +74,7 @@ export NW_REST_AUTH_DISABLED=true   # local dev only — otherwise /connectors/*
 MODE=API uv run node-wire
 ```
 
-Open [http://localhost:8000/docs](http://localhost:8000/docs) for the Swagger UI, or the [playground](http://localhost:8000/playground/) for interactive connector demos.
+Open the [Swagger UI](http://localhost:8000/docs), or the [playground](http://localhost:8000/playground/) for interactive connector demos.
 
 To install the packages instead of a source checkout, `pip install node-wire-connectors` installs the runtime and every public connector. See [Client consumption model](docs/packaging.md#client-consumption-model) for installing a subset.
 
