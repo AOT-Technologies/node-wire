@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://aot-technologies.github.io/node-wire/local-packages-to-images/">
       
       
-        <link rel="prev" href="../release-rollback/">
+        <link rel="prev" href="../packaging/">
       
       
-        <link rel="next" href="../privacy/">
+        <link rel="next" href="../versioning/">
       
       
         
@@ -389,11 +389,11 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../troubleshooting/" class="md-tabs__link">
+        <a href="../packaging/" class="md-tabs__link">
           
   
   
-  Operations
+  Ship
 
         </a>
       </li>
@@ -662,6 +662,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -1028,6 +1056,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1092,34 +1148,6 @@
     
   
     Slack
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../connectors-build/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Connector
   
 
     
@@ -1486,14 +1514,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-client-oauth/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Client OAuth
+    Agent Scenario
   
 
     
@@ -1514,14 +1542,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Agent Scenario
+    Client OAuth
   
 
     
@@ -1687,62 +1715,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Versioning
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../packaging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Packaging
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../public-api/" class="md-nav__link">
         
   
@@ -1806,7 +1778,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Ship
   
 
     
@@ -1822,7 +1794,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Operations
+    Ship
   
 
           </label>
@@ -1835,42 +1807,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../release-rollback/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Release & Rollback
+    Packaging
   
 
     
@@ -1962,10 +1906,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-build-wheel-packages-locally" class="md-nav__link">
+  <a href="#build-wheel-packages-locally" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1) Build wheel packages locally
+        Build wheel packages locally
       
     </span>
   </a>
@@ -1973,10 +1917,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-confirm-wheel-artifacts-exist" class="md-nav__link">
+  <a href="#confirm-wheel-artifacts-exist" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2) Confirm wheel artifacts exist
+        Confirm wheel artifacts exist
       
     </span>
   </a>
@@ -1984,15 +1928,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-build-docker-images-from-local-wheels" class="md-nav__link">
+  <a href="#build-docker-images-from-local-wheels" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3) Build Docker images from local wheels
+        Build Docker images from local wheels
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="3) Build Docker images from local wheels">
+    <nav class="md-nav" aria-label="Build Docker images from local wheels">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2023,10 +1967,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-run-them-with-docker-compose" class="md-nav__link">
+  <a href="#run-them-with-docker-compose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4) Run them with Docker Compose
+        Run them with Docker Compose
       
     </span>
   </a>
@@ -2105,10 +2049,77 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2376,6 +2387,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-python-3-11-to-3-13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Python 3.11 to 3.13
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2622,10 +2661,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-build-wheel-packages-locally" class="md-nav__link">
+  <a href="#build-wheel-packages-locally" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1) Build wheel packages locally
+        Build wheel packages locally
       
     </span>
   </a>
@@ -2633,10 +2672,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-confirm-wheel-artifacts-exist" class="md-nav__link">
+  <a href="#confirm-wheel-artifacts-exist" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2) Confirm wheel artifacts exist
+        Confirm wheel artifacts exist
       
     </span>
   </a>
@@ -2644,15 +2683,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-build-docker-images-from-local-wheels" class="md-nav__link">
+  <a href="#build-docker-images-from-local-wheels" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3) Build Docker images from local wheels
+        Build Docker images from local wheels
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="3) Build Docker images from local wheels">
+    <nav class="md-nav" aria-label="Build Docker images from local wheels">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2683,10 +2722,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-run-them-with-docker-compose" class="md-nav__link">
+  <a href="#run-them-with-docker-compose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4) Run them with Docker Compose
+        Run them with Docker Compose
       
     </span>
   </a>
@@ -2765,6 +2804,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2808,10 +2858,10 @@
     
     
       <li class="md-path__item">
-        <a href="../troubleshooting/" class="md-path__link">
+        <a href="../packaging/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Operations
+    Ship
   </span>
 
         </a>
@@ -2845,7 +2895,7 @@ SPDX-License-Identifier: Apache-2.0
 <hr />
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Anchor link to this section">&para;</a></h2>
 <ul>
-<li>Python 3.13+ available in your shell</li>
+<li>Python 3.11, 3.12 or 3.13 available in your shell</li>
 <li>Docker installed and running</li>
 <li>Build tooling installed:</li>
 </ul>
@@ -2853,8 +2903,8 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p>Run all commands from the repository root. The build context must be the repository root (<code>.</code>) so the Dockerfiles' <code>COPY src/</code> and <code>COPY config/</code> resolve.</p>
 <hr />
-<h2 id="1-build-wheel-packages-locally">1) Build wheel packages locally<a class="headerlink" href="#1-build-wheel-packages-locally" title="Anchor link to this section">&para;</a></h2>
-<p>Build all runtime + connector wheels:</p>
+<h2 id="build-wheel-packages-locally">Build wheel packages locally<a class="headerlink" href="#build-wheel-packages-locally" title="Anchor link to this section">&para;</a></h2>
+<p>Build the wheels for every package (runtime, bindings, ToolHive and the connectors):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>bash<span class="w"> </span>scripts/build-packages.sh
 </span></code></pre></div>
 <p>Build only specific packages (faster when iterating):</p>
@@ -2863,13 +2913,15 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>packages/connectors/smtp<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>packages/connectors/stripe
 </span></code></pre></div>
-<p>The script (<code>scripts/build-packages.sh</code> in default mode, not <code>--all</code>):
-- builds host wheels and Linux-compatible wheels (via a local <code>nw-wheel-builder:local</code> Docker image — not published to a registry; layer-cached after the first build),
-- writes artifacts under each package's <code>dist/</code> folder,
-- fails if any <code>.py</code> source files leak into a wheel.</p>
-<p>Use <code>--linux-only</code> when you only need container wheels, or <code>--host-only</code> to skip Docker. For optional local <code>cibuildwheel</code> builds (broader wheel matrix on your host), see <strong>Optional: broader wheels</strong> in <a href="../packaging/">packaging.md</a>.</p>
+<p>The script (<code>scripts/build-packages.sh</code> in default mode, not <code>--all</code>):</p>
+<ul>
+<li>builds host wheels and Linux-compatible wheels (via a local <code>nw-wheel-builder:local</code> Docker image — not published to a registry; layer-cached after the first build),</li>
+<li>writes artifacts under each package's <code>dist/</code> folder,</li>
+<li>fails if any <code>.py</code> source files leak into a wheel.</li>
+</ul>
+<p>Use <code>--linux-only</code> when you only need container wheels, or <code>--host-only</code> to skip Docker. For optional local <code>cibuildwheel</code> builds (broader wheel matrix on your host), see <a href="../packaging/#optional-broader-wheels-with-cibuildwheel-all">Packaging — Optional: broader wheels</a>.</p>
 <hr />
-<h2 id="2-confirm-wheel-artifacts-exist">2) Confirm wheel artifacts exist<a class="headerlink" href="#2-confirm-wheel-artifacts-exist" title="Anchor link to this section">&para;</a></h2>
+<h2 id="confirm-wheel-artifacts-exist">Confirm wheel artifacts exist<a class="headerlink" href="#confirm-wheel-artifacts-exist" title="Anchor link to this section">&para;</a></h2>
 <p>Quick check (example for SMTP):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ls<span class="w"> </span>packages/runtime/dist/*.whl
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>ls<span class="w"> </span>packages/connectors/smtp/dist/*.whl
@@ -2877,13 +2929,15 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p>If <code>ls</code> fails, rebuild that package before continuing.</p>
 <hr />
-<h2 id="3-build-docker-images-from-local-wheels">3) Build Docker images from local wheels<a class="headerlink" href="#3-build-docker-images-from-local-wheels" title="Anchor link to this section">&para;</a></h2>
+<h2 id="build-docker-images-from-local-wheels">Build Docker images from local wheels<a class="headerlink" href="#build-docker-images-from-local-wheels" title="Anchor link to this section">&para;</a></h2>
 <h3 id="build-all-mcp-connector-images">Build all MCP connector images<a class="headerlink" href="#build-all-mcp-connector-images" title="Anchor link to this section">&para;</a></h3>
+<p>Run the build script:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./scripts/build-mcp-images.sh
 </span></code></pre></div>
 <p>Each image is tagged <code>latest</code> and the version, which defaults to the one in <code>pyproject.toml</code>. Pass <code>--version</code> to override it:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./scripts/build-mcp-images.sh<span class="w"> </span>--version<span class="w"> </span><span class="m">1</span>.0.0
 </span></code></pre></div>
+<p>The script builds the following images:</p>
 <table>
 <thead>
 <tr>
@@ -2923,15 +2977,16 @@ SPDX-License-Identifier: Apache-2.0
 </tbody>
 </table>
 <h3 id="build-one-image-manually">Build one image manually<a class="headerlink" href="#build-one-image-manually" title="Anchor link to this section">&para;</a></h3>
+<p>Build a single image with <code>docker build</code>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>build<span class="w"> </span>-f<span class="w"> </span>docker/smtp/Dockerfile<span class="w"> </span>-t<span class="w"> </span>nw-smtp:local<span class="w"> </span>.
 </span></code></pre></div>
 <hr />
-<h2 id="4-run-them-with-docker-compose">4) Run them with Docker Compose<a class="headerlink" href="#4-run-them-with-docker-compose" title="Anchor link to this section">&para;</a></h2>
+<h2 id="run-them-with-docker-compose">Run them with Docker Compose<a class="headerlink" href="#run-them-with-docker-compose" title="Anchor link to this section">&para;</a></h2>
 <p><code>docker-compose.mcp.yml</code> starts every MCP server as a stdio container, which is useful for local
 validation before configuring ToolHive. It needs the images built and your <code>.env</code> populated with
 the credentials of the connectors you run. Each service pins <code>NW_ALLOWED_CONNECTORS</code> to its own
 connector, so a broad value in <code>.env</code> does not make a per-connector image import optional
-dependencies it does not contain.</p>
+dependencies it does not contain. To start every server, or a single one, run:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.mcp.yml<span class="w"> </span>up<span class="w"> </span>--build
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.mcp.yml<span class="w"> </span>up<span class="w"> </span>--build<span class="w"> </span>nw-smartonfhir-epic<span class="w">   </span><span class="c1"># one server only</span>
 </span></code></pre></div>
@@ -2994,6 +3049,7 @@ dependencies it does not contain.</p>
 <p>Start Docker Desktop (or daemon) and retry package/image builds.</p>
 <hr />
 <h2 id="recommended-local-loop">Recommended local loop<a class="headerlink" href="#recommended-local-loop" title="Anchor link to this section">&para;</a></h2>
+<p>A typical iteration rebuilds the changed packages, then the image, then checks it:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1) Rebuild changed packages</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>bash<span class="w"> </span>scripts/build-packages.sh<span class="w"> </span>packages/runtime<span class="w"> </span>packages/connectors/smtp
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
@@ -3003,6 +3059,11 @@ dependencies it does not contain.</p>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># 3) Verify image exists</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>docker<span class="w"> </span>images<span class="w"> </span>--filter<span class="w"> </span><span class="nv">reference</span><span class="o">=</span>nw-smtp
 </span></code></pre></div>
+<h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><a href="../packaging/">Packaging and publishing</a> — package inventory and release process</li>
+<li><a href="../toolhive_agent_scenario/">ToolHive agent scenario</a> — register the images in ToolHive</li>
+</ul>
 
 
 
@@ -3040,7 +3101,7 @@ dependencies it does not contain.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../release-rollback/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Release &amp; Rollback">
+          <a href="../packaging/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Packaging">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3050,20 +3111,20 @@ dependencies it does not contain.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Release & Rollback
+                Packaging
               </div>
             </div>
           </a>
         
         
           
-          <a href="../privacy/" class="md-footer__link md-footer__link--next" aria-label="Next: Privacy">
+          <a href="../versioning/" class="md-footer__link md-footer__link--next" aria-label="Next: Versioning">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Privacy
+                Versioning
               </div>
             </div>
             <div class="md-footer__button md-icon">

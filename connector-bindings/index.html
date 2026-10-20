@@ -389,11 +389,11 @@
     
     
       <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
+        <a href="../packaging/" class="md-tabs__link">
           
   
   
-  Operations
+  Ship
 
         </a>
       </li>
@@ -662,6 +662,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -1144,6 +1172,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1208,34 +1264,6 @@
     
   
     Slack
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../connectors-build/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Connector
   
 
     
@@ -1602,14 +1630,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-client-oauth/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Client OAuth
+    Agent Scenario
   
 
     
@@ -1630,14 +1658,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Agent Scenario
+    Client OAuth
   
 
     
@@ -1803,62 +1831,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Versioning
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../packaging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Packaging
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../public-api/" class="md-nav__link">
         
   
@@ -1919,7 +1891,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Ship
   
 
     
@@ -1935,7 +1907,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Operations
+    Ship
   
 
           </label>
@@ -1948,42 +1920,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../release-rollback/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Release & Rollback
+    Packaging
   
 
     
@@ -2012,6 +1956,62 @@
     
   
     Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
   
 
     
@@ -2274,6 +2274,34 @@
     
   
     0002 Documentation lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-python-3-11-to-3-13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Python 3.11 to 3.13
   
 
     
@@ -2670,10 +2698,10 @@ and a gRPC method — and what each binding does to the arguments on the way in.
 <p>The factory and manifest drive all bindings. Once a connector is registered and <code>load()</code> is called, REST, gRPC, and MCP discover enabled connectors according to <code>exposed_via</code>.</p>
 <h2 id="rest-binding">REST binding<a class="headerlink" href="#rest-binding" title="Anchor link to this section">&para;</a></h2>
 <p><code>src/bindings/rest_api/app.py</code> calls <code>build_manifest(connectors)</code> and registers a <code>POST /connectors/{connector_id}/{action}</code> route for every manifest entry:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>POST /connectors/google_drive/files.list
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Content-Type: application/json
+<div class="language-http highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="err">POST /connectors/google_drive/files.list</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="err">Content-Type: application/json</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>{ "page_size": 10, "query": "name contains 'report'" }
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="err">{ "page_size": 10, "query": "name contains 'report'" }</span>
 </span></code></pre></div>
 <p>The <code>action</code> field in the body is optional for REST — the binding injects it from the URL path (see <code>src/node_wire_runtime/ingress.py</code>). Per-action <strong>argument normalizers</strong> (<code>mcp_normalize</code> on each action) run on the JSON body the same way as MCP, so LLM-friendly aliases work for REST as well. If the body includes an <code>action</code> field, it <strong>must</strong> match the path segment; otherwise the API returns <strong>400</strong>.</p>
 <p>The runtime then performs full Pydantic validation and returns a <code>ConnectorResponse</code>.</p>
@@ -2692,35 +2720,36 @@ and a gRPC method — and what each binding does to the arguments on the way in.
 </span></code></pre></div>
 <p>A failure's HTTP status, and what every other surface returns for it, is in <a href="../errors/">Errors</a>.</p>
 <h2 id="mcp-binding">MCP binding<a class="headerlink" href="#mcp-binding" title="Anchor link to this section">&para;</a></h2>
-<p><code>src/bindings/mcp_server/server.py</code> registers one <strong>MCP tool</strong> per manifest entry. Advertised tool names are <code>{connector_id}_{action}</code> with dots in the action replaced by underscores (e.g. <code>google_drive_files_list</code>, <code>google_drive_files_upload</code>) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.</p>
-<p>The MCP server calls <code>connector.run(args_dict)</code> and serialises the <code>ConnectorResponse</code> as the tool result.</p>
+<p><code>src/bindings/mcp_server/server.py</code> registers one <strong>MCP tool</strong> per manifest entry. Advertised tool names are <code>{connector_id}_{action}</code> with dots in the action replaced by underscores (for example, <code>google_drive_files_list</code>, <code>google_drive_files_upload</code>) so OpenAI/NVIDIA function schemas accept them. Legacy dotted names still invoke.</p>
+<p>The MCP server runs the action through the shared <code>invoke()</code> seam (which calls <code>connector.run</code>) and serialises the <code>ConnectorResponse</code> as the tool result.</p>
 <p>The <strong>resolved action</strong> (from the advertised or legacy tool name) is authoritative: after normalizers run, the binding sets <code>action</code> from that name. A conflicting <code>action</code> in the payload is rejected (see <code>enforce_authoritative_action</code> in <code>src/node_wire_runtime/ingress.py</code>).</p>
 <p>Optional per-action <strong>argument normalizers</strong> (<code>mcp_normalize</code> on <code>@sdk_action</code> / <code>SdkActionSpec</code>) run before <code>connector.run</code> to map LLM aliases to canonical fields. Actions default to <strong>strict</strong> JSON Schema (<code>additionalProperties: false</code>); set <code>alias_tolerant=True</code> only where extra keys must pass MCP SDK validation before normalization.</p>
 <p>Published <strong><code>input_schema</code> omits the <code>action</code> property</strong> (manifest contract v2+): clients must not rely on sending <code>action</code> inside tool arguments; the MCP tool name (or REST path / gRPC <code>InvokeRequest.action</code>) is authoritative.</p>
 <p><strong>FHIR <code>search_encounter</code> (Epic/Cerner):</strong> normalizers map root-level <code>patient</code> / <code>patientId</code> to <code>patient_id</code>, and <code>sort</code> → <code>_sort</code> (via <code>search_params</code>). Encounter search <strong>requires</strong> a patient filter (<code>patient_id</code> or <code>patient</code> in <code>search_params</code>) before any outbound FHIR call.</p>
 <h2 id="grpc-binding">gRPC binding<a class="headerlink" href="#grpc-binding" title="Anchor link to this section">&para;</a></h2>
-<p><code>src/bindings/grpc_server/server.py</code> exposes the <code>Connector</code> service. The <strong><code>action</code> field on <code>InvokeRequest</code></strong> is authoritative: after argument normalizers run, ingress rejects a conflicting <code>action</code> inside <code>payload_json</code> (same rule as REST and MCP). The shared Binding invoke path in <code>src/bindings/invoke.py</code> performs factory resolution and <code>connector.run</code>.</p>
+<p><code>src/bindings/grpc_server/server.py</code> exposes the <code>ConnectorService</code> service (package <code>aot.connectors</code>, one <code>Invoke</code> RPC). The <strong><code>action</code> field on <code>InvokeRequest</code></strong> is authoritative: after argument normalizers run, ingress rejects a conflicting <code>action</code> inside <code>payload_json</code> (same rule as REST and MCP). The shared Binding invoke path in <code>src/bindings/invoke.py</code> performs factory resolution and <code>connector.run</code>.</p>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Anchor link to this section">&para;</a></h2>
-<p><code>build_manifest(connectors)</code> (from <code>node_wire_runtime.manifest</code>) is the single source of truth for both bindings (by default it strips <code>action</code> from each entry’s <code>input_schema</code>). It returns one entry per <code>@sdk_action</code>:</p>
+<p><code>build_manifest(connectors)</code> (from <code>node_wire_runtime.manifest</code>) is the single source of truth for all three bindings (by default it strips <code>action</code> from each entry’s <code>input_schema</code>). It returns one entry per <code>@sdk_action</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">[</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  <span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s2">"connector_id"</span><span class="p">:</span> <span class="s2">"weather"</span><span class="p">,</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="s2">"action"</span><span class="p">:</span> <span class="s2">"current_weather"</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="s2">"input_schema"</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>   <span class="c1"># JSON Schema from CurrentWeatherInput (action not required)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="s2">"output_schema"</span><span class="p">:</span> <span class="p">{</span> <span class="o">...</span> <span class="p">},</span>  <span class="c1"># ConnectorResponse envelope; data typed to the action output model (nullable on errors)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="s2">"input_schema"</span><span class="p">:</span> <span class="p">{},</span>   <span class="c1"># JSON Schema from CurrentWeatherInput (action not required)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="s2">"output_schema"</span><span class="p">:</span> <span class="p">{},</span>  <span class="c1"># ConnectorResponse envelope; data typed to the action output model (nullable on errors)</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>  <span class="p">},</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>  <span class="p">{</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="s2">"connector_id"</span><span class="p">:</span> <span class="s2">"google_drive"</span><span class="p">,</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="s2">"action"</span><span class="p">:</span> <span class="s2">"files.upload"</span><span class="p">,</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="o">...</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="c1"># input_schema and output_schema, as in the preceding entry</span>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>  <span class="p">}</span>
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="p">]</span>
 </span></code></pre></div>
 <hr />
 <h2 id="optional-mcp-under-srcagents-toolhive-stdio">Optional: MCP under <code>src/agents/</code> (ToolHive / stdio)<a class="headerlink" href="#optional-mcp-under-srcagents-toolhive-stdio" title="Anchor link to this section">&para;</a></h2>
-<p>The repo also ships <strong>stdio MCP servers</strong> for agents and ToolHive under <code>src/agents/</code> (e.g. <code>python -m agents.mcp_entrypoint</code>, per-connector modules). Those are separate from <code>MODE=MCP</code> on <code>node-wire</code>. Wiring a connector in <code>config/connectors.yaml</code> does not by itself add a ToolHive image. Which deployment to use: <a href="../mcp/#which-mcp-path">MCP overview</a>. What a dedicated image needs: <a href="../packaging/#tier-3-standalone-mcp-server-optional">Packaging — Tier 3</a>.</p>
+<p>The repo also ships <strong>stdio MCP servers</strong> for agents and ToolHive under <code>src/agents/</code> (for example, <code>python -m agents.mcp_entrypoint</code>, per-connector modules). Those are separate from <code>MODE=MCP</code> on <code>node-wire</code>. Wiring a connector in <code>config/connectors.yaml</code> does not by itself add a ToolHive image. Which deployment to use: <a href="../mcp/#which-mcp-path">MCP overview</a>. What a dedicated image needs: <a href="../packaging/#tier-3-standalone-mcp-server-optional">Packaging — Tier 3</a>.</p>
 <hr />
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
+<p>The following pages cover the neighbouring topics:</p>
 <table>
 <thead>
 <tr>
@@ -2734,15 +2763,15 @@ and a gRPC method — and what each binding does to the arguments on the way in.
 <td>Writing the connector these bindings expose</td>
 </tr>
 <tr>
-<td><a href="../connector-reference/">connector-reference.md</a></td>
+<td><a href="../connector-reference/">Connector reference</a></td>
 <td><code>connectors.yaml</code> keys and the factory API</td>
 </tr>
 <tr>
-<td><a href="../architecture/">architecture.md</a></td>
+<td><a href="../architecture/">Architecture</a></td>
 <td>Where the bindings sit in the three-layer design</td>
 </tr>
 <tr>
-<td><a href="../mcp/">mcp.md</a></td>
+<td><a href="../mcp/">MCP overview</a></td>
 <td>MCP transports, tool search, multi-tenancy</td>
 </tr>
 </tbody>

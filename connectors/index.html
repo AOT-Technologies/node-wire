@@ -389,11 +389,11 @@
     
     
       <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
+        <a href="../packaging/" class="md-tabs__link">
           
   
   
-  Operations
+  Ship
 
         </a>
       </li>
@@ -662,6 +662,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -1111,6 +1139,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1175,34 +1231,6 @@
     
   
     Slack
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../connectors-build/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Connector
   
 
     
@@ -1569,14 +1597,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-client-oauth/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Client OAuth
+    Agent Scenario
   
 
     
@@ -1597,14 +1625,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Agent Scenario
+    Client OAuth
   
 
     
@@ -1770,62 +1798,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Versioning
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../packaging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Packaging
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../public-api/" class="md-nav__link">
         
   
@@ -1886,7 +1858,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Ship
   
 
     
@@ -1902,7 +1874,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Operations
+    Ship
   
 
           </label>
@@ -1915,42 +1887,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../release-rollback/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Release & Rollback
+    Packaging
   
 
     
@@ -1979,6 +1923,62 @@
     
   
     Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
   
 
     
@@ -2241,6 +2241,34 @@
     
   
     0002 Documentation lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-python-3-11-to-3-13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Python 3.11 to 3.13
   
 
     
@@ -2599,13 +2627,14 @@ SPDX-License-Identifier: Apache-2.0
 <p>Call a connector that already ships — in-process from Python or over REST — and control which tenants may use it through the runtime config store. Every connector works the same way; only the payload and the <code>config</code> / <code>auth</code> blocks change.</p>
 <p>Actions, auth, secrets and setup guides for every shipped connector are in the <a href="../connector-reference/#connector-catalog">connector catalog</a>.</p>
 <p>Writing your own connector? See <a href="../connectors-build/">Build a connector</a>.</p>
-<p>The example below uses <strong><code>http_generic</code></strong> for two tenants.</p>
+<p>The following example uses <strong><code>http_generic</code></strong> for two tenants.</p>
 <h2 id="in-process-python">In-process (Python)<a class="headerlink" href="#in-process-python" title="Anchor link to this section">&para;</a></h2>
+<p>The following script entitles two tenants, runs an action, and shows the fail-closed cases:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"NW_ALLOWED_CONNECTORS"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"http_generic"</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"NW_MCP_SCOPE_POLICY_DEFAULT"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"allow"</span>  <span class="c1"># local only — see note below</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"NW_MCP_SCOPE_POLICY_DEFAULT"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"allow"</span>  <span class="c1"># local only — see the Scope policy note after the output</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"NW_HTTP_GENERIC_ALLOWED_HOSTS"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"httpbin.org"</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bindings.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConnectorFactory</span>
@@ -2655,12 +2684,14 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>
 </span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
-<p>Output:</p>
+<p>The output is similar to the following:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>acme: True 200
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>initech: no config for tenant 'initech' / connector 'http_generic'
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>mismatch: False TENANT_MISMATCH
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>acme after delete: no config for tenant 'acme' / connector 'http_generic'
 </span></code></pre></div>
+<p>The following recording shows the script running, saved as <code>tenants_demo.py</code>, with log output hidden:</p>
+<p><img alt="Terminal running the tenants_demo.py script: acme succeeds with status 200, initech has no config, the pinned instance refuses globex with TENANT_MISMATCH, and acme is refused after its config is deleted." src="../images/media/connector-tenants.gif" /></p>
 <p>What each step relies on:</p>
 <table>
 <thead>
@@ -2692,7 +2723,7 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
-<p>The store is in-process memory. Anything you add with <code>store.create()</code> is gone on restart unless you persist it. The REST config API below writes to <code>NW_TENANTS_PATH</code> for you.</p>
+<p>The store is in-process memory. Anything you add with <code>store.create()</code> is gone on restart unless you persist it. The <a href="#over-rest">REST config API</a> writes to <code>NW_TENANTS_PATH</code> for you.</p>
 <p><strong>Scope policy.</strong> <code>NW_MCP_SCOPE_POLICY_DEFAULT=allow</code> is only for local scripts. In a real host, pass <code>scopes=("mcp:http_generic.request",)</code> (or <code>principal</code>) to <code>run()</code>. See <a href="../connectors-build/#security-rest-plugins-secrets">Security</a>.</p>
 <p><strong>Connectors that read their config.</strong> For connectors such as <code>stripe</code> or <code>fhir_epic</code>, the same calls apply. Put per-tenant settings in the doc's <code>config</code> block and the credentials setup in its <code>auth</code> block (see <a href="../connectors-build/#auth-blocks-in-connectorsyaml">Auth blocks</a>). Per-tenant secret naming is in <a href="../architecture/tenancy/#tenant-secrets">Tenancy — Tenant secrets</a>. A tenant can hold several named configs (for example <code>sandbox</code> and <code>live</code>); select one with <code>factory.get(..., config_name="live")</code>.</p>
 <h2 id="over-rest">Over REST<a class="headerlink" href="#over-rest" title="Anchor link to this section">&para;</a></h2>
@@ -2701,25 +2732,25 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">NW_ALLOWED_CONNECTORS</span><span class="o">=</span>http_generic<span class="w"> </span><span class="nv">NW_MCP_SCOPE_POLICY_DEFAULT</span><span class="o">=</span>allow<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire
 </span></code></pre></div>
-<p>The tenant always comes from the <code>X-Tenant-ID</code> header (or the caller's JWT tenant claim), never from the URL:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Entitle acme (writes to NW_TENANTS_PATH, default config/tenants.yaml)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/v1/connectors/http_generic/configs<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">'X-Tenant-ID: acme'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "default", "config": {}}'</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># → 201 {"name": "default", "default": true}</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Call the connector as acme</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/connectors/http_generic/request<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">'X-Tenant-ID: acme'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"method": "GET", "url": "https://httpbin.org/get"}'</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># → 200 {"success": true, "data": {"status_code": 200, ...}}</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># A tenant with no config</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/connectors/http_generic/request<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span>-H<span class="w"> </span><span class="s1">'X-Tenant-ID: initech'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"method": "GET", "url": "https://httpbin.org/get"}'</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="c1"># → 403</span>
+<p>The tenant always comes from the <code>X-Tenant-ID</code> header (or the caller's JWT tenant claim), never from the URL.</p>
+<p>To entitle <code>acme</code>, create a config for it. This writes to <code>NW_TENANTS_PATH</code> (default <code>config/tenants.yaml</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/v1/connectors/http_generic/configs<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>-H<span class="w"> </span><span class="s1">'X-Tenant-ID: acme'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"name": "default", "config": {}}'</span>
 </span></code></pre></div>
+<p>The response is <code>201</code> with <code>{"name": "default", "default": true}</code>. Next, call the connector as <code>acme</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/connectors/http_generic/request<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>-H<span class="w"> </span><span class="s1">'X-Tenant-ID: acme'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"method": "GET", "url": "https://httpbin.org/get"}'</span>
+</span></code></pre></div>
+<p>The response is <code>200</code> with <code>"success": true</code> and the upstream <code>status_code</code> in <code>data</code>. A tenant with no config is refused:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/connectors/http_generic/request<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>-H<span class="w"> </span><span class="s1">'X-Tenant-ID: initech'</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span>-d<span class="w"> </span><span class="s1">'{"method": "GET", "url": "https://httpbin.org/get"}'</span>
+</span></code></pre></div>
+<p>The response is <code>403</code>.</p>
+<p>The following recording shows the same calls against a local server, plus a health check:</p>
+<p><img alt="Terminal running curl against the REST API: health returns ok, creating acme's config returns default true, the request as acme returns success true with status 200, and the request as initech returns 403." src="../images/media/rest-tenants.gif" /></p>
 <p>Leaving out <code>X-Tenant-ID</code> returns <code>400</code> while multi-tenancy is on. Add <code>"config_name": "&lt;name&gt;"</code> to the request body to pick a named config. The rest of the config API is <code>GET</code>/<code>PUT</code>/<code>DELETE /v1/connectors/{cid}/configs/{name}</code> and <code>PUT …/{name}/default</code>. For MCP, the same store sits behind the <code>nw_list_tenants</code> / <code>nw_select_tenant</code> / <code>nw_select_config</code> tools. See <a href="../architecture/tenancy/#mcp-tenant-and-config-tools">Tenancy — MCP tools</a>.</p>
 <hr />
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
@@ -2732,11 +2763,11 @@ SPDX-License-Identifier: Apache-2.0
 </thead>
 <tbody>
 <tr>
-<td><a href="../connector-reference/">connector-reference.md</a></td>
+<td><a href="../connector-reference/">Connector reference</a></td>
 <td><code>ConnectorFactory</code> / registry APIs, <code>connectors.yaml</code> schema, connector catalog</td>
 </tr>
 <tr>
-<td><a href="../connector-bindings/">connector-bindings.md</a></td>
+<td><a href="../connector-bindings/">Connectors on REST, MCP and gRPC</a></td>
 <td>How actions map to REST routes, MCP tools and gRPC methods</td>
 </tr>
 <tr>

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://aot-technologies.github.io/node-wire/google_drive_connector/">
       
       
-        <link rel="prev" href="../connector-reference/">
+        <link rel="prev" href="../connectors-build/">
       
       
         <link rel="next" href="../salesforce_connector/">
@@ -389,11 +389,11 @@
     
     
       <li class="md-tabs__item">
-        <a href="../troubleshooting/" class="md-tabs__link">
+        <a href="../packaging/" class="md-tabs__link">
           
   
   
-  Operations
+  Ship
 
         </a>
       </li>
@@ -662,6 +662,34 @@
     
   
     Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
   
 
     
@@ -1028,6 +1056,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1091,28 +1147,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#upstream_bearer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        User OAuth (OIDC / upstream bearer)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#multi-tenancy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-tenancy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#google-drive-service-account-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1139,7 +1173,7 @@
   <a href="#step-1-create-or-select-a-gcp-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Create or Select a GCP Project
+        Step 1: Create or select a GCP project
       
     </span>
   </a>
@@ -1161,7 +1195,7 @@
   <a href="#step-3-create-a-service-account" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 3: Create a Service Account
+        Step 3: Create a service account
       
     </span>
   </a>
@@ -1172,7 +1206,7 @@
   <a href="#step-4-download-the-json-key" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 4: Download the JSON Key
+        Step 4: Download the JSON key
       
     </span>
   </a>
@@ -1183,7 +1217,7 @@
   <a href="#step-5-configure-the-connector" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 5: Configure the Connector
+        Step 5: Configure the connector
       
     </span>
   </a>
@@ -1194,7 +1228,7 @@
   <a href="#step-6-share-a-google-drive-folder-with-the-service-account" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Share a Google Drive Folder with the Service Account
+        Step 6: Share a Google Drive folder with the service account
       
     </span>
   </a>
@@ -1205,7 +1239,7 @@
   <a href="#step-7-get-the-folder-id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 7: Get the Folder ID
+        Step 7: Get the folder ID
       
     </span>
   </a>
@@ -1227,7 +1261,7 @@
   <a href="#common-errors-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Common Errors (setup)
+        Common errors (setup)
       
     </span>
   </a>
@@ -1238,7 +1272,7 @@
   <a href="#security-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Security Notes
+        Security notes
       
     </span>
   </a>
@@ -1247,6 +1281,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream_bearer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User OAuth (OIDC / upstream bearer)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1352,34 +1408,6 @@
     
   
     Slack
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../connectors-build/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Connector
   
 
     
@@ -1746,14 +1774,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-client-oauth/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Client OAuth
+    Agent Scenario
   
 
     
@@ -1774,14 +1802,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Agent Scenario
+    Client OAuth
   
 
     
@@ -1947,62 +1975,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Versioning
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../packaging/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Packaging
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../public-api/" class="md-nav__link">
         
   
@@ -2063,7 +2035,7 @@
   <span class="md-ellipsis">
     
   
-    Operations
+    Ship
   
 
     
@@ -2079,7 +2051,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Operations
+    Ship
   
 
           </label>
@@ -2092,42 +2064,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
+      <a href="../packaging/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../release-rollback/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Release & Rollback
+    Packaging
   
 
     
@@ -2156,6 +2100,62 @@
     
   
     Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
   
 
     
@@ -2431,6 +2431,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-python-3-11-to-3-13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Python 3.11 to 3.13
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2666,28 +2694,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#upstream_bearer" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        User OAuth (OIDC / upstream bearer)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#multi-tenancy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Multi-tenancy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#google-drive-service-account-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2714,7 +2720,7 @@
   <a href="#step-1-create-or-select-a-gcp-project" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Create or Select a GCP Project
+        Step 1: Create or select a GCP project
       
     </span>
   </a>
@@ -2736,7 +2742,7 @@
   <a href="#step-3-create-a-service-account" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 3: Create a Service Account
+        Step 3: Create a service account
       
     </span>
   </a>
@@ -2747,7 +2753,7 @@
   <a href="#step-4-download-the-json-key" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 4: Download the JSON Key
+        Step 4: Download the JSON key
       
     </span>
   </a>
@@ -2758,7 +2764,7 @@
   <a href="#step-5-configure-the-connector" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 5: Configure the Connector
+        Step 5: Configure the connector
       
     </span>
   </a>
@@ -2769,7 +2775,7 @@
   <a href="#step-6-share-a-google-drive-folder-with-the-service-account" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Share a Google Drive Folder with the Service Account
+        Step 6: Share a Google Drive folder with the service account
       
     </span>
   </a>
@@ -2780,7 +2786,7 @@
   <a href="#step-7-get-the-folder-id" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 7: Get the Folder ID
+        Step 7: Get the folder ID
       
     </span>
   </a>
@@ -2802,7 +2808,7 @@
   <a href="#common-errors-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Common Errors (setup)
+        Common errors (setup)
       
     </span>
   </a>
@@ -2813,7 +2819,7 @@
   <a href="#security-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Security Notes
+        Security notes
       
     </span>
   </a>
@@ -2822,6 +2828,28 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream_bearer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User OAuth (OIDC / upstream bearer)
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2949,45 +2977,15 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="google-drive-connector">Google Drive Connector<a class="headerlink" href="#google-drive-connector" title="Anchor link to this section">&para;</a></h1>
-<p>This document covers the Google Drive connector under <code>src/node_wire_google_drive</code> in two parts:</p>
+<h1 id="google-drive-connector">Google Drive connector<a class="headerlink" href="#google-drive-connector" title="Anchor link to this section">&para;</a></h1>
+<p>This document covers the Google Drive connector under <code>src/node_wire_google_drive</code>, in this order:</p>
 <ol>
 <li><strong><a href="#google-drive-service-account-setup">Google Drive service account setup</a></strong> — Create a GCP service account, enable the Drive API, configure <code>.env</code>, share a folder, and verify connectivity.</li>
+<li><strong><a href="#multi-tenancy">Multi-tenancy</a></strong> — Per-tenant Drive credentials and folders.</li>
+<li><strong><a href="#upstream_bearer">User OAuth</a></strong> — Optional: per-user Drive access by relaying the caller's own bearer token, instead of the shared service account.</li>
 <li><strong><a href="#rest-api-reference">REST API reference</a></strong> — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.</li>
 </ol>
-<p>For <strong>MCP</strong> (e.g. ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (e.g. <code>google_drive_files_upload</code>). Legacy dotted names (<code>google_drive.files.upload</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
-<hr />
-<h2 id="upstream_bearer">User OAuth (OIDC / upstream bearer)<a class="headerlink" href="#upstream_bearer" title="Anchor link to this section">&para;</a></h2>
-<p>For <strong>per-user Google Drive access</strong> (each caller uses their own Drive), set:</p>
-<p><code>upstream_bearer</code> is a <strong>credential relay</strong>, not an ordinary auth provider: Node Wire
-forwards the caller's own inbound MCP bearer token to Google Drive's API as-is. It does
-not verify that token is actually valid for Drive — audience binding is the host
-application's responsibility (e.g. only enable this when the IdP issuing the inbound
-token is one whose tokens are already scoped to Drive). Fails closed by design: setting
-the provider alone does nothing.</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">google_drive</span><span class="p">:</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">upstream_bearer</span>
-</span></code></pre></div>
-<p>Or set the environment variable (overrides <code>connectors.yaml</code> when present):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer
-</span></code></pre></div>
-<p><strong>And</strong>, independently, add <code>google_drive</code> to the explicit relay allowlist — required in
-addition to the setting above, not instead of it:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>NW_UPSTREAM_BEARER_CONNECTORS=google_drive
-</span></code></pre></div>
-<p>Allowed values: <code>service_account</code> (default), <code>upstream_bearer</code>.</p>
-<p>Run the <strong>google-drive-only</strong> MCP server (<code>python -m agents.google_drive_mcp</code>) with <code>NW_MCP_TRANSPORT=streamable-http</code>. The <code>Authorization: Bearer</code> token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do <strong>not</strong> set <code>NW_MCP_API_KEY</code>, <code>NW_MCP_JWT_SECRET</code>, or <code>GOOGLE_DRIVE_SA_JSON</code> for this profile.</p>
-<p><strong>ToolHive OIDC manifests:</strong> copy and adapt from <a href="https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy">mcp-builder <code>out/google-drive-mcp/deploy/</code></a> (<code>mcpexternalauthconfig.yaml</code>, <code>mcpoidcconfig.yaml</code>, <code>mcpserver.yaml</code>) — use image/entrypoint <code>nw-google-drive</code> / <code>python -m agents.google_drive_mcp</code>.</p>
-<p><strong>Note:</strong> passthrough activates for any MCP server that exposes an explicit, bounded connector list (<code>connector_ids=[...]</code>, never the unrestricted "exposes everything" default) containing at least one relay-allowlisted connector — it is no longer restricted to a google-drive-only server, though that remains the only connector this repo actually configures for it today. The unified <code>mcp_entrypoint</code> with multiple connectors keeps API-key/JWT MCP auth unless one of those connectors is also allowlisted.</p>
-<p>With <code>NW_MCP_SCOPE_POLICY_DEFAULT=deny</code> (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (<code>mcp:google_drive.&lt;action&gt;</code>) from its manifest to upstream bearer callers so <code>tools/list</code> is not empty. Google OAuth on the <code>Authorization: Bearer</code> token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.</p>
-<p>For <strong>shared-folder automation</strong> (single service identity), keep the <a href="#google-drive-service-account-setup">service account setup</a> below.</p>
-<hr />
-<h2 id="multi-tenancy">Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Anchor link to this section">&para;</a></h2>
-<p>With <code>NW_MULTITENANCY_ENABLED=true</code>, each tenant can have its own Drive credentials and folder
-in a named config, instead of the shared <code>GOOGLE_DRIVE_SA_JSON</code> / <code>GOOGLE_DRIVE_FOLDER_ID</code>. For
-example, tenant <code>acme</code> reads <code>NW_ACME_GOOGLE_DRIVE_SA_JSON</code>. How tenant secrets are named, and how
-MCP sessions select a tenant and config, is in <a href="../architecture/tenancy/">Tenancy</a>.</p>
+<p>For <strong>MCP</strong> (for example, ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (for example, <code>google_drive_files_upload</code>). Legacy dotted names (<code>google_drive.files.upload</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="google-drive-service-account-setup">Google Drive service account setup<a class="headerlink" href="#google-drive-service-account-setup" title="Anchor link to this section">&para;</a></h2>
 <p>This guide walks you through creating a Google Cloud service account and connecting it to Node Wire. A service account is a special type of Google account used by applications (rather than humans) to authenticate with Google APIs.</p>
@@ -2996,19 +2994,17 @@ MCP sessions select a tenant and config, is in <a href="../architecture/tenancy/
 <ul>
 <li>A Google account</li>
 <li>Access to <a href="https://console.cloud.google.com/">Google Cloud Console</a></li>
-<li>Node Wire installed and configured (see <a href="../installation/">Installation Guide</a>)</li>
+<li>Node Wire installed and configured (see <a href="../installation/">Installation guide</a>)</li>
 </ul>
-<h3 id="step-1-create-or-select-a-gcp-project">Step 1: Create or Select a GCP Project<a class="headerlink" href="#step-1-create-or-select-a-gcp-project" title="Anchor link to this section">&para;</a></h3>
+<h3 id="step-1-create-or-select-a-gcp-project">Step 1: Create or select a GCP project<a class="headerlink" href="#step-1-create-or-select-a-gcp-project" title="Anchor link to this section">&para;</a></h3>
 <ol>
 <li>Go to <a href="https://console.cloud.google.com/">Google Cloud Console</a>.</li>
 <li>Click the project dropdown at the top of the page.</li>
 <li>Click <strong>New Project</strong> (top right of the dialog).</li>
-<li>Give it a name (e.g., <code>node-wire</code>) and click <strong>Create</strong>.</li>
+<li>Give it a name (for example, <code>node-wire</code>) and click <strong>Create</strong>.</li>
 <li>Make sure the new project is selected in the dropdown before continuing.</li>
 </ol>
-<blockquote>
-<p><strong>Already have a project?</strong> You can use an existing one — just make sure it's selected.</p>
-</blockquote>
+<p>If you already have a project, you can use it instead; make sure it's selected.</p>
 <h3 id="step-2-enable-the-google-drive-api">Step 2: Enable the Google Drive API<a class="headerlink" href="#step-2-enable-the-google-drive-api" title="Anchor link to this section">&para;</a></h3>
 <p>The Drive API must be enabled before your service account can access Drive.</p>
 <p><strong>Via the Console UI:</strong></p>
@@ -3018,60 +3014,59 @@ MCP sessions select a tenant and config, is in <a href="../architecture/tenancy/
 <li>Click on it, then click <strong>Enable</strong>.</li>
 </ol>
 <p><strong>Via the <code>gcloud</code> CLI (alternative):</strong></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>gcloud<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>project<span class="w"> </span>YOUR_PROJECT_ID
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>gcloud<span class="w"> </span>services<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>drive.googleapis.com
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>gcloud<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>project<span class="w"> </span>&lt;your-project-id&gt;
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>gcloud<span class="w"> </span>services<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>drive.googleapis.com
 </span></code></pre></div>
-<h3 id="step-3-create-a-service-account">Step 3: Create a Service Account<a class="headerlink" href="#step-3-create-a-service-account" title="Anchor link to this section">&para;</a></h3>
+<p>Replace <code>&lt;your-project-id&gt;</code> with the ID of the project from step 1.</p>
+<h3 id="step-3-create-a-service-account">Step 3: Create a service account<a class="headerlink" href="#step-3-create-a-service-account" title="Anchor link to this section">&para;</a></h3>
 <ol>
 <li>In the left sidebar, go to <strong>IAM &amp; Admin &gt; Service Accounts</strong>.</li>
 <li>Click <strong>+ Create Service Account</strong> at the top.</li>
 <li>Fill in the details:</li>
-<li><strong>Service account name:</strong> e.g., <code>node-wire-drive-connector</code></li>
-<li><strong>Service account ID:</strong> auto-filled (e.g., <code>node-wire-drive-connector@your-project.iam.gserviceaccount.com</code>)</li>
-<li><strong>Description:</strong> e.g., <code>Service account for Node Wire Drive access</code></li>
+<li><strong>Service account name:</strong> for example, <code>node-wire-drive-connector</code></li>
+<li><strong>Service account ID:</strong> auto-filled (for example, <code>node-wire-drive-connector@your-project.iam.gserviceaccount.com</code>)</li>
+<li><strong>Description:</strong> for example, <code>Service account for Node Wire Drive access</code></li>
 <li>Click <strong>Create and Continue</strong>.</li>
 <li>On the <strong>Grant access</strong> step: you can skip role assignment here (Drive access is controlled by folder sharing, not IAM roles). Click <strong>Continue</strong>.</li>
 <li>Click <strong>Done</strong>.</li>
 </ol>
-<h3 id="step-4-download-the-json-key">Step 4: Download the JSON Key<a class="headerlink" href="#step-4-download-the-json-key" title="Anchor link to this section">&para;</a></h3>
+<h3 id="step-4-download-the-json-key">Step 4: Download the JSON key<a class="headerlink" href="#step-4-download-the-json-key" title="Anchor link to this section">&para;</a></h3>
 <p>The service account needs a key file so the platform can authenticate as it.</p>
 <ol>
-<li>On the <strong>Service Accounts</strong> list page, find the account you just created.</li>
+<li>On the <strong>Service Accounts</strong> list page, find the account you created.</li>
 <li>Click the three-dot menu (Actions) on the right → <strong>Manage keys</strong>.</li>
 <li>Click <strong>Add Key &gt; Create new key</strong>.</li>
 <li>Select <strong>JSON</strong> and click <strong>Create</strong>.</li>
-<li>A <code>.json</code> file will be downloaded to your computer. <strong>Keep this file safe</strong> — it grants full access to anything the service account can access.</li>
+<li>Your browser downloads a <code>.json</code> file. <strong>Keep this file safe</strong> — it grants full access to anything the service account can access.</li>
 </ol>
-<p>The file looks like this:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"service_account"</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">"project_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"your-project-id"</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">"private_key_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123..."</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">"private_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----\n"</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">"client_email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node-wire-drive-connector@your-project.iam.gserviceaccount.com"</span><span class="p">,</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">"client_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"123456789"</span><span class="p">,</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">"auth_uri"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://accounts.google.com/o/oauth2/auth"</span><span class="p">,</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">"token_uri"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://oauth2.googleapis.com/token"</span><span class="p">,</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="err">...</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">}</span>
+<p>The file looks like the following excerpt; the downloaded file has a few more fields:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"service_account"</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">"project_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;your-project-id&gt;"</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"private_key_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;private-key-id&gt;"</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"private_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;private-key&gt;"</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">"client_email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node-wire-drive-connector@&lt;your-project-id&gt;.iam.gserviceaccount.com"</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"client_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;client-id&gt;"</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">"auth_uri"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://accounts.google.com/o/oauth2/auth"</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">"token_uri"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://oauth2.googleapis.com/token"</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">}</span>
 </span></code></pre></div>
-<h3 id="step-5-configure-the-connector">Step 5: Configure the Connector<a class="headerlink" href="#step-5-configure-the-connector" title="Anchor link to this section">&para;</a></h3>
-<p>Move the downloaded JSON key file to a safe location on your machine (e.g., <code>~/.secrets/google-drive-sa.json</code>).</p>
+<p>You don't edit these values: <code>&lt;your-project-id&gt;</code>, <code>&lt;private-key-id&gt;</code>, <code>&lt;private-key&gt;</code> (a PEM block), and <code>&lt;client-id&gt;</code> are filled in by Google Cloud.</p>
+<h3 id="step-5-configure-the-connector">Step 5: Configure the connector<a class="headerlink" href="#step-5-configure-the-connector" title="Anchor link to this section">&para;</a></h3>
+<p>Move the downloaded JSON key file to a safe location on your machine (for example, <code>~/.secrets/google-drive-sa.json</code>).</p>
 <p>Add the following to your <code>.env</code> file:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a># Absolute path to your downloaded service account JSON key file
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>GOOGLE_DRIVE_SA_JSON=/Users/you/.secrets/google-drive-sa.json
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a># Absolute path to your downloaded service account JSON key file
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>GOOGLE_DRIVE_SA_JSON=/Users/you/.secrets/google-drive-sa.json
 </span></code></pre></div>
 <p><strong>For Windows (PowerShell) — alternative to editing <code>.env</code> directly:</strong></p>
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c"># Read the service account JSON and set it as an environment variable</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">$saPath</span> <span class="p">=</span> <span class="s2">"C:\path\to\service_account.json"</span>  <span class="c"># Replace with your actual path</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nv">$env:GOOGLE_DRIVE_SA_JSON</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="n">-Path</span> <span class="nv">$saPath</span> <span class="n">-Raw</span>
+<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c"># Read the service account JSON and set it as an environment variable</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">$saPath</span> <span class="p">=</span> <span class="s2">"C:\path\to\service_account.json"</span>  <span class="c"># Replace with your actual path</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">$env:GOOGLE_DRIVE_SA_JSON</span> <span class="p">=</span> <span class="nb">Get-Content</span> <span class="n">-Path</span> <span class="nv">$saPath</span> <span class="n">-Raw</span>
 </span></code></pre></div>
-<blockquote>
 <p>This sets the variable for the current PowerShell session. To persist it across sessions, use <code>[System.Environment]::SetEnvironmentVariable("GOOGLE_DRIVE_SA_JSON", (Get-Content -Path $saPath -Raw), "User")</code> or add the path to your <code>.env</code> file manually.</p>
-<p><strong>For ToolHive deployment:</strong> Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named <code>GOOGLE_DRIVE_SA_JSON</code>. See <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
-</blockquote>
-<h3 id="step-6-share-a-google-drive-folder-with-the-service-account">Step 6: Share a Google Drive Folder with the Service Account<a class="headerlink" href="#step-6-share-a-google-drive-folder-with-the-service-account" title="Anchor link to this section">&para;</a></h3>
-<p>The service account starts with no access to any Drive files. You must explicitly share folders or files with it, just like sharing with any other Google user.</p>
+<p>For ToolHive deployment, instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named <code>GOOGLE_DRIVE_SA_JSON</code>. See <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
+<h3 id="step-6-share-a-google-drive-folder-with-the-service-account">Step 6: Share a Google Drive folder with the service account<a class="headerlink" href="#step-6-share-a-google-drive-folder-with-the-service-account" title="Anchor link to this section">&para;</a></h3>
+<p>The service account starts with no access to any Drive files. You must explicitly share folders or files with it, the same way you share with any other Google user.</p>
 <ol>
 <li>Open <a href="https://drive.google.com/">Google Drive</a> in your browser.</li>
 <li>Create a new folder (or use an existing one) where the connector will upload files.</li>
@@ -3084,38 +3079,38 @@ MCP sessions select a tenant and config, is in <a href="../architecture/tenancy/
 <li>Uncheck <strong>Notify people</strong> (the service account doesn't have an inbox).</li>
 <li>Click <strong>Share</strong>.</li>
 </ol>
-<h3 id="step-7-get-the-folder-id">Step 7: Get the Folder ID<a class="headerlink" href="#step-7-get-the-folder-id" title="Anchor link to this section">&para;</a></h3>
+<h3 id="step-7-get-the-folder-id">Step 7: Get the folder ID<a class="headerlink" href="#step-7-get-the-folder-id" title="Anchor link to this section">&para;</a></h3>
 <p>The folder ID is used to tell the connector where to upload files.</p>
 <ol>
 <li>Open the shared folder in Google Drive.</li>
-<li>Look at the URL in your browser — it will look like:
-   <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>https://drive.google.com/drive/folders/1ABCdef_GHIjklMNOpqrSTUvwxYZ
+<li>Look at the URL in your browser. It looks like the following:
+   <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>https://drive.google.com/drive/folders/1ABCdef_GHIjklMNOpqrSTUvwxYZ
 </span></code></pre></div></li>
 <li>The folder ID is the string after <code>/folders/</code> — in this example: <code>1ABCdef_GHIjklMNOpqrSTUvwxYZ</code>.</li>
 </ol>
 <p>Add it to your <code>.env</code>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>GOOGLE_DRIVE_FOLDER_ID=1ABCdef_GHIjklMNOpqrSTUvwxYZ
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>GOOGLE_DRIVE_FOLDER_ID=1ABCdef_GHIjklMNOpqrSTUvwxYZ
 </span></code></pre></div>
 <h3 id="verification">Verification<a class="headerlink" href="#verification" title="Anchor link to this section">&para;</a></h3>
 <p>Start the platform and test the connection with a quick file list:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Start the REST API (local only: auth and scope policy relaxed)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">NW_ALLOWED_CONNECTORS</span><span class="o">=</span>google_drive<span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">NW_MCP_SCOPE_POLICY_DEFAULT</span><span class="o">=</span>allow<span class="w"> </span><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># In another terminal, list files visible to the service account</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/connectors/google_drive/files.list<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"action": "files.list", "page_size": 5}'</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Start the REST API (local only: auth and scope policy relaxed)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">NW_ALLOWED_CONNECTORS</span><span class="o">=</span>google_drive<span class="w"> </span><span class="nv">NW_REST_AUTH_DISABLED</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nv">NW_MCP_SCOPE_POLICY_DEFAULT</span><span class="o">=</span>allow<span class="w"> </span><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># In another terminal, list files visible to the service account</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/connectors/google_drive/files.list<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"action": "files.list", "page_size": 5}'</span>
 </span></code></pre></div>
 <p>A successful response includes <code>"success": true</code> and a <code>files</code> array under <code>data.raw</code>. The full response shape and optional fields are in the <a href="#rest-api-reference">REST API reference</a>.</p>
 <p>You can also use the <strong>Swagger UI</strong> at <code>http://localhost:8000/docs</code> to test interactively.</p>
 <p>To upload a test file, send a <code>files.upload</code> request (include <code>parents</code> with your folder ID); the argument list is in the <a href="#rest-api-reference">REST API reference</a>.</p>
-<h3 id="common-errors-setup">Common Errors (setup)<a class="headerlink" href="#common-errors-setup" title="Anchor link to this section">&para;</a></h3>
+<h3 id="common-errors-setup">Common errors (setup)<a class="headerlink" href="#common-errors-setup" title="Anchor link to this section">&para;</a></h3>
 <table>
 <thead>
 <tr>
 <th>Error</th>
-<th>Likely Cause</th>
+<th>Likely cause</th>
 <th>Fix</th>
 </tr>
 </thead>
@@ -3136,32 +3131,65 @@ MCP sessions select a tenant and config, is in <a href="../architecture/tenancy/
 <td>Check the URL in Drive and re-copy the folder ID</td>
 </tr>
 <tr>
-<td><code>FileNotFoundError</code></td>
-<td><code>GOOGLE_DRIVE_SA_JSON</code> path doesn't exist</td>
+<td><code>ValueError</code>: "service account file not found"</td>
+<td><code>GOOGLE_DRIVE_SA_JSON</code> is not inline JSON and its path doesn't exist</td>
 <td>Use an absolute path, not a relative one</td>
 </tr>
 </tbody>
 </table>
-<h3 id="security-notes">Security Notes<a class="headerlink" href="#security-notes" title="Anchor link to this section">&para;</a></h3>
+<h3 id="security-notes">Security notes<a class="headerlink" href="#security-notes" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><strong>Never commit the JSON key file to version control.</strong> Add it to <code>.gitignore</code>:
-  <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>*.json
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>service-account*.json
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>*-sa.json
+  <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>*.json
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>service-account*.json
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>*-sa.json
 </span></code></pre></div></li>
-<li>Store the key in a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault) in production environments.</li>
+<li>Store the key in a secrets manager (for example, AWS Secrets Manager, HashiCorp Vault) in production environments.</li>
 <li>Use a dedicated service account per application — don't reuse accounts across services.</li>
 <li>Grant only the minimum required permissions. If the connector only needs to upload files to one specific folder, only share that folder.</li>
 <li>Rotate the key periodically: Cloud Console → IAM &amp; Admin → Service Accounts → Manage Keys → Add new key, then delete the old one.</li>
 </ul>
 <hr />
+<h2 id="multi-tenancy">Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Anchor link to this section">&para;</a></h2>
+<p>With <code>NW_MULTITENANCY_ENABLED=true</code>, each tenant can have its own Drive credentials and folder
+in a named config, instead of the shared <code>GOOGLE_DRIVE_SA_JSON</code> / <code>GOOGLE_DRIVE_FOLDER_ID</code>. For
+example, tenant <code>acme</code> reads <code>NW_ACME_GOOGLE_DRIVE_SA_JSON</code>. How tenant secrets are named, and how
+MCP sessions select a tenant and config, is in <a href="../architecture/tenancy/">Tenancy</a>.</p>
+<hr />
+<h2 id="upstream_bearer">User OAuth (OIDC / upstream bearer)<a class="headerlink" href="#upstream_bearer" title="Anchor link to this section">&para;</a></h2>
+<p>For <strong>per-user Google Drive access</strong> (each caller uses their own Drive), use the <code>upstream_bearer</code> provider.</p>
+<p><code>upstream_bearer</code> is a <strong>credential relay</strong>, not an ordinary auth provider: Node Wire
+forwards the caller's own inbound MCP bearer token to Google Drive's API as-is. It does
+not verify that token is actually valid for Drive — audience binding is the host
+application's responsibility (for example, only enable this when the IdP issuing the inbound
+token is one whose tokens are already scoped to Drive). Fails closed by design: setting
+the provider alone does nothing.</p>
+<p>Set the provider in <code>connectors.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">google_drive</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">upstream_bearer</span>
+</span></code></pre></div>
+<p>Or set the environment variable (overrides <code>connectors.yaml</code> when present):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer
+</span></code></pre></div>
+<p><strong>And</strong>, independently, add <code>google_drive</code> to the explicit relay allowlist — required in
+addition to the preceding setting, not instead of it:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NW_UPSTREAM_BEARER_CONNECTORS=google_drive
+</span></code></pre></div>
+<p>Allowed values: <code>service_account</code> (default), <code>upstream_bearer</code>.</p>
+<p>Run the <strong>google-drive-only</strong> MCP server (<code>python -m agents.google_drive_mcp</code>) with <code>NW_MCP_TRANSPORT=streamable-http</code>. The <code>Authorization: Bearer</code> token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do <strong>not</strong> set <code>NW_MCP_API_KEY</code>, <code>NW_MCP_JWT_SECRET</code>, or <code>GOOGLE_DRIVE_SA_JSON</code> for this profile.</p>
+<p><strong>ToolHive OIDC manifests:</strong> copy and adapt from <a href="https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy">mcp-builder <code>out/google-drive-mcp/deploy/</code></a> (<code>mcpexternalauthconfig.yaml</code>, <code>mcpoidcconfig.yaml</code>, <code>mcpserver.yaml</code>) — use image/entrypoint <code>nw-google-drive</code> / <code>python -m agents.google_drive_mcp</code>.</p>
+<p>Passthrough activates for any MCP server that exposes an explicit, bounded connector list (<code>connector_ids=[...]</code>, never the unrestricted "exposes everything" default) containing at least one relay-allowlisted connector. Google Drive is the only connector this repo configures for it. The unified <code>mcp_entrypoint</code> with multiple connectors keeps API-key/JWT MCP auth unless one of those connectors is also allowlisted.</p>
+<p>With <code>NW_MCP_SCOPE_POLICY_DEFAULT=deny</code> (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (<code>mcp:google_drive.&lt;action&gt;</code>) from its manifest to upstream bearer callers so <code>tools/list</code> is not empty. Google OAuth on the <code>Authorization: Bearer</code> token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.</p>
+<p>For <strong>shared-folder automation</strong> (single service identity), keep the <a href="#google-drive-service-account-setup">service account setup</a>.</p>
+<hr />
 <h2 id="rest-api-reference">REST API reference<a class="headerlink" href="#rest-api-reference" title="Anchor link to this section">&para;</a></h2>
-<p>The connector exposes <strong>one REST route per operation</strong> (<code>POST /connectors/google_drive/&lt;action&gt;</code>, e.g. <code>files.list</code>). The <code>action</code> field on the request body selects which Google Drive operation runs for <code>BaseConnector</code> dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.</p>
+<p>The connector exposes <strong>one REST route per operation</strong> (<code>POST /connectors/google_drive/&lt;action&gt;</code>, for example, <code>files.list</code>). The <code>action</code> field on the request body selects which Google Drive operation runs for <code>BaseConnector</code> dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.</p>
 <h3 id="operations-overview">Operations overview<a class="headerlink" href="#operations-overview" title="Anchor link to this section">&para;</a></h3>
 <p>All requests go through:</p>
 <ul>
 <li>Connector ID: <code>google_drive</code></li>
-<li>REST endpoint: <code>POST /connectors/google_drive/&lt;action&gt;</code> (e.g. <code>POST /connectors/google_drive/files.list</code>)</li>
+<li>REST endpoint: <code>POST /connectors/google_drive/&lt;action&gt;</code> (for example, <code>POST /connectors/google_drive/files.list</code>)</li>
 </ul>
 <p>Each operation uses <code>action</code> as a discriminator:</p>
 <ul>
@@ -3184,7 +3212,7 @@ models and published live — do not duplicate them here:</p>
 <h3 id="error-taxonomy">Error taxonomy<a class="headerlink" href="#error-taxonomy" title="Anchor link to this section">&para;</a></h3>
 <p>All Google Drive errors are mapped into the platform error taxonomy using wrapper exceptions:</p>
 <ul>
-<li><code>GDRIVE_AUTH</code> (<code>AUTH</code>): authentication/authorization issues (e.g. 401, 403 without rate-limit reason).</li>
+<li><code>GDRIVE_AUTH</code> (<code>AUTH</code>): authentication/authorization issues (for example, 401, 403 without rate-limit reason).</li>
 <li><code>GDRIVE_RATE_LIMIT</code> (<code>RETRYABLE</code>): quota or rate limit issues (403 with <code>quotaExceeded</code>/<code>rateLimitExceeded</code>, 429, 5xx).</li>
 <li><code>GDRIVE_BUSINESS_RULE</code> (<code>BUSINESS</code>): invalid IDs, conflicts, not found (400, 404, 409).</li>
 <li><code>GDRIVE_FATAL</code> (<code>FATAL</code>): any unhandled <code>HttpError</code> status or unexpected exception.</li>
@@ -3238,7 +3266,7 @@ models and published live — do not duplicate them here:</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../connector-reference/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Connector Reference">
+          <a href="../connectors-build/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Build a Connector">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -3248,7 +3276,7 @@ models and published live — do not duplicate them here:</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Connector Reference
+                Build a Connector
               </div>
             </div>
           </a>

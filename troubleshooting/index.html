@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://aot-technologies.github.io/node-wire/troubleshooting/">
       
       
-        <link rel="prev" href="../public-api/">
+        <link rel="prev" href="../configuration/">
       
       
-        <link rel="next" href="../release-rollback/">
+        <link rel="next" href="../architecture/">
       
       
         
@@ -263,10 +263,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../installation/" class="md-tabs__link">
           
   
@@ -383,17 +385,15 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../packaging/" class="md-tabs__link">
           
   
   
-  Operations
+  Ship
 
         </a>
       </li>
@@ -569,28 +569,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -608,7 +611,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -670,6 +673,153 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#common-errors-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common errors &amp; fixes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logging-debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging &amp; debugging
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Logging &amp; debugging">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-stdio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP (stdio)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#opentelemetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenTelemetry
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1028,6 +1178,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../google_drive_connector/" class="md-nav__link">
         
   
@@ -1092,34 +1270,6 @@
     
   
     Slack
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../connectors-build/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Build a Connector
   
 
     
@@ -1486,14 +1636,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-client-oauth/" class="md-nav__link">
+      <a href="../toolhive_agent_scenario/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Client OAuth
+    Agent Scenario
   
 
     
@@ -1514,14 +1664,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../toolhive_agent_scenario/" class="md-nav__link">
+      <a href="../mcp-client-oauth/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Agent Scenario
+    Client OAuth
   
 
     
@@ -1687,14 +1837,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../versioning/" class="md-nav__link">
+      <a href="../public-api/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Versioning
+    Public API
   
 
     
@@ -1707,6 +1857,67 @@
   
 
               
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ship
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Ship
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -1743,14 +1954,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../public-api/" class="md-nav__link">
+      <a href="../local-packages-to-images/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Public API
+    Local Images
   
 
     
@@ -1763,113 +1974,22 @@
   
 
               
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_9">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operations
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../versioning/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Troubleshooting
+    Versioning
   
 
     
@@ -1878,87 +1998,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#common-errors-fixes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Common Errors &amp; Fixes
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#logging-debugging" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Logging &amp; Debugging
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Logging &amp; Debugging">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#rest-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        REST API
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mcp-stdio" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        MCP (stdio)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#opentelemetry" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenTelemetry
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1979,34 +2018,6 @@
     
   
     Release & Rollback
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../local-packages-to-images/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Local Images
   
 
     
@@ -2282,6 +2293,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-python-3-11-to-3-13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Python 3.11 to 3.13
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2520,7 +2559,7 @@
   <a href="#common-errors-fixes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Common Errors &amp; Fixes
+        Common errors &amp; fixes
       
     </span>
   </a>
@@ -2531,12 +2570,12 @@
   <a href="#logging-debugging" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Logging &amp; Debugging
+        Logging &amp; debugging
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Logging &amp; Debugging">
+    <nav class="md-nav" aria-label="Logging &amp; debugging">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2574,6 +2613,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2620,10 +2670,10 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../installation/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Operations
+    Getting Started
   </span>
 
         </a>
@@ -2651,13 +2701,13 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-<h1 id="troubleshooting-guide">Troubleshooting Guide<a class="headerlink" href="#troubleshooting-guide" title="Anchor link to this section">&para;</a></h1>
-<h2 id="common-errors-fixes">Common Errors &amp; Fixes<a class="headerlink" href="#common-errors-fixes" title="Anchor link to this section">&para;</a></h2>
+<h1 id="troubleshooting-guide">Troubleshooting guide<a class="headerlink" href="#troubleshooting-guide" title="Anchor link to this section">&para;</a></h1>
+<h2 id="common-errors-fixes">Common errors &amp; fixes<a class="headerlink" href="#common-errors-fixes" title="Anchor link to this section">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Problem</th>
-<th>Likely Cause</th>
+<th>Likely cause</th>
 <th>Fix</th>
 </tr>
 </thead>
@@ -2668,9 +2718,9 @@ SPDX-License-Identifier: Apache-2.0
 <td>Set <code>PORT=8001</code> (or any free port) before starting the platform.</td>
 </tr>
 <tr>
-<td><strong>Connector "not configured"</strong></td>
-<td>Connector is disabled or not exposed.</td>
-<td>Confirm <code>enabled: true</code> and <code>exposed_via</code> include your protocol in <code>config/connectors.yaml</code>.</td>
+<td><strong><code>404 Not Found</code> on <code>/connectors/&lt;connector-id&gt;/&lt;action&gt;</code></strong></td>
+<td>No REST route was created for the connector at startup: it is disabled, its <code>exposed_via</code> omits <code>rest</code>, or it is not registered (missing from <code>NW_ALLOWED_CONNECTORS</code> or not installed).</td>
+<td>Confirm <code>enabled: true</code> and that <code>exposed_via</code> includes <code>rest</code> in <code>config/connectors.yaml</code>, that the connector is in <code>NW_ALLOWED_CONNECTORS</code>, then restart.</td>
 </tr>
 <tr>
 <td><strong>Auth Failure (Google Drive)</strong></td>
@@ -2679,8 +2729,8 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 <tr>
 <td><strong>"Invalid port: PORT"</strong></td>
-<td>Environment variable not parsed correctly.</td>
-<td>Ensure <code>PORT</code> or <code>NW_MCP_PORT</code> is set to a valid integer (e.g., <code>8081</code>).</td>
+<td><code>TOOLHIVE_MCP_URL</code> still holds the literal <code>PORT</code> placeholder from <code>sample.env</code> (<code>http://localhost:PORT/mcp</code>).</td>
+<td>Replace <code>PORT</code> with the real port of your ToolHive MCP server, for example <code>http://localhost:8081/mcp</code>.</td>
 </tr>
 <tr>
 <td><strong>No connectors loaded</strong></td>
@@ -2711,13 +2761,18 @@ SPDX-License-Identifier: Apache-2.0
 </table>
 <p>Multi-tenancy reference: <a href="../architecture/tenancy/">Tenancy</a> (behaviour), <a href="../configuration/#multi-tenancy">Configuration — Multi-tenancy</a> (variables).</p>
 <hr />
-<h2 id="logging-debugging">Logging &amp; Debugging<a class="headerlink" href="#logging-debugging" title="Anchor link to this section">&para;</a></h2>
+<h2 id="logging-debugging">Logging &amp; debugging<a class="headerlink" href="#logging-debugging" title="Anchor link to this section">&para;</a></h2>
 <h3 id="rest-api">REST API<a class="headerlink" href="#rest-api" title="Anchor link to this section">&para;</a></h3>
 <p>Check the console output where <code>uv run node-wire</code> is running. It logs incoming requests and standard error taxonomy mappings.</p>
 <h3 id="mcp-stdio">MCP (stdio)<a class="headerlink" href="#mcp-stdio" title="Anchor link to this section">&para;</a></h3>
 <p>In <code>stdio</code> mode, the server communicates over standard I/O. Any <code>print()</code> statements in the code will break the protocol. Use Python's <code>logging</code> module to log to <code>stderr</code> or a file.</p>
 <h3 id="opentelemetry">OpenTelemetry<a class="headerlink" href="#opentelemetry" title="Anchor link to this section">&para;</a></h3>
-<p>If configured, check your OpenTelemetry collector (e.g., Jaeger) for traces with <code>trace_id</code> from the <code>ConnectorResponse</code>.</p>
+<p>If configured, check your OpenTelemetry collector (for example, Jaeger) for traces with <code>trace_id</code> from the <code>ConnectorResponse</code>.</p>
+<h2 id="related">Related<a class="headerlink" href="#related" title="Anchor link to this section">&para;</a></h2>
+<ul>
+<li><a href="../errors/">Errors</a>: every error code, its category, and what each surface returns.</li>
+<li><a href="../configuration/">Configuration</a>: every <code>NW_*</code> variable and its default.</li>
+</ul>
 
 
 
@@ -2755,7 +2810,7 @@ SPDX-License-Identifier: Apache-2.0
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../public-api/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Public API">
+          <a href="../configuration/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuration">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2765,20 +2820,20 @@ SPDX-License-Identifier: Apache-2.0
                 Previous
               </span>
               <div class="md-ellipsis">
-                Public API
+                Configuration
               </div>
             </div>
           </a>
         
         
           
-          <a href="../release-rollback/" class="md-footer__link md-footer__link--next" aria-label="Next: Release &amp; Rollback">
+          <a href="../architecture/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Release & Rollback
+                Overview
               </div>
             </div>
             <div class="md-footer__button md-icon">
