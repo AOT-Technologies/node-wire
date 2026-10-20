@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Release Rollback & Unpublish Runbook
+# Release rollback & unpublish runbook
 
 This runbook describes how maintainers respond when a bad Node Wire release
 reaches PyPI or GitHub. Read it together with
@@ -13,7 +13,7 @@ reaches PyPI or GitHub. Read it together with
 ## PyPI constraints (read first)
 
 - **Published versions cannot be overwritten.** Uploading the same version again
-  will fail.
+  fails.
 - **Prefer yanking** over deleting a release. Yanking hides a version from the
   default `pip install` resolver while leaving it available for explicit pins.
 - **Deletion is exceptional** — use only for legal, trademark, or severe
@@ -41,7 +41,7 @@ reaches PyPI or GitHub. Read it together with
 
 ## Terminology note
 
-- **PEP 440 pre-release / beta** (e.g. `1.2.0b1`, tag `v1.2.0b1`) — PyPI channel selected by
+- **PEP 440 pre-release / beta** (for example, `1.2.0b1`, tag `v1.2.0b1`) — PyPI channel selected by
   version shape. Betas **never** create a GitHub Release. See
   [versioning.md](versioning.md#pypi-pre-releases-beta).
 - **GitHub Release “Set as a pre-release”** — a UI checkbox on an existing GitHub Release. That
@@ -62,7 +62,7 @@ reaches PyPI or GitHub. Read it together with
 
 Yanking requires a PyPI account with maintainer rights on the project. The same
 yank flow applies to **stable** and **PEP 440 beta** versions (they share PyPI
-projects).
+projects). Yank through the PyPI web UI or with `twine`:
 
 ```bash
 # List current files for a project (optional)
@@ -89,14 +89,14 @@ at the bad version).
 
 1. Fix the defect on `main` (or a release branch) with tests.
 2. Bump the version:
-   - **Stable:** bump **PATCH** per [SemVer](versioning.md) (e.g. `1.0.0` → `1.0.1`).
+   - **Stable:** bump **PATCH** per [SemVer](versioning.md) (for example, `1.0.0` → `1.0.1`).
    - **Beta:** no source bump needed — re-dispatching `channel: beta` publishes the
      next unused `bN`, and PyPI never allows reuse of a yanked version.
 3. Update [CHANGELOG.md](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md) with the fix and yank notice.
 4. Run the local pre-publish checklist in [packaging.md](packaging.md#pre-pypi-local-validation-checklist).
 5. Follow the stable or beta operator flow in [packaging.md](packaging.md#release-process-tag-first),
    then dispatch `.github/workflows/publish.yml` for each affected package —
-   from the corrective tag (e.g. `v1.0.1`) with `channel: release`, or from the
+   from the corrective tag (for example, `v1.0.1`) with `channel: release`, or from the
    fix branch with `channel: beta` to cut the next `bN`.
 
 ## Step 4 — GitHub release and tags
@@ -111,6 +111,8 @@ a beta on PyPI, delete or leave the git tag as needed and publish the next `bN`/
 | Tag already referenced externally | **Do not** rewrite history; publish new tag `vX.Y.Z+1` and mark the old GitHub Release with **“Set as a pre-release”** (GitHub UI checkbox) plus a warning in the notes |
 | GitHub Release notes wrong | Edit release description; link to corrective version |
 
+To move a tag by hand:
+
 ```bash
 # Delete a remote tag only when safe (no external references)
 git push origin :refs/tags/v1.0.0
@@ -118,7 +120,7 @@ git tag -a v1.0.1 <fixed-sha> -m "Release 1.0.1"
 git push origin v1.0.1
 ```
 
-Note: this is a manual, out-of-band path (a fix-and-re-tag, not a normal release). The
+Replace `<fixed-sha>` with the commit that contains the fix. This is a manual, out-of-band path (a fix-and-re-tag, not a normal release). The
 normal forward path for creating a release tag uses the **Create Release Tag**
 workflow (`.github/workflows/create-tag.yml`, see [packaging.md](packaging.md)), which
 validates version format, package-version consistency, and the CHANGELOG entry before
@@ -151,10 +153,12 @@ before public announcement.
 ## Docker images
 
 Demo MCP images built from yanked wheels should be rebuilt and re-tagged with the
-fixed version. Document the new tag in release notes; do not delete public images
+fixed version. Document the corrected tag in release notes; do not delete public images
 without a communications plan.
 
 ## Quick reference
+
+Check what the resolver picks after a yank, and install the fixed version:
 
 ```bash
 # Verify what pip would install after yank
@@ -166,7 +170,7 @@ pip install node-wire-runtime==1.0.1
 
 ## Related docs
 
-- [Packaging & Publishing](packaging.md) — publish workflow and pre-publish checks
+- [Packaging & publishing](packaging.md) — publish workflow and pre-publish checks
 - [Versioning policy](versioning.md) — when to bump MAJOR/MINOR/PATCH (and PEP 440 betas)
-- [Security Policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) — vulnerability reporting and advisories
+- [Security policy](https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md) — vulnerability reporting and advisories
 - [Quality & security gates](quality-security-gates.md) — CI checks and scans

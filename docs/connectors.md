@@ -12,16 +12,18 @@ Actions, auth, secrets and setup guides for every shipped connector are in the [
 
 Writing your own connector? See [Build a connector](connectors-build.md).
 
-The example below uses **`http_generic`** for two tenants.
+The following example uses **`http_generic`** for two tenants.
 
 ## In-process (Python)
+
+The following script entitles two tenants, runs an action, and shows the fail-closed cases:
 
 ```python
 import asyncio
 import os
 
 os.environ["NW_ALLOWED_CONNECTORS"] = "http_generic"
-os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"  # local only — see note below
+os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"  # local only — see the Scope policy note after the output
 os.environ["NW_HTTP_GENERIC_ALLOWED_HOSTS"] = "httpbin.org"
 
 from bindings.factory import ConnectorFactory
@@ -72,7 +74,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Output:
+The output is similar to the following:
 
 ```text
 acme: True 200
@@ -80,6 +82,10 @@ initech: no config for tenant 'initech' / connector 'http_generic'
 mismatch: False TENANT_MISMATCH
 acme after delete: no config for tenant 'acme' / connector 'http_generic'
 ```
+
+The following recording shows the script running, saved as `tenants_demo.py`, with log output hidden:
+
+![Terminal running the tenants_demo.py script: acme succeeds with status 200, initech has no config, the pinned instance refuses globex with TENANT_MISMATCH, and acme is refused after its config is deleted.](images/media/connector-tenants.gif)
 
 What each step relies on:
 
@@ -91,7 +97,7 @@ What each step relies on:
 | `run(payload)` | Validation → policy → retries → error mapping. The instance is pinned to its tenant, so leave `tenant_id` off; a different one returns `TENANT_MISMATCH` without calling out. |
 | `store.update` / `store.delete` | Take effect on the next `get()` — the cached instance for that config is dropped at once. |
 
-The store is in-process memory. Anything you add with `store.create()` is gone on restart unless you persist it. The REST config API below writes to `NW_TENANTS_PATH` for you.
+The store is in-process memory. Anything you add with `store.create()` is gone on restart unless you persist it. The [REST config API](#over-rest) writes to `NW_TENANTS_PATH` for you.
 
 **Scope policy.** `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is only for local scripts. In a real host, pass `scopes=("mcp:http_generic.request",)` (or `principal`) to `run()`. See [Security](connectors-build.md#security-rest-plugins-secrets).
 
@@ -107,27 +113,37 @@ NW_ALLOWED_CONNECTORS=http_generic NW_MCP_SCOPE_POLICY_DEFAULT=allow \
 MODE=API uv run node-wire
 ```
 
-The tenant always comes from the `X-Tenant-ID` header (or the caller's JWT tenant claim), never from the URL:
+The tenant always comes from the `X-Tenant-ID` header (or the caller's JWT tenant claim), never from the URL.
+
+To entitle `acme`, create a config for it. This writes to `NW_TENANTS_PATH` (default `config/tenants.yaml`):
 
 ```bash
-# Entitle acme (writes to NW_TENANTS_PATH, default config/tenants.yaml)
 curl -X POST localhost:8000/v1/connectors/http_generic/configs \
-  -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
-  -d '{"name": "default", "config": {}}'
-# → 201 {"name": "default", "default": true}
-
-# Call the connector as acme
-curl -X POST localhost:8000/connectors/http_generic/request \
-  -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
-  -d '{"method": "GET", "url": "https://httpbin.org/get"}'
-# → 200 {"success": true, "data": {"status_code": 200, ...}}
-
-# A tenant with no config
-curl -X POST localhost:8000/connectors/http_generic/request \
-  -H 'X-Tenant-ID: initech' -H 'Content-Type: application/json' \
-  -d '{"method": "GET", "url": "https://httpbin.org/get"}'
-# → 403
+    -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
+    -d '{"name": "default", "config": {}}'
 ```
+
+The response is `201` with `{"name": "default", "default": true}`. Next, call the connector as `acme`:
+
+```bash
+curl -X POST localhost:8000/connectors/http_generic/request \
+    -H 'X-Tenant-ID: acme' -H 'Content-Type: application/json' \
+    -d '{"method": "GET", "url": "https://httpbin.org/get"}'
+```
+
+The response is `200` with `"success": true` and the upstream `status_code` in `data`. A tenant with no config is refused:
+
+```bash
+curl -X POST localhost:8000/connectors/http_generic/request \
+    -H 'X-Tenant-ID: initech' -H 'Content-Type: application/json' \
+    -d '{"method": "GET", "url": "https://httpbin.org/get"}'
+```
+
+The response is `403`.
+
+The following recording shows the same calls against a local server, plus a health check:
+
+![Terminal running curl against the REST API: health returns ok, creating acme's config returns default true, the request as acme returns success true with status 200, and the request as initech returns 403.](images/media/rest-tenants.gif)
 
 Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_name": "<name>"` to the request body to pick a named config. The rest of the config API is `GET`/`PUT`/`DELETE /v1/connectors/{cid}/configs/{name}` and `PUT …/{name}/default`. For MCP, the same store sits behind the `nw_list_tenants` / `nw_select_tenant` / `nw_select_config` tools. See [Tenancy — MCP tools](architecture/tenancy.md#mcp-tenant-and-config-tools).
 
@@ -137,7 +153,7 @@ Leaving out `X-Tenant-ID` returns `400` while multi-tenancy is on. Add `"config_
 
 | Doc | When to read it |
 |-----|-----------------|
-| [connector-reference.md](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector catalog |
-| [connector-bindings.md](connector-bindings.md) | How actions map to REST routes, MCP tools and gRPC methods |
+| [Connector reference](connector-reference.md) | `ConnectorFactory` / registry APIs, `connectors.yaml` schema, connector catalog |
+| [Connectors on REST, MCP and gRPC](connector-bindings.md) | How actions map to REST routes, MCP tools and gRPC methods |
 | [Tenancy](architecture/tenancy.md) | Tenant resolution, entitlement and tenant secrets |
 | [Build a connector](connectors-build.md) | Writing a new connector by hand |

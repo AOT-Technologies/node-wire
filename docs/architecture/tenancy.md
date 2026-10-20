@@ -13,6 +13,10 @@ A runnable walkthrough is in [Use a connector](../connectors.md).
 
 Read [Domain](domain.md#tenancy) and [Seams](seams.md) first.
 
+The following diagram shows the model in brief. Each tenant gets an instance pinned to its own config and secrets, and a tenant with no config is refused:
+
+![Requests from tenants acme and globex get instances pinned to their own config and credentials. Tenant initech has no config and is refused.](../images/media/tenancy.svg)
+
 ## Single-tenant by default
 
 With `NW_MULTITENANCY_ENABLED` unset or `false`, every call resolves to `__default__`, and the
@@ -20,7 +24,7 @@ connectors enabled in `config/connectors.yaml` are that tenant's configs. Set it
 resolve a tenant per request. `NW_TENANTS_PATH` (default `config/tenants.yaml`, gitignored) holds
 the named configs and per-tenant secret overlays. REST, gRPC and standalone MCP
 (`agents.mcp_entrypoint`, generated hosts, ToolHive images) all load it at startup.
-`config/tenants.example.yaml` shows the format.
+The format is shown in the `config/tenants.example.yaml` that `nw gen-stacklok` writes into a generated project ([stacklok MCP servers](../stacklok-mcp-servers.md#what-the-generated-server-does)); the repository's own `config/` has no example file.
 
 ## Entitlement and named configs
 
@@ -42,16 +46,16 @@ The highest source wins:
 | Transport | 1st | 2nd | 3rd |
 |---|---|---|---|
 | REST / gRPC | The caller's tenant (tenant-bound key or JWT `tenant` claim), else `X-Tenant-ID` header (see below) | — | — |
-| MCP streamable-http | The caller's tenant, else `X-Tenant-ID` header (per request) | `nw_select_tenant` selection | `NW_TENANT_ID` pin |
+| MCP streamable-http | The caller's tenant, else `X-Tenant-ID` header (per request) | — | — |
 | MCP stdio | `nw_select_tenant` selection, unless `NW_MCP_TENANT_PIN_LOCKED=true` | `NW_TENANT_ID` pin | — |
 
 - `NW_TENANT_ID_HEADER` renames the header. The tenant never comes from the URL, and it is never a
   connector-tool argument.
 - With multi-tenancy on, a request with no tenant fails with `400 MISSING_TENANT`. There is no
   fallback to `__default__`.
-- On streamable-http the per-request header always wins, so one client's `nw_select_tenant` can
+- On streamable-http the per-request tenant always wins, so one client's `nw_select_tenant` can
   never shadow another concurrent client's tenant. A tool's `tenant_id` argument cannot leave the
-  request tenant either.
+  request tenant either. `NW_TENANT_ID` is read only on stdio.
 - Streamable-http is stateless: every `POST` is authenticated and its tenant and upstream bearer
   resolved on its own, so a refreshed token or a new `X-Tenant-ID` applies to the next call. No
   `Mcp-Session-Id` is issued, and `GET` (server-to-client stream) returns `405`.
@@ -127,7 +131,8 @@ A named tenant's secret is looked up under one scoped key:
 - `NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}` for a named config (one credential vault per named config).
 
 The value comes from the config's `secrets:` block in `tenants.yaml` (loaded into an in-memory
-overlay that is checked first), then from the environment. Non-alphanumeric characters become `_` and the name is upper-cased: config `test-drive` for tenant
+overlay that is checked first), then from the environment. Non-alphanumeric characters become `_`
+and the name is upper-cased: config `test-drive` for tenant
 `acme` on Google Drive reads `NW_ACME_GOOGLE_DRIVE_TEST_DRIVE_SA_JSON`. A missing secret fails
 with `tenant secret not found: <tenant>/<connector>/...`.
 
@@ -170,7 +175,7 @@ and `nw-mcp-builder` hosts) adds these tools:
 | Tool | Does |
 |---|---|
 | `nw_list_tenants` `{connector_id?}` | Lists tenants with configs, plus `current_tenant_id` / `pinned_tenant_id`. `NW_MCP_ALLOWED_TENANTS` limits the list. |
-| `nw_select_tenant` `{tenant_id}` | Sets the session tenant for **every connector** on this process and returns its configs. Rejected when `NW_MCP_TENANT_PIN_LOCKED=true`. Unknown tenants fail closed. |
+| `nw_select_tenant` `{tenant_id}` | Sets the session tenant for **every connector** on this process and returns its configs. On stdio it overrides the `NW_TENANT_ID` pin. On streamable-http the request's tenant still wins, so the selection does not change which tenant tool calls use. Rejected when `NW_MCP_TENANT_PIN_LOCKED=true`. Unknown tenants fail closed. |
 | `nw_list_configs` `{connector_id?, tenant_id?}` | Lists named configs for the selected or pinned tenant. |
 | `nw_select_config` `{config_name}` | Makes that name the default for **every connector** on this process. It returns `connectors_with_config` / `connectors_missing_config`. |
 
@@ -182,6 +187,10 @@ Things that surprise people:
 - **One config name for all connectors.** If tenant `acme` has Drive config `test-drive` but Epic
   only `test`, Epic calls fail until you select a name that exists on every connector you call, or
   add the missing config.
+- **On streamable-http, select the tenant with the request.** Every HTTP request already carries a
+  tenant (the caller's tenant or `X-Tenant-ID`), and that tenant outranks `nw_select_tenant`.
+  A tool's `tenant_id` argument cannot leave the request tenant. To switch tenant over HTTP,
+  send a different `X-Tenant-ID`.
 - **Selections are per process.** Two images (Drive, Epic) are two processes, and selecting on one
   does not change the other. Run one MCP server with both connectors (`agents.mcp_entrypoint`) when
   one selection should cover both.
@@ -194,7 +203,7 @@ A typical session:
 1. tools/call nw_list_tenants  { "connector_id": "google_drive" }   # optional filter
 2. tools/call nw_select_tenant { "tenant_id": "<id from step 1>" }  # returns configs
 3. tools/call nw_select_config { "config_name": "<name from step 2>" }
-4. tools/call google_drive_files_list  { ... }
+4. tools/call google_drive_files_list  { "page_size": 10 }
 ```
 
 ### Running one multi-tenant MCP container under ToolHive
@@ -205,7 +214,7 @@ For the unified image over stdio, mount host `config/tenants.yaml` read-only at
 | Name | Value |
 |------|--------|
 | `NW_MCP_TRANSPORT` | `stdio` |
-| `NW_ALLOWED_CONNECTORS` | e.g. `google_drive,fhir_epic` |
+| `NW_ALLOWED_CONNECTORS` | for example, `google_drive,fhir_epic` |
 | `NW_MULTITENANCY_ENABLED` | `true` |
 | `NW_TENANTS_PATH` | `/app/config/tenants.yaml` |
 | `NW_MCP_AUTH_DISABLED` | `true` (local only) |
@@ -214,3 +223,8 @@ For the unified image over stdio, mount host `config/tenants.yaml` read-only at
 
 Connector credentials can live in the file's `secrets:` blocks or in per-tenant env vars, so flat
 ToolHive secrets are optional.
+
+## Next steps
+
+- [Use a connector](../connectors.md): call a connector per tenant, in-process or over REST.
+- [stacklok MCP servers](../stacklok-mcp-servers.md): how generated servers fix the tenant at the proxy.

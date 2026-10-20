@@ -1,0 +1,53 @@
+{
+  "baseUrl": "http://127.0.0.1:6274",
+  "storageState": "/tmp/pw/.auth/docs-state.json",
+  "viewport": { "width": 1280, "height": 800 },
+  "shots": [
+    {
+      "name": "mcp-inspector-add-streamable-http",
+      "doc": "docs/mcp.md",
+      "out": "docs/images/mcp-inspector-add-streamable-http.png",
+      "path": "/",
+      "actions": [
+        { "click": "role=button[name='Add Servers']" },
+        { "click": "role=menuitem[name='+ Add manually']" },
+        { "fill": "role=dialog >> [placeholder='my-server']", "value": "node-wire" },
+        { "click": "role=dialog >> input[value='stdio (local process)']" },
+        { "click": "role=option[name='streamable-http']" },
+        { "fill": "role=dialog >> [placeholder='https://example.com/mcp']", "value": "http://127.0.0.1:8081/mcp" }
+      ],
+      "element": "role=dialog"
+    },
+    {
+      "name": "mcp-inspector-tools",
+      "doc": "docs/mcp.md",
+      "out": "docs/images/mcp-inspector-tools.png",
+      "path": "/",
+      "actions": [
+        { "click": "role=button[name='Add Servers']" },
+        { "click": "role=menuitem[name='+ Add manually']" },
+        { "fill": "role=dialog >> [placeholder='my-server']", "value": "node-wire" },
+        { "click": "role=dialog >> input[value='stdio (local process)']" },
+        { "click": "role=option[name='streamable-http']" },
+        { "fill": "role=dialog >> [placeholder='https://example.com/mcp']", "value": "http://127.0.0.1:8081/mcp" },
+        { "click": "role=dialog >> role=button[name='Add']" },
+        { "click": "xpath=//*[normalize-space(text())='node-wire']/ancestor::div[.//*[@role='switch']][1]//*[@role='switch']/.." },
+        { "waitFor": "text=Connected" },
+        { "click": "text=Tools >> nth=0" }
+      ],
+      "waitFor": "text=salesforce_create_lead"
+    },
+    {
+      "name": "playground-salesforce-crm",
+      "doc": "docs/salesforce_connector.md",
+      "out": "docs/images/playground-salesforce-crm.png",
+      "path": "http://localhost:8000/playground/",
+      "actions": [
+        { "click": "#root-selection-view h3:text-is('Connectors')" },
+        { "click": ".connector-card[data-mode=salesforce]" }
+      ],
+      "waitFor": "#salesforce-panel",
+      "element": "#playground-view .playground-layout"
+    }
+  ]
+}

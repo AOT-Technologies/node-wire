@@ -112,6 +112,7 @@ nav:
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
+    - Troubleshooting: troubleshooting.md
   - Architecture:
     - Overview: architecture.md
     - Domain: architecture/domain.md
@@ -122,10 +123,10 @@ nav:
   - Connectors:
     - Use a Connector: connectors.md
     - Connector Reference: connector-reference.md
+    - Build a Connector: connectors-build.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md
     - Slack: slack_connector.md
-    - Build a Connector: connectors-build.md
   - CLI:
     - Overview: cli/index.md
     - nw CLI: cli/nw-cli.md
@@ -136,19 +137,18 @@ nav:
   - MCP:
     - Overview: mcp.md
     - stacklok MCP servers (nw gen-stacklok): stacklok-mcp-servers.md
-    - Client OAuth: mcp-client-oauth.md
     - Agent Scenario: toolhive_agent_scenario.md
+    - Client OAuth: mcp-client-oauth.md
   - Development:
     - Contributing: contributing.md
     - Code Quality: code-quality-compliance.md
     - Quality & Security Gates: quality-security-gates.md
-    - Versioning: versioning.md
-    - Packaging: packaging.md
     - Public API: public-api.md
-  - Operations:
-    - Troubleshooting: troubleshooting.md
-    - Release & Rollback: release-rollback.md
+  - Ship:
+    - Packaging: packaging.md
     - Local Images: local-packages-to-images.md
+    - Versioning: versioning.md
+    - Release & Rollback: release-rollback.md
   - Compliance:
     - Privacy: privacy.md
     - HIPAA Considerations: compliance/hipaa-considerations.md
@@ -156,6 +156,7 @@ nav:
     - ADR Index: adr/index.md
     - "0001 stacklok MCP builder": adr/0001-stacklok-mcp-builder-on-node-wire.md
     - "0002 Documentation lifecycle": adr/0002-documentation-lifecycle.md
+    - "0003 Python 3.11 to 3.13": adr/0003-python-3-11-to-3-13.md
   - Project:
     - Code of Conduct: https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md
     - Governance: https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md

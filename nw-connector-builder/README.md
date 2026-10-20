@@ -11,6 +11,8 @@ Swagger 2.0 / OpenAPI 3.x document.
 
 **Full documentation:** [docs/cli/nw-connector-builder.md](../docs/cli/nw-connector-builder.md)
 
+Run it from its own folder:
+
 ```bash
 cd nw-connector-builder
 uv sync

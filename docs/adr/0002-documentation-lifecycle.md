@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# ADR 0002 — Documentation lifecycle
+# ADR 0002 — documentation lifecycle
 
 - **Status:** Accepted
 - **Date:** 2026-09-29
@@ -29,7 +29,7 @@ pages, frozen ADRs, and operator task pages.
 | Decision | Why |
 |---|---|
 | **One fact, one owner.** Every fact has one owning page. Other pages link to it and do not restate it. | Copies drift. Two of them already had. |
-| **Change review:** pick the owning page, check the claim against the code, edit that page in place, and delete any copy you find. | Keeps the rule enforceable in review, not just stated. |
+| **Change review:** pick the owning page, check the claim against the code, edit that page in place, and delete any copy you find. | Keeps the rule enforceable in review, not only stated. |
 | **Living pages describe what is true now.** They carry no `Status:` line, no dated history, and no "fixed along the way" lists. Bug chronology and repair notes stay in the PR and `CHANGELOG.md`. | A living page that narrates history stops saying what is true. |
 | **Decision records are frozen** under `docs/adr/`. A later change is a new ADR with `Supersedes:`. The old record gets only a `Superseded by:` back-pointer. | The *why* at the time must survive later edits. |
 | **Plans are not evidence.** A plan or spec describes intent. It does not show that the behaviour shipped. | Stops docs from describing features that never landed. |

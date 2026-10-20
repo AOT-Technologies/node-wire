@@ -8,11 +8,13 @@ SPDX-License-Identifier: Apache-2.0
 
 Shell script to build a ToolHive-ready MCP server from a scope fixture and OpenAPI spec. It runs validate, generate, dependency sync, and optional quality checks in one pass.
 
-> **In the node-wire repo:** `scripts/mcp-servers.registry` and `scripts/build-mcp-server.sh` are kept here for convenience, but scope paths (`e2e/fixtures/real/…`) and generated output (`out/<server>-mcp/`) live in the **[mcp-builder](https://github.com/stacklok/mcp-builder)** clone. Pass `--root /path/to/mcp-builder` (or set `MCP_BUILDER_ROOT`) — do not rely on node-wire as the default root.
+In the node-wire repo, `scripts/mcp-servers.registry` and `scripts/build-mcp-server.sh` are kept here for convenience, but scope paths (`e2e/fixtures/real/…`) and generated output (`out/<server>-mcp/`) live in the **[mcp-builder](https://github.com/stacklok/mcp-builder)** clone. Pass `--root /path/to/mcp-builder` (or set `MCP_BUILDER_ROOT`) — do not rely on node-wire as the default root.
 
 ---
 
 ## Prerequisites
+
+The script needs the following tools:
 
 | Requirement | Notes |
 |-------------|--------|
@@ -24,6 +26,8 @@ Shell script to build a ToolHive-ready MCP server from a scope fixture and OpenA
 | `swagger2openapi` | Required for Slack only |
 
 ### One-time setup
+
+Sync mcp-builder and clone the template next to it:
 
 ```bash
 cd /path/to/mcp-builder
@@ -68,7 +72,7 @@ Print all registry aliases and their output directories:
 scripts/build-mcp-server.sh --list --root G:/SPACE/mcp-builder
 ```
 
-### Options
+### Skip quality checks
 
 Skip quality checks for a faster build:
 
@@ -100,6 +104,8 @@ Aliases are defined in `mcp-servers.registry` (pipe-delimited):
 alias|scope_yaml|openapi_spec|download_url|server_name
 ```
 
+The registry defines these aliases:
+
 | Alias | Output directory |
 |-------|------------------|
 | `spotify` | `out/spotify-mcp` |
@@ -113,11 +119,13 @@ alias|scope_yaml|openapi_spec|download_url|server_name
 | `zoom` | `out/zoom-mcp` |
 | `petstore` | `out/petstore-mcp` |
 
-OpenAPI specs are downloaded on first run when a URL is configured (Slack uses a special Swagger 2.0 conversion — see below).
+OpenAPI specs are downloaded on first run when a URL is configured (Slack uses a special Swagger 2.0 conversion, described later on this page).
 
 ---
 
 ## Options
+
+The script accepts the following options:
 
 | Option | Description |
 |--------|-------------|
@@ -134,6 +142,8 @@ OpenAPI specs are downloaded on first run when a URL is configured (Slack uses a
 
 ### Environment variables
 
+The script reads the following environment variables:
+
 | Variable | Description |
 |----------|-------------|
 | `MCP_BUILDER_ROOT` | Default repo root if `--root` is omitted |
@@ -144,6 +154,8 @@ OpenAPI specs are downloaded on first run when a URL is configured (Slack uses a
 ---
 
 ## What the script does
+
+The script runs these steps in order:
 
 1. Resolve mcp-builder root and load scope/spec paths from the registry.
 2. Download the OpenAPI spec if missing (unless `--skip-download`).
@@ -189,18 +201,22 @@ npm install -g swagger2openapi
 
 ## Adding a server to the registry
 
+To add a server, follow these steps:
+
 1. Add a scope YAML under `e2e/fixtures/real/`.
 2. Add a line to `mcp-servers.registry`:
 
-```text
-my-api|e2e/fixtures/real/my_api.yaml|e2e/fixtures/real/my_api_openapi.yaml|https://example.com/openapi.yaml|my-api
-```
+   ```text
+   my-api|e2e/fixtures/real/my_api.yaml|e2e/fixtures/real/my_api_openapi.yaml|https://example.com/openapi.yaml|my-api
+   ```
 
-3. Build:
+3. Build the server:
 
-```bash
-scripts/build-mcp-server.sh my-api --root /path/to/mcp-builder
-```
+   ```bash
+   scripts/build-mcp-server.sh my-api --root /path/to/mcp-builder
+   ```
+
+Each registry line has these fields:
 
 | Field | Meaning |
 |-------|---------|
@@ -230,6 +246,8 @@ Some OpenAPI specs contain non-ASCII content. The script sets `PYTHONUTF8=1` aut
 
 ## Troubleshooting
 
+The following table lists common problems and their fixes:
+
 | Problem | Solution |
 |---------|----------|
 | `uv` not found | Install uv or set `UV` to the full path |
@@ -243,8 +261,8 @@ Some OpenAPI specs contain non-ASCII content. The script sets `PYTHONUTF8=1` aut
 
 ## See also
 
-- [mcp-builder README](../README.md)
-- [e2e/download_openapi_specs.sh](../e2e/download_openapi_specs.sh)
+- [mcp-builder README](https://github.com/stacklok/mcp-builder/blob/main/README.md)
+- [e2e/download_openapi_specs.sh](https://github.com/stacklok/mcp-builder/blob/main/e2e/download_openapi_specs.sh) in the mcp-builder repo
 - [mcp-builder on GitHub](https://github.com/stacklok/mcp-builder) — upstream repo for `e2e/fixtures/` and `out/<server>-mcp/deploy/`
-- [Google Drive connector (OIDC / ToolHive manifests)](../docs/google_drive_connector.md#user-oauth-oidc--upstream-bearer)
+- [Google Drive connector (OIDC / ToolHive manifests)](../docs/google_drive_connector.md#upstream_bearer)
 - [nw-mcp-builder](../docs/cli/nw-mcp-builder.md)

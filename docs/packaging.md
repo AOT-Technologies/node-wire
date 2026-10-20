@@ -4,13 +4,15 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Packaging & Publishing
+# Packaging & publishing
 
 Node Wire ships as multiple independent PyPI packages (the runtime plus one package per connector) built from a single monorepo. All wheels are binary-only (Cython-compiled `.so`/`.pyd` files) — no `.py` source is included in any published wheel.
 
 ---
 
 ## Package inventory
+
+The following table lists every package the build script produces:
 
 | PyPI name | Source path | Entry-point key |
 |---|---|---|
@@ -28,7 +30,7 @@ Node Wire ships as multiple independent PyPI packages (the runtime plus one pack
 
 Each connector's `pyproject.toml` lives at `packages/connectors/<name>/pyproject.toml`; the runtime's is at `packages/runtime/pyproject.toml`; MCP bindings at `packages/bindings/pyproject.toml`.
 
-**Only the runtime, the connectors, and `node-wire-connectors` ship to PyPI.** `node-wire-connectors` is metadata only (`packages/meta`); it is not in the table above or in `ALL_PACKAGES`. `node-wire-bindings` is built as a
+**Only the runtime, the connectors, and `node-wire-connectors` ship to PyPI.** `node-wire-connectors` is metadata only (`packages/meta`); it is not in the preceding table or in `ALL_PACKAGES`. `node-wire-bindings` is built as a
 local wheel (`scripts/build-packages.sh`, `nw gen-whl --bindings`) for MCP Docker
 images and is deliberately absent from the package lists in `publish.yml`,
 `github-release.yml`, and `security-pr.yml`. Do not add it to them. The same applies to
@@ -44,29 +46,33 @@ This is the one checklist for shipping a connector. Write it first ([Build a con
 
 ### Tier 1 — Runtime (dev, always required)
 
+Update the following files and areas:
+
 | File / area | Purpose |
 |---|---|
 | `src/node_wire_<name>/` | `__init__.py` (required, may be empty), `schema.py`, `logic.py` (with optional `error_map`), optional `action_spec.py`, `README.md` |
-| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install. `uv run` rebuilds the editable install on its next call once `pyproject.toml` changes. If you run `.venv/bin/python` or an activated venv directly, run `uv sync` first or the new entry point is not visible. |
+| Root `pyproject.toml` | `[project.entry-points."node_wire.connectors"]` for editable dev install. `uv run` rebuilds the editable install on its next call once `pyproject.toml` changes. If you run `.venv/bin/python` or an activated venv directly, run `uv sync` first or the added entry point is not visible. |
 | `config/connectors.yaml` | `enabled`, `exposed_via`, `auth:` |
 | [`sample.env`](https://github.com/AOT-Technologies/node-wire/blob/main/sample.env) | Commented placeholders for connector secrets, and the connector id added to the `NW_ALLOWED_CONNECTORS` line |
 | [Connector catalog](connector-reference.md#connector-catalog) | Add an entry with the same fields as the others |
-| Tests | `tests/test_<name>.py`. At minimum, assert three things: the connector instantiates with its `connector_id`, `nw_action_metas()` lists the expected actions, and `auto_register()` (with `NW_ALLOWED_CONNECTORS` set) imports your `logic` module. [Example](connectors-build.md#minimal-http-connector-end-to-end), and see `tests/test_connectors_basic.py`. Run the suite as in [Code quality — Tests](code-quality-compliance.md#tests). |
+| Tests | `tests/test_<name>.py`. At minimum, assert three things: the connector instantiates with its `connector_id`, `nw_action_metas()` lists the expected actions, and `auto_register()` (with `NW_ALLOWED_CONNECTORS` set) imports your `logic` module. See the [minimal HTTP connector example](connectors-build.md#minimal-http-connector-end-to-end) and `tests/test_connectors_basic.py`. Run the suite as in [Code quality — Tests](code-quality-compliance.md#tests). |
 
 `auto_register()` discovers the connector via the entry point — no factory branch required.
 
 ### Tier 2 — Publishable PyPI package
 
+Update the following files:
+
 | File | Purpose |
 |---|---|
-| `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point — see [Tier 2 templates](#tier-2-templates) below |
-| `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates) below |
-| `packages/connectors/<name>/README.md` | The PyPI project page — see [`README.md` template](#readmemd-template) below |
+| `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point — see [Tier 2 templates](#tier-2-templates) |
+| `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates). `nw-connector-builder` generates it for generated connectors. |
+| `packages/connectors/<name>/README.md` | The PyPI project page — see [`README.md` template](#readmemd-template) |
 | `packages/connectors/<name>/LICENSE` | Copy of the repository `LICENSE`; `license-files` ships it in the wheel |
 | [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
-| [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to the `package` dropdown **and** the `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) below |
-| [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) below |
-| [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to matrix `package_path` — see [CI allowlist updates](#ci-allowlist-updates) below |
+| [`.github/workflows/publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | Add to the `package` dropdown **and** the `allowed` set — see [CI allowlist updates](#ci-allowlist-updates) |
+| [`.github/workflows/github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | Add to `package_paths` list — see [CI allowlist updates](#ci-allowlist-updates) |
+| [`.github/workflows/security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | Add to the `pip install` list in the connector audit job — see [CI allowlist updates](#ci-allowlist-updates) |
 | This doc — [Package inventory](#package-inventory) | Add row |
 | Root + all package `pyproject.toml` | Version bump on release via `./scripts/bump-version.py` (`nw-mcp-builder` excluded) |
 | `CHANGELOG.md` | Release section (scaffolded by the bump script; fill in notes before tagging) |
@@ -77,6 +83,8 @@ Every connector package uses the same `pyproject.toml` and `README.md` layout, s
 alike. Only the marked fields change from one connector to the next.
 
 #### `pyproject.toml` template
+
+Start from the following `pyproject.toml`:
 
 ```toml
 # SPDX-FileCopyrightText: 2026 AOT Technologies
@@ -117,7 +125,7 @@ classifiers = [
 
 dependencies = [
     "node-wire-runtime>=1.0.0",
-    # Add vendor SDK or HTTP client here, e.g.:
+    # Add vendor SDK or HTTP client here, for example:
     # "httpx[http2]>=0.27.0,<0.28.0",
 ]
 
@@ -142,6 +150,8 @@ include = ["node_wire_<name>*"]
 ```
 
 #### `setup.py` template
+
+Start from the following `setup.py`:
 
 ```python
 #
@@ -279,9 +289,11 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 Apache-2.0. See [LICENSE](https://github.com/AOT-Technologies/node-wire/blob/main/LICENSE).
 ````
 
-Replace `<name>` with the connector's snake_case name (e.g. `my_service`), `<dist-name>` with the
-same name in kebab case (e.g. `my-service`), and `<connector_id>` with the entry-point key (same
-string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`).
+Replace the following:
+
+- `<name>`: the connector's snake_case name, for example, `my_service`.
+- `<dist-name>`: the same name in kebab case, for example, `my-service`.
+- `<connector_id>`: the entry-point key, the same string used in `config/connectors.yaml` and `NW_ALLOWED_CONNECTORS`.
 
 ### CI allowlist updates
 
@@ -292,20 +304,20 @@ source of truth for its list. Add `packages/connectors/<name>` to each:
 |---|---|---|
 | [`publish.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/publish.yml) | `on.workflow_dispatch.inputs.package.options` **and** the `allowed` set in the validate step | Both must agree. A path missing from `allowed` fails at validate; a path missing from the dropdown is unreachable. |
 | [`github-release.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/github-release.yml) | `package_paths` in the release-manifest step | Lists what the release manifest covers. |
-| [`security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | `strategy.matrix.package_path` | Each entry gets a `pip-audit` job. |
+| [`security-pr.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/.github/workflows/security-pr.yml) | The `pip install` list in the **Install packages and audit tool** step | All listed packages install into one environment that a single `pip-audit` run scans. |
 
 Never add `packages/bindings` or `packages/toolhive` to them. Those are local-only wheels.
 
 ### Tier 3 — Standalone MCP server (optional)
 
-> **Prerequisite:** Tier 2 (the PyPI wheel) must be completed first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
+Complete Tier 2 (the PyPI wheel) first. The Dockerfile copies pre-built `.whl` files from `packages/connectors/<name>/dist/`; that directory does not exist until you run `bash scripts/build-packages.sh packages/connectors/<name>`.
 
 Use when you need a dedicated Docker/ToolHive image for a single connector (not required for the combined `agents.mcp_entrypoint` server). For the wheel → image mapping see [local-packages-to-images.md](local-packages-to-images.md); for an existing connector's entrypoint/Dockerfile, use `src/agents/<name>_mcp.py` and `docker/<name>/Dockerfile` as templates.
 
 | File | Purpose |
 |---|---|
 | `src/agents/<name>_mcp.py` | Per-connector MCP agent entrypoint |
-| Root `pyproject.toml` | `[project.scripts]` e.g. `nw-<kebab-name>` |
+| Root `pyproject.toml` | `[project.scripts]` entry, for example, `nw-<kebab-name>` |
 | `docker/<name>/Dockerfile` | Demo MCP image |
 | [`scripts/build-mcp-images.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-mcp-images.sh) | `docker build` block |
 | [`docker-compose.mcp.yml`](https://github.com/AOT-Technologies/node-wire/blob/main/docker-compose.mcp.yml) | Service + `NW_ALLOWED_CONNECTORS` |
@@ -320,7 +332,7 @@ Prerequisites: `pip install build cython wheel` (and a usable `python` on the ho
 
 ### Build all packages (default)
 
-For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](cli/nw-cli.md) — it wraps this script with Linux-only as the default.
+For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](cli/nw-cli.md) — it wraps this script with Linux-only as the default. To build every package, run:
 
 ```bash
 bash scripts/build-packages.sh
@@ -331,6 +343,8 @@ Default mode builds each package path listed in `ALL_PACKAGES` in the script (se
 Linux builds use a **local-only** image `nw-wheel-builder:local` from [`docker/wheel-builder/Dockerfile`](https://github.com/AOT-Technologies/node-wire/blob/main/docker/wheel-builder/Dockerfile) (build-essential + Cython toolchain). The script runs `docker build` once per invocation; Docker layer cache makes later runs fast when the Dockerfile is unchanged. This image is **not published** to Docker Hub or any registry.
 
 ### Host-only or Linux-only
+
+The following commands restrict the build to one target:
 
 ```bash
 # Fast local iteration — host OS wheels only (no Docker)
@@ -359,6 +373,8 @@ rm -f packages/connectors/stripe/dist/*.whl
 ```
 
 ### Build a single package
+
+Pass the package path:
 
 ```bash
 bash scripts/build-packages.sh packages/connectors/stripe
@@ -392,7 +408,7 @@ Python's own default is `-O3 -g`. Generated connector modules contain one very l
 function, and gcc's higher optimisation levels take minutes on it: slack_web's `schema.c` took
 173s at `-O3` and 37s at `-O1`. The compiled code is almost entirely Python C-API calls, so the
 lower level costs little at run time, and dropping debug info roughly halves wheel size. Override
-the flags with `NW_WHEEL_CFLAGS`.
+the flags with `NW_WHEEL_CFLAGS`. The following commands show each selector:
 
 ```bash
 uv sync --all-extras --dev
@@ -414,6 +430,8 @@ unzip -l packages/connectors/stripe/dist/node_wire_stripe-*.whl
 
 ### Install from wheels and verify entry points
 
+Install the wheels into a clean environment and list the registered entry points:
+
 ```bash
 # Install into an active (clean) virtual env
 pip install \
@@ -428,6 +446,8 @@ print(list(entry_points(group='node_wire.connectors')))
 ```
 
 ### Verify connector loading
+
+Check that `auto_register()` loads the installed connectors:
 
 ```bash
 python -c "
@@ -469,7 +489,7 @@ still set `NW_ALLOWED_CONNECTORS` and may set `NW_CONNECTOR_MODULE_PREFIX`
 An installed connector runs only if it is `enabled` in `connectors.yaml` and named in
 `NW_ALLOWED_CONNECTORS`. Keys: [Connector reference](connector-reference.md#configconnectorsyaml).
 Per-connector secrets: [catalog](connector-reference.md#connector-catalog). Secret backends:
-[Configuration — Secrets Management](configuration.md#secrets-management).
+[Configuration — Secrets management](configuration.md#secrets-management).
 `src/node_wire_runtime/connectors.yaml.sample` is a commented template with every supported field.
 
 ---
@@ -492,8 +512,7 @@ pre-releases: `pip install node-wire-runtime` stays on stable;
 **Create Release Tag** (`.github/workflows/create-tag.yml`) accepts both
 `MAJOR.MINOR.PATCH` and PEP 440 pre-releases (`aN` / `bN` / `rcN`). It checks
 that the tag is free, package versions match, and `CHANGELOG.md` has the matching
-entry, then pushes `v…`. Stable releases use it with the version from the steps
-below; [Beta PyPI publish](#beta-pypi-publish) does not use it at all.
+entry, then pushes `v…`. Stable releases use it with the version from the following steps; [Beta PyPI publish](#beta-pypi-publish) does not use it at all.
 
 ### Stable release
 
@@ -513,9 +532,9 @@ below; [Beta PyPI publish](#beta-pypi-publish) does not use it at all.
 
 Dispatch **Create Release Tag** in Actions with `version` set to `1.0.0` (no
 leading `v`). For stable releases, run this before dispatching "GitHub Release"
-below.
+in Step 3.
 
-Manual fallback, if you must create the tag by hand (bypasses the validation above):
+Manual fallback, if you must create the tag by hand (bypasses the preceding validation):
 
 ```bash
 git tag -a v1.0.0 -m "Release 1.0.0"
@@ -530,7 +549,7 @@ Stable versions only — the workflow rejects PEP 440 pre-releases.
 **Workflow:** `.github/workflows/github-release.yml` — manual `workflow_dispatch`
 after the tag has been pushed.
 
-The workflow:
+The workflow does the following:
 
 1. Validates all package versions match the tag.
 2. Verifies `CHANGELOG.md` has the matching section and release link.
@@ -545,14 +564,14 @@ package** (once per entry in the `allowed` set in that workflow). There is no ve
 input — the version is read from the selected package's `pyproject.toml`, so dispatch
 from the release tag via the **Use workflow from** dropdown.
 
-**Required inputs:**
+The workflow takes the following required inputs:
 
 | Input | Example | Notes |
 |---|---|---|
 | `channel` | `release` | `release` publishes the declared version as-is; `beta` derives the next pre-release |
 | `package` | `packages/connectors/stripe` | Dropdown backed by the workflow allowlist |
 
-**Prerequisites checked before build (`channel: release`):**
+For `channel: release`, the workflow checks the following before it builds:
 
 - `package` is allowlisted.
 - Package `pyproject.toml` declares a stable `X.Y.Z` version.
@@ -560,20 +579,20 @@ from the release tag via the **Use workflow from** dropdown.
 - `CHANGELOG.md` contains the matching release section/link.
 - A GitHub Release exists for `v<version>`.
 
-**Pipeline steps:**
+The pipeline runs the following steps:
 
 1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (CPython 3.11, 3.12, 3.13)
 2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
-3. Merge artifacts; `pip-audit --fail-on HIGH` CVE gate
+3. Merge artifacts; `pip-audit` CVE gate (any known vulnerability blocks publish)
 4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations
 
-> **Note:** The release-level SBOM is attached to the GitHub Release (step 3).
-> Package publish produces PyPI Sigstore attestations per wheel; it does not
-> generate a separate SBOM.
+The release-level SBOM is attached to the GitHub Release (step 3).
+Package publish produces PyPI Sigstore attestations per wheel; it does not
+generate a separate SBOM.
 
-> **PyPI Trusted Publisher:** The workflow file is kept as `publish.yml` and the
-> workflow name as `Publish Node Wire package` so existing PyPI publisher
-> configuration continues to work. Stable and beta both use this same publisher.
+The workflow file is kept as `publish.yml` and the
+workflow name as `Publish Node Wire package` so the existing PyPI Trusted Publisher
+configuration continues to work. Stable and beta both use this same publisher.
 
 If a published release must be withdrawn or replaced, follow
 [release-rollback.md](release-rollback.md) (PyPI yank, corrective patch release,
@@ -588,14 +607,15 @@ versions).
 Leave `pyproject.toml` on the plain `X.Y.Z` version you are working towards —
 publish derives the pre-release suffix itself.
 
-1. Confirm the packages declare the target stable version (e.g. `1.2.0`) and CI is green.
+1. Confirm the packages declare the target stable version (for example, `1.2.0`) and CI is green.
 2. Dispatch `.github/workflows/publish.yml` from that branch or tag, once per
    allowlisted package, with `channel: beta`. The workflow reads what is already on
    PyPI and publishes the next unused suffix — `1.2.0b1`, then `1.2.0b2`, and so on —
    stamping it into the wheel at build time. No changelog entry, git tag, or GitHub
    Release is required; pipeline steps are otherwise identical to stable.
 
-> **Note:** `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
+> [!NOTE]
+> `./scripts/bump-version.py` still accepts `aN`/`bN`/`rcN`, but publish
 > rejects a pre-release `project.version`. Keep the source tree on `X.Y.Z` and let
 > `channel: beta` derive the suffix.
 
@@ -611,7 +631,7 @@ pip install node-wire-runtime==1.2.0b1
 
 ## CI publish flow (Trusted Publisher)
 
-See [Release process (tag-first)](#release-process-tag-first) above for the full
+See [Release process (tag-first)](#release-process-tag-first) for the full
 end-to-end flow (stable and beta). The package publish workflow is
 `.github/workflows/publish.yml`.
 
@@ -636,3 +656,11 @@ Run these gates before triggering the CI publish workflow (default `build-packag
 - [ ] `pytest tests/test_connector_registry.py tests/test_connectors_basic.py` passes
 - [ ] Wheel SHA256 checksums recorded and match expected values
 - [ ] `package` and `channel` inputs are correct before dispatching, and for `channel: release` the tag and GitHub Release already exist
+
+---
+
+## Related docs
+
+- [Local package to Docker image workflow](local-packages-to-images.md) — build wheels and MCP images locally
+- [Release rollback and unpublish runbook](release-rollback.md) — yank and corrective releases
+- [Versioning policy](versioning.md) — when to bump MAJOR, MINOR, or PATCH

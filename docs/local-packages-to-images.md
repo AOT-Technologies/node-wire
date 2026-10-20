@@ -14,7 +14,7 @@ The Dockerfiles in this repo install local wheel artifacts from `packages/**/dis
 
 ## Prerequisites
 
-- Python 3.13+ available in your shell
+- Python 3.11, 3.12 or 3.13 available in your shell
 - Docker installed and running
 - Build tooling installed:
 
@@ -26,9 +26,9 @@ Run all commands from the repository root. The build context must be the reposit
 
 ---
 
-## 1) Build wheel packages locally
+## Build wheel packages locally
 
-Build all runtime + connector wheels:
+Build the wheels for every package (runtime, bindings, ToolHive and the connectors):
 
 ```bash
 bash scripts/build-packages.sh
@@ -44,15 +44,16 @@ bash scripts/build-packages.sh \
 ```
 
 The script (`scripts/build-packages.sh` in default mode, not `--all`):
+
 - builds host wheels and Linux-compatible wheels (via a local `nw-wheel-builder:local` Docker image — not published to a registry; layer-cached after the first build),
 - writes artifacts under each package's `dist/` folder,
 - fails if any `.py` source files leak into a wheel.
 
-Use `--linux-only` when you only need container wheels, or `--host-only` to skip Docker. For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [packaging.md](packaging.md).
+Use `--linux-only` when you only need container wheels, or `--host-only` to skip Docker. For optional local `cibuildwheel` builds (broader wheel matrix on your host), see [Packaging — Optional: broader wheels](packaging.md#optional-broader-wheels-with-cibuildwheel-all).
 
 ---
 
-## 2) Confirm wheel artifacts exist
+## Confirm wheel artifacts exist
 
 Quick check (example for SMTP):
 
@@ -66,9 +67,11 @@ If `ls` fails, rebuild that package before continuing.
 
 ---
 
-## 3) Build Docker images from local wheels
+## Build Docker images from local wheels
 
 ### Build all MCP connector images
+
+Run the build script:
 
 ```bash
 ./scripts/build-mcp-images.sh
@@ -79,6 +82,8 @@ Each image is tagged `latest` and the version, which defaults to the one in `pyp
 ```bash
 ./scripts/build-mcp-images.sh --version 1.0.0
 ```
+
+The script builds the following images:
 
 | Image | Dockerfile |
 |---|---|
@@ -92,19 +97,21 @@ Each image is tagged `latest` and the version, which defaults to the one in `pyp
 
 ### Build one image manually
 
+Build a single image with `docker build`:
+
 ```bash
 docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 ```
 
 ---
 
-## 4) Run them with Docker Compose
+## Run them with Docker Compose
 
 `docker-compose.mcp.yml` starts every MCP server as a stdio container, which is useful for local
 validation before configuring ToolHive. It needs the images built and your `.env` populated with
 the credentials of the connectors you run. Each service pins `NW_ALLOWED_CONNECTORS` to its own
 connector, so a broad value in `.env` does not make a per-connector image import optional
-dependencies it does not contain.
+dependencies it does not contain. To start every server, or a single one, run:
 
 ```bash
 docker compose -f docker-compose.mcp.yml up --build
@@ -156,6 +163,8 @@ Start Docker Desktop (or daemon) and retry package/image builds.
 
 ## Recommended local loop
 
+A typical iteration rebuilds the changed packages, then the image, then checks it:
+
 ```bash
 # 1) Rebuild changed packages
 bash scripts/build-packages.sh packages/runtime packages/connectors/smtp
@@ -166,3 +175,8 @@ docker build -f docker/smtp/Dockerfile -t nw-smtp:local .
 # 3) Verify image exists
 docker images --filter reference=nw-smtp
 ```
+
+## Related docs
+
+- [Packaging and publishing](packaging.md) — package inventory and release process
+- [ToolHive agent scenario](toolhive_agent_scenario.md) — register the images in ToolHive

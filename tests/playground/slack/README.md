@@ -4,13 +4,15 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Slack Playground Integration Tests
+# Slack playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the Slack connector panel, and assert on the rendered pipeline
 state. No mocking — every test hits the real Slack API.
 
 ## What is tested
+
+The suite contains the following tests:
 
 | Test | Action |
 |------|--------|
@@ -31,6 +33,8 @@ No `page.route()` interception.
 
 ## Running locally
 
+Install the browser once, then run the tests:
+
 ```bash
 # Install Playwright browsers (once)
 uv run python -m playwright install chromium
@@ -42,7 +46,8 @@ uv run pytest tests/playground/slack/ --no-cov -v
 PLAYGROUND_HEADED=true uv run pytest tests/playground/slack/ --no-cov -v -s
 ```
 
-> **Note:** Slack tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> Slack tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables
@@ -55,6 +60,8 @@ Set these before running (`.env` is loaded automatically if present):
 | `NW_REST_AUTH_DISABLED` | Set to `true` to skip REST auth middleware |
 
 ## Optional environment variables
+
+These variables are optional:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
