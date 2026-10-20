@@ -31,17 +31,6 @@ choose your workflow engines and AI frameworks. OpenAPI-based connector and MCP
 generation, tenant-specific configuration and a shared runtime with built-in
 validation, resilience and telemetry reduce integration effort.
 
-Each connector is an adapter for one external system: Google Drive, SMTP,
-Stripe, FHIR, Salesforce, Slack, or any HTTP API with an OpenAPI spec. The
-runtime gives every action one execution contract and one response envelope, so
-a failure from Stripe and a failure from Salesforce reach the caller with the
-same shape and the same error categories.
-
-The `nw` CLI turns an OpenAPI or Swagger spec into a connector, Python wheels
-and an MCP server in one command, and `nw docker-build` packages that server as
-a Docker image. Tenancy is built in: each
-tenant gets its own config and secrets, and an instance pinned to one tenant
-can't act for another.
 
 ## What it provides
 
@@ -59,7 +48,6 @@ node wire gives every connector the following:
   and a tool search mode for connectors with hundreds of tools.
 - Code generation from OpenAPI and Swagger specs, plus `nw gen-stacklok` for
   ToolHive-ready MCP servers with an AI-curated tool set.
-- Eight shipped connectors, published on PyPI as `node-wire-connectors`.
 
 ## Quick start
 

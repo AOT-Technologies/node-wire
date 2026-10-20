@@ -89,15 +89,13 @@
   <rect x="530" y="249" width="208" height="26" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <g class="hl" style="--d: 7s; --w: 2.5s"><rect x="530" y="249" width="208" height="26" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
   <text x="542" y="266" class="b" text-anchor="start" fill="#111827">Error mapping</text>
-  <rect x="790" y="76" width="132" height="70" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
-  <g class="hl" style="--d: 7s; --w: 3.0s"><rect x="790" y="76" width="132" height="70" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <rect x="790" y="76" width="132" height="194" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 3.0s"><rect x="790" y="76" width="132" height="194" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
   <text x="808" y="102" class="t" text-anchor="start">Connector</text>
   <text x="808" y="120" class="m" text-anchor="start">@nw_action</text>
-  <text x="790" y="176" class="t" text-anchor="start">Shipped</text>
-  <text x="790" y="194" class="b" text-anchor="start">Drive · Salesforce</text>
-  <text x="790" y="210" class="b" text-anchor="start">Slack · Stripe · +4</text>
-  <text x="790" y="240" class="t" text-anchor="start">Generated</text>
-  <text x="790" y="258" class="b" text-anchor="start">nw gen-all from OpenAPI</text>
+  <text x="808" y="156" class="t" text-anchor="start">Generated</text>
+  <text x="808" y="174" class="m" text-anchor="start">nw gen-all</text>
+  <text x="808" y="190" class="b" text-anchor="start">from OpenAPI</text>
   <text x="960" y="50" class="k" text-anchor="start">EXTERNAL</text>
   <rect x="960" y="86" width="96" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
   <text x="974" y="108.0" class="t" text-anchor="start">APIs</text>

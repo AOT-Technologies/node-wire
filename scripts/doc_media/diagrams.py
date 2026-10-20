@@ -260,15 +260,14 @@ def hero() -> Svg:
         s.text(542, y + 17, step, "b", fill=INK)
 
     # Layer B: connectors
-    s.box(790, 76, 132, 70)
-    s.highlight(790, 76, 132, 70, 7, 3.0)
+    # Same height as the ConnectorFactory box, so the column ends level with Layer C
+    s.box(790, 76, 132, 194)
+    s.highlight(790, 76, 132, 194, 7, 3.0)
     s.text(808, 102, "Connector", "t")
     s.text(808, 120, "@nw_action", "m")
-    s.text(790, 176, "Shipped", "t")
-    s.text(790, 194, "Drive · Salesforce", "b")
-    s.text(790, 210, "Slack · Stripe · +4", "b")
-    s.text(790, 240, "Generated", "t")
-    s.text(790, 258, "nw gen-all from OpenAPI", "b")
+    s.text(808, 156, "Generated", "t")
+    s.text(808, 174, "nw gen-all", "m")
+    s.text(808, 190, "from OpenAPI", "b")
 
     # External
     s.label(960, 50, "External")
