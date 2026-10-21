@@ -126,7 +126,8 @@ name.
   per-part `contentType` from the Encoding Object
 - Responses: the lowest 2xx, else `2XX`, else `default` when no success response is declared
 - Operation- and path-level `servers`: that operation is called at its own server's first entry
-  (`execute_rest(server_url=…)`) instead of the connector's base URL
+  (`execute_rest(server_url=…)`) instead of the spec's base URL. A `base_url` override in
+  `connectors.yaml` still wins, so every operation goes to the operator's host
 
 ### Codegen
 

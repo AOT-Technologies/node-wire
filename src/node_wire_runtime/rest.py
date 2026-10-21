@@ -721,7 +721,9 @@ class RestConnector(BaseConnector):
         query parameters.
 
         ``server_url`` is an operation's own server (OpenAPI operation- or path-level
-        ``servers``), used instead of the connector's base URL for this call. Egress checks
+        ``servers``), used instead of the spec's base URL for this call. An operator
+        ``base_url`` override still wins over it, so a connector pointed at a proxy or
+        gateway never sends its credentials straight to the spec's host. Egress checks
         apply to it like to any other URL.
 
         ``envelope_ok_field`` names a boolean field in the JSON body that the API
@@ -729,7 +731,11 @@ class RestConnector(BaseConnector):
         given and the field comes back ``false``, raises :class:`RestEnvelopeError`
         instead of returning a response that looks successful. Defaults to off.
         """
-        base = server_url.rstrip("/") if server_url else self.resolve_base_url()
+        has_override = bool(self._base_url_override and str(self._base_url_override).strip())
+        if server_url and not has_override:
+            base = server_url.rstrip("/")
+        else:
+            base = self.resolve_base_url()
         split = _split_params(params)
         body, media_type = split.body, split.media_type
         path_params = {

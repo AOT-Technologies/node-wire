@@ -706,3 +706,84 @@ async def test_assert_safe_destination_resolves_public_ok(
     )
     monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
     await assert_safe_destination("https://example.com/ok")
+
+
+# ---------------------------------------------------------------------------
+# Per-operation server_url vs operator base_url override
+# ---------------------------------------------------------------------------
+
+
+def _capture_request_urls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    urls: list[str] = []
+
+    class _FakeResponse:
+        status_code = 200
+        content = b"{}"
+        headers = {"content-type": "application/json"}
+        text = "{}"
+
+        def json(self) -> dict:
+            return {}
+
+    class _FakeClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def request(self, **kwargs: Any) -> _FakeResponse:
+            urls.append(str(httpx.URL(kwargs["url"]).copy_with(query=None)))
+            return _FakeResponse()
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _FakeClient)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination",
+        AsyncMock(return_value=None),
+    )
+    return urls
+
+
+async def _call_with_server_url(connector: RestConnector) -> None:
+    await connector.execute_rest(
+        "GET",
+        "/users/{username}/things",
+        _ListInput(username="octocat"),
+        output_model=RestResponseOutput,
+        trace_id="t1",
+        auth=False,
+        server_url="https://uploads.example.com/v2",
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_uses_operation_server_url_without_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    urls = _capture_request_urls(monkeypatch)
+    await _call_with_server_url(_DemoConnector())
+    assert urls == ["https://uploads.example.com/v2/users/octocat/things"]
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_operator_base_url_override_wins_over_server_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_REST_ALLOWED_HOSTS", "gateway.internal.example.com")
+    urls = _capture_request_urls(monkeypatch)
+    await _call_with_server_url(_DemoConnector(base_url="https://gateway.internal.example.com/"))
+    assert urls == ["https://gateway.internal.example.com/users/octocat/things"]
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_override_with_server_url_still_checks_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
+    urls = _capture_request_urls(monkeypatch)
+    with pytest.raises(ValueError, match="base_url host is not allowed"):
+        await _call_with_server_url(_DemoConnector(base_url="https://evil.example.net"))
+    assert urls == []

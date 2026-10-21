@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `deprecated` operations marked deprecated; `default` used as the success response when no 2xx
     is declared; text, XML and other non-JSON bodies taken as a string; multipart per-part
     `contentType`; operation- and path-level `servers` used for that operation
-    (`execute_rest(server_url=…)`); webhooks and callbacks noted in the build report;
+    (`execute_rest(server_url=…)`) unless the operator overrides `base_url`; webhooks and callbacks noted in the build report;
   - recursive `$ref` cycles cut to a permissive object instead of failing the build;
   - `nw gen-all --base-url`.
 - **`headers:` in `connectors.yaml`** (`node-wire-runtime` 1.1.0): fixed headers a REST connector
