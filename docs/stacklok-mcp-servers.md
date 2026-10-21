@@ -57,8 +57,7 @@ It finds the server generated for the connector and names the image after the pr
 
 For a spec that declares no auth, add `--auth bearer` (or `header:<name>` / `query:<name>`); for
 an API that needs a fixed header on every call, add `--header 'NAME=${VAR}'`. Both are remembered
-with the prepared spec for later `--scope` runs; see [nw CLI](cli/nw-cli.md#nw-gen-stacklok). The
-[GitHub](cli/tutorial-github.md) and [Twitch](cli/tutorial-twitch.md) tutorials use them.
+with the prepared spec for later `--scope` runs; see [nw CLI](cli/nw-cli.md#nw-gen-stacklok).
 Plain `docker build -t <server>-mcp nw-stacklok-builder/out/<server>-mcp` builds the same image.
 Next, check it as in [Verifying a running server](#verifying-a-running-server).
 
