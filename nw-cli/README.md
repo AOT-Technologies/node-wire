@@ -24,7 +24,7 @@ From the **node-wire** repo root:
 ```bash
 uv sync
 
-# One-shot: codegen → Linux wheels → MCP host → wire
+# One-shot: codegen → wheels → MCP host → wire
 uv run nw gen-all --connector-id pet_store --path ./openapi.yaml
 
 # Standalone stages

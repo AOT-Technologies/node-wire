@@ -396,11 +396,10 @@ The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha
 | Problem | What to try |
 |---------|-------------|
 | `No node-wire-runtime wheel in .../dist` | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
-| Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.13-slim`) |
+| `No pure-Python (py3-none-any) ... wheel` / image cannot install `.whl` | `dist/` only has compiled wheels from an older build: rebuild with `nw gen-whl` (or `bash scripts/build-packages.sh <package>`), then regenerate with `--skip-build-wheels` |
 | `Output project already exists` | Pass `--force-output` |
 | `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
 | `No module named bindings` / `No node-wire-bindings wheel` | Build bindings: `nw gen-whl --bindings` |
-| `uv sync` / import errors on generated host | Pin `--python` to the ABI your `.whl` files were built for (`cp313` for the standard 3.13 build) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
 | Connector secrets missing in Docker/ToolHive | Set secrets via `docker run -e` / `--env-file` or the orchestrator. Do not COPY or bind-mount `.env` into the image. |

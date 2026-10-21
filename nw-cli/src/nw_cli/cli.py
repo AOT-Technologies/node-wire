@@ -1060,7 +1060,7 @@ def _stacklok_phase3(
     auth: str | None = None,
     headers: dict[str, str] | None = None,
 ) -> Path:
-    """Phase 3: connector → musllinux wheels → stacklok generator on node-wire.
+    """Phase 3: connector → wheels → stacklok generator on node-wire.
 
     ``reviewed``: Phase 2 already validated the scope and settled replacing the output.
     ``auth`` / ``headers``: this run's ``--auth`` / ``--header``; when not given, the ones
