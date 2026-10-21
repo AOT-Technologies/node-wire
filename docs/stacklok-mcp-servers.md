@@ -23,9 +23,8 @@ and modified only through small hooks.
 
 ## Quick start
 
-Install the dev toolchain as in [Installation](installation.md#3-install-dependencies); its `dev`
-group already includes cibuildwheel, which builds the image's wheels. On top of that,
-`nw gen-stacklok` needs Docker running (wheel builds and the image) and, for Phase 1 only,
+Install the dev toolchain as in [Installation](installation.md#3-install-dependencies). On top of
+that, `nw gen-stacklok` needs Docker running (to build the image) and, for Phase 1 only,
 Claude Code (`claude` on `PATH`). A run with `--scope` doesn't need Claude Code.
 
 One command runs stacklok's Phases 1–3 and pauses for the Phase 2 human review:
@@ -139,17 +138,14 @@ runtime:
    (`spec.base_url` is the connector's base URL). The connector covers every operation; the scope
    decides which ones become tools. The connector is always regenerated from the scope's spec, so
    endpoints map onto it; a hand-written connector with the same id is never overwritten.
-2. **Wheels for the MCP image**: compiled wheels for `node-wire-runtime`, `node-wire-bindings`,
-   `node-wire-toolhive` and the connector.
-   - They must match the image's Python ABI and C library, because node-wire wheels are
-     binary-only. The target is read from the template's base image: stacklok's
-     `dhi.io/python:3.13-alpine` gives **cp313 musllinux**.
-   - Built with cibuildwheel in Docker (`scripts/build-packages.sh --cibw-linux`).
-   - A package whose sources haven't changed since its last build, and that has wheels for every
-     requested architecture, is reused rather than recompiled. The source hash is kept in
-     `dist/.nw-source-<target>.sha256`. In practice, repeat runs rebuild only what changed, often
-     nothing.
-   - The architecture defaults to the host; `NW_WHEEL_ARCHS="x86_64 aarch64"` builds both.
+2. **Wheels for the MCP image**: pure-Python (`py3-none-any`) wheels for `node-wire-runtime`,
+   `node-wire-bindings`, `node-wire-toolhive` and the connector, built with
+   `scripts/build-packages.sh`.
+   - They install on stacklok's Alpine image on any CPU architecture, so there is no target
+     to match. They are the same wheels `nw gen-whl` and `nw gen-all` build.
+   - A package whose sources haven't changed since its last build is reused. The source hash is
+     kept in `dist/.nw-source-py3-none-any.sha256`, so repeat runs rebuild only what changed,
+     often nothing.
    - `--no-wheel` skips the stage and uses whatever is in `dist/`.
 3. **Server** — stacklok's own scope validator checks the scope against the spec, then the
    vendored stacklok generator writes `nw-stacklok-builder/out/<server>-mcp/`

@@ -61,7 +61,7 @@ def test_wiring_has_one_writer_at_a_time() -> None:
 
 
 def test_wheel_builds_that_share_packages_never_overlap() -> None:
-    """Shared packages (runtime, bindings) and a connector's own Cython sources live in src/."""
+    """A wheel build clears its package's build/ and dist/, so builds of one package can't overlap."""
     jobs = e2e.build_jobs()
     ancestors = _ancestors(jobs)
     builders = [job for job in jobs if _builds_wheels(job)]

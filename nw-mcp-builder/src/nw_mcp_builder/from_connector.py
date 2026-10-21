@@ -194,7 +194,7 @@ def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
     except FileNotFoundError:
         py = python or "python"
         subprocess.run(  # nosec B603  # fixed arg list, no shell, local build command
-            [py, "-m", "pip", "install", "build", "cython", "wheel", "setuptools", "-q"],
+            [py, "-m", "pip", "install", "build", "wheel", "setuptools", "-q"],
             check=True,
             capture_output=True,
             text=True,

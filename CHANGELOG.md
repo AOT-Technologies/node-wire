@@ -247,6 +247,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Every package is now a pure-Python wheel** (`py3-none-any`) instead of Cython-compiled
+  per-platform wheels. One wheel installs on Python 3.11–3.13 on every OS and CPU, so the
+  12-job cibuildwheel matrix in `publish.yml` is now a single build job. The changes:
+  - the `setup.py` files, the `cython` build requirement, the `cibuildwheel` dev dependency and
+    `docker/wheel-builder/` are removed, and generated connectors no longer get a `setup.py`;
+  - `scripts/build-packages.sh` builds with `uv build` (or `python -m build`) and needs no Docker.
+    It now rejects any wheel that isn't `py3-none-any` or contains compiled files. The old platform
+    flags are ignored with a note;
+  - `nw gen-whl` drops `--host` and `--all`. `nw gen-stacklok` reuses the same wheels as
+    `nw gen-all`, and `NW_WHEEL_ARCHS` is gone;
+  - stacklok servers pin one wheel per package in `[tool.uv.sources]`, with no per-architecture
+    markers or `[tool.uv] environments`;
+  - the MCP generators skip compiled wheels left in `dist/` by older builds.
+
+  Published wheels now contain the `.py` sources, which are already public in this repository.
+
 - **prance 26 for `nw`** (`cyclonedx-bom` 4.6.1 → 7.5.0, which had held `packaging` at 24.2):
   `nw gen-all` on GitHub's 1,242-operation spec drops from about 6 minutes to under a minute.
   `nw-connector-builder` requires `prance>=26.7.19`.

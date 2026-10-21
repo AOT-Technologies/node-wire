@@ -128,8 +128,8 @@ def test_aws_botocore_error_maps_to_provider_error(aws) -> None:
 def test_aws_import_error_has_install_hint(monkeypatch: pytest.MonkeyPatch) -> None:
     """With boto3 absent, constructing the provider fails with an actionable hint.
 
-    SDK imports are lazy (inside the constructor) so Cython-compiled modules and
-    test stubs both resolve via ``sys.modules`` on each construction.
+    SDK imports are lazy (inside the constructor) so test stubs resolve via
+    ``sys.modules`` on each construction.
     """
     monkeypatch.delitem(sys.modules, "boto3", raising=False)
     monkeypatch.delitem(sys.modules, "botocore", raising=False)

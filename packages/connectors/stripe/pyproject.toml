@@ -19,7 +19,7 @@ dependencies = [
 stripe = "node_wire_stripe.logic"
 
 [build-system]
-requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+requires = ["setuptools>=69.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

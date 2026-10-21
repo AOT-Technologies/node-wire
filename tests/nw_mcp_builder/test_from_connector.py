@@ -13,7 +13,6 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from nw_mcp_builder.generate import connector_project
 from nw_mcp_builder.from_connector import (
     action_to_tool_name,
     discover_actions,
@@ -225,20 +224,16 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert again == project_dir
 
 
-def test_project_gets_the_wheels_its_image_can_install(
-    fake_node_wire: Path, package_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """dist/ also holds gen-stacklok's Alpine wheels and older builds: newest must not win."""
-    monkeypatch.setattr(connector_project, "_image_arch", lambda: "aarch64")
+def test_project_gets_the_pure_python_wheel(fake_node_wire: Path, package_root: Path) -> None:
+    """dist/ can still hold compiled wheels from older builds: a newer one must not win."""
     dist = fake_node_wire / "packages" / "runtime" / "dist"
     for old in dist.glob("*.whl"):
         old.unlink()
-    wanted = dist / "node_wire_runtime-1.1.0-cp313-cp313-linux_aarch64.whl"
+    wanted = dist / "node_wire_runtime-1.1.0-py3-none-any.whl"
     wanted.write_bytes(b"")
     for name in (
         "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl",
-        "node_wire_runtime-1.1.0-cp312-cp312-linux_aarch64.whl",
-        "node_wire_runtime-1.1.0-cp313-cp313-macosx_11_0_arm64.whl",
+        "node_wire_runtime-1.1.0-cp313-cp313-linux_aarch64.whl",
         "node_wire_runtime-1.1.0-cp313-cp313-manylinux_2_28_x86_64.whl",
     ):
         newer = dist / name
@@ -264,7 +259,9 @@ def test_no_installable_wheel_names_what_was_found(
         old.unlink()
     (dist / "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
 
-    with pytest.raises(FileNotFoundError, match="musllinux_1_2_aarch64.*nw gen-whl --runtime"):
+    with pytest.raises(
+        FileNotFoundError, match="py3-none-any.*musllinux_1_2_aarch64.*nw gen-whl --runtime"
+    ):
         run_from_connector(
             "demo_conn",
             node_wire_root=fake_node_wire,

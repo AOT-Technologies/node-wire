@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 | Python | 3.13+ | Required to run the platform |
 | `uv` or `pip` | Latest | `uv` is recommended for local development |
 | Git | Any recent version | Required to clone the repository |
-| Docker | Latest | Required for MCP server image builds, Linux wheel builds (cibuildwheel, installed by the `dev` group) and `docker-compose.mcp.yml` |
+| Docker | Latest | Required for MCP server image builds and `docker-compose.mcp.yml` (wheel builds don't need it) |
 | Node.js | Any LTS | Only needed for MCP Inspector |
 | Claude Code | Latest | Only needed for `nw gen-stacklok --path` (Phase 1 AI scoping); `claude` on `PATH`. See [stacklok MCP servers](stacklok-mcp-servers.md) |
 

@@ -32,8 +32,7 @@ def report_call_errors(mcp: FastMCP, client: NodeWireClient) -> None:
     under that trace id. It covers every tool, whenever it is added; the listing is unchanged.
     """
     # FastMCP has no public hook here. Its ToolManager is a plain class, and FastMCP looks up
-    # manager.call_tool on every call, so wrapping that one method is enough. (Not a Tool
-    # subclass: Tool is a pydantic model, which rejects Cython-compiled methods.)
+    # manager.call_tool on every call, so wrapping that one method is enough.
     manager = getattr(mcp, "_tool_manager", None)
     call_tool = getattr(manager, "call_tool", None)
     if manager is None or call_tool is None or not hasattr(manager, "get_tool"):

@@ -152,9 +152,9 @@ def fake_root(tmp_path: Path) -> Path:
     (scripts / "build-packages.sh").write_text("#!/bin/bash\nALL_PACKAGES=(\n)\n")
     (tmp_path / "nw-mcp-builder").mkdir()
     for rel in (
-        "packages/runtime/dist/runtime.whl",
-        "packages/bindings/dist/bindings.whl",
-        "packages/connectors/pet_store/dist/c.whl",
+        "packages/runtime/dist/runtime-1.0-py3-none-any.whl",
+        "packages/bindings/dist/bindings-1.0-py3-none-any.whl",
+        "packages/connectors/pet_store/dist/c-1.0-py3-none-any.whl",
     ):
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)

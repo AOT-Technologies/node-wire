@@ -19,7 +19,7 @@ Self-contained tool inside the **node-wire** repo with two subcommands:
 | `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
 | `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
 
-Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [Build a connector](../connectors-build.md).
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [Build a connector](../connectors-build.md).
 
 ---
 
@@ -155,7 +155,7 @@ uv sync
 uv run python -m pet_store_nw_mcp
 ```
 
-See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, Linux wheels, and Inspector.
+See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, wheels, and Inspector.
 
 ### 4. Tests for the builder itself
 
@@ -436,7 +436,7 @@ It runs at import time (the entry point imports `logic`), so the store accepts t
 
 `nw-connector-builder` creates the runtime and package skeleton, and `--wire` covers the Tier 1
 wiring. `nw gen-all` also inserts the `ALL_PACKAGES` entry unless you pass `--no-wire`. The rest
-(`setup.py` for binary wheels, the CI allowlists, and an optional MCP image) is the Tier 2 / Tier 3
+(the CI allowlists and an optional MCP image) is the Tier 2 / Tier 3
 checklist in [Packaging](../packaging.md#adding-a-new-publishable-connector). The CI allowlists are
 always manual.
 

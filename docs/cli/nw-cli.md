@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 
 `nw` is the unified CLI for turning an OpenAPI spec into a connector, wheels, an MCP host, and a Docker image. `gen-all` runs connector → wheel → MCP host → wire; the image is a separate `docker-build` step. It orchestrates [`nw-connector-builder`](nw-connector-builder.md), [`scripts/build-packages.sh`](../packaging.md), and [`nw-mcp-builder`](nw-mcp-builder.md) without replacing those tools.
 
-ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. To run the image and check it lists its tools, see [nw-mcp-builder: Docker](nw-mcp-builder.md#docker). For manual ToolHive registration and the end-to-end agent path, see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
+ToolHive deploy/verify (`thv`) is **out of scope** — `nw` stops at `docker-build`. To run the image and check it lists its tools, see [nw-mcp-builder: Docker](nw-mcp-builder.md#docker). For manual ToolHive registration and the end-to-end agent path, see [nw-mcp-builder](nw-mcp-builder.md#docker) and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md).
 
 ---
 
@@ -34,7 +34,7 @@ Global options go before the command (`uv run nw -v gen-all ...`):
 
 | Command | What it does |
 |---------|----------------|
-| `nw gen-all` | One-shot: connector codegen → Linux wheels → MCP host → wire |
+| `nw gen-all` | One-shot: connector codegen → wheels → MCP host → wire |
 | `nw gen-whl` | Standalone wheel build via `scripts/build-packages.sh` |
 | `nw gen-mcp` | Standalone MCP host (requires existing wheels) |
 | `nw docker-build` | `docker build` inside `nw-mcp-builder/out/<server>-mcp/` |
@@ -130,20 +130,18 @@ Stages are **in-process** function calls (never re-invokes `nw`). Connector code
 
 Revert the wire edits as above, then delete the generated paths: `src/node_wire_<id>/` (and `src/node_wire_<id>.egg-info/` if present), `packages/connectors/<id>/`, `nw-mcp-builder/fixtures/<id>_nw.yaml` and `nw-mcp-builder/out/<id-dashed>-nw-mcp/`. Leave `packages/runtime/dist/` and `packages/bindings/dist/` alone; other connectors reuse those wheels. If you ran `nw docker-build`, also remove the image: `docker rmi <id-dashed>-nw-mcp:latest`.
 
-**Wheel reuse.** Each wheel build stamps the package's `dist/` with a hash of its sources (`.nw-source-<mode>.sha256`). The next `gen-all` rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one `build-packages.sh` run; `--rebuild-wheels` rebuilds everything. Linux wheel builds need Docker: `nw` checks that the daemon answers before starting one, and fails with the reason if it does not.
+**Wheel reuse.** Each wheel build stamps the package's `dist/` with a hash of its sources (`.nw-source-py3-none-any.sha256`). The next `gen-all` rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one `build-packages.sh` run; `--rebuild-wheels` rebuilds everything.
 
 **Tool mode.** Right after codegen (before the wheel builds), the connector's MCP tool listing is measured. Over the budget (`--max-tool-listing-kb`, default 25 KB) the progress bars pause and you are asked how the MCP host should expose its tools — the full tool list, or tool search (`nw_search_tools` + `nw_call_tool`, schemas on demand) — with an explanation of where tool search can fail. Without a terminal the full list is generated and a warning names the flags. `--tool-search` / `--full-tool-list` decide up front. The build never fails on size; the choice becomes the host's default `NW_MCP_TOOL_MODE`. Wording and logic live in nw-mcp-builder (`nw_mcp_builder/tool_listing.py`); see its README.
 
 ### `nw gen-whl`
 
 ```bash
-uv run nw gen-whl --connector-id pet_store          # Linux-only (default)
-uv run nw gen-whl --connector-id pet_store --host   # host-only
-uv run nw gen-whl --connector-id pet_store --all    # cibuildwheel matrix
-uv run nw gen-whl --runtime                         # packages/runtime only
+uv run nw gen-whl --connector-id pet_store   # one connector
+uv run nw gen-whl --runtime                  # packages/runtime only
 ```
 
-Default mode passes **`--linux-only`** to `scripts/build-packages.sh` (not the script’s host+Linux combined default). The CLI does not expose a `--linux-only` flag — omit `--host` / `--all` to get that mode. `--host` and `--all` are mutually exclusive. Runtime is not rebuilt with every connector build — use `--runtime` when needed. `--connector-id` is required unless `--runtime` and/or `--bindings` is set. Flags combine into one build run (`--runtime --bindings --connector-id pet_store` builds all three). `gen-whl` always builds; it also writes the source stamps `gen-all` reuses. `--bindings` builds `packages/bindings` (the MCP host surface) — `gen-mcp` asks you to run `nw gen-whl --bindings` when that wheel is missing.
+Runs `scripts/build-packages.sh` for the selected packages. Each gets one pure-Python (`py3-none-any`) wheel that every image and platform can install, so there is no platform mode and no Docker requirement. Runtime is not rebuilt with every connector build — use `--runtime` when needed. `--connector-id` is required unless `--runtime` and/or `--bindings` is set. Flags combine into one build run (`--runtime --bindings --connector-id pet_store` builds all three). `gen-whl` always builds; it also writes the source stamps `gen-all` reuses. `--bindings` builds `packages/bindings` (the MCP host surface) — `gen-mcp` asks you to run `nw gen-whl --bindings` when that wheel is missing.
 
 ### `nw gen-mcp`
 
@@ -217,8 +215,8 @@ existing output project; `--force` replaces it without asking.
 
 Builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder) server on the node-wire
 runtime from a stacklok `mcp-scope.yaml`: connector codegen from the scope's `spec.source` →
-wheels for the image (cp313 musllinux for stacklok's Alpine base, via `scripts/build-packages.sh
---cibw-linux` in Docker; unchanged packages are reused) → the vendored stacklok
+the image's wheels (the same pure-Python wheels `gen-whl` builds; unchanged packages are
+reused) → the vendored stacklok
 generator (`nw-stacklok-builder/out/<server>-mcp/`, then `uv lock`). `--connector-id` may be
 omitted when the scope has a `runtime: {type: node_wire, connector_id: ...}` block. See
 [stacklok MCP servers](../stacklok-mcp-servers.md).
@@ -234,7 +232,7 @@ Every command shows the same brand-colored `rich.progress` display (amber spinne
 - **Every run** writes a full, timestamped log to `<tmp>/nw-logs/<command>-<time>.log`, printed as `Log:` under the panel.
 - **On failure** the panel names the stage and the reason, the last 15 lines of that stage's output (when they were not streamed), and a fix hint. The error is reported once; there is no traceback unless you pass `--debug`. An unexpected internal error is labelled as such, with a pointer to `--debug`.
 
-Ctrl-C stops the running build tool (no orphaned `docker` / `cibuildwheel` processes) and exits 130.
+Ctrl-C stops the running build tool (no orphaned `docker` or build processes) and exits 130.
 
 ---
 
@@ -244,7 +242,7 @@ Ctrl-C stops the running build tool (no orphaned `docker` / `cibuildwheel` proce
 |------|---------|
 | `0` | Success |
 | `1` | Stage failure, missing prerequisite (Docker, wheels; non-interactive or declined), root resolution error, or an unexpected internal error |
-| `2` | Usage error: conflicting or missing flags (e.g. `--host` with `--all`), an invalid `--connector-id`, or a codegen refusal such as an existing connector without `--force` |
+| `2` | Usage error: conflicting or missing flags (e.g. `--tool-search` with `--full-tool-list`), an invalid `--connector-id`, or a codegen refusal such as an existing connector without `--force` |
 | `130` | Interrupted (Ctrl-C) |
 
 ---

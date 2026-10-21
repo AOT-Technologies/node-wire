@@ -24,8 +24,8 @@ concurrency:
 
 jobs:
   # Push and manual runs use every OS. Pull requests stay on Ubuntu unless
-  # they touch the Cython inputs (src/ or a package setup.py); main still
-  # runs the full matrix after merge.
+  # they touch the shipped sources (src/); main still runs the full matrix
+  # after merge.
   changes:
     name: Select pytest runners
     runs-on: ubuntu-latest
@@ -37,15 +37,14 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Detect extension source changes
+      - name: Detect shipped source changes
         id: filter
         if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         with:
           filters: |
-            extensions:
+            sources:
               - "src/**"
-              - "packages/**/setup.py"
               - ".github/workflows/pytest.yml"
 
       - name: Choose OS matrix
@@ -53,14 +52,14 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          EXTENSIONS: ${{ steps.filter.outputs.extensions }}
+          SOURCES: ${{ steps.filter.outputs.sources }}
         run: |
-          if [[ "${EVENT_NAME}" != "pull_request" || "${EXTENSIONS}" == "true" ]]; then
+          if [[ "${EVENT_NAME}" != "pull_request" || "${SOURCES}" == "true" ]]; then
             echo 'os=["ubuntu-latest","macos-latest","windows-latest"]' >> "$GITHUB_OUTPUT"
             echo "Full OS matrix"
           else
             echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
-            echo "Ubuntu only (pull request does not touch extension sources)"
+            echo "Ubuntu only (pull request does not touch src/)"
           fi
 
   test:
@@ -90,12 +89,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen --extra agents --dev
-
-      # In-tree Cython .so/.pyd from local editable/wheel builds shadow .py and zero coverage.
-      - name: Remove Cython extension modules from src/
-        shell: bash
-        run: |
-          find src -type f \( -name '*.so' -o -name '*.pyd' \) -delete
 
       - name: Run pytest
         shell: bash
@@ -140,9 +133,9 @@ jobs:
 
 
   # The repo needs 3.13, but node-wire-runtime, -bindings and -toolhive are published for
-  # >=3.11 (cp311/cp312 wheels in publish.yml). Install just those, pure Python (editable
-  # installs skip Cython), and run the tests that need nothing else: connectors pull in
-  # their SDKs and the REST binding needs fastapi, neither of which ships in these packages.
+  # >=3.11. Install just those, built as the wheels publish.yml ships, and run the tests that
+  # need nothing else: connectors pull in their SDKs and the REST binding needs fastapi,
+  # neither of which ships in these packages.
   published-python:
     name: Published packages (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
@@ -166,7 +159,7 @@ jobs:
         run: |
           uv venv --python "${{ matrix.python-version }}" .venv-published
           VIRTUAL_ENV=.venv-published uv pip install \
-            -e packages/runtime -e packages/bindings -e packages/toolhive pytest pytest-asyncio
+            packages/runtime packages/bindings packages/toolhive pytest pytest-asyncio
 
       - name: Run their tests
         run: |

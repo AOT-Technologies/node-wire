@@ -221,11 +221,11 @@ The full list, field by field, is [OpenAPI coverage](openapi-coverage.md).
 
 - `--wire` never edits `connector_registry.py` or the root `pyproject.toml` — entry-point
   registration for editable monorepo installs is a manual follow-up step
-- Publishing (PyPI wheel `setup.py`/Cython glue, `scripts/build-packages.sh` allowlist entries,
+- Publishing (`scripts/build-packages.sh` allowlist entries,
   CI allowlists, standalone MCP Docker image rows) is a manual **Tier 2/3** checklist in
   [packaging.md](../packaging.md) — the builder produces the runtime + package skeleton only
 - No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
-  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-read-this-first)
+  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#docker)
   and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md). This was explicitly dropped from
   the companion `nw-cli` orchestrator's scope too; see [nw-cli.md](nw-cli.md).
 

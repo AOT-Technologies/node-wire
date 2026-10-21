@@ -81,15 +81,8 @@ def _stop(proc: subprocess.Popen[str]) -> None:
         proc.wait()
 
 
-def build_mode_flag(*, host: bool = False, all_: bool = False) -> str:
-    """Return the build-packages.sh mode flag (default Linux-only)."""
-    if host and all_:
-        raise StageError("--host and --all are mutually exclusive")
-    if host:
-        return "--host-only"
-    if all_:
-        return "--all"
-    return "--linux-only"
+# Source-stamp key for wheel builds: every package builds one pure-Python wheel.
+WHEEL_STAMP_KEY = "py3-none-any"
 
 
 def wheel_packages(
@@ -111,12 +104,9 @@ def mcp_host_packages(connector_id: str) -> list[str]:
     return wheel_packages(connector_id=connector_id, runtime=True, bindings=True)
 
 
-def stale_wheel_packages(
-    node_wire_root: Path, packages: Sequence[str], *, host: bool = False, all_: bool = False
-) -> list[str]:
-    """The packages whose wheels for this build mode are missing or older than their sources."""
-    key = build_mode_flag(host=host, all_=all_).lstrip("-")
-    return [p for p in packages if not is_fresh(node_wire_root, p, key)]
+def stale_wheel_packages(node_wire_root: Path, packages: Sequence[str]) -> list[str]:
+    """The packages whose wheels are missing or older than their sources."""
+    return [p for p in packages if not is_fresh(node_wire_root, p, WHEEL_STAMP_KEY)]
 
 
 def run_wheel_build(
@@ -126,8 +116,6 @@ def run_wheel_build(
     runtime: bool = False,
     bindings: bool = False,
     packages: Sequence[str] | None = None,
-    host: bool = False,
-    all_: bool = False,
     log: LogFn | None = None,
 ) -> None:
     """Build wheels with one ``scripts/build-packages.sh`` run.
@@ -144,7 +132,6 @@ def run_wheel_build(
     if not targets:
         raise StageError("--connector-id is required unless --runtime or --bindings is set")
 
-    mode = build_mode_flag(host=host, all_=all_)
     script = node_wire_root / "scripts" / "build-packages.sh"
     if not script.is_file():
         raise StageError(f"build-packages.sh not found: {script}")
@@ -153,18 +140,15 @@ def run_wheel_build(
         raise StageError(
             f"No such package: {', '.join(absent)} (generate the connector first: nw gen-all)"
         )
-    if mode != "--host-only":
-        require_docker(f"{mode} wheel builds")
-
     # Relative POSIX path: cwd is node_wire_root. An absolute Windows path
     # (G:\...) is eaten by Git Bash as escape sequences (exit 127).
-    cmd = ["bash", "scripts/build-packages.sh", mode, *targets]
+    cmd = ["bash", "scripts/build-packages.sh", *targets]
     started = time.time()
     code = run_logged_command(cmd, cwd=node_wire_root, log=log)
     if code != 0:
         raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
     for package in targets:
-        record_build(node_wire_root, package, mode.lstrip("-"), since=started)
+        record_build(node_wire_root, package, WHEEL_STAMP_KEY, since=started)
 
 
 def run_mcp_build(

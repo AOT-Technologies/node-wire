@@ -49,7 +49,7 @@ launch.json
 mcp_debug.log
 .cursor/
 
-# Compiled extension modules (Cython / in-tree builds)
+# Compiled extension modules (left over from the old Cython builds)
 *.so
 *.pyd
 

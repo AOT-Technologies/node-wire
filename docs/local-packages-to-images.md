@@ -19,7 +19,7 @@ The Dockerfiles in this repo install local wheel artifacts from `packages/**/dis
 - Build tooling installed:
 
 ```bash
-python -m pip install --upgrade build cython wheel
+python -m pip install --upgrade build   # or install uv; the script uses `uv build` when present
 ```
 
 Run all commands from the repository root. The build context must be the repository root (`.`) so the Dockerfiles' `COPY src/` and `COPY config/` resolve.
@@ -43,12 +43,10 @@ bash scripts/build-packages.sh \
   packages/connectors/stripe
 ```
 
-The script (`scripts/build-packages.sh` in default mode, not `--all`):
-- builds host wheels and Linux-compatible wheels (via a local `nw-wheel-builder:local` Docker image — not published to a registry; layer-cached after the first build),
+The script (`scripts/build-packages.sh`):
+- builds one pure-Python (`py3-none-any`) wheel per package, which installs in the images and on your machine alike,
 - writes artifacts under each package's `dist/` folder,
-- fails if any `.py` source files leak into a wheel.
-
-Use `--linux-only` when you only need container wheels, or `--host-only` to skip Docker. For optional local `cibuildwheel` builds (broader wheel matrix on your host), see **Optional: broader wheels** in [packaging.md](packaging.md).
+- fails if a wheel is not `py3-none-any` or contains compiled `.so`/`.pyd` files.
 
 ---
 

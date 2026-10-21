@@ -4,7 +4,7 @@
 
 """Emit a thin MCP host that runs a node-wire connector via wheels only.
 
-Installs three Cython wheels into the image (``node-wire-runtime``,
+Installs three pure-Python wheels into the image (``node-wire-runtime``,
 ``node-wire-bindings``, ``node-wire-<connector>``). No vendored source tree —
 packages come from site-packages after ``pip install``.
 """
@@ -12,7 +12,6 @@ packages come from site-packages after ``pip install``.
 from __future__ import annotations
 
 import logging
-import platform
 import re
 import shutil
 import tomllib
@@ -221,51 +220,29 @@ def _own_connector_config(config_src: Path, connector_id: str) -> str:
     return yaml.safe_dump(own, sort_keys=False)
 
 
-# The Python and libc of PYTHON_313_SLIM_IMAGE: the wheels copied into the project must install
-# there. dist/ also holds wheels for other targets (gen-stacklok's Alpine musllinux, macOS, cp312,
-# the other CPU architecture).
-_IMAGE_PYTHON_TAGS = frozenset({"cp313", "py3", "py313"})
-_IMAGE_ABI3_MAX_MINOR = 13
-_MACHINE_ARCH = {"arm64": "aarch64", "aarch64": "aarch64", "amd64": "x86_64", "x86_64": "x86_64"}
+def _is_pure_python_wheel(wheel: Path) -> bool:
+    """True for a ``py3-none-any`` wheel: it installs on the image whatever its Python or CPU.
 
-
-def _image_arch() -> str:
-    """CPU architecture of the image: ``docker build`` without ``--platform`` builds native."""
-    machine = platform.machine().lower()
-    return _MACHINE_ARCH.get(machine, machine)
-
-
-def _installs_in_image(wheel: Path, arch: str) -> bool:
-    """True when ``wheel``'s tags fit CPython 3.13 on glibc Linux ``arch`` (or any platform)."""
+    dist/ can still hold compiled wheels from before the packages were pure Python; those
+    only install on the platform they were built for, so they are skipped.
+    """
     parts = wheel.name[: -len(".whl")].split("-")
     if len(parts) < 5:
         return False
     python_tags, abi_tags, platform_tags = (tag.split(".") for tag in parts[-3:])
-    python_ok = any(tag in _IMAGE_PYTHON_TAGS for tag in python_tags) or (
-        "abi3" in abi_tags
-        and any(
-            tag.startswith("cp3") and tag[3:].isdigit() and int(tag[3:]) <= _IMAGE_ABI3_MAX_MINOR
-            for tag in python_tags
-        )
-    )
-    platform_ok = any(
-        tag == "any" or (tag.startswith(("linux_", "manylinux")) and tag.endswith(f"_{arch}"))
-        for tag in platform_tags
-    )
-    return python_ok and platform_ok
+    return "py3" in python_tags and "none" in abi_tags and "any" in platform_tags
 
 
 def _newest_installable_wheel(dist: Path, *, package: str, build_command: str) -> Path:
     wheels = sorted(dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not wheels:
         raise FileNotFoundError(f"No {package} wheel in {dist}. Build it: `{build_command}`.")
-    arch = _image_arch()
-    installable = [wheel for wheel in wheels if _installs_in_image(wheel, arch)]
+    installable = [wheel for wheel in wheels if _is_pure_python_wheel(wheel)]
     if not installable:
         found = ", ".join(wheel.name for wheel in wheels)
         raise FileNotFoundError(
-            f"No {package} wheel in {dist} installs on the MCP host image "
-            f"(CPython 3.13, glibc Linux {arch}); found: {found}. Build one: `{build_command}`."
+            f"No pure-Python (py3-none-any) {package} wheel in {dist}; found: {found}. "
+            f"Rebuild it: `{build_command}`."
         )
     return installable[0]
 

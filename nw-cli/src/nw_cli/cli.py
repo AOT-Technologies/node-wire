@@ -29,13 +29,12 @@ from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
 from nw_cli import ui
 from nw_cli.menu import Option, choose
 from nw_cli.names import docker_image_tag, mcp_project_dir
-from nw_cli.prerequisites import confirm_build, docker_problem, is_interactive
+from nw_cli.prerequisites import confirm_build, is_interactive
 from nw_cli.progress import GenerateProgress, Stage
 from nw_cli.root import resolve_node_wire_root
 from nw_cli.stages import (
     StageError,
     build_image,
-    build_mode_flag,
     mcp_host_packages,
     register_all_packages,
     run_docker_build,
@@ -213,11 +212,11 @@ def _gen_whl_command(packages: list[str], connector_id: str) -> str:
 
 
 def _missing_wheels(node_wire_root: Path, connector_id: str) -> list[str]:
-    """The MCP host's packages with no wheel in ``dist/`` yet."""
+    """The MCP host's packages with no pure-Python wheel in ``dist/`` yet."""
     return [
         p
         for p in mcp_host_packages(connector_id)
-        if not any((node_wire_root / p / "dist").glob("*.whl"))
+        if not any((node_wire_root / p / "dist").glob("*-py3-none-any.whl"))
     ]
 
 
@@ -375,7 +374,7 @@ def gen_all(
             Stage(
                 "wheel",
                 "Wheel build",
-                hint=f"Needs Docker running. Retry just this step: {_gen_whl_command(packages, id)}",
+                hint=f"Retry just this step: {_gen_whl_command(packages, id)}",
             ),
             Stage(
                 "mcp",
@@ -446,42 +445,24 @@ def gen_whl(
         help="Connector id (required unless --runtime/--bindings)",
         callback=_connector_id,
     ),
-    host: bool = typer.Option(False, "--host", help="Host-only wheel build"),
-    all_: bool = typer.Option(False, "--all", help="Full cibuildwheel matrix"),
     runtime: bool = typer.Option(False, "--runtime", help="Build packages/runtime"),
     bindings: bool = typer.Option(
         False, "--bindings", help="Build packages/bindings (MCP host surface)"
     ),
 ) -> None:
-    """Build binary wheels via scripts/build-packages.sh (Linux-only by default)."""
-    if host and all_:
-        raise ui.usage_error("they are mutually exclusive", flags="--host / --all")
+    """Build pure-Python wheels via scripts/build-packages.sh."""
     packages = wheel_packages(connector_id=id, runtime=runtime, bindings=bindings)
     if not packages:
         raise ui.usage_error(
             "required unless --runtime and/or --bindings is set", flags="--connector-id"
         )
     node_wire_root = resolve_node_wire_root()
-    mode = build_mode_flag(host=host, all_=all_).lstrip("-")
 
-    progress = _progress(
-        "gen-whl",
-        [
-            Stage(
-                "wheel",
-                f"Wheels ({mode})",
-                hint=""
-                if host
-                else "Linux wheels need Docker running; --host builds for this machine only.",
-            )
-        ],
-    )
+    progress = _progress("gen-whl", [Stage("wheel", "Wheels")])
     with progress:
         progress.run_stage(
             "wheel",
-            lambda: run_wheel_build(
-                node_wire_root, packages=packages, host=host, all_=all_, log=progress.output
-            ),
+            lambda: run_wheel_build(node_wire_root, packages=packages, log=progress.output),
         )
         progress.result("Built", ", ".join(packages))
 
@@ -496,7 +477,7 @@ def _mcp_host_stages(
             Stage(
                 "wheel",
                 "Wheel build",
-                hint="Needs Docker running. Build them yourself with: "
+                hint="Build them yourself with: "
                 + _gen_whl_command(mcp_host_packages(connector_id), connector_id),
             )
         )
@@ -846,8 +827,7 @@ def gen_stacklok(
         Stage(
             "wheel",
             "Wheels for the MCP image",
-            hint="Needs Docker running and cibuildwheel (uv sync --all-extras --dev). "
-            "Rerun: " + resume,
+            hint="Rerun: " + resume,
         ),
         Stage("stacklok", "stacklok MCP server", hint="Rerun: " + resume),
     ]
@@ -858,12 +838,6 @@ def gen_stacklok(
             Stage("review", "Phase 2: review"),
             *stages,
         ]
-        if not no_wheel and docker_problem():
-            # Warn before the (long, human) scoping phase, not after it.
-            ui.warning(
-                f"Docker is not usable ({docker_problem()}); the wheel stage will need it. "
-                "The scope is saved, so you can rerun once Docker is up."
-            )
     progress = _progress("gen-stacklok", stages)
     if no_wheel:
         progress.mark_skipped("wheel")

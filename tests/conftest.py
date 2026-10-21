@@ -37,12 +37,12 @@ os.environ["NW_JWT_AUDIENCE"] = "node-wire-test"
 os.environ["NW_JWT_ISSUER"] = "node-wire-test-issuer"
 
 
-def _assert_no_cython_so_shadowing_src() -> None:
-    """Fail fast if in-tree Cython ``.so``/``.pyd`` files would steal imports from ``.py``.
+def _assert_no_compiled_modules_shadowing_src() -> None:
+    """Fail fast if leftover ``.so``/``.pyd`` files would steal imports from ``.py``.
 
-    Local ``pip install -e packages/runtime`` / wheel builds drop extension modules next to
-    sources under ``src/``. pytest-cov then attributes 0% to the shadowed ``.py`` files and
-    the 80% gate collapses even when tests pass.
+    Builds from before the packages were pure Python (Cython) could leave extension modules
+    next to the sources under ``src/``. pytest-cov then attributes 0% to the shadowed ``.py``
+    files and the 80% gate collapses even when tests pass.
     """
     src_root = _TESTS_ROOT.parent / "src"
     if not src_root.is_dir():
@@ -53,13 +53,13 @@ def _assert_no_cython_so_shadowing_src() -> None:
     sample = ", ".join(str(p.relative_to(src_root.parent)) for p in shadowed[:5])
     more = f" (+{len(shadowed) - 5} more)" if len(shadowed) > 5 else ""
     raise RuntimeError(
-        "Cython extension modules under src/ shadow .py sources for coverage. "
+        "Leftover compiled extension modules under src/ shadow .py sources. "
         f"Remove them before pytest (e.g. `find src -name '*.so' -delete`). "
         f"Found {len(shadowed)}: {sample}{more}"
     )
 
 
-_assert_no_cython_so_shadowing_src()
+_assert_no_compiled_modules_shadowing_src()
 
 
 def _preload_connector_logic_modules() -> None:

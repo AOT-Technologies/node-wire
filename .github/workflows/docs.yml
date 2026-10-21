@@ -4,7 +4,7 @@
 
 name: docs
 
-# Pinned like the other workflows (uv --frozen, pip-audit==, cibuildwheel==).
+# Pinned like the other workflows (uv --frozen, pip-audit==, build==).
 # mkdocs-material warns that MkDocs 2.0 is backward-incompatible, so an unpinned
 # install would break or silently change the published site on release day.
 env:

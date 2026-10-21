@@ -143,9 +143,9 @@ def build_jobs() -> List[Job]:
 
     - Wiring (config/connectors.yaml, sample.env, build-packages.sh) has one writer at a time:
       the two codegen jobs, then each gen-stacklok in turn. The lanes build with --no-wire.
-    - Two wheel builds of one package never overlap: both write its Cython .c files in src/.
-      The shared glibc wheels are built once, in pet_store:wheels; stacklok's Alpine ones in
-      petstore3:gen-stacklok, which slack_web:gen-stacklok waits for.
+    - Two wheel builds of one package never overlap: each clears and rewrites the package's
+      build/ and dist/. The shared wheels are built once, in pet_store:wheels; petstore3's
+      gen-stacklok rebuilds its connector's, and slack_web:gen-stacklok waits for it.
     - gen-stacklok regenerates its connector, so slack_web's runs after that connector's
       host builds have copied its wheel.
     """

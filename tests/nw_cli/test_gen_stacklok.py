@@ -232,16 +232,12 @@ def test_spec_preparation_keeps_openapi31_json_schema_forms(tmp_path: Path) -> N
     assert materialize_spec(str(spec), tmp_path / "work") == spec
 
 
-def test_wheel_build_targets_the_stacklok_packages(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_wheel_build_targets_the_stacklok_packages(tmp_path: Path) -> None:
     root = _wheel_root(tmp_path)
-    monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
-    with patch("nw_cli.stacklok.run_logged_command", return_value=0) as run:
+    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
         run_stacklok_wheel_build(root, "demo", log=lambda _: None)
     cmd = run.call_args.args[0]
-    assert cmd == ["bash", "scripts/build-packages.sh", "--cibw-linux", *stacklok_packages("demo")]
-    assert run.call_args.kwargs["env"]["CIBW_BUILD"] == "cp313-musllinux_*"
+    assert cmd == ["bash", "scripts/build-packages.sh", *stacklok_packages("demo")]
     assert "packages/toolhive" in cmd
 
 
@@ -566,14 +562,11 @@ def test_success_prints_run_commands_with_the_real_names(fake_root: Path, tmp_pa
 
 
 def _wheel_root(tmp_path: Path) -> Path:
-    """A node-wire root with an Alpine template and four tiny packages (runtime, bindings,
-    toolhive, connectors/demo), each compiling one src/ package."""
+    """A node-wire root with four tiny packages (runtime, bindings, toolhive,
+    connectors/demo), each building one src/ package."""
     root = tmp_path / "nw"
-    (root / "nw-stacklok-builder" / "template").mkdir(parents=True)
-    (root / "nw-stacklok-builder" / "template" / "Dockerfile").write_text(
-        "FROM dhi.io/python:3.13-alpine3.23-dev AS builder\nFROM dhi.io/python:3.13-alpine3.23\n",
-        encoding="utf-8",
-    )
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts" / "build-packages.sh").write_text("#!/bin/bash\n", encoding="utf-8")
     for package, module, where in (
         ("packages/runtime", "node_wire_runtime", "../../src"),
         ("packages/bindings", "bindings", "../../src"),
@@ -593,63 +586,47 @@ def _wheel_root(tmp_path: Path) -> Path:
 
 def _fake_builder(root: Path, built: list[list[str]]) -> Any:
     def run(cmd: list[str], *, cwd: Path, log: Any = None, env: Any = None) -> int:
-        packages = cmd[3:]
+        packages = cmd[2:]
         built.append(packages)
-        assert cmd[2] == "--cibw-linux" and env["CIBW_BUILD"] == "cp313-musllinux_*"
         for package in packages:
             dist = root / package / "dist"
             dist.mkdir(exist_ok=True)
             stem = Path(package).name
-            (dist / f"{stem}-1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
+            (dist / f"{stem}-1.0-py3-none-any.whl").write_bytes(b"")
         return 0
 
     return run
 
 
-def test_unchanged_wheels_are_reused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unchanged_wheels_are_reused(tmp_path: Path) -> None:
     root = _wheel_root(tmp_path)
-    monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
     built: list[list[str]] = []
     lines: list[str] = []
-    with patch("nw_cli.stacklok.run_logged_command", side_effect=_fake_builder(root, built)):
+    with patch("nw_cli.stages.run_logged_command", side_effect=_fake_builder(root, built)):
         first = run_stacklok_wheel_build(root, "demo", log=lines.append)
         second = run_stacklok_wheel_build(root, "demo", log=lines.append)
         (root / "src" / "node_wire_demo" / "__init__.py").write_text("x = 2\n", encoding="utf-8")
         third = run_stacklok_wheel_build(root, "demo", log=lines.append)
 
     assert first == stacklok_packages("demo")
-    assert second == []  # nothing changed: no compile at all
+    assert second == []  # nothing changed: no build at all
     assert third == ["packages/connectors/demo"]  # only the changed package
     assert built == [stacklok_packages("demo"), ["packages/connectors/demo"]]
-    assert any("Target: cp313 musllinux" in line for line in lines)
     assert any(line.startswith("Up to date, reused:") for line in lines)
 
 
-def test_a_missing_architecture_forces_a_rebuild(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_wheels_are_shared_with_gen_whl(tmp_path: Path) -> None:
+    """gen-stacklok reuses wheels gen-whl / gen-all built: one pure wheel serves every image."""
+    from nw_cli.stages import run_wheel_build
+
     root = _wheel_root(tmp_path)
     built: list[list[str]] = []
-    with patch("nw_cli.stacklok.run_logged_command", side_effect=_fake_builder(root, built)):
-        monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
-        run_stacklok_wheel_build(root, "demo", log=lambda _: None)
-        monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64 x86_64")
+    with patch("nw_cli.stages.run_logged_command", side_effect=_fake_builder(root, built)):
+        run_wheel_build(root, packages=stacklok_packages("demo"))
         again = run_stacklok_wheel_build(root, "demo", log=lambda _: None)
-    assert again == stacklok_packages("demo")  # no x86_64 wheels yet
-
-
-def test_image_wheel_stamps_list_their_wheels(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Same stamp format as ``nw wheel``: source hash, then the wheels that build wrote."""
-    root = _wheel_root(tmp_path)
-    monkeypatch.setenv("NW_WHEEL_ARCHS", "aarch64")
-    with patch("nw_cli.stacklok.run_logged_command", side_effect=_fake_builder(root, [])):
-        run_stacklok_wheel_build(root, "demo", log=lambda _: None)
-    stamp = root / "packages/connectors/demo/dist/.nw-source-cp313-musllinux.sha256"
-    assert stamp.read_text(encoding="utf-8").split()[1:] == [
-        "demo-1.0-cp313-cp313-musllinux_1_2_aarch64.whl"
-    ]
+    assert again == []
+    stamp = root / "packages/connectors/demo/dist/.nw-source-py3-none-any.sha256"
+    assert stamp.read_text(encoding="utf-8").split()[1:] == ["demo-1.0-py3-none-any.whl"]
 
 
 def test_an_invalid_scope_fails_before_any_build(fake_root: Path, tmp_path: Path) -> None:

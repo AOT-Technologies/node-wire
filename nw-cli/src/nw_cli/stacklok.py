@@ -7,23 +7,15 @@
 from __future__ import annotations
 
 import json
-import os
-import platform
 import re
 import shutil
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict
+from typing import Any, Dict
 
 import yaml
 
-from nw_cli.prerequisites import require_docker
-from nw_cli.stages import LogFn, StageError, run_logged_command
-from nw_cli.wheel_cache import is_fresh, record_build
-
-if TYPE_CHECKING:
-    from nw_stacklok.wheels import WheelTarget
+from nw_cli.stages import LogFn, StageError, run_wheel_build, stale_wheel_packages
 
 STACKLOK_BUILDER_DIR = "nw-stacklok-builder"
 # Set on specs prepared by `nw gen-stacklok --path`: the original spec the file was made from.
@@ -250,32 +242,6 @@ def strict_openapi30(node: Any) -> bool:
     return bool(sanitize_draft4_schemas(node))
 
 
-_WHEEL_ARCH_ALIASES = {
-    "arm64": "aarch64",
-    "aarch64": "aarch64",
-    "x86_64": "x86_64",
-    "amd64": "x86_64",
-}
-
-
-def image_wheel_target(node_wire_root: Path) -> WheelTarget:
-    """The wheel flavour the generated server's image needs (from the template's base image)."""
-    from nw_stacklok.wheels import WheelTarget
-
-    return WheelTarget.from_dockerfile(template_dir(node_wire_root) / "Dockerfile")
-
-
-def wheel_arches() -> list[str]:
-    """``NW_WHEEL_ARCHS`` (e.g. ``"x86_64 aarch64"``), else the host's architecture."""
-    raw = os.environ.get("NW_WHEEL_ARCHS", "").split()
-    machine = platform.machine().lower()
-    return sorted(raw) if raw else [_WHEEL_ARCH_ALIASES.get(machine, machine)]
-
-
-def _stamp_key(target: WheelTarget) -> str:
-    return f"{target.python}-{target.libc}"
-
-
 def run_stacklok_wheel_build(
     node_wire_root: Path,
     connector_id: str,
@@ -285,36 +251,19 @@ def run_stacklok_wheel_build(
 ) -> list[str]:
     """Wheels for the generated server's image; returns the packages it had to (re)build.
 
-    The flavour (Python ABI + libc) comes from the image, e.g. cp313 musllinux for stacklok's
-    Alpine base. A package whose sources are unchanged since its last build, and whose wheels
-    for every requested architecture are present, is reused rather than recompiled.
-    ``log`` gets these decisions; ``output`` (default ``log``) the build tool's output.
+    A package whose sources are unchanged since its last build is reused. ``log`` gets these
+    decisions; ``output`` (default ``log``) the build tool's output.
     """
     say = log or print
-    target = image_wheel_target(node_wire_root)
-    arches = wheel_arches()
-    say(f"Target: {target.description}, arch {' '.join(arches)}")
     packages = stacklok_packages(connector_id)
-    stale: list[str] = []
-    for package in packages:
-        present = set(target.wheels_by_arch(node_wire_root / package / "dist"))
-        if not (is_fresh(node_wire_root, package, _stamp_key(target)) and set(arches) <= present):
-            stale.append(package)
+    stale = stale_wheel_packages(node_wire_root, packages)
     reused = [p for p in packages if p not in stale]
     if reused:
         say("Up to date, reused: " + ", ".join(reused))
     if not stale:
         return []
-    require_docker("the image wheel build (cibuildwheel)")
     say("Building: " + ", ".join(stale))
-    cmd = ["bash", "scripts/build-packages.sh", "--cibw-linux", *stale]
-    env = {**os.environ, "CIBW_BUILD": target.cibw_build, "NW_WHEEL_ARCHS": " ".join(arches)}
-    started = time.time()
-    code = run_logged_command(cmd, cwd=node_wire_root, log=output or log, env=env)
-    if code != 0:
-        raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
-    for package in stale:
-        record_build(node_wire_root, package, _stamp_key(target), since=started)
+    run_wheel_build(node_wire_root, packages=stale, log=output or log)
     return stale
 
 

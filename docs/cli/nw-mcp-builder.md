@@ -30,56 +30,25 @@ The standalone `nw-mcp-builder` entry point remains supported.
 
 ---
 
-## Platform and ToolHive (read this first)
+## Wheels
 
-Wheels for runtime and connectors are **Cython / platform-specific**. What you build must match how you run the host.
-
-| Goal | Wheel platform | How to build wheels |
-|------|----------------|---------------------|
-| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`linux_*` / manylinux) for the **same CPU architecture as the image** — `*_aarch64` on Apple Silicon / ARM hosts, `*_x86_64` on Intel/AMD — Python **3.13** (matches `python:3.13-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see below); `nw gen-all` does this for you and picks your machine's architecture |
-| **Local run / MCP Inspector / ToolHive remote MCP** on the same OS as your machine | Host OS (e.g. Windows → `*win_amd64*`) | Built automatically by `uv run nw-mcp-builder -c <connector_id>` |
-
-### Linux wheels for ToolHive Docker (local MCP server)
-
-From the **node-wire** repository root (requires Docker; uses `python:3.13-slim` for the Linux build):
-
-```bash
-# Generic — runtime + one connector
-bash scripts/build-packages.sh packages/runtime packages/connectors/<connector_id>
-
-# Example — google_drive
-bash scripts/build-packages.sh packages/runtime packages/connectors/google_drive
-```
-
-Wheels land in:
-
-- `packages/runtime/dist/`
-- `packages/connectors/<connector_id>/dist/`
-
-Then generate (or regenerate) the host **without rebuilding host-OS wheels**, so the Linux artifacts stay selected:
-
-```bash
-cd nw-mcp-builder
-uv sync
-uv run nw-mcp-builder -c <connector_id> --skip-build-wheels --force-output
-
-# Example
-uv run nw-mcp-builder -c google_drive --skip-build-wheels --force-output
-```
-
-### Host-OS wheels (`nw-mcp-builder` without a prior Linux build)
+The runtime, bindings and connector wheels are pure Python (`py3-none-any`). One build installs on your machine, in the generated Linux Docker image (ToolHive local MCP), and on any remote runtime, so there is no platform to match.
 
 ```bash
 uv run nw-mcp-builder -c <connector_id>
 ```
 
-builds wheels for **whatever OS/Python you are on** (Windows → `win_amd64`, Linux → linux, etc.) and copies the newest `.whl` into `out/<name>-mcp/wheels/`. Those host wheels are fine for:
+This builds the connector wheel and copies the newest pure-Python wheels into `out/<name>-mcp/wheels/`. To use wheels you already built from the **node-wire** repository root instead:
 
-- running the generated host locally (`uv run python -m …`)
-- **MCP Inspector**
-- ToolHive **remote** MCP servers when the remote runtime matches that OS
+```bash
+bash scripts/build-packages.sh packages/runtime packages/bindings packages/connectors/<connector_id>
 
-They are **not** suitable for the generated **Linux Docker** image used as a ToolHive **local** MCP server.
+cd nw-mcp-builder
+uv sync
+uv run nw-mcp-builder -c <connector_id> --skip-build-wheels --force-output
+```
+
+Wheels land in each package's `dist/` (for example `packages/runtime/dist/`). A compiled wheel left in `dist/` from an older build is skipped; rebuild the package if that leaves none.
 
 ---
 
@@ -104,7 +73,7 @@ For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
    - `packages/runtime/dist/node_wire_runtime-*.whl`
    - `packages/bindings/dist/node_wire_bindings-*.whl`
    - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
-   - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-read-this-first))
+   - Pure-Python wheels that install anywhere (see [Wheels](#wheels))
 3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
    - Auto-generated from `@nw_action` / `@sdk_action` / `SdkActionSpec` in connector source
    - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
@@ -139,7 +108,7 @@ Server name in the fixture is always `{connector_id with _ → -}-nw` (e.g. `goo
   uv sync --python 3.13
   ```
 
-- **Docker** — required for Linux wheels via `scripts/build-packages.sh` and for ToolHive local MCP images
+- **Docker** — required for ToolHive local MCP images (not for wheel builds)
 - Connector secrets from node-wire `sample.env` / `config/connectors.yaml` (copied into generated `.env.example`)
 
 ---
@@ -161,14 +130,12 @@ uv run --directory nw-mcp-builder nw-mcp-builder --help
 ### 2. Generate an MCP host
 
 ```bash
-# Full run: build host-OS wheels + use/create fixture + generate project
-# For ToolHive testing, use the second command if you already have Linux wheel files.
-# This command builds platform-dependent wheel files
+# Full run: build wheels + use/create fixture + generate project
 uv run nw-mcp-builder -c <connector_id>
 # Example
 uv run nw-mcp-builder -c google_drive
 
-# Reuse existing wheels (required after Linux build-packages.sh for ToolHive Docker)
+# Reuse wheels already built (e.g. by scripts/build-packages.sh or nw gen-whl)
 uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
 # Example
 uv run nw-mcp-builder -c salesforce --skip-build-wheels
@@ -207,7 +174,7 @@ NW_MCP_TRANSPORT=stdio uv run python -m google_drive_nw_mcp
 
 #### ToolHive local MCP (Docker image from the generated host)
 
-If you will run this as a **local MCP server in ToolHive**, build the Docker image from the generated project (after placing **Linux** wheels — see [Platform and ToolHive](#platform-and-toolhive-read-this-first)):
+If you will run this as a **local MCP server in ToolHive**, build the Docker image from the generated project:
 
 ```bash
 cd nw-mcp-builder/out/<name>-mcp
@@ -374,7 +341,7 @@ Connector-specific secrets (any connector) are listed in `.env.example` when aut
 
 ## Docker
 
-From a generated project (use **Linux** wheels for this path — see [Platform and ToolHive](#platform-and-toolhive-read-this-first)):
+From a generated project:
 
 From the **node-wire** repo root (`nw docker-build --connector-id <id>` runs the same build and tags `<id-dashed>-nw-mcp:latest` — see [nw CLI](nw-cli.md#nw-docker-build)):
 
