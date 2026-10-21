@@ -6,11 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # nw-connector-builder
 
-!!! note "Advanced — most users want the `nw` CLI"
-    `nw-connector-builder` is the standalone entry point and exposes the full flag surface.
-    For the normal path (spec → connector → wheels → MCP host → image) use
-    [`nw gen-all`](nw-cli.md), which calls this tool for you. Read on when you need a
-    flag `nw` does not pass through, or are debugging this stage on its own.
+> [!NOTE]
+> **Advanced — most users want the `nw` CLI.** `nw-connector-builder` is the standalone
+> entry point and exposes the full flag surface. For the normal path
+> (spec → connector → wheels → MCP host → image) use [`nw gen-all`](nw-cli.md), which calls
+> this tool for you. Read on when you need a flag `nw` does not pass through, or are
+> debugging this stage on its own.
 
 Self-contained tool inside the **node-wire** repo with two subcommands:
 
@@ -43,6 +44,8 @@ Generated output lands in the monorepo (not under `nw-connector-builder/`):
 
 ## What it does (end to end)
 
+The following diagram shows the pipeline stages:
+
 ```mermaid
 flowchart TB
     spec[/"OpenAPI / Swagger spec"/] --> load["1 · Load<br/>file or URL"]
@@ -71,7 +74,7 @@ For a connector id like `pet_store`:
 1. **Load** — read the spec document from a local file path or `http(s)` URL (`--path`). URL fetches go through Node Wire's SSRF guard (`assert_safe_destination`) and never follow redirects. The raw bytes are decoded as UTF-8 and parsed as YAML/JSON into a document, then the version is detected from `swagger: "2.0"` vs. `openapi: "3.x"`.
 2. **Normalize** — Swagger 2.0 documents are translated into OpenAPI 3.x in-house; OpenAPI 3.x documents pass through unchanged.
 3. **Validate** — reject any **remote** (absolute-URL) `$ref`s outright (only local relative / in-document `#/` refs are allowed), resolve the remaining local `$ref`s in place with `prance`, then structurally and semantically validate the fully-resolved document with `openapi-spec-validator`. This step also resolves the connector's base URL (`--base-url` override, else the first `servers[]` entry).
-4. **Derive** — from the validated document, work out the connector's auth plan (one connector-level default scheme, plus any additional per-action schemes — see [Auth mapping](#auth-mapping) below) and, per operation, either a plan for a generated `@nw_action` or a soft-drop reason (unsupported/divergent-and-unpresentable/AND-multi security, unsupported parameter styles, etc. — see [Soft-drop rules](#soft-drop-rules)).
+4. **Derive** — from the validated document, work out the connector's auth plan (one connector-level default scheme, plus any additional per-action schemes — see [Auth mapping](#auth-mapping)) and, per operation, either a plan for a generated `@nw_action` or a soft-drop reason (unsupported/divergent-and-unpresentable/AND-multi security, unsupported parameter styles, etc. — see [Soft-drop rules](#soft-drop-rules)).
 5. **Codegen** — write a temp staging tree: `schema.py` (Pydantic input/output models) and `logic.py`, a `RestConnector` subclass with one `@nw_action`-decorated async method per derived action. Each method's `@nw_action(...)` decorator (`requires_auth=False` for anonymous actions) makes it discoverable by `nw-mcp-builder`'s regex scan; the method body itself calls `self.execute_rest(...)`, passing `auth_scheme=<name>` when the action uses a named, non-default scheme from step 4. Also emits the package `pyproject.toml` and model tests.
 6. **Gate** — import smoke + `pytest` on staged model tests (must pass before promote)
 7. **Promote** atomically into `src/node_wire_<id>/` and `packages/connectors/<id>/`
@@ -84,7 +87,7 @@ Promote never runs if the gate fails. MCP or `--wire` failures after a clean pro
 
 ## Requirements
 
-- **Python 3.13+**
+- **Python 3.11, 3.12 or 3.13**
 - **[uv](https://docs.astral.sh/uv/)** (recommended) or an editable install of the package
 - Run from / against a **node-wire** checkout (default `--node-wire-root` is the parent of `nw-connector-builder/`)
 - For URL specs: network access; fetches use Node Wire’s HTTP safety checks (`assert_safe_destination`) and do not follow redirects
@@ -94,7 +97,9 @@ Promote never runs if the gate fails. MCP or `--wire` failures after a clean pro
 
 ## Quick start
 
-### 1. Install / sync the tool
+### Install or sync the tool
+
+Sync the tool's environment:
 
 ```bash
 cd nw-connector-builder
@@ -107,7 +112,9 @@ From the node-wire repo root:
 uv run --directory nw-connector-builder nw-connector-builder --help
 ```
 
-### 2. Generate a connector
+### Generate a connector
+
+The following commands generate a connector from a local file, and from a URL with wiring and an MCP host:
 
 ```bash
 # Local file — connector only (skip MCP)
@@ -124,7 +131,7 @@ uv run --directory nw-connector-builder nw-connector-builder from-openapi \
   --wire
 ```
 
-`--id` must match `[a-z][a-z0-9_]*` (e.g. `pet_store`, not `PetStore`).
+`--id` must match `[a-z][a-z0-9_]*` (for example, `pet_store`, not `PetStore`).
 
 To regenerate an MCP host from an existing connector (no OpenAPI step):
 
@@ -133,7 +140,7 @@ uv run --directory nw-connector-builder nw-connector-builder mcp \
   -c pet_store --force-output
 ```
 
-### 3. Run and verify
+### Run and verify
 
 After a successful promote (and usually `--wire`):
 
@@ -157,7 +164,7 @@ uv run python -m pet_store_nw_mcp
 
 See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, wheels, and Inspector.
 
-### 4. Tests for the builder itself
+### Tests for the builder itself
 
 From the **node-wire** repo root:
 
@@ -169,7 +176,9 @@ uv run pytest tests/nw_connector_builder -v --no-cov
 
 ## CLI reference
 
-```
+The two subcommands take the following form:
+
+```text
 nw-connector-builder from-openapi --path <SPEC> --id <connector_id> [options]
 nw-connector-builder mcp -c <connector_id> [options]
 ```
@@ -194,9 +203,9 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 
 ### `mcp`
 
-Same flags as standalone `nw-mcp-builder` (see [nw-mcp-builder](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `-v`.
+Same flags as standalone `nw-mcp-builder` (see [nw-mcp-builder](nw-mcp-builder.md)): `-c` / `--connector-id`, `--force-output`, `--force-fixture`, `--skip-build-wheels`, `-o` / `--output-dir`, `--fixtures-dir`, `--python`, `--node-wire-root`, `--tool-search` / `--full-tool-list` (mutually exclusive), `--max-tool-listing-kb` (default `25`), `-v`.
 
-Help:
+To print help for each command:
 
 ```bash
 uv run --directory nw-connector-builder nw-connector-builder --help
@@ -225,12 +234,8 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 | Extensions | `x-` keys are removed before `$ref` resolution (the generator reads none); property and header names starting with `x-` are kept |
 | Recursion | `$ref` cycles are cut where they close (see [recursive schemas](nw-connector-builder-codegen.md#recursive-schemas)) |
 | Validation | Resolved with `prance` + validated with `openapi-spec-validator`. When the whole document fails, each operation and component is validated on its own; the invalid ones are removed (operations soft-dropped with `invalid OpenAPI: <reason>`, components named in `notes`) and the rest is validated again. Anything still invalid fails the build |
-| Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see below) |
+| Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see [Codegen behaviour](nw-connector-builder-codegen.md#draft-4-repair)) |
 | Base URL | From `--base-url`, else the first `servers[]` entry with variables at their defaults. A relative server URL, or no `servers`, is resolved against the spec's URL when it was fetched over HTTP(S); for a local file it hard-fails (pass `--base-url`). Swagger 2.0: `schemes` prefers `https`, and a missing `host` means the host the spec came from |
-
-Draft-4 constructs that OpenAPI 3.0 forbids (and the Swagger 2.0 `examples` move) are
-rewritten rather than rejected — see [codegen behaviour](nw-connector-builder-codegen.md#spec-repair).
-
 
 ## Auth mapping
 
@@ -293,7 +298,7 @@ full list of what is soft-dropped, and why, is the generator contract's
 
 After promote:
 
-```
+```text
 src/node_wire_<id>/
   __init__.py
   schema.py          # Pydantic input models + outputs (or RestResponseOutput)
@@ -343,8 +348,7 @@ If either destination already exists, you must pass **`--force`**.
 
 When `--wire` is set after a clean promote:
 
-**`config/connectors.yaml`** — upserts. The connector's entry is **replaced wholesale**, not merged: a previously derived `auth:` block (and any keys hand-added under that connector) is discarded and rewritten from the current auth plan. Regenerating a spec whose auth mapping changed therefore changes which secrets the connector reads.
-
+**`config/connectors.yaml`** — upserts. The connector's entry is **replaced wholesale**, not merged: a previously derived `auth:` block (and any keys hand-added under that connector) is discarded and rewritten from the current auth plan. Regenerating a spec whose auth mapping changed therefore changes which secrets the connector reads. The resulting entry has the following shape:
 
 ```yaml
 connectors:
@@ -353,17 +357,17 @@ connectors:
     exposed_via: ["rest", "grpc", "mcp"]
     base_url: <derived or --base-url>
     auth:   # omitted when anonymous
-      provider: ...
-      secret_key: ...
+      provider: <provider>
+      secret_key: <secret-key>
     auth_schemes:   # only present when a divergent scheme needed its own auth_scheme=
       <scheme_name>:
-        provider: ...
-        secret_key: ...
+        provider: <provider>
+        secret_key: <secret-key>
     headers:        # only with --header
       <NAME>: <VALUE>
 ```
 
-**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (e.g. `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme), plus one for each `${VAR}` a `--header` value reads, with a comment naming the header.
+**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (for example, `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme), plus one for each `${VAR}` a `--header` value reads, with a comment naming the header.
 
 Wire edits preserve YAML comments via `ruamel.yaml`. Failures set exit code `1` but do not roll back the promoted connector.
 
@@ -388,7 +392,7 @@ uv run --directory nw-mcp-builder nw-mcp-builder -c <id> --force-output
 
 ## Build report
 
-Stdout summary plus JSON:
+The builder prints a summary to stdout and writes a JSON report with the following fields:
 
 | Field | Meaning |
 |-------|---------|
@@ -400,8 +404,10 @@ Stdout summary plus JSON:
 | `notes` | build notes: dropped credential parameters, removed invalid components, request examples not used as tests, `--auth` |
 | `gate` / `mcp` / `wire` | stage outcomes when run |
 
-On success: `packages/connectors/<id>/report.json`
-On abort: `--report-path` or `./report.json`
+The report is written to the following paths:
+
+- On success: `packages/connectors/<id>/report.json`
+- On abort: `--report-path` or `./report.json`
 
 ---
 
@@ -446,9 +452,9 @@ always manual.
 
 | Doc | When to read it |
 |-----|-----------------|
-| [nw-cli.md](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
+| [nw CLI](nw-cli.md) | Orchestrated codegen → wheels → MCP → Docker |
 | [Build a connector](../connectors-build.md) | Hand-written connectors, `BaseConnector`, auth patterns |
 | [nw-mcp-builder](nw-mcp-builder.md) | Running / packaging the generated MCP host |
-| [packaging.md](../packaging.md) | Wheels, PyPI, CI allowlists |
-| [configuration.md](../configuration.md) | `connectors.yaml` and env vars |
-| [local-packages-to-images.md](../local-packages-to-images.md) | Wheel → Docker image workflow |
+| [Packaging](../packaging.md) | Wheels, PyPI, CI allowlists |
+| [Configuration](../configuration.md) | `connectors.yaml` and env vars |
+| [Local wheels → images](../local-packages-to-images.md) | Wheel → Docker image workflow |

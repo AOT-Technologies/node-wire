@@ -11,7 +11,7 @@ Node Wire follows the contribution guide in the repository root:
 
 It covers the DCO sign-off process, code style and quality-gate commands,
 license-header requirements, and the PR process. This page is kept as a stub
-rather than a copy so there's a single source of truth — please read the root
+rather than a copy so there's a single source of truth — read the root
 file directly rather than this one.
 
 See also: [Changing the docs](reading.md#changing-the-docs), [Code Quality](code-quality-compliance.md) and

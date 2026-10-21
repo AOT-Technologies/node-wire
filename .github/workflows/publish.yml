@@ -321,6 +321,42 @@ jobs:
 
           print(f"PASS: building {pyproject.parent} at version {version}")
 
+      # pyproject.toml pins release minimums, which no beta satisfies (1.0.0b1 <
+      # 1.0.0). A beta meta lowers each node-wire-* minimum to its first beta so
+      # it pulls beta siblings; a release meta keeps the release-only pins.
+      - name: Lower node-wire-* minimums to betas (beta meta only)
+        if: needs.prerequisites.outputs.channel == 'beta' && needs.prerequisites.outputs.package_path == 'packages/meta'
+        shell: python
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+          import tomllib
+
+          pyproject = pathlib.Path(os.environ["PACKAGE_PATH"]) / "pyproject.toml"
+          text = pyproject.read_text(encoding="utf-8")
+
+          def to_beta(match: re.Match[str]) -> str:
+              parts = match.group(2).split(".")
+              base = ".".join(parts + ["0"] * (3 - len(parts)))
+              return f'"{match.group(1)}>={base}b1,'
+
+          patched = re.sub(r'"(node-wire-[a-z0-9-]+)>=(\d+(?:\.\d+){0,2}),', to_beta, text)
+
+          deps = tomllib.loads(patched)["project"]["dependencies"]
+          ours = [d for d in deps if d.startswith("node-wire-")]
+          unpatched = [d for d in ours if not re.search(r">=\d+\.\d+\.\d+b1,", d)]
+          if not ours or unpatched:
+              print(f"ERROR: node-wire-* deps not lowered to betas: {unpatched or deps}", file=sys.stderr)
+              sys.exit(1)
+          pyproject.write_text(patched, encoding="utf-8")
+
+          for dep in ours:
+              print(f"PASS: {dep}")
+
       - name: Build wheel
         env:
           PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
@@ -474,8 +510,32 @@ jobs:
 
           print(f"PASS: {len(wheels)} wheel(s) match version {expected!r}")
 
+      # Connectors depend on node-wire-runtime, and meta on runtime plus every
+      # connector; those may not be on PyPI yet at a satisfying version, so
+      # install them from this commit, as security-pr.yml does.
+      # scripts/meta_local_deps.py derives meta's list from its pyproject and
+      # fails if a dependency has no local package.
+      # No --pre: it would let third-party deps resolve to pre-releases, so
+      # pip-audit would scan versions users never get. It isn't needed either:
+      # pip accepts explicitly named paths and wheels at any version, and the
+      # local sources carry plain release versions, which satisfy both release
+      # minimums and a beta meta's lowered >=X.Y.Zb1 ones.
       - name: Install built wheel for CVE scan
-        run: pip install dist/*.whl
+        shell: bash
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
+        run: |
+          if [[ "${PACKAGE_PATH}" == "packages/meta" ]]; then
+            deps_file="${RUNNER_TEMP}/meta-local-deps.txt"
+            python scripts/meta_local_deps.py > "${deps_file}"
+            local_deps=()
+            while IFS= read -r dep; do local_deps+=("${dep}"); done < "${deps_file}"
+            pip install "${local_deps[@]}" dist/*.whl
+          elif [[ "${PACKAGE_PATH}" == "packages/runtime" ]]; then
+            pip install dist/*.whl
+          else
+            pip install packages/runtime dist/*.whl
+          fi
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
       # ships setuptools 79.0.1 (PYSEC-2026-3447); the fix is 83.0.0. That

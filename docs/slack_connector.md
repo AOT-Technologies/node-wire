@@ -4,18 +4,18 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Slack Connector
+# Slack connector
 
 This document covers the Slack connector under `src/node_wire_slack` in two parts:
 
-1. **[Slack Bot Setup](#slack-bot-setup)** — Create a Slack app, configure OAuth scopes, and obtain your bot token.
-2. **[REST API Reference](#rest-api-reference)** — Connector actions, request/response shapes, and flexible channel resolution.
+1. **[Slack bot setup](#slack-bot-setup)** — Create a Slack app, configure OAuth scopes, and obtain your bot token.
+2. **[REST API reference](#rest-api-reference)** — Connector actions, request/response shapes, and flexible channel resolution.
 
-For **MCP** (e.g. ToolHive), tools are named `slack_<action>` from the connector manifest (e.g. `slack_post_message`). Legacy dotted names (`slack.post_message`) still work on `tools/call` but are not what `tools/list` advertises.
+For **MCP** (for example, ToolHive), tools are named `slack_<action>` from the connector manifest (for example, `slack_post_message`). Legacy dotted names (`slack.post_message`) still work on `tools/call` but are not what `tools/list` advertises.
 
 ---
 
-## Slack Bot Setup
+## Slack bot setup
 
 The Slack connector uses a **Bot User OAuth Token** to interact with your workspace.
 
@@ -24,14 +24,14 @@ The Slack connector uses a **Bot User OAuth Token** to interact with your worksp
 - A Slack workspace where you have permission to install apps.
 - [Slack API Dashboard](https://api.slack.com/apps) access.
 
-### Step 1: Create a Slack App
+### Step 1: Create a Slack app
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click **Create New App**.
 2. Select **From scratch**.
-3. Give your app a name (e.g., `Node-Wire Connector`) and select your workspace.
+3. Give your app a name (for example, `Node-Wire Connector`) and select your workspace.
 4. Click **Create App**.
 
-### Step 2: Configure Scopes
+### Step 2: Configure scopes
 
 1. In the left sidebar, go to **OAuth & Permissions**.
 2. Scroll down to **Scopes > Bot Token Scopes**.
@@ -42,33 +42,35 @@ The Slack connector uses a **Bot User OAuth Token** to interact with your worksp
    - `groups:read` (optional) — If you need to post to private channels the bot is invited to.
    - `channels:read` (optional) — If you need to resolve channel names.
 
-### Step 3: Install and Get Token
+### Step 3: Install and get token
 
 1. Scroll back up to the top of the **OAuth & Permissions** page.
 2. Click **Install to Workspace**.
 3. Click **Allow** to authorize the bot.
 4. Copy the **Bot User OAuth Token** (it starts with `xoxb-`).
 
-### Step 4: Configure the Connector
+### Step 4: Configure the connector
 
 Add the token to your `.env` file:
 
 ```env
-SLACK_BOT_TOKEN=xoxb-your-token-here
+SLACK_BOT_TOKEN=<your-bot-token>
 ```
 
-### Step 5: Invite the Bot (Important)
+Replace `<your-bot-token>` with the `xoxb-` token you copied in step 3.
+
+### Step 5: Invite the bot (important)
 
 Slack bots cannot "see" private channels unless they are explicitly invited.
 
 1. Go to the Slack channel you want the bot to use.
-2. Type `/invite @YourAppName` and press Enter.
+2. Type `/invite @<your-app-name>`, replacing `<your-app-name>` with the name from step 1, and press Enter.
 
 ---
 
-## REST API Reference
+## REST API reference
 
-The connector exposes actions as standard REST endpoints. Channel identifiers are flexible and automatically resolved.
+The connector exposes actions as standard REST endpoints. For messaging actions, channel identifiers are flexible and automatically resolved.
 
 ### Operations overview
 
@@ -80,7 +82,7 @@ The connector exposes actions as standard REST endpoints. Channel identifiers ar
 Request and response schemas come from the connector's Pydantic models and are published
 live at `http://localhost:8000/docs` (Swagger UI) and `/openapi.json`; the same models
 drive the MCP tool schemas. The connector-specific behaviour those schemas do **not**
-capture is below.
+capture follows.
 
 #### `post_message`
 
@@ -90,7 +92,7 @@ Send a message to a channel, group, or user. Supports Slack `blocks`.
 
 | Form | Example | Behaviour |
 |---|---|---|
-| Channel name | `#general` | Resolved by name |
+| Channel name | `#general` | Passed to Slack, which resolves it by name |
 | Channel ID | `C…`, `G…`, `D…`, `Z…` | Used directly |
 | User ID | `U…`, `W…` | Automatically resolved to a DM channel |
 
@@ -106,11 +108,13 @@ Uploads a file to a Slack channel or DM. The content may be supplied two ways:
 | Field | Use |
 |---|---|
 | `content_base64` | Inline, base64-encoded file bytes |
-| `filepath` | Path on disk — **must** sit inside `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`) |
+| `filepath` | Absolute path on disk — **must** sit inside `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`) |
 
-### Error Taxonomy
+Slack's external upload API needs a real conversation ID, so `channel` must be a channel ID or user ID, not a name such as `#general`. Uploads larger than `NW_SLACK_UPLOAD_LIMIT_MB` (default 50, maximum 100) are rejected with `SLACK_UPLOAD_ERROR`.
 
-| Category | Platform Code | Cause |
+### Error taxonomy
+
+| Category | Platform code | Cause |
 |---|---|---|
 | `AUTH` | `SLACK_AUTH_ERROR` | Invalid or revoked token |
 | `AUTH` | `SLACK_PERMISSION_ERROR` | Missing OAuth scope |
@@ -123,4 +127,4 @@ Uploads a file to a Slack channel or DM. The content may be supplied two ways:
 ### Related
 
 - Pre-built per-connector Docker images: [Local wheels → images](local-packages-to-images.md)
-- Connector Architecture: [Build a connector — How connectors work](connectors-build.md#how-connectors-work)
+- Connector architecture: [Build a connector — How connectors work](connectors-build.md#how-connectors-work)

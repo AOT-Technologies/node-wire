@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Cerner Playground Integration Tests
+# Cerner playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the Cerner connector panel, click the run button with the
@@ -12,6 +12,8 @@ pre-filled defaults, and assert on the rendered pipeline state. No mocking
 — every test hits the real Cerner FHIR R4 Sandbox API.
 
 ## What is tested
+
+The suite contains the following tests:
 
 | Test | Action |
 |------|--------|
@@ -31,6 +33,8 @@ before clicking run.
 
 ## Running locally
 
+Install the browser once, then run the tests:
+
 ```bash
 # Install Playwright browsers (once)
 uv run python -m playwright install chromium
@@ -42,7 +46,8 @@ uv run pytest tests/playground/cerner/ --no-cov -v
 PLAYGROUND_HEADED=true uv run pytest tests/playground/cerner/ --no-cov -v -s
 ```
 
-> **Note:** Cerner tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> Cerner tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables
@@ -56,7 +61,7 @@ Set these before running (`.env` is loaded automatically if present):
 | `CERNER_TOKEN_URL` | Cerner token endpoint URL |
 | `CERNER_KID` | Key ID (`kid`) that matches the public key registered in Cerner |
 | `CERNER_FHIR_BASE_URL` | Base FHIR R4 URL including tenant ID (defaults to the Cerner code sandbox if unset) |
-| `CERNER_SCOPES` | Space-separated OAuth2 scopes (optional; defaults defined in `connectors.yaml`) |
+| `CERNER_SCOPES` | Space-separated OAuth2 scopes (optional; defaults defined in `config/connectors.yaml`) |
 | `NW_REST_AUTH_DISABLED` | Set to `true` to skip REST auth middleware |
 
 ## CI / GitHub Actions
@@ -73,6 +78,7 @@ Credentials are read from repository secrets:
 | `CERNER_TOKEN_URL` | `CERNER_TOKEN_URL` |
 | `CERNER_KID` | `CERNER_KID` |
 | `CERNER_FHIR_BASE_URL` | `CERNER_FHIR_BASE_URL` |
+| `CERNER_SCOPES` | `CERNER_SCOPES` |
 
 Set these under **Settings → Secrets and variables → Actions** before triggering
 the workflow.

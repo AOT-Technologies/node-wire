@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 360" width="1080" height="360" role="img" aria-labelledby="t d">
+  <!--
+  SPDX-FileCopyrightText: 2026 AOT Technologies
+  SPDX-License-Identifier: Apache-2.0
+  -->
+  <title id="t">Node Wire at a glance</title>
+  <desc id="d">A caller reaches a binding: REST, gRPC or MCP. The binding resolves the tenant, and ConnectorFactory resolves that tenant&#x27;s named config and returns a tenant-pinned connector instance with its secrets, auth and policy. BaseConnector.run checks the tenant pin, then validates, applies scope policy, retries behind a circuit breaker and maps errors inside an OpenTelemetry span. The connector action calls the external API, and run returns the same ConnectorResponse through every transport. Traffic dots are blue for REST, amber for gRPC and teal for MCP; the returning response is grey.</desc>
+  <style>
+    text { font-family: Inter, 'SF Pro Text', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; fill: #111827; }
+    .t { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .b { font-size: 11.5px; fill: #6b7280; }
+    .k { font-size: 10px; font-weight: 600; fill: #9ca3af; letter-spacing: 0.08em; }
+    .m { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #6b7280; }
+    .mi { font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 11px; fill: #111827; }
+    .ln { fill: none; stroke: #d1d5db; stroke-width: 1; }
+    .er { fill: none; stroke: #e01d5a; stroke-width: 1; stroke-opacity: .45; }
+    .route { offset-rotate: 0deg; opacity: 0; }
+    .hl { opacity: 0; animation: hl var(--d, 6s) ease-in-out infinite; animation-delay: var(--w, 0s); }
+    .in { opacity: 0; animation: fadein var(--d, 8s) ease-out infinite; animation-delay: var(--w, 0s); }
+    @keyframes hl { 0%, 22%, 100% { opacity: 0; } 4%, 16% { opacity: 1; } }
+    @keyframes fadein { 0% { opacity: 0; transform: translateY(4px); } 8%, 82% { opacity: 1; transform: none; }
+                        92%, 100% { opacity: 0; } }
+    .bar { transform-box: fill-box; transform-origin: left; animation: grow 8s ease-in-out infinite; }
+    @keyframes grow { 0% { transform: scaleX(0); } 70%, 90% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .hl, .route { animation: none !important; opacity: 0; }
+      .in, .bar { animation: none; opacity: 1; }
+    }
+  </style>
+  <rect width="1080" height="360" rx="12" fill="#ffffff"/>
+  <rect x=".5" y=".5" width="1079" height="359" rx="12" fill="none" stroke="#e5e7eb"/>
+  <defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="#d1d5db"/></marker></defs>
+  <rect x="168" y="28" width="312" height="260" rx="10" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="182" y="50" class="k" text-anchor="start">BINDINGS · LAYER C</text>
+  <rect x="504" y="28" width="248" height="260" rx="10" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="518" y="50" class="k" text-anchor="start">RUNTIME · LAYER A</text>
+  <rect x="776" y="28" width="160" height="260" rx="10" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="790" y="50" class="k" text-anchor="start">CONNECTORS · LAYER B</text>
+  <style>@keyframes r7 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 60.16% { opacity: 1; } 61.16% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#1a9fc8" style="offset-path: path('M142 121 L 182 101 L 399 101 L 399 111 L 1008 111'); animation: r7 6.0s linear 0.0s infinite"/>
+  <style>@keyframes r9 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 65.22% { opacity: 1; } 66.22% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#c9971c" style="offset-path: path('M142 121 L 182 173 L 399 173 L 399 111 L 1008 111'); animation: r9 6.0s linear 2.0s infinite"/>
+  <style>@keyframes r11 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 68.91% { opacity: 1; } 69.91% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#12867a" style="offset-path: path('M142 221 L 182 245 L 399 245 L 399 111 L 1008 111'); animation: r11 6.0s linear 4.0s infinite"/>
+  <style>@keyframes r13 { 0% { offset-distance: 0%; opacity: 0; } 1% { opacity: 1; } 44.21% { opacity: 1; } 45.21% { offset-distance: 100%; opacity: 0; } 100% { offset-distance: 100%; opacity: 0; } }</style>
+  <circle class="route" r="3" fill="#6b7280" style="offset-path: path('M628 288 L 628 320 L 83 320 L 83 246'); animation: r13 6.0s linear 3.4s infinite"/>
+  <text x="24" y="50" class="k" text-anchor="start">CALLERS</text>
+  <rect x="24" y="96" width="118" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="38" y="118.0" class="t" text-anchor="start">Apps</text>
+  <text x="38" y="134.0" class="b" text-anchor="start">services</text>
+  <rect x="24" y="196" width="118" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="38" y="218.0" class="t" text-anchor="start">AI agents</text>
+  <text x="38" y="234.0" class="b" text-anchor="start">MCP clients</text>
+  <rect x="182" y="76" width="124" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="196" y="98.0" class="t" text-anchor="start">REST</text>
+  <text x="196" y="114.0" class="b" text-anchor="start">tenant: header, JWT</text>
+  <circle cx="292" cy="92" r="3" fill="#1a9fc8"/>
+  <rect x="182" y="148" width="124" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="196" y="170.0" class="t" text-anchor="start">gRPC</text>
+  <text x="196" y="186.0" class="b" text-anchor="start">tenant: metadata</text>
+  <circle cx="292" cy="164" r="3" fill="#c9971c"/>
+  <rect x="182" y="220" width="124" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="196" y="242.0" class="t" text-anchor="start">MCP</text>
+  <text x="196" y="258.0" class="b" text-anchor="start">tenant: session</text>
+  <circle cx="292" cy="236" r="3" fill="#12867a"/>
+  <rect x="326" y="76" width="146" height="194" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="340" y="100" class="mi" text-anchor="start">invoke.py</text>
+  <text x="340" y="120" class="t" text-anchor="start">ConnectorFactory</text>
+  <text x="340" y="146" class="m" text-anchor="start">get(tenant, config)</text>
+  <text x="340" y="164" class="b" text-anchor="start">named config</text>
+  <text x="340" y="182" class="b" text-anchor="start">secrets · auth</text>
+  <text x="340" y="200" class="b" text-anchor="start">PolicyHook</text>
+  <text x="340" y="218" class="b" text-anchor="start">→ pinned instance</text>
+  <text x="518" y="82" class="mi" text-anchor="start">BaseConnector.run()</text>
+  <rect x="518" y="94" width="220" height="28" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 0.9s"><rect x="518" y="94" width="220" height="28" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="530" y="112" class="b" text-anchor="start" fill="#111827">Tenant pin check</text>
+  <path class="ln" d="M524 142 L 518 142 L 518 278 L 524 278"/>
+  <text x="530" y="146" class="k" text-anchor="start">OpenTelemetry span</text>
+  <rect x="530" y="156" width="208" height="26" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 1.3s"><rect x="530" y="156" width="208" height="26" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="542" y="173" class="b" text-anchor="start" fill="#111827">Validation</text>
+  <rect x="530" y="187" width="208" height="26" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 1.7000000000000002s"><rect x="530" y="187" width="208" height="26" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="542" y="204" class="b" text-anchor="start" fill="#111827">Scope policy</text>
+  <rect x="530" y="218" width="208" height="26" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 2.1s"><rect x="530" y="218" width="208" height="26" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="542" y="235" class="b" text-anchor="start" fill="#111827">Retries · breaker</text>
+  <rect x="530" y="249" width="208" height="26" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 2.5s"><rect x="530" y="249" width="208" height="26" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="542" y="266" class="b" text-anchor="start" fill="#111827">Error mapping</text>
+  <rect x="790" y="76" width="132" height="194" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <g class="hl" style="--d: 7s; --w: 3.0s"><rect x="790" y="76" width="132" height="194" rx="7" fill="#e8f6fb" stroke="#1a9fc8" stroke-opacity=".5"/></g>
+  <text x="808" y="102" class="t" text-anchor="start">Connector</text>
+  <text x="808" y="120" class="m" text-anchor="start">@nw_action</text>
+  <text x="808" y="156" class="t" text-anchor="start">Generated</text>
+  <text x="808" y="174" class="m" text-anchor="start">nw gen-all</text>
+  <text x="808" y="190" class="b" text-anchor="start">from OpenAPI</text>
+  <text x="960" y="50" class="k" text-anchor="start">EXTERNAL</text>
+  <rect x="960" y="86" width="96" height="50" rx="7" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="974" y="108.0" class="t" text-anchor="start">APIs</text>
+  <text x="974" y="124.0" class="b" text-anchor="start">SaaS · FHIR</text>
+  <path class="ln" d="M142 121 L 182 101" marker-end="url(#a)"/>
+  <path class="ln" d="M142 121 L 182 173" marker-end="url(#a)"/>
+  <path class="ln" d="M142 221 L 182 245" marker-end="url(#a)"/>
+  <path class="ln" d="M306 101 L 326 101" marker-end="url(#a)"/>
+  <path class="ln" d="M306 173 L 326 173" marker-end="url(#a)"/>
+  <path class="ln" d="M306 245 L 326 245" marker-end="url(#a)"/>
+  <path class="ln" d="M472 111 L 518 111" marker-end="url(#a)"/>
+  <path class="ln" d="M738 111 L 790 111" marker-end="url(#a)"/>
+  <path class="ln" d="M922 111 L 960 111" marker-end="url(#a)"/>
+  <path class="ln" d="M628 288 L 628 320 L 83 320 L 83 246" marker-end="url(#a)"/>
+  <text x="360" y="340" class="m" text-anchor="middle">ConnectorResponse · same envelope on every transport</text>
+</svg>

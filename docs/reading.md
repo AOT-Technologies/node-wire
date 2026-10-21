@@ -10,7 +10,7 @@ Which page to read, in what order. For the audience entry points, start at the [
 
 ## Foundation
 
-Read these in order before any topic page. Each one assumes the pages above it.
+Read these in order before any topic page. Each one assumes the pages before it.
 
 | # | Page | Answers |
 |---|---|---|
@@ -47,7 +47,7 @@ Task pages you can open directly: [Installation](installation.md) · [Configurat
 
 ## Why things are the way they are
 
-Decisions are frozen records, separate from the pages above: [Architecture decision records](adr/index.md).
+Decisions are frozen records, separate from the pages in this map: [Architecture decision records](adr/index.md).
 
 ## Who owns what
 
@@ -78,7 +78,7 @@ One fact, one owning page. Other pages link here instead of restating it.
 
 The rules are recorded in [ADR 0002](adr/0002-documentation-lifecycle.md). When a change touches documented behaviour:
 
-1. Find the owning page in the table above. If the fact has no owner yet, pick one and add a row.
+1. Find the owning page in the preceding table. If the fact has no owner yet, pick one and add a row.
 2. Check the claim against the code, not against another page.
 3. Edit the owning page in place. If you find a copy elsewhere, delete it and link to the owner.
 4. Keep bug chronology, repair notes and "fixed along the way" lists in the PR and `CHANGELOG.md`.

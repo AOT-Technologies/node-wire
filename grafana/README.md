@@ -4,7 +4,9 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Grafana Quick Guide
+# Grafana quick guide
+
+A local Grafana, Loki and OTLP stack that shows Node Wire's connector calls, traces and logs.
 
 ## What is included
 
@@ -13,9 +15,9 @@ SPDX-License-Identifier: Apache-2.0
   (`provisioning/dashboards/node-wire.yaml`). Edits made in the UI last until the container is
   recreated; to keep one, export it over `connector-logs-status.json`.
 - Exposed ports:
-  - `3000` -> Grafana UI
-  - `4317` -> OTLP gRPC ingest
-  - `4318` -> OTLP HTTP ingest
+  - `3000` -> Grafana UI (override with `NW_GRAFANA_PORT`)
+  - `4317` -> OTLP gRPC ingest (override with `NW_OTLP_GRPC_PORT`)
+  - `4318` -> OTLP HTTP ingest (override with `NW_OTLP_HTTP_PORT`)
 
 ## Run with Docker
 
@@ -25,7 +27,7 @@ From the `grafana` folder:
 docker compose up -d
 ```
 
-If another collector already holds a port, pick others (the defaults are 3000, 4317 and 4318):
+If another collector already holds a port, pick others with `NW_GRAFANA_PORT`, `NW_OTLP_GRPC_PORT` and `NW_OTLP_HTTP_PORT` (the defaults are 3000, 4317 and 4318):
 
 ```bash
 NW_OTLP_GRPC_PORT=14317 NW_OTLP_HTTP_PORT=14318 docker compose up -d
@@ -40,7 +42,7 @@ docker compose down
 ## Open Grafana
 
 1. Open `http://localhost:3000` (no login).
-2. **Dashboards** -> **node-wire** -> **Connector Calls & Logs**.
+2. Go to **Dashboards** -> **node-wire** -> **Connector Calls & Logs**.
 
 ## Which services it shows
 
@@ -48,8 +50,8 @@ The **Service** picker lists every `service_name` Loki has seen, one per process
 logs:
 
 - `node-wire`: the REST API / MCP entrypoints;
-- `nw-<connector_id>`: MCP hosts built by `nw gen-all` / `nw gen-mcp` (e.g. `nw-pet_store`);
-- `<server>-mcp`: stacklok-built servers (e.g. `petstore-mcp`, `slack-post-mcp`).
+- `nw-<connector_id>`: MCP hosts built by `nw gen-all` / `nw gen-mcp` (for example, `nw-pet_store`);
+- `<server>-mcp`: stacklok-built servers (for example, `petstore-mcp`, `slack-post-mcp`).
 
 A server exports only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set in its environment. From a
 container, the collector is at `http://host.docker.internal:4318` (or the `NW_OTLP_HTTP_PORT`
@@ -62,7 +64,7 @@ you chose), not `localhost`.
 
 ```bash
 uv run python scripts/e2e_toolhive.py --otlp-endpoint http://host.docker.internal:4318
-uv run python scripts/e2e_toolhive.py --skip-build --otlp-endpoint ...   # images already built
+uv run python scripts/e2e_toolhive.py --skip-build --otlp-endpoint http://host.docker.internal:4318   # images already built
 ```
 
 Their logs appear under `nw-pet_store`, `nw-slack_web`, `petstore-mcp` and `slack-post-mcp`, and
@@ -76,7 +78,8 @@ script against the Petstore MCP host. It calls the public Petstore demo, read-on
 
 ```bash
 uv run python scripts/traffic_petstore.py --otlp-endpoint http://host.docker.internal:4318
-uv run python scripts/traffic_petstore.py --duration 600 --rate 1 --otlp-endpoint ...
+uv run python scripts/traffic_petstore.py --duration 600 --rate 1 \
+    --otlp-endpoint http://host.docker.internal:4318
 ```
 
 It shows up as Service `nw-pet_store`, and ends with the calls by tool and outcome to compare
@@ -105,3 +108,8 @@ first sample and extrapolates, which reads wrong at low volume. Calls rejected b
 connector ran (invalid arguments, no tenant, unknown config) are their `invocation_rejected` /
 `invocation_validation_failure` lines from other loggers. Latency comes from the
 `connector_duration_ms` histogram, exported about once a minute; logs arrive within seconds.
+
+## Related
+
+- [Errors — Following a failure](../docs/errors.md#following-a-failure): the `audit_event` lines and how to trace one call.
+- [Installation](../docs/installation.md): starting the stack alongside the platform.

@@ -4,13 +4,15 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Installation Guide
+# Installation guide
 
 ## Prerequisites
 
+You need the following tools:
+
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| Python | 3.13+ | Required to run the platform |
+| Python | 3.11, 3.12 or 3.13 | Required to run the platform |
 | `uv` or `pip` | Latest | `uv` is recommended for local development |
 | Git | Any recent version | Required to clone the repository |
 | Docker | Latest | Required for MCP server image builds and `docker-compose.mcp.yml` (wheel builds don't need it) |
@@ -19,16 +21,21 @@ SPDX-License-Identifier: Apache-2.0
 
 ---
 
-## Installation Steps
+## Installation steps
 
-### 1. Clone the repository
+### Clone the repository
+
+Clone the repository and change into it:
+
 ```bash
 git clone https://github.com/AOT-Technologies/node-wire.git
 cd node-wire
 ```
 
-### 2. Configure
+### Configure
+
 Copy the sample environment file and add your `NW_ALLOWED_CONNECTORS`:
+
 ```bash
 # Linux/macOS/PowerShell
 cp sample.env .env
@@ -36,15 +43,16 @@ cp sample.env .env
 # Windows (CMD)
 copy sample.env .env
 ```
-*(Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others. Unset or empty
+
+Edit `.env` and set `NW_ALLOWED_CONNECTORS=http_generic` or others. Unset or empty
 loads no connectors — fail-closed. Full reference:
-[Configuration — Required Variables](configuration.md#required-variables).)*
+[Configuration — Required variables](configuration.md#required-variables).
 
 The platform is single-tenant by default. To isolate callers by tenant, see [Tenancy](architecture/tenancy.md).
 
-### 3. Install dependencies
+### Install dependencies
 
-**Using `uv` (recommended):**
+#### Using `uv` (recommended)
 
 The repository commits `uv.lock` for reproducible installs. Use `--frozen` in CI and local dev:
 
@@ -63,13 +71,19 @@ When you change dependencies in `pyproject.toml`, regenerate and commit the lock
 uv lock
 ```
 
-**Using `pip` (unpinned; not recommended for reproducible builds):**
+#### Using `pip` (unpinned; not recommended for reproducible builds)
+
+Choose the install that matches what you need:
+
 - Full install (including AI agents): `pip install -e ".[agents]"`
 - Minimal install (REST/gRPC only): `pip install -e .`
 - gRPC stub regeneration: `pip install -e ".[grpc-codegen]"` (optional; stubs are already committed)
 - Dev tooling (ruff/mypy/pytest/bandit): there is no `dev` extra — `dev` is a `uv` `[dependency-groups]` entry, not a `pip` install extra, so `pip install -e ".[dev,agents]"` fails. Use `uv sync --frozen --extra agents --dev` for the dev toolchain, or install ruff/mypy/pytest/bandit manually if you must stay on plain `pip`.
 
-### 4. Verify the installation
+### Verify the installation
+
+Print the installed version:
+
 ```bash
 uv run python -c "from importlib.metadata import version; print('node-wire', version('node-wire'))"
 ```
@@ -78,7 +92,7 @@ To confirm the REST API starts, run `MODE=API uv run node-wire` and open `http:/
 
 ---
 
-## Running the Platform
+## Running the platform
 
 Node Wire supports REST, gRPC, and MCP entry modes:
 
@@ -90,12 +104,16 @@ Node Wire supports REST, gRPC, and MCP entry modes:
 
 ### REST API
 
+To start the REST API on Linux or macOS, run:
+
 ```bash
 # Bash (Linux/macOS)
 export NW_REST_AUTH_DISABLED=true        # local development only
 export NW_MCP_SCOPE_POLICY_DEFAULT=allow  # .env sets deny; with auth off there is no caller scope
 MODE=API uv run node-wire           # or: MODE=API python -m bindings_entrypoint
 ```
+
+On Windows, run the following in PowerShell:
 
 ```powershell
 # PowerShell (Windows)
@@ -109,7 +127,9 @@ Once it is running:
 - Playground: `http://localhost:8000/playground/`
 - Call an action: `POST http://localhost:8000/connectors/<id>/<action>` with the action's fields as the JSON body (the connector must be in `NW_ALLOWED_CONNECTORS` in `.env`). Keeping auth on instead? Use an API key with scopes, see [Build a connector — Security](connectors-build.md#security-rest-plugins-secrets).
 
-`MODE=MCP` is not a working server. Run MCP with `python -m agents.mcp_entrypoint` ([MCP overview](mcp.md)).
+### MCP
+
+`MODE=MCP` is not a working server. Run MCP with `python -m agents.mcp_entrypoint`. To choose between the combined server, per-connector images and `nw gen-stacklok`, and for transport modes and Inspector usage, see the [MCP overview](mcp.md#which-mcp-path).
 
 ### Optional: telemetry stack (Grafana / OpenTelemetry)
 
@@ -121,18 +141,12 @@ cd grafana && docker compose up -d
 
 See `grafana/README.md` for what it runs.
 
-### MCP notes
-
-For MCP transport modes, Inspector usage, and multi-server deployment:
-
-- See [MCP overview](mcp.md#which-mcp-path) to choose between the combined server, per-connector images and `nw gen-stacklok`.
-
 ---
 
-## Development Setup
+## Development setup
 
 Lint, type-check, test and pre-commit commands are in [Code quality](code-quality-compliance.md).
-The `.env` you created in [Configure](#2-configure) affects `pytest`. Move it aside before you run the
+The `.env` you created in [Configure](#configure) affects `pytest`. Move it aside before you run the
 suite, as [Code quality — Tests](code-quality-compliance.md#tests) explains.
 Contribution rules (DCO, license headers, PRs) are in
 [`CONTRIBUTING.md`](https://github.com/AOT-Technologies/node-wire/blob/main/CONTRIBUTING.md).

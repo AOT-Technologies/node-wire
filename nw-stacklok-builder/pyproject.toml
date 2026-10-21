@@ -6,7 +6,7 @@
 name = "nw-stacklok-builder"
 version = "0.1.0"
 description = "stacklok mcp-builder (vendored) generating MCP servers on the node-wire runtime and connectors"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     # stacklok/mcp-builder's own runtime dependencies (upstream pyproject.toml @ 7c03c38).
     "jinja2>=3.1.6",

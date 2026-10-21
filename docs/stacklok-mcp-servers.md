@@ -23,7 +23,7 @@ and modified only through small hooks.
 
 ## Quick start
 
-Install the dev toolchain as in [Installation](installation.md#3-install-dependencies). On top of
+Install the dev toolchain as in [Installation](installation.md#install-dependencies). On top of
 that, `nw gen-stacklok` needs Docker running (to build the image) and, for Phase 1 only,
 Claude Code (`claude` on `PATH`). A run with `--scope` doesn't need Claude Code.
 
@@ -62,7 +62,9 @@ with the prepared spec for later `--scope` runs; see [nw CLI](cli/nw-cli.md#nw-g
 Plain `docker build -t <server>-mcp nw-stacklok-builder/out/<server>-mcp` builds the same image.
 Next, check it as in [Verifying a running server](#verifying-a-running-server).
 
-### Names
+## Names
+
+The commands and paths on this page use the following names:
 
 | Name | Comes from | Example |
 | --- | --- | --- |
@@ -75,7 +77,7 @@ Next, check it as in [Verifying a running server](#verifying-a-running-server).
 To read `<server>` from a saved scope, run
 `grep -A1 '^server:' nw-stacklok-builder/scoping/<id>/mcp-scope.yaml`.
 
-### What it changes in the repository
+## What it changes in the repository
 
 The connector stage generates the connector and wires it in, like `nw gen-all` does
 ([When wire is enabled](cli/nw-cli.md#when-wire-is-enabled)). `gen-stacklok` has no `--no-wire`.
@@ -84,8 +86,8 @@ The connector stage generates the connector and wires it in, like `nw gen-all` d
 | --- | --- |
 | `config/connectors.yaml` | adds the `<id>:` entry (tracked file) |
 | `sample.env` | adds `<id>` to `NW_ALLOWED_CONNECTORS`, plus the connector's secret names (tracked file) |
-| `src/node_wire_<id>/`, `packages/connectors/<id>/` | connector source and its wheels (new) |
-| `nw-stacklok-builder/scoping/<id>/` | the scope and `scoping-summary.md` (new) |
+| `src/node_wire_<id>/`, `packages/connectors/<id>/` | connector source and its wheels (created) |
+| `nw-stacklok-builder/scoping/<id>/` | the scope and `scoping-summary.md` (created) |
 | `nw-stacklok-builder/specs/<id>.openapi.json`, `nw-stacklok-builder/out/<server>-mcp/` | the prepared spec and the server project (gitignored) |
 
 Unlike `gen-all`, it doesn't add the connector to `ALL_PACKAGES` in `scripts/build-packages.sh`.
@@ -97,7 +99,7 @@ those files, which would also discard your other edits there. Then delete every 
 for verification, and the image (`docker rmi <server>-mcp`). Leave `packages/runtime/dist/`,
 `packages/bindings/dist/` and `packages/toolhive/dist/` alone; other builds reuse those wheels.
 
-### The three phases
+## The three phases
 
 1. **Phase 1, AI scoping.** The spec is prepared: downloaded, converted from Swagger 2.0 and made
    strict OpenAPI 3.0, with the original recorded under `x-nw-source`. Then Claude Code opens with
@@ -117,7 +119,7 @@ for verification, and the image (`docker rmi <server>-mcp`). Leave `packages/run
 2. **Phase 2, human review.** The command pauses with a summary of the scope and a menu to
    generate, inspect, edit, rescope or stop; without a terminal it always stops here. The summary
    and the options are described in [nw CLI](cli/nw-cli.md#nw-gen-stacklok).
-3. **Phase 3, generate**, as below.
+3. **Phase 3, generate**, as in the following stages.
 
 stacklok's `/ai-validation` (Phase 4) isn't included, because it reviews the httpx client that
 node-wire mode replaces. Use the checks in [Verifying a running server](#verifying-a-running-server). To run the skill
@@ -138,7 +140,7 @@ runtime:
    (`spec.base_url` is the connector's base URL). The connector covers every operation; the scope
    decides which ones become tools. The connector is always regenerated from the scope's spec, so
    endpoints map onto it; a hand-written connector with the same id is never overwritten.
-2. **Wheels for the MCP image**: pure-Python (`py3-none-any`) wheels for `node-wire-runtime`,
+2. **Wheels for the MCP image** — pure-Python (`py3-none-any`) wheels for `node-wire-runtime`,
    `node-wire-bindings`, `node-wire-toolhive` and the connector, built with
    `scripts/build-packages.sh`.
    - They install on stacklok's Alpine image on any CPU architecture, so there is no target
@@ -160,7 +162,7 @@ runtime:
   (`node_wire_toolhive.NodeWireClient`).
 - **Auth follows ToolHive.** The template's `TokenPassthroughMiddleware` rejects requests without
   a bearer token (401). The credential ToolHive forwards as `Authorization: Bearer` is relayed on
-  every call into the connector's own auth placement — bearer, a named header (e.g. `api_key`),
+  every call into the connector's own auth placement — bearer, a named header (for example, `api_key`),
   or a query parameter — and is never cached. The connector must be listed in
   `NW_UPSTREAM_BEARER_CONNECTORS` (set in the image). node-wire does not refresh tokens or run
   OAuth flows here; ToolHive owns the token lifecycle.
@@ -177,7 +179,7 @@ runtime:
   context — not from middleware contextvars, which under stateful streamable HTTP keep the
   session's *first* request (a refreshed token would never be seen).
 - **Errors and logs.** A failed tool call reaches the MCP client as
-  `CODE [CATEGORY]: message (trace_id=...)`, e.g.
+  `CODE [CATEGORY]: message (trace_id=...)`, for example,
   `VALIDATION_ERROR [BUSINESS]: Input validation failed; ... (trace_id=5f0c...)`, the same codes
   as on every other surface ([Errors](errors.md)). The server logs the same `trace_id`. Each connector run writes `runtime.base_connector` lines with `trace_id`,
   `connector_id`, `action`, `audit_event` (`invocation_start`, `invocation_success`,
@@ -188,7 +190,7 @@ runtime:
   tool with `audit_event=invocation_validation_failure`. node-wire's log redaction is on.
   These are the server's own logs (`docker logs <container>`); `thv logs <workload>` shows only
   the ToolHive proxy.
-- **Telemetry.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. `http://otel-collector:4318`) to export
+- **Telemetry.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` (for example, `http://otel-collector:4318`) to export
   node-wire's traces (`connector.run` spans), metrics and logs over OTLP/HTTP with
   `service.name=<server>-mcp`. When it is unset, or `OTEL_SDK_DISABLED=true`, nothing is exported.
 
@@ -211,7 +213,7 @@ Why this is safe: ToolHive's `header-forward` middleware sets each configured he
 claiming a tenant:
 
 - the NetworkPolicy admits only the proxy pods. This needs a CNI that enforces NetworkPolicy
-  (Calico, Cilium, ...); on one that doesn't, the policy does nothing;
+  (for example, Calico or Cilium); on one that doesn't, the policy does nothing;
 - every proxy sends the shared secret from `proxy-secret.yaml` (`headerForward.addHeadersFromSecret`),
   and the backend rejects the tenant header without it.
 
@@ -273,7 +275,7 @@ At the end of a run, `nw gen-stacklok` prints a different `docker run`: port 820
 `NW_MULTITENANCY_ENABLED=false`, then `thv run` to put a local ToolHive proxy in front of it.
 That single-tenant container is for trying the tools from an MCP client. It needs no tenants
 file, but it fails the script's checks: it lists no `nw_*` config tools and it doesn't require
-`X-Tenant-ID`. Use the multi-tenant run above to verify the server.
+`X-Tenant-ID`. Use the preceding multi-tenant run to verify the server.
 
 ## Limits
 

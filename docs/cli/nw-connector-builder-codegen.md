@@ -62,8 +62,6 @@ A spec that fails validation is not rejected outright. Each operation and each c
 
 The generated tests parse each operation's request example into its input model. An example that does not match its own schema (GitHub's `markdown/render-raw` shows a JSON object for a `text/plain` body) is not used as a test, so a documentation mistake in the spec cannot fail the build gate. Those operations are named in the report's `notes`.
 
-
-
 ---
 
 ## Tool and parameter descriptions
@@ -102,7 +100,7 @@ Rules:
 - **Always sent** — an operation that declares a body sends one, `{}` when no property is set.
 - **`allOf`** parts at the top of the body schema are merged; `readOnly` properties are left out (a client never sends them).
 - **Enums** on string fields become `Literal[...]` types, so they are enforced, not only advertised.
-- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (e.g. `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix (a field renamed from `action` is never aliased back to `action`, which is the input model's dispatch discriminator), Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
+- **Name clashes** — a path/query/header parameter that shares a name with a body property is renamed `<name>__<location>` (for example, `channel__query`); the body property keeps the plain name. Names the bindings reserve (`action`, `body`, `self`, `cls`, `config_name`, `tenant_id`, `trace_id`) get a `_param` suffix (a field renamed from `action` is never aliased back to `action`, which is the input model's dispatch discriminator), Python keywords a trailing `_` (`from` → `from_`, which also accepts `from`). The value is always sent under its original wire name.
 - **Whole bodies** — bodies that are not objects with declared properties keep a single `body` argument: arrays (`list`), binary/string bodies (`str`), free-form maps, `oneOf`/`anyOf`, and media types other than JSON, form and multipart. `body` is required when the request body is.
 
 ---
@@ -195,6 +193,6 @@ A missing flag at runtime is never a failure either: only a flag the API actuall
 
 | Doc | When to read it |
 |-----|-----------------|
-| [nw-connector-builder.md](nw-connector-builder.md) | Running the generator |
-| [nw-connector-builder-scope.md](nw-connector-builder-scope.md) | What is in and out of scope |
+| [nw-connector-builder](nw-connector-builder.md) | Running the generator |
+| [Generator contract](nw-connector-builder-scope.md) | What is in and out of scope |
 | [Build a connector](../connectors-build.md) | Hand-written connectors |

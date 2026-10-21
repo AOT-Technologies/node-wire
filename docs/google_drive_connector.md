@@ -4,67 +4,16 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Google Drive Connector
+# Google Drive connector
 
-This document covers the Google Drive connector under `src/node_wire_google_drive` in two parts:
+This document covers the Google Drive connector under `src/node_wire_google_drive`, in this order:
 
 1. **[Google Drive service account setup](#google-drive-service-account-setup)** — Create a GCP service account, enable the Drive API, configure `.env`, share a folder, and verify connectivity.
-2. **[REST API reference](#rest-api-reference)** — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.
+2. **[Multi-tenancy](#multi-tenancy)** — Per-tenant Drive credentials and folders.
+3. **[User OAuth](#upstream_bearer)** — Optional: per-user Drive access by relaying the caller's own bearer token, instead of the shared service account.
+4. **[REST API reference](#rest-api-reference)** — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.
 
-For **MCP** (e.g. ToolHive), tools are named `google_drive_<action>` from the connector manifest (e.g. `google_drive_files_upload`). Legacy dotted names (`google_drive.files.upload`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
-
----
-
-## User OAuth (OIDC / upstream bearer) { #upstream_bearer }
-
-For **per-user Google Drive access** (each caller uses their own Drive), set:
-
-`upstream_bearer` is a **credential relay**, not an ordinary auth provider: Node Wire
-forwards the caller's own inbound MCP bearer token to Google Drive's API as-is. It does
-not verify that token is actually valid for Drive — audience binding is the host
-application's responsibility (e.g. only enable this when the IdP issuing the inbound
-token is one whose tokens are already scoped to Drive). Fails closed by design: setting
-the provider alone does nothing.
-
-```yaml
-google_drive:
-  auth:
-    provider: upstream_bearer
-```
-
-Or set the environment variable (overrides `connectors.yaml` when present):
-
-```env
-GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer
-```
-
-**And**, independently, add `google_drive` to the explicit relay allowlist — required in
-addition to the setting above, not instead of it:
-
-```env
-NW_UPSTREAM_BEARER_CONNECTORS=google_drive
-```
-
-Allowed values: `service_account` (default), `upstream_bearer`.
-
-Run the **google-drive-only** MCP server (`python -m agents.google_drive_mcp`) with `NW_MCP_TRANSPORT=streamable-http`. The `Authorization: Bearer` token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do **not** set `NW_MCP_API_KEY`, `NW_MCP_JWT_SECRET`, or `GOOGLE_DRIVE_SA_JSON` for this profile.
-
-**ToolHive OIDC manifests:** copy and adapt from [mcp-builder `out/google-drive-mcp/deploy/`](https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy) (`mcpexternalauthconfig.yaml`, `mcpoidcconfig.yaml`, `mcpserver.yaml`) — use image/entrypoint `nw-google-drive` / `python -m agents.google_drive_mcp`.
-
-**Note:** passthrough activates for any MCP server that exposes an explicit, bounded connector list (`connector_ids=[...]`, never the unrestricted "exposes everything" default) containing at least one relay-allowlisted connector — it is no longer restricted to a google-drive-only server, though that remains the only connector this repo actually configures for it today. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth unless one of those connectors is also allowlisted.
-
-With `NW_MCP_SCOPE_POLICY_DEFAULT=deny` (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (`mcp:google_drive.<action>`) from its manifest to upstream bearer callers so `tools/list` is not empty. Google OAuth on the `Authorization: Bearer` token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.
-
-For **shared-folder automation** (single service identity), keep the [service account setup](#google-drive-service-account-setup) below.
-
----
-
-## Multi-tenancy
-
-With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Drive credentials and folder
-in a named config, instead of the shared `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID`. For
-example, tenant `acme` reads `NW_ACME_GOOGLE_DRIVE_SA_JSON`. How tenant secrets are named, and how
-MCP sessions select a tenant and config, is in [Tenancy](architecture/tenancy.md).
+For **MCP** (for example, ToolHive), tools are named `google_drive_<action>` from the connector manifest (for example, `google_drive_files_upload`). Legacy dotted names (`google_drive.files.upload`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 
@@ -78,17 +27,17 @@ This guide walks you through creating a Google Cloud service account and connect
 
 - A Google account
 - Access to [Google Cloud Console](https://console.cloud.google.com/)
-- Node Wire installed and configured (see [Installation Guide](installation.md))
+- Node Wire installed and configured (see [Installation guide](installation.md))
 
-### Step 1: Create or Select a GCP Project
+### Step 1: Create or select a GCP project
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/).
 2. Click the project dropdown at the top of the page.
 3. Click **New Project** (top right of the dialog).
-4. Give it a name (e.g., `node-wire`) and click **Create**.
+4. Give it a name (for example, `node-wire`) and click **Create**.
 5. Make sure the new project is selected in the dropdown before continuing.
 
-> **Already have a project?** You can use an existing one — just make sure it's selected.
+If you already have a project, you can use it instead; make sure it's selected.
 
 ### Step 2: Enable the Google Drive API
 
@@ -103,51 +52,54 @@ The Drive API must be enabled before your service account can access Drive.
 **Via the `gcloud` CLI (alternative):**
 
 ```bash
-gcloud config set project YOUR_PROJECT_ID
+gcloud config set project <your-project-id>
 gcloud services enable drive.googleapis.com
 ```
 
-### Step 3: Create a Service Account
+Replace `<your-project-id>` with the ID of the project from step 1.
+
+### Step 3: Create a service account
 
 1. In the left sidebar, go to **IAM & Admin > Service Accounts**.
 2. Click **+ Create Service Account** at the top.
 3. Fill in the details:
-   - **Service account name:** e.g., `node-wire-drive-connector`
-   - **Service account ID:** auto-filled (e.g., `node-wire-drive-connector@your-project.iam.gserviceaccount.com`)
-   - **Description:** e.g., `Service account for Node Wire Drive access`
+   - **Service account name:** for example, `node-wire-drive-connector`
+   - **Service account ID:** auto-filled (for example, `node-wire-drive-connector@your-project.iam.gserviceaccount.com`)
+   - **Description:** for example, `Service account for Node Wire Drive access`
 4. Click **Create and Continue**.
 5. On the **Grant access** step: you can skip role assignment here (Drive access is controlled by folder sharing, not IAM roles). Click **Continue**.
 6. Click **Done**.
 
-### Step 4: Download the JSON Key
+### Step 4: Download the JSON key
 
 The service account needs a key file so the platform can authenticate as it.
 
-1. On the **Service Accounts** list page, find the account you just created.
+1. On the **Service Accounts** list page, find the account you created.
 2. Click the three-dot menu (Actions) on the right → **Manage keys**.
 3. Click **Add Key > Create new key**.
 4. Select **JSON** and click **Create**.
-5. A `.json` file will be downloaded to your computer. **Keep this file safe** — it grants full access to anything the service account can access.
+5. Your browser downloads a `.json` file. **Keep this file safe** — it grants full access to anything the service account can access.
 
-The file looks like this:
+The file looks like the following excerpt; the downloaded file has a few more fields:
 
 ```json
 {
   "type": "service_account",
-  "project_id": "your-project-id",
-  "private_key_id": "abc123...",
-  "private_key": "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----\n",
-  "client_email": "node-wire-drive-connector@your-project.iam.gserviceaccount.com",
-  "client_id": "123456789",
+  "project_id": "<your-project-id>",
+  "private_key_id": "<private-key-id>",
+  "private_key": "<private-key>",
+  "client_email": "node-wire-drive-connector@<your-project-id>.iam.gserviceaccount.com",
+  "client_id": "<client-id>",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  ...
+  "token_uri": "https://oauth2.googleapis.com/token"
 }
 ```
 
-### Step 5: Configure the Connector
+You don't edit these values: `<your-project-id>`, `<private-key-id>`, `<private-key>` (a PEM block), and `<client-id>` are filled in by Google Cloud.
 
-Move the downloaded JSON key file to a safe location on your machine (e.g., `~/.secrets/google-drive-sa.json`).
+### Step 5: Configure the connector
+
+Move the downloaded JSON key file to a safe location on your machine (for example, `~/.secrets/google-drive-sa.json`).
 
 Add the following to your `.env` file:
 
@@ -164,13 +116,13 @@ $saPath = "C:\path\to\service_account.json"  # Replace with your actual path
 $env:GOOGLE_DRIVE_SA_JSON = Get-Content -Path $saPath -Raw
 ```
 
-> This sets the variable for the current PowerShell session. To persist it across sessions, use `[System.Environment]::SetEnvironmentVariable("GOOGLE_DRIVE_SA_JSON", (Get-Content -Path $saPath -Raw), "User")` or add the path to your `.env` file manually.
+This sets the variable for the current PowerShell session. To persist it across sessions, use `[System.Environment]::SetEnvironmentVariable("GOOGLE_DRIVE_SA_JSON", (Get-Content -Path $saPath -Raw), "User")` or add the path to your `.env` file manually.
 
-> **For ToolHive deployment:** Instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `GOOGLE_DRIVE_SA_JSON`. See [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+For ToolHive deployment, instead of a file path, paste the entire JSON content as a single-line string into the ToolHive secret named `GOOGLE_DRIVE_SA_JSON`. See [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
-### Step 6: Share a Google Drive Folder with the Service Account
+### Step 6: Share a Google Drive folder with the service account
 
-The service account starts with no access to any Drive files. You must explicitly share folders or files with it, just like sharing with any other Google user.
+The service account starts with no access to any Drive files. You must explicitly share folders or files with it, the same way you share with any other Google user.
 
 1. Open [Google Drive](https://drive.google.com/) in your browser.
 2. Create a new folder (or use an existing one) where the connector will upload files.
@@ -183,13 +135,13 @@ The service account starts with no access to any Drive files. You must explicitl
 6. Uncheck **Notify people** (the service account doesn't have an inbox).
 7. Click **Share**.
 
-### Step 7: Get the Folder ID
+### Step 7: Get the folder ID
 
 The folder ID is used to tell the connector where to upload files.
 
 1. Open the shared folder in Google Drive.
-2. Look at the URL in your browser — it will look like:
-   ```
+2. Look at the URL in your browser. It looks like the following:
+   ```text
    https://drive.google.com/drive/folders/1ABCdef_GHIjklMNOpqrSTUvwxYZ
    ```
 3. The folder ID is the string after `/folders/` — in this example: `1ABCdef_GHIjklMNOpqrSTUvwxYZ`.
@@ -221,40 +173,95 @@ You can also use the **Swagger UI** at `http://localhost:8000/docs` to test inte
 
 To upload a test file, send a `files.upload` request (include `parents` with your folder ID); the argument list is in the [REST API reference](#rest-api-reference).
 
-### Common Errors (setup)
+### Common errors (setup)
 
-| Error | Likely Cause | Fix |
+| Error | Likely cause | Fix |
 |---|---|---|
 | `GDRIVE_AUTH` / `401` or `403` | Service account key file path is wrong, or the JSON is invalid | Double-check `GOOGLE_DRIVE_SA_JSON` points to the correct absolute path |
 | `GDRIVE_AUTH` / `403` on a specific file | Service account doesn't have permission to that file/folder | Share the folder with the service account email |
 | `GDRIVE_BUSINESS_RULE` / `404` | Folder ID is wrong | Check the URL in Drive and re-copy the folder ID |
-| `FileNotFoundError` | `GOOGLE_DRIVE_SA_JSON` path doesn't exist | Use an absolute path, not a relative one |
+| `ValueError`: "service account file not found" | `GOOGLE_DRIVE_SA_JSON` is not inline JSON and its path doesn't exist | Use an absolute path, not a relative one |
 
-### Security Notes
+### Security notes
 
 - **Never commit the JSON key file to version control.** Add it to `.gitignore`:
-  ```
+  ```gitignore
   *.json
   service-account*.json
   *-sa.json
   ```
-- Store the key in a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault) in production environments.
+- Store the key in a secrets manager (for example, AWS Secrets Manager, HashiCorp Vault) in production environments.
 - Use a dedicated service account per application — don't reuse accounts across services.
 - Grant only the minimum required permissions. If the connector only needs to upload files to one specific folder, only share that folder.
 - Rotate the key periodically: Cloud Console → IAM & Admin → Service Accounts → Manage Keys → Add new key, then delete the old one.
 
 ---
 
+## Multi-tenancy
+
+With `NW_MULTITENANCY_ENABLED=true`, each tenant can have its own Drive credentials and folder
+in a named config, instead of the shared `GOOGLE_DRIVE_SA_JSON` / `GOOGLE_DRIVE_FOLDER_ID`. For
+example, tenant `acme` reads `NW_ACME_GOOGLE_DRIVE_SA_JSON`. How tenant secrets are named, and how
+MCP sessions select a tenant and config, is in [Tenancy](architecture/tenancy.md).
+
+---
+
+## User OAuth (OIDC / upstream bearer) { #upstream_bearer }
+
+For **per-user Google Drive access** (each caller uses their own Drive), use the `upstream_bearer` provider.
+
+`upstream_bearer` is a **credential relay**, not an ordinary auth provider: Node Wire
+forwards the caller's own inbound MCP bearer token to Google Drive's API as-is. It does
+not verify that token is actually valid for Drive — audience binding is the host
+application's responsibility (for example, only enable this when the IdP issuing the inbound
+token is one whose tokens are already scoped to Drive). Fails closed by design: setting
+the provider alone does nothing.
+
+Set the provider in `connectors.yaml`:
+
+```yaml
+google_drive:
+  auth:
+    provider: upstream_bearer
+```
+
+Or set the environment variable (overrides `connectors.yaml` when present):
+
+```env
+GOOGLE_DRIVE_AUTH_PROVIDER=upstream_bearer
+```
+
+**And**, independently, add `google_drive` to the explicit relay allowlist — required in
+addition to the preceding setting, not instead of it:
+
+```env
+NW_UPSTREAM_BEARER_CONNECTORS=google_drive
+```
+
+Allowed values: `service_account` (default), `upstream_bearer`.
+
+Run the **google-drive-only** MCP server (`python -m agents.google_drive_mcp`) with `NW_MCP_TRANSPORT=streamable-http`. The `Authorization: Bearer` token on each MCP request must be the Google access token (typically issued via ToolHive embedded OIDC). Do **not** set `NW_MCP_API_KEY`, `NW_MCP_JWT_SECRET`, or `GOOGLE_DRIVE_SA_JSON` for this profile.
+
+**ToolHive OIDC manifests:** copy and adapt from [mcp-builder `out/google-drive-mcp/deploy/`](https://github.com/stacklok/mcp-builder/tree/main/out/google-drive-mcp/deploy) (`mcpexternalauthconfig.yaml`, `mcpoidcconfig.yaml`, `mcpserver.yaml`) — use image/entrypoint `nw-google-drive` / `python -m agents.google_drive_mcp`.
+
+Passthrough activates for any MCP server that exposes an explicit, bounded connector list (`connector_ids=[...]`, never the unrestricted "exposes everything" default) containing at least one relay-allowlisted connector. Google Drive is the only connector this repo configures for it. The unified `mcp_entrypoint` with multiple connectors keeps API-key/JWT MCP auth unless one of those connectors is also allowlisted.
+
+With `NW_MCP_SCOPE_POLICY_DEFAULT=deny` (recommended for production), the google-drive MCP server auto-grants the per-action MCP scopes (`mcp:google_drive.<action>`) from its manifest to upstream bearer callers so `tools/list` is not empty. Google OAuth on the `Authorization: Bearer` token remains the boundary for Drive API access—refresh that access token when Drive calls fail with auth errors.
+
+For **shared-folder automation** (single service identity), keep the [service account setup](#google-drive-service-account-setup).
+
+---
+
 ## REST API reference
 
-The connector exposes **one REST route per operation** (`POST /connectors/google_drive/<action>`, e.g. `files.list`). The `action` field on the request body selects which Google Drive operation runs for `BaseConnector` dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.
+The connector exposes **one REST route per operation** (`POST /connectors/google_drive/<action>`, for example, `files.list`). The `action` field on the request body selects which Google Drive operation runs for `BaseConnector` dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.
 
 ### Operations overview
 
 All requests go through:
 
 - Connector ID: `google_drive`
-- REST endpoint: `POST /connectors/google_drive/<action>` (e.g. `POST /connectors/google_drive/files.list`)
+- REST endpoint: `POST /connectors/google_drive/<action>` (for example, `POST /connectors/google_drive/files.list`)
 
 Each operation uses `action` as a discriminator:
 
@@ -275,12 +282,11 @@ models and published live — do not duplicate them here:
 
 Field-level meaning lives on the models in `src/node_wire_google_drive/schema.py`.
 
-
 ### Error taxonomy
 
 All Google Drive errors are mapped into the platform error taxonomy using wrapper exceptions:
 
-- `GDRIVE_AUTH` (`AUTH`): authentication/authorization issues (e.g. 401, 403 without rate-limit reason).
+- `GDRIVE_AUTH` (`AUTH`): authentication/authorization issues (for example, 401, 403 without rate-limit reason).
 - `GDRIVE_RATE_LIMIT` (`RETRYABLE`): quota or rate limit issues (403 with `quotaExceeded`/`rateLimitExceeded`, 429, 5xx).
 - `GDRIVE_BUSINESS_RULE` (`BUSINESS`): invalid IDs, conflicts, not found (400, 404, 409).
 - `GDRIVE_FATAL` (`FATAL`): any unhandled `HttpError` status or unexpected exception.

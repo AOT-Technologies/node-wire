@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Code Quality and Compliance
+# Code quality and compliance
 
 This project uses **Ruff** for linting and formatting, **Mypy** for static type checking, **Bandit** for SAST, **pip-audit** for dependency vulnerability checks, and **REUSE** for open-source licensing compliance.
 
@@ -24,13 +24,15 @@ Then run the local quality checks:
 - **Auto-fix and format code:** `uv run ruff check --fix . && uv run ruff format .`
 - **Run static type validation:** `uv run mypy`
 
-`mypy` uses the default `files` target from `[tool.mypy]` in `pyproject.toml`, which is currently `src`. Avoid `mypy .`, because it can pull in packaging `setup.py` scripts under `packages/` and produce duplicate-module noise. To include tests explicitly, run:
+`mypy` uses the default `files` target from `[tool.mypy]` in `pyproject.toml`, which is `src`. Avoid `mypy .`, because it can pull in packaging `setup.py` scripts under `packages/` and produce duplicate-module noise. To include tests explicitly, run:
 
 ```bash
 mypy src tests
 ```
 
 ## Tests
+
+Run the full suite:
 
 ```bash
 uv run pytest tests/ -v
@@ -67,12 +69,12 @@ Bandit, with the same scan roots and failure threshold as CI:
 
 ```bash
 uv run bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src nw-stacklok-builder/src \
   --severity-level high
 
 # Optional: JSON report + the same summary CI prints
 uv run bandit -c pyproject.toml \
-  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src \
+  -r src nw-cli/src nw-mcp-builder/src nw-connector-builder/src nw-stacklok-builder/src \
   -f json -o bandit-report.json --exit-zero
 python scripts/bandit_report_summary.py bandit-report.json
 ```
@@ -84,10 +86,12 @@ Secret scanning with [Gitleaks](https://github.com/gitleaks/gitleaks) (for examp
 
 ```bash
 gitleaks detect --source . --redact --verbose                        # working tree
-gitleaks detect --source . --redact --verbose --log-opts="--all"     # full history, as CI does
+gitleaks detect --source . --redact --verbose --log-opts="--all"     # full history, as CI does on push and schedule
 ```
 
 ## Docs checks
+
+Run the docs checks:
 
 ```bash
 uv run --group docs mkdocs build --strict      # dead links, bad anchors, missing nav files
@@ -117,6 +121,8 @@ The current pre-commit setup includes Ruff, Ruff formatting, Mypy, REUSE, and Ba
 This repository enforces open-source licensing compliance using [REUSE](https://reuse.software/). First-party files should contain the appropriate SPDX copyright and license headers.
 
 ### Verify compliance
+
+Install REUSE and lint the repository:
 
 ```bash
 uv pip install reuse

@@ -4,10 +4,10 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Versioning, Stability & Deprecation Policy
+# Versioning, stability & deprecation policy
 
 Node Wire follows [Semantic Versioning 2.0.0](https://semver.org/). As of
-**1.0.0**, the public API is stable and covered by the guarantees below.
+**1.0.0**, the public API is stable and covered by the following guarantees.
 
 ## Semantic Versioning
 
@@ -23,7 +23,7 @@ API. Breaking changes are reserved for the next major (`2.0.0`).
 ## What is "public" (covered by SemVer)
 
 The stability guarantee covers the surface enumerated in the
-[Public API Reference](public-api.md):
+[Public API reference](public-api.md):
 
 - Symbols exported from `node_wire_runtime` (its `__all__`).
 - The connector authoring contract: `BaseConnector`, `@nw_action` / `@sdk_action`,
@@ -33,7 +33,7 @@ The stability guarantee covers the surface enumerated in the
 - Documented configuration: the `connectors.yaml` schema and `NW_*` environment variables.
 - Console entry points (`node-wire`, `nw-*`).
 
-## What is NOT public (may change in any release)
+## What is not public (may change in any release)
 
 - Any module, class, function, or attribute whose name begins with `_`.
 - Anything in internal modules not re-exported from a package's `__init__`.
@@ -79,3 +79,9 @@ projects as stable builds and do **not** create a GitHub Release. Public API
 guarantees in this document apply to the final `MAJOR.MINOR.PATCH` release; a
 pre-release does not change those guarantees early. Install with
 `pip install --pre …` or an exact version pin.
+
+## Related docs
+
+- [Packaging](packaging.md) — the release process and the package inventory
+- [Release rollback and unpublish runbook](release-rollback.md) — yank and corrective releases
+- [Public API](public-api.md) — the surface these guarantees cover

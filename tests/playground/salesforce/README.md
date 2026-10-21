@@ -4,13 +4,15 @@ SPDX-FileCopyrightText: 2026 AOT Technologies
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Salesforce CRM Playground Integration Tests
+# Salesforce CRM playground integration tests
 
 End-to-end Playwright tests that open the Playground UI in a real browser,
 navigate to the Salesforce CRM connector panel, and assert on the rendered
 pipeline state. No mocking — every test hits the real Salesforce API.
 
 ## What is tested
+
+The suite contains the following tests:
 
 | Test | Action |
 |------|--------|
@@ -39,10 +41,12 @@ refresh token. No `page.route()` interception.
 
 Session fixtures create Lead and Contact records once via the REST API for use
 across read and update tests. Delete tests each create their own fresh record.
-All generated names and emails use random suffixes (e.g. `Lead839201`,
+All generated names and emails use random suffixes (for example, `Lead839201`,
 `test748203@mailinator.com`) so repeated runs never collide on duplicate values.
 
 ## Running locally
+
+Install the browser once, then run the tests:
 
 ```bash
 # Install Playwright browsers (once)
@@ -58,7 +62,8 @@ PLAYGROUND_HEADED=true uv run pytest tests/playground/salesforce/ --no-cov -v -s
 uv run pytest tests/playground/salesforce/ --no-cov -v -k test_sf_create_lead_minimal
 ```
 
-> **Note:** Salesforce tests are excluded from the default `uv run pytest` run and
+> [!NOTE]
+> Salesforce tests are excluded from the default `uv run pytest` run and
 > from regular CI (push/PR). They must be triggered explicitly.
 
 ## Required environment variables
@@ -67,8 +72,8 @@ Set these before running (`.env` is loaded automatically if present):
 
 | Variable | Description |
 |----------|-------------|
-| `SALESFORCE_INSTANCE_URL` | Your Salesforce org URL, e.g. `https://orgname.my.salesforce.com` |
-| `SALESFORCE_TOKEN_URL` | OAuth2 token endpoint, e.g. `https://login.salesforce.com/services/oauth2/token` |
+| `SALESFORCE_INSTANCE_URL` | Your Salesforce org URL, for example, `https://orgname.my.salesforce.com` |
+| `SALESFORCE_TOKEN_URL` | OAuth2 token endpoint, for example, `https://login.salesforce.com/services/oauth2/token` |
 | `SALESFORCE_CLIENT_ID` | Connected App client ID |
 | `SALESFORCE_CLIENT_SECRET` | Connected App client secret |
 | `SALESFORCE_REFRESH_TOKEN` | Long-lived OAuth2 refresh token |
