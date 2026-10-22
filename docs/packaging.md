@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Packaging & publishing
 
-Node Wire ships as multiple independent PyPI packages (the runtime plus one package per connector) built from a single monorepo. All wheels are binary-only (Cython-compiled `.so`/`.pyd` files) — no `.py` source is included in any published wheel.
+Node Wire ships as multiple independent PyPI packages (the runtime plus one package per connector) built from a single monorepo. Every package builds one pure-Python wheel (`py3-none-any`), which installs on every supported Python version (3.11–3.13) and operating system.
 
 ---
 
@@ -66,7 +66,6 @@ Update the following files:
 | File | Purpose |
 |---|---|
 | `packages/connectors/<name>/pyproject.toml` | Publishable package metadata, version, entry point — see [Tier 2 templates](#tier-2-templates) |
-| `packages/connectors/<name>/setup.py` | Cython/build glue — see [Tier 2 templates](#tier-2-templates). `nw-connector-builder` generates it for generated connectors. |
 | `packages/connectors/<name>/README.md` | The PyPI project page — see [`README.md` template](#readmemd-template) |
 | `packages/connectors/<name>/LICENSE` | Copy of the repository `LICENSE`; `license-files` ships it in the wheel |
 | [`scripts/build-packages.sh`](https://github.com/AOT-Technologies/node-wire/blob/main/scripts/build-packages.sh) | Add path to `ALL_PACKAGES` |
@@ -84,7 +83,7 @@ alike. Only the marked fields change from one connector to the next.
 
 #### `pyproject.toml` template
 
-Start from the following `pyproject.toml`:
+This is the package's only build file; there is no `setup.py`. Start from the following `pyproject.toml`:
 
 ```toml
 # SPDX-FileCopyrightText: 2026 AOT Technologies
@@ -111,7 +110,6 @@ classifiers = [
   "Operating System :: MacOS",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX :: Linux",
-  "Programming Language :: Cython",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
@@ -141,64 +139,12 @@ Issues = "https://github.com/AOT-Technologies/node-wire/issues"
 Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
-requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+requires = ["setuptools>=69.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["../../../src"]
 include = ["node_wire_<name>*"]
-```
-
-#### `setup.py` template
-
-Start from the following `setup.py`:
-
-```python
-#
-# SPDX-FileCopyrightText: 2026 AOT Technologies
-# SPDX-License-Identifier: Apache-2.0
-#
-# packages/connectors/<name>/setup.py
-import glob
-import os
-
-from Cython.Build import cythonize
-from setuptools import setup
-from setuptools.command.build_ext import build_ext as _BuildExt
-from setuptools.command.build_py import build_py as _BuildPy
-
-
-class NoPyBuild(_BuildPy):
-    def find_package_modules(self, package, package_dir):
-        return []
-
-
-class ParallelBuildExt(_BuildExt):
-    """Compile extension modules with one compiler job per core."""
-
-    def finalize_options(self):
-        super().finalize_options()
-        if self.parallel is None:
-            self.parallel = os.cpu_count() or 1
-
-
-src_root = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "../../../src/node_wire_<name>")
-)
-py_files = glob.glob(os.path.join(src_root, "**", "*.py"), recursive=True)
-
-# Guarded so Cython's process pool can re-import this file on macOS and Windows.
-if __name__ == "__main__":
-    setup(
-        cmdclass={"build_py": NoPyBuild, "build_ext": ParallelBuildExt},
-        ext_modules=cythonize(
-            py_files,
-            nthreads=os.cpu_count() or 1,
-            compiler_directives={"language_level": "3"},
-            build_dir="build",
-            annotate=False,
-        ),
-    )
 ```
 
 #### `README.md` template
@@ -232,8 +178,8 @@ This pulls in [`node-wire-runtime`](https://pypi.org/project/node-wire-runtime/)
 are published as `X.Y.ZbN`; install one with `pip install --pre node-wire-<dist-name>`. To install
 every connector at once, use [`node-wire-connectors`](https://pypi.org/project/node-wire-connectors/).
 
-Wheels are compiled with Cython and contain no Python source. They are built for CPython 3.11,
-3.12 and 3.13 on Linux x86_64 (manylinux and musllinux), macOS arm64 and Windows x64.
+The wheel is pure Python (`py3-none-any`) and installs on CPython 3.11, 3.12 and 3.13 on any
+OS and CPU.
 
 ## Actions
 
@@ -328,38 +274,19 @@ Use when you need a dedicated Docker/ToolHive image for a single connector (not 
 
 ## Python package build lifecycle
 
-Prerequisites: `pip install build cython wheel` (and a usable `python` on the host). Run `bash scripts/build-packages.sh --help` for usage.
+Prerequisites: [uv](https://docs.astral.sh/uv/) (the script uses `uv build`), or `python3 -m pip install build`. No compiler or Docker is needed. Run `bash scripts/build-packages.sh --help` for usage.
 
 ### Build all packages (default)
 
-For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](cli/nw-cli.md) — it wraps this script with Linux-only as the default. To build every package, run:
+For a single connector (or runtime) from the orchestrator CLI, see [`nw gen-whl`](cli/nw-cli.md), which wraps this script. To build every package, run:
 
 ```bash
 bash scripts/build-packages.sh
 ```
 
-Default mode builds each package path listed in `ALL_PACKAGES` in the script (see the [Package inventory](#package-inventory) for the current set): `python -m build --wheel` on the **host**, then again inside **Docker** so you get Linux-tagged wheels suitable for containers. **Docker must be installed and the daemon running** (unless you use `--host-only`). After each package, the script scans every produced wheel and fails if any `.py` file appears inside the archive.
+This builds each package path listed in `ALL_PACKAGES` in the script (see the [Package inventory](#package-inventory) for the current set). Each package gets one `py3-none-any` wheel. The same wheel goes into the MCP host images (Debian), the `nw gen-stacklok` images (Alpine), and PyPI. Before each build the script clears the package's `build/` directory and old `dist/*.whl` files. Afterwards it checks that the wheel is `py3-none-any` and contains no compiled `.so`/`.pyd` files.
 
-Linux builds use a **local-only** image `nw-wheel-builder:local` from [`docker/wheel-builder/Dockerfile`](https://github.com/AOT-Technologies/node-wire/blob/main/docker/wheel-builder/Dockerfile) (build-essential + Cython toolchain). The script runs `docker build` once per invocation; Docker layer cache makes later runs fast when the Dockerfile is unchanged. This image is **not published** to Docker Hub or any registry.
-
-### Host-only or Linux-only
-
-The following commands restrict the build to one target:
-
-```bash
-# Fast local iteration — host OS wheels only (no Docker)
-bash scripts/build-packages.sh --host-only
-bash scripts/build-packages.sh --host-only packages/connectors/stripe
-# or: uv run nw gen-whl --connector-id stripe --host
-
-# Container / ToolHive wheels only
-bash scripts/build-packages.sh --linux-only
-bash scripts/build-packages.sh --linux-only packages/runtime
-# or: uv run nw gen-whl --connector-id stripe
-#     uv run nw gen-whl --runtime
-```
-
-`--host-only` and `--linux-only` cannot be combined with each other or with `--all`.
+The old platform flags (`--host-only`, `--linux-only`, `--all`, `--musllinux`, `--cibw-linux`) are accepted and ignored, with a note.
 
 ### Artifact layout and safe command usage
 
@@ -380,52 +307,11 @@ Pass the package path:
 bash scripts/build-packages.sh packages/connectors/stripe
 ```
 
-### Optional: broader wheels with cibuildwheel (`--all`)
-
-For additional platform wheels from your **current machine** (whatever `cibuildwheel` can target there), install it and use the same script:
-
-```bash
-uv sync --all-extras --dev          # cibuildwheel 4.2.1 is a dev dependency
-bash scripts/build-packages.sh --all
-bash scripts/build-packages.sh --all packages/runtime
-```
-
-Local `--all` builds CPython 3.13 (`CIBW_BUILD=cp313-*`) and skips win32, 32-bit manylinux, and PyPy (`CIBW_SKIP=*-win32 *-manylinux_i686 pp*`) unless you override those variables. Publish CI (`.github/workflows/publish.yml`) builds cp311, cp312, and cp313 with `cibuildwheel==4.2.1`, one job per platform and CPython version, so manylinux and musllinux each get their own skip list. A full Linux, macOS, and Windows set comes from that workflow.
-
-### Wheels for a specific image (`--cibw-linux`, `--musllinux`)
-
-`nw gen-stacklok` servers run stacklok's DHI Alpine image, which needs **musl** wheels. The default
-`--linux-only` builder is Debian/glibc, and the DHI image has no Python headers to compile in.
-
-`--cibw-linux` builds Linux wheels with cibuildwheel in Docker for the `CIBW_BUILD` selector. It
-bind-mounts `src/` exactly like `publish.yml`, and replaces only the matching wheels in `dist/`.
-`nw gen-stacklok` sets the selector from the generated server's base image, and skips packages
-whose sources are unchanged (`dist/.nw-source-<target>.sha256`). `--musllinux` is shorthand for
-`CIBW_BUILD='cp313-musllinux_*'`.
-
-These builds compile at `-O1 -g0`, and keep `-fno-strict-overflow -DNDEBUG` from CPython's defaults.
-Python's own default is `-O3 -g`. Generated connector modules contain one very large module-init
-function, and gcc's higher optimisation levels take minutes on it: slack_web's `schema.c` took
-173s at `-O3` and 37s at `-O1`. The compiled code is almost entirely Python C-API calls, so the
-lower level costs little at run time, and dropping debug info roughly halves wheel size. Override
-the flags with `NW_WHEEL_CFLAGS`. The following commands show each selector:
-
-```bash
-uv sync --all-extras --dev
-bash scripts/build-packages.sh --musllinux packages/runtime packages/bindings packages/toolhive
-CIBW_BUILD='cp313-manylinux_*' bash scripts/build-packages.sh --cibw-linux packages/runtime
-NW_WHEEL_ARCHS="x86_64 aarch64" bash scripts/build-packages.sh --musllinux packages/runtime
-```
-
-The arch defaults to the host (`native`); other arches run under emulation and are slow.
-
 ### Inspect wheel contents
 
-After building, confirm no source leaks:
-
 ```bash
-unzip -l packages/connectors/stripe/dist/node_wire_stripe-*.whl
-# Must show .so/.pyd files only — no .py files
+unzip -l packages/connectors/stripe/dist/node_wire_stripe-*-py3-none-any.whl
+# Shows the package's .py modules and its .dist-info metadata
 ```
 
 ### Install from wheels and verify entry points
@@ -581,9 +467,9 @@ For `channel: release`, the workflow checks the following before it builds:
 
 The pipeline runs the following steps:
 
-1. Matrix-build wheels on Ubuntu, macOS, and Windows via `cibuildwheel` (CPython 3.11, 3.12, 3.13)
-2. Post-build gate: verify zero `.py` files per wheel; record SHA256 checksums
-3. Merge artifacts; `pip-audit` CVE gate (any known vulnerability blocks publish)
+1. Build the package's single `py3-none-any` wheel in one Ubuntu job (`python -m build --wheel`)
+2. Post-build gate: the wheel is `py3-none-any` with no compiled files (`packages/meta`: no modules at all); record SHA256 checksums
+3. Install the wheel; `pip-audit` CVE gate (any known vulnerability blocks publish)
 4. Publish to PyPI via OIDC Trusted Publisher with Sigstore attestations
 
 The release-level SBOM is attached to the GitHub Release (step 3).

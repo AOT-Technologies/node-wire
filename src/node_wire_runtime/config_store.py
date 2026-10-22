@@ -163,6 +163,28 @@ def _check_base_urls(connector_id: str, doc: Dict[str, Any]) -> None:
             raise ConfigStoreError(str(exc)) from exc
 
 
+def _check_headers(connector_id: str, doc: Dict[str, Any]) -> None:
+    """``headers`` (top level or in ``config``): valid HTTP fields, REST connectors only."""
+    blocks = [doc.get("headers")]
+    if isinstance(doc.get("config"), dict):
+        blocks.append(doc["config"].get("headers"))
+    blocks = [b for b in blocks if b is not None]
+    if not blocks:
+        return
+    # Lazy: base_connector imports this module.
+    from node_wire_runtime.base_connector import get_connector_registry
+    from node_wire_runtime.rest import RestConnector, validate_static_headers
+
+    connector_cls = get_connector_registry().get(connector_id)
+    if not (isinstance(connector_cls, type) and issubclass(connector_cls, RestConnector)):
+        raise ConfigStoreError("headers is not allowed")
+    for block in blocks:
+        try:
+            validate_static_headers(block)
+        except ValueError as exc:
+            raise ConfigStoreError(str(exc)) from exc
+
+
 def _validate_doc(doc: Any, connector_id: str) -> Dict[str, Any]:
     """Validate a single config document at the trust boundary.
 
@@ -194,6 +216,7 @@ def _validate_doc(doc: Any, connector_id: str) -> Dict[str, Any]:
                 )
     _check_secret_refs(connector_id, doc)
     _check_base_urls(connector_id, doc)
+    _check_headers(connector_id, doc)
     return doc
 
 

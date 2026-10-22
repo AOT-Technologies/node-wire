@@ -53,7 +53,7 @@ For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
    - `packages/runtime/dist/node_wire_runtime-*.whl`
    - `packages/bindings/dist/node_wire_bindings-*.whl`
    - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
-   - Platform matches the machine running the CLI (see [Platform and ToolHive](#platform-and-toolhive-wheels))
+   - Pure-Python wheels that install anywhere (see [Wheels](#wheels))
 3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
    - Auto-generated from the actions the connector class registers (`nw_action_metas()` on the class in `logic.py`)
    - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
@@ -88,63 +88,30 @@ Server name in the fixture is always `{connector_id with _ → -}-nw` (for examp
   uv sync --python 3.13
   ```
 
-- **Docker** — required for Linux wheels via `scripts/build-packages.sh` and for ToolHive local MCP images
+- **Docker** — required for ToolHive local MCP images (not for wheel builds)
 - Connector secrets from node-wire `sample.env` / `config/connectors.yaml` (copied into generated `.env.example`)
 
 ---
 
-## Platform and ToolHive wheels
+## Wheels
 
-Read this before [Quick start](#quick-start). Wheels for runtime and connectors are **Cython / platform-specific**. What you build must match how you run the host.
-
-| Goal | Wheel platform | How to build wheels |
-|------|----------------|---------------------|
-| **ToolHive local MCP** (Docker image from `out/<name>-mcp`) | **Linux** (`linux_*` / manylinux) for the **same CPU architecture as the image** — `*_aarch64` on Apple Silicon / ARM hosts, `*_x86_64` on Intel/AMD — Python **3.13** (matches `python:3.13-slim` in the generated Dockerfile) | From the **node-wire** repo root, use `scripts/build-packages.sh` (see [Linux wheels for ToolHive Docker](#linux-wheels-for-toolhive-docker-local-mcp-server)); `nw gen-all` does this for you and picks your machine's architecture |
-| **Local run / MCP Inspector / ToolHive remote MCP** on the same OS as your machine | Host OS (for example, Windows → `*win_amd64*`) | Built automatically by `uv run nw-mcp-builder -c <connector_id>` |
-
-### Linux wheels for ToolHive Docker (local MCP server)
-
-From the **node-wire** repository root (requires Docker; uses `python:3.13-slim` for the Linux build):
-
-```bash
-# Generic — runtime + one connector
-bash scripts/build-packages.sh packages/runtime packages/connectors/<connector_id>
-
-# Example — google_drive
-bash scripts/build-packages.sh packages/runtime packages/connectors/google_drive
-```
-
-Wheels land in:
-
-- `packages/runtime/dist/`
-- `packages/connectors/<connector_id>/dist/`
-
-Then generate (or regenerate) the host **without rebuilding host-OS wheels**, so the Linux artifacts stay selected:
-
-```bash
-cd nw-mcp-builder
-uv sync
-uv run nw-mcp-builder -c <connector_id> --skip-build-wheels --force-output
-
-# Example
-uv run nw-mcp-builder -c google_drive --skip-build-wheels --force-output
-```
-
-### Host-OS wheels (`nw-mcp-builder` without a prior Linux build)
-
-Run the builder without `--skip-build-wheels`:
+The runtime, bindings and connector wheels are pure Python (`py3-none-any`). One build installs on your machine, in the generated Linux Docker image (ToolHive local MCP), and on any remote runtime, so there is no platform to match.
 
 ```bash
 uv run nw-mcp-builder -c <connector_id>
 ```
 
-This builds wheels for **whatever OS/Python you are on** (Windows → `win_amd64`, Linux → linux, etc.) and copies the newest `.whl` into `out/<name>-mcp/wheels/`. Those host wheels are fine for:
+This builds the connector wheel and copies the newest pure-Python wheels into `out/<name>-mcp/wheels/`. To use wheels you already built from the **node-wire** repository root instead:
 
-- running the generated host locally (`uv run python -m …`)
-- **MCP Inspector**
-- ToolHive **remote** MCP servers when the remote runtime matches that OS
+```bash
+bash scripts/build-packages.sh packages/runtime packages/bindings packages/connectors/<connector_id>
 
-They are **not** suitable for the generated **Linux Docker** image used as a ToolHive **local** MCP server.
+cd nw-mcp-builder
+uv sync
+uv run nw-mcp-builder -c <connector_id> --skip-build-wheels --force-output
+```
+
+Wheels land in each package's `dist/` (for example `packages/runtime/dist/`). A compiled wheel left in `dist/` from an older build is skipped; rebuild the package if that leaves none.
 
 ---
 
@@ -169,14 +136,12 @@ uv run --directory nw-mcp-builder nw-mcp-builder --help
 The following commands cover the common generation modes:
 
 ```bash
-# Full run: build host-OS wheels + use/create fixture + generate project
-# For ToolHive testing, use the second command if you already have Linux wheel files.
-# This command builds platform-dependent wheel files
+# Full run: build wheels + use/create fixture + generate project
 uv run nw-mcp-builder -c <connector_id>
 # Example
 uv run nw-mcp-builder -c google_drive
 
-# Reuse existing wheels (required after Linux build-packages.sh for ToolHive Docker)
+# Reuse wheels already built (e.g. by scripts/build-packages.sh or nw gen-whl)
 uv run nw-mcp-builder -c <connector_id> --skip-build-wheels
 # Example
 uv run nw-mcp-builder -c salesforce --skip-build-wheels
@@ -222,7 +187,7 @@ NW_MCP_TRANSPORT=stdio uv run python -m google_drive_nw_mcp
 
 #### ToolHive local MCP (Docker image from the generated host)
 
-If you run this as a **local MCP server in ToolHive**, build the Docker image from the generated project (after placing **Linux** wheels — see [Platform and ToolHive](#platform-and-toolhive-wheels)):
+If you will run this as a **local MCP server in ToolHive**, build the Docker image from the generated project:
 
 ```bash
 cd nw-mcp-builder/out/<name>-mcp
@@ -402,7 +367,7 @@ MCP Inspector's “Bearer token” is for MCP server auth, not upstream API cred
 
 ## Docker
 
-Build and run a generated project from the **node-wire** repo root. Use **Linux** wheels for this path (see [Platform and ToolHive](#platform-and-toolhive-wheels)). `nw docker-build --connector-id <id>` runs the same build and tags `<id-dashed>-nw-mcp:latest` (see [nw CLI](nw-cli.md#nw-docker-build)):
+Build and run a generated project from the **node-wire** repo root. `nw docker-build --connector-id <id>` runs the same build and tags `<id-dashed>-nw-mcp:latest` (see [nw CLI](nw-cli.md#nw-docker-build)):
 
 ```bash
 cd nw-mcp-builder/out/<name>-mcp
@@ -466,11 +431,10 @@ current tools.
 | Problem | What to try |
 |---------|-------------|
 | `Missing runtime wheel in .../dist (omit --skip-build-wheels)` (or the bindings/connector equivalent) | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
-| Docker / ToolHive image cannot install `.whl` | Ensure Linux (`*linux*`) wheels are in `dist/` and regenerate with `--skip-build-wheels` (Windows `win_amd64` wheels will not install in `python:3.13-slim`) |
+| `No pure-Python (py3-none-any) ... wheel` / image cannot install `.whl` | `dist/` only has compiled wheels from an older build: rebuild with `nw gen-whl` (or `bash scripts/build-packages.sh <package>`), then regenerate with `--skip-build-wheels` |
 | `Output project already exists` | Pass `--force-output` |
 | `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
 | `No module named bindings` / `No node-wire-bindings wheel` | Build bindings: `nw gen-whl --bindings` |
-| `uv sync` / import errors on generated host | Pin `--python` to the ABI your `.whl` files were built for (`cp313` for the standard 3.13 build) |
 | Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
 | 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
 | Connector secrets missing in Docker/ToolHive | Set secrets via `docker run -e` / `--env-file` or the orchestrator. Do not COPY or bind-mount `.env` into the image. |

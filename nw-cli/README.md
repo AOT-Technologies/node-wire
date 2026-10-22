@@ -26,7 +26,7 @@ From the **node-wire** repo root:
 ```bash
 uv sync
 
-# One-shot: codegen → Linux wheels → MCP host → wire
+# One-shot: codegen → wheels → MCP host → wire
 uv run nw gen-all --connector-id pet_store --path ./openapi.yaml
 
 # Standalone stages
@@ -41,7 +41,7 @@ uv run nw docker-build --connector-id pet_store --tag latest
 uv run nw gen-stacklok --path ./openapi.yaml --connector-id pet_store
 ```
 
-ToolHive deploy/verify stays manual — see [nw-mcp-builder](../docs/cli/nw-mcp-builder.md#platform-and-toolhive-wheels) and [toolhive_agent_scenario.md](../docs/toolhive_agent_scenario.md).
+ToolHive deploy/verify stays manual — see [nw-mcp-builder](../docs/cli/nw-mcp-builder.md#docker) and [toolhive_agent_scenario.md](../docs/toolhive_agent_scenario.md).
 
 ### Tests
 

@@ -26,7 +26,26 @@ connectors:
       - grpc
       - mcp
     # connector-specific keys passed via SecretProvider or connector __init__
+    # REST (OpenAPI-generated) connectors also read:
+    base_url: https://api.example.com   # overrides the spec's server
+    auth: {provider: static_token, secret_key: EXAMPLE_TOKEN}
+    headers:                            # sent on every request
+      Client-Id: ${EXAMPLE_CLIENT_ID}
 ```
+
+Any string value can use `${VAR}` or `${VAR:default}`; it is replaced from the environment when
+the file loads.
+
+`headers` are fixed headers a REST connector sends on every request, for APIs that need more than
+the credential, such as Twitch's `Client-Id`. They are not credentials: put those in `auth`, which
+wins over any header set here. `Authorization`, `Proxy-Authorization`, `Cookie`, `Host`,
+`Content-Type`, `Content-Length`, `Transfer-Encoding` and `Connection` are refused. A configured
+header also wins over an operation parameter of the same name. If a `${VAR}` is still unresolved
+when the connector makes a call, because VAR was not set, the call fails with an error that names
+VAR instead of sending the placeholder. Tenant config documents (`tenants.yaml`, `/v1`) can set
+`headers` too, top level or under `config`; their values are used as written, with no `${VAR}`
+substitution, so give the value itself there. `nw gen-all --header` and `nw gen-stacklok --header`
+write this key for a generated connector. Needs `node-wire-runtime` 1.1.0 or later.
 
 ## `ConnectorFactory` API
 

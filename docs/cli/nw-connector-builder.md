@@ -20,7 +20,7 @@ Self-contained tool inside the **node-wire** repo with two subcommands:
 | `nw-connector-builder from-openapi` | Turn a **Swagger 2.0** / **OpenAPI 3.x** document into a `node_wire_<id>` connector (and optionally an MCP host) |
 | `nw-connector-builder mcp` | Generate an MCP host from an **existing** connector (same as standalone `nw-mcp-builder`) |
 
-Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [Build a connector](../connectors-build.md).
+Use `from-openapi` when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire `RestConnector` instead of hand-writing schemas and `@nw_action` methods. Use `mcp` (or [nw-mcp-builder](nw-mcp-builder.md)) for hand-written connectors. For the full happy path (codegen → wheels → MCP host → wire → Docker), prefer the [`nw` CLI](nw-cli.md). For SDK-style or non-REST adapters, follow the hand-written path in [Build a connector](../connectors-build.md).
 
 ---
 
@@ -162,7 +162,7 @@ uv sync
 uv run python -m pet_store_nw_mcp
 ```
 
-See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, Linux wheels, and Inspector.
+See [nw-mcp-builder](nw-mcp-builder.md) for ToolHive, wheels, and Inspector.
 
 ### Tests for the builder itself
 
@@ -197,6 +197,8 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 | `--base-url` | `servers[0]` | Override baked-in default base URL (required if the spec has no absolute server URL) |
 | `--node-wire-root` | Parent of `nw-connector-builder/` | Monorepo root used for promote / wire / MCP |
 | `--report-path` | `./report.json` | Where to write `report.json` on **abort** (success writes beside the package) |
+| `--auth` | — | Auth for a spec that declares **none**: `bearer`, `header:<name>` or `query:<name>`. Refused when the spec declares any scheme (see [Auth mapping](#auth-mapping)) |
+| `--header` | — | `NAME=VALUE`, repeatable: a header sent on every request (`headers:` in `connectors.yaml`); `${VAR}` is read from the environment |
 | `-v`, `--verbose` | off | Debug logging |
 
 ### `mcp`
@@ -217,7 +219,7 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 |------|---------|
 | `0` | Clean build (gate + promote OK; MCP/wire OK or skipped) |
 | `1` | Hard failure (load/derive/gate) **or** post-promote MCP/`--wire` failure |
-| `2` | Usage error (bad `--id`, destination exists without `--force`, etc.) |
+| `2` | Usage error (bad `--id`, destination exists without `--force`, bad `--auth` / `--header`, `--auth` on a spec that declares auth, etc.) |
 
 ---
 
@@ -225,13 +227,15 @@ uv run --directory nw-connector-builder nw-connector-builder mcp --help
 
 | Topic | Behavior |
 |-------|----------|
-| Formats | YAML or JSON, UTF-8 |
-| Versions | Swagger `2.0` (normalized to OpenAPI 3) or OpenAPI `3.x` |
+| Formats | YAML or JSON, UTF-8. YAML is read as JSON data: `yes` / `no` / `on` / `off` stay strings, unquoted dates stay strings, and keys such as `200:` become `"200"` |
+| Versions | Swagger `2.0` (normalized to OpenAPI 3), OpenAPI `3.0`, `3.1` and `3.2`. Field-by-field coverage: [OpenAPI coverage](openapi-coverage.md) |
 | Sources | Local file path, or `http` / `https` URL |
 | Remote `$ref` | **Rejected** — absolute remote refs are not fetched; keep a self-contained document (local relative/`#/` refs OK) |
-| Validation | Resolved with `prance` + validated with `openapi-spec-validator` |
+| Extensions | `x-` keys are removed before `$ref` resolution (the generator reads none); property and header names starting with `x-` are kept |
+| Recursion | `$ref` cycles are cut where they close (see [recursive schemas](nw-connector-builder-codegen.md#recursive-schemas)) |
+| Validation | Resolved with `prance` + validated with `openapi-spec-validator`. When the whole document fails, each operation and component is validated on its own; the invalid ones are removed (operations soft-dropped with `invalid OpenAPI: <reason>`, components named in `notes`) and the rest is validated again. Anything still invalid fails the build |
 | Draft-4 repair | Constructs JSON Schema draft-4 allows but OpenAPI 3.0 forbids are rewritten before validation, not rejected (see [Codegen behaviour](nw-connector-builder-codegen.md#draft-4-repair)) |
-| Base URL | From `--base-url`, else first `servers[]` entry with substitutable defaults; relative-only servers hard-fail |
+| Base URL | From `--base-url`, else the first `servers[]` entry with variables at their defaults. A relative server URL, or no `servers`, is resolved against the spec's URL when it was fetched over HTTP(S); for a local file it hard-fails (pass `--base-url`). Swagger 2.0: `schemes` prefers `https`, and a missing `host` means the host the spec came from |
 
 ## Auth mapping
 
@@ -254,10 +258,18 @@ under `auth_schemes:` with its name folded in — `<ID>_<SCHEME>_ACCESS_TOKEN`,
 `authorizationUrl` / `tokenUrl` for the host to call — those URLs are documentation only;
 the connector never POSTs to a token endpoint.
 
+**A spec that declares no auth at all** (GitHub's REST description is one) would build an
+anonymous connector that never sends a credential. Pass `--auth bearer`, `--auth header:<name>`
+or `--auth query:<name>` to declare the scheme the API really uses; it then maps like the table
+above (`<ID>_TOKEN` or `<ID>_API_KEY`), and the report's `notes` say it came from `--auth`.
+`--auth` is refused when the spec declares any scheme, so it can never contradict one.
+
 `oauth2` and `openIdConnect` become a **host-supplied** bearer: Node Wire presents
 `<ID>_ACCESS_TOKEN` but never obtains, refreshes or detects the expiry of it. Operations that need a
 different but still-presentable scheme get a named entry under `auth_schemes:` instead of being
-dropped. `mutualTLS`, cookie API keys, AND-combined requirements and unrecognized types are
+dropped. An AND-combined requirement is sent when each scheme puts its credential in a different
+place (the action passes `auth_scheme=(<scheme>, …)`, `None` standing for the default). `mutualTLS`,
+cookie API keys, AND requirements that need one place twice and unrecognized types are
 soft-dropped. What each of these means, and why: the generator contract's
 [host-supplied tier](nw-connector-builder-scope.md#host-supplied-auth-tier) and
 [per-action auth schemes](nw-connector-builder-scope.md#per-action-auth-schemes).
@@ -295,7 +307,6 @@ src/node_wire_<id>/
 
 packages/connectors/<id>/
   pyproject.toml     # entry point + deps
-  setup.py           # Cython build glue for binary wheels
   report.json        # full build report
   tests/
     test_<id>_models.py   # polyfactory round-trip (+ example parse when present)
@@ -352,9 +363,11 @@ connectors:
       <scheme_name>:
         provider: <provider>
         secret_key: <secret-key>
+    headers:        # only with --header
+      <NAME>: <VALUE>
 ```
 
-**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (for example, `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme).
+**`sample.env`** — appends the connector to `NW_ALLOWED_CONNECTORS` and adds empty placeholders for derived secret keys (for example, `PET_STORE_API_KEY=`, and `PET_STORE_ACCESS_TOKEN=` for a host-supplied scheme), plus one for each `${VAR}` a `--header` value reads, with a comment naming the header.
 
 Wire edits preserve YAML comments via `ruamel.yaml`. Failures set exit code `1` but do not roll back the promoted connector.
 
@@ -387,6 +400,8 @@ The builder prints a summary to stdout and writes a JSON report with the followi
 | `generated_actions` | method, path, action name, auth flag |
 | `skipped` | soft-dropped ops + reasons |
 | `auth` | chosen provider / secret key / yaml block |
+| `headers` | the `--header` values, when given |
+| `notes` | build notes: dropped credential parameters, removed invalid components, request examples not used as tests, `--auth` |
 | `gate` / `mcp` / `wire` | stage outcomes when run |
 
 The report is written to the following paths:

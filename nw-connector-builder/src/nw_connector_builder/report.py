@@ -45,6 +45,8 @@ def build_report(
                 "default_base_url": result.default_base_url,
             }
         )
+        if result.static_headers:
+            report["headers"] = dict(result.static_headers)
         report["generated_actions"] = [
             {
                 "name": a.name,
@@ -116,6 +118,8 @@ def print_report(report: dict[str, Any]) -> None:
         print(f"    + {a['method']} {a['path']} → {a['name']}")
     for d in report.get("skipped") or []:
         print(f"    - {d['method']} {d['path']}: {d['reason']}")
+    for name, value in (report.get("headers") or {}).items():
+        print(f"  header: {name}: {value}")
     auth = report.get("auth")
     if auth:
         # Do not print secret_key (env name) — keep it in report.json only.

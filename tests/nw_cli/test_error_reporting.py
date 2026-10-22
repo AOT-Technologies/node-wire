@@ -19,7 +19,7 @@ from nw_cli import prerequisites
 from nw_cli.cli import app
 from nw_cli.prerequisites import _probe_docker  # the real probe (conftest stubs the module's)
 from nw_cli.progress import GenerateProgress, Stage
-from nw_cli.stages import StageError, run_logged_command, run_wheel_build
+from nw_cli.stages import WHEEL_STAMP_KEY, StageError, run_logged_command, run_wheel_build
 from nw_cli.ui import ReportedError
 from nw_cli.wheel_cache import is_fresh, record_build
 
@@ -122,7 +122,7 @@ def test_gen_all_reuses_wheels_whose_sources_are_unchanged(fake_root: Path) -> N
         dist = fake_root / "packages" / package / "dist"
         dist.mkdir()
         (dist / "x-1.0-py3-none-any.whl").write_bytes(b"x")
-        record_build(fake_root, f"packages/{package}", "linux-only", since=0)
+        record_build(fake_root, f"packages/{package}", WHEEL_STAMP_KEY, since=0)
     (fake_root / "packages" / "connectors" / "pet_store" / "logic.py").write_text("changed = 1\n")
 
     result, _, wheel, _ = _gen_all(fake_root, run_build={"return_value": 0})
@@ -139,24 +139,19 @@ def test_a_stamp_is_stale_once_its_wheel_is_gone(fake_root: Path) -> None:
     dist.mkdir()
     wheel = dist / "r-1.0-py3-none-any.whl"
     wheel.write_bytes(b"x")
-    record_build(fake_root, "packages/runtime", "linux-only", since=0)
-    assert is_fresh(fake_root, "packages/runtime", "linux-only")
-    assert not is_fresh(fake_root, "packages/runtime", "host-only")
+    record_build(fake_root, "packages/runtime", WHEEL_STAMP_KEY, since=0)
+    assert is_fresh(fake_root, "packages/runtime", WHEEL_STAMP_KEY)
+    assert not is_fresh(fake_root, "packages/runtime", "linux-only")  # an old compiled-era stamp
     wheel.unlink()
-    assert not is_fresh(fake_root, "packages/runtime", "linux-only")
+    assert not is_fresh(fake_root, "packages/runtime", WHEEL_STAMP_KEY)
 
 
-def test_docker_missing_fails_the_wheel_build_with_the_reason(
-    fake_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_wheel_builds_do_not_need_docker(fake_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     prerequisites.docker_problem.cache_clear()
     monkeypatch.setattr(prerequisites, "_probe_docker", lambda: "the Docker daemon is not running")
     with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
-        with pytest.raises(prerequisites.PrerequisiteError, match="daemon is not running"):
-            run_wheel_build(fake_root, runtime=True)
-        run.assert_not_called()
-        run_wheel_build(fake_root, runtime=True, host=True)  # host-only needs no Docker
-        run.assert_called_once()
+        run_wheel_build(fake_root, runtime=True)
+    run.assert_called_once()
 
 
 def test_probe_docker_reports_a_missing_binary(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -256,7 +251,7 @@ def test_subprocess_failures_keep_their_exit_code_in_the_message(tmp_path: Path)
     (tmp_path / "packages" / "runtime").mkdir(parents=True)
     with patch("nw_cli.stages.subprocess.Popen", return_value=proc):
         with pytest.raises(StageError, match="exit 3"):
-            run_wheel_build(tmp_path, runtime=True, host=True)
+            run_wheel_build(tmp_path, runtime=True)
     assert proc.wait.called
 
 

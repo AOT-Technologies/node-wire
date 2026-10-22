@@ -5,8 +5,8 @@
 """Source stamps that let a wheel build be skipped while a package's sources are unchanged.
 
 A stamp ``<package>/dist/.nw-source-<key>.sha256`` holds the hash of the sources the wheels were
-built from, then the names of the wheels that build wrote. ``key`` is the build flavour (a
-``build-packages.sh`` mode such as ``linux-only``, or ``cp313-musllinux`` for stacklok images).
+built from, then the names of the wheels that build wrote. ``key`` names the wheel flavour
+(``py3-none-any``; older stamps under other keys are simply never fresh).
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ _HASH_SKIP_DIRS = {"__pycache__", "build", "dist"}
 
 
 def package_source_hash(node_wire_root: Path, package: str) -> str:
-    """Hash of everything a package's wheel is compiled from.
+    """Hash of everything a package's wheel is built from.
 
-    That is the package folder (pyproject, setup.py, README) and the ``src/`` packages its
+    That is the package folder (pyproject, README) and the ``src/`` packages its
     ``[tool.setuptools.packages.find]`` includes.
     """
     pkg_dir = node_wire_root / package

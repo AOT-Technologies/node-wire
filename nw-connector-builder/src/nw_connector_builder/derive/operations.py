@@ -29,7 +29,11 @@ from nw_connector_builder.derive.naming import (
 )
 
 
-HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete", "head", "options", "trace"})
+# OpenAPI 3.2 adds `query` (the HTTP QUERY method); other methods arrive through a path
+# item's `additionalOperations` map.
+HTTP_METHODS = frozenset(
+    {"get", "post", "put", "patch", "delete", "head", "options", "trace", "query"}
+)
 
 
 @dataclass
@@ -47,6 +51,10 @@ class ParamPlan:
     python_type_hint: str = "Any"
     default: Any = None
     description: str | None = None
+    # `allowReserved: true` on a query parameter: reserved characters are sent as-is.
+    allow_reserved: bool = False
+    # Multipart only: the Encoding Object's contentType for this property's part.
+    part_content_type: str | None = None
 
 
 @dataclass
@@ -65,8 +73,12 @@ class ActionPlan:
     envelope_ok_field: str | None = None
     deprecated: bool = False
     examples: dict[str, Any] = field(default_factory=dict)
-    # Non-default scheme for divergent ops; None = connector default.
-    auth_scheme_name: str | None = None
+    # Non-default scheme for divergent ops; None = connector default. A tuple for an
+    # AND requirement: every scheme to send, None standing for the connector default.
+    auth_scheme_name: str | tuple[str | None, ...] | None = None
+    # An operation- or path-level `servers` entry that differs from the connector's base
+    # URL (GitHub sends release-asset uploads to uploads.github.com).
+    server_url: str | None = None
     # True when the body's properties were emitted as body_property params; the
     # action then has no single `body` argument.
     body_flattened: bool = False
@@ -93,6 +105,9 @@ class DeriveResult:
     notes: list[str] = field(default_factory=list)
     # Non-default schemes used by >=1 generated action; empty for single-scheme connectors.
     extra_auth_plans: dict[str, ConnectorAuthPlan] = field(default_factory=dict)
+    # `--header NAME=VALUE`: sent on every request (connectors.yaml `headers:`); set by the
+    # pipeline, not derived from the spec.
+    static_headers: dict[str, str] = field(default_factory=dict)
 
 
 class DeriveError(Exception):
@@ -211,7 +226,11 @@ def _object_properties(schema: Any) -> tuple[dict[str, Any], list[str]] | None:
 
 
 def _body_property_plans(
-    schema: Any, *, media_type: str, body_required: bool
+    schema: Any,
+    *,
+    media_type: str,
+    body_required: bool,
+    encoding: dict[str, Any] | None = None,
 ) -> list[ParamPlan] | None:
     """One ``body_property`` ParamPlan per writable property, or None to keep ``body`` whole.
 
@@ -241,6 +260,12 @@ def _body_property_plans(
                 python_type_hint=_schema_type_hint(prop),
                 default=prop.get("default"),
                 description=prop.get("description"),
+                part_content_type=(
+                    str((encoding or {}).get(wire, {}).get("contentType") or "") or None
+                    if media_type.lower().startswith("multipart/")
+                    and isinstance((encoding or {}).get(wire), dict)
+                    else None
+                ),
             )
         )
     return plans
@@ -284,25 +309,62 @@ def _schema_type_hint(schema: dict[str, Any] | None) -> str:
     return "Any"
 
 
+# Every style OpenAPI defines for each location; node_wire_runtime.rest sends them all.
+_SUPPORTED_STYLES = {
+    "path": {"simple", "label", "matrix"},
+    "query": {"form", "spaceDelimited", "pipeDelimited", "deepObject"},
+    "header": {"simple"},
+    "cookie": {"form", "cookie"},
+    "querystring": set(),
+}
+# OAS: "If in is header and the name is Accept, Content-Type or Authorization, the
+# parameter definition SHALL be ignored." The body media type and auth set them.
+_IGNORED_HEADER_PARAMS = frozenset({"accept", "content-type", "authorization"})
+
+
 def _param_serialization_supported(param: dict[str, Any]) -> str | None:
     loc = param.get("in")
-    if loc == "cookie":
-        return "in: cookie not supported"
-    if param.get("x_nw_unsupported_collection_format"):
-        return f"unsupported collectionFormat {param['x_nw_unsupported_collection_format']}"
+    if loc not in _SUPPORTED_STYLES:
+        return f"unknown parameter location: in: {loc}"
+    if param.get("x-nw-unsupported-collection-format"):
+        return f"unsupported collectionFormat {param['x-nw-unsupported-collection-format']}"
     style = param.get("style")
-    if loc == "path":
-        if style and style not in {"simple"}:
-            return f"unsupported path style: {style}"
-    elif loc == "query":
-        if style and style not in {"form"}:
-            return f"unsupported query style: {style}"
-        if style == "deepObject":
-            return "unsupported style: deepObject"
-    elif loc == "header":
-        if style and style not in {"simple"}:
-            return f"unsupported header style: {style}"
+    if style and style not in _SUPPORTED_STYLES[str(loc)]:
+        return f"unsupported {loc} style: {style}"
     return None
+
+
+def _merge_parameters(shared: list[Any], own: list[Any]) -> list[Any]:
+    """Path-level parameters plus the operation's; the operation's win by ``(name, in)``.
+
+    OAS: an operation parameter "can override" a path-level one with the same name and
+    location, but "cannot remove" it. Concatenating would emit two arguments for one
+    wire parameter.
+    """
+    merged: dict[Any, Any] = {}
+    for param in [*shared, *own]:
+        key = (
+            (param.get("name"), param.get("in"))
+            if isinstance(param, dict) and "$ref" not in param
+            else id(param)
+        )
+        merged[key] = param
+    return list(merged.values())
+
+
+def _param_schema(param: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    """``(schema, media type)``: from ``schema``, or from ``content`` (serialized as that media)."""
+    content = param.get("content")
+    if isinstance(content, dict) and content:
+        media, media_obj = next(iter(content.items()))
+        schema = media_obj.get("schema") if isinstance(media_obj, dict) else None
+        return (schema if isinstance(schema, dict) else {}), str(media)
+    schema = param.get("schema")
+    # 3.1 allows a boolean schema (`true`: anything; `false`: nothing); treat as free-form.
+    schema = schema if isinstance(schema, dict) else {}
+    if param.get("type") and not schema:
+        schema = {k: param[k] for k in ("type", "format", "items", "enum", "default") if k in param}
+    return schema, None
 
 
 def _pick_json_media(content: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
@@ -337,16 +399,21 @@ def _success_response_schema(op: dict[str, Any]) -> tuple[dict[str, Any] | None,
     for patterned in ("2XX", "2xx"):
         if patterned in responses:
             ordered_keys.append(patterned)
+    if not ordered_keys and "default" in responses:
+        # No success response declared: `default` is the only description of one.
+        ordered_keys.append("default")
 
     for key in ordered_keys:
         resp = responses.get(key) or {}
         content = resp.get("content") or {}
         picked = _pick_json_media(content)
         if picked:
-            _mt, media = picked
+            mt, media = picked
             schema = media.get("schema")
             if schema:
-                if _schema_is_object(schema):
+                # A typed output parses the body as JSON: only for a JSON media type. An XML
+                # or text response with an object schema is returned in the envelope.
+                if _schema_is_object(schema) and "json" in mt.lower():
                     return schema, False
                 # array / scalar / unresolved $ref → envelope
                 return schema, True
@@ -420,6 +487,42 @@ def resolve_base_url(doc: dict[str, Any], override: str | None) -> str:
     return url.rstrip("/")
 
 
+def _media_examples(media: dict[str, Any]) -> list[Any]:
+    """A media type's ``example`` and its first ``examples`` value, in that order.
+
+    OAS 3.2 Example Objects may give ``dataValue`` (the data before serialization)
+    instead of ``value``.
+    """
+    found: list[Any] = []
+    if "example" in media:
+        found.append(media["example"])
+    ex = media.get("examples")
+    if isinstance(ex, dict) and ex:
+        first = next(iter(ex.values()))
+        if isinstance(first, dict):
+            for key in ("value", "dataValue"):
+                if key in first:
+                    found.append(first[key])
+                    break
+    return found
+
+
+def _example_matches(example: Any, schema: Any, *, oas31: bool = False) -> bool:
+    """Whether ``example`` validates against ``schema`` (no schema: yes).
+
+    ``oas31``: the document is OpenAPI 3.1 or later, whose schemas are JSON Schema 2020-12.
+    """
+    if not isinstance(schema, dict):
+        return True
+    from openapi_schema_validator import OAS30Validator, OAS31Validator
+
+    validator = OAS31Validator if oas31 else OAS30Validator
+    try:
+        return validator(schema).is_valid(example)
+    except Exception:  # noqa: BLE001 - an unusable schema says nothing about the example
+        return True
+
+
 def derive_operations(
     doc: dict[str, Any],
     *,
@@ -434,32 +537,86 @@ def derive_operations(
 
     notes: list[str] = []
     credential_params: set[str] = set()
-    if any(
-        isinstance(item, dict) and item.get("servers") for item in (doc.get("paths") or {}).values()
-    ):
-        notes.append("Operation/path-level servers present but ignored in v1")
-
     raw_ops: list[tuple[str, str, dict[str, Any], str]] = []
     # (method, path, op, candidate_name)
+    op_servers: list[str] = []
+    unusable_servers: list[str] = []
     for path, item in (doc.get("paths") or {}).items():
         if not isinstance(item, dict):
             continue
         shared_params = list(item.get("parameters") or [])
-        for method, op in item.items():
-            if method.lower() not in HTTP_METHODS or not isinstance(op, dict):
+        operations = [(method, op) for method, op in item.items() if method.lower() in HTTP_METHODS]
+        extra_ops = item.get("additionalOperations")
+        if isinstance(extra_ops, dict):
+            operations.extend(extra_ops.items())
+        for method, op in operations:
+            if not isinstance(op, dict):
                 continue
             op = dict(op)
-            op_params = shared_params + list(op.get("parameters") or [])
-            op["_nw_merged_params"] = op_params
+            op["_nw_merged_params"] = _merge_parameters(
+                shared_params, list(op.get("parameters") or [])
+            )
+            servers = op.get("servers") or item.get("servers")
+            if servers:
+                try:
+                    server = resolve_base_url({"servers": servers}, None)
+                except DeriveError:
+                    unusable_servers.append(f"{method.upper()} {path}")
+                else:
+                    if server != default_base_url:
+                        op["_nw_server_url"] = server
+                        op_servers.append(f"{method.upper()} {path} → {server}")
             oid = op.get("operationId")
-            cand = str(oid) if oid else fallback_operation_name(method, path)
+            cand = str(oid) if oid else fallback_operation_name(method.lower(), path)
             raw_ops.append((method.lower(), path, op, cand))
+    inbound = [
+        f"{len(doc['webhooks'])} webhook(s)" if isinstance(doc.get("webhooks"), dict) else "",
+        f"callbacks on {n_cb} operation(s)"
+        if (n_cb := sum(1 for _m, _p, o, _c in raw_ops if o.get("callbacks")))
+        else "",
+    ]
+    if any(inbound):
+        notes.append(
+            "Not generated, because they are requests the API sends to you, not calls you "
+            "make: " + ", ".join(i for i in inbound if i)
+        )
+    if op_servers:
+        notes.append(
+            "Operation(s) with their own server, called there instead of the base URL: "
+            + ", ".join(op_servers[:10])
+            + (f", +{len(op_servers) - 10} more" if len(op_servers) > 10 else "")
+        )
+    if unusable_servers:
+        notes.append(
+            "Relative or variable-without-default operation servers ignored (the base URL is "
+            "used): " + ", ".join(unusable_servers)
+        )
 
-    total = len(raw_ops)
+    # Removed by the loader because they fail OpenAPI validation on their own.
+    invalid = [i for i in doc.get("x-nw-invalid-operations") or [] if isinstance(i, dict)]
+    total = len(raw_ops) + len(invalid)
     names = uniquify_names([c for *_, c in raw_ops], max_len=action_name_budget(connector_id))
 
     actions: list[ActionPlan] = []
-    drops: list[SoftDrop] = []
+    drops: list[SoftDrop] = [
+        SoftDrop(
+            str(i.get("method")),
+            str(i.get("path")),
+            i.get("operationId"),
+            f"invalid OpenAPI: {i.get('reason')}",
+        )
+        for i in invalid
+    ]
+    invalid_components = doc.get("x-nw-invalid-components") or []
+    if invalid_components:
+        notes.append(
+            "Removed component(s) that fail OpenAPI validation: "
+            + ", ".join(str(c) for c in invalid_components)
+        )
+    mismatched_examples: list[str] = []
+    skipped_params: list[str] = []
+    ignored_headers: list[str] = []
+    oas31 = not str(doc.get("openapi", "3.0")).startswith("3.0")
 
     for (method, path, op, _cand), name in zip(raw_ops, names):
         sec = evaluate_operation_security(op.get("security"), doc.get("security"), schemes, fp)
@@ -474,25 +631,27 @@ def derive_operations(
         for param in op.get("_nw_merged_params") or []:
             if not isinstance(param, dict):
                 continue
-            if "$ref" in param:
-                drop_reason = f"unresolved parameter $ref: {param['$ref']}"
-                break
-            bad = _param_serialization_supported(param)
-            if bad:
-                drop_reason = bad
-                break
             loc = param.get("in")
             wire = param.get("name") or "param"
-            schema = param.get("schema") or {}
-            if param.get("type") and not schema:
-                schema = {
-                    k: param[k]
-                    for k in ("type", "format", "items", "enum", "default")
-                    if k in param
-                }
+            required = bool(param.get("required")) or loc == "path"
+            bad = (
+                f"unresolved parameter $ref: {param['$ref']}"
+                if "$ref" in param
+                else _param_serialization_supported(param)
+            )
+            if bad:
+                if required:
+                    drop_reason = bad
+                    break
+                # An optional parameter the connector cannot send costs only itself.
+                skipped_params.append(f"{name}.{wire} ({bad})")
+                continue
+            if loc == "header" and str(wire).lower() in _IGNORED_HEADER_PARAMS:
+                ignored_headers.append(f"{name}.{wire}")
+                continue
+            schema, param_media = _param_schema(param)
             style = param.get("style")
             explode = param.get("explode")
-            required = bool(param.get("required")) or loc == "path"
             if sec.mode != "anonymous" and _is_credential_param(wire, str(loc)):
                 credential_params.add(f"{wire} (in {loc})")
                 continue
@@ -505,10 +664,12 @@ def derive_operations(
                     schema=schema,
                     style=style,
                     explode=explode,
+                    media_type=param_media,
                     python_type_hint=_schema_type_hint(schema),
                     default=schema.get("default", param.get("default")),
                     # OAS 3 allows the text on the parameter or on its schema.
                     description=param.get("description") or schema.get("description"),
+                    allow_reserved=bool(param.get("allowReserved")) and loc in ("query", "path"),
                 )
             )
 
@@ -518,9 +679,14 @@ def derive_operations(
 
         body_schema = None
         body_media = None
+        media: Any = None
         body_required = False
         body_flattened = False
         rb = op.get("requestBody")
+        if not oas31 and method in ("get", "head", "delete"):
+            # OAS 3.0: request bodies are "only supported in HTTP methods where RFC 7231 has
+            # explicitly defined semantics" — not GET, HEAD or DELETE. 3.1+ allows them.
+            rb = None
         if isinstance(rb, dict):
             body_required = bool(rb.get("required"))
             content = rb.get("content") or {}
@@ -528,10 +694,16 @@ def derive_operations(
             if picked:
                 body_media, media = picked
                 body_schema = (media or {}).get("schema")
+                if body_schema is None:
+                    # A media type without a schema still takes a body: anything goes.
+                    body_schema = {}
 
         if body_schema is not None and body_media is not None:
             body_props = _body_property_plans(
-                body_schema, media_type=body_media, body_required=body_required
+                body_schema,
+                media_type=body_media,
+                body_required=body_required,
+                encoding=(media or {}).get("encoding") if isinstance(media, dict) else None,
             )
             if body_props is not None:
                 body_flattened = True
@@ -552,18 +724,22 @@ def derive_operations(
         out_schema, use_envelope = _success_response_schema(op)
 
         examples: dict[str, Any] = {}
-        # Collect request/response examples when present
+        # The request example becomes a generated test, so only one that matches its own
+        # schema is kept: a spec whose example contradicts it (GitHub's markdown/render-raw
+        # shows a JSON object for a text/plain body) would otherwise fail the build gate.
         if isinstance(rb, dict):
             content = rb.get("content") or {}
-            for mt, media in content.items():
-                if isinstance(media, dict) and "example" in media:
-                    examples.setdefault("request", media["example"])
-                if isinstance(media, dict) and "examples" in media:
-                    ex = media["examples"]
-                    if isinstance(ex, dict) and ex:
-                        first = next(iter(ex.values()))
-                        if isinstance(first, dict) and "value" in first:
-                            examples.setdefault("request", first["value"])
+            mismatched = False
+            for _mt, media in content.items():
+                if not isinstance(media, dict):
+                    continue
+                for candidate in _media_examples(media):
+                    if _example_matches(candidate, media.get("schema"), oas31=oas31):
+                        examples.setdefault("request", candidate)
+                    else:
+                        mismatched = True
+            if mismatched and "request" not in examples:
+                mismatched_examples.append(name)
 
         actions.append(
             ActionPlan(
@@ -580,14 +756,35 @@ def derive_operations(
                 envelope_ok_field=_envelope_ok_field(out_schema),
                 deprecated=bool(op.get("deprecated")),
                 examples=examples,
-                auth_scheme_name=sec.scheme_name if sec.mode == "divergent" else None,
+                auth_scheme_name=(
+                    sec.scheme_name
+                    if sec.mode == "divergent"
+                    else (sec.scheme_names if sec.mode == "combined" else None)
+                ),
                 body_flattened=body_flattened,
                 body_required=body_required,
+                server_url=op.get("_nw_server_url"),
             )
         )
 
     if not actions:
         raise DeriveError("Zero usable operations after soft-drops; cannot build connector")
+
+    if skipped_params:
+        notes.append(
+            "Optional parameter(s) left out because they cannot be sent: "
+            + ", ".join(skipped_params)
+        )
+    if ignored_headers:
+        notes.append(
+            "Header parameter(s) ignored as OpenAPI requires (Accept, Content-Type and "
+            "Authorization come from the body media type and auth): " + ", ".join(ignored_headers)
+        )
+    if mismatched_examples:
+        notes.append(
+            "Request example(s) that do not match their own schema were not used as tests: "
+            + ", ".join(sorted(mismatched_examples))
+        )
 
     coverage_warning = len(actions) < (total * 0.5)
     if credential_params:
@@ -609,9 +806,13 @@ def derive_operations(
             f"schema declares {_ENVELOPE_OK_FIELD} as a required boolean ({shown}{more})"
         )
     # Plans for every non-default scheme a generated action actually uses.
-    extra_scheme_names = sorted(
-        {a.auth_scheme_name for a in actions if a.auth_scheme_name is not None}
-    )
+    used: set[str] = set()
+    for a in actions:
+        if isinstance(a.auth_scheme_name, tuple):
+            used.update(n for n in a.auth_scheme_name if n is not None)
+        elif a.auth_scheme_name is not None:
+            used.add(a.auth_scheme_name)
+    extra_scheme_names = sorted(used)
     extra_auth_plans = uniquify_extra_secret_keys(
         connector_id,
         auth_plan,

@@ -279,14 +279,16 @@ def test_runtime_block_requires_node_wire_options(
         run_pipeline(node_wire_checkout.scope(tmp_path), PETSTORE_SPEC, TEMPLATE, out)
 
 
-def _fake_wheel(dist: Path, dist_name: str, arch: str) -> None:
+def _fake_wheel(dist: Path, dist_name: str, tags: str = "py3-none-any") -> Path:
     dist.mkdir(parents=True, exist_ok=True)
     stem = dist_name.replace("-", "_")
-    with zipfile.ZipFile(dist / f"{stem}-1.1.0-cp313-cp313-musllinux_1_2_{arch}.whl", "w") as zf:
+    wheel = dist / f"{stem}-1.1.0-{tags}.whl"
+    with zipfile.ZipFile(wheel, "w") as zf:
         zf.writestr(f"{stem}-1.1.0.dist-info/METADATA", "")
+    return wheel
 
 
-def test_wheels_are_pinned_per_architecture(
+def test_pure_wheels_are_pinned_as_uv_sources(
     node_wire_checkout: NodeWireCheckout, tmp_path: Path
 ) -> None:
     checkout = _checkout_copy(node_wire_checkout, tmp_path)
@@ -297,25 +299,25 @@ def test_wheels_are_pinned_per_architecture(
         "node-wire-toolhive": packages / "toolhive" / "dist",
         "node-wire-pet-store": packages / "connectors" / CONNECTOR_ID / "dist",
     }
+    for dist in dists.values():
+        shutil.rmtree(dist, ignore_errors=True)
     for name, dist in dists.items():
-        for arch in ("aarch64", "x86_64"):
-            _fake_wheel(dist, name, arch)
-    _fake_wheel(dists["node-wire-runtime"], "node-wire-runtime", "armv7l")  # not shared by all
+        _fake_wheel(dist, name)
+    # A compiled wheel left over from before the packages were pure Python is not used.
+    _fake_wheel(dists["node-wire-runtime"], "node-wire-runtime", "cp313-cp313-musllinux_1_2_x86_64")
 
     project = _generate(checkout, tmp_path, wheels=True)
 
     pyproject = tomllib.loads((project / "pyproject.toml").read_text())
-    assert pyproject["tool"]["uv"]["environments"] == [
-        "sys_platform == 'linux' and platform_machine == 'aarch64'",
-        "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    ]
-    runtime_sources = pyproject["tool"]["uv"]["sources"]["node-wire-runtime"]
-    assert [s["marker"] for s in runtime_sources] == [
-        "platform_machine == 'aarch64'",
-        "platform_machine == 'x86_64'",
-    ]
-    for source in runtime_sources:
+    assert "environments" not in pyproject["tool"].get("uv", {})
+    sources = pyproject["tool"]["uv"]["sources"]
+    assert sources["node-wire-runtime"] == {
+        "path": "wheels/node_wire_runtime-1.1.0-py3-none-any.whl"
+    }
+    assert set(sources) == set(dists)
+    for source in sources.values():
         assert (project / source["path"]).is_file()
+    assert not list((project / "wheels").glob("*musllinux*"))
     assert "COPY wheels/ ./wheels/" in (project / "Dockerfile").read_text()
 
 
@@ -323,5 +325,37 @@ def test_missing_wheels_are_reported(node_wire_checkout: NodeWireCheckout, tmp_p
     checkout = _checkout_copy(node_wire_checkout, tmp_path)
     for dist in (checkout.root / "packages").rglob("dist"):
         shutil.rmtree(dist)
-    with pytest.raises(WheelsMissingError, match="No cp313 musllinux .* wheel for"):
+    with pytest.raises(WheelsMissingError, match="No py3-none-any wheel for"):
         _generate(checkout, tmp_path, wheels=True)
+
+
+def test_tenants_example_carries_headers_with_a_note(tmp_path: Path) -> None:
+    """``--header`` values reach tenant configs too, which get no ``${VAR}`` substitution."""
+    from nw_stacklok.project import _write_config
+
+    root = tmp_path / "nw"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "connectors.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "connectors": {
+                    "twitch": {
+                        "base_url": "https://api.twitch.tv/helix",
+                        "auth": {"provider": "static_token", "secret_key": "TWITCH_ACCESS_TOKEN"},
+                        "headers": {"Client-Id": "${TWITCH_CLIENT_ID}"},
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    project = tmp_path / "twitch-mcp"
+    project.mkdir()
+    _write_config(project, root, "twitch")
+
+    text = (project / "config" / "tenants.example.yaml").read_text()
+    assert "no ${VAR} substitution" in text
+    doc = yaml.safe_load(text)["tenants"]["example-tenant"]["twitch"][0]
+    assert doc["headers"] == {"Client-Id": "${TWITCH_CLIENT_ID}"}
+    image_config = yaml.safe_load((project / "config" / "connectors.yaml").read_text())
+    assert image_config["connectors"]["twitch"]["headers"] == {"Client-Id": "${TWITCH_CLIENT_ID}"}

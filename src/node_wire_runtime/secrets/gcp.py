@@ -14,7 +14,7 @@ from node_wire_runtime.secrets.base import (
 
 
 def _import_gcp():
-    """Import GCP SDKs lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    """Import GCP SDKs lazily so test stubs resolve via ``sys.modules``."""
     try:
         from google.cloud import secretmanager
         from google.api_core.exceptions import NotFound, GoogleAPICallError

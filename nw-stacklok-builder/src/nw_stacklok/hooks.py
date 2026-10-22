@@ -23,7 +23,7 @@ class NodeWireOptions:
     """How to build a node-wire-mode server (passed to ``run_pipeline(node_wire=...)``)."""
 
     node_wire_root: Path
-    # Copy cp313 musllinux wheels into the project and pin them in [tool.uv.sources].
+    # Copy the node-wire wheels into the project and pin them in [tool.uv.sources].
     wheels: bool = True
     # Run `uv lock` in the generated project so the image builds with `uv sync --frozen`.
     lock: bool = False

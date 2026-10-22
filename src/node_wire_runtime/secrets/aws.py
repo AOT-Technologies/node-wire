@@ -14,7 +14,7 @@ from node_wire_runtime.secrets.base import (
 
 
 def _import_boto():
-    """Import boto3 lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    """Import boto3 lazily so test stubs resolve via ``sys.modules``."""
     try:
         import boto3
         from botocore.exceptions import BotoCoreError, ClientError

@@ -156,7 +156,6 @@ The `nw` CLI reads these variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NW_DEBUG` | Any value except empty, `0` or `false` makes `nw` print the full traceback with an error, like `--debug`. | _(unset)_ |
-| `NW_WHEEL_ARCHS` | Space-separated CPU architectures for Linux wheel builds (`nw gen-stacklok`, `build-packages.sh --cibw-linux`/`--musllinux`), for example, `x86_64 aarch64`. | the host's architecture |
 
 ---
 

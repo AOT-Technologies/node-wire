@@ -29,7 +29,15 @@ The generator accepts the following specs and sources:
   `assert_safe_destination`, no redirects followed)
 - In-house Swagger 2.0 → OpenAPI 3.0 normalization at the front door
 - Local relative `$ref`s and in-document `#/` refs
-- Structural + semantic validation via `prance` + `openapi-spec-validator`
+- Swagger 2.0, OpenAPI 3.0, 3.1 and 3.2. Every field of each version, and how it is handled, is
+  listed in [OpenAPI coverage](openapi-coverage.md)
+- Recursive schemas (`$ref` cycles): the edge that re-enters a schema becomes a permissive object,
+  and everything else is inlined as usual (see [codegen behaviour](nw-connector-builder-codegen.md#recursive-schemas))
+- `x-` specification extensions are removed before `$ref` resolution: the generator reads none of
+  them, and a dangling `$ref` inside an unused extension no longer fails the build
+- Structural + semantic validation via `prance` + `openapi-spec-validator`; an operation or
+  component that fails on its own is soft-dropped (or removed) instead of failing the whole
+  build — see [codegen behaviour](nw-connector-builder-codegen.md#invalid-operations)
 
 ### Auth
 
@@ -49,6 +57,11 @@ The generator handles auth as follows:
   `resolve_auth_provider`, which fails closed on an unknown name). A connector can therefore
   use more than one scheme; see [Per-action auth schemes](#per-action-auth-schemes).
 - Anonymous connectors (no scheme, or only unsupported schemes present) build as `auth: none`
+- A spec that declares **no** auth can be given one with `--auth bearer|header:<name>|query:<name>`
+  (refused when the spec declares any scheme)
+- Fixed non-credential headers an API needs on every call (Twitch's `Client-Id`) via
+  `--header NAME=VALUE`, written to `headers:` in `connectors.yaml` and sent by the runtime
+  (`node-wire-runtime` 1.1.0 or later, which the generated package then requires)
 
 #### Host-supplied auth tier
 
@@ -101,19 +114,37 @@ secret; when an extra scheme's secret name is already taken, it is qualified wit
 (`<ID>_<SCHEME>_ACCESS_TOKEN`, `<ID>_<SCHEME>_API_KEY`, …) and the first claimant keeps the short
 name.
 
+### Requests
+
+- Every HTTP method, including OpenAPI 3.2 `query` and `additionalOperations`
+- Every parameter location and style: path `simple` / `label` / `matrix`; query `form` /
+  `spaceDelimited` / `pipeDelimited` / `deepObject` and `allowReserved`; header `simple`; `cookie`;
+  3.2 `querystring`; parameters declared with `content` (sent as JSON text). Path-level parameters
+  are overridden by operation parameters with the same name and location
+- Request bodies by media type: JSON, form and multipart object bodies become one argument per
+  property; text, XML and other media take one string (binary content base64-encoded); multipart
+  per-part `contentType` from the Encoding Object
+- Responses: the lowest 2xx, else `2XX`, else `default` when no success response is declared
+- Operation- and path-level `servers`: that operation is called at its own server's first entry
+  (`execute_rest(server_url=…)`) instead of the spec's base URL. A `base_url` override in
+  `connectors.yaml` still wins, so every operation goes to the operator's host
+
 ### Codegen
 
 The generated package provides the following:
 
 - Actions discoverable via `@nw_action` on a generated `RestConnector` subclass (regex-scrapable
-  by `nw-mcp-builder`, matching the hand-written-connector convention)
+  by `nw-mcp-builder`, matching the hand-written-connector convention); `deprecated` operations
+  are marked deprecated
 - A shared, hardened REST executor (`node-wire-runtime`) owns base URL, path templating,
-  parameter placement, auth injection, SSRF checks, and error mapping
-- Hybrid schema translation: `datamodel-code-generator` for request/response schemas, hand-rolled
-  per-operation input envelope with an `action: Literal` discriminator
-- Non-JSON request bodies (form data, files, raw content) encoded by declared media type
-- Typed output models from the lowest documented 2xx JSON response, falling back to a generic
-  response envelope when no schema is documented
+  parameter placement and serialization, auth injection, SSRF checks, and error mapping
+- Hand-rolled input models: one flat, typed field per parameter and top-level body property, with
+  an `action: Literal` discriminator. Schema constraints (`minimum` / `maximum` / `exclusive*`,
+  `multipleOf`, `minLength` / `maxLength`, `minItems` / `maxItems`, `enum`, `const`) are
+  enforced; `pattern` and `format` are advertised in the tool schema, not enforced. Nested
+  objects stay free-form (`dict`)
+- Output: a permissive model for a JSON object success response, else a generic response
+  envelope (status, headers, body)
 - A `declare_secret_shape()` call per generated package, so the config store accepts the
   connector's tenant secrets under `NW_SECRET_SHAPE_POLICY=enforce` without anyone editing the
   runtime's hard-coded registry
@@ -128,7 +159,7 @@ The generated package provides the following:
 The build gate runs the following checks:
 
 - Offline schema/contract tests only: parse the spec's `example` into the generated model when
-  present, else synthesize one with `polyfactory`
+  present and valid against its own schema, else synthesize one with `polyfactory`
 - Generated tests ship with the connector (`packages/connectors/<id>/tests/`)
 - Import smoke test + `pytest` on staged output is a hard gate — promote only happens on green
 - Atomic two-phase promote into `src/node_wire_<id>/` and `packages/connectors/<id>/`; abort
@@ -157,9 +188,10 @@ The generator does not support the following auth schemes:
   `OAuth2AuthProvider` are unchanged.
 - **mutualTLS** — genuinely unpresentable (a transport-layer client certificate, not a
   header/param); operations secured only by it are soft-dropped
-- **Cookie-based API keys** — no `name=value` cookie formatting in `StaticTokenAuthProvider` yet;
-  soft-dropped
-- **AND-combined** multi-scheme security (`security: [{a: [], b: []}]`) — soft-dropped
+- **Cookie-based API keys** — no cookie auth provider yet; soft-dropped
+- **AND-combined** security (`security: [{a: [], b: []}]`) is sent when each scheme puts its
+  credential in a different place (a bearer token plus an API-key header). Two schemes that both
+  need `Authorization`, or one unsupported scheme, soft-drop the operation
 
 (Host-supplied `oauth2` / `openIdConnect`, and multi-scheme connectors via per-action
 `auth_schemes:`, are in scope; see [Auth](#auth).)
@@ -170,11 +202,16 @@ The generator does not support the following spec features:
 
 - **Remote `$ref`s** (absolute URLs) — rejected outright; the input document must be
   self-contained aside from local relative/`#/` refs
-- **Path- or operation-level `servers` overrides** — ignored; only the connector-level base URL
-  is used (noted in the build report when present)
-- Uncommon parameter serialization: `deepObject` query style, non-`simple` path/header styles,
-  unsupported `collectionFormat` values (Swagger 2.0) — soft-dropped per operation
-- `in: cookie` parameters — soft-dropped per operation
+- **Extra `servers` entries** — only the first entry of each `servers` list is used. An
+  operation or path item with its own `servers` is called at its first entry (GitHub's release
+  asset uploads go to `uploads.github.com`), noted in the build report
+- **Webhooks and callbacks** — requests the API sends to you, not calls a connector makes; noted
+  in the build report
+- Swagger 2.0 `collectionFormat: tsv` (no OpenAPI 3 equivalent) — the parameter is left out when
+  optional, the operation soft-dropped when required
+- Sequential and streaming media types (3.2 `itemSchema`, `itemEncoding`, `prefixEncoding`)
+
+The full list, field by field, is [OpenAPI coverage](openapi-coverage.md).
 
 ### Behavior not generated
 
@@ -204,9 +241,9 @@ The generator does not do the following registration or deployment steps:
 - Publishing (CI allowlists, standalone MCP Docker image rows, and the
   `scripts/build-packages.sh` entry unless `nw gen-all` adds it) is a manual **Tier 2/3**
   checklist in [packaging.md](../packaging.md) — the builder produces the runtime + package
-  skeleton, including `setup.py`, only
+  skeleton only
 - No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
-  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#platform-and-toolhive-wheels)
+  `thv`/ToolHive deploy or verify is manual — see [nw-mcp-builder](nw-mcp-builder.md#docker)
   and [toolhive_agent_scenario.md](../toolhive_agent_scenario.md). This was explicitly dropped from
   the companion `nw-cli` orchestrator's scope too; see [nw-cli.md](nw-cli.md).
 

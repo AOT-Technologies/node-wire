@@ -12,7 +12,7 @@ from node_wire_runtime.secrets.base import (
 
 
 def _import_hvac():
-    """Import hvac lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    """Import hvac lazily so test stubs resolve via ``sys.modules``."""
     try:
         import hvac
     except ImportError as exc:

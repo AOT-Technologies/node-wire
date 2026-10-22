@@ -29,13 +29,12 @@ from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
 from nw_cli import ui
 from nw_cli.menu import Option, choose
 from nw_cli.names import docker_image_tag, mcp_project_dir
-from nw_cli.prerequisites import confirm_build, docker_problem, is_interactive
+from nw_cli.prerequisites import confirm_build, is_interactive
 from nw_cli.progress import GenerateProgress, Stage
 from nw_cli.root import resolve_node_wire_root
 from nw_cli.stages import (
     StageError,
     build_image,
-    build_mode_flag,
     mcp_host_packages,
     register_all_packages,
     run_docker_build,
@@ -138,6 +137,38 @@ def _connector_id(value: Optional[str]) -> Optional[str]:
     return value
 
 
+_AUTH_HELP = (
+    "Auth for a spec that declares none: bearer, header:<name> or query:<name> "
+    "(e.g. GitHub's REST spec: bearer)"
+)
+_HEADER_HELP = (
+    "Header sent on every request, NAME=VALUE (repeatable); ${VAR} is read from the "
+    "environment, e.g. 'Client-Id=${TWITCH_CLIENT_ID}'"
+)
+
+
+def _auth_option(value: Optional[str]) -> Optional[str]:
+    """Checked before any work; whether the spec already declares auth is checked on load."""
+    if value is None:
+        return None
+    from nw_connector_builder.options import parse_auth
+
+    try:
+        parse_auth(value)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    return value.strip()
+
+
+def _header_options(values: Optional[list[str]]) -> dict[str, str]:
+    from nw_connector_builder.options import parse_headers
+
+    try:
+        return parse_headers(values)
+    except ValueError as exc:
+        raise ui.usage_error(str(exc), flags="--header") from exc
+
+
 _TOOL_SEARCH_HELP = (
     "Serve the MCP host's tools through nw_search_tools + nw_call_tool (for large connectors)"
 )
@@ -181,11 +212,11 @@ def _gen_whl_command(packages: list[str], connector_id: str) -> str:
 
 
 def _missing_wheels(node_wire_root: Path, connector_id: str) -> list[str]:
-    """The MCP host's packages with no wheel in ``dist/`` yet."""
+    """The MCP host's packages with no pure-Python wheel in ``dist/`` yet."""
     return [
         p
         for p in mcp_host_packages(connector_id)
-        if not any((node_wire_root / p / "dist").glob("*.whl"))
+        if not any((node_wire_root / p / "dist").glob("*-py3-none-any.whl"))
     ]
 
 
@@ -198,19 +229,26 @@ def _build_connector(
     wire: bool,
     force: bool,
     base_url: str | None = None,
+    auth: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """nw-connector-builder codegen (never its MCP hand-off), with a short summary."""
-    from nw_connector_builder.pipeline import run_build
+    from nw_connector_builder.pipeline import UsageError, run_build
 
-    code = run_build(
-        spec=spec,
-        connector_id=connector_id,
-        node_wire_root=node_wire_root,
-        wire=wire,
-        force=force,
-        no_mcp=True,
-        base_url=base_url,
-    )
+    try:
+        code = run_build(
+            spec=spec,
+            connector_id=connector_id,
+            node_wire_root=node_wire_root,
+            wire=wire,
+            force=force,
+            no_mcp=True,
+            base_url=base_url,
+            auth=auth,
+            headers=headers or {},
+        )
+    except UsageError as exc:
+        raise StageError(str(exc)) from exc
     report = _read_report(node_wire_root, connector_id)
     if code != 0:
         wire_error = (report.get("wire") or {}).get("error")
@@ -288,6 +326,18 @@ def gen_all(
         "--rebuild-wheels",
         help="Rebuild every wheel, even those whose sources are unchanged",
     ),
+    auth: Optional[str] = typer.Option(
+        None, "--auth", help=_AUTH_HELP, callback=_auth_option, rich_help_panel="Connector"
+    ),
+    header: Optional[list[str]] = typer.Option(
+        None, "--header", help=_HEADER_HELP, rich_help_panel="Connector"
+    ),
+    base_url: Optional[str] = typer.Option(
+        None,
+        "--base-url",
+        help="API base URL, when the spec has none or only a relative one (overrides servers[0])",
+        rich_help_panel="Connector",
+    ),
     tool_search: bool = typer.Option(
         False, "--tool-search", help=_TOOL_SEARCH_HELP, rich_help_panel="Tool listing"
     ),
@@ -303,6 +353,7 @@ def gen_all(
 ) -> None:
     """One-shot: connector codegen → wheel → MCP host → wire."""
     tool_mode = _tool_mode(tool_search, full_tool_list)
+    headers = _header_options(header)
     node_wire_root = resolve_node_wire_root()
     packages = mcp_host_packages(id)
 
@@ -315,7 +366,7 @@ def gen_all(
                 f"Drop --no-wheel, or build them first: {_gen_whl_command(missing, id)}"
             )
 
-    rerun = f"uv run nw gen-all --connector-id {id} --path {path}"
+    rerun = f"uv run nw gen-all --connector-id {id} --path {path}" + _build_flags(auth, headers)
     progress = _progress(
         "gen-all",
         [
@@ -323,7 +374,7 @@ def gen_all(
             Stage(
                 "wheel",
                 "Wheel build",
-                hint=f"Needs Docker running. Retry just this step: {_gen_whl_command(packages, id)}",
+                hint=f"Retry just this step: {_gen_whl_command(packages, id)}",
             ),
             Stage(
                 "mcp",
@@ -353,6 +404,9 @@ def gen_all(
                 connector_id=id,
                 wire=not no_wire,
                 force=force,
+                base_url=base_url,
+                auth=auth,
+                headers=headers,
             ),
         )
         progress.result("Connector", f"packages/connectors/{id}")
@@ -391,42 +445,24 @@ def gen_whl(
         help="Connector id (required unless --runtime/--bindings)",
         callback=_connector_id,
     ),
-    host: bool = typer.Option(False, "--host", help="Host-only wheel build"),
-    all_: bool = typer.Option(False, "--all", help="Full cibuildwheel matrix"),
     runtime: bool = typer.Option(False, "--runtime", help="Build packages/runtime"),
     bindings: bool = typer.Option(
         False, "--bindings", help="Build packages/bindings (MCP host surface)"
     ),
 ) -> None:
-    """Build binary wheels via scripts/build-packages.sh (Linux-only by default)."""
-    if host and all_:
-        raise ui.usage_error("they are mutually exclusive", flags="--host / --all")
+    """Build pure-Python wheels via scripts/build-packages.sh."""
     packages = wheel_packages(connector_id=id, runtime=runtime, bindings=bindings)
     if not packages:
         raise ui.usage_error(
             "required unless --runtime and/or --bindings is set", flags="--connector-id"
         )
     node_wire_root = resolve_node_wire_root()
-    mode = build_mode_flag(host=host, all_=all_).lstrip("-")
 
-    progress = _progress(
-        "gen-whl",
-        [
-            Stage(
-                "wheel",
-                f"Wheels ({mode})",
-                hint=""
-                if host
-                else "Linux wheels need Docker running; --host builds for this machine only.",
-            )
-        ],
-    )
+    progress = _progress("gen-whl", [Stage("wheel", "Wheels")])
     with progress:
         progress.run_stage(
             "wheel",
-            lambda: run_wheel_build(
-                node_wire_root, packages=packages, host=host, all_=all_, log=progress.output
-            ),
+            lambda: run_wheel_build(node_wire_root, packages=packages, log=progress.output),
         )
         progress.result("Built", ", ".join(packages))
 
@@ -441,7 +477,7 @@ def _mcp_host_stages(
             Stage(
                 "wheel",
                 "Wheel build",
-                hint="Needs Docker running. Build them yourself with: "
+                hint="Build them yourself with: "
                 + _gen_whl_command(mcp_host_packages(connector_id), connector_id),
             )
         )
@@ -738,6 +774,19 @@ def gen_stacklok(
     no_lock: bool = typer.Option(
         False, "--no-lock", help="Do not run `uv lock` in the generated project"
     ),
+    auth: Optional[str] = typer.Option(
+        None,
+        "--auth",
+        help=_AUTH_HELP + ". Remembered with the prepared spec for later --scope runs",
+        callback=_auth_option,
+        rich_help_panel="Connector",
+    ),
+    header: Optional[list[str]] = typer.Option(
+        None,
+        "--header",
+        help=_HEADER_HELP + ". Remembered with the prepared spec for later --scope runs",
+        rich_help_panel="Connector",
+    ),
 ) -> None:
     """stacklok mcp-builder on node-wire, Phase 1 → 3 in one command.
 
@@ -761,13 +810,14 @@ def gen_stacklok(
         raise ui.usage_error("required with --path", flags="--connector-id")
     if scope is not None and not scope.is_file():
         raise ui.usage_error(f"{scope} does not exist", flags="--scope")
+    headers = _header_options(header)
     node_wire_root = resolve_node_wire_root()
 
     resume = (
         f"uv run nw gen-stacklok --path {path} --connector-id {id}"
         if path is not None
         else f"uv run nw gen-stacklok --scope {scope}"
-    )
+    ) + _build_flags(auth, headers)
     stages = [
         Stage(
             "connector",
@@ -777,8 +827,7 @@ def gen_stacklok(
         Stage(
             "wheel",
             "Wheels for the MCP image",
-            hint="Needs Docker running and cibuildwheel (uv sync --all-extras --dev). "
-            "Rerun: " + resume,
+            hint="Rerun: " + resume,
         ),
         Stage("stacklok", "stacklok MCP server", hint="Rerun: " + resume),
     ]
@@ -789,12 +838,6 @@ def gen_stacklok(
             Stage("review", "Phase 2: review"),
             *stages,
         ]
-        if not no_wheel and docker_problem():
-            # Warn before the (long, human) scoping phase, not after it.
-            ui.warning(
-                f"Docker is not usable ({docker_problem()}); the wheel stage will need it. "
-                "The scope is saved, so you can rerun once Docker is up."
-            )
     progress = _progress("gen-stacklok", stages)
     if no_wheel:
         progress.mark_skipped("wheel")
@@ -810,7 +853,9 @@ def gen_stacklok(
         with progress:
             prepared = progress.run_stage(
                 "spec",
-                lambda: prepare_spec(path, prepared_spec_path(node_wire_root, id)),
+                lambda: prepare_spec(
+                    path, prepared_spec_path(node_wire_root, id), auth=auth, headers=headers
+                ),
             )
             reused_at = existing.stat().st_mtime if reuse else None
             request = ScopingRequest(
@@ -874,6 +919,8 @@ def gen_stacklok(
                     force or decision.replace_output,
                     no_lock,
                     reviewed=True,
+                    auth=auth,
+                    headers=headers,
                 )
                 if decision.generate
                 else None
@@ -896,7 +943,15 @@ def gen_stacklok(
         assert scope_file is not None
         with progress:
             project = _stacklok_phase3(
-                progress, node_wire_root, scope_file, id, output_dir, force, no_lock
+                progress,
+                node_wire_root,
+                scope_file,
+                id,
+                output_dir,
+                force,
+                no_lock,
+                auth=auth,
+                headers=headers,
             )
     ui.next_steps(
         _run_steps(
@@ -927,6 +982,25 @@ def _token_placeholder(project: Path, connector_id: str) -> str:
     return f"<{key}>"
 
 
+def _header_env(project: Path, connector_id: str) -> list[str]:
+    """Environment variables the connector's ``headers:`` read (``${VAR}``), in order."""
+    from nw_connector_builder.options import header_env_vars
+
+    entry = _project_connectors(project).get(connector_id) or {}
+    headers = entry.get("headers") if isinstance(entry, dict) else None
+    return list(header_env_vars(headers)) if isinstance(headers, dict) else []
+
+
+def _build_flags(auth: str | None, headers: dict[str, str]) -> str:
+    """``--auth`` / ``--header`` as they would be typed again, for rerun hints."""
+    import shlex
+
+    flags = f" --auth {shlex.quote(auth)}" if auth else ""
+    for name, value in headers.items():
+        flags += " --header " + shlex.quote(f"{name}={value}")
+    return flags
+
+
 def _run_steps(project: Path, connector_id: str, *, default_output: bool = True) -> list[ui.Step]:
     """Build → replace → start → check → ToolHive, for a generated stacklok project (its real names)."""
     image = project.name  # <server>-mcp
@@ -936,6 +1010,7 @@ def _run_steps(project: Path, connector_id: str, *, default_output: bool = True)
         else f"--project {ui.display_path(project)}"  # docker-build only looks in the default
     )
     url = f"http://127.0.0.1:{_HOST_PORT}/mcp"
+    header_env = "".join(f"-e {var}=<{var}> " for var in _header_env(project, connector_id))
     return [
         ui.Step(f"Build the {image} image", f"uv run nw docker-build {target}"),
         # A leftover container (stopped or not) keeps the name, and `docker run` then fails.
@@ -947,7 +1022,7 @@ def _run_steps(project: Path, connector_id: str, *, default_output: bool = True)
             f"Start it as a container, serving {url}",
             # No --rm: a container that fails to start keeps its logs for `docker logs`.
             f"docker run -d --name {image} -p {_HOST_PORT}:8100 "
-            f"-e NW_MULTITENANCY_ENABLED=false {image}",
+            f"-e NW_MULTITENANCY_ENABLED=false {header_env}{image}",
         ),
         ui.Step('Check it started (look for "Starting MCP server")', f"docker logs {image}"),
         ui.Step(
@@ -982,10 +1057,14 @@ def _stacklok_phase3(
     no_lock: bool,
     *,
     reviewed: bool = False,
+    auth: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> Path:
-    """Phase 3: connector → musllinux wheels → stacklok generator on node-wire.
+    """Phase 3: connector → wheels → stacklok generator on node-wire.
 
     ``reviewed``: Phase 2 already validated the scope and settled replacing the output.
+    ``auth`` / ``headers``: this run's ``--auth`` / ``--header``; when not given, the ones
+    remembered with the prepared spec apply.
     """
     from nw_cli.stacklok import (
         default_output_dir,
@@ -1020,6 +1099,8 @@ def _stacklok_phase3(
             wire=True,
             force=True,
             base_url=scoped.base_url,
+            auth=auth or scoped.connector_auth,
+            headers=headers or scoped.connector_headers,
         ),
     )
     progress.run_stage(

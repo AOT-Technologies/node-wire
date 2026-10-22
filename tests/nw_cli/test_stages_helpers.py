@@ -13,19 +13,24 @@ import pytest
 
 from nw_cli.stages import (
     StageError,
-    build_mode_flag,
     register_all_packages,
     run_docker_build,
     run_wheel_build,
 )
 
 
-def test_build_mode_flag_defaults_and_mutex() -> None:
-    assert build_mode_flag() == "--linux-only"
-    assert build_mode_flag(host=True) == "--host-only"
-    assert build_mode_flag(all_=True) == "--all"
-    with pytest.raises(StageError, match="mutually exclusive"):
-        build_mode_flag(host=True, all_=True)
+def test_run_wheel_build_passes_only_package_paths(tmp_path: Path) -> None:
+    """Pure-Python wheels: no platform mode flag, and no Docker check."""
+    script = tmp_path / "scripts" / "build-packages.sh"
+    script.parent.mkdir(parents=True)
+    script.write_text("#!/bin/bash\n", encoding="utf-8")
+    (tmp_path / "packages" / "runtime").mkdir(parents=True)
+    with (
+        patch("nw_cli.stages.run_logged_command", return_value=0) as run,
+        patch("nw_cli.prerequisites.docker_problem", return_value="no docker"),
+    ):
+        run_wheel_build(tmp_path, runtime=True)
+    assert run.call_args.args[0] == ["bash", "scripts/build-packages.sh", "packages/runtime"]
 
 
 def test_run_wheel_build_requires_connector_or_runtime(tmp_path: Path) -> None:

@@ -25,7 +25,7 @@ Workflow: `.github/workflows/pytest.yml`
 Runs the full test suite with coverage on every pull request to `main` and on pushes to `main`.
 Ubuntu runs Python 3.11, 3.12 and 3.13; macOS and Windows run 3.13.
 Pushes and manual runs use **Linux, macOS, and Windows**. A pull request runs on Ubuntu only, unless it
-touches the Cython inputs (`src/**`, `packages/**/setup.py`, or the workflow file), which adds macOS and Windows.
+touches shipped sources (`src/**` or the workflow file), which adds macOS and Windows.
 Branch protection requires the **Ubuntu** Python 3.13 cell only; macOS/Windows remain
 informational (OSS portability signal without blocking merges on runner flakiness).
 The workflow also runs these jobs:

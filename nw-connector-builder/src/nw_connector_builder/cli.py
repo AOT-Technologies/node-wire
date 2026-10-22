@@ -93,6 +93,20 @@ def _add_from_openapi_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Where to write report.json on abort (default: cwd)",
     )
+    parser.add_argument(
+        "--auth",
+        default=None,
+        metavar="KIND",
+        help="Auth for a spec that declares none: bearer, header:<name> or query:<name>",
+    )
+    parser.add_argument(
+        "--header",
+        dest="headers",
+        action="append",
+        default=None,
+        metavar="NAME=VALUE",
+        help="Header sent on every request (repeatable); ${VAR} is read from the environment",
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
 
 
@@ -115,6 +129,8 @@ def _run_from_openapi(args: argparse.Namespace) -> None:
             no_mcp=args.no_mcp,
             base_url=args.base_url,
             report_path=args.report_path,
+            auth=args.auth,
+            headers=args.headers,
         )
     except UsageError as exc:
         print(f"usage error: {exc}", file=sys.stderr)

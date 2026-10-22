@@ -15,6 +15,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OpenAPI coverage across Swagger 2.0 and OpenAPI 3.0, 3.1 and 3.2** (`nw-connector-builder`,
+  `node-wire-runtime` 1.1.0). `docs/cli/openapi-coverage.md` lists every field of each version and
+  how it is handled; `tests/nw_connector_builder/test_openapi_coverage.py` builds one fixture per
+  version and checks the exact requests the generated connector sends. New:
+  - every parameter style and location: path `label` / `matrix`, query `spaceDelimited` /
+    `pipeDelimited` / `deepObject`, `allowReserved` on query and path parameters, header objects,
+    `cookie` (3.2 `style: cookie` too), 3.2 `querystring`, and parameters declared with `content`;
+  - binary content in 3.1+ terms (`contentEncoding: base64` / `base64url`, non-text
+    `contentMediaType`); number `enum` values advertised in the tool schema;
+  - OpenAPI 3.2 `query` method and `additionalOperations`, 3.2 Example `dataValue`;
+  - AND-combined security requirements whose schemes put their credentials in different places
+    (`execute_rest(auth_scheme=(…))`);
+  - schema constraints enforced on input models (`minimum` / `maximum` / `exclusive*`,
+    `multipleOf`, `minLength` / `maxLength`, `minItems` / `maxItems`, non-string `enum`, `const`);
+    `pattern` and `format` advertised in the tool schema;
+  - `deprecated` operations marked deprecated; `default` used as the success response when no 2xx
+    is declared; text, XML and other non-JSON bodies taken as a string; multipart per-part
+    `contentType`; operation- and path-level `servers` used for that operation
+    (`execute_rest(server_url=…)`) unless the operator overrides `base_url`; webhooks and callbacks noted in the build report;
+  - recursive `$ref` cycles cut to a permissive object instead of failing the build;
+  - `nw gen-all --base-url`.
+- **`headers:` in `connectors.yaml`** (`node-wire-runtime` 1.1.0): fixed headers a REST connector
+  sends on every request, for APIs that need more than the credential (Twitch's `Client-Id`).
+  `${VAR}` is replaced from the environment when the file loads; a placeholder still unresolved at
+  call time fails with an error naming VAR. Credential and transport headers (`Authorization`,
+  `Cookie`, `Host`, `Content-Type`, …) are refused, and `auth` wins over any header set here.
+  Tenant config documents can set `headers` too (top level or under `config`).
+- **`--auth` and `--header` for `nw gen-all`, `nw gen-stacklok` and `nw-connector-builder`**:
+  `--auth bearer|header:<name>|query:<name>` declares the auth of a spec that declares none
+  (GitHub's REST description), and is refused when the spec declares any scheme. `--header
+  NAME=VALUE` writes `headers:` for the connector, adds a `sample.env` placeholder for each
+  `${VAR}`, and makes the generated package require `node-wire-runtime>=1.1.0`. `gen-stacklok`
+  remembers both with the prepared spec for later `--scope` runs.
 - **`nw gen-stacklok`**: builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder)
   server from a stacklok `mcp-scope.yaml` on the node-wire runtime, with tenants routed by
   ToolHive `MCPRemoteProxy` and the forwarded bearer relayed to the connector. A `--path` run
@@ -39,6 +72,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   connector metrics, with errors grouped by `error_code` and logs filterable by `trace_id`.
 
 ### Changed
+
+- **Every package is now a pure-Python wheel** (`py3-none-any`) instead of Cython-compiled
+  per-platform wheels. One wheel installs on Python 3.11–3.13 on every OS and CPU, so the
+  12-job cibuildwheel matrix in `publish.yml` is now a single build job. The changes:
+  - the `setup.py` files, the `cython` build requirement, the `cibuildwheel` dev dependency and
+    `docker/wheel-builder/` are removed, and generated connectors no longer get a `setup.py`;
+  - `scripts/build-packages.sh` builds with `uv build` (or `python -m build`) and needs no Docker.
+    It now rejects any wheel that isn't `py3-none-any` or contains compiled files. The old platform
+    flags are ignored with a note;
+  - `nw gen-whl` drops `--host` and `--all`. `nw gen-stacklok` reuses the same wheels as
+    `nw gen-all`, and `NW_WHEEL_ARCHS` is gone;
+  - stacklok servers pin one wheel per package in `[tool.uv.sources]`, with no per-architecture
+    markers or `[tool.uv] environments`;
+  - the MCP generators skip compiled wheels left in `dist/` by older builds.
+
+  Published wheels now contain the `.py` sources, which are already public in this repository.
+
+- **prance 26 for `nw`** (`cyclonedx-bom` 4.6.1 → 7.5.0, which had held `packaging` at 24.2):
+  `nw gen-all` on GitHub's 1,242-operation spec drops from about 6 minutes to under a minute.
+  `nw-connector-builder` requires `prance>=26.7.19`.
 
 - **Python 3.11–3.13** are supported across the repository (was `>=3.13` for the tooling). See
   [ADR 0003](docs/adr/0003-python-3-11-to-3-13.md).
@@ -87,6 +140,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `X-NW-Proxy-Secret` instead of relying on the NetworkPolicy alone.
 
 ### Fixed
+
+- **Swagger 2.0 conversion**: global `parameters` and `responses` are inlined (a reference to
+  them used to fail the whole load); `collectionFormat` is mapped per location (`csv` on a path or
+  header parameter, `ssv`, `pipes`); `schemes: [http, https]` picks `https`; a missing `host` is
+  the host the spec was fetched from; `consumes` / `produces` prefer JSON; `consumes:
+  multipart/form-data` is honoured; a malformed internal marker no longer makes operations with
+  an unsupported `collectionFormat` fail validation. Constructs that used to fail 3.0 validation
+  and drop operations are now converted: operation-level `schemes`, a string `discriminator`,
+  `type: file` in responses and properties, `collectionFormat` inside Items and on response
+  headers, and path-level parameters an operation redefines.
+- **OpenAPI 3 loading**: `x-` extensions are removed before `$ref` resolution, so a dangling
+  reference in an unused vendor extension no longer fails the build; relative server URLs resolve
+  against the spec's URL; an operation parameter overrides a path-level one with the same name
+  and location instead of producing two arguments; an optional parameter that cannot be sent is
+  left out instead of dropping the operation; `Accept` / `Content-Type` / `Authorization` header
+  parameters are ignored as the spec requires; schema repair visits each shared node once; an
+  empty YAML field (`parameters:`) no longer crashes validation; a non-JSON success response with
+  an object schema (XML) is returned in the envelope instead of failing as "Expected JSON
+  response"; a boolean schema (`schema: true`) on a parameter no longer crashes the build; OAS 3.0
+  `requestBody` on GET, HEAD and DELETE is ignored as 3.0 requires.
+- **REST wire encoding** (`node-wire-runtime` 1.1.0; changes what existing generated connectors
+  send): booleans in path, query and header values are `true` / `false` (was `True` / `False`);
+  the commas between path list items are no longer percent-encoded; header objects are `k,v` (was
+  a Python repr); a multipart body without a file part is still sent as multipart (httpx sent it
+  urlencoded); `text/*` and XML bodies are sent as text (a string that happened to be valid base64
+  was decoded); form arrays of scalars are repeated keys (were JSON text). Generated packages now
+  require `node-wire-runtime>=1.1.0`.
+- **nw-connector-builder builds public specs as published**:
+  - Spec repair no longer rewrites example payloads, defaults or enum values as schemas. An
+    example with an `items` list of strings (GitHub's search example) crashed the build.
+  - YAML specs are read as JSON data: `yes` / `no` / `on` / `off` and unquoted dates stay
+    strings, and keys like `200:` become strings. GitHub's emoji example crashed the build.
+  - A request body field named `action` no longer collides with the input model's `action`
+    discriminator. Its generated tests failed the gate (GitHub, Twitch).
+  - A request example that contradicts its own schema is not used as a generated test (GitHub's
+    `markdown/render-raw`); the operations are named in the report's `notes`.
+  - A spec that fails validation in one operation or component no longer fails the whole build:
+    the invalid parts are removed and reported (soft-dropped with `invalid OpenAPI: <reason>`), and
+    the rest builds. Twitch's community spec loses only `get-hype-train-status`.
+  - `nw gen-stacklok`'s strict-OpenAPI 3.0 preparation uses the same repair, so it no longer
+    rewrites example payloads either.
 
 - **`NW_MCP_SCOPE_POLICY_DEFAULT` accepts only `allow` or `deny`.** Any other value (a typo
   such as `denied`, or `true`, `1`, `false`, `Deny-All`) silently became `allow`, switching off

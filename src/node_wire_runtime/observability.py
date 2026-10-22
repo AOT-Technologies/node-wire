@@ -53,8 +53,7 @@ class _OtelContextFilter(logging.Filter):
 
 
 def _sanitize_otlp_attributes(attributes: MutableMapping[str, object]) -> None:
-    # Not ``dict``: span attributes are OpenTelemetry's BoundedAttributes, and the compiled
-    # (Cython) wheel enforces a ``dict`` annotation at run time, failing every span export.
+    # Not ``dict``: span attributes are OpenTelemetry's BoundedAttributes.
     for key in list(attributes.keys()):
         attributes[key] = sanitize_value(str(key), attributes[key])
 

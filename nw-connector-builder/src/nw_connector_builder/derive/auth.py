@@ -10,7 +10,9 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal, NamedTuple
 
 
-AuthMode = Literal["required", "anonymous", "optional", "unsupported", "divergent", "and_multi"]
+AuthMode = Literal[
+    "required", "anonymous", "optional", "unsupported", "divergent", "and_multi", "combined"
+]
 
 # Flow kind is retained only for operation fingerprints so per-operation matching
 # stays stable across regenerations. Generated connectors never run these grants —
@@ -42,6 +44,9 @@ class OpSecurityDecision:
     # For "divergent": the presentable scheme this op needs (codegen routes to it).
     # None for "required"/"optional" — those use the connector default.
     scheme_name: str | None = None
+    # For "combined": every scheme an AND requirement needs; None stands for the
+    # connector default (sent through the default provider, not a named one).
+    scheme_names: tuple[str | None, ...] = ()
 
 
 # Presentable as a bearer, but never acquired by Node Wire — see _scheme_host_supplied.
@@ -133,6 +138,42 @@ def _scheme_presentable(scheme: dict[str, Any] | None) -> bool:
     unrecognized scheme types.
     """
     return _scheme_supported(scheme) or _scheme_host_supplied(scheme)
+
+
+def _scheme_placement(scheme: dict[str, Any]) -> tuple[str, str]:
+    """Where a presentable scheme puts its credential: ``(location, name)``."""
+    if scheme.get("type") == "apiKey":
+        where = str(scheme.get("in"))
+        name = str(scheme.get("name") or "")
+        return where, name.lower() if where == "header" else name
+    return "header", "authorization"
+
+
+def _combined_requirement(
+    req: dict[str, Any], schemes: dict[str, Any], connector_fp: str | None
+) -> tuple[tuple[str | None, ...], str | None]:
+    """An AND requirement as scheme names to send together, or ``((), reason)``.
+
+    Sendable when every scheme is presentable and each puts its credential somewhere
+    different (a bearer token plus an API-key header, say). Two schemes that both need
+    ``Authorization`` (bearer + bearer, OAuth2 + OAuth2) cannot be sent on one request.
+    """
+    placements: set[tuple[str, str]] = set()
+    names: list[str | None] = []
+    for name in req:
+        scheme = schemes.get(name)
+        if not _scheme_presentable(scheme):
+            return (), f"AND requirement includes an unsupported scheme {name!r}"
+        assert scheme is not None
+        placement = _scheme_placement(scheme)
+        if placement in placements:
+            return (), (
+                "AND requirement needs two credentials in the same place "
+                f"({placement[0]} {placement[1]!r}); they cannot be sent together"
+            )
+        placements.add(placement)
+        names.append(None if _scheme_fingerprint(name, scheme) == connector_fp else name)
+    return tuple(names), None
 
 
 def _scheme_fingerprint(name: str, scheme: dict[str, Any]) -> str:
@@ -378,6 +419,8 @@ def evaluate_operation_security(
         return OpSecurityDecision("optional")
 
     candidates: list[tuple[str, str]] = []  # (scheme_name, fingerprint)
+    combined: tuple[str | None, ...] = ()
+    and_reason: str | None = None
     saw_unsupported_only = False
     for req in security:
         if not isinstance(req, dict):
@@ -385,9 +428,11 @@ def evaluate_operation_security(
         if req == {}:
             continue
         if len(req) > 1:
-            return OpSecurityDecision(
-                "and_multi", "AND multi-scheme security requirement not supported"
-            )
+            names, reason = _combined_requirement(req, schemes, connector_fp)
+            if names and not combined:
+                combined = names
+            and_reason = and_reason or reason
+            continue
         name = next(iter(req.keys()))
         scheme = schemes.get(name)
         # Presentable = self-managed or host-supplied; fingerprint mismatch -> divergent.
@@ -397,6 +442,11 @@ def evaluate_operation_security(
         assert scheme is not None
         candidates.append((name, _scheme_fingerprint(name, scheme)))
 
+    if not candidates and combined:
+        # Only an AND requirement can be met: send every scheme it lists.
+        return OpSecurityDecision("combined", scheme_names=combined)
+    if not candidates and and_reason:
+        return OpSecurityDecision("and_multi", and_reason)
     if not candidates:
         if saw_unsupported_only:
             return OpSecurityDecision(

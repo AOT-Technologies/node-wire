@@ -12,7 +12,7 @@ from node_wire_runtime.secrets.base import (
 
 
 def _import_azure():
-    """Import Azure SDKs lazily so stubs / Cython reloads resolve via ``sys.modules``."""
+    """Import Azure SDKs lazily so test stubs resolve via ``sys.modules``."""
     try:
         from azure.identity import DefaultAzureCredential
         from azure.keyvault.secrets import SecretClient

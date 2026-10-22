@@ -37,7 +37,7 @@ def fake_root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_wheel_invokes_build_packages_linux_only(fake_root: Path) -> None:
+def test_wheel_invokes_build_packages(fake_root: Path) -> None:
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.cli.run_wheel_build") as wheel,
@@ -47,22 +47,18 @@ def test_wheel_invokes_build_packages_linux_only(fake_root: Path) -> None:
     wheel.assert_called_once_with(
         fake_root,
         packages=["packages/connectors/pet_store"],
-        host=False,
-        all_=False,
         log=ANY,
     )
 
 
-def test_wheel_runtime_and_host_flags(fake_root: Path) -> None:
+def test_wheel_runtime_flag(fake_root: Path) -> None:
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.cli.run_wheel_build") as wheel,
     ):
-        result = runner.invoke(app, ["gen-whl", "--runtime", "--host"])
+        result = runner.invoke(app, ["gen-whl", "--runtime"])
     assert result.exit_code == 0, result.output
-    wheel.assert_called_once_with(
-        fake_root, packages=["packages/runtime"], host=True, all_=False, log=ANY
-    )
+    wheel.assert_called_once_with(fake_root, packages=["packages/runtime"], log=ANY)
 
 
 def test_wheel_runtime_and_connector_build_in_one_run(fake_root: Path) -> None:
@@ -75,8 +71,6 @@ def test_wheel_runtime_and_connector_build_in_one_run(fake_root: Path) -> None:
     wheel.assert_called_once_with(
         fake_root,
         packages=["packages/runtime", "packages/connectors/pet_store"],
-        host=False,
-        all_=False,
         log=ANY,
     )
 
@@ -88,16 +82,14 @@ def test_wheel_bindings_flag(fake_root: Path) -> None:
     ):
         result = runner.invoke(app, ["gen-whl", "--bindings"])
     assert result.exit_code == 0, result.output
-    wheel.assert_called_once_with(
-        fake_root, packages=["packages/bindings"], host=False, all_=False, log=ANY
-    )
+    wheel.assert_called_once_with(fake_root, packages=["packages/bindings"], log=ANY)
 
 
-def test_wheel_host_and_all_conflict(fake_root: Path) -> None:
+def test_wheel_platform_flags_are_gone(fake_root: Path) -> None:
+    """Wheels are pure Python: there is no host / all-platform build to choose."""
     with patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root):
-        result = runner.invoke(app, ["gen-whl", "--connector-id", "pet_store", "--host", "--all"])
+        result = runner.invoke(app, ["gen-whl", "--connector-id", "pet_store", "--host"])
     assert result.exit_code == 2
-    assert "mutually exclusive" in result.output
 
 
 def test_invalid_connector_id_is_a_usage_error(fake_root: Path) -> None:
@@ -113,9 +105,9 @@ def test_invalid_connector_id_is_a_usage_error(fake_root: Path) -> None:
 
 def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
     for rel in (
-        "packages/runtime/dist/runtime.whl",
-        "packages/bindings/dist/bindings.whl",
-        "packages/connectors/pet_store/dist/c.whl",
+        "packages/runtime/dist/runtime-1.0-py3-none-any.whl",
+        "packages/bindings/dist/bindings-1.0-py3-none-any.whl",
+        "packages/connectors/pet_store/dist/c-1.0-py3-none-any.whl",
     ):
         path = fake_root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -152,7 +144,10 @@ def test_docker_build_subprocess(fake_root: Path) -> None:
 
 
 def test_docker_build_without_a_project_lists_the_stages_it_runs(fake_root: Path) -> None:
-    for rel in ("packages/runtime/dist/r.whl", "packages/bindings/dist/b.whl"):
+    for rel in (
+        "packages/runtime/dist/r-1.0-py3-none-any.whl",
+        "packages/bindings/dist/b-1.0-py3-none-any.whl",
+    ):
         (fake_root / rel).parent.mkdir(parents=True, exist_ok=True)
         (fake_root / rel).write_bytes(b"x")
     with (
@@ -175,9 +170,9 @@ def test_docker_build_without_a_project_lists_the_stages_it_runs(fake_root: Path
 def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
     """Default generate chains connector → wheel → mcp → wire without re-invoking nw."""
     for rel in (
-        "packages/runtime/dist/runtime.whl",
-        "packages/bindings/dist/bindings.whl",
-        "packages/connectors/pet_store/dist/c.whl",
+        "packages/runtime/dist/runtime-1.0-py3-none-any.whl",
+        "packages/bindings/dist/bindings-1.0-py3-none-any.whl",
+        "packages/connectors/pet_store/dist/c-1.0-py3-none-any.whl",
     ):
         path = fake_root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -355,7 +350,6 @@ def test_run_wheel_build_subprocess_args(fake_root: Path) -> None:
         assert cmd == [
             "bash",
             "scripts/build-packages.sh",
-            "--linux-only",
             "packages/connectors/pet_store",
         ]
         assert "\\" not in cmd[1]
@@ -466,3 +460,56 @@ def test_several_projects_ask_on_a_terminal_and_take_the_newest_without(
         labels = [o.label for o in menu.call_args.args[2]]
         assert labels[0].startswith("stacklok server") and labels[1].startswith("MCP host")
         assert build.call_args.args == (host, "slack-web-nw-mcp:latest")
+
+
+def test_gen_all_passes_auth_and_headers_to_the_connector_build(fake_root: Path) -> None:
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_connector_builder.pipeline.run_build", return_value=0) as rb,
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "gen-all",
+                "--connector-id",
+                "github",
+                "--path",
+                "spec.json",
+                "--auth",
+                "bearer",
+                "--base-url",
+                "https://ghe.example.com/api/v3",
+                "--header",
+                "X-GitHub-Api-Version=2022-11-28",
+                "--no-wheel",
+                "--no-mcp",
+                "--no-wire",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    assert rb.call_args.kwargs["auth"] == "bearer"
+    assert rb.call_args.kwargs["base_url"] == "https://ghe.example.com/api/v3"
+    assert rb.call_args.kwargs["headers"] == {"X-GitHub-Api-Version": "2022-11-28"}
+
+
+@pytest.mark.parametrize(
+    ("flags", "message"),
+    [
+        (["--auth", "basic"], "bearer, header:<name> or query:<name>"),
+        (["--header", "Client-Id"], "NAME=VALUE"),
+        (["--header", "Authorization=Bearer x"], "cannot be set"),
+    ],
+)
+def test_gen_all_bad_auth_or_header_is_a_usage_error(
+    fake_root: Path, flags: list[str], message: str
+) -> None:
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_connector_builder.pipeline.run_build") as rb,
+    ):
+        result = runner.invoke(
+            app, ["gen-all", "--connector-id", "demo", "--path", "s.json", *flags]
+        )
+    assert result.exit_code == 2
+    assert message in " ".join(result.output.split())
+    rb.assert_not_called()

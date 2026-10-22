@@ -120,3 +120,33 @@ def test_derived_action_names_use_the_mcp_tool_name_budget() -> None:
     (name,) = [a.name for a in derive_operations(doc, connector_id=long_cid).actions]
     assert len(f"{long_cid}_{name}") <= 64
     assert not name.endswith("_")
+
+
+def test_yaml_specs_load_as_json_data(tmp_path: Path) -> None:
+    """YAML 1.1 reads ``yes``/``no`` as booleans and dates as datetimes; JSON has neither.
+
+    GitHub's spec has an emoji example keyed ``yes`` and ``no`` beside string keys, which
+    made the content hash fail to sort the keys.
+    """
+    spec = tmp_path / "spec.yaml"
+    spec.write_text(
+        "openapi: 3.0.3\n"
+        "info: {title: t, version: '1'}\n"
+        "servers: [{url: 'https://api.example.com'}]\n"
+        "paths:\n"
+        "  /emojis:\n"
+        "    get:\n"
+        "      operationId: emojis_get\n"
+        "      responses:\n"
+        "        200:\n"
+        "          description: ok\n"
+        "          content:\n"
+        "            application/json:\n"
+        "              schema: {type: object, additionalProperties: {type: string}}\n"
+        "              example: {yes: a, no: b, on: c, '+1': d, released: 2020-07-15}\n",
+        encoding="utf-8",
+    )
+    doc, _meta = load_openapi_document(str(spec))
+    response = doc["paths"]["/emojis"]["get"]["responses"]["200"]
+    example = response["content"]["application/json"]["example"]
+    assert example == {"yes": "a", "no": "b", "on": "c", "+1": "d", "released": "2020-07-15"}

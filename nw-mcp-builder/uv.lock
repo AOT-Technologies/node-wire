@@ -785,7 +785,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "mcp", specifier = ">=1.6.0,<2" },
-    { name = "node-wire-runtime", specifier = ">=1.0.0" },
+    { name = "node-wire-runtime", specifier = ">=1.1.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },

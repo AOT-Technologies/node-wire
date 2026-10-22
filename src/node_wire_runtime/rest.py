@@ -10,6 +10,8 @@ import base64
 import json
 import logging
 import os
+import re
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, Mapping, Optional, Type
 from urllib.parse import quote
 
@@ -33,7 +35,47 @@ __all__ = [
     "SsrfBlockedError",
     "encode_param_value",
     "split_params_by_location",
+    "validate_static_headers",
 ]
+
+# RFC 9110 field-name token.
+_HEADER_NAME = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+")
+# A `${VAR}` connectors.yaml substitution left in place because VAR was not set.
+_UNRESOLVED_VAR = re.compile(r"\$\{([A-Za-z0-9_]+)(?::[^}]*)?\}")
+# Set by the auth provider or the HTTP client; a fixed value here would either be
+# overridden or break the request, and credentials belong in `auth`.
+_RESERVED_HEADERS = frozenset(
+    {
+        "authorization",
+        "proxy-authorization",
+        "cookie",
+        "host",
+        "content-length",
+        "content-type",
+        "transfer-encoding",
+        "connection",
+    }
+)
+
+
+def validate_static_headers(headers: Any) -> Dict[str, str]:
+    """Check a ``headers:`` config block and return it as a plain dict.
+
+    Raises ``ValueError`` naming the offending header. Values are literal: credentials
+    belong in ``auth``, which also wins over any header set here.
+    """
+    if not isinstance(headers, Mapping):
+        raise ValueError("headers must be a mapping of header name to value")
+    out: Dict[str, str] = {}
+    for name, value in headers.items():
+        if not isinstance(name, str) or not _HEADER_NAME.fullmatch(name):
+            raise ValueError(f"header name {name!r} is not a valid HTTP field name")
+        if name.lower() in _RESERVED_HEADERS:
+            raise ValueError(f"header {name!r} cannot be set in headers")
+        if not isinstance(value, str) or any(c in value for c in "\r\n\0"):
+            raise ValueError(f"header {name!r} must be a single-line string")
+        out[name] = value
+    return out
 
 
 class RestResponseOutput(BaseModel):
@@ -88,6 +130,57 @@ def _field_extra(model: BaseModel, name: str) -> dict[str, Any]:
     return {}
 
 
+@dataclass
+class _SplitParams:
+    """Every wire location of one call, keyed by wire name: ``(value, field extras)``."""
+
+    path: dict[str, tuple[Any, dict[str, Any]]] = field(default_factory=dict)
+    query: dict[str, tuple[Any, dict[str, Any]]] = field(default_factory=dict)
+    header: dict[str, tuple[Any, dict[str, Any]]] = field(default_factory=dict)
+    cookie: dict[str, tuple[Any, dict[str, Any]]] = field(default_factory=dict)
+    # OpenAPI 3.2 `in: querystring`: one value that is the whole query string.
+    querystring: Optional[tuple[Any, dict[str, Any]]] = None
+    body: Any | None = None
+    media_type: str | None = None
+    body_format: str | None = None
+    part_formats: dict[str, str] = field(default_factory=dict)
+    part_types: dict[str, str] = field(default_factory=dict)
+
+
+def _split_params(params: BaseModel) -> _SplitParams:
+    out = _SplitParams()
+    data = params.model_dump(by_alias=False, exclude_none=True)
+    body_props, props_media = _collect_body_properties(params, data)
+    for name, value in data.items():
+        if name == "action":
+            continue
+        extra = _field_extra(params, name)
+        loc = extra.get("nw_in")
+        wire = extra.get("nw_wire_name") or name
+        if loc in ("path", "query", "header", "cookie"):
+            getattr(out, loc)[wire] = (value, extra)
+        elif loc == "querystring":
+            out.querystring = (value, extra)
+        elif loc == "body":
+            out.body = getattr(params, name, value)
+            out.media_type = extra.get("nw_media_type") or "application/json"
+            out.body_format = extra.get("nw_format")
+        # body_property fields were collected above. Unknown / missing nw_in:
+        # ignore (action discriminator already skipped).
+    if body_props is not None:
+        out.body, out.media_type = body_props, props_media
+        for name in type(params).model_fields:
+            extra = _field_extra(params, name)
+            if extra.get("nw_in") != "body_property":
+                continue
+            wire = extra.get("nw_wire_name") or name
+            if extra.get("nw_format"):
+                out.part_formats[wire] = extra["nw_format"]
+            if extra.get("nw_part_content_type"):
+                out.part_types[wire] = extra["nw_part_content_type"]
+    return out
+
+
 def split_params_by_location(
     params: BaseModel,
 ) -> tuple[
@@ -98,6 +191,10 @@ def split_params_by_location(
     str | None,
 ]:
     """Split a typed input model into path/query/header/body using ``nw_in`` metadata.
+
+    Returns ``(path, query, header, body, media_type)``; each parameter is packed as
+    ``(value, style, explode)``. Cookie and ``querystring`` parameters are not part of
+    this tuple (see :meth:`RestConnector.execute_rest`, which sends them).
 
     The body comes from one of two field shapes, never both:
 
@@ -110,39 +207,15 @@ def split_params_by_location(
       the operation declares one, and an empty object is valid where a missing
       body may not be.
     """
-    path: dict[str, Any] = {}
-    query: dict[str, Any] = {}
-    header: dict[str, Any] = {}
-    body: Any | None = None
-    media_type: str | None = None
+    split = _split_params(params)
 
-    data = params.model_dump(by_alias=False, exclude_none=True)
-    body_props, props_media = _collect_body_properties(params, data)
-    for name, value in data.items():
-        if name == "action":
-            continue
-        extra = _field_extra(params, name)
-        loc = extra.get("nw_in")
-        wire = extra.get("nw_wire_name") or name
-        style = extra.get("nw_style")
-        explode = extra.get("nw_explode")
+    def _pack(group: dict[str, tuple[Any, dict[str, Any]]]) -> dict[str, Any]:
+        return {
+            wire: (value, extra.get("nw_style"), extra.get("nw_explode"))
+            for wire, (value, extra) in group.items()
+        }
 
-        if loc == "path":
-            path[wire] = (value, style, explode)
-        elif loc == "query":
-            query[wire] = (value, style, explode)
-        elif loc == "header":
-            header[wire] = (value, style, explode)
-        elif loc == "body":
-            body = getattr(params, name, value)
-            media_type = extra.get("nw_media_type") or "application/json"
-        # body_property fields were collected above. Unknown / missing nw_in:
-        # ignore (action discriminator already skipped).
-
-    if body_props is not None:
-        body, media_type = body_props, props_media
-
-    return path, query, header, body, media_type
+    return _pack(split.path), _pack(split.query), _pack(split.header), split.body, split.media_type
 
 
 def _collect_body_properties(
@@ -185,56 +258,133 @@ def _collect_body_properties(
     return body, media
 
 
+# RFC 3986 reserved characters a parameter with `allowReserved: true` may send as-is.
+# `&`, `=` and `#` stay encoded: they would split the query string or end the URL.
+_ALLOW_RESERVED_SAFE = ":/?[]@!$'()*+,;"
+
+
+def _scalar(value: Any) -> str:
+    """One value as OpenAPI serializes it: JSON literals for booleans and nested data."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list, tuple)):
+        return json.dumps(value, separators=(",", ":"))
+    return str(value)
+
+
+def _content_value(value: Any, media_type: Optional[str]) -> Any:
+    """A parameter declared with ``content`` (JSON) is sent as its JSON text."""
+    if media_type and "json" in media_type.lower():
+        return json.dumps(value, separators=(",", ":"))
+    return value
+
+
 def encode_param_value(
     value: Any,
     *,
     style: str | None,
     explode: bool | None,
     location: str,
+    name: str | None = None,
+    allow_reserved: bool = False,
 ) -> str | list[tuple[str, str]] | list[str]:
-    """Encode a path/query/header value per OpenAPI style/explode (v1 subset)."""
-    if location == "path":
-        style = style or "simple"
-        explode = False if explode is None else bool(explode)
-        if style != "simple":
-            raise ValueError(f"unsupported path style: {style}")
-        if isinstance(value, (list, tuple)):
-            return quote(",".join(str(v) for v in value), safe="")
-        if isinstance(value, dict):
-            if explode:
-                return quote(",".join(f"{k}={v}" for k, v in value.items()), safe="")
-            return quote(",".join(f"{k},{v}" for k, v in value.items()), safe="")
-        return quote(str(value), safe="")
+    """Encode a parameter value per OpenAPI ``style`` / ``explode``.
 
-    if location == "header":
+    Path values come back percent-encoded (separators kept); header and cookie values
+    raw; query values unencoded, as a string, a list of values (one key repeated) or a
+    list of ``(key, value)`` pairs. Styles: path ``simple`` / ``label`` / ``matrix``;
+    query ``form`` / ``spaceDelimited`` / ``pipeDelimited`` / ``deepObject``; header
+    ``simple``; cookie ``form``. ``name`` is needed for ``matrix`` and ``deepObject``.
+    """
+    key = name or ""
+    is_list = isinstance(value, (list, tuple))
+    is_dict = isinstance(value, dict)
+
+    if location in ("path", "header"):
+        safe = _ALLOW_RESERVED_SAFE if allow_reserved else ""
+        enc = (lambda v: quote(_scalar(v), safe=safe)) if location == "path" else _scalar
         style = style or "simple"
-        if style != "simple":
+        explode = bool(explode)
+        if location == "header" and style != "simple":
             raise ValueError(f"unsupported header style: {style}")
-        if isinstance(value, (list, tuple)):
-            return ",".join(str(v) for v in value)
-        return str(value)
+        if style == "simple":
+            if is_list:
+                return ",".join(enc(v) for v in value)
+            if is_dict:
+                sep = "=" if explode else ","
+                return ",".join(f"{enc(k)}{sep}{enc(v)}" for k, v in value.items())
+            return enc(value)
+        if style == "label":
+            if is_list:
+                return "." + ("." if explode else ",").join(enc(v) for v in value)
+            if is_dict:
+                if explode:
+                    return "." + ".".join(f"{enc(k)}={enc(v)}" for k, v in value.items())
+                return "." + ",".join(f"{enc(k)},{enc(v)}" for k, v in value.items())
+            return "." + enc(value)
+        if style == "matrix":
+            if is_list:
+                if explode:
+                    return "".join(f";{key}={enc(v)}" for v in value)
+                return f";{key}=" + ",".join(enc(v) for v in value)
+            if is_dict:
+                if explode:
+                    return "".join(f";{enc(k)}={enc(v)}" for k, v in value.items())
+                return f";{key}=" + ",".join(f"{enc(k)},{enc(v)}" for k, v in value.items())
+            return f";{key}={enc(value)}"
+        raise ValueError(f"unsupported path style: {style}")
 
-    # query — form style
+    if location == "cookie":
+        if is_list:
+            return ",".join(_scalar(v) for v in value)
+        if is_dict:
+            return ",".join(f"{_scalar(k)},{_scalar(v)}" for k, v in value.items())
+        return _scalar(value)
+
+    # query
     style = style or "form"
     explode = True if explode is None else bool(explode)
-    if style != "form":
-        raise ValueError(f"unsupported query style: {style}")
-    if isinstance(value, (list, tuple)):
-        if explode:
-            return [str(v) for v in value]
-        return ",".join(str(v) for v in value)
-    if isinstance(value, dict):
-        if explode:
-            return [(str(k), str(v)) for k, v in value.items()]
-        return ",".join(f"{k},{v}" for k, v in value.items())
-    return str(value)
+    if style == "form":
+        if is_list:
+            if explode:
+                return [_scalar(v) for v in value]
+            return ",".join(_scalar(v) for v in value)
+        if is_dict:
+            if explode:
+                return [(str(k), _scalar(v)) for k, v in value.items()]
+            return ",".join(f"{k},{_scalar(v)}" for k, v in value.items())
+        return _scalar(value)
+    if style in ("spaceDelimited", "pipeDelimited"):
+        sep = " " if style == "spaceDelimited" else "|"
+        if is_list:
+            if explode:
+                return [_scalar(v) for v in value]
+            return sep.join(_scalar(v) for v in value)
+        if is_dict:
+            return sep.join(f"{k}{sep}{_scalar(v)}" for k, v in value.items())
+        return _scalar(value)
+    if style == "deepObject":
+        if not is_dict:
+            return _scalar(value)
+        return [(f"{key}[{k}]", _scalar(v)) for k, v in value.items()]
+    raise ValueError(f"unsupported query style: {style}")
 
 
 def _apply_path_template(template: str, path_params: Mapping[str, Any]) -> str:
     result = template
     for name, packed in path_params.items():
-        value, style, explode = packed
-        encoded = encode_param_value(value, style=style, explode=explode, location="path")
+        value, style, explode = packed[:3]
+        allow_reserved = bool(packed[3]) if len(packed) > 3 else False
+        encoded = encode_param_value(
+            value,
+            style=style,
+            explode=explode,
+            location="path",
+            name=name,
+            allow_reserved=allow_reserved,
+        )
         assert isinstance(encoded, str)
         result = result.replace("{" + name + "}", encoded)
     return result
@@ -243,8 +393,10 @@ def _apply_path_template(template: str, path_params: Mapping[str, Any]) -> str:
 def _build_query_pairs(query_params: Mapping[str, Any]) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
     for name, packed in query_params.items():
-        value, style, explode = packed
-        encoded = encode_param_value(value, style=style, explode=explode, location="query")
+        value, style, explode = packed[:3]
+        encoded = encode_param_value(
+            value, style=style, explode=explode, location="query", name=name
+        )
         if isinstance(encoded, list):
             for item in encoded:
                 if isinstance(item, tuple):
@@ -259,10 +411,57 @@ def _build_query_pairs(query_params: Mapping[str, Any]) -> list[tuple[str, str]]
 def _build_headers(header_params: Mapping[str, Any]) -> dict[str, str]:
     headers: dict[str, str] = {}
     for name, packed in header_params.items():
-        value, style, explode = packed
+        value, style, explode = packed[:3]
         encoded = encode_param_value(value, style=style, explode=explode, location="header")
         headers[name] = str(encoded)
     return headers
+
+
+def _cookie_header(cookie_params: Mapping[str, Any]) -> Optional[str]:
+    """``Cookie: a=1; b=2`` from cookie parameters (values percent-encoded)."""
+    parts: list[str] = []
+    for name, (value, extra) in cookie_params.items():
+        value = _content_value(value, extra.get("nw_media_type"))
+        # OAS 3.2 `style: cookie` sends values as-is; `form` (the default) percent-encodes.
+        raw = extra.get("nw_style") == "cookie"
+        enc = (lambda v: v) if raw else (lambda v: quote(v, safe=","))
+        explode = extra.get("nw_explode")
+        explode = True if explode is None else bool(explode)  # form's default is explode
+        if isinstance(value, (list, tuple)) and explode:
+            parts.extend(f"{name}={enc(_scalar(v))}" for v in value)
+            continue
+        if isinstance(value, dict) and explode:
+            parts.extend(f"{enc(str(k))}={enc(_scalar(v))}" for k, v in value.items())
+            continue
+        encoded = encode_param_value(value, style="form", explode=False, location="cookie")
+        parts.append(f"{name}={enc(str(encoded))}")
+    return "; ".join(parts) or None
+
+
+def _query_string(
+    query_params: Mapping[str, tuple[Any, dict[str, Any]]],
+    querystring: Optional[tuple[Any, dict[str, Any]]],
+) -> str:
+    """The encoded query string: each parameter per its style, ``allowReserved`` honoured."""
+    pieces: list[str] = []
+    for name, (value, extra) in query_params.items():
+        value = _content_value(value, extra.get("nw_media_type"))
+        safe = _ALLOW_RESERVED_SAFE if extra.get("nw_allow_reserved") else ""
+        for key, item in _build_query_pairs(
+            {name: (value, extra.get("nw_style"), extra.get("nw_explode"))}
+        ):
+            pieces.append(f"{quote(key, safe='[]')}={quote(item, safe=safe)}")
+    if querystring is not None:
+        value, extra = querystring
+        media = (extra.get("nw_media_type") or "").lower()
+        if isinstance(value, dict) and "json" not in media:
+            pieces.extend(
+                f"{quote(str(k), safe='')}={quote(_scalar(v), safe='')}" for k, v in value.items()
+            )
+        else:
+            text = _content_value(value, media) if not isinstance(value, str) else value
+            pieces.append(text if "json" not in media else quote(str(text), safe=""))
+    return "&".join(pieces)
 
 
 def _body_to_jsonable(body: Any) -> Any:
@@ -293,12 +492,35 @@ def _form_field_value(value: Any) -> Optional[str]:
     return str(value)
 
 
+def _decode_binary(value: str, fmt: str) -> bytes:
+    """Base64 (``binary`` / ``byte``) or base64url (3.1 ``contentEncoding``), padding optional."""
+    padded = value + "=" * (-len(value) % 4)
+    if fmt == "base64url":
+        return base64.urlsafe_b64decode(padded)
+    return base64.b64decode(padded, validate=False)
+
+
+def _is_textual(media_type: str) -> bool:
+    return media_type.startswith("text/") or "xml" in media_type or "json" in media_type
+
+
 def _encode_request_body(
     body: Any,
     media_type: str | None,
+    *,
+    body_format: str | None = None,
+    part_formats: Mapping[str, str] | None = None,
+    part_types: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Return kwargs for httpx.request (json/data/files/content)."""
+    """Return kwargs for httpx.request (json/data/files/content).
+
+    ``body_format`` / ``part_formats``: the schema ``format`` of a whole body or of each
+    multipart property (``nw_format``). ``binary`` / ``byte`` values arrive base64-encoded
+    and are decoded; anything else is sent as text.
+    """
     mt = (media_type or "application/json").lower()
+    part_formats = part_formats or {}
+    part_types = part_types or {}
     if body is None:
         return {}
 
@@ -309,7 +531,13 @@ def _encode_request_body(
         data = _body_to_jsonable(body)
         if not isinstance(data, dict):
             raise ValueError("form-urlencoded body must be an object")
-        encoded = {str(k): _form_field_value(v) for k, v in data.items()}
+        encoded: dict[str, Any] = {}
+        for k, v in data.items():
+            if isinstance(v, list) and v and all(not isinstance(i, (dict, list)) for i in v):
+                # OpenAPI's default for a form array is style form, explode: repeated keys.
+                encoded[str(k)] = [_form_field_value(i) for i in v]
+            else:
+                encoded[str(k)] = _form_field_value(v)
         return {"data": {k: v for k, v in encoded.items() if v is not None}}
 
     if mt.startswith("multipart/"):
@@ -319,7 +547,13 @@ def _encode_request_body(
         files: list[tuple[str, Any]] = []
         form_data: dict[str, str] = {}
         for key, val in data.items():
-            if isinstance(val, str) and _looks_base64(val):
+            if isinstance(val, str) and part_formats.get(key) in ("binary", "byte", "base64url"):
+                raw = _decode_binary(val, part_formats[key])
+                # The encoding object's contentType for this part, when the spec gives one.
+                ctype = part_types.get(key)
+                files.append((key, (key, raw, ctype) if ctype else (key, raw)))
+                continue
+            if isinstance(val, str) and key not in part_formats and _looks_base64(val):
                 try:
                     raw = base64.b64decode(val, validate=False)
                     files.append((key, (key, raw)))
@@ -334,11 +568,26 @@ def _encode_request_body(
                 if rendered is not None:
                     form_data[key] = rendered
         kwargs: dict[str, Any] = {}
-        if form_data:
-            kwargs["data"] = form_data
         if files:
+            if form_data:
+                kwargs["data"] = form_data
             kwargs["files"] = files
+        elif form_data:
+            # httpx only sends multipart when there is a file part; without one it would
+            # silently send this body urlencoded. Plain fields as (None, value) parts.
+            kwargs["files"] = [(k, (None, v)) for k, v in form_data.items()]
         return kwargs
+
+    if isinstance(body, str) and body_format in ("binary", "byte", "base64url"):
+        return {"content": _decode_binary(body, body_format)}
+
+    if _is_textual(mt) and body_format not in ("binary", "byte"):
+        # text/*, XML and other non-JSON-object textual bodies: the caller passes the text.
+        if isinstance(body, (bytes, bytearray)):
+            return {"content": bytes(body)}
+        if isinstance(body, str):
+            return {"content": body.encode("utf-8")}
+        return {"content": _scalar(_body_to_jsonable(body)).encode("utf-8")}
 
     # binary / octet-stream
     if isinstance(body, (bytes, bytearray)):
@@ -380,7 +629,8 @@ class RestConnector(BaseConnector):
 
     Subclasses set ``default_base_url`` (baked at generation time). Runtime
     ``connectors.yaml`` ``base_url`` overrides via the factory-injected
-    ``base_url=`` constructor argument.
+    ``base_url=`` constructor argument. ``headers=`` (``connectors.yaml``
+    ``headers:``) are sent on every request; see :meth:`resolve_static_headers`.
     """
 
     _nw_abstract_base: ClassVar[bool] = True
@@ -398,6 +648,7 @@ class RestConnector(BaseConnector):
         base_url: Optional[str] = None,
         tenant_id: Optional[str] = None,
         config_name: Optional[str] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         super().__init__(
             secret_provider=secret_provider,
@@ -409,6 +660,31 @@ class RestConnector(BaseConnector):
             config_name=config_name,
         )
         self._base_url_override = base_url
+        self._static_headers = validate_static_headers(headers or {})
+
+    def _auth_providers_for(self, auth_scheme: Optional[str | tuple[str, ...]]) -> list[Any]:
+        if isinstance(auth_scheme, (tuple, list)):
+            return [self.resolve_auth_provider(name) for name in auth_scheme]
+        return [self.resolve_auth_provider(auth_scheme)]
+
+    def resolve_static_headers(self) -> Dict[str, str]:
+        """The configured ``headers:``, refusing a ``${VAR}`` that was never substituted.
+
+        ``connectors.yaml`` replaces ``${VAR}`` from the environment when it loads; a value
+        still holding one means VAR was unset (or the value came from a tenant config, which
+        is not substituted), and sending the placeholder upstream would only come back as an
+        unexplained auth error.
+        """
+        for name, value in self._static_headers.items():
+            unresolved = _UNRESOLVED_VAR.search(value)
+            if unresolved:
+                var = unresolved.group(1)
+                raise RuntimeError(
+                    f"{type(self).__name__}: header {name!r} still holds ${{{var}}}: set {var} "
+                    "in the environment before connectors.yaml loads, or give the value itself "
+                    "in the tenant config (tenants.yaml values are not substituted)"
+                )
+        return dict(self._static_headers)
 
     def resolve_base_url(self) -> str:
         if self._base_url_override and str(self._base_url_override).strip():
@@ -433,39 +709,85 @@ class RestConnector(BaseConnector):
         output_model: Type[BaseModel],
         trace_id: str,
         auth: bool = True,
-        auth_scheme: Optional[str] = None,
+        auth_scheme: Optional[str | tuple[str, ...]] = None,
         envelope_ok_field: Optional[str] = None,
+        server_url: Optional[str] = None,
     ) -> Any:
         """Execute an HTTP call using ``nw_in`` field metadata on ``params``.
+
+        ``auth_scheme`` names the scheme to authenticate with (``None``: the connector
+        default). A tuple names several that the operation needs together (an OpenAPI
+        security requirement listing more than one scheme); each adds its headers or
+        query parameters.
+
+        ``server_url`` is an operation's own server (OpenAPI operation- or path-level
+        ``servers``), used instead of the spec's base URL for this call. An operator
+        ``base_url`` override still wins over it, so a connector pointed at a proxy or
+        gateway never sends its credentials straight to the spec's host. Egress checks
+        apply to it like to any other URL.
 
         ``envelope_ok_field`` names a boolean field in the JSON body that the API
         sets to ``false`` to report failure while still answering ``2xx``. When
         given and the field comes back ``false``, raises :class:`RestEnvelopeError`
         instead of returning a response that looks successful. Defaults to off.
         """
-        base = self.resolve_base_url()
-        path_params, query_params, header_params, body, media_type = split_params_by_location(
-            params
-        )
+        has_override = bool(self._base_url_override and str(self._base_url_override).strip())
+        if server_url and not has_override:
+            base = server_url.rstrip("/")
+        else:
+            base = self.resolve_base_url()
+        split = _split_params(params)
+        body, media_type = split.body, split.media_type
+        path_params = {
+            wire: (
+                _content_value(value, extra.get("nw_media_type")),
+                extra.get("nw_style"),
+                extra.get("nw_explode"),
+                extra.get("nw_allow_reserved"),
+            )
+            for wire, (value, extra) in split.path.items()
+        }
         path = _apply_path_template(path_template, path_params)
         if not path.startswith("/"):
             path = "/" + path
         url = f"{base}{path}"
 
-        query_pairs = _build_query_pairs(query_params)
-        headers = _build_headers(header_params)
+        headers = _build_headers(
+            {
+                wire: (
+                    _content_value(value, extra.get("nw_media_type")),
+                    extra.get("nw_style"),
+                    extra.get("nw_explode"),
+                )
+                for wire, (value, extra) in split.header.items()
+            }
+        )
+        cookie = _cookie_header(split.cookie)
+        if cookie:
+            headers["Cookie"] = cookie
+        # Operator config beats caller input; auth (below) beats both.
+        headers.update(self.resolve_static_headers())
 
+        query_params = dict(split.query)
         if auth:
-            provider = self.resolve_auth_provider(auth_scheme)
-            auth_headers = await provider.get_headers()
-            headers.update(auth_headers)
-            query_auth = await provider.get_query_params()
-            if query_auth:
+            for provider in self._auth_providers_for(auth_scheme):
+                headers.update(await provider.get_headers())
+                query_auth = await provider.get_query_params()
                 # Auth wins on key collision.
-                query_pairs = [(k, v) for k, v in query_pairs if k not in query_auth]
-                query_pairs.extend((k, v) for k, v in query_auth.items())
+                for key, value in (query_auth or {}).items():
+                    query_params[key] = (value, {"nw_style": "form", "nw_explode": True})
 
-        body_kwargs = _encode_request_body(body, media_type)
+        query = _query_string(query_params, split.querystring)
+        if query:
+            url = f"{url}?{query}"
+
+        body_kwargs = _encode_request_body(
+            body,
+            media_type,
+            body_format=split.body_format,
+            part_formats=split.part_formats,
+            part_types=split.part_types,
+        )
         if body is not None and media_type and "Content-Type" not in headers:
             if media_type == "application/json" or media_type.endswith("+json"):
                 headers.setdefault("Content-Type", "application/json")
@@ -496,8 +818,6 @@ class RestConnector(BaseConnector):
                 method=method.upper(),
                 url=url,
                 headers=headers,
-                # tuple[...] is covariant; list[...] is not — satisfies httpx QueryParamTypes.
-                params=tuple(query_pairs) if query_pairs else None,
                 timeout=timeout,
                 **body_kwargs,
             )

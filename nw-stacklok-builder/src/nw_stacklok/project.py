@@ -21,7 +21,6 @@ from typing import Dict, List
 import yaml
 
 from mcp_builder.generate.plan import ServerPlan
-from nw_stacklok.wheels import WheelTarget
 
 RUNTIME_ENV: Dict[str, str] = {
     "NW_MULTITENANCY_ENABLED": "true",
@@ -51,7 +50,7 @@ def _sub_once(text: str, pattern: str, repl: str, *, where: str) -> str:
 
 
 class WheelsMissingError(FileNotFoundError):
-    """No wheel matching the image (see :class:`~nw_stacklok.wheels.WheelTarget`) for a package."""
+    """No pure-Python (``py3-none-any``) wheel for a package the server installs."""
 
 
 @dataclass(frozen=True)
@@ -79,7 +78,7 @@ def finish_project(project_dir: Path, plan: ServerPlan, *, wheels: bool, lock: b
     node_wire_root = Path(plan.node_wire.node_wire_root)
     connector_id = plan.node_wire.connector_id
 
-    sources: Dict[str, Dict[str, str]] = {}
+    sources: Dict[str, str] = {}
     if wheels:
         sources = _copy_wheels(project_dir, node_wire_root, connector_id)
     _update_pyproject(project_dir / "pyproject.toml", node_wire_root, connector_id, sources)
@@ -102,47 +101,38 @@ def _lock(project_dir: Path) -> None:
         raise RuntimeError(f"`uv lock` failed in {project_dir}: {exc}") from exc
 
 
-def _copy_wheels(
-    project_dir: Path, node_wire_root: Path, connector_id: str
-) -> Dict[str, Dict[str, str]]:
-    wheel_target = WheelTarget.from_dockerfile(project_dir / "Dockerfile")
+def _pure_wheel(dist_dir: Path) -> Path | None:
+    """Newest ``py3-none-any`` wheel in ``dist_dir``; compiled leftovers from older builds are skipped."""
+    wheels = sorted(dist_dir.glob("*-py3-none-any.whl"), key=lambda p: p.stat().st_mtime)
+    return wheels[-1] if wheels else None
+
+
+def _copy_wheels(project_dir: Path, node_wire_root: Path, connector_id: str) -> Dict[str, str]:
     target = project_dir / "wheels"
     target.mkdir(exist_ok=True)
-    found: Dict[str, Dict[str, str]] = {}
+    found: Dict[str, str] = {}
     missing: List[str] = []
     for dist in distributions(node_wire_root, connector_id):
-        wheels = wheel_target.wheels_by_arch(dist.dist_dir)
-        if not wheels:
+        wheel = _pure_wheel(dist.dist_dir)
+        if wheel is None:
             missing.append(f"{dist.name} (in {dist.dist_dir})")
             continue
-        found[dist.name] = {}
-        for arch, wheel in wheels.items():
-            shutil.copy2(wheel, target / wheel.name)
-            found[dist.name][arch] = f"wheels/{wheel.name}"
+        shutil.copy2(wheel, target / wheel.name)
+        found[dist.name] = f"wheels/{wheel.name}"
     if missing:
         raise WheelsMissingError(
-            f"No {wheel_target.description} wheel for: "
+            "No py3-none-any wheel for: "
             + ", ".join(missing)
-            + ". nw gen-stacklok builds them (or: CIBW_BUILD='"
-            + wheel_target.cibw_build
-            + "' scripts/build-packages.sh --cibw-linux <packages>)."
+            + ". nw gen-stacklok builds them (or: scripts/build-packages.sh <packages>)."
         )
-    common = set.intersection(*(set(arches) for arches in found.values()))
-    if not common:
-        raise WheelsMissingError(
-            "The node-wire wheels share no architecture: "
-            + ", ".join(f"{name}: {sorted(arches)}" for name, arches in found.items())
-        )
-    return {
-        name: {a: p for a, p in arches.items() if a in common} for name, arches in found.items()
-    }
+    return found
 
 
 def _update_pyproject(
     path: Path,
     node_wire_root: Path,
     connector_id: str,
-    sources: Dict[str, Dict[str, str]],
+    sources: Dict[str, str],
 ) -> None:
     text = path.read_text(encoding="utf-8")
     # Stacklok adds httpx>=0.28 for its generated client; node-wire's runtime pins httpx<0.28
@@ -152,16 +142,8 @@ def _update_pyproject(
     deps = "".join(f'\n    "{name}",' for name in names)
     text = _sub_once(text, r"^(dependencies\s*=\s*\[)", rf"\g<1>{deps}", where=path.name)
     if sources:
-        arches = sorted(next(iter(sources.values())))
-        lines = ["", "[tool.uv]", "environments = ["]
-        lines += [f"    \"sys_platform == 'linux' and platform_machine == '{a}'\"," for a in arches]
-        lines += ["]", "", "[tool.uv.sources]"]
-        for name, by_arch in sources.items():
-            entries = ", ".join(
-                f'{{ path = "{p}", marker = "platform_machine == \'{a}\'" }}'
-                for a, p in sorted(by_arch.items())
-            )
-            lines.append(f"{name} = [{entries}]")
+        lines = ["", "[tool.uv.sources]"]
+        lines += [f'{name} = {{ path = "{path}" }}' for name, path in sources.items()]
         text = text.rstrip("\n") + "\n" + "\n".join(lines) + "\n"
     path.write_text(text, encoding="utf-8")
 
@@ -196,11 +178,19 @@ def _write_config(project_dir: Path, node_wire_root: Path, connector_id: str) ->
     }
     if entry.get("auth_schemes"):
         doc["auth_schemes"] = entry["auth_schemes"]
+    header_note = ""
+    if isinstance(entry.get("headers"), dict) and entry["headers"]:
+        doc["headers"] = dict(entry["headers"])
+        header_note = (
+            "# headers: values here are used as written (no ${VAR} substitution); replace each\n"
+            "# ${VAR} with this tenant's value, e.g. its own Client-Id.\n"
+        )
     example = {"tenants": {"example-tenant": {connector_id: [doc]}}}
     (config_dir / "tenants.example.yaml").write_text(
         "# One entry per tenant; the ToolHive proxy for that tenant sets X-Tenant-ID to its key.\n"
         "# Mount the real file at NW_TENANTS_PATH (default /app/tenants/tenants.yaml).\n"
         "# Credentials never go here: ToolHive forwards them per request.\n"
+        + header_note
         + yaml.safe_dump(example, sort_keys=False),
         encoding="utf-8",
     )
@@ -354,8 +344,7 @@ instead of calling the API directly.
 - **Errors and logs**: a failed tool returns `CODE [CATEGORY]: message (trace_id=...)`; the
   server's logs carry the same `trace_id` with `error_code`, `error_category` and
   `audit_event`. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to export traces, metrics and logs.
-- **Wheels** in `wheels/` are cp313 musllinux builds for the image's Alpine base; `uv lock`
-  is limited to those Linux architectures (`[tool.uv] environments`). Build the image with
-  `docker build .`; the wheels do not install on macOS or Windows hosts.
+- **Wheels** in `wheels/` are pure-Python (`py3-none-any`) node-wire packages, pinned in
+  `[tool.uv.sources]`. Build the image with `docker build .`.
 """
     path.write_text(text + "\n", encoding="utf-8")

@@ -118,12 +118,10 @@ dev = [
     "pre-commit>=4.0.0",
     "pytest-playwright>=0.4.0",
     "diff-cover>=9.0.0",
-    "cyclonedx-bom==4.6.1",
+    "cyclonedx-bom==7.5.0",
     "reuse>=5.0.0",
     "licenseheaders>=0.8.8",
     "nw-cli",
-    # musllinux / cross-platform wheels (scripts/build-packages.sh --all, --musllinux).
-    "cibuildwheel==4.2.1",
 ]
 
 [tool.uv]

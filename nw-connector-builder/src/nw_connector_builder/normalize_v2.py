@@ -10,10 +10,20 @@ import copy
 from typing import Any
 
 
-_COLLECTION_FORMAT_MAP = {
-    "csv": ("form", False),
-    "multi": ("form", True),
+# Swagger 2.0 `collectionFormat` → OpenAPI 3 (style, explode), per parameter location.
+# `tsv` has no OpenAPI 3 equivalent; `multi` exists only for query and formData.
+_COLLECTION_FORMAT_MAP: dict[str, dict[str, tuple[str, bool]]] = {
+    "csv": {
+        "query": ("form", False),
+        "formData": ("form", False),
+        "path": ("simple", False),
+        "header": ("simple", False),
+    },
+    "multi": {"query": ("form", True), "formData": ("form", True)},
+    "ssv": {"query": ("spaceDelimited", False)},
+    "pipes": {"query": ("pipeDelimited", False)},
 }
+_HTTP_METHODS_V2 = frozenset({"get", "put", "post", "delete", "options", "head", "patch"})
 
 
 def _rewrite_refs(obj: Any) -> Any:
@@ -109,13 +119,50 @@ def _param_collection_to_style(param: dict[str, Any]) -> None:
     cf = param.pop("collectionFormat", None)
     if cf is None:
         return
-    if cf in _COLLECTION_FORMAT_MAP:
-        style, explode = _COLLECTION_FORMAT_MAP[cf]
-        param["style"] = style
-        param["explode"] = explode
+    mapped = _COLLECTION_FORMAT_MAP.get(cf, {}).get(str(param.get("in")))
+    if mapped:
+        param["style"], param["explode"] = mapped
     else:
         # Mark unsupported for later soft-drop
-        param["x_nw_unsupported_collection_format"] = cf
+        param["x-nw-unsupported-collection-format"] = f"{cf} (in {param.get('in')})"
+
+
+def _prefer_json(media_types: list[str]) -> str | None:
+    """The media type to use from a ``consumes`` / ``produces`` list: JSON first."""
+    for mt in media_types:
+        if mt.lower() == "application/json":
+            return mt
+    for mt in media_types:
+        if "json" in mt.lower():
+            return mt
+    return media_types[0] if media_types else None
+
+
+def _inline_global_refs(src: dict[str, Any]) -> dict[str, Any]:
+    """Replace ``#/parameters/X`` and ``#/responses/X`` refs with copies of their targets.
+
+    Swagger 2.0 keeps reusable parameters and responses at the root. OpenAPI 3 has no
+    home for a reusable ``body`` / ``formData`` parameter, so they are inlined before
+    conversion instead of being moved to ``components``.
+    """
+    roots = {
+        "#/parameters/": src.get("parameters") or {},
+        "#/responses/": src.get("responses") or {},
+    }
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str):
+                for prefix, table in roots.items():
+                    if ref.startswith(prefix) and ref[len(prefix) :] in table:
+                        return _walk(copy.deepcopy(table[ref[len(prefix) :]]))
+            return {k: _walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_walk(v) for v in node]
+        return node
+
+    return _walk(src.get("paths") or {})
 
 
 def _convert_parameters(
@@ -171,11 +218,14 @@ def _convert_parameters(
 
     request_body = None
     if body_schema is not None:
-        media = consumes[0] if consumes else "application/json"
+        media = _prefer_json(consumes) or "application/json"
         # OAS 2 `in: body` is optional unless it says `required: true`.
         request_body = {"content": {media: {"schema": body_schema}}, "required": body_required}
     elif form_props:
-        media = "multipart/form-data" if form_is_multipart else "application/x-www-form-urlencoded"
+        multipart = form_is_multipart or any(
+            mt.lower().startswith("multipart/form-data") for mt in consumes
+        )
+        media = "multipart/form-data" if multipart else "application/x-www-form-urlencoded"
         schema = {"type": "object", "properties": form_props}
         if form_required:
             schema["required"] = form_required
@@ -189,6 +239,8 @@ def _convert_header(header: dict[str, Any]) -> dict[str, Any]:
     if "$ref" in header:
         return _rewrite_refs(header)
     h = copy.deepcopy(header)
+    # Headers only ever use style `simple` (comma-separated) in OpenAPI 3.
+    h.pop("collectionFormat", None)
     schema = dict(h.pop("schema", None) or {})
     for key in list(h.keys()):
         if key in _SCHEMA_KEYS:
@@ -211,7 +263,7 @@ def _convert_responses(
             continue
         schema = r.pop("schema", None)
         if schema is not None:
-            media = produces[0] if produces else "application/json"
+            media = _prefer_json(produces) or "application/json"
             r["content"] = {media: {"schema": _rewrite_refs(schema)}}
         # Swagger 2.0 puts response examples on the response object, keyed by mime
         # type; OpenAPI 3 has no such property (it lives under content.<mt>.example)
@@ -242,6 +294,8 @@ def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
     62 between the two — so repair them rather than reject the whole spec.
     """
     types = node.get("type")
+    if isinstance(types, list) and not all(isinstance(t, str) for t in types):
+        types = None
     if types == "null":
         # Draft-4 spells "this is always null" as a type; OAS 3.0 has no null type.
         node.pop("type", None)
@@ -262,7 +316,7 @@ def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
         counts["type_unions"] = counts.get("type_unions", 0) + 1
 
     items = node.get("items")
-    if isinstance(items, list):
+    if isinstance(items, list) and all(isinstance(i, dict) for i in items):
         concrete_items = [i for i in items if not (isinstance(i, dict) and i.get("type") == "null")]
         nullable = len(concrete_items) < len(items)
         if len(concrete_items) == 1:
@@ -279,34 +333,93 @@ def _sanitize_schema_node(node: dict[str, Any], counts: dict[str, int]) -> None:
         counts["item_tuples"] = counts.get("item_tuples", 0) + 1
 
 
-def sanitize_draft4_schemas(doc: Any, counts: dict[str, int] | None = None) -> dict[str, int]:
+# Keys whose values are instance data (examples, defaults, enum members), not schemas.
+# A payload such as ``{"items": ["a", "b"]}`` must not be "repaired" as a tuple schema.
+_DATA_KEYS = frozenset({"example", "examples", "default", "enum", "const"})
+# Maps keyed by user-chosen names: a property may be called ``example`` or ``default``,
+# and ``responses`` has a real ``default`` entry. Their keys are never data keys.
+_NAME_MAP_KEYS = frozenset(
+    {
+        "properties",
+        "patternProperties",
+        "definitions",
+        "$defs",
+        "schemas",
+        "responses",
+        "parameters",
+        "headers",
+        "requestBodies",
+        "securitySchemes",
+        "links",
+        "callbacks",
+        "paths",
+        "content",
+        "encoding",
+    }
+)
+
+
+def sanitize_draft4_schemas(
+    doc: Any,
+    counts: dict[str, int] | None = None,
+    *,
+    _name_map: bool = False,
+    _seen: set[tuple[int, bool]] | None = None,
+) -> dict[str, int]:
     """Repair draft-4-only schema constructs in place, returning what was changed.
 
     Applied to every document (converted or natively OpenAPI 3), because the
     constructs are invalid in OAS 3.0 wherever they came from. Keyed on shape, not
     location: only nodes that actually carry a list ``type`` / ``items`` are touched.
+    Example payloads, defaults, enum members and ``x-`` extensions are data and are
+    left alone.
     """
     counts = {} if counts is None else counts
+    # $ref resolution shares one object at every use site; visiting each once keeps a
+    # large spec (thousands of uses of one schema) linear instead of exponential.
+    seen = set() if _seen is None else _seen
+    if isinstance(doc, (dict, list)):
+        key_id = (id(doc), _name_map)
+        if key_id in seen:
+            return counts
+        seen.add(key_id)
     if isinstance(doc, dict):
-        _sanitize_schema_node(doc, counts)
-        for value in doc.values():
-            sanitize_draft4_schemas(value, counts)
+        if not _name_map:
+            _sanitize_schema_node(doc, counts)
+        for key, value in doc.items():
+            if not _name_map and (key in _DATA_KEYS or str(key).startswith("x-")):
+                continue
+            sanitize_draft4_schemas(
+                value, counts, _name_map=not _name_map and key in _NAME_MAP_KEYS, _seen=seen
+            )
     elif isinstance(doc, list):
         for value in doc:
-            sanitize_draft4_schemas(value, counts)
+            sanitize_draft4_schemas(value, counts, _seen=seen)
     return counts
 
 
-def normalize_swagger2_to_openapi3(doc: dict[str, Any]) -> dict[str, Any]:
-    """Convert a Swagger 2.0 document dict to an OpenAPI 3.0.3 dict (subset)."""
+def normalize_swagger2_to_openapi3(
+    doc: dict[str, Any], *, source_url: str | None = None
+) -> dict[str, Any]:
+    """Convert a Swagger 2.0 document dict to an OpenAPI 3.0.3 dict (subset).
+
+    ``source_url``: where the document was fetched from. Swagger 2.0 says a missing
+    ``host`` means "the host serving the documentation", and a missing scheme the
+    scheme used to fetch it.
+    """
+    from urllib.parse import urlparse
+
     src = copy.deepcopy(doc)
+    src["paths"] = _inline_global_refs(src)
     info = src.get("info") or {"title": "converted", "version": "0.0.0"}
-    host = src.get("host")
+    source = urlparse(source_url) if source_url else None
+    host = src.get("host") or (source.netloc if source else None)
     base_path = src.get("basePath") or ""
-    schemes = src.get("schemes") or ["https"]
+    schemes = list(src.get("schemes") or [source.scheme if source else "https"])
     servers: list[dict[str, Any]] = []
     if host:
-        scheme = schemes[0] if schemes else "https"
+        # Several schemes (often [http, https]): prefer the secure one.
+        scheme = "https" if "https" in schemes else schemes[0]
         url = f"{scheme}://{host}{base_path}"
         servers.append({"url": url})
     elif base_path:
@@ -328,14 +441,20 @@ def normalize_swagger2_to_openapi3(doc: dict[str, Any]) -> dict[str, Any]:
         new_item: dict[str, Any] = {}
         path_params = item.get("parameters") or []
         for method, op in item.items():
-            if method == "parameters" or not isinstance(op, dict):
-                if method == "parameters":
-                    continue
-                new_item[method] = op
+            if method == "parameters":
+                continue
+            if method.lower() not in _HTTP_METHODS_V2 or not isinstance(op, dict):
+                new_item[method] = op  # `x-` extensions and `$ref` pass through
                 continue
             consumes = list(op.get("consumes") or global_consumes)
             produces = list(op.get("produces") or global_produces)
-            params = list(path_params) + list(op.get("parameters") or [])
+            # An operation parameter overrides a path-level one with the same name and `in`;
+            # concatenating them is a "duplicate parameter" in OpenAPI 3.
+            merged: dict[Any, Any] = {}
+            for prm in [*path_params, *(op.get("parameters") or [])]:
+                key = (prm.get("name"), prm.get("in")) if isinstance(prm, dict) else id(prm)
+                merged[key if "$ref" not in (prm or {}) else id(prm)] = prm
+            params = list(merged.values())
             kept, request_body = _convert_parameters(params, consumes=consumes)
             new_op = {
                 k: v
@@ -346,6 +465,9 @@ def normalize_swagger2_to_openapi3(doc: dict[str, Any]) -> dict[str, Any]:
                     "consumes",
                     "produces",
                     "responses",
+                    # Operation-level `schemes` has no OpenAPI 3 equivalent; the server's
+                    # scheme (https preferred) applies.
+                    "schemes",
                 }
             }
             new_op["parameters"] = kept
@@ -367,4 +489,32 @@ def normalize_swagger2_to_openapi3(doc: dict[str, Any]) -> dict[str, Any]:
         result["security"] = src["security"]
     if src.get("tags") is not None:
         result["tags"] = src["tags"]
-    return _strip_nones(_rewrite_refs(result))
+    return _v2_schema_fixups(_strip_nones(_rewrite_refs(result)))
+
+
+def _v2_schema_fixups(node: Any, *, _name_map: bool = False) -> Any:
+    """Schema forms Swagger 2.0 allows and OpenAPI 3.0 does not, rewritten in place.
+
+    * ``discriminator: <property name>`` (a string) → ``discriminator: {propertyName: …}``
+    * ``type: file`` (response or property) → ``type: string, format: binary``
+    * ``collectionFormat`` inside an Items Object (nested arrays) → removed; it has no
+      OpenAPI 3 place, and the outer parameter's style still applies.
+    """
+    if isinstance(node, dict):
+        if not _name_map:
+            if isinstance(node.get("discriminator"), str):
+                node["discriminator"] = {"propertyName": node["discriminator"]}
+            if node.get("type") == "file":
+                node["type"] = "string"
+                node["format"] = "binary"
+            items = node.get("items")
+            if isinstance(items, dict):
+                items.pop("collectionFormat", None)
+        for key, value in node.items():
+            if not _name_map and (key in _DATA_KEYS or str(key).startswith("x-")):
+                continue
+            _v2_schema_fixups(value, _name_map=not _name_map and key in _NAME_MAP_KEYS)
+    elif isinstance(node, list):
+        for value in node:
+            _v2_schema_fixups(value)
+    return node

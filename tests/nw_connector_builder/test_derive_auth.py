@@ -37,8 +37,11 @@ def test_auth_and_multi_and_oauth_unmapped_flow_is_divergent_not_unsupported() -
         "O": {"type": "oauth2", "flows": {}},
     }
     fp = "apiKey:header:X"
+    # An API key header AND an OAuth2 bearer land in different places: send both,
+    # the default scheme (None) plus the named one.
     d = evaluate_operation_security([{"A": [], "O": []}], None, schemes, fp)
-    assert d.mode == "and_multi"
+    assert d.mode == "combined"
+    assert d.scheme_names == (None, "O")
     d2 = evaluate_operation_security([{"O": []}], None, schemes, fp)
     assert d2.mode == "divergent"
     # Divergent carries the scheme name for per-action routing.
@@ -671,3 +674,22 @@ def test_extra_self_managed_secret_uniquified_when_kind_matches_default() -> Non
     assert extra.yaml_block["secret_key"] == "ACME_PARTNER_KEY_API_KEY"
     assert extra.yaml_block["header_name"] == "X-Partner-Key"
     assert extra.secret_keys == ["ACME_PARTNER_KEY_API_KEY"]
+
+
+def test_and_requirement_needing_one_place_twice_is_dropped() -> None:
+    """Two bearer schemes both need Authorization: they cannot be sent together (F6)."""
+    schemes = {
+        "O1": {"type": "oauth2", "flows": {}},
+        "O2": {"type": "oauth2", "flows": {}},
+        "M": {"type": "mutualTLS"},
+        "K": {"type": "apiKey", "in": "header", "name": "X"},
+    }
+    d = evaluate_operation_security([{"O1": [], "O2": []}], None, schemes, None)
+    assert d.mode == "and_multi" and "same place" in (d.reason or "")
+    d2 = evaluate_operation_security([{"K": [], "M": []}], None, schemes, None)
+    assert d2.mode == "and_multi" and "unsupported scheme 'M'" in (d2.reason or "")
+    # A single alternative that works is preferred over an AND requirement.
+    d3 = evaluate_operation_security(
+        [{"O1": [], "K": []}, {"K": []}], None, schemes, "apiKey:header:X"
+    )
+    assert d3.mode == "required"

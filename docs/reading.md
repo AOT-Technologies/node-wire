@@ -68,6 +68,7 @@ One fact, one owning page. Other pages link here instead of restating it.
 | MCP deployment paths | [MCP overview](mcp.md#which-mcp-path) |
 | Which CLI command to run | [CLI overview](cli/index.md) |
 | What the OpenAPI generator supports | [Generator contract](cli/nw-connector-builder-scope.md) |
+| Which OpenAPI fields are covered, field by field | [OpenAPI coverage](cli/openapi-coverage.md) |
 | Local quality commands | [Code quality](code-quality-compliance.md) |
 | CI gates and branch protection | [Quality & security gates](quality-security-gates.md) |
 | Error codes, categories and what each surface returns | [Errors](errors.md), checked by `tests/test_docs_lifecycle.py` |

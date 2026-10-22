@@ -211,8 +211,9 @@ async def test_execute_rest_merges_query_auth_and_sanitizes(
     )
     assert isinstance(result, RestResponseOutput)
     req = captured["request"]
-    assert req["url"] == "https://api.example.com/users/octocat/things"
-    params_pairs = dict(req["params"])
+    url = httpx.URL(req["url"])
+    assert url.copy_with(query=None) == "https://api.example.com/users/octocat/things"
+    params_pairs = dict(url.params)
     assert params_pairs["api_key"] == "tok"
     assert params_pairs["limit"] == "5"
     assert captured["client_kwargs"]["trust_env"] is False
@@ -267,8 +268,7 @@ async def test_execute_rest_auth_false_skips_auth(monkeypatch: pytest.MonkeyPatc
         trace_id="t1",
         auth=False,
     )
-    pairs = captured["request"]["params"] or []
-    assert "api_key" not in dict(pairs)
+    assert "api_key" not in httpx.URL(captured["request"]["url"]).params
 
 
 def test_rest_connector_forwards_auth_providers_kwarg() -> None:
@@ -347,7 +347,7 @@ async def test_execute_rest_with_named_auth_scheme_uses_extra_provider(
         trace_id="t1",
         auth_scheme="petstore_auth",
     )
-    params_pairs = dict(captured["request"]["params"])
+    params_pairs = dict(httpx.URL(captured["request"]["url"]).params)
     assert params_pairs["access_token"] == "extra-tok"
     assert "api_key" not in params_pairs
 
@@ -387,18 +387,31 @@ def test_factory_missing_auth_still_no_auth() -> None:
 @pytest.mark.parametrize(
     ("value", "style", "explode", "expected"),
     [
-        (["a", "b"], "simple", False, "a%2Cb"),
-        ({"k": "v", "x": "y"}, "simple", False, "k%2Cv%2Cx%2Cy"),
-        ({"k": "v"}, "simple", True, "k%3Dv"),
+        # The separators stay literal; only the values are percent-encoded (RFC 6570).
+        (["a", "b"], "simple", False, "a,b"),
+        (["a,1", "b"], "simple", False, "a%2C1,b"),
+        ({"k": "v", "x": "y"}, "simple", False, "k,v,x,y"),
+        ({"k": "v"}, "simple", True, "k=v"),
+        (True, "simple", False, "true"),
+        ("x y", "label", False, ".x%20y"),
+        (["a", "b"], "label", False, ".a,b"),
+        (["a", "b"], "label", True, ".a.b"),
+        ({"k": "v", "x": "y"}, "label", True, ".k=v.x=y"),
+        ("v", "matrix", False, ";id=v"),
+        (["a", "b"], "matrix", False, ";id=a,b"),
+        (["a", "b"], "matrix", True, ";id=a;id=b"),
+        ({"k": "v", "x": "y"}, "matrix", True, ";k=v;x=y"),
+        ({"k": "v"}, "matrix", False, ";id=k,v"),
     ],
 )
 def test_encode_path_styles(value: Any, style: str, explode: bool, expected: str) -> None:
-    assert encode_param_value(value, style=style, explode=explode, location="path") == expected
+    encoded = encode_param_value(value, style=style, explode=explode, location="path", name="id")
+    assert encoded == expected
 
 
-def test_encode_path_rejects_non_simple_style() -> None:
+def test_encode_path_rejects_an_unknown_style() -> None:
     with pytest.raises(ValueError, match="unsupported path style"):
-        encode_param_value("x", style="label", explode=False, location="path")
+        encode_param_value("x", style="bogus", explode=False, location="path")
 
 
 def test_encode_header_list_and_rejects_style() -> None:
@@ -416,9 +429,26 @@ def test_encode_query_dict_explode_and_no_explode() -> None:
     assert joined == "a,1,b,2"
 
 
-def test_encode_query_rejects_non_form_style() -> None:
+def test_encode_query_styles() -> None:
+    def q(value: Any, style: str, explode: bool) -> Any:
+        return encode_param_value(value, style=style, explode=explode, location="query", name="f")
+
+    assert q(True, "form", True) == "true"
+    assert q(["a", "b"], "spaceDelimited", False) == "a b"
+    assert q(["a", "b"], "pipeDelimited", False) == "a|b"
+    assert q(["a", "b"], "pipeDelimited", True) == ["a", "b"]
+    assert q({"color": "red", "n": 2}, "deepObject", True) == [("f[color]", "red"), ("f[n]", "2")]
+    assert q({"a": {"b": 1}}, "form", True) == [("a", '{"b":1}')]
     with pytest.raises(ValueError, match="unsupported query style"):
-        encode_param_value("x", style="deepObject", explode=True, location="query")
+        q("x", "bogus", True)
+
+
+def test_encode_header_object_and_boolean() -> None:
+    assert (
+        encode_param_value({"a": 1, "b": True}, style="simple", explode=True, location="header")
+        == "a=1,b=true"
+    )
+    assert encode_param_value({"a": 1}, style="simple", explode=False, location="header") == "a,1"
 
 
 def test_split_params_body_and_unknown_location_ignored() -> None:
@@ -483,7 +513,8 @@ def test_encode_request_body_multipart_base64_decode_failure_falls_back_to_strin
         side_effect=ValueError("Invalid base64-encoded string"),
     ):
         multi = _encode_request_body({"file": padded}, "multipart/form-data")
-    assert multi == {"data": {"file": padded}}
+    # Still multipart: a plain field is sent as a (None, value) part, never urlencoded.
+    assert multi == {"files": [("file", (None, padded))]}
 
 
 def test_encode_request_body_model_binary_and_fallback() -> None:
@@ -675,3 +706,84 @@ async def test_assert_safe_destination_resolves_public_ok(
     )
     monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
     await assert_safe_destination("https://example.com/ok")
+
+
+# ---------------------------------------------------------------------------
+# Per-operation server_url vs operator base_url override
+# ---------------------------------------------------------------------------
+
+
+def _capture_request_urls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    urls: list[str] = []
+
+    class _FakeResponse:
+        status_code = 200
+        content = b"{}"
+        headers = {"content-type": "application/json"}
+        text = "{}"
+
+        def json(self) -> dict:
+            return {}
+
+    class _FakeClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+        async def __aenter__(self) -> "_FakeClient":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def request(self, **kwargs: Any) -> _FakeResponse:
+            urls.append(str(httpx.URL(kwargs["url"]).copy_with(query=None)))
+            return _FakeResponse()
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _FakeClient)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination",
+        AsyncMock(return_value=None),
+    )
+    return urls
+
+
+async def _call_with_server_url(connector: RestConnector) -> None:
+    await connector.execute_rest(
+        "GET",
+        "/users/{username}/things",
+        _ListInput(username="octocat"),
+        output_model=RestResponseOutput,
+        trace_id="t1",
+        auth=False,
+        server_url="https://uploads.example.com/v2",
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_uses_operation_server_url_without_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    urls = _capture_request_urls(monkeypatch)
+    await _call_with_server_url(_DemoConnector())
+    assert urls == ["https://uploads.example.com/v2/users/octocat/things"]
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_operator_base_url_override_wins_over_server_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NW_REST_ALLOWED_HOSTS", "gateway.internal.example.com")
+    urls = _capture_request_urls(monkeypatch)
+    await _call_with_server_url(_DemoConnector(base_url="https://gateway.internal.example.com/"))
+    assert urls == ["https://gateway.internal.example.com/users/octocat/things"]
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_override_with_server_url_still_checks_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NW_REST_ALLOWED_HOSTS", raising=False)
+    urls = _capture_request_urls(monkeypatch)
+    with pytest.raises(ValueError, match="base_url host is not allowed"):
+        await _call_with_server_url(_DemoConnector(base_url="https://evil.example.net"))
+    assert urls == []

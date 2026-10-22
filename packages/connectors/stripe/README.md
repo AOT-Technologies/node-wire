@@ -24,8 +24,8 @@ This pulls in [`node-wire-runtime`](https://pypi.org/project/node-wire-runtime/)
 are published as `X.Y.ZbN`; install one with `pip install --pre node-wire-stripe`. To install
 every connector at once, use [`node-wire-connectors`](https://pypi.org/project/node-wire-connectors/).
 
-Wheels are compiled with Cython and contain no Python source. They are built for CPython 3.11,
-3.12 and 3.13 on Linux x86_64 (manylinux and musllinux), macOS arm64 and Windows x64.
+The wheel is pure Python (`py3-none-any`) and installs on CPython 3.11, 3.12 and 3.13 on any
+OS and CPU.
 
 ## Actions
 

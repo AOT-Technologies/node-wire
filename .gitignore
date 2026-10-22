@@ -49,7 +49,7 @@ launch.json
 mcp_debug.log
 .cursor/
 
-# Compiled extension modules (Cython / in-tree builds)
+# Compiled extension modules (left over from the old Cython builds)
 *.so
 *.pyd
 
@@ -97,3 +97,7 @@ nw-stacklok-builder/scoping/*/tool-scoping.md
 
 # The ToolHive runbook is a local working document, not part of the published docs
 /docs/toolhive-runbook.md
+
+# The GitHub and Twitch tutorials are local working documents, not part of the published docs
+/docs/cli/tutorial-github.md
+/docs/cli/tutorial-twitch.md

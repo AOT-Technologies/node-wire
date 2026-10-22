@@ -20,7 +20,6 @@ classifiers = [
   "Operating System :: MacOS",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX :: Linux",
-  "Programming Language :: Cython",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
@@ -32,7 +31,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "node-wire-runtime>=1.0.0",
+    "node-wire-runtime>=1.1.0",
     "httpx[http2]>=0.27.0,<0.28.0",
 ]
 
@@ -47,7 +46,7 @@ Issues = "https://github.com/AOT-Technologies/node-wire/issues"
 Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"
 
 [build-system]
-requires = ["setuptools>=69.0.0", "cython>=3.0", "wheel"]
+requires = ["setuptools>=69.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

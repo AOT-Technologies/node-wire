@@ -13,7 +13,6 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from nw_mcp_builder.generate import connector_project
 from nw_mcp_builder.from_connector import (
     action_to_tool_name,
     discover_actions,
@@ -156,6 +155,22 @@ def test_discover_secrets_and_env_example(fake_node_wire: Path, tmp_path: Path) 
             assert line.endswith("=") and line.count("=") == 1
 
 
+def test_header_variables_are_listed_with_the_secrets(tmp_path: Path) -> None:
+    """``headers:`` values read env vars too (``nw gen-all --header``); the host must list them."""
+    root = tmp_path / "nw"
+    (root / "config").mkdir(parents=True)
+    (root / "config" / "connectors.yaml").write_text(
+        "connectors:\n"
+        "  twitch:\n"
+        "    auth: {provider: static_token, secret_key: TWITCH_ACCESS_TOKEN}\n"
+        "    headers:\n"
+        "      Client-Id: ${TWITCH_CLIENT_ID}\n",
+        encoding="utf-8",
+    )
+    names = discover_secret_env_names("twitch", root)
+    assert names == ["TWITCH_CLIENT_ID", "TWITCH_ACCESS_TOKEN"]
+
+
 def test_run_from_connector_skip_wheels_generates_project(
     fake_node_wire: Path, package_root: Path
 ) -> None:
@@ -209,20 +224,16 @@ def test_run_from_connector_skip_wheels_generates_project(
     assert again == project_dir
 
 
-def test_project_gets_the_wheels_its_image_can_install(
-    fake_node_wire: Path, package_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """dist/ also holds gen-stacklok's Alpine wheels and older builds: newest must not win."""
-    monkeypatch.setattr(connector_project, "_image_arch", lambda: "aarch64")
+def test_project_gets_the_pure_python_wheel(fake_node_wire: Path, package_root: Path) -> None:
+    """dist/ can still hold compiled wheels from older builds: a newer one must not win."""
     dist = fake_node_wire / "packages" / "runtime" / "dist"
     for old in dist.glob("*.whl"):
         old.unlink()
-    wanted = dist / "node_wire_runtime-1.1.0-cp313-cp313-linux_aarch64.whl"
+    wanted = dist / "node_wire_runtime-1.1.0-py3-none-any.whl"
     wanted.write_bytes(b"")
     for name in (
         "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl",
-        "node_wire_runtime-1.1.0-cp312-cp312-linux_aarch64.whl",
-        "node_wire_runtime-1.1.0-cp313-cp313-macosx_11_0_arm64.whl",
+        "node_wire_runtime-1.1.0-cp313-cp313-linux_aarch64.whl",
         "node_wire_runtime-1.1.0-cp313-cp313-manylinux_2_28_x86_64.whl",
     ):
         newer = dist / name
@@ -248,7 +259,9 @@ def test_no_installable_wheel_names_what_was_found(
         old.unlink()
     (dist / "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
 
-    with pytest.raises(FileNotFoundError, match="musllinux_1_2_aarch64.*nw gen-whl --runtime"):
+    with pytest.raises(
+        FileNotFoundError, match="py3-none-any.*musllinux_1_2_aarch64.*nw gen-whl --runtime"
+    ):
         run_from_connector(
             "demo_conn",
             node_wire_root=fake_node_wire,

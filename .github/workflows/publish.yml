@@ -267,75 +267,15 @@ jobs:
             --jq '.tagName'
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Build a binary wheel for each platform (Linux / macOS / Windows) and
-  # CPython version. cibuildwheel compiles Cython extensions and produces
-  # manylinux / musllinux / macosx / win_amd64 wheels. The NoPyBuild override
-  # in setup.py keeps .py source files out of every wheel.
-  #
-  # cibuildwheel builds identifiers one at a time, and an ubuntu runner would
-  # also build manylinux then musllinux in that same process. One job per
-  # platform and interpreter overlaps those compiles. The wheel set is cp311,
-  # cp312, and cp313 for manylinux, musllinux, macOS, and Windows (cp313 is what
-  # the stacklok Alpine host image installs).
+  # Build the package's one wheel. Every package is pure Python, so a single
+  # py3-none-any wheel serves all supported Python versions and platforms;
+  # packages/meta is a metadata-only wheel (dependencies, no modules).
   # ─────────────────────────────────────────────────────────────────────────────
-  build-wheels:
-    name: Build (${{ matrix.platform }} ${{ matrix.python }})
+  build:
+    name: Build wheel
     needs: prerequisites
-    if: needs.prerequisites.outputs.package_path != 'packages/meta'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: manylinux
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
-          - os: ubuntu-latest
-            platform: manylinux
-            python: cp312
-            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
-          - os: ubuntu-latest
-            platform: manylinux
-            python: cp313
-            cibw_skip: "*-win32 *-manylinux_i686 pp* *-musllinux*"
-          - os: ubuntu-latest
-            platform: musllinux
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux* pp*"
-          - os: ubuntu-latest
-            platform: musllinux
-            python: cp312
-            cibw_skip: "*-win32 *-manylinux* pp*"
-          - os: ubuntu-latest
-            platform: musllinux
-            python: cp313
-            cibw_skip: "*-win32 *-manylinux* pp*"
-          - os: macos-latest
-            platform: macos
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: macos-latest
-            platform: macos
-            python: cp312
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: macos-latest
-            platform: macos
-            python: cp313
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: windows-latest
-            platform: windows
-            python: cp311
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: windows-latest
-            platform: windows
-            python: cp312
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-          - os: windows-latest
-            platform: windows
-            python: cp313
-            cibw_skip: "*-win32 *-manylinux_i686 pp*"
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
 
@@ -381,144 +321,11 @@ jobs:
 
           print(f"PASS: building {pyproject.parent} at version {version}")
 
-      # Cython and setuptools come from each package's build-system.requires
-      # inside the isolated build. uv (the cibuildwheel extra) replaces pip
-      # when creating those environments.
-      - name: Install cibuildwheel
-        run: python -m pip install "cibuildwheel[uv]==4.2.1"
-
-      - name: Build platform wheel(s)
-        run: |
-          cd "${{ needs.prerequisites.outputs.package_path }}"
-          python -m cibuildwheel --output-dir dist
-        env:
-          CIBW_BUILD: "${{ matrix.python }}-*"
-          CIBW_SKIP: ${{ matrix.cibw_skip }}
-          CIBW_BUILD_FRONTEND: "build[uv]"
-          # Each package's pyproject.toml points `where` at the monorepo's shared
-          # src/ tree via a relative path (../../src or ../../../src, depending on
-          # nesting depth) — both collapse to /src once resolved from /project,
-          # the manylinux/musllinux container's fixed cwd. But that container only
-          # receives a copy of the package directory itself, not the rest of the
-          # repo, so bind-mount the real src/ tree straight into /src.
-          CIBW_CONTAINER_ENGINE: "docker; create_args: --volume=${{ github.workspace }}/src:/src"
-
-      - name: Verify binary-only wheel (compiled extensions, no .py source)
-        shell: python
-        run: |
-          import glob, sys, zipfile
-
-          package_path = "${{ needs.prerequisites.outputs.package_path }}"
-          wheels = glob.glob(f"{package_path}/dist/*.whl")
-          if not wheels:
-              print("ERROR: No wheels produced", file=sys.stderr)
-              sys.exit(1)
-
-          leaked: dict[str, list[str]] = {}
-          empty: list[str] = []
-          for whl in wheels:
-              with zipfile.ZipFile(whl) as zf:
-                  names = zf.namelist()
-              bad = [n for n in names if n.endswith(".py")]
-              if bad:
-                  leaked[whl] = bad
-              elif not any(n.endswith((".so", ".pyd")) for n in names):
-                  empty.append(whl)
-
-          if leaked or empty:
-              print("SECURITY FAIL: wheel is not binary-only:", file=sys.stderr)
-              for whl, files in leaked.items():
-                  print(f"  {whl} contains .py:", file=sys.stderr)
-                  for f in files:
-                      print(f"    {f}", file=sys.stderr)
-              for whl in empty:
-                  print(f"  {whl} contains no .so or .pyd extensions", file=sys.stderr)
-              sys.exit(1)
-
-          print(f"PASS: {len(wheels)} wheel(s) verified — compiled extensions, no .py source")
-
-      - name: Record wheel SHA256 (artifact integrity)
-        shell: python
-        run: |
-          import hashlib, pathlib, sys
-
-          dist = pathlib.Path("${{ needs.prerequisites.outputs.package_path }}") / "dist"
-          wheels = sorted(dist.glob("*.whl"))
-          if not wheels:
-              print("ERROR: no wheels to hash", file=sys.stderr)
-              sys.exit(1)
-          lines = []
-          for w in wheels:
-              h = hashlib.sha256(w.read_bytes()).hexdigest()
-              line = f"{h}  {w.name}"
-              print(line)
-              lines.append(line)
-          (dist / "sha256sums.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-      - name: Upload wheel artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
-        with:
-          name: wheels-${{ matrix.platform }}-${{ matrix.python }}-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
-          path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
-          retention-days: 1
-          if-no-files-found: error
-
-  # Metadata-only wheel. The connector matrix requires a compiled extension.
-  build-meta:
-    name: Build (meta)
-    needs: prerequisites
-    if: needs.prerequisites.outputs.package_path == 'packages/meta'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: "3.13"
-
-      - name: Stamp publish version into pyproject.toml
-        shell: python
-        env:
-          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
-          PUBLISH_VERSION: ${{ needs.prerequisites.outputs.publish_version }}
-        run: |
-          import os
-          import pathlib
-          import re
-          import sys
-          import tomllib
-
-          version = os.environ["PUBLISH_VERSION"]
-          pyproject = pathlib.Path(os.environ["PACKAGE_PATH"]) / "pyproject.toml"
-
-          text = pyproject.read_text(encoding="utf-8")
-          patched, count = re.subn(
-              r'(?m)^version = ".*"$', f'version = "{version}"', text, count=1
-          )
-          if count != 1:
-              print(f"ERROR: no version line to patch in {pyproject}", file=sys.stderr)
-              sys.exit(1)
-          pyproject.write_text(patched, encoding="utf-8")
-
-          actual = tomllib.loads(patched)["project"]["version"]
-          if actual != version:
-              print(f"ERROR: patched version is {actual!r}, expected {version!r}", file=sys.stderr)
-              sys.exit(1)
-
-          print(f"PASS: building {pyproject.parent} at version {version}")
-
       # pyproject.toml pins release minimums, which no beta satisfies (1.0.0b1 <
       # 1.0.0). A beta meta lowers each node-wire-* minimum to its first beta so
       # it pulls beta siblings; a release meta keeps the release-only pins.
-      - name: Lower node-wire-* minimums to betas (beta channel only)
-        if: needs.prerequisites.outputs.channel == 'beta'
+      - name: Lower node-wire-* minimums to betas (beta meta only)
+        if: needs.prerequisites.outputs.channel == 'beta' && needs.prerequisites.outputs.package_path == 'packages/meta'
         shell: python
         env:
           PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
@@ -550,53 +357,85 @@ jobs:
           for dep in ours:
               print(f"PASS: {dep}")
 
-      - name: Build pure wheel
+      - name: Build wheel
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
         run: |
           python -m pip install "build==1.2.2"
-          python -m build --wheel --outdir packages/meta/dist packages/meta
+          python -m build --wheel --outdir "$PACKAGE_PATH/dist" "$PACKAGE_PATH"
 
-      - name: Verify metadata-only wheel
+      - name: Verify wheel contents
         shell: python
+        env:
+          PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
         run: |
-          import glob, sys, zipfile
+          import glob, os, sys, zipfile
 
-          wheels = glob.glob("packages/meta/dist/*.whl")
+          package_path = os.environ["PACKAGE_PATH"]
+          wheels = glob.glob(f"{package_path}/dist/*.whl")
           if len(wheels) != 1:
               print(f"ERROR: expected one wheel, found {wheels}", file=sys.stderr)
               sys.exit(1)
-          with zipfile.ZipFile(wheels[0]) as zf:
+          wheel = wheels[0]
+          if not wheel.endswith("-py3-none-any.whl"):
+              print(f"ERROR: {wheel} is not a py3-none-any wheel", file=sys.stderr)
+              sys.exit(1)
+          with zipfile.ZipFile(wheel) as zf:
               names = zf.namelist()
-          bad = [n for n in names if n.endswith((".py", ".so", ".pyd"))]
-          if bad:
-              print("ERROR: meta wheel is not metadata-only:", file=sys.stderr)
-              for name in bad:
+
+          compiled = [n for n in names if n.endswith((".so", ".pyd", ".c"))]
+          modules = [n for n in names if n.endswith(".py")]
+          if compiled:
+              print(f"ERROR: {wheel} contains compiled files:", file=sys.stderr)
+              for name in compiled:
                   print(f"  {name}", file=sys.stderr)
               sys.exit(1)
-          print(f"PASS: {wheels[0]} has no modules")
+          if package_path == "packages/meta":
+              if modules:
+                  print(f"ERROR: meta wheel is not metadata-only: {modules}", file=sys.stderr)
+                  sys.exit(1)
+              print(f"PASS: {wheel} has no modules")
+          else:
+              if not modules:
+                  print(f"ERROR: {wheel} contains no .py modules", file=sys.stderr)
+                  sys.exit(1)
+              print(f"PASS: {wheel} is pure Python ({len(modules)} modules)")
+
+      - name: Record wheel SHA256 (artifact integrity)
+        shell: python
+        run: |
+          import hashlib, pathlib, sys
+
+          dist = pathlib.Path("${{ needs.prerequisites.outputs.package_path }}") / "dist"
+          wheels = sorted(dist.glob("*.whl"))
+          if not wheels:
+              print("ERROR: no wheels to hash", file=sys.stderr)
+              sys.exit(1)
+          lines = []
+          for w in wheels:
+              h = hashlib.sha256(w.read_bytes()).hexdigest()
+              line = f"{h}  {w.name}"
+              print(line)
+              lines.append(line)
+          (dist / "sha256sums.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: wheels-meta-py3-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
-          path: packages/meta/dist/*
+          name: wheels-py3-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
+          path: ${{ needs.prerequisites.outputs.package_path }}/dist/*
           retention-days: 1
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Collect all platform wheels, run supply-chain checks, publish to PyPI.
+  # Collect the wheel, run supply-chain checks, publish to PyPI.
   # Uses Trusted Publisher (OIDC) — no long-lived PyPI API tokens needed.
   # Configure on PyPI: Settings → Publishing → Add Publisher (GitHub, this repo,
   # workflow name = "Publish Node Wire package").
   # ─────────────────────────────────────────────────────────────────────────────
   publish:
     name: Publish to PyPI
-    needs: [prerequisites, build-wheels, build-meta]
-    if: >-
-      always() &&
-      needs.prerequisites.result == 'success' &&
-      (needs.build-wheels.result == 'success' || needs.build-meta.result == 'success') &&
-      (needs.build-wheels.result == 'success' || needs.build-wheels.result == 'skipped') &&
-      (needs.build-meta.result == 'success' || needs.build-meta.result == 'skipped')
+    needs: [prerequisites, build]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -613,7 +452,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Download all wheel artifacts
+      - name: Download wheel artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: wheels-*-${{ needs.prerequisites.outputs.publish_version }}-${{ needs.prerequisites.outputs.artifact_slug }}
@@ -671,20 +510,17 @@ jobs:
 
           print(f"PASS: {len(wheels)} wheel(s) match version {expected!r}")
 
-      # dist/ holds wheels for all platforms; only the linux cp313 wheel is
-      # installable on this runner (Python 3.13 / ubuntu). The dependency tree
-      # audited by pip-audit is identical across platform wheels.
       # Connectors depend on node-wire-runtime, and meta on runtime plus every
-      # connector; those may not be on PyPI yet at a satisfying version (or with
-      # a cp313 wheel), so install them from this commit, as security-pr.yml
-      # does. scripts/meta_local_deps.py derives meta's list from its pyproject
-      # and fails if a dependency has no local package.
+      # connector; those may not be on PyPI yet at a satisfying version, so
+      # install them from this commit, as security-pr.yml does.
+      # scripts/meta_local_deps.py derives meta's list from its pyproject and
+      # fails if a dependency has no local package.
       # No --pre: it would let third-party deps resolve to pre-releases, so
       # pip-audit would scan versions users never get. It isn't needed either:
       # pip accepts explicitly named paths and wheels at any version, and the
       # local sources carry plain release versions, which satisfy both release
       # minimums and a beta meta's lowered >=X.Y.Zb1 ones.
-      - name: Install built wheels for CVE scan
+      - name: Install built wheel for CVE scan
         shell: bash
         env:
           PACKAGE_PATH: ${{ needs.prerequisites.outputs.package_path }}
@@ -696,9 +532,9 @@ jobs:
             while IFS= read -r dep; do local_deps+=("${dep}"); done < "${deps_file}"
             pip install "${local_deps[@]}" dist/*.whl
           elif [[ "${PACKAGE_PATH}" == "packages/runtime" ]]; then
-            pip install dist/*cp313*manylinux*.whl
+            pip install dist/*.whl
           else
-            pip install packages/runtime dist/*cp313*manylinux*.whl
+            pip install packages/runtime dist/*.whl
           fi
 
       # pip-audit scans the whole environment. ubuntu-latest's Python still
