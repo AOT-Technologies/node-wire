@@ -1,0 +1,7029 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Enterprise Connectors for AI & Workflow Systems">
+      
+      
+      
+        <link rel="canonical" href="https://aot-technologies.github.io/node-wire/cli/openapi-coverage/">
+      
+      
+        <link rel="prev" href="../nw-connector-builder-scope/">
+      
+      
+        <link rel="next" href="../nw-connector-builder-codegen/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>OpenAPI Coverage - Node Wire</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#openapi-coverage" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Node Wire" class="md-header__button md-logo" aria-label="Node Wire" data-md-component="logo">
+      
+  <img src="../../images/nw-favicon-black.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Node Wire
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              OpenAPI Coverage
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/AOT-Technologies/node-wire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AOT-Technologies/node-wire
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../reading/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Reading Map
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../connectors/" class="md-tabs__link">
+          
+  
+  
+  Connectors
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  CLI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../mcp/" class="md-tabs__link">
+          
+  
+  
+  MCP
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../packaging/" class="md-tabs__link">
+          
+  
+  
+  Ship
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../privacy/" class="md-tabs__link">
+          
+  
+  
+  Compliance
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../adr/" class="md-tabs__link">
+          
+  
+  
+  Decisions
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md" class="md-tabs__link">
+          
+  
+  
+  Project
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Node Wire" class="md-nav__button md-logo" aria-label="Node Wire" data-md-component="logo">
+      
+  <img src="../../images/nw-favicon-black.png" alt="logo">
+
+    </a>
+    Node Wire
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/AOT-Technologies/node-wire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    AOT-Technologies/node-wire
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Domain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/seams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Seams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/tenancy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connector-bindings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    REST / MCP / gRPC Bindings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connectors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Connectors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connectors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connector-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connector Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../connectors-build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Connector
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../google_drive_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google Drive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../salesforce_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Salesforce
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../slack_connector/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw-connector-builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-scope/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generator Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#legend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Legend
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openapi-object-swagger-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAPI Object / Swagger Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#info-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Info Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contact-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contact Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-variable-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server Variable Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components-object-and-20-definition-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Components Object and 2.0 definition containers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paths-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-item-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path Item Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operation-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operation Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-documentation-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External Documentation Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter Object
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameter Object">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameter-in-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter in values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#style-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Style values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#20-collectionformat-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.0 collectionFormat mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#items-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Items Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-body-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request Body Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#media-type-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Media Type Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoding Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#responses-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Responses Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#headers-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Headers Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callback-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callback Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#link-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Link Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#header-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Header Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tag-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tag Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Object
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema Object">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oas-specific-schema-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAS-specific Schema fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-schema-keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON Schema keywords
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-type-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data type formats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discriminator-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discriminator Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#xml-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        XML Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-scheme-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Scheme Object
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Scheme Object">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security-scheme-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security scheme variants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oauth-flows-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth Flows Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oauth-flow-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth Flow Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scopes-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scopes Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-requirement-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Requirement Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#specification-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Specification extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-cutting-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-cutting rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-cutting rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#http-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ref-sibling-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        $ref sibling rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-url-templating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server URL templating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#path-templating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path templating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#response-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-covered-and-why" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not covered, and why
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-connector-builder-codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codegen Behaviour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nw-mcp-builder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    nw-mcp-builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    MCP
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../stacklok-mcp-servers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stacklok MCP servers (nw gen-stacklok)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../toolhive_agent_scenario/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Scenario
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp-client-oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client OAuth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code-quality-compliance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quality-security-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quality & Security Gates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../public-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Public API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ship
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Ship
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../local-packages-to-images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-rollback/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release & Rollback
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compliance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Compliance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../privacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Privacy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../compliance/hipaa-considerations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HIPAA Considerations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR Index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-stacklok-mcp-builder-on-node-wire/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0001 stacklok MCP builder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-documentation-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0002 Documentation lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-python-3-11-to-3-13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0003 Python 3.11 to 3.13
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CODE_OF_CONDUCT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code of Conduct
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/GOVERNANCE.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Governance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SUPPORT.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/SECURITY.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#legend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Legend
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openapi-object-swagger-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAPI Object / Swagger Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#info-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Info Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contact-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contact Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server-variable-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server Variable Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components-object-and-20-definition-containers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Components Object and 2.0 definition containers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paths-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-item-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path Item Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operation-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operation Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-documentation-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External Documentation Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter Object
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameter Object">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameter-in-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter in values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#style-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Style values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#20-collectionformat-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.0 collectionFormat mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#items-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Items Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-body-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request Body Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#media-type-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Media Type Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoding Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#responses-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Responses Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#headers-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Headers Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callback-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callback Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#link-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Link Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#header-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Header Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tag-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tag Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Object
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema Object">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oas-specific-schema-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAS-specific Schema fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json-schema-keywords" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON Schema keywords
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-type-formats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data type formats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discriminator-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discriminator Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#xml-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        XML Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-scheme-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Scheme Object
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security Scheme Object">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#security-scheme-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security scheme variants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oauth-flows-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth Flows Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#oauth-flow-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OAuth Flow Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scopes-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scopes Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-requirement-object" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Requirement Object
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#specification-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Specification extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-cutting-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-cutting rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-cutting rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#http-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ref-sibling-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        $ref sibling rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#server-url-templating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Server URL templating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#path-templating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path templating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#response-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response codes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-covered-and-why" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not covered, and why
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    CLI
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<!--
+SPDX-FileCopyrightText: 2026 AOT Technologies
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<h1 id="openapi-coverage">OpenAPI coverage<a class="headerlink" href="#openapi-coverage" title="Anchor link to this section">&para;</a></h1>
+<p>This page lists every object and field of Swagger 2.0 (2014-09-08), OpenAPI 3.0.4 (2024-10-24),
+OpenAPI 3.1.2 (2025-09-19) and OpenAPI 3.2.1 (2026-09-10), and says what <code>nw-connector-builder</code>
+does with each one. Earlier patch releases of each line (3.0.0–3.0.3, 3.1.0–3.1.1, 3.2.0) have the
+same fields and are handled the same way. Swagger 2.0 documents are converted to OpenAPI 3.0 first,
+so their rows say how each 2.0 construct is converted. The <strong>Status</strong> column uses the five values in
+the legend below, and the last column says what happens or why it does not. The rules behind these
+rows are in the <a href="../nw-connector-builder-scope/">generator contract</a>, and the reasons for specific
+generated shapes are in <a href="../nw-connector-builder-codegen/">codegen behaviour</a>. The conformance
+fixtures in <code>tests/nw_connector_builder/fixtures/coverage/</code> (<code>swagger20.yaml</code>, <code>oas30.yaml</code>,
+<code>oas31.yaml</code>, <code>oas32.yaml</code>) hold one operation per covered construct, and
+<code>tests/nw_connector_builder/test_openapi_coverage.py</code> builds each one and checks the HTTP request
+the generated connector sends.</p>
+<h2 id="legend">Legend<a class="headerlink" href="#legend" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Covered</strong></td>
+<td>Read and applied: the generated connector sends what the spec describes.</td>
+</tr>
+<tr>
+<td><strong>Converted</strong></td>
+<td>Swagger 2.0 construct, mapped to its OpenAPI 3 equivalent and then handled like that.</td>
+</tr>
+<tr>
+<td><strong>Partial</strong></td>
+<td>Some of it is applied; the row says which part is not.</td>
+</tr>
+<tr>
+<td><strong>Not needed</strong></td>
+<td>Has no effect on an outbound API call (documentation, presentation, or inbound-only metadata). Ignored.</td>
+</tr>
+<tr>
+<td><strong>Skipped</strong></td>
+<td>Would affect a call but is not supported; the row gives the reason. Listed again under <a href="#not-covered-and-why">Not covered, and why</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>Versions are written <code>2.0</code>, <code>3.0</code>, <code>3.1</code>, <code>3.2</code>; <code>3.0+</code> means 3.0, 3.1 and 3.2.</p>
+<h2 id="openapi-object-swagger-object">OpenAPI Object / Swagger Object<a class="headerlink" href="#openapi-object-swagger-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>swagger</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>"2.0"</code> selects the in-house converter, which outputs an OpenAPI 3.0.3 document.</td>
+</tr>
+<tr>
+<td><code>openapi</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Any <code>3.x</code> value is accepted; <code>3.0.*</code> selects the 3.0 example validator, later versions the 3.1 one.</td>
+</tr>
+<tr>
+<td><code>$self</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Not read. Relative <code>$ref</code>s resolve against the file location or fetch URL instead.</td>
+</tr>
+<tr>
+<td><code>info</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>jsonSchemaDialect</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Not read. Schemas are always read with the default OAS dialect.</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes the server URL. A missing <code>host</code> uses the host the spec was fetched from. For a local file, pass <code>--base-url</code>.</td>
+</tr>
+<tr>
+<td><code>basePath</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Appended to the server URL.</td>
+</tr>
+<tr>
+<td><code>schemes</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>https</code> is preferred when listed, else the first entry. A missing <code>schemes</code> uses the fetch URL's scheme, else <code>https</code>.</td>
+</tr>
+<tr>
+<td><code>consumes</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Picks the request media type: JSON first, else the first entry. Operation-level <code>consumes</code> wins.</td>
+</tr>
+<tr>
+<td><code>produces</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Picks the response media type the same way.</td>
+</tr>
+<tr>
+<td><code>servers</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>The first entry is the connector's base URL. Later entries are alternatives an operator can pick with <code>base_url</code> in <code>connectors.yaml</code>. <code>--base-url</code> overrides at build time.</td>
+</tr>
+<tr>
+<td><code>paths</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Every operation is generated or soft-dropped with a reason.</td>
+</tr>
+<tr>
+<td><code>webhooks</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Requests the API sends to you, not calls a connector makes. The count is noted in the build report.</td>
+</tr>
+<tr>
+<td><code>components</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Resolved wherever a <code>$ref</code> points into it. See <a href="#components-object-and-20-definition-containers">Components Object</a>.</td>
+</tr>
+<tr>
+<td><code>definitions</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved to <code>components.schemas</code>; <code>#/definitions/</code> refs are rewritten.</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Each <code>#/parameters/</code> ref is replaced with a copy of its target before conversion, so reusable <code>body</code> and <code>formData</code> parameters work.</td>
+</tr>
+<tr>
+<td><code>responses</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Each <code>#/responses/</code> ref is replaced with a copy of its target before conversion.</td>
+</tr>
+<tr>
+<td><code>securityDefinitions</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved to <code>components.securitySchemes</code>. See <a href="#security-scheme-object">Security Scheme Object</a>.</td>
+</tr>
+<tr>
+<td><code>security</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The default requirement for every operation. See <a href="#security-requirement-object">Security Requirement Object</a>.</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Grouping for documentation. Not used for action names or descriptions.</td>
+</tr>
+<tr>
+<td><code>externalDocs</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Every <code>x-</code> extension is removed before <code>$ref</code> resolution. The generator reads none of them, and removing them stops a dangling <code>$ref</code> inside an unused extension from failing the build.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="info-object">Info Object<a class="headerlink" href="#info-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>title</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>termsOfService</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>contact</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>license</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>The API document's version. The generated package has its own version.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="contact-object">Contact Object<a class="headerlink" href="#contact-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="license-object">License Object<a class="headerlink" href="#license-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>The API's license, not the generated package's (always Apache-2.0).</td>
+</tr>
+<tr>
+<td><code>identifier</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>As <code>name</code>.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>As <code>name</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="server-object">Server Object<a class="headerlink" href="#server-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>The base URL. When the spec was fetched over HTTP(S), a relative URL (or no <code>servers</code> at all) is resolved against the fetch URL. For a local file it fails the build with a request for <code>--base-url</code>.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>A label for the server.</td>
+</tr>
+<tr>
+<td><code>variables</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Each <code>{name}</code> is replaced with its variable's <code>default</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="server-variable-object">Server Variable Object<a class="headerlink" href="#server-variable-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enum</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>The <code>default</code> is always used. To use another value, set <code>base_url</code> in <code>connectors.yaml</code> or pass <code>--base-url</code>.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Substituted into the URL. A variable with no default fails the build for the root server; for an operation server, see <a href="#path-item-object">Path Item Object</a>.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="components-object-and-20-definition-containers">Components Object and 2.0 definition containers<a class="headerlink" href="#components-object-and-20-definition-containers" title="Anchor link to this section">&para;</a></h2>
+<p>Components are used through <code>$ref</code>: every local reference is inlined before code generation. A
+component that fails validation on its own is removed and named in the report's <code>notes</code>. Empty
+structural fields (an empty YAML key such as <code>parameters:</code>) are removed before validation; data
+nulls such as <code>default: null</code>, <code>example: null</code> or a <code>null</code> enum member are kept. If the validator
+itself fails on one operation or component, that part is treated as invalid and dropped with the
+reason instead of failing the build.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schemas</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Inlined wherever referenced.</td>
+</tr>
+<tr>
+<td><code>responses</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Inlined wherever referenced.</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Inlined wherever referenced.</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Inlined wherever referenced. See <a href="#example-object">Example Object</a>.</td>
+</tr>
+<tr>
+<td><code>requestBodies</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Inlined wherever referenced.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Inlined, but Header Objects have no effect on a call. See <a href="#header-object">Header Object</a>.</td>
+</tr>
+<tr>
+<td><code>securitySchemes</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Read directly. See <a href="#security-scheme-object">Security Scheme Object</a>.</td>
+</tr>
+<tr>
+<td><code>links</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>See <a href="#link-object">Link Object</a>.</td>
+</tr>
+<tr>
+<td><code>callbacks</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>See <a href="#callback-object">Callback Object</a>.</td>
+</tr>
+<tr>
+<td><code>pathItems</code></td>
+<td>3.1+</td>
+<td>Covered</td>
+<td>Inlined where a path's <code>$ref</code> points at one.</td>
+</tr>
+<tr>
+<td><code>mediaTypes</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Inlined where a <code>content</code> entry's <code>$ref</code> points at one.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+<tr>
+<td>Definitions Object <code>{name}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes <code>components.schemas.{name}</code>.</td>
+</tr>
+<tr>
+<td>Parameters Definitions Object <code>{name}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Inlined at each use, then converted like an operation parameter (a <code>body</code> or <code>formData</code> one becomes a request body).</td>
+</tr>
+<tr>
+<td>Responses Definitions Object <code>{name}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Inlined at each use, then converted like an operation response.</td>
+</tr>
+<tr>
+<td>Security Definitions Object <code>{name}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes <code>components.securitySchemes.{name}</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="paths-object">Paths Object<a class="headerlink" href="#paths-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/{path}</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Appended to the base URL. Each <code>{name}</code> is filled from its path parameter.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="path-item-object">Path Item Object<a class="headerlink" href="#path-item-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$ref</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>3.x: resolved, but the referenced Path Item replaces the local one, so operations written next to the <code>$ref</code> are lost. 2.0: a Path Item in another file is not converted to 3.0, so its operations fail validation and are soft-dropped.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Tool descriptions come from the operation.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Tool descriptions come from the operation.</td>
+</tr>
+<tr>
+<td><code>get</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>put</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>post</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>delete</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>head</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>patch</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>trace</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>One action per operation.</td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Sent as the HTTP <code>QUERY</code> method.</td>
+</tr>
+<tr>
+<td><code>additionalOperations</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>One action per entry, sent with the method name in upper case (for example <code>PURGE</code>).</td>
+</tr>
+<tr>
+<td><code>servers</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Used for each operation on the path that has no <code>servers</code> of its own. See the Operation <code>servers</code> row.</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Merged into each operation; an operation parameter with the same <code>name</code> and <code>in</code> overrides it. The 2.0 converter does the same merge, so a redefined parameter appears once.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="operation-object">Operation Object<a class="headerlink" href="#operation-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tags</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Grouping for documentation.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The tool description: first paragraph, Markdown links flattened, capped at 300 characters.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Used as the tool description when there is no <code>summary</code>.</td>
+</tr>
+<tr>
+<td><code>externalDocs</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>operationId</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Becomes the action name in snake case, made unique and kept within a length budget. Without one, the name is built from the method and path.</td>
+</tr>
+<tr>
+<td><code>consumes</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Overrides root <code>consumes</code> when choosing the request media type. An empty list falls back to the root value instead of clearing it.</td>
+</tr>
+<tr>
+<td><code>produces</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Overrides root <code>produces</code> when choosing the response media type.</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>See <a href="#parameter-object">Parameter Object</a>.</td>
+</tr>
+<tr>
+<td><code>requestBody</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>See <a href="#request-body-object">Request Body Object</a>. In a 3.0 document a request body on <code>GET</code>, <code>HEAD</code> or <code>DELETE</code> is ignored, as 3.0 says it is not supported there; 3.1+ documents keep it.</td>
+</tr>
+<tr>
+<td><code>responses</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>See <a href="#responses-object">Responses Object</a>.</td>
+</tr>
+<tr>
+<td><code>callbacks</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>See <a href="#callback-object">Callback Object</a>.</td>
+</tr>
+<tr>
+<td><code>deprecated</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The action is marked <code>@nw_action(..., deprecated=True)</code>.</td>
+</tr>
+<tr>
+<td><code>security</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Overrides the root <code>security</code>; <code>[]</code> makes the action anonymous. See <a href="#security-requirement-object">Security Requirement Object</a>.</td>
+</tr>
+<tr>
+<td><code>servers</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>The first entry, with variables at their defaults, is where this action is called when it differs from the base URL; the report lists these actions. <code>base_url</code> in <code>connectors.yaml</code> does not change it. A relative URL or a variable with no default is ignored with a note, and the base URL is used.</td>
+</tr>
+<tr>
+<td><code>schemes</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Removed; OpenAPI 3 has no operation-level equivalent. The server's scheme applies (<code>https</code> preferred, see the root <code>schemes</code> row).</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="external-documentation-object">External Documentation Object<a class="headerlink" href="#external-documentation-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="parameter-object">Parameter Object<a class="headerlink" href="#parameter-object" title="Anchor link to this section">&para;</a></h2>
+<p>Each parameter becomes one argument of the action, carrying its <code>in</code>, <code>style</code> and <code>explode</code> in the
+field metadata so the runtime can serialize it (see
+<a href="../nw-connector-builder-codegen/#parameter-serialization">parameter serialization</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The wire name. The argument name is a Python-safe version of it. Header parameters named <code>Accept</code>, <code>Content-Type</code> or <code>Authorization</code> are ignored as the spec requires, and the report notes them.</td>
+</tr>
+<tr>
+<td><code>in</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>See <a href="#parameter-in-values">Parameter <code>in</code> values</a>.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The argument description: first sentence, capped at 90 characters. The schema's <code>description</code> is used when the parameter has none.</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Required arguments. Path parameters are always required.</td>
+</tr>
+<tr>
+<td><code>deprecated</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>The parameter is still offered and sent.</td>
+</tr>
+<tr>
+<td><code>allowEmptyValue</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>An empty string is sent as <code>name=</code>. A bare <code>name</code> with no <code>=</code> is never produced. Deprecated in 3.2.</td>
+</tr>
+<tr>
+<td><code>style</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>See <a href="#style-values">Style values</a>. An unsupported style leaves out an optional parameter (named in the report) and soft-drops the operation when the parameter is required.</td>
+</tr>
+<tr>
+<td><code>explode</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Applied per style; the default is <code>true</code> for <code>form</code> and <code>false</code> otherwise.</td>
+</tr>
+<tr>
+<td><code>allowReserved</code></td>
+<td>3.0+</td>
+<td>Partial</td>
+<td>Honored for <code>in: query</code> and <code>in: path</code>: RFC 3986 reserved characters are sent unencoded, except <code>&amp;</code>, <code>=</code> and <code>#</code>. Not applied to <code>cookie</code> parameters.</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Gives the argument's type and constraints. See <a href="#schema-object">Schema Object</a>.</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>The single media type's schema types the argument. A JSON media type is sent as compact JSON text; other media types send the value as given.</td>
+</tr>
+<tr>
+<td><code>example</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Parameter examples are not used for generated tests.</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>As <code>example</code>.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>items</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>. See <a href="#items-object">Items Object</a>.</td>
+</tr>
+<tr>
+<td><code>collectionFormat</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Mapped to <code>style</code> and <code>explode</code>. See <a href="#20-collectionformat-mapping">collectionFormat mapping</a>.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>maximum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>exclusiveMaximum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>minimum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>exclusiveMinimum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>maxLength</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>minLength</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>maxItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>minItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>uniqueItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>enum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>multipleOf</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="parameter-in-values">Parameter <code>in</code> values<a class="headerlink" href="#parameter-in-values" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Substituted into the path, percent-encoded (including <code>/</code>, unless <code>allowReserved</code> is set).</td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Added to the query string.</td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Sent as a request header. Operator <code>--header</code> values and the auth provider's headers win over a caller's value.</td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Collected into one <code>Cookie</code> header. <code>form</code> values are percent-encoded; 3.2 <code>style: cookie</code> values are sent as given.</td>
+</tr>
+<tr>
+<td><code>querystring</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>One argument holding the whole query string. An object under a non-JSON media type is form-encoded, JSON is sent as encoded JSON text, and a string is sent as given.</td>
+</tr>
+<tr>
+<td><code>formData</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>All <code>formData</code> parameters become one object request body: <code>multipart/form-data</code> when one is <code>type: file</code> or <code>consumes</code> lists multipart, else <code>application/x-www-form-urlencoded</code>.</td>
+</tr>
+<tr>
+<td><code>body</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes <code>requestBody</code>, with the media type from <code>consumes</code> (JSON first). <code>required</code> carries over.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="style-values">Style values<a class="headerlink" href="#style-values" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Style</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>matrix</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td><code>;name=value</code> path segments, exploded or not.</td>
+</tr>
+<tr>
+<td><code>label</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td><code>.value</code> path segments, exploded or not.</td>
+</tr>
+<tr>
+<td><code>simple</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Path and header values; objects as <code>k,v</code> or, exploded, <code>k=v</code>.</td>
+</tr>
+<tr>
+<td><code>form</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Query: arrays as repeated keys or comma-joined, objects as <code>k=v</code> pairs or comma-joined. Cookie: values percent-encoded; with <code>explode</code> (the default), arrays and objects become separate <code>name=value</code> pairs joined by <code>;</code>, otherwise comma-joined.</td>
+</tr>
+<tr>
+<td><code>spaceDelimited</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Query arrays joined with spaces.</td>
+</tr>
+<tr>
+<td><code>pipeDelimited</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Query arrays joined with <code>\|</code>.</td>
+</tr>
+<tr>
+<td><code>deepObject</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Query objects as <code>name[key]=value</code>.</td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Cookie values sent as given, without percent-encoding; arrays and objects as <code>style: form</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="20-collectionformat-mapping">2.0 collectionFormat mapping<a class="headerlink" href="#20-collectionformat-mapping" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>collectionFormat</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>csv</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>style: simple</code> in path and header, <code>style: form, explode: false</code> in query. On <code>formData</code>, arrays are sent as repeated keys instead.</td>
+</tr>
+<tr>
+<td><code>ssv</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>style: spaceDelimited</code> in query. Ignored on <code>formData</code> (repeated keys).</td>
+</tr>
+<tr>
+<td><code>tsv</code></td>
+<td>2.0</td>
+<td>Skipped</td>
+<td>OpenAPI 3 has no equivalent. An optional parameter is left out and noted; a required one soft-drops the operation. Ignored on <code>formData</code> (repeated keys).</td>
+</tr>
+<tr>
+<td><code>pipes</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>style: pipeDelimited</code> in query. Ignored on <code>formData</code> (repeated keys).</td>
+</tr>
+<tr>
+<td><code>multi</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>style: form, explode: true</code> in query; repeated keys on <code>formData</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="items-object">Items Object<a class="headerlink" href="#items-object" title="Anchor link to this section">&para;</a></h2>
+<p>2.0 only. A parameter's <code>items</code> is moved into its <code>schema.items</code>, so these fields are then handled
+as <a href="#schema-object">Schema Object</a> keywords on the array items.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Types the array items (for example <code>list[int]</code>).</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema.</td>
+</tr>
+<tr>
+<td><code>items</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Nested arrays are kept, typed <code>list[Any]</code> below the first level.</td>
+</tr>
+<tr>
+<td><code>collectionFormat</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Removed; OpenAPI 3 has no place for it. The outer parameter's style still applies.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema.</td>
+</tr>
+<tr>
+<td><code>maximum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>exclusiveMaximum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>minimum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>exclusiveMinimum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>maxLength</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>minLength</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>maxItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>minItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>uniqueItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced.</td>
+</tr>
+<tr>
+<td><code>enum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>multipleOf</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Kept on the item schema; not enforced per item.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="request-body-object">Request Body Object<a class="headerlink" href="#request-body-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not shown to the caller; each body property carries its own description.</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>One media type is used: <code>application/json</code> first, then any JSON-like type, otherwise the first one listed. How each media type becomes arguments is in <a href="../nw-connector-builder-codegen/#request-bodies-by-media-type">request bodies by media type</a>.</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Makes the whole <code>body</code> argument required, or, for a flattened body, the properties the schema lists in <code>required</code>. An optional body makes every property optional.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="media-type-object">Media Type Object<a class="headerlink" href="#media-type-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schema</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Request: a JSON, form or multipart object with declared properties becomes one argument per property; anything else becomes a single <code>body</code> argument (<code>str</code> for text, XML and binary media). A media type without a schema takes a free-form body. Responses: see <a href="#response-object">Response Object</a>.</td>
+</tr>
+<tr>
+<td><code>itemSchema</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Sequential and streaming media are not supported. A response is read whole and returned as text. A request with only <code>itemSchema</code> gets a free-form <code>body</code> that is not serialized as a sequence. Not planned.</td>
+</tr>
+<tr>
+<td><code>example</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>On a request body: becomes a generated test of the input model when it validates against its own schema (3.0 rules for 3.0 documents, 3.1 rules otherwise). Ignored on responses and parameters.</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>As <code>example</code>, using the first entry's <code>value</code> or 3.2 <code>dataValue</code>.</td>
+</tr>
+<tr>
+<td><code>encoding</code></td>
+<td>3.0+</td>
+<td>Partial</td>
+<td>Only <code>contentType</code> is used, for binary parts of a multipart body. See <a href="#encoding-object">Encoding Object</a>.</td>
+</tr>
+<tr>
+<td><code>prefixEncoding</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Positional multipart encoding for sequential media; streaming is not supported.</td>
+</tr>
+<tr>
+<td><code>itemEncoding</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Per-item multipart encoding for sequential media; streaming is not supported.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="encoding-object">Encoding Object<a class="headerlink" href="#encoding-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contentType</code></td>
+<td>3.0+</td>
+<td>Partial</td>
+<td>Sent as the part's <code>Content-Type</code> for a binary (<code>format: binary</code> / <code>byte</code> or base64) multipart property. Other parts use the default: text, with objects as JSON text.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Per-part multipart headers are not sent. Candidate for later.</td>
+</tr>
+<tr>
+<td><code>encoding</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Nested encoding for nested multipart. Not supported.</td>
+</tr>
+<tr>
+<td><code>prefixEncoding</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Nested positional encoding. Not supported.</td>
+</tr>
+<tr>
+<td><code>itemEncoding</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Nested per-item encoding. Not supported.</td>
+</tr>
+<tr>
+<td><code>style</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Form fields always use <code>form</code> with <code>explode: true</code>: arrays of scalars as repeated keys, objects and nested arrays as JSON text. Candidate for later.</td>
+</tr>
+<tr>
+<td><code>explode</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>As <code>style</code>.</td>
+</tr>
+<tr>
+<td><code>allowReserved</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Form values are always encoded.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="responses-object">Responses Object<a class="headerlink" href="#responses-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>default</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Used as the success response only when no <code>2xx</code> or <code>2XX</code> response is declared.</td>
+</tr>
+<tr>
+<td><code>{HTTP status code}</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The success response is the lowest explicit <code>2xx</code> code, then <code>2XX</code>. Any <code>4xx</code> or <code>5xx</code> reply raises an HTTP status error regardless of what is declared. A <code>3xx</code> reply is returned as the result, not followed. <code>1XX</code>–<code>5XX</code> ranges other than <code>2XX</code> are not read.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="response-object">Response Object<a class="headerlink" href="#response-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summary</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only. Optional in 3.2, which the generator accepts.</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes <code>content.&lt;produces type&gt;.schema</code>. A <code>type: file</code> schema becomes <code>type: string, format: binary</code>.</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Declared headers are not used. Enveloped results return every response header as received. 2.0 headers are converted to 3.0 form.</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved to <code>content.&lt;mime&gt;.example</code>. Response examples are not used afterwards.</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>3.0+</td>
+<td>Partial</td>
+<td>JSON object schema: the action returns the response's JSON object as is (a model that accepts any fields; output fields are not typed). Anything else (array, scalar, text, binary, no content) is returned in an envelope with <code>status_code</code>, <code>headers</code> and <code>body</code>. A non-JSON media type with an object schema (XML, say) is also returned in the envelope, with the body as text. A required boolean <code>ok</code> property turns a <code>2xx</code> body with <code>ok: false</code> into a business error.</td>
+</tr>
+<tr>
+<td><code>links</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>See <a href="#link-object">Link Object</a>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="headers-object">Headers Object<a class="headerlink" href="#headers-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{name}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Each header is converted to a 3.0 Header Object (see <a href="#header-object">Header Object</a>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="callback-object">Callback Object<a class="headerlink" href="#callback-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{expression}</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>A callback is a request the API sends to you, not a call a connector makes. The report notes how many operations have callbacks.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="example-object">Example Object<a class="headerlink" href="#example-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{mime type}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>The 2.0 response example map moves to <code>content.&lt;mime&gt;.example</code>.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>dataValue</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Used like <code>value</code> for request-body example tests.</td>
+</tr>
+<tr>
+<td><code>serializedValue</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>Not used for tests: turning serialized text back into input data would need a parser per media type. No effect on calls.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>The first request-body example becomes a generated test when it matches its schema. Mismatched examples are skipped and named in the report.</td>
+</tr>
+<tr>
+<td><code>externalValue</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Not fetched: the generator makes no network calls for referenced content (the same policy as remote <code>$ref</code>s). No effect on calls.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="link-object">Link Object<a class="headerlink" href="#link-object" title="Anchor link to this section">&para;</a></h2>
+<p>Links describe how one response feeds the next call. The agent calling the tools chains them
+itself, so none of these fields is used.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>operationRef</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Navigation hint for clients.</td>
+</tr>
+<tr>
+<td><code>operationId</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Navigation hint for clients.</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Navigation hint for clients.</td>
+</tr>
+<tr>
+<td><code>requestBody</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Navigation hint for clients.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>server</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Navigation hint for clients.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="header-object">Header Object<a class="headerlink" href="#header-object" title="Anchor link to this section">&para;</a></h2>
+<p>Header Objects describe response headers and multipart part headers. Response headers are returned
+as received, and part headers are not sent (see <a href="#encoding-object">Encoding Object</a>), so the
+declarations themselves are not used.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>deprecated</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>style</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>explode</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>example</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Not used.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>items</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>collectionFormat</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Removed; OpenAPI 3 headers always use <code>style: simple</code>.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>maximum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>exclusiveMaximum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>minimum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>exclusiveMinimum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>maxLength</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>minLength</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>maxItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>minItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>uniqueItems</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>enum</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>multipleOf</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved into <code>schema</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tag-object">Tag Object<a class="headerlink" href="#tag-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation grouping.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>Documentation grouping.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation grouping.</td>
+</tr>
+<tr>
+<td><code>externalDocs</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>Documentation grouping.</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>Documentation grouping.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reference-object">Reference Object<a class="headerlink" href="#reference-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$ref</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>In-document <code>#/</code> pointers and relative file references are inlined; a cycle is cut into a permissive object (see <a href="../nw-connector-builder-codegen/#recursive-schemas">recursive schemas</a>). Absolute URLs are rejected, and so are relative file references when the spec itself was fetched by URL: fetching more documents would open the build to SSRF and supply-chain risks.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>Dropped during resolution; the target's text is used. Documentation only.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>As <code>summary</code>. Parameter descriptions shown to the caller come from the target.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="schema-object">Schema Object<a class="headerlink" href="#schema-object" title="Anchor link to this section">&para;</a></h2>
+<p>Generated actions have a flat contract: each top-level parameter or body property is one typed
+argument. Type, enum and range constraints at that level are enforced by the input model before the
+call. Below that level (nested objects, array items, composition keywords) the value is passed
+through as given and the upstream API validates it. Output fields are not typed.</p>
+<h3 id="oas-specific-schema-fields">OAS-specific Schema fields<a class="headerlink" href="#oas-specific-schema-fields" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nullable</code></td>
+<td>3.0</td>
+<td>Partial</td>
+<td>Accepted, but an argument set to <code>null</code> is treated as unset and never sent, so an explicit <code>null</code> cannot be sent. Optional arguments already accept <code>null</code>.</td>
+</tr>
+<tr>
+<td><code>discriminator</code></td>
+<td>2.0, 3.0+</td>
+<td>Skipped</td>
+<td><code>oneOf</code> / <code>anyOf</code> bodies are a free-form object, so the discriminator has nothing to select. The 2.0 string form is converted to <code>{propertyName: ...}</code>, so the schema stays valid. Not planned.</td>
+</tr>
+<tr>
+<td><code>readOnly</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Top-level properties of a flattened body marked <code>readOnly</code> are left out. Nested <code>readOnly</code> properties are not removed.</td>
+</tr>
+<tr>
+<td><code>writeOnly</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Only matters for responses, whose fields are not typed.</td>
+</tr>
+<tr>
+<td><code>xml</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>XML bodies are passed as a string the caller writes, so XML naming rules are not applied.</td>
+</tr>
+<tr>
+<td><code>externalDocs</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>example</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Schema-level examples are not used; generated tests use media type examples.</td>
+</tr>
+<tr>
+<td><code>deprecated</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>The property is still offered and sent.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution. 3.1+ schemas may carry other unknown keywords; they are ignored.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="json-schema-keywords">JSON Schema keywords<a class="headerlink" href="#json-schema-keywords" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Keyword</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>$id</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>A <code>$ref</code> to a schema's <code>$id</code> URI is treated as a remote reference and rejects the spec. A <code>$id</code> nobody references is harmless.</td>
+</tr>
+<tr>
+<td><code>$schema</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Not read; the default OAS dialect is assumed.</td>
+</tr>
+<tr>
+<td><code>$ref</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>JSON pointer and relative file references are inlined (see <a href="#reference-object">Reference Object</a>). In 3.1+ a <code>$ref</code>'s sibling keywords should apply too, but they are dropped during resolution and only the target is used.</td>
+</tr>
+<tr>
+<td><code>$anchor</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>A <code>$ref: "#name"</code> anchor reference cannot be resolved and fails the build.</td>
+</tr>
+<tr>
+<td><code>$dynamicRef</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Not resolved; the keyword is ignored and the schema is typed from its other keywords.</td>
+</tr>
+<tr>
+<td><code>$dynamicAnchor</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>As <code>$dynamicRef</code>.</td>
+</tr>
+<tr>
+<td><code>$vocabulary</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>Only meaningful in meta-schemas.</td>
+</tr>
+<tr>
+<td><code>$comment</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>A comment.</td>
+</tr>
+<tr>
+<td><code>$defs</code></td>
+<td>3.1+</td>
+<td>Covered</td>
+<td>Reached through JSON pointer references such as <code>#/components/schemas/A/$defs/B</code>.</td>
+</tr>
+<tr>
+<td><code>allOf</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>On an object request body, the parts are merged and flattened into arguments. Elsewhere the value is typed <code>Any</code> and passed through.</td>
+</tr>
+<tr>
+<td><code>anyOf</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Typed <code>Any</code> (a whole body becomes a free-form object); the upstream API validates. A flat contract cannot express alternatives.</td>
+</tr>
+<tr>
+<td><code>oneOf</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>As <code>anyOf</code>.</td>
+</tr>
+<tr>
+<td><code>not</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>if</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>then</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>else</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>dependentSchemas</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>prefixItems</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the array is typed from <code>items</code>, or <code>list[Any]</code>.</td>
+</tr>
+<tr>
+<td><code>items</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Types the array (<code>list[str]</code>, <code>list[int]</code>, ...). Item objects are <code>dict</code>, and constraints on items are not enforced.</td>
+</tr>
+<tr>
+<td><code>contains</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Top-level properties of an object request body become one argument each. Nested objects are free-form <code>dict</code> arguments, so their properties are not shown or checked.</td>
+</tr>
+<tr>
+<td><code>patternProperties</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>additionalProperties</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>An object with only <code>additionalProperties</code> is a free-form <code>dict</code>. A flattened body accepts only its declared properties, so extra properties cannot be sent. A cut recursive <code>$ref</code> becomes an object with <code>additionalProperties: true</code>.</td>
+</tr>
+<tr>
+<td><code>propertyNames</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>unevaluatedItems</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>unevaluatedProperties</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>string</code>, <code>integer</code>, <code>number</code>, <code>boolean</code>, <code>array</code> and <code>object</code> map to <code>str</code>, <code>int</code>, <code>float</code>, <code>bool</code>, <code>list[...]</code> and <code>dict</code>. A 3.1 type array with <code>"null"</code> becomes the single type plus nullable. A union of several types becomes <code>anyOf</code> and is typed <code>Any</code>.</td>
+</tr>
+<tr>
+<td><code>enum</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>String, integer and boolean enums are enforced as a <code>Literal</code>; <code>null</code> members are dropped. Number (float) enums are advertised in the tool schema but not enforced, since a <code>Literal</code> cannot hold floats. Mixed-type enums are not enforced or advertised.</td>
+</tr>
+<tr>
+<td><code>const</code></td>
+<td>3.1+</td>
+<td>Partial</td>
+<td>A string, integer or boolean <code>const</code> is enforced as a one-value <code>Literal</code>. Object and array values are ignored.</td>
+</tr>
+<tr>
+<td><code>multipleOf</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on <code>integer</code> and <code>number</code> arguments.</td>
+</tr>
+<tr>
+<td><code>maximum</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on <code>integer</code> and <code>number</code> arguments.</td>
+</tr>
+<tr>
+<td><code>exclusiveMaximum</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced in both forms: the 2.0/3.0 boolean beside <code>maximum</code> and the 3.1+ number.</td>
+</tr>
+<tr>
+<td><code>minimum</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on <code>integer</code> and <code>number</code> arguments.</td>
+</tr>
+<tr>
+<td><code>exclusiveMinimum</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced in both forms, as <code>exclusiveMaximum</code>.</td>
+</tr>
+<tr>
+<td><code>maxLength</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on string arguments.</td>
+</tr>
+<tr>
+<td><code>minLength</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on string arguments.</td>
+</tr>
+<tr>
+<td><code>pattern</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Advertised in the tool schema, not enforced: spec patterns are ECMA-262 regular expressions, which Python does not always read the same way, and the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>maxItems</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on array arguments.</td>
+</tr>
+<tr>
+<td><code>minItems</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Enforced on array arguments.</td>
+</tr>
+<tr>
+<td><code>uniqueItems</code></td>
+<td>2.0, 3.0+</td>
+<td>Skipped</td>
+<td>Not enforced or advertised; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>maxContains</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>minContains</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>maxProperties</code></td>
+<td>2.0, 3.0+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>minProperties</code></td>
+<td>2.0, 3.0+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Required properties of a required body become required arguments.</td>
+</tr>
+<tr>
+<td><code>dependentRequired</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Advertised in the tool schema, not enforced. <code>binary</code> and <code>byte</code> mark a base64 argument that is decoded to bytes before sending.</td>
+</tr>
+<tr>
+<td><code>contentEncoding</code></td>
+<td>3.1+</td>
+<td>Partial</td>
+<td><code>base64</code> and <code>base64url</code> mark an argument decoded to bytes before sending; padding is optional for both. Other encodings are not decoded.</td>
+</tr>
+<tr>
+<td><code>contentMediaType</code></td>
+<td>3.1+</td>
+<td>Covered</td>
+<td>A media type that is not text, JSON or XML marks a base64 argument decoded to bytes before sending.</td>
+</tr>
+<tr>
+<td><code>contentSchema</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the encoded content is passed through as a string.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Titles are removed from the tool schema; argument names already carry them.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The argument's description: first sentence, capped at 90 characters.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The argument's default value.</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>Schema-level examples are not used.</td>
+</tr>
+<tr>
+<td><code>definitions</code></td>
+<td>3.1+</td>
+<td>Covered</td>
+<td>As <code>$defs</code>: reached through JSON pointer references.</td>
+</tr>
+<tr>
+<td><code>dependencies</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Ignored; the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>$recursiveRef</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>Not resolved; ignored as <code>$dynamicRef</code>.</td>
+</tr>
+<tr>
+<td><code>$recursiveAnchor</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>As <code>$recursiveRef</code>.</td>
+</tr>
+<tr>
+<td>Boolean schema (<code>true</code> / <code>false</code>)</td>
+<td>3.1+</td>
+<td>Covered</td>
+<td>Accepted as a property schema or a parameter's <code>schema</code>, typed <code>Any</code> (free-form).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-type-formats">Data type formats<a class="headerlink" href="#data-type-formats" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>int32</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>int</code>; the format is advertised. Range is not checked.</td>
+</tr>
+<tr>
+<td><code>int64</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>int</code>; the format is advertised.</td>
+</tr>
+<tr>
+<td><code>float</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>float</code>; the format is advertised.</td>
+</tr>
+<tr>
+<td><code>double</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>float</code>; the format is advertised.</td>
+</tr>
+<tr>
+<td><code>byte</code></td>
+<td>2.0, 3.0</td>
+<td>Covered</td>
+<td>The caller passes base64, which is decoded before sending.</td>
+</tr>
+<tr>
+<td><code>binary</code></td>
+<td>2.0, 3.0</td>
+<td>Covered</td>
+<td>The caller passes base64, which is decoded before sending.</td>
+</tr>
+<tr>
+<td><code>date</code></td>
+<td>2.0, 3.0</td>
+<td>Partial</td>
+<td><code>str</code>; the format is advertised, not validated.</td>
+</tr>
+<tr>
+<td><code>date-time</code></td>
+<td>2.0, 3.0</td>
+<td>Partial</td>
+<td><code>str</code>; the format is advertised, not validated.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>A UI hint. Advertised as a format.</td>
+</tr>
+<tr>
+<td><code>type: file</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes <code>type: string, format: binary</code> wherever it appears. On <code>formData</code> parameters it also makes the body multipart.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="discriminator-object">Discriminator Object<a class="headerlink" href="#discriminator-object" title="Anchor link to this section">&para;</a></h2>
+<p>Bodies and values built with <code>oneOf</code> / <code>anyOf</code> are free-form (see
+<a href="#json-schema-keywords">JSON Schema keywords</a>), so there is nothing for a discriminator to select.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>propertyName</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Ignored; the caller sets the property in the free-form value, and the upstream API validates.</td>
+</tr>
+<tr>
+<td><code>mapping</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>As <code>propertyName</code>.</td>
+</tr>
+<tr>
+<td><code>defaultMapping</code></td>
+<td>3.2</td>
+<td>Skipped</td>
+<td>As <code>propertyName</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="xml-object">XML Object<a class="headerlink" href="#xml-object" title="Anchor link to this section">&para;</a></h2>
+<p>XML bodies are a string the caller writes, so XML mapping rules are not applied.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nodeType</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>XML presentation of a JSON-modeled schema.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>As <code>nodeType</code>.</td>
+</tr>
+<tr>
+<td><code>namespace</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>As <code>nodeType</code>.</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>As <code>nodeType</code>.</td>
+</tr>
+<tr>
+<td><code>attribute</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>As <code>nodeType</code>.</td>
+</tr>
+<tr>
+<td><code>wrapped</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>As <code>nodeType</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="security-scheme-object">Security Scheme Object<a class="headerlink" href="#security-scheme-object" title="Anchor link to this section">&para;</a></h2>
+<p>The connector has one default scheme: a global self-managed scheme (API key, bearer, basic) if
+there is one, else the one most operations use; host-supplied OAuth2 / OpenID Connect schemes are
+picked only when there is no self-managed one. Operations that need another presentable scheme send
+it through a named entry under <code>auth_schemes:</code>
+(see <a href="../nw-connector-builder-scope/#per-action-auth-schemes">per-action auth schemes</a>).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td><code>apiKey</code>, <code>http</code>, <code>oauth2</code> and <code>openIdConnect</code> are supported (see the variants below). <code>mutualTLS</code> is not.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Documentation only.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The header or query parameter name for an <code>apiKey</code>. A parameter that repeats the credential (<code>api_key</code>, <code>token</code>, and similar names) is removed from the action's arguments, and the report notes it.</td>
+</tr>
+<tr>
+<td><code>in</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td><code>header</code> and <code>query</code> are supported; <code>cookie</code> is not.</td>
+</tr>
+<tr>
+<td><code>scheme</code></td>
+<td>3.0+</td>
+<td>Partial</td>
+<td><code>bearer</code> and <code>basic</code> are supported. Other HTTP schemes (<code>digest</code>, <code>negotiate</code>, ...) are not.</td>
+</tr>
+<tr>
+<td><code>bearerFormat</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>A hint about the token; the token is sent as given.</td>
+</tr>
+<tr>
+<td><code>flows</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Any flow makes the scheme a host-supplied bearer token (see <a href="#oauth-flows-object">OAuth Flows Object</a>).</td>
+</tr>
+<tr>
+<td><code>openIdConnectUrl</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>The scheme is a host-supplied bearer token; Node Wire never runs discovery.</td>
+</tr>
+<tr>
+<td><code>oauth2MetadataUrl</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>Documentation for the host, which obtains the token.</td>
+</tr>
+<tr>
+<td><code>deprecated</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>The scheme is still used.</td>
+</tr>
+<tr>
+<td><code>flow</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td><code>implicit</code>, <code>password</code>, <code>application</code> and <code>accessCode</code> become the 3.0 <code>implicit</code>, <code>password</code>, <code>clientCredentials</code> and <code>authorizationCode</code> flows.</td>
+</tr>
+<tr>
+<td><code>authorizationUrl</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved onto the converted flow.</td>
+</tr>
+<tr>
+<td><code>tokenUrl</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved onto the converted flow.</td>
+</tr>
+<tr>
+<td><code>scopes</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved onto the converted flow.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="security-scheme-variants">Security scheme variants<a class="headerlink" href="#security-scheme-variants" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>basic</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes <code>type: http, scheme: basic</code>.</td>
+</tr>
+<tr>
+<td><code>apiKey</code>, <code>in: header</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>static_token</code> provider sending <code>&lt;ID&gt;_API_KEY</code> in the named header.</td>
+</tr>
+<tr>
+<td><code>apiKey</code>, <code>in: query</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td><code>apikey_query</code> provider adding <code>&lt;ID&gt;_API_KEY</code> to the query string.</td>
+</tr>
+<tr>
+<td><code>apiKey</code>, <code>in: cookie</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>No cookie auth provider yet. Operations that only accept it are soft-dropped. Candidate for later.</td>
+</tr>
+<tr>
+<td><code>http</code>, <code>scheme: basic</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td><code>static_token</code> provider sending <code>Authorization: Basic</code> with <code>&lt;ID&gt;_BASIC_AUTH</code>, base64-encoded.</td>
+</tr>
+<tr>
+<td><code>http</code>, <code>scheme: bearer</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td><code>static_token</code> provider sending <code>Authorization: Bearer &lt;ID&gt;_TOKEN</code>.</td>
+</tr>
+<tr>
+<td><code>http</code>, other schemes</td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td><code>digest</code> and similar schemes are challenge-response exchanges, not a fixed header. Operations that only accept them are soft-dropped. Not planned.</td>
+</tr>
+<tr>
+<td><code>oauth2</code> (single <code>flow</code>)</td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Becomes a <code>flows</code> object (see <code>flow</code> above).</td>
+</tr>
+<tr>
+<td><code>oauth2</code> (<code>flows</code>)</td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Host-supplied bearer: <code>&lt;ID&gt;_ACCESS_TOKEN</code> is sent as <code>Authorization: Bearer</code>. Node Wire never obtains or refreshes it.</td>
+</tr>
+<tr>
+<td><code>openIdConnect</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Host-supplied bearer, as <code>oauth2</code>.</td>
+</tr>
+<tr>
+<td><code>mutualTLS</code></td>
+<td>3.1+</td>
+<td>Skipped</td>
+<td>A client certificate is configured on the TLS connection, not sent as a header or parameter, and the runtime has no per-connector TLS client configuration. Operations that only accept it are soft-dropped. Candidate for later.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="oauth-flows-object">OAuth Flows Object<a class="headerlink" href="#oauth-flows-object" title="Anchor link to this section">&para;</a></h2>
+<p>Every flow maps to the same host-supplied bearer token, so which flows are declared does not change
+the generated connector.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>implicit</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Host-supplied bearer.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Host-supplied bearer.</td>
+</tr>
+<tr>
+<td><code>clientCredentials</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Host-supplied bearer.</td>
+</tr>
+<tr>
+<td><code>authorizationCode</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Host-supplied bearer.</td>
+</tr>
+<tr>
+<td><code>deviceAuthorization</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Host-supplied bearer.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="oauth-flow-object">OAuth Flow Object<a class="headerlink" href="#oauth-flow-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>authorizationUrl</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Copied into the build report's auth notes for the host. Node Wire never calls it.</td>
+</tr>
+<tr>
+<td><code>deviceAuthorizationUrl</code></td>
+<td>3.2</td>
+<td>Not needed</td>
+<td>Node Wire never calls it; the host obtains the token. Not copied into the report.</td>
+</tr>
+<tr>
+<td><code>tokenUrl</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Copied into the build report's auth notes for the host. Node Wire never calls it.</td>
+</tr>
+<tr>
+<td><code>refreshUrl</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Node Wire never refreshes the token; the host does.</td>
+</tr>
+<tr>
+<td><code>scopes</code></td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Node Wire does not request tokens, so it does not request scopes. The host must obtain a token with the right scopes. By design, not planned.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>3.0+</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scopes-object">Scopes Object<a class="headerlink" href="#scopes-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{name}</code></td>
+<td>2.0</td>
+<td>Converted</td>
+<td>Moved to the converted flow's <code>scopes</code>.</td>
+</tr>
+<tr>
+<td><code>^x-</code></td>
+<td>2.0</td>
+<td>Not needed</td>
+<td>Removed before resolution.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="security-requirement-object">Security Requirement Object<a class="headerlink" href="#security-requirement-object" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{name}</code></td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Alternatives (OR): the operation uses the connector default if it is listed, else the first presentable alternative through <code>auth_schemes:</code>. <code>{}</code> (optional auth) still sends the default credential, and so does an operation with no <code>security</code> anywhere when the connector has a scheme. <code>security: []</code> makes the action anonymous. A requirement naming several schemes (AND) sends all of them when each puts its credential in a different place; two that both need <code>Authorization</code> soft-drop the operation with that reason. An operation whose alternatives are all unsupported is soft-dropped. Scope and role lists are not used. Not covered: 3.2 keys given as a URI of a Security Scheme are not resolved, so that alternative is treated as unsupported.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="specification-extensions">Specification extensions<a class="headerlink" href="#specification-extensions" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>^x-</code> on any object</td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Removed before <code>$ref</code> resolution; the generator reads none of them. Property and header names that start with <code>x-</code> are names, not extensions, and are kept. Example data is left as is.</td>
+</tr>
+<tr>
+<td>Unprefixed unknown keywords in a Schema</td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>Ignored.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cross-cutting-rules">Cross-cutting rules<a class="headerlink" href="#cross-cutting-rules" title="Anchor link to this section">&para;</a></h2>
+<h3 id="http-methods">HTTP methods<a class="headerlink" href="#http-methods" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>A declared request body is sent in 3.1+ documents and ignored in 3.0.</td>
+</tr>
+<tr>
+<td><code>put</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td></td>
+</tr>
+<tr>
+<td><code>post</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td></td>
+</tr>
+<tr>
+<td><code>delete</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>As <code>get</code>.</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td></td>
+</tr>
+<tr>
+<td><code>head</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>As <code>get</code>.</td>
+</tr>
+<tr>
+<td><code>patch</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td></td>
+</tr>
+<tr>
+<td><code>trace</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td></td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Sent as <code>QUERY</code>.</td>
+</tr>
+<tr>
+<td>Any other method (<code>additionalOperations</code>)</td>
+<td>3.2</td>
+<td>Covered</td>
+<td>Sent with the method name in upper case.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ref-sibling-rules"><code>$ref</code> sibling rules<a class="headerlink" href="#ref-sibling-rules" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Context</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reference Object siblings</td>
+<td>2.0, 3.0+</td>
+<td>Not needed</td>
+<td>Dropped; the target is used. In 3.1+ only <code>summary</code> and <code>description</code> may override, and both are documentation.</td>
+</tr>
+<tr>
+<td>Schema <code>$ref</code> siblings</td>
+<td>3.1+</td>
+<td>Partial</td>
+<td>Dropped; only the target schema is used, so a sibling such as <code>maxLength</code> beside a <code>$ref</code> is not applied.</td>
+</tr>
+<tr>
+<td>Path Item <code>$ref</code> siblings</td>
+<td>2.0, 3.0+</td>
+<td>Partial</td>
+<td>Dropped; the referenced Path Item replaces the local fields, including any operations defined next to the <code>$ref</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="server-url-templating">Server URL templating<a class="headerlink" href="#server-url-templating" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Template variables in <code>url</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Replaced with each variable's <code>default</code>.</td>
+</tr>
+<tr>
+<td>Each variable has a <code>default</code></td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Required: a root server variable without one fails the build.</td>
+</tr>
+<tr>
+<td><code>enum</code> values</td>
+<td>3.0+</td>
+<td>Skipped</td>
+<td>Not offered as a choice; the default is used.</td>
+</tr>
+<tr>
+<td>Relative server URLs</td>
+<td>3.0+</td>
+<td>Partial</td>
+<td>Resolved against the fetch URL for a spec fetched over HTTP(S), root <code>servers</code> only. For a local file, pass <code>--base-url</code>. A relative operation-level server is ignored with a note.</td>
+</tr>
+<tr>
+<td>No query or fragment in <code>url</code></td>
+<td>3.1+</td>
+<td>Not needed</td>
+<td>A spec rule; a URL that breaks it is used as written.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="path-templating">Path templating<a class="headerlink" href="#path-templating" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{name}</code> marks a replaceable segment</td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>Filled from the path parameter, percent-encoded.</td>
+</tr>
+<tr>
+<td>Every template expression has a path parameter</td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Checked by validation; an operation without one is soft-dropped as invalid.</td>
+</tr>
+<tr>
+<td>Path values contain no unescaped <code>/</code>, <code>?</code> or <code>#</code></td>
+<td>3.1+</td>
+<td>Covered</td>
+<td>Path values are fully percent-encoded, so <code>/</code> cannot add a segment. With <code>allowReserved</code>, reserved characters other than <code>&amp;</code>, <code>=</code> and <code>#</code> are kept, as the spec allows.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="response-codes">Response codes<a class="headerlink" href="#response-codes" title="Anchor link to this section">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Versions</th>
+<th>Status</th>
+<th>How it is handled / why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Explicit status codes</td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The lowest <code>2xx</code> is the success response.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>2.0, 3.0+</td>
+<td>Covered</td>
+<td>The success response only when no <code>2xx</code> is declared.</td>
+</tr>
+<tr>
+<td>Ranges <code>1XX</code>–<code>5XX</code></td>
+<td>3.0+</td>
+<td>Partial</td>
+<td><code>2XX</code> is read after explicit <code>2xx</code> codes. Other ranges are not read; error replies raise by status.</td>
+</tr>
+<tr>
+<td>Explicit code overrides its range</td>
+<td>3.0+</td>
+<td>Covered</td>
+<td>Explicit <code>2xx</code> codes are tried before <code>2XX</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="not-covered-and-why">Not covered, and why<a class="headerlink" href="#not-covered-and-why" title="Anchor link to this section">&para;</a></h2>
+<p>Every <strong>Skipped</strong> row above, grouped. "Candidate for later" means the gap could be closed without
+changing the generator's flat-contract or host-supplied-auth design.</p>
+<p><strong>Inbound traffic</strong> (the API calls you; a connector only makes outbound calls)</p>
+<ul>
+<li><code>webhooks</code> and <code>callbacks</code>: requests the API sends, not calls a connector makes. Noted in the
+  build report. Not planned.</li>
+</ul>
+<p><strong>Server choice</strong></p>
+<ul>
+<li>Server variable <code>enum</code>: the default is used. Pick another value with <code>base_url</code> in
+  <code>connectors.yaml</code> or <code>--base-url</code>. Not planned.</li>
+</ul>
+<p><strong>Parameters and bodies</strong></p>
+<ul>
+<li>Swagger 2.0 <code>collectionFormat: tsv</code>: OpenAPI 3 has no equivalent; an optional parameter is
+  left out, a required one soft-drops the operation. Not planned.</li>
+<li>Encoding Object <code>style</code>, <code>explode</code>, <code>allowReserved</code>: form fields always use form/explode, objects
+  as JSON text. Candidate for later.</li>
+<li>Encoding Object <code>headers</code>: per-part multipart headers are not sent. Candidate for later.</li>
+<li>3.2 sequential and streaming media (<code>itemSchema</code>, <code>prefixEncoding</code>, <code>itemEncoding</code>, nested
+  Encoding <code>encoding</code> / <code>prefixEncoding</code> / <code>itemEncoding</code>): responses are read whole, and requests
+  are not serialized as sequences. Not planned.</li>
+</ul>
+<p><strong>Schema structure below the top level</strong> (flat tool contract; the upstream API validates)</p>
+<ul>
+<li><code>anyOf</code>, <code>oneOf</code>, <code>not</code>, <code>discriminator</code> (<code>propertyName</code>, <code>mapping</code>, 3.2 <code>defaultMapping</code>):
+  typed <code>Any</code>, or a free-form <code>body</code> object. Not planned.</li>
+<li><code>if</code> / <code>then</code> / <code>else</code>, <code>dependentSchemas</code>, <code>dependentRequired</code>, <code>dependencies</code>, <code>prefixItems</code>,
+  <code>contains</code>, <code>minContains</code>, <code>maxContains</code>, <code>patternProperties</code>, <code>propertyNames</code>,
+  <code>unevaluatedItems</code>, <code>unevaluatedProperties</code>, <code>uniqueItems</code>, <code>minProperties</code>, <code>maxProperties</code>,
+  <code>contentSchema</code>: ignored. Not planned.</li>
+<li><code>$id</code>, <code>$anchor</code>, <code>$dynamicRef</code>, <code>$dynamicAnchor</code>, <code>$recursiveRef</code>, <code>$recursiveAnchor</code>:
+  references by URI or anchor are not resolved. A <code>$ref</code> to an <code>$id</code> URI is rejected as remote, and
+  a <code>$ref</code> to an anchor fails the build. Candidate for later.</li>
+<li><code>$schema</code> and <code>jsonSchemaDialect</code>: the default OAS dialect is assumed. Not planned.</li>
+<li>3.2 <code>$self</code>: relative references resolve against the file or fetch URL instead. Not planned.</li>
+</ul>
+<p><strong>Auth</strong> (Node Wire presents credentials; it does not run auth protocols)</p>
+<ul>
+<li><code>mutualTLS</code>: a client certificate is TLS configuration, not a header or parameter, and the
+  runtime has no per-connector TLS client settings. Candidate for later.</li>
+<li><code>apiKey</code> in <code>cookie</code>: no cookie auth provider. Candidate for later.</li>
+<li><code>http</code> schemes other than <code>bearer</code> and <code>basic</code> (<code>digest</code>, ...): challenge-response, not a fixed
+  header. Not planned.</li>
+<li>OAuth2 token acquisition and <code>scopes</code>: the host supplies the token by design. Not planned.</li>
+<li>3.2 security requirement keys given as a URI of a Security Scheme: not resolved, so the
+  alternative is treated as unsupported. Candidate for later.</li>
+</ul>
+<p><strong>Examples</strong> (no effect on calls; only generated tests use examples)</p>
+<ul>
+<li>Example <code>serializedValue</code>: would need a parser per media type to turn back into input data.
+  Not planned.</li>
+<li>Example <code>externalValue</code>: not fetched, the same policy as remote <code>$ref</code>s. Not planned.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../nw-connector-builder-scope/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Generator Contract">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Generator Contract
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../nw-connector-builder-codegen/" class="md-footer__link md-footer__link--next" aria-label="Next: Codegen Behaviour">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Codegen Behaviour
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/AOT-Technologies/node-wire" target="_blank" rel="noopener" title="Node Wire on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://www.linkedin.com/company/aot-technologies" target="_blank" rel="noopener" title="AOT Technologies on LinkedIn" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.path", "navigation.top", "navigation.footer", "toc.follow", "search.highlight", "search.suggest", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

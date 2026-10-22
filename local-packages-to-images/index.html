@@ -1341,6 +1341,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../cli/openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
         
   
@@ -2899,7 +2927,7 @@ SPDX-License-Identifier: Apache-2.0
 <li>Docker installed and running</li>
 <li>Build tooling installed:</li>
 </ul>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>build<span class="w"> </span>cython<span class="w"> </span>wheel
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span>build<span class="w">   </span><span class="c1"># or install uv; the script uses `uv build` when present</span>
 </span></code></pre></div>
 <p>Run all commands from the repository root. The build context must be the repository root (<code>.</code>) so the Dockerfiles' <code>COPY src/</code> and <code>COPY config/</code> resolve.</p>
 <hr />
@@ -2913,13 +2941,12 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>packages/connectors/smtp<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>packages/connectors/stripe
 </span></code></pre></div>
-<p>The script (<code>scripts/build-packages.sh</code> in default mode, not <code>--all</code>):</p>
+<p>The script (<code>scripts/build-packages.sh</code>):</p>
 <ul>
-<li>builds host wheels and Linux-compatible wheels (via a local <code>nw-wheel-builder:local</code> Docker image — not published to a registry; layer-cached after the first build),</li>
+<li>builds one pure-Python (<code>py3-none-any</code>) wheel per package, which installs in the images and on your machine alike,</li>
 <li>writes artifacts under each package's <code>dist/</code> folder,</li>
-<li>fails if any <code>.py</code> source files leak into a wheel.</li>
+<li>fails if a wheel is not <code>py3-none-any</code> or contains compiled <code>.so</code>/<code>.pyd</code> files.</li>
 </ul>
-<p>Use <code>--linux-only</code> when you only need container wheels, or <code>--host-only</code> to skip Docker. For optional local <code>cibuildwheel</code> builds (broader wheel matrix on your host), see <a href="../packaging/#optional-broader-wheels-with-cibuildwheel-all">Packaging — Optional: broader wheels</a>.</p>
 <hr />
 <h2 id="confirm-wheel-artifacts-exist">Confirm wheel artifacts exist<a class="headerlink" href="#confirm-wheel-artifacts-exist" title="Anchor link to this section">&para;</a></h2>
 <p>Quick check (example for SMTP):</p>

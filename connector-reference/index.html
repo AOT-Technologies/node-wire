@@ -1540,6 +1540,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../cli/openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
         
   
@@ -2870,7 +2898,24 @@ the factory and registry APIs, how to call a connector in-process, and the catal
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">grpc</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcp</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="c1"># connector-specific keys passed via SecretProvider or connector __init__</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="c1"># REST (OpenAPI-generated) connectors also read:</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">base_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://api.example.com</span><span class="w">   </span><span class="c1"># overrides the spec's server</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="nv">static_token</span><span class="p p-Indicator">,</span><span class="nt"> secret_key</span><span class="p">:</span><span class="w"> </span><span class="nv">EXAMPLE_TOKEN</span><span class="p p-Indicator">}</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">headers</span><span class="p">:</span><span class="w">                            </span><span class="c1"># sent on every request</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="nt">Client-Id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">${EXAMPLE_CLIENT_ID}</span>
 </span></code></pre></div>
+<p>Any string value can use <code>${VAR}</code> or <code>${VAR:default}</code>; it is replaced from the environment when
+the file loads.</p>
+<p><code>headers</code> are fixed headers a REST connector sends on every request, for APIs that need more than
+the credential, such as Twitch's <code>Client-Id</code>. They are not credentials: put those in <code>auth</code>, which
+wins over any header set here. <code>Authorization</code>, <code>Proxy-Authorization</code>, <code>Cookie</code>, <code>Host</code>,
+<code>Content-Type</code>, <code>Content-Length</code>, <code>Transfer-Encoding</code> and <code>Connection</code> are refused. A configured
+header also wins over an operation parameter of the same name. If a <code>${VAR}</code> is still unresolved
+when the connector makes a call, because VAR was not set, the call fails with an error that names
+VAR instead of sending the placeholder. Tenant config documents (<code>tenants.yaml</code>, <code>/v1</code>) can set
+<code>headers</code> too, top level or under <code>config</code>; their values are used as written, with no <code>${VAR}</code>
+substitution, so give the value itself there. <code>nw gen-all --header</code> and <code>nw gen-stacklok --header</code>
+write this key for a generated connector. Needs <code>node-wire-runtime</code> 1.1.0 or later.</p>
 <h2 id="connectorfactory-api"><code>ConnectorFactory</code> API<a class="headerlink" href="#connectorfactory-api" title="Anchor link to this section">&para;</a></h2>
 <table>
 <thead>

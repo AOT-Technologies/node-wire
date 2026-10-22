@@ -16,7 +16,7 @@
         <link rel="prev" href="../nw-connector-builder/">
       
       
-        <link rel="next" href="../nw-connector-builder-codegen/">
+        <link rel="next" href="../openapi-coverage/">
       
       
         
@@ -1410,6 +1410,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#codegen" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1545,6 +1556,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2684,6 +2723,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#requests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#codegen" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2908,7 +2958,15 @@ the pipeline, the build report), see the how-to, <a href="../nw-connector-builde
   <code>assert_safe_destination</code>, no redirects followed)</li>
 <li>In-house Swagger 2.0 → OpenAPI 3.0 normalization at the front door</li>
 <li>Local relative <code>$ref</code>s and in-document <code>#/</code> refs</li>
-<li>Structural + semantic validation via <code>prance</code> + <code>openapi-spec-validator</code></li>
+<li>Swagger 2.0, OpenAPI 3.0, 3.1 and 3.2. Every field of each version, and how it is handled, is
+  listed in <a href="../openapi-coverage/">OpenAPI coverage</a></li>
+<li>Recursive schemas (<code>$ref</code> cycles): the edge that re-enters a schema becomes a permissive object,
+  and everything else is inlined as usual (see <a href="../nw-connector-builder-codegen/#recursive-schemas">codegen behaviour</a>)</li>
+<li><code>x-</code> specification extensions are removed before <code>$ref</code> resolution: the generator reads none of
+  them, and a dangling <code>$ref</code> inside an unused extension no longer fails the build</li>
+<li>Structural + semantic validation via <code>prance</code> + <code>openapi-spec-validator</code>; an operation or
+  component that fails on its own is soft-dropped (or removed) instead of failing the whole
+  build — see <a href="../nw-connector-builder-codegen/#invalid-operations">codegen behaviour</a></li>
 </ul>
 <h3 id="auth">Auth<a class="headerlink" href="#auth" title="Anchor link to this section">&para;</a></h3>
 <p>The generator handles auth as follows:</p>
@@ -2927,6 +2985,11 @@ the pipeline, the build report), see the how-to, <a href="../nw-connector-builde
   <code>resolve_auth_provider</code>, which fails closed on an unknown name). A connector can therefore
   use more than one scheme; see <a href="#per-action-auth-schemes">Per-action auth schemes</a>.</li>
 <li>Anonymous connectors (no scheme, or only unsupported schemes present) build as <code>auth: none</code></li>
+<li>A spec that declares <strong>no</strong> auth can be given one with <code>--auth bearer|header:&lt;name&gt;|query:&lt;name&gt;</code>
+  (refused when the spec declares any scheme)</li>
+<li>Fixed non-credential headers an API needs on every call (Twitch's <code>Client-Id</code>) via
+  <code>--header NAME=VALUE</code>, written to <code>headers:</code> in <code>connectors.yaml</code> and sent by the runtime
+  (<code>node-wire-runtime</code> 1.1.0 or later, which the generated package then requires)</li>
 </ul>
 <h4 id="host-supplied-auth-tier">Host-supplied auth tier<a class="headerlink" href="#host-supplied-auth-tier" title="Anchor link to this section">&para;</a></h4>
 <p>Generated connectors follow the hand-written Slack ownership rule: the host obtains and rotates
@@ -2973,18 +3036,36 @@ the connector id and the credential kind, so two schemes of the same kind would 
 secret; when an extra scheme's secret name is already taken, it is qualified with the scheme name
 (<code>&lt;ID&gt;_&lt;SCHEME&gt;_ACCESS_TOKEN</code>, <code>&lt;ID&gt;_&lt;SCHEME&gt;_API_KEY</code>, …) and the first claimant keeps the short
 name.</p>
+<h3 id="requests">Requests<a class="headerlink" href="#requests" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li>Every HTTP method, including OpenAPI 3.2 <code>query</code> and <code>additionalOperations</code></li>
+<li>Every parameter location and style: path <code>simple</code> / <code>label</code> / <code>matrix</code>; query <code>form</code> /
+  <code>spaceDelimited</code> / <code>pipeDelimited</code> / <code>deepObject</code> and <code>allowReserved</code>; header <code>simple</code>; <code>cookie</code>;
+  3.2 <code>querystring</code>; parameters declared with <code>content</code> (sent as JSON text). Path-level parameters
+  are overridden by operation parameters with the same name and location</li>
+<li>Request bodies by media type: JSON, form and multipart object bodies become one argument per
+  property; text, XML and other media take one string (binary content base64-encoded); multipart
+  per-part <code>contentType</code> from the Encoding Object</li>
+<li>Responses: the lowest 2xx, else <code>2XX</code>, else <code>default</code> when no success response is declared</li>
+<li>Operation- and path-level <code>servers</code>: that operation is called at its own server's first entry
+  (<code>execute_rest(server_url=…)</code>) instead of the spec's base URL. A <code>base_url</code> override in
+  <code>connectors.yaml</code> still wins, so every operation goes to the operator's host</li>
+</ul>
 <h3 id="codegen">Codegen<a class="headerlink" href="#codegen" title="Anchor link to this section">&para;</a></h3>
 <p>The generated package provides the following:</p>
 <ul>
 <li>Actions discoverable via <code>@nw_action</code> on a generated <code>RestConnector</code> subclass (regex-scrapable
-  by <code>nw-mcp-builder</code>, matching the hand-written-connector convention)</li>
+  by <code>nw-mcp-builder</code>, matching the hand-written-connector convention); <code>deprecated</code> operations
+  are marked deprecated</li>
 <li>A shared, hardened REST executor (<code>node-wire-runtime</code>) owns base URL, path templating,
-  parameter placement, auth injection, SSRF checks, and error mapping</li>
-<li>Hybrid schema translation: <code>datamodel-code-generator</code> for request/response schemas, hand-rolled
-  per-operation input envelope with an <code>action: Literal</code> discriminator</li>
-<li>Non-JSON request bodies (form data, files, raw content) encoded by declared media type</li>
-<li>Typed output models from the lowest documented 2xx JSON response, falling back to a generic
-  response envelope when no schema is documented</li>
+  parameter placement and serialization, auth injection, SSRF checks, and error mapping</li>
+<li>Hand-rolled input models: one flat, typed field per parameter and top-level body property, with
+  an <code>action: Literal</code> discriminator. Schema constraints (<code>minimum</code> / <code>maximum</code> / <code>exclusive*</code>,
+  <code>multipleOf</code>, <code>minLength</code> / <code>maxLength</code>, <code>minItems</code> / <code>maxItems</code>, <code>enum</code>, <code>const</code>) are
+  enforced; <code>pattern</code> and <code>format</code> are advertised in the tool schema, not enforced. Nested
+  objects stay free-form (<code>dict</code>)</li>
+<li>Output: a permissive model for a JSON object success response, else a generic response
+  envelope (status, headers, body)</li>
 <li>A <code>declare_secret_shape()</code> call per generated package, so the config store accepts the
   connector's tenant secrets under <code>NW_SECRET_SHAPE_POLICY=enforce</code> without anyone editing the
   runtime's hard-coded registry</li>
@@ -2998,7 +3079,7 @@ name.</p>
 <p>The build gate runs the following checks:</p>
 <ul>
 <li>Offline schema/contract tests only: parse the spec's <code>example</code> into the generated model when
-  present, else synthesize one with <code>polyfactory</code></li>
+  present and valid against its own schema, else synthesize one with <code>polyfactory</code></li>
 <li>Generated tests ship with the connector (<code>packages/connectors/&lt;id&gt;/tests/</code>)</li>
 <li>Import smoke test + <code>pytest</code> on staged output is a hard gate — promote only happens on green</li>
 <li>Atomic two-phase promote into <code>src/node_wire_&lt;id&gt;/</code> and <code>packages/connectors/&lt;id&gt;/</code>; abort
@@ -3023,9 +3104,10 @@ name.</p>
   <code>OAuth2AuthProvider</code> are unchanged.</li>
 <li><strong>mutualTLS</strong> — genuinely unpresentable (a transport-layer client certificate, not a
   header/param); operations secured only by it are soft-dropped</li>
-<li><strong>Cookie-based API keys</strong> — no <code>name=value</code> cookie formatting in <code>StaticTokenAuthProvider</code> yet;
-  soft-dropped</li>
-<li><strong>AND-combined</strong> multi-scheme security (<code>security: [{a: [], b: []}]</code>) — soft-dropped</li>
+<li><strong>Cookie-based API keys</strong> — no cookie auth provider yet; soft-dropped</li>
+<li><strong>AND-combined</strong> security (<code>security: [{a: [], b: []}]</code>) is sent when each scheme puts its
+  credential in a different place (a bearer token plus an API-key header). Two schemes that both
+  need <code>Authorization</code>, or one unsupported scheme, soft-drop the operation</li>
 </ul>
 <p>(Host-supplied <code>oauth2</code> / <code>openIdConnect</code>, and multi-scheme connectors via per-action
 <code>auth_schemes:</code>, are in scope; see <a href="#auth">Auth</a>.)</p>
@@ -3034,12 +3116,16 @@ name.</p>
 <ul>
 <li><strong>Remote <code>$ref</code>s</strong> (absolute URLs) — rejected outright; the input document must be
   self-contained aside from local relative/<code>#/</code> refs</li>
-<li><strong>Path- or operation-level <code>servers</code> overrides</strong> — ignored; only the connector-level base URL
-  is used (noted in the build report when present)</li>
-<li>Uncommon parameter serialization: <code>deepObject</code> query style, non-<code>simple</code> path/header styles,
-  unsupported <code>collectionFormat</code> values (Swagger 2.0) — soft-dropped per operation</li>
-<li><code>in: cookie</code> parameters — soft-dropped per operation</li>
+<li><strong>Extra <code>servers</code> entries</strong> — only the first entry of each <code>servers</code> list is used. An
+  operation or path item with its own <code>servers</code> is called at its first entry (GitHub's release
+  asset uploads go to <code>uploads.github.com</code>), noted in the build report</li>
+<li><strong>Webhooks and callbacks</strong> — requests the API sends to you, not calls a connector makes; noted
+  in the build report</li>
+<li>Swagger 2.0 <code>collectionFormat: tsv</code> (no OpenAPI 3 equivalent) — the parameter is left out when
+  optional, the operation soft-dropped when required</li>
+<li>Sequential and streaming media types (3.2 <code>itemSchema</code>, <code>itemEncoding</code>, <code>prefixEncoding</code>)</li>
 </ul>
+<p>The full list, field by field, is <a href="../openapi-coverage/">OpenAPI coverage</a>.</p>
 <h3 id="behavior-not-generated">Behavior not generated<a class="headerlink" href="#behavior-not-generated" title="Anchor link to this section">&para;</a></h3>
 <p>The generator does not produce the following behavior:</p>
 <ul>
@@ -3065,9 +3151,9 @@ name.</p>
 <li>Publishing (CI allowlists, standalone MCP Docker image rows, and the
   <code>scripts/build-packages.sh</code> entry unless <code>nw gen-all</code> adds it) is a manual <strong>Tier 2/3</strong>
   checklist in <a href="../../packaging/">packaging.md</a> — the builder produces the runtime + package
-  skeleton, including <code>setup.py</code>, only</li>
+  skeleton only</li>
 <li>No deployment step: the builder stops at a promoted connector (+ optional MCP host); running
-  <code>thv</code>/ToolHive deploy or verify is manual — see <a href="../nw-mcp-builder/#platform-and-toolhive-wheels">nw-mcp-builder</a>
+  <code>thv</code>/ToolHive deploy or verify is manual — see <a href="../nw-mcp-builder/#docker">nw-mcp-builder</a>
   and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>. This was explicitly dropped from
   the companion <code>nw-cli</code> orchestrator's scope too; see <a href="../nw-cli/">nw-cli.md</a>.</li>
 </ul>
@@ -3142,13 +3228,13 @@ follow up on for the rest — not to silently produce a broken or partial connec
         
         
           
-          <a href="../nw-connector-builder-codegen/" class="md-footer__link md-footer__link--next" aria-label="Next: Codegen Behaviour">
+          <a href="../openapi-coverage/" class="md-footer__link md-footer__link--next" aria-label="Next: OpenAPI Coverage">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Codegen Behaviour
+                OpenAPI Coverage
               </div>
             </div>
             <div class="md-footer__button md-icon">

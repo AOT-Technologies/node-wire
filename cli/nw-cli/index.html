@@ -1529,6 +1529,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../nw-connector-builder-codegen/" class="md-nav__link">
         
   
@@ -2835,7 +2863,7 @@ SPDX-License-Identifier: Apache-2.0
 
 <h1 id="nw-cli">nw CLI<a class="headerlink" href="#nw-cli" title="Anchor link to this section">&para;</a></h1>
 <p><code>nw</code> is the unified CLI for turning an OpenAPI spec into a connector, wheels, an MCP host, and a Docker image. <code>gen-all</code> runs connector → wheel → MCP host → wire; the image is a separate <code>docker-build</code> step. It orchestrates <a href="../nw-connector-builder/"><code>nw-connector-builder</code></a>, <a href="../../packaging/"><code>scripts/build-packages.sh</code></a>, and <a href="../nw-mcp-builder/"><code>nw-mcp-builder</code></a> without replacing those tools.</p>
-<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. To run the image and check it lists its tools, see <a href="../nw-mcp-builder/#docker">nw-mcp-builder: Docker</a>. For manual ToolHive registration and the end-to-end agent path, see <a href="../nw-mcp-builder/#platform-and-toolhive-wheels">nw-mcp-builder</a> and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
+<p>ToolHive deploy/verify (<code>thv</code>) is <strong>out of scope</strong> — <code>nw</code> stops at <code>docker-build</code>. To run the image and check it lists its tools, see <a href="../nw-mcp-builder/#docker">nw-mcp-builder: Docker</a>. For manual ToolHive registration and the end-to-end agent path, see <a href="../nw-mcp-builder/#docker">nw-mcp-builder</a> and <a href="../../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="install">Install<a class="headerlink" href="#install" title="Anchor link to this section">&para;</a></h2>
 <p><code>nw-cli</code> is part of the monorepo <strong>dev</strong> dependency group, so the dev install from <a href="../../installation/#install-dependencies">Installation</a> provides it. Then, from the <strong>node-wire</strong> repo root (hard assumption — there is no <code>--node-wire-root</code> flag):</p>
@@ -2873,7 +2901,7 @@ SPDX-License-Identifier: Apache-2.0
 <tbody>
 <tr>
 <td><code>nw gen-all</code></td>
-<td>One-shot: connector codegen → Linux wheels → MCP host → wire</td>
+<td>One-shot: connector codegen → wheels → MCP host → wire</td>
 </tr>
 <tr>
 <td><code>nw gen-whl</code></td>
@@ -2942,6 +2970,18 @@ SPDX-License-Identifier: Apache-2.0
 <tr>
 <td><code>--rebuild-wheels</code></td>
 <td>Rebuild every wheel, even those whose sources are unchanged</td>
+</tr>
+<tr>
+<td><code>--base-url</code></td>
+<td>API base URL when the spec has none, or only a relative one (overrides <code>servers[0]</code>)</td>
+</tr>
+<tr>
+<td><code>--auth</code></td>
+<td>For a spec that declares <strong>no</strong> auth: <code>bearer</code>, <code>header:&lt;name&gt;</code> or <code>query:&lt;name&gt;</code> (GitHub's REST spec needs <code>bearer</code>). Refused when the spec declares a scheme. See <a href="../nw-connector-builder/#auth-mapping">auth mapping</a></td>
+</tr>
+<tr>
+<td><code>--header</code></td>
+<td><code>NAME=VALUE</code>, repeatable: a header the connector sends on every request, such as Twitch's <code>'Client-Id=${TWITCH_CLIENT_ID}'</code>. <code>${VAR}</code> is read from the environment at run time. See <a href="../../connector-reference/#configconnectorsyaml"><code>headers</code></a></td>
 </tr>
 <tr>
 <td><code>--tool-search</code></td>
@@ -3033,16 +3073,14 @@ SPDX-License-Identifier: Apache-2.0
 <p><code>--no-wheel</code>, <code>--no-mcp</code> and <code>--no-wire</code> skip the matching rows.</p>
 <h4 id="removing-a-throwaway-connector">Removing a throwaway connector<a class="headerlink" href="#removing-a-throwaway-connector" title="Anchor link to this section">&para;</a></h4>
 <p>Revert the wire edits as in the preceding list, then delete the generated paths: <code>src/node_wire_&lt;id&gt;/</code> (and <code>src/node_wire_&lt;id&gt;.egg-info/</code> if present), <code>packages/connectors/&lt;id&gt;/</code>, <code>nw-mcp-builder/fixtures/&lt;id&gt;_nw.yaml</code> and <code>nw-mcp-builder/out/&lt;id-dashed&gt;-nw-mcp/</code>. Leave <code>packages/runtime/dist/</code> and <code>packages/bindings/dist/</code> alone; other connectors reuse those wheels. If you ran <code>nw docker-build</code>, also remove the image: <code>docker rmi &lt;id-dashed&gt;-nw-mcp:latest</code>.</p>
-<p><strong>Wheel reuse.</strong> Each wheel build stamps the package's <code>dist/</code> with a hash of its sources (<code>.nw-source-&lt;mode&gt;.sha256</code>). The next <code>gen-all</code> rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one <code>build-packages.sh</code> run; <code>--rebuild-wheels</code> rebuilds everything. Linux wheel builds need Docker: <code>nw</code> checks that the daemon answers before starting one, and fails with the reason if it does not.</p>
+<p><strong>Wheel reuse.</strong> Each wheel build stamps the package's <code>dist/</code> with a hash of its sources (<code>.nw-source-py3-none-any.sha256</code>). The next <code>gen-all</code> rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one <code>build-packages.sh</code> run; <code>--rebuild-wheels</code> rebuilds everything.</p>
 <p><strong>Tool mode.</strong> Right after codegen (before the wheel builds), the connector's MCP tool listing is measured. Over the budget (<code>--max-tool-listing-kb</code>, default 25 KB) the progress bars pause and you are asked how the MCP host should expose its tools — the full tool list, or tool search (<code>nw_search_tools</code> + <code>nw_call_tool</code>, schemas on demand) — with an explanation of where tool search can fail. Without a terminal the full list is generated and a warning names the flags. <code>--tool-search</code> / <code>--full-tool-list</code> decide up front. The build never fails on size; the choice becomes the host's default <code>NW_MCP_TOOL_MODE</code>. Wording and logic live in nw-mcp-builder (<code>nw_mcp_builder/tool_listing.py</code>); see its README.</p>
 <h3 id="nw-gen-whl"><code>nw gen-whl</code><a class="headerlink" href="#nw-gen-whl" title="Anchor link to this section">&para;</a></h3>
 <p>The following commands show each build mode:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">          </span><span class="c1"># Linux-only (default)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--host<span class="w">   </span><span class="c1"># host-only</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span>--all<span class="w">    </span><span class="c1"># cibuildwheel matrix</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--runtime<span class="w">                         </span><span class="c1"># packages/runtime only</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">   </span><span class="c1"># one connector</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-whl<span class="w"> </span>--runtime<span class="w">                  </span><span class="c1"># packages/runtime only</span>
 </span></code></pre></div>
-<p>Default mode passes <strong><code>--linux-only</code></strong> to <code>scripts/build-packages.sh</code> (not the script’s host+Linux combined default). The CLI does not expose a <code>--linux-only</code> flag — omit <code>--host</code> / <code>--all</code> to get that mode. <code>--host</code> and <code>--all</code> are mutually exclusive. Runtime is not rebuilt with every connector build — use <code>--runtime</code> when needed. <code>--connector-id</code> is required unless <code>--runtime</code> and/or <code>--bindings</code> is set. Flags combine into one build run (<code>--runtime --bindings --connector-id pet_store</code> builds all three). <code>gen-whl</code> always builds; it also writes the source stamps <code>gen-all</code> reuses. <code>--bindings</code> builds <code>packages/bindings</code> (the MCP host surface) — <code>gen-mcp</code> asks you to run <code>nw gen-whl --bindings</code> when that wheel is missing.</p>
+<p>Runs <code>scripts/build-packages.sh</code> for the selected packages. Each gets one pure-Python (<code>py3-none-any</code>) wheel that every image and platform can install, so there is no platform mode and no Docker requirement. Runtime is not rebuilt with every connector build — use <code>--runtime</code> when needed. <code>--connector-id</code> is required unless <code>--runtime</code> and/or <code>--bindings</code> is set. Flags combine into one build run (<code>--runtime --bindings --connector-id pet_store</code> builds all three). <code>gen-whl</code> always builds; it also writes the source stamps <code>gen-all</code> reuses. <code>--bindings</code> builds <code>packages/bindings</code> (the MCP host surface) — <code>gen-mcp</code> asks you to run <code>nw gen-whl --bindings</code> when that wheel is missing.</p>
 <h3 id="nw-gen-mcp"><code>nw gen-mcp</code><a class="headerlink" href="#nw-gen-mcp" title="Anchor link to this section">&para;</a></h3>
 <p>The following commands regenerate the MCP host for an existing connector:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-mcp<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
@@ -3072,6 +3110,10 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">      </span><span class="c1"># reviewed scope → Phase 3</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--force<span class="w"> </span>--no-wheel<span class="w"> </span>--no-lock<span class="w"> </span>--output-dir<span class="w"> </span>out/
 </span></code></pre></div>
+<p><code>--auth</code> and <code>--header</code> work as in <a href="#nw-gen-all"><code>gen-all</code></a>. With <code>--path</code>, <code>--auth</code> is also
+declared in the prepared spec, so the AI scoping sees the same auth, and both are remembered with
+it: a later <code>--scope</code> run builds the same connector without repeating them (flags given then win).
+The printed <code>docker run</code> passes each <code>${VAR}</code> a header reads (<code>-e TWITCH_CLIENT_ID=&lt;…&gt;</code>).</p>
 <p>With <code>--path</code> it runs stacklok's Phases 1–3 in one go:</p>
 <ol>
 <li>prepares the spec;</li>
@@ -3098,8 +3140,8 @@ with its date; <code>r</code> or <code>--rescope</code> redoes it). The connecto
 existing output project; <code>--force</code> replaces it without asking.</p>
 <p>Builds a <a href="https://github.com/stacklok/mcp-builder">stacklok mcp-builder</a> server on the node-wire
 runtime from a stacklok <code>mcp-scope.yaml</code>: connector codegen from the scope's <code>spec.source</code> →
-wheels for the image (cp313 musllinux for stacklok's Alpine base, via <code>scripts/build-packages.sh
---cibw-linux</code> in Docker; unchanged packages are reused) → the vendored stacklok
+the image's wheels (the same pure-Python wheels <code>gen-whl</code> builds; unchanged packages are
+reused) → the vendored stacklok
 generator (<code>nw-stacklok-builder/out/&lt;server&gt;-mcp/</code>, then <code>uv lock</code>). <code>--connector-id</code> may be
 omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}</code> block. See
 <a href="../../stacklok-mcp-servers/">stacklok MCP servers</a>.</p>
@@ -3112,7 +3154,7 @@ omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}
 <li><strong>Every run</strong> writes a full, timestamped log to <code>&lt;tmp&gt;/nw-logs/&lt;command&gt;-&lt;time&gt;.log</code>, printed as <code>Log:</code> under the panel.</li>
 <li><strong>On failure</strong> the panel names the stage and the reason, the last 15 lines of that stage's output (when they were not streamed), and a fix hint. The error is reported once; there is no traceback unless you pass <code>--debug</code>. An unexpected internal error is labelled as such, with a pointer to <code>--debug</code>.</li>
 </ul>
-<p>Ctrl-C stops the running build tool (no orphaned <code>docker</code> / <code>cibuildwheel</code> processes) and exits 130.</p>
+<p>Ctrl-C stops the running build tool (no orphaned <code>docker</code> or build processes) and exits 130.</p>
 <hr />
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Anchor link to this section">&para;</a></h2>
 <table>
@@ -3133,7 +3175,7 @@ omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}
 </tr>
 <tr>
 <td><code>2</code></td>
-<td>Usage error: conflicting or missing flags (for example, <code>--host</code> with <code>--all</code>), an invalid <code>--connector-id</code>, or a codegen refusal such as an existing connector without <code>--force</code></td>
+<td>Usage error: conflicting or missing flags (for example, <code>--tool-search</code> with <code>--full-tool-list</code>), an invalid <code>--connector-id</code>, or a codegen refusal such as an existing connector without <code>--force</code></td>
 </tr>
 <tr>
 <td><code>130</code></td>

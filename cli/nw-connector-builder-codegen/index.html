@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://aot-technologies.github.io/node-wire/cli/nw-connector-builder-codegen/">
       
       
-        <link rel="prev" href="../nw-connector-builder-scope/">
+        <link rel="prev" href="../openapi-coverage/">
       
       
         <link rel="next" href="../nw-mcp-builder/">
@@ -1341,6 +1341,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1426,6 +1454,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#recursive-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recursive schemas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invalid-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invalid operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#request-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request examples
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1458,6 +1519,39 @@
     <span class="md-ellipsis">
       
         Request body fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter serialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-bodies-by-media-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request bodies by media type
       
     </span>
   </a>
@@ -2600,6 +2694,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#recursive-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recursive schemas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invalid-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invalid operations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#request-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request examples
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2632,6 +2759,39 @@
     <span class="md-ellipsis">
       
         Request body fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter serialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-bodies-by-media-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request bodies by media type
       
     </span>
   </a>
@@ -2787,7 +2947,25 @@ truncated, a field was renamed, or a <code>200 OK</code> came back as an error.<
 </tbody>
 </table>
 <p>Tuple-form <code>items</code> means positional validation in draft-4, which no generated model can express; the specs that use it mean "A or B", so that is how it is read. Documents without these constructs are untouched.</p>
+<p>Only schemas are repaired. Values under <code>example</code>, <code>examples</code>, <code>default</code>, <code>enum</code>, <code>const</code> and <code>x-</code> extensions are data, so a payload such as GitHub's search example <code>{"items": ["…"]}</code> is left as it is. Property names are not data keys: a property called <code>example</code> or <code>default</code> is still a schema and is still repaired.</p>
 <p>Swagger 2.0 input gets one more repair during conversion: response <code>examples</code> (keyed by mime type on the response object, which OAS 3 has no property for) moves to <code>content.&lt;mime&gt;.example</code>.</p>
+<h3 id="recursive-schemas">Recursive schemas<a class="headerlink" href="#recursive-schemas" title="Anchor link to this section">&para;</a></h3>
+<p>Generated models are built from a fully inlined document, and inlining never ends on a <code>$ref</code>
+cycle. Large real-world specs have cycles. Microsoft Graph's <code>chatMessage.replies</code> is a list of
+<code>chatMessage</code>, and <code>team</code> and <code>channel</code> point at each other. So the loader cuts each cycle where it
+closes. The <code>$ref</code> that would re-enter a schema already being expanded becomes:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">object</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">additionalProperties</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">x-recursive-ref</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;the $ref that was cut&gt;</span>
+</span></code></pre></div>
+<p>On that field, the generated model accepts any object, one level below the last fully typed one.
+Here, <code>replies</code> becomes a list of free-form objects. Top-level tool arguments keep their types.
+The build logs the cut schemas by name (<code>Cut recursive $ref cycles at N schema(s) …</code>). Specs
+without cycles are unaffected.</p>
+<h3 id="invalid-operations">Invalid operations<a class="headerlink" href="#invalid-operations" title="Anchor link to this section">&para;</a></h3>
+<p>A spec that fails validation is not rejected outright. Each operation and each component is validated on its own, the invalid ones are removed, and the rest is validated again. Removed operations are soft-dropped with <code>invalid OpenAPI: &lt;reason&gt;</code>; removed components are named in the report's <code>notes</code>. Twitch's community spec, for example, lists <code>type</code> twice in one <code>required</code> list: only <code>get-hype-train-status</code> is dropped, and the other 148 operations build.</p>
+<h3 id="request-examples">Request examples<a class="headerlink" href="#request-examples" title="Anchor link to this section">&para;</a></h3>
+<p>The generated tests parse each operation's request example into its input model. An example that does not match its own schema (GitHub's <code>markdown/render-raw</code> shows a JSON object for a <code>text/plain</code> body) is not used as a test, so a documentation mistake in the spec cannot fail the build gate. Those operations are named in the report's <code>notes</code>.</p>
 <hr />
 <h2 id="tool-and-parameter-descriptions">Tool and parameter descriptions<a class="headerlink" href="#tool-and-parameter-descriptions" title="Anchor link to this section">&para;</a></h2>
 <p>Generated tools carry the spec's own text, so an MCP client can tell what a tool does and what each argument expects:</p>
@@ -2807,7 +2985,7 @@ truncated, a field was renamed, or a <code>200 OK</code> came back as an error.<
 <hr />
 <h2 id="request-body-fields">Request body fields<a class="headerlink" href="#request-body-fields" title="Anchor link to this section">&para;</a></h2>
 <p>A generated tool takes <strong>one flat set of arguments</strong>. Each property of an object request body becomes its own typed, described argument next to the path, query and header parameters — there is no nested <code>body</code> object to fill in:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="nt">"channel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C0123"</span><span class="p">,</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hi"</span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="nt">"channel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"C0123"</span><span class="p">,</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hi"</span><span class="p">}</span>
 </span></code></pre></div>
 <p>The tool contract (what a caller sends) is kept separate from the wire contract (where each value goes on the HTTP request). Every generated field carries its location in <code>nw_in</code>; body properties use <code>nw_in="body_property"</code>, and the runtime rebuilds the request body from them by wire name (<code>split_params_by_location</code> in <code>node_wire_runtime/rest.py</code>). The same Pydantic model is validated by every binding, so REST, gRPC and MCP all enforce the same required fields, types and enums.</p>
 <p>Rules:</p>
@@ -2816,10 +2994,104 @@ truncated, a field was renamed, or a <code>200 OK</code> came back as an error.<
 <li><strong>Always sent</strong> — an operation that declares a body sends one, <code>{}</code> when no property is set.</li>
 <li><strong><code>allOf</code></strong> parts at the top of the body schema are merged; <code>readOnly</code> properties are left out (a client never sends them).</li>
 <li><strong>Enums</strong> on string fields become <code>Literal[...]</code> types, so they are enforced, not only advertised.</li>
-<li><strong>Name clashes</strong> — a path/query/header parameter that shares a name with a body property is renamed <code>&lt;name&gt;__&lt;location&gt;</code> (for example, <code>channel__query</code>); the body property keeps the plain name. Names the bindings reserve (<code>action</code>, <code>body</code>, <code>self</code>, <code>cls</code>, <code>config_name</code>, <code>tenant_id</code>, <code>trace_id</code>) get a <code>_param</code> suffix, Python keywords a trailing <code>_</code> (<code>from</code> → <code>from_</code>, which also accepts <code>from</code>). The value is always sent under its original wire name.</li>
+<li><strong>Name clashes</strong> — a path/query/header parameter that shares a name with a body property is renamed <code>&lt;name&gt;__&lt;location&gt;</code> (for example, <code>channel__query</code>); the body property keeps the plain name. Names the bindings reserve (<code>action</code>, <code>body</code>, <code>self</code>, <code>cls</code>, <code>config_name</code>, <code>tenant_id</code>, <code>trace_id</code>) get a <code>_param</code> suffix (a field renamed from <code>action</code> is never aliased back to <code>action</code>, which is the input model's dispatch discriminator), Python keywords a trailing <code>_</code> (<code>from</code> → <code>from_</code>, which also accepts <code>from</code>). The value is always sent under its original wire name.</li>
 <li><strong>Whole bodies</strong> — bodies that are not objects with declared properties keep a single <code>body</code> argument: arrays (<code>list</code>), binary/string bodies (<code>str</code>), free-form maps, <code>oneOf</code>/<code>anyOf</code>, and media types other than JSON, form and multipart. <code>body</code> is required when the request body is.</li>
 </ul>
 <hr />
+<h2 id="parameter-serialization">Parameter serialization<a class="headerlink" href="#parameter-serialization" title="Anchor link to this section">&para;</a></h2>
+<p>Every parameter keeps its OpenAPI <code>in</code>, <code>style</code> and <code>explode</code> in the field's metadata
+(<code>nw_in</code>, <code>nw_style</code>, <code>nw_explode</code>), and <code>node_wire_runtime.rest</code> serializes it as the spec
+defines:</p>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Styles</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td><code>simple</code>, <code>label</code>, <code>matrix</code></td>
+<td>Values percent-encoded, separators (<code>,</code> <code>.</code> <code>;</code> <code>=</code>) kept</td>
+</tr>
+<tr>
+<td><code>query</code></td>
+<td><code>form</code>, <code>spaceDelimited</code>, <code>pipeDelimited</code>, <code>deepObject</code></td>
+<td><code>allowReserved: true</code> sends reserved characters as-is (<code>nw_allow_reserved</code>)</td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td><code>simple</code></td>
+<td>Objects as <code>k,v</code> or, exploded, <code>k=v</code></td>
+</tr>
+<tr>
+<td><code>cookie</code></td>
+<td><code>form</code></td>
+<td>One <code>Cookie</code> header, values percent-encoded</td>
+</tr>
+<tr>
+<td><code>querystring</code> (3.2)</td>
+<td>—</td>
+<td>The whole query string, from an object (form-encoded) or a string</td>
+</tr>
+</tbody>
+</table>
+<p>Booleans are sent as <code>true</code> / <code>false</code>, nested values as compact JSON. A parameter declared with
+<code>content</code> instead of <code>schema</code> is sent as that media type's text, e.g. JSON (<code>nw_media_type</code>).</p>
+<p><code>Accept</code>, <code>Content-Type</code> and <code>Authorization</code> header parameters are ignored, as OpenAPI requires:
+the body media type and auth set those. An operation parameter overrides a path-level one with
+the same name and location. An optional parameter the connector cannot send (Swagger 2.0
+<code>collectionFormat: tsv</code>) is left out and named in the report's <code>notes</code>; a required one soft-drops
+the operation.</p>
+<h2 id="schema-constraints">Schema constraints<a class="headerlink" href="#schema-constraints" title="Anchor link to this section">&para;</a></h2>
+<p>Constraints become Pydantic field constraints, so every binding rejects a bad value before the
+call: <code>minimum</code> / <code>maximum</code> (with 3.0's boolean and 3.1's numeric <code>exclusiveMinimum</code> /
+<code>exclusiveMaximum</code>), <code>multipleOf</code>, <code>minLength</code> / <code>maxLength</code>, <code>minItems</code> / <code>maxItems</code>, and <code>enum</code>
+or <code>const</code> as a <code>Literal</code> (string, integer or boolean values; <code>null</code> in an enum is dropped).
+<code>pattern</code> and <code>format</code> are advertised in the tool schema but not enforced: spec patterns are
+ECMA-262 regular expressions, which Python does not always read the same way, and the upstream API
+validates anyway.</p>
+<h2 id="request-bodies-by-media-type">Request bodies by media type<a class="headerlink" href="#request-bodies-by-media-type" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Media type</th>
+<th>Argument</th>
+<th>Sent as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSON, <code>+json</code></td>
+<td>one per property (object bodies), else <code>body</code></td>
+<td>JSON</td>
+</tr>
+<tr>
+<td><code>application/x-www-form-urlencoded</code></td>
+<td>one per property</td>
+<td>form fields; arrays of scalars as repeated keys, objects as JSON text</td>
+</tr>
+<tr>
+<td><code>multipart/*</code></td>
+<td>one per property</td>
+<td>multipart parts, always (never downgraded to urlencoded); binary properties as file parts with the Encoding Object's <code>contentType</code></td>
+</tr>
+<tr>
+<td><code>text/*</code>, XML, other</td>
+<td><code>body: str</code></td>
+<td>the string as-is</td>
+</tr>
+<tr>
+<td>binary (<code>format: binary</code> / <code>byte</code>; 3.1+ <code>contentEncoding: base64</code> or a non-text <code>contentMediaType</code>), <code>application/octet-stream</code></td>
+<td><code>body: str</code> (base64)</td>
+<td>decoded bytes</td>
+</tr>
+</tbody>
+</table>
+<p>A media type with no <code>schema</code> still takes a free-form body. Only one media type per operation is
+used: JSON first, otherwise the first listed.</p>
 <h2 id="credential-parameters">Credential parameters<a class="headerlink" href="#credential-parameters" title="Anchor link to this section">&para;</a></h2>
 <p>Specs often declare the credential as an ordinary parameter — Slack's declares a <code>token</code> header on every operation. Generated verbatim, that becomes a required tool argument, so an MCP client asks its caller for the API token and pastes a secret into a tool call, while the connector is already attaching that credential itself from <code>&lt;ID&gt;_ACCESS_TOKEN</code>.</p>
 <p>For <strong>authenticated</strong> actions the builder drops header, query and request-body fields whose name is exactly one of <code>token</code>, <code>access_token</code>, <code>accesstoken</code>, <code>api_key</code>, <code>apikey</code>, <code>api-key</code>, <code>auth_token</code>, <code>authorization</code>, <code>password</code>, <code>secret</code>. The configured <code>AuthProvider</code> supplies the value; on a collision the runtime already gives auth precedence (<code>rest.py</code>).</p>
@@ -2925,7 +3197,7 @@ truncated, a field was renamed, or a <code>200 OK</code> came back as an error.<
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../nw-connector-builder-scope/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Generator Contract">
+          <a href="../openapi-coverage/" class="md-footer__link md-footer__link--prev" aria-label="Previous: OpenAPI Coverage">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2935,7 +3207,7 @@ truncated, a field was renamed, or a <code>200 OK</code> came back as an error.<
                 Previous
               </span>
               <div class="md-ellipsis">
-                Generator Contract
+                OpenAPI Coverage
               </div>
             </div>
           </a>

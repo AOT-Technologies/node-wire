@@ -1695,6 +1695,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../nw-connector-builder-codegen/" class="md-nav__link">
         
   
@@ -3193,7 +3221,7 @@ debugging this stage on its own.</p>
 </tr>
 </tbody>
 </table>
-<p>Use <code>from-openapi</code> when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire <code>RestConnector</code> instead of hand-writing schemas and <code>@nw_action</code> methods. Use <code>mcp</code> (or <a href="../nw-mcp-builder/">nw-mcp-builder</a>) for hand-written connectors. For the full happy path (codegen → Linux wheels → MCP host → wire → Docker), prefer the <a href="../nw-cli/"><code>nw</code> CLI</a>. For SDK-style or non-REST adapters, follow the hand-written path in <a href="../../connectors-build/">Build a connector</a>.</p>
+<p>Use <code>from-openapi</code> when the upstream API already ships an OpenAPI/Swagger spec and you want a first-class Node Wire <code>RestConnector</code> instead of hand-writing schemas and <code>@nw_action</code> methods. Use <code>mcp</code> (or <a href="../nw-mcp-builder/">nw-mcp-builder</a>) for hand-written connectors. For the full happy path (codegen → wheels → MCP host → wire → Docker), prefer the <a href="../nw-cli/"><code>nw</code> CLI</a>. For SDK-style or non-REST adapters, follow the hand-written path in <a href="../../connectors-build/">Build a connector</a>.</p>
 <hr />
 <h2 id="what-this-folder-is">What this folder is<a class="headerlink" href="#what-this-folder-is" title="Anchor link to this section">&para;</a></h2>
 <table>
@@ -3330,7 +3358,7 @@ debugging this stage on its own.</p>
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>sync
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pet_store_nw_mcp
 </span></code></pre></div>
-<p>See <a href="../nw-mcp-builder/">nw-mcp-builder</a> for ToolHive, Linux wheels, and Inspector.</p>
+<p>See <a href="../nw-mcp-builder/">nw-mcp-builder</a> for ToolHive, wheels, and Inspector.</p>
 <h3 id="tests-for-the-builder-itself">Tests for the builder itself<a class="headerlink" href="#tests-for-the-builder-itself" title="Anchor link to this section">&para;</a></h3>
 <p>From the <strong>node-wire</strong> repo root:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_connector_builder<span class="w"> </span>-v<span class="w"> </span>--no-cov
@@ -3393,6 +3421,16 @@ debugging this stage on its own.</p>
 <td>Where to write <code>report.json</code> on <strong>abort</strong> (success writes beside the package)</td>
 </tr>
 <tr>
+<td><code>--auth</code></td>
+<td>—</td>
+<td>Auth for a spec that declares <strong>none</strong>: <code>bearer</code>, <code>header:&lt;name&gt;</code> or <code>query:&lt;name&gt;</code>. Refused when the spec declares any scheme (see <a href="#auth-mapping">Auth mapping</a>)</td>
+</tr>
+<tr>
+<td><code>--header</code></td>
+<td>—</td>
+<td><code>NAME=VALUE</code>, repeatable: a header sent on every request (<code>headers:</code> in <code>connectors.yaml</code>); <code>${VAR}</code> is read from the environment</td>
+</tr>
+<tr>
 <td><code>-v</code>, <code>--verbose</code></td>
 <td>off</td>
 <td>Debug logging</td>
@@ -3425,7 +3463,7 @@ debugging this stage on its own.</p>
 </tr>
 <tr>
 <td><code>2</code></td>
-<td>Usage error (bad <code>--id</code>, destination exists without <code>--force</code>, etc.)</td>
+<td>Usage error (bad <code>--id</code>, destination exists without <code>--force</code>, bad <code>--auth</code> / <code>--header</code>, <code>--auth</code> on a spec that declares auth, etc.)</td>
 </tr>
 </tbody>
 </table>
@@ -3441,11 +3479,11 @@ debugging this stage on its own.</p>
 <tbody>
 <tr>
 <td>Formats</td>
-<td>YAML or JSON, UTF-8</td>
+<td>YAML or JSON, UTF-8. YAML is read as JSON data: <code>yes</code> / <code>no</code> / <code>on</code> / <code>off</code> stay strings, unquoted dates stay strings, and keys such as <code>200:</code> become <code>"200"</code></td>
 </tr>
 <tr>
 <td>Versions</td>
-<td>Swagger <code>2.0</code> (normalized to OpenAPI 3) or OpenAPI <code>3.x</code></td>
+<td>Swagger <code>2.0</code> (normalized to OpenAPI 3), OpenAPI <code>3.0</code>, <code>3.1</code> and <code>3.2</code>. Field-by-field coverage: <a href="../openapi-coverage/">OpenAPI coverage</a></td>
 </tr>
 <tr>
 <td>Sources</td>
@@ -3456,8 +3494,16 @@ debugging this stage on its own.</p>
 <td><strong>Rejected</strong> — absolute remote refs are not fetched; keep a self-contained document (local relative/<code>#/</code> refs OK)</td>
 </tr>
 <tr>
+<td>Extensions</td>
+<td><code>x-</code> keys are removed before <code>$ref</code> resolution (the generator reads none); property and header names starting with <code>x-</code> are kept</td>
+</tr>
+<tr>
+<td>Recursion</td>
+<td><code>$ref</code> cycles are cut where they close (see <a href="../nw-connector-builder-codegen/#recursive-schemas">recursive schemas</a>)</td>
+</tr>
+<tr>
 <td>Validation</td>
-<td>Resolved with <code>prance</code> + validated with <code>openapi-spec-validator</code></td>
+<td>Resolved with <code>prance</code> + validated with <code>openapi-spec-validator</code>. When the whole document fails, each operation and component is validated on its own; the invalid ones are removed (operations soft-dropped with <code>invalid OpenAPI: &lt;reason&gt;</code>, components named in <code>notes</code>) and the rest is validated again. Anything still invalid fails the build</td>
 </tr>
 <tr>
 <td>Draft-4 repair</td>
@@ -3465,7 +3511,7 @@ debugging this stage on its own.</p>
 </tr>
 <tr>
 <td>Base URL</td>
-<td>From <code>--base-url</code>, else first <code>servers[]</code> entry with substitutable defaults; relative-only servers hard-fail</td>
+<td>From <code>--base-url</code>, else the first <code>servers[]</code> entry with variables at their defaults. A relative server URL, or no <code>servers</code>, is resolved against the spec's URL when it was fetched over HTTP(S); for a local file it hard-fails (pass <code>--base-url</code>). Swagger 2.0: <code>schemes</code> prefers <code>https</code>, and a missing <code>host</code> means the host the spec came from</td>
 </tr>
 </tbody>
 </table>
@@ -3519,10 +3565,17 @@ under <code>auth_schemes:</code> with its name folded in — <code>&lt;ID&gt;_&l
 <code>auth.notes</code> name the scheme and, when the OpenAPI document declares them, the
 <code>authorizationUrl</code> / <code>tokenUrl</code> for the host to call — those URLs are documentation only;
 the connector never POSTs to a token endpoint.</p>
+<p><strong>A spec that declares no auth at all</strong> (GitHub's REST description is one) would build an
+anonymous connector that never sends a credential. Pass <code>--auth bearer</code>, <code>--auth header:&lt;name&gt;</code>
+or <code>--auth query:&lt;name&gt;</code> to declare the scheme the API really uses; it then maps like the table
+above (<code>&lt;ID&gt;_TOKEN</code> or <code>&lt;ID&gt;_API_KEY</code>), and the report's <code>notes</code> say it came from <code>--auth</code>.
+<code>--auth</code> is refused when the spec declares any scheme, so it can never contradict one.</p>
 <p><code>oauth2</code> and <code>openIdConnect</code> become a <strong>host-supplied</strong> bearer: Node Wire presents
 <code>&lt;ID&gt;_ACCESS_TOKEN</code> but never obtains, refreshes or detects the expiry of it. Operations that need a
 different but still-presentable scheme get a named entry under <code>auth_schemes:</code> instead of being
-dropped. <code>mutualTLS</code>, cookie API keys, AND-combined requirements and unrecognized types are
+dropped. An AND-combined requirement is sent when each scheme puts its credential in a different
+place (the action passes <code>auth_scheme=(&lt;scheme&gt;, …)</code>, <code>None</code> standing for the default). <code>mutualTLS</code>,
+cookie API keys, AND requirements that need one place twice and unrecognized types are
 soft-dropped. What each of these means, and why: the generator contract's
 <a href="../nw-connector-builder-scope/#host-supplied-auth-tier">host-supplied tier</a> and
 <a href="../nw-connector-builder-scope/#per-action-auth-schemes">per-action auth schemes</a>.</p>
@@ -3549,10 +3602,9 @@ full list of what is soft-dropped, and why, is the generator contract's
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>packages/connectors/&lt;id&gt;/
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>  pyproject.toml     # entry point + deps
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>  setup.py           # Cython build glue for binary wheels
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>  report.json        # full build report
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>  tests/
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    test_&lt;id&gt;_models.py   # polyfactory round-trip (+ example parse when present)
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>  report.json        # full build report
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>  tests/
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    test_&lt;id&gt;_models.py   # polyfactory round-trip (+ example parse when present)
 </span></code></pre></div>
 <p>Generated files are marked <code># Generated by nw-connector-builder — do not hand-edit.</code> Prefer regenerating with <code>--force</code> over hand-patching; if you must customize, treat the tree as owned source and stop overwriting it.</p>
 <p>Complex request bodies and non-object success responses use permissive typing (<code>Any</code> / <code>RestResponseOutput</code>) for robustness.</p>
@@ -3591,8 +3643,10 @@ full list of what is soft-dropped, and why, is the generator contract's
 </span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="nt">&lt;scheme_name&gt;</span><span class="p">:</span>
 </span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;provider&gt;</span>
 </span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">        </span><span class="nt">secret_key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;secret-key&gt;</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">    </span><span class="nt">headers</span><span class="p">:</span><span class="w">        </span><span class="c1"># only with --header</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">      </span><span class="nt">&lt;NAME&gt;</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;VALUE&gt;</span>
 </span></code></pre></div>
-<p><strong><code>sample.env</code></strong> — appends the connector to <code>NW_ALLOWED_CONNECTORS</code> and adds empty placeholders for derived secret keys (for example, <code>PET_STORE_API_KEY=</code>, and <code>PET_STORE_ACCESS_TOKEN=</code> for a host-supplied scheme).</p>
+<p><strong><code>sample.env</code></strong> — appends the connector to <code>NW_ALLOWED_CONNECTORS</code> and adds empty placeholders for derived secret keys (for example, <code>PET_STORE_API_KEY=</code>, and <code>PET_STORE_ACCESS_TOKEN=</code> for a host-supplied scheme), plus one for each <code>${VAR}</code> a <code>--header</code> value reads, with a comment naming the header.</p>
 <p>Wire edits preserve YAML comments via <code>ruamel.yaml</code>. Failures set exit code <code>1</code> but do not roll back the promoted connector.</p>
 <hr />
 <h2 id="mcp-hand-off">MCP hand-off<a class="headerlink" href="#mcp-hand-off" title="Anchor link to this section">&para;</a></h2>
@@ -3632,6 +3686,14 @@ full list of what is soft-dropped, and why, is the generator contract's
 <tr>
 <td><code>auth</code></td>
 <td>chosen provider / secret key / yaml block</td>
+</tr>
+<tr>
+<td><code>headers</code></td>
+<td>the <code>--header</code> values, when given</td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>build notes: dropped credential parameters, removed invalid components, request examples not used as tests, <code>--auth</code></td>
 </tr>
 <tr>
 <td><code>gate</code> / <code>mcp</code> / <code>wire</code></td>

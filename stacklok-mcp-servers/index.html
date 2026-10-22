@@ -1341,6 +1341,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../cli/openapi-coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Coverage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli/nw-connector-builder-codegen/" class="md-nav__link">
         
   
@@ -2781,9 +2809,8 @@ and modified only through small hooks.</p>
 </tbody>
 </table>
 <h2 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Anchor link to this section">&para;</a></h2>
-<p>Install the dev toolchain as in <a href="../installation/#install-dependencies">Installation</a>; its <code>dev</code>
-group already includes cibuildwheel, which builds the image's wheels. On top of that,
-<code>nw gen-stacklok</code> needs Docker running (wheel builds and the image) and, for Phase 1 only,
+<p>Install the dev toolchain as in <a href="../installation/#install-dependencies">Installation</a>. On top of
+that, <code>nw gen-stacklok</code> needs Docker running (to build the image) and, for Phase 1 only,
 Claude Code (<code>claude</code> on <code>PATH</code>). A run with <code>--scope</code> doesn't need Claude Code.</p>
 <p>One command runs stacklok's Phases 1–3 and pauses for the Phase 2 human review:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span><span class="se">\</span>
@@ -2802,7 +2829,10 @@ it from Phase 3. Read the scope, then run that command:</p>
 <p>Then build the image with <code>nw docker-build</code>, the command the CLI prints:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
 </span></code></pre></div>
-<p>It finds the server generated for the connector and names the image after the project folder.
+<p>It finds the server generated for the connector and names the image after the project folder.</p>
+<p>For a spec that declares no auth, add <code>--auth bearer</code> (or <code>header:&lt;name&gt;</code> / <code>query:&lt;name&gt;</code>); for
+an API that needs a fixed header on every call, add <code>--header 'NAME=${VAR}'</code>. Both are remembered
+with the prepared spec for later <code>--scope</code> runs; see <a href="../cli/nw-cli/#nw-gen-stacklok">nw CLI</a>.
 Plain <code>docker build -t &lt;server&gt;-mcp nw-stacklok-builder/out/&lt;server&gt;-mcp</code> builds the same image.
 Next, check it as in <a href="#verifying-a-running-server">Verifying a running server</a>.</p>
 <h2 id="names">Names<a class="headerlink" href="#names" title="Anchor link to this section">&para;</a></h2>
@@ -2923,17 +2953,14 @@ alternatively, add the block to the scope:</p>
    (<code>spec.base_url</code> is the connector's base URL). The connector covers every operation; the scope
    decides which ones become tools. The connector is always regenerated from the scope's spec, so
    endpoints map onto it; a hand-written connector with the same id is never overwritten.</li>
-<li><strong>Wheels for the MCP image</strong> — compiled wheels for <code>node-wire-runtime</code>, <code>node-wire-bindings</code>,
-   <code>node-wire-toolhive</code> and the connector.</li>
-<li>They must match the image's Python ABI and C library, because node-wire wheels are
-     binary-only. The target is read from the template's base image: stacklok's
-     <code>dhi.io/python:3.13-alpine</code> gives <strong>cp313 musllinux</strong>.</li>
-<li>Built with cibuildwheel in Docker (<code>scripts/build-packages.sh --cibw-linux</code>).</li>
-<li>A package whose sources haven't changed since its last build, and that has wheels for every
-     requested architecture, is reused rather than recompiled. The source hash is kept in
-     <code>dist/.nw-source-&lt;target&gt;.sha256</code>. In practice, repeat runs rebuild only what changed, often
-     nothing.</li>
-<li>The architecture defaults to the host; <code>NW_WHEEL_ARCHS="x86_64 aarch64"</code> builds both.</li>
+<li><strong>Wheels for the MCP image</strong> — pure-Python (<code>py3-none-any</code>) wheels for <code>node-wire-runtime</code>,
+   <code>node-wire-bindings</code>, <code>node-wire-toolhive</code> and the connector, built with
+   <code>scripts/build-packages.sh</code>.</li>
+<li>They install on stacklok's Alpine image on any CPU architecture, so there is no target
+     to match. They are the same wheels <code>nw gen-whl</code> and <code>nw gen-all</code> build.</li>
+<li>A package whose sources haven't changed since its last build is reused. The source hash is
+     kept in <code>dist/.nw-source-py3-none-any.sha256</code>, so repeat runs rebuild only what changed,
+     often nothing.</li>
 <li><code>--no-wheel</code> skips the stage and uses whatever is in <code>dist/</code>.</li>
 <li><strong>Server</strong> — stacklok's own scope validator checks the scope against the spec, then the
    vendored stacklok generator writes <code>nw-stacklok-builder/out/&lt;server&gt;-mcp/</code>
