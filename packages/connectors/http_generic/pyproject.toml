@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-http"
-version = "1.0.0"
+version = "1.1.0"
 description = "Node Wire connector for generic HTTP: call any REST endpoint (GET, POST, PUT, PATCH, DELETE) with SSRF protection"
 readme = "README.md"
 requires-python = ">=3.11"

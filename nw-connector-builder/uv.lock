@@ -1025,7 +1025,7 @@ provides-extras = ["aws", "vault", "azure", "gcp"]
 
 [[package]]
 name = "nw-connector-builder"
-version = "0.1.0"
+version = "1.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "datamodel-code-generator" },
@@ -1062,7 +1062,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-mcp-builder"
-version = "0.1.0"
+version = "1.1.0"
 source = { editable = "../nw-mcp-builder" }
 dependencies = [
     { name = "node-wire-bindings" },

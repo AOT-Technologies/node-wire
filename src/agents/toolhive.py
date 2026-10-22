@@ -69,6 +69,7 @@ from typing import (
 import re
 
 from dotenv import load_dotenv
+from node_wire_runtime import __version__
 from node_wire_runtime.log_sanitization import connector_id_from_tool_name
 
 # llm_base is the dependency-free leaf of the agents package (unlike
@@ -366,7 +367,7 @@ class ToolHiveMcpClient:
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "node-wire", "version": "1.0.0"},
+                "clientInfo": {"name": "node-wire", "version": __version__},
             },
         }
         async with httpx.AsyncClient(timeout=60.0) as client:
