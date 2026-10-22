@@ -117,7 +117,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Connector packages declare node-wire-runtime>=1.0.0 as a PyPI-style dep; install
+      # Connector packages declare node-wire-runtime>=1.1.0 as a PyPI-style dep; install
       # packages/runtime from the repo so pip resolves it without requiring a published wheel.
       # The runtime + connector list is derived from packages/meta/pyproject.toml, and
       # scripts/meta_local_deps.py fails if a meta dependency has no local package.

@@ -13,296 +13,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-22
+
 ### Added
 
-- **OpenAPI coverage across Swagger 2.0 and OpenAPI 3.0, 3.1 and 3.2** (`nw-connector-builder`,
-  `node-wire-runtime` 1.1.0). `docs/cli/openapi-coverage.md` lists every field of each version and
-  how it is handled; `tests/nw_connector_builder/test_openapi_coverage.py` builds one fixture per
-  version and checks the exact requests the generated connector sends. New:
-  - every parameter style and location: path `label` / `matrix`, query `spaceDelimited` /
-    `pipeDelimited` / `deepObject`, `allowReserved` on query and path parameters, header objects,
-    `cookie` (3.2 `style: cookie` too), 3.2 `querystring`, and parameters declared with `content`;
-  - binary content in 3.1+ terms (`contentEncoding: base64` / `base64url`, non-text
-    `contentMediaType`); number `enum` values advertised in the tool schema;
-  - OpenAPI 3.2 `query` method and `additionalOperations`, 3.2 Example `dataValue`;
-  - AND-combined security requirements whose schemes put their credentials in different places
-    (`execute_rest(auth_scheme=(…))`);
-  - schema constraints enforced on input models (`minimum` / `maximum` / `exclusive*`,
-    `multipleOf`, `minLength` / `maxLength`, `minItems` / `maxItems`, non-string `enum`, `const`);
-    `pattern` and `format` advertised in the tool schema;
-  - `deprecated` operations marked deprecated; `default` used as the success response when no 2xx
-    is declared; text, XML and other non-JSON bodies taken as a string; multipart per-part
-    `contentType`; operation- and path-level `servers` used for that operation
-    (`execute_rest(server_url=…)`) unless the operator overrides `base_url`; webhooks and callbacks noted in the build report;
-  - recursive `$ref` cycles cut to a permissive object instead of failing the build;
-  - `nw gen-all --base-url`.
-- **`headers:` in `connectors.yaml`** (`node-wire-runtime` 1.1.0): fixed headers a REST connector
-  sends on every request, for APIs that need more than the credential (Twitch's `Client-Id`).
-  `${VAR}` is replaced from the environment when the file loads; a placeholder still unresolved at
-  call time fails with an error naming VAR. Credential and transport headers (`Authorization`,
-  `Cookie`, `Host`, `Content-Type`, …) are refused, and `auth` wins over any header set here.
-  Tenant config documents can set `headers` too (top level or under `config`).
-- **`--auth` and `--header` for `nw gen-all`, `nw gen-stacklok` and `nw-connector-builder`**:
-  `--auth bearer|header:<name>|query:<name>` declares the auth of a spec that declares none
-  (GitHub's REST description), and is refused when the spec declares any scheme. `--header
-  NAME=VALUE` writes `headers:` for the connector, adds a `sample.env` placeholder for each
-  `${VAR}`, and makes the generated package require `node-wire-runtime>=1.1.0`. `gen-stacklok`
-  remembers both with the prepared spec for later `--scope` runs.
+- **`nw` CLI** (`nw-cli`): one command for the OpenAPI → connector → wheel → MCP server → Docker
+  pipeline (`nw gen-all`), with standalone `gen-whl`, `gen-mcp` and `docker-build` stages. See
+  `docs/nw-cli.md`.
+- **`nw-connector-builder`**: generates a connector package from an OpenAPI 3.0–3.2 or Swagger 2.0
+  spec, with flat tool arguments, the spec's descriptions, schema constraints enforced on input, and
+  a promotion gate for review. Operations the builder can't handle are dropped and reported instead
+  of failing the build. Field-by-field support is in `docs/cli/openapi-coverage.md`.
+- **`nw-mcp-builder`**: generates a standalone MCP server project from a connector.
 - **`nw gen-stacklok`**: builds a [stacklok mcp-builder](https://github.com/stacklok/mcp-builder)
-  server from a stacklok `mcp-scope.yaml` on the node-wire runtime, with tenants routed by
-  ToolHive `MCPRemoteProxy` and the forwarded bearer relayed to the connector. A `--path` run
-  covers AI scoping (vendored `/ai-scoping` skill, interactive or `--headless`), a human review
-  pause, and generation. See `docs/stacklok-mcp-servers.md`.
-- **`node-wire-toolhive`** and **`nw-stacklok-builder`** (not published): the runtime layer for
-  stacklok-built servers and the vendored stacklok generator (Apache-2.0, `UPSTREAM.md`).
-- **`node-wire-connectors`**: `pip install node-wire-connectors` installs the runtime and every
-  public connector.
-- **MCP tool-search mode** (`node-wire-bindings` 1.1.0): `NW_MCP_TOOL_MODE=search` replaces the
-  full `tools/list` with `nw_search_tools` and `nw_call_tool`, keeping the listing ~1–2 KB for
-  large connectors. `nw-mcp-builder` measures the listing at build time (25 KB budget) and offers
-  tool search when it's over; `nw gen-all` / `gen-mcp` take `--tool-search` / `--full-tool-list`.
-- **`node-wire-runtime`** 1.1.0:
-  - `OAuth2AuthProvider(on_refresh_token_rotated=...)` persists rotated refresh tokens; wired
-    automatically for YAML-configured `oauth2` connectors.
-  - `RestConnector.execute_rest(envelope_ok_field=...)` raises `RestEnvelopeError` for APIs that
-    answer `200 OK` with `{"ok": false}`; generated connectors detect this from the spec.
-  - `node_wire_runtime.host_logging` prints taxonomy and trace fields, installs redaction, and
-    starts OTLP export when an endpoint is set.
-- **Grafana**: the **Connector Calls & Logs** dashboard is provisioned at startup, built from
-  connector metrics, with errors grouped by `error_code` and logs filterable by `trace_id`.
+  server from an `mcp-scope.yaml` on the node-wire runtime, with tenants routed by ToolHive
+  `MCPRemoteProxy`. See `docs/stacklok-mcp-servers.md`.
+- **Multi-tenancy** across REST, gRPC, MCP and the playground: per-tenant configuration and secrets,
+  tenant selection, and credential isolation for every connector.
+- **MCP tool-search mode** (`NW_MCP_TOOL_MODE=search`): replaces the full `tools/list` with
+  `nw_search_tools` and `nw_call_tool` for large connectors.
+- **`node-wire-runtime` 1.1.0**: `headers:` in `connectors.yaml` for fixed request headers, refresh
+  token rotation for `oauth2`, `envelope_ok_field` for APIs that answer `200 OK` with
+  `{"ok": false}`, `apikey_query` auth, OpenTelemetry metrics and audit events, and
+  `host_logging` for MCP hosts.
+- **`node-wire-connectors`** meta-package: installs the runtime and every public connector.
+- Playground LLM provider switching (OpenAI, Groq, Anthropic, Gemini), a Grafana **Connector Calls &
+  Logs** dashboard, a REST `/ready` endpoint, and a published documentation site.
 
 ### Changed
 
-- **Every package is now a pure-Python wheel** (`py3-none-any`) instead of Cython-compiled
-  per-platform wheels. One wheel installs on Python 3.11–3.13 on every OS and CPU, so the
-  12-job cibuildwheel matrix in `publish.yml` is now a single build job. The changes:
-  - the `setup.py` files, the `cython` build requirement, the `cibuildwheel` dev dependency and
-    `docker/wheel-builder/` are removed, and generated connectors no longer get a `setup.py`;
-  - `scripts/build-packages.sh` builds with `uv build` (or `python -m build`) and needs no Docker.
-    It now rejects any wheel that isn't `py3-none-any` or contains compiled files. The old platform
-    flags are ignored with a note;
-  - `nw gen-whl` drops `--host` and `--all`. `nw gen-stacklok` reuses the same wheels as
-    `nw gen-all`, and `NW_WHEEL_ARCHS` is gone;
-  - stacklok servers pin one wheel per package in `[tool.uv.sources]`, with no per-architecture
-    markers or `[tool.uv] environments`;
-  - the MCP generators skip compiled wheels left in `dist/` by older builds.
-
-  Published wheels now contain the `.py` sources, which are already public in this repository.
-
-- **prance 26 for `nw`** (`cyclonedx-bom` 4.6.1 → 7.5.0, which had held `packaging` at 24.2):
-  `nw gen-all` on GitHub's 1,242-operation spec drops from about 6 minutes to under a minute.
-  `nw-connector-builder` requires `prance>=26.7.19`.
-
-- **Python 3.11–3.13** are supported across the repository (was `>=3.13` for the tooling). See
-  [ADR 0003](docs/adr/0003-python-3-11-to-3-13.md).
-- **One error taxonomy on every surface** (`docs/errors.md`). The runtime owns every code,
-  including failures before a connector runs; codes shipped in 1.0.0 keep their name and category.
-  - MCP: a failed call is now `isError: true` with text `CODE [CATEGORY]: message (trace_id=…)`.
-    Unknown tools, bad arguments, tenant/config errors and rate limits gain codes
-    (`UNKNOWN_TOOL`, `VALIDATION_ERROR`, `TENANT_NOT_ALLOWED`, …).
-  - REST: a refused call's body is now the error envelope (was `{"detail": …}`).
-  - A missing secret is `SECRET_NOT_FOUND` / `TENANT_SECRET_NOT_FOUND` (was the exception class
-    name). **Clients matching the old codes must update.**
-- **Generated connectors (breaking tool shapes)** — `nw-connector-builder`:
-  - Object request bodies are flattened into top-level arguments (`{"channel": "C1"}`, not
-    `{"body": {...}}`), and the Pydantic model now enforces them on REST and gRPC too.
-  - Tools carry the spec's operation and parameter descriptions.
-  - Credential parameters (`token`, `api_key`, …) are no longer exposed as call arguments.
-  - Every OpenAPI `oauth2` / `openIdConnect` scheme maps to a host-supplied `static_token` bearer
-    (`<ID>_ACCESS_TOKEN`); hand-written `oauth2` connectors are unchanged.
-  - Specs with JSON Schema draft-4 constructs (`type: [T, "null"]`, tuple `items`) now build.
-  - Generated packages require `node-wire-runtime>=1.1.0`.
-- **Smaller MCP tool listings**: internal `nw_*` routing metadata, schema `title`s and boilerplate
-  description suffixes are no longer advertised (Slack: 124 KB → 79 KB).
-  `MCP_MANIFEST_CONTRACT_VERSION` 5 → 6.
-- **`nw-mcp-builder`**: generated hosts are wheels-only (runtime, bindings, connector); the
-  vendored-source `PYTHONPATH` layout is gone.
-- **PyPI rename**: the generic HTTP connector publishes as `node-wire-http`.
+- **Every package is a pure-Python `py3-none-any` wheel** instead of Cython-compiled per-platform
+  wheels, and Python 3.11–3.13 is supported across the repository
+  ([ADR 0003](docs/adr/0003-python-3-11-to-3-13.md)).
+- **One error taxonomy on every surface** (`docs/errors.md`). MCP failures are `isError: true` with
+  a code, REST refusals return the error envelope, and a missing secret is `SECRET_NOT_FOUND` /
+  `TENANT_SECRET_NOT_FOUND`. **Clients matching the old codes must update.**
+- **REST wire encoding**: booleans are sent as `true` / `false`, form values as JSON, and text/XML
+  bodies as text. Generated packages require `node-wire-runtime>=1.1.0`.
+- **Circuit breaker** counts only upstream-health failures, once per invocation, and thresholds are
+  configurable per connector (`NW_BREAKER_<CONNECTOR_ID>_FAIL_MAX` / `_RESET_TIMEOUT`).
+- The generic HTTP connector publishes as `node-wire-http`.
 
 ### Security
 
-- **The playground is opt-in and its scenarios run through the runtime.** An unauthenticated
-  `/scenarios` could call connectors with the server's credentials, bypassing validation,
-  policy and audit. **Upgrade note:** set `NW_REST_PLAYGROUND_ENABLED=true` (and
+- **The playground is opt-in.** **Upgrade note:** set `NW_REST_PLAYGROUND_ENABLED=true` (and
   `NW_REST_AUTH_DISABLED=true`) to use it locally.
-- **`/v1` config and secret admin API requires scopes** (`nw:config:read`, `nw:config:write`,
-  `nw:secrets:write`, `nw:platform:admin`); without admin a caller acts only on its own tenant.
-  **Upgrade note:** `/v1` callers need these scopes in their JWT or `NW_REST_API_KEY_SCOPES`.
-- **MCP streamable-HTTP resolves identity, tenant and upstream bearer per request.** A stateful
-  session kept its first caller, so a second credential on the same session ran as the creator.
-  The binding is now stateless: no `Mcp-Session-Id`, and `GET /mcp` returns `405`.
-- **Config documents can no longer send process secrets to a caller-chosen host.** Secret
-  references must be the connector's declared names, a `base_url` off the spec host must be in
-  `NW_REST_ALLOWED_HOSTS`, and `__default__` is configured through `connectors.yaml` only.
-  **Upgrade note:** add overriding hosts to `NW_REST_ALLOWED_HOSTS` and remove `base_url` from
-  non-REST connectors.
-- **`nw gen-stacklok` manifests**: tenant proxies authenticate to the backend with a shared
-  `X-NW-Proxy-Secret` instead of relying on the NetworkPolicy alone.
+- **The `/v1` config and secret admin API requires scopes** (`nw:config:read`, `nw:config:write`,
+  `nw:secrets:write`, `nw:platform:admin`).
+- **MCP streamable-HTTP is stateless** and resolves identity, tenant and upstream bearer per
+  request; `GET /mcp` returns `405`.
+- **Config documents can't send process secrets to a caller-chosen host.** **Upgrade note:** add
+  overriding hosts to `NW_REST_ALLOWED_HOSTS`.
+- **`NW_MCP_SCOPE_POLICY_DEFAULT` accepts only `allow` or `deny`**; any other value fails startup
+  instead of silently becoming `allow`.
+- Generated Dockerfiles use a digest-pinned base image, a non-root user and no secrets in the image.
 
 ### Fixed
 
-- **Swagger 2.0 conversion**: global `parameters` and `responses` are inlined (a reference to
-  them used to fail the whole load); `collectionFormat` is mapped per location (`csv` on a path or
-  header parameter, `ssv`, `pipes`); `schemes: [http, https]` picks `https`; a missing `host` is
-  the host the spec was fetched from; `consumes` / `produces` prefer JSON; `consumes:
-  multipart/form-data` is honoured; a malformed internal marker no longer makes operations with
-  an unsupported `collectionFormat` fail validation. Constructs that used to fail 3.0 validation
-  and drop operations are now converted: operation-level `schemes`, a string `discriminator`,
-  `type: file` in responses and properties, `collectionFormat` inside Items and on response
-  headers, and path-level parameters an operation redefines.
-- **OpenAPI 3 loading**: `x-` extensions are removed before `$ref` resolution, so a dangling
-  reference in an unused vendor extension no longer fails the build; relative server URLs resolve
-  against the spec's URL; an operation parameter overrides a path-level one with the same name
-  and location instead of producing two arguments; an optional parameter that cannot be sent is
-  left out instead of dropping the operation; `Accept` / `Content-Type` / `Authorization` header
-  parameters are ignored as the spec requires; schema repair visits each shared node once; an
-  empty YAML field (`parameters:`) no longer crashes validation; a non-JSON success response with
-  an object schema (XML) is returned in the envelope instead of failing as "Expected JSON
-  response"; a boolean schema (`schema: true`) on a parameter no longer crashes the build; OAS 3.0
-  `requestBody` on GET, HEAD and DELETE is ignored as 3.0 requires.
-- **REST wire encoding** (`node-wire-runtime` 1.1.0; changes what existing generated connectors
-  send): booleans in path, query and header values are `true` / `false` (was `True` / `False`);
-  the commas between path list items are no longer percent-encoded; header objects are `k,v` (was
-  a Python repr); a multipart body without a file part is still sent as multipart (httpx sent it
-  urlencoded); `text/*` and XML bodies are sent as text (a string that happened to be valid base64
-  was decoded); form arrays of scalars are repeated keys (were JSON text). Generated packages now
-  require `node-wire-runtime>=1.1.0`.
-- **nw-connector-builder builds public specs as published**:
-  - Spec repair no longer rewrites example payloads, defaults or enum values as schemas. An
-    example with an `items` list of strings (GitHub's search example) crashed the build.
-  - YAML specs are read as JSON data: `yes` / `no` / `on` / `off` and unquoted dates stay
-    strings, and keys like `200:` become strings. GitHub's emoji example crashed the build.
-  - A request body field named `action` no longer collides with the input model's `action`
-    discriminator. Its generated tests failed the gate (GitHub, Twitch).
-  - A request example that contradicts its own schema is not used as a generated test (GitHub's
-    `markdown/render-raw`); the operations are named in the report's `notes`.
-  - A spec that fails validation in one operation or component no longer fails the whole build:
-    the invalid parts are removed and reported (soft-dropped with `invalid OpenAPI: <reason>`), and
-    the rest builds. Twitch's community spec loses only `get-hype-train-status`.
-  - `nw gen-stacklok`'s strict-OpenAPI 3.0 preparation uses the same repair, so it no longer
-    rewrites example payloads either.
-
-- **`NW_MCP_SCOPE_POLICY_DEFAULT` accepts only `allow` or `deny`.** Any other value (a typo
-  such as `denied`, or `true`, `1`, `false`, `Deny-All`) silently became `allow`, switching off
-  tool authorization for every action without a scope-map entry. The value is now trimmed and
-  case-insensitive, and anything else fails startup with a message naming the variable, for
-  REST (at import, not at the first request), gRPC and MCP. Unset still means `deny`, with the
-  existing warning, and the chosen mode is logged at startup. **Upgrade note:** the
-  undocumented aliases `default-deny` and `closed` are no longer accepted; use `deny`.
-- **Circuit breaker**: it counts only upstream-health failures, once per invocation (a caller's
-  bad input no longer opens it for everyone), and the call that opens it reports its own error.
-  Thresholds are configurable per connector (`NW_BREAKER_<CONNECTOR_ID>_FAIL_MAX` /
-  `_RESET_TIMEOUT`). **Upgrade note:** opening now takes `fail_max` failed invocations, not
-  attempts.
-- **`node-wire-runtime`**: form-encoded bodies render values as JSON (`true`, not `True`; nested
-  objects as JSON; `None` omitted).
-- **`node-wire-runtime`**: span export works in the compiled (Cython) wheels; no trace reached
-  the collector before.
-- **`node-wire-runtime`**: connector metrics, spans and audit lines name the invoked action
-  instead of `execute`.
-- **`node-wire-bindings`**: `apikey_query` auth reads the tenant-scoped secret, and a
-  `connectors.yaml` `base_url` overrides a generated connector's default.
-- **Editable installs** of runtime and bindings no longer compile `.so` files into `src/`, which
-  silently shadowed source edits.
-- **`nw-mcp-builder`**: the generated host's `connectors.yaml` holds only its own connector, and
-  the project copies only wheels its image can install.
-
-## [1.1.0] - 2026-07-30
-
-### Added
-
-- **`nw-cli`**: a new unified CLI (`nw`) for the OpenAPI → connector → wheel →
-  MCP → Docker pipeline, with `gen-all` (one-shot), and standalone `gen-whl`,
-  `gen-mcp`, and `docker-build` stages, prerequisite checks, and a Rich
-  progress UI (`nw-cli/`, `docs/nw-cli.md`).
-- **`nw-connector-builder`**: a new package that derives a connector
-  (auth, naming, operations, normalizers) from an OpenAPI/Swagger spec and
-  generates its codegen output, with a promotion gate for reviewing generated
-  connectors before they're wired in (`nw-connector-builder/`,
-  `docs/nw-connector-builder.md`, `docs/nw-connector-builder-scope.md`).
-- **`nw-mcp-builder`**: a new package that generates a standalone MCP server
-  project from an existing connector (`nw-mcp-builder/`), including
-  mcp-builder YAML configs for the Slack and Salesforce connectors.
-- Multi-tenancy support across all bindings (REST, gRPC, MCP) and the
-  playground: per-tenant configuration and secrets, tenant selection, and
-  per-tenant credential isolation for every connector (Google Drive, HTTP
-  generic, SMTP, Stripe, Epic FHIR, Cerner FHIR, Salesforce, Slack).
-- `node_wire_runtime.config_store` and `node_wire_runtime.tenant_persistence`
-  for durable per-tenant configuration storage, an expanded `secrets`
-  subsystem for per-tenant secret resolution, and `node_wire_runtime.identity`
-  for tenant identity resolution shared across bindings.
-- `TenantSessionOverlay` (`node_wire_runtime.tenant_session`), extracted from
-  the MCP server's private state, to isolate per-request tenant/config context.
-- Google Drive MCP upstream OIDC / bearer passthrough so MCP requests can forward
-  the caller’s OAuth token to Drive.
-- LLM provider/model switching in the playground (`agents/llm_factory.py`,
-  new `agents/llm_base.py`), with new Anthropic and Gemini providers alongside
-  updated OpenAI and Groq providers, and playground UI controls for selecting
-  a model per session.
-- Per-connector response normalizers (`normalizers.py`) for Google Drive,
-  Salesforce, SMTP, Epic FHIR, and Cerner FHIR.
-- Error taxonomy support in the connector codegen and mcp-builder pipelines.
-- A new query-parameter API key auth mechanism (`node_wire_runtime.auth.apikey_query`).
-- OpenTelemetry metrics and structured audit-trail events on connector
-  invocations.
-- REST `/ready` readiness endpoint (requires at least one REST or gRPC connector).
-- Automated release-tag workflow (`create-tag.yml`) and a lockstep package
-  version-bump script with changelog scaffolding.
-- Branded documentation site with architecture overview, published from CI
-  (`mkdocs.yml`, `docs/index.md`, `docs/mcp-servers.md`).
-- `scripts/build-mcp-server.sh` and `scripts/mcp-servers.registry` for
-  building per-connector MCP server images, and a `docs.yml` CI workflow to
-  publish the documentation site.
-- PR patch-coverage gate (80% overall, with an 80% floor on changed files) and
-  static security analysis on pull requests.
-- Broader automated test coverage for bindings, secrets, auth, metrics, and audit
-  trail.
-
-### Changed
-
-- Collapsed the REST/gRPC binding invoke path into a shared `bindings/invoke.py`
-  helper, removing duplicated dispatch logic between transports.
-- Strengthened auth/scope-policy enforcement and connector isolation as part
-  of a connector framework optimization pass; removed the per-connector
-  `registration.py` modules and the shared `mcp_contract.py` /
-  `mcp_normalizers.py` in favor of the new normalizer-based registration path.
-- Rebuilt the wheel-build script for roughly an 80% reduction in build time.
-- Pinned the MCP SDK version until the codebase is compatible with the newer
-  release.
-- `nw-mcp-builder` generated Dockerfiles now use the same digest-pinned
-  `python:3.12-slim` base and non-root `USER` as checked-in images, with a
-  whitelist `.dockerignore`, no secrets/`COPY .env` in the image, a read-only
-  application tree, and no default `NW_MCP_AUTH_DISABLED` in containers.
-- Node Wire branding refresh (README badges/logos, docs site theme).
-- Documentation updates for connector authoring, MCP servers, packaging/release
-  flow, configuration, architecture, multi-tenancy, and the connector builder
-  pipeline (`docs/architecture.md`, `docs/configuration.md`, `docs/connectors.md`,
-  `docs/mcp.md`, `docs/nw-connector-builder.md`, `docs/public-api.md`,
-  `docs/toolhive_agent_scenario.md`).
-- CI workflows hardened for consistency across quality, security, and publish
-  checks.
-- Publish workflow accepts PEP 440 pre-release tags (`aN` / `bN` / `rcN`) and
-  skips the GitHub Release prerequisite for those tags so betas can ship to
-  PyPI without a GitHub Release; Create Release Tag and `bump-version.py`
-  accept the same version shapes (`docs/packaging.md`, `docs/versioning.md`).
-
-### Fixed
-
-- Moved `grpcio-tools` out of core `node-wire` dependencies into the optional
-  `grpc-codegen` extra (used only by `scripts/generate-grpc-stubs.sh`). Plain
-  installs and CI `uv sync --extra agents --dev` no longer pull a native
-  compile of `grpcio-tools` (fixes Windows MSVC failures when no wheel matches).
-- `ErrorMapper` now scopes error-code matching per connector ID with an
-  MRO-specific match, fixing a cross-connector leak where one connector's
-  error code could surface through another connector's error handling.
-- Fixed a cross-tenant/cross-config race condition on the MCP HTTP transport
-  where concurrent requests could read another tenant's session or
-  configuration.
-- Security and logging hardening: safer hashing, sanitized sensitive fields in
-  logs, stricter URL handling, reduced exception information exposure, and related
-  cleanups across runtime, agents, playground scenarios, and connectors.
-- gRPC health-check behavior for readiness/liveness reporting.
-- Log-sanitization test isolation so logger filters do not leak across the suite.
+- `ErrorMapper` no longer leaks one connector's error code into another connector's errors.
+- A race on the MCP HTTP transport no longer lets concurrent requests read another tenant's session
+  or configuration.
+- `grpcio-tools` moved to the optional `grpc-codegen` extra, fixing Windows installs without a
+  matching wheel.
 
 ## [1.0.0] - 2026-06-27
 
@@ -339,21 +111,8 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 
 ### Fixed
 
-- Connector authentication misconfiguration now surfaces clear, actionable error
-  messages instead of cryptic library exceptions:
-  - **OAuth2 private_key_jwt** (`oauth2.py`): `jwt.InvalidKeyError` is caught and
-    re-raised with the algorithm and a pointer to the `private_key_secret`
-    configuration.
-  - **OAuth2 token endpoint** (`oauth2.py`): Non-200 responses from the token URL
-    now include the HTTP status, the token URL, and a preview of the server
-    response rather than a bare `raise_for_status()` traceback.
-  - **Google service account** (`service_account.py`, `google_drive/logic.py`):
-    Invalid JSON reports the secret name; a missing key file reports the resolved
-    path; malformed key structures surface the underlying Google library error
-    with context.
-  - **SMTP** (`smtp/logic.py`): `SMTPAuthenticationError` names
-    `SMTP_USERNAME`/`SMTP_PASSWORD`; connect/disconnect errors name
-    `SMTP_HOST`/`SMTP_PORT`/`SMTP_USE_TLS`; timeout errors mention `NW_TIMEOUT`.
+- Connector authentication misconfiguration (OAuth2, Google service account, SMTP) now reports
+  clear, actionable errors naming the setting to fix instead of library exceptions.
 
 ## [0.1.0] - 2026-06-26
 

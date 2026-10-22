@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-google-drive"
-version = "1.0.0"
+version = "1.1.0"
 description = "Node Wire connector for Google Drive API v3: list, read, create, upload, update and delete files, and share them"
 readme = "README.md"
 requires-python = ">=3.11"

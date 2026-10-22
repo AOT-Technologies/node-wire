@@ -83,7 +83,7 @@ Dependabot merges will stick on a skipped check).
 - Both the PR/push gate (`security-pr.yml`) and the release workflow (`publish.yml`) run `pip-audit` with no severity threshold, so each **blocks on any vulnerability**.
 - Scheduled scans catch newly disclosed CVEs even when code does not change.
 
-**Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=1.0.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** every connector package and `packages/meta` in one environment (`pip install packages/runtime packages/connectors/<name> …`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.
+**Monorepo install note:** Connector packages under `packages/connectors/*` declare `node-wire-runtime>=1.1.0` as a normal PyPI dependency name. The security workflow installs `packages/runtime` from the checkout **together with** every connector package and `packages/meta` in one environment (`pip install packages/runtime packages/connectors/<name> …`) so `pip` can resolve `node-wire-runtime` without requiring a published wheel on PyPI. Locally, mirror that when auditing a single connector: `pip install packages/runtime packages/connectors/<name>`.
 
 ## Secret scanning
 

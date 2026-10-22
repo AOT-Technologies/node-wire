@@ -92,7 +92,7 @@ This is the package's only build file; there is no `setup.py`. Start from the fo
 
 [project]
 name = "node-wire-<dist-name>"
-version = "1.0.0"
+version = "1.1.0"
 # "Node Wire connector for <Service>: <the actions, in plain words>"
 description = "Node Wire connector for <Service>: <what it does>"
 readme = "README.md"
@@ -122,7 +122,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "node-wire-runtime>=1.0.0",
+    "node-wire-runtime>=1.1.0",
     # Add vendor SDK or HTTP client here, for example:
     # "httpx[http2]>=0.27.0,<0.28.0",
 ]

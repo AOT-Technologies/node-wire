@@ -12,6 +12,8 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import httpx
 
+from node_wire_runtime import __version__
+
 from .config import McpClientConfig
 from .env_config import (
     config_from_env,
@@ -152,7 +154,7 @@ class McpOAuthClient:
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "node-wire", "version": "1.0.0"},
+                "clientInfo": {"name": "node-wire", "version": __version__},
             },
         }
         resp = await self._request("POST", json_body=init_payload)

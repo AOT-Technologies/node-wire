@@ -157,14 +157,14 @@ def test_packaging_inventory_matches_build_script() -> None:
     )
     assert meta["project"]["dependencies"] == [
         "node-wire-runtime>=1.1,<2",
-        "node-wire-http>=1.0,<2",
-        "node-wire-smtp>=1.0,<2",
-        "node-wire-stripe>=1.0,<2",
-        "node-wire-slack>=1.0,<2",
-        "node-wire-salesforce>=1.0,<2",
-        "node-wire-google-drive>=1.0,<2",
-        "node-wire-fhir-epic>=1.0,<2",
-        "node-wire-fhir-cerner>=1.0,<2",
+        "node-wire-http>=1.1,<2",
+        "node-wire-smtp>=1.1,<2",
+        "node-wire-stripe>=1.1,<2",
+        "node-wire-slack>=1.1,<2",
+        "node-wire-salesforce>=1.1,<2",
+        "node-wire-google-drive>=1.1,<2",
+        "node-wire-fhir-epic>=1.1,<2",
+        "node-wire-fhir-cerner>=1.1,<2",
     ]
 
 

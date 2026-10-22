@@ -1055,7 +1055,7 @@ provides-extras = ["aws", "vault", "azure", "gcp"]
 
 [[package]]
 name = "nw-cli"
-version = "0.1.0"
+version = "1.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "nw-connector-builder" },
@@ -1076,7 +1076,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-connector-builder"
-version = "0.1.0"
+version = "1.1.0"
 source = { editable = "../nw-connector-builder" }
 dependencies = [
     { name = "datamodel-code-generator" },
@@ -1113,7 +1113,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-mcp-builder"
-version = "0.1.0"
+version = "1.1.0"
 source = { editable = "../nw-mcp-builder" }
 dependencies = [
     { name = "node-wire-bindings" },
@@ -1132,7 +1132,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-stacklok-builder"
-version = "0.1.0"
+version = "1.1.0"
 source = { editable = "../nw-stacklok-builder" }
 dependencies = [
     { name = "jinja2" },
