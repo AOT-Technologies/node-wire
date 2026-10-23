@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 import re
@@ -277,9 +276,16 @@ def _validate_dropping_invalid_parts(resolved: dict[str, Any]) -> None:
     from openapi_spec_validator import validate
     from openapi_spec_validator.shortcuts import get_validator_cls
 
-    # Any failure here is narrowed below, part by part.
-    with contextlib.suppress(Exception):
+    try:
         validate(resolved)
+    except Exception as exc:  # noqa: BLE001 - narrowed below, part by part
+        logger.debug(
+            "Spec failed whole-document validation; checking operations and components "
+            "individually (%s: %s)",
+            type(exc).__name__,
+            exc,
+        )
+    else:
         return
 
     validator_cls = get_validator_cls(resolved)
