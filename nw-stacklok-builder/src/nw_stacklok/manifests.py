@@ -32,11 +32,11 @@ BACKEND_PORT = 8080
 TENANT_PLACEHOLDER = "REPLACE_ME_TENANT"
 PROXY_LABEL = "node-wire.aot-technologies.com/proxy-for"
 TENANT_HEADER = "X-Tenant-ID"
-PROXY_SECRET_HEADER = "X-NW-Proxy-Secret"
-PROXY_SECRET_ENV = "NW_PROXY_SECRET"
-PROXY_SECRET_KEY = "token"
+PROXY_SECRET_HEADER = "X-NW-Proxy-Secret"  # nosec B105 - header name, not a credential
+PROXY_SECRET_ENV = "NW_PROXY_SECRET"  # nosec B105 - env var name, not a credential
+PROXY_SECRET_KEY = "token"  # nosec B105 - Secret data key name, not a credential
 # node_wire_toolhive.request rejects this value, so an unedited proxy-secret.yaml fails closed.
-PROXY_SECRET_PLACEHOLDER = "REPLACE_ME_PROXY_SECRET"
+PROXY_SECRET_PLACEHOLDER = "REPLACE_ME_PROXY_SECRET"  # nosec B105 - public placeholder, not a credential
 # The container listens on all interfaces inside its pod; the NetworkPolicy limits who reaches it.
 _BIND_ALL = "0.0.0.0"  # nosec B104
 # emptyDir scratch space for the read-only root filesystem.

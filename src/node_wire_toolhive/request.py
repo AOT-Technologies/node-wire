@@ -21,10 +21,10 @@ from mcp.server.lowlevel.server import request_ctx
 
 _SESSION_HEADER = "mcp-session-id"
 _STDIO_SESSION = "stdio"
-PROXY_SECRET_ENV = "NW_PROXY_SECRET"
-PROXY_SECRET_HEADER = "x-nw-proxy-secret"
+PROXY_SECRET_ENV = "NW_PROXY_SECRET"  # nosec B105 - env var name, not a credential
+PROXY_SECRET_HEADER = "x-nw-proxy-secret"  # nosec B105 - header name, not a credential
 # What nw_stacklok's generated proxy-secret.yaml ships until the operator replaces it.
-PROXY_SECRET_PLACEHOLDER = "REPLACE_ME_PROXY_SECRET"
+PROXY_SECRET_PLACEHOLDER = "REPLACE_ME_PROXY_SECRET"  # nosec B105 - public placeholder, not a credential
 
 logger = logging.getLogger("node_wire_toolhive")
 

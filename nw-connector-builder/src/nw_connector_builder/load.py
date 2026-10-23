@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -276,11 +277,10 @@ def _validate_dropping_invalid_parts(resolved: dict[str, Any]) -> None:
     from openapi_spec_validator import validate
     from openapi_spec_validator.shortcuts import get_validator_cls
 
-    try:
+    # Any failure here is narrowed below, part by part.
+    with contextlib.suppress(Exception):
         validate(resolved)
         return
-    except Exception:  # noqa: BLE001 - narrowed below, part by part
-        pass
 
     validator_cls = get_validator_cls(resolved)
     base = {k: resolved[k] for k in ("openapi", "info") if k in resolved}

@@ -18,7 +18,6 @@ from typing import Any
 
 import pytest
 
-import bindings.mcp_server.server as server_mod
 from bindings.mcp_server.server import (
     CALL_TOOL_TOOL,
     SEARCH_TOOLS_TOOL,
@@ -152,7 +151,7 @@ def _capture_invoke(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         calls.append(kwargs)
         return ConnectorResponse(success=True, data={"sent": True}, trace_id="t")
 
-    monkeypatch.setattr(server_mod, "invoke", fake_invoke)
+    monkeypatch.setattr("bindings.mcp_server.server.invoke", fake_invoke)
     return calls
 
 

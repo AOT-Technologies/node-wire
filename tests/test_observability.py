@@ -177,12 +177,10 @@ def test_otlp_log_export_skips_values_otel_cannot_carry(caplog: pytest.LogCaptur
     from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
     from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
 
-    from node_wire_runtime.observability import OtlpLoggingHandler
-
     sink = InMemoryLogRecordExporter()
     provider = LoggerProvider()
     provider.add_log_record_processor(SimpleLogRecordProcessor(sink))
-    handler = OtlpLoggingHandler(logger_provider=provider)
+    handler = obs.OtlpLoggingHandler(logger_provider=provider)
     record = logging.LogRecord("x", logging.WARNING, __file__, 1, "rejected", None, None)
     record.__dict__.update({"_logger": object(), "error_code": "TENANT_REQUIRED", "tags": ["a"]})
 
