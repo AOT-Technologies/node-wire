@@ -615,8 +615,6 @@ def _looks_base64(value: str) -> bool:
     merely happen to use the base64 alphabet (e.g. ``abcdefgh``) are not
     silently promoted to file uploads.
     """
-    import re
-
     if len(value) < 64 or len(value) % 4 != 0:
         return False
     if "=" not in value[-3:]:

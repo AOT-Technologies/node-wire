@@ -17,8 +17,7 @@ from typing import Any
 
 import pytest
 
-import bindings.mcp_server.server as server_mod
-from bindings.mcp_server.server import McpServer, validate_tool_arguments
+from bindings.mcp_server.server import McpServer, build_manifest, validate_tool_arguments
 
 
 @pytest.fixture
@@ -30,14 +29,14 @@ def test_manifest_is_built_once_across_listing_and_calls(
     server: McpServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls = 0
-    real = server_mod.build_manifest
+    real = build_manifest
 
     def counting(connectors: Any, **kwargs: Any) -> Any:
         nonlocal calls
         calls += 1
         return real(connectors, **kwargs)
 
-    monkeypatch.setattr(server_mod, "build_manifest", counting)
+    monkeypatch.setattr("bindings.mcp_server.server.build_manifest", counting)
     name = server.list_tools()[0]["name"]
     for _ in range(3):
         server._resolve_tool_name(name)

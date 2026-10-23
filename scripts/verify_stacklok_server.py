@@ -44,7 +44,8 @@ def main() -> int:
     parser.add_argument("--wait", type=float, default=60.0, help="Seconds to wait for the server")
     args = parser.parse_args()
 
-    scope = yaml.safe_load(open(args.scope, encoding="utf-8"))
+    with open(args.scope, encoding="utf-8") as scope_file:
+        scope = yaml.safe_load(scope_file)
     expected = {t["tool_name"] for g in scope["groups"] for t in g["tools"]} | _CONFIG_TOOLS
     failures: list[str] = []
     with httpx.Client(timeout=60) as client:

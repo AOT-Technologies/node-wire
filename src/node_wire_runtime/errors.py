@@ -50,9 +50,9 @@ class ErrorCode:
     # Authorization and credentials
     POLICY_DENIED = "POLICY_DENIED"
     PROXY_AUTH_FAILED = "PROXY_AUTH_FAILED"
-    UPSTREAM_TOKEN_MISSING = "UPSTREAM_TOKEN_MISSING"
-    SECRET_NOT_FOUND = "SECRET_NOT_FOUND"
-    TENANT_SECRET_NOT_FOUND = "TENANT_SECRET_NOT_FOUND"
+    UPSTREAM_TOKEN_MISSING = "UPSTREAM_TOKEN_MISSING"  # nosec B105 - error code, not a credential
+    SECRET_NOT_FOUND = "SECRET_NOT_FOUND"  # nosec B105 - error code, not a credential
+    TENANT_SECRET_NOT_FOUND = "TENANT_SECRET_NOT_FOUND"  # nosec B105 - error code, not a credential
 
 
 #: Each runtime-wide code's category. Codes shipped in 1.0.0 keep theirs through 1.x.

@@ -88,7 +88,8 @@ def _install_response(monkeypatch: pytest.MonkeyPatch, payload: Any) -> None:
             return None
 
     class _Client:
-        def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            return None
 
         async def __aenter__(self) -> "_Client":
             return self

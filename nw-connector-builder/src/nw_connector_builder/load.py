@@ -278,9 +278,15 @@ def _validate_dropping_invalid_parts(resolved: dict[str, Any]) -> None:
 
     try:
         validate(resolved)
+    except Exception as exc:  # noqa: BLE001 - narrowed below, part by part
+        logger.debug(
+            "Spec failed whole-document validation; checking operations and components "
+            "individually (%s: %s)",
+            type(exc).__name__,
+            exc,
+        )
+    else:
         return
-    except Exception:  # noqa: BLE001 - narrowed below, part by part
-        pass
 
     validator_cls = get_validator_cls(resolved)
     base = {k: resolved[k] for k in ("openapi", "info") if k in resolved}
