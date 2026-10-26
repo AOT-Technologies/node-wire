@@ -32,7 +32,7 @@ classifiers = [
 
 dependencies = [
     "node-wire-runtime>=1.1.0",
-    "httpx[http2]>=0.27.0,<0.28.0",
+    "httpx[http2]>=0.27.0,<0.29.0",
 ]
 
 [project.entry-points."node_wire.connectors"]
