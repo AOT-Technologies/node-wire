@@ -34,6 +34,7 @@ ALL_PACKAGES=(
   packages/connectors/salesforce
   packages/connectors/http_generic
   packages/connectors/slack
+  packages/connectors/github
 )
 
 
