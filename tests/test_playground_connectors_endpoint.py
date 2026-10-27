@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,7 +16,10 @@ from fastapi.testclient import TestClient
 from bindings.factory import ConnectorFactory
 from bindings.rest_api import app as rest_app
 from node_wire_http_generic.logic import HttpGenericConnector
+from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.tenant_persistence import REQUIRED_SECRETS_BY_CONNECTOR
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _mounted_client(monkeypatch: pytest.MonkeyPatch, factory: MagicMock) -> TestClient:
@@ -67,6 +71,34 @@ def test_gives_the_add_config_dialog_its_template_and_secret_names(
 
     assert entry["config_template"] == factory.config_template.return_value
     assert entry["secret_names"] == ["EXAMPLE_TOKEN"]
+
+
+def test_every_static_token_connector_lists_its_secret_name(monkeypatch: pytest.MonkeyPatch):
+    """Real connectors, not mocks: a static-token auth block must come with a declared secret.
+
+    ``secret_names`` comes from ``declare_secret_shape()`` and the auth block from
+    ``connectors.yaml``. If a connector (for example a newly generated one) drops the
+    declaration, the Add config dialog would show no credential field for it.
+    """
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "slack,stripe,github")
+    auto_register()
+    # conftest points NW_CONFIG_PATH at a test fixture; this test is about the shipped config.
+    factory = ConnectorFactory(config_path=_REPO_ROOT / "config" / "connectors.yaml")
+    factory.load()
+    client = _mounted_client(monkeypatch, factory)
+
+    connectors = client.get("/playground/connectors").json()
+
+    static = {
+        cid: entry
+        for cid, entry in connectors.items()
+        if entry["config_template"]["auth"].get("provider") == "static_token"
+    }
+    # Guard: the loop below must not pass by finding nothing.
+    assert {"slack", "stripe", "github"} <= set(static)
+    for cid, entry in static.items():
+        assert entry["secret_names"], cid
+        assert entry["config_template"]["auth"]["secret_key"] in entry["secret_names"], cid
 
 
 def test_carries_no_secret_values(monkeypatch: pytest.MonkeyPatch):
