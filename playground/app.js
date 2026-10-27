@@ -3266,6 +3266,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Hooks for dynamic-connectors.js (connectors discovered at runtime, no panel of their own).
+    window.nwPlayground = {
+        setMode,
+        requestHeaders: playgroundRequestHeaders,
+        getConfigName: getPlaygroundConfigName,
+        syncMultitenancyUi,
+        refreshConfigDropdown,
+        // Lets the Add config dialog work for a discovered connector.
+        registerConnector(mode, connectorId, createDoc, secretFields) {
+            _modeToConnectorId[mode] = connectorId;
+            _connectorCreateDocs[connectorId] = createDoc;
+            _connectorSecretFields[connectorId] = secretFields;
+        },
+    };
+    document.dispatchEvent(new CustomEvent('nw:ready'));
+
     // Initial Load UI State
     resetUI();
 });

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The playground adds a card and a generic form for every REST-exposed connector that has no
+  hand-coded panel, listed by `GET /playground/connectors`. A connector built with `nw gen-all`
+  appears after a server restart. In multitenancy mode the tenant header, config name and Add
+  config dialog work for these connectors (`ConnectorFactory.config_template()`).
+
 ## [1.1.0] - 2026-10-22
 
 ### Added

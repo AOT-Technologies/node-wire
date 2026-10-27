@@ -25,6 +25,7 @@ from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
+from node_wire_runtime.tenant_persistence import REQUIRED_SECRETS_BY_CONNECTOR
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
 from node_wire_runtime.config_store import (
@@ -132,6 +133,28 @@ def _mount_playground(app: FastAPI) -> None:
     @app.get("/playground/feature-flags", tags=["playground"], include_in_schema=False)
     async def playground_feature_flags() -> Dict[str, Any]:
         return {"multitenancy_enabled": is_multitenancy_enabled()}
+
+    @app.get("/playground/connectors", tags=["playground"], include_in_schema=False)
+    async def playground_connectors() -> Dict[str, Dict[str, Any]]:
+        # Simplified: every action's input schema in one response (about 1.4 MB for GitHub's
+        # 1,239 actions). Fine for a local-only tool, so no per-action route.
+        factory = get_factory()
+        connectors: Dict[str, Dict[str, Any]] = {}
+        for entry in build_manifest(factory.list_for_protocol("rest")):
+            cid = entry["connector_id"]
+            record = connectors.setdefault(
+                cid,
+                {
+                    "actions": [],
+                    # Names and templates only, never values: the Add config dialog (multitenancy).
+                    "config_template": factory.config_template(cid),
+                    "secret_names": list(REQUIRED_SECRETS_BY_CONNECTOR.get(cid) or []),
+                },
+            )
+            record["actions"].append(
+                {"action": entry["action"], "input_schema": entry["input_schema"]}
+            )
+        return connectors
 
     app.mount(
         "/playground",
