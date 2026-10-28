@@ -1287,6 +1287,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             wrap.appendChild(label);
             wrap.appendChild(input);
+            if (f.tokenTypes) {
+                // Simplified: the picker only relabels the field and swaps its help text. Every
+                // type is stored under the same secret key and sent as a bearer token.
+                const suffix = label.textContent.slice(f.label.length);
+                const picker = document.createElement('select');
+                picker.id = `cfg-secret-${f.key}-type`;
+                f.tokenTypes.forEach((t) => picker.add(new Option(t.label, t.value)));
+                const pickerWrap = document.createElement('div');
+                pickerWrap.className = 'field-group';
+                const pickerLabel = document.createElement('label');
+                pickerLabel.setAttribute('for', picker.id);
+                pickerLabel.textContent = 'Authentication type';
+                pickerWrap.append(pickerLabel, picker);
+                const help = document.createElement('p');
+                help.className = 'field-help';
+                wrap.appendChild(help);
+                const applyType = () => {
+                    const t = f.tokenTypes.find((x) => x.value === picker.value) || f.tokenTypes[0];
+                    label.textContent = t.label + suffix;
+                    help.textContent = t.help;
+                    if (!alreadySet) input.placeholder = t.placeholder;
+                };
+                picker.addEventListener('change', applyType);
+                applyType();
+                host.appendChild(pickerWrap);
+            }
             host.appendChild(wrap);
         });
         if ([...existing].some((k) => fields.some((f) => f.key === k))) {

@@ -12,6 +12,23 @@
     // Connectors that keep their own panels in app.js / index.html.
     const COVERED = ['fhir_epic', 'fhir_cerner', 'google_drive', 'http_generic', 'slack', 'stripe', 'salesforce'];
     const NAMES = { github: 'GitHub' };
+    // GitHub accepts either token kind as a bearer token, so both fill the same secret.
+    const TOKEN_TYPES = {
+        github: [
+            {
+                value: 'pat',
+                label: 'Personal access token',
+                placeholder: 'github_pat_… or ghp_…',
+                help: 'Create one at GitHub → Settings → Developer settings → Personal access tokens.',
+            },
+            {
+                value: 'oauth',
+                label: 'OAuth access token',
+                placeholder: 'gho_…',
+                help: 'The access token from your OAuth app or GitHub App authorization (starts with gho_ or ghu_).',
+            },
+        ],
+    };
     const $ = (id) => document.getElementById(id);
     const el = (tag, props = {}, ...kids) => {
         const node = Object.assign(document.createElement(tag), props);
@@ -269,7 +286,7 @@
             `dyn:${id}`,
             id,
             data[id].config_template,
-            data[id].secret_names.map((key) => ({ key, label: key, type: 'text', required: true }))
+            data[id].secret_names.map((key) => ({ key, label: key, type: 'text', required: true, tokenTypes: TOKEN_TYPES[id] }))
         );
         const icon = el('div', { className: 'connector-icon', textContent: nameOf(id).slice(0, 2).toUpperCase(), style: `background: ${colorOf(id)}; font-weight: 700` });
         const details = el('div', { className: 'connector-details' }, el('h3', { textContent: nameOf(id) }), el('p', { textContent: `${data[id].actions.length} actions, discovered at runtime.` }));
