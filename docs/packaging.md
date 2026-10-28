@@ -21,6 +21,7 @@ The following table lists every package the build script produces:
 | `node-wire-toolhive` **(not published)** | `src/node_wire_toolhive/` | — (credential relay, tenant header, config tools for `nw gen-stacklok` servers) |
 | `node-wire-fhir-cerner` | `src/node_wire_fhir_cerner/` | `fhir_cerner` |
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
+| `node-wire-github` | `src/node_wire_github/` | `github` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
 | `node-wire-http` | `src/node_wire_http_generic/` | `http_generic` |
 | `node-wire-salesforce` | `src/node_wire_salesforce/` | `salesforce` |

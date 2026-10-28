@@ -117,3 +117,16 @@ connectors:
       header_name: Authorization
       prefix: Bearer
       host_supplied: true
+  github:
+    enabled: true
+    exposed_via:
+    - rest
+    - grpc
+    - mcp
+    base_url: https://api.github.com
+    auth:
+      provider: static_token
+      secret_key: GITHUB_TOKEN
+    headers:
+      Accept: application/vnd.github+json
+      X-GitHub-Api-Version: '2022-11-28'

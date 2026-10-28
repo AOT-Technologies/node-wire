@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import os
 import sys
@@ -25,6 +25,7 @@ from bindings.factory import ConnectorFactory
 from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
+from node_wire_runtime.tenant_persistence import REQUIRED_SECRETS_BY_CONNECTOR
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
 from node_wire_runtime.config_store import (
@@ -92,6 +93,19 @@ def _rest_auth_configured() -> bool:
     return bool(os.environ.get("NW_REST_API_KEY") or os.environ.get("NW_REST_JWT_SECRET"))
 
 
+_HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
+
+
+def _http_method(connector_cls: Any, action: str) -> Optional[str]:
+    # Simplified: generated REST actions call execute_rest(method="GET", ...), so the verb is a
+    # constant of the action's code. No schema field carries it; hand-written connectors have
+    # none of these constants and get no badge.
+    meta = connector_cls.sdk_action_metas().get(action)
+    code = getattr(getattr(connector_cls, meta.fn_name, None), "__code__", None) if meta else None
+    found = _HTTP_VERBS & set(code.co_consts if code else ())
+    return next(iter(found)) if len(found) == 1 else None
+
+
 def _mount_playground(app: FastAPI) -> None:
     """Attach scenario API routes and static UI when playground is available."""
     if not _playground_enabled():
@@ -132,6 +146,34 @@ def _mount_playground(app: FastAPI) -> None:
     @app.get("/playground/feature-flags", tags=["playground"], include_in_schema=False)
     async def playground_feature_flags() -> Dict[str, Any]:
         return {"multitenancy_enabled": is_multitenancy_enabled()}
+
+    @app.get("/playground/connectors", tags=["playground"], include_in_schema=False)
+    async def playground_connectors() -> Dict[str, Dict[str, Any]]:
+        # Simplified: every action's input schema in one response (about 1.4 MB for GitHub's
+        # 1,239 actions). Fine for a local-only tool, so no per-action route.
+        factory = get_factory()
+        connectors: Dict[str, Dict[str, Any]] = {}
+        rest = factory.list_for_protocol("rest")
+        classes = {c.connector_id: type(c) for c in rest}
+        for entry in build_manifest(rest):
+            cid = entry["connector_id"]
+            record = connectors.setdefault(
+                cid,
+                {
+                    "actions": [],
+                    # Names and templates only, never values: the Add config dialog (multitenancy).
+                    "config_template": factory.config_template(cid),
+                    "secret_names": list(REQUIRED_SECRETS_BY_CONNECTOR.get(cid) or []),
+                },
+            )
+            record["actions"].append(
+                {
+                    "action": entry["action"],
+                    "input_schema": entry["input_schema"],
+                    "method": _http_method(classes[cid], entry["action"]),
+                }
+            )
+        return connectors
 
     app.mount(
         "/playground",
