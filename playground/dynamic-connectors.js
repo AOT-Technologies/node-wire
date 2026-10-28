@@ -157,16 +157,14 @@
         return out;
     }
 
-    function select(label, ...options) {
-        const input = el('select', { autocomplete: 'off' }, ...options.map((value) => el('option', { value, textContent: value })));
-        return [el('div', { className: 'field-group' }, el('label', { textContent: label }), input), input];
-    }
-
     function render(id) {
         const actions = data[id].actions;
         const groups = [...new Set(actions.map((a) => a.action.split(/[._]/)[0]))];
-        const [groupField, groupSelect] = select('Target group', ...groups);
-        const [actionField, actionSelect] = select('Target action');
+        // No group means every action, so one search covers the whole connector.
+        const groupBox = nwCombobox({ label: 'Target group', options: groups, placeholder: 'All groups', onPick: () => fillActions() });
+        const actionBox = nwCombobox({ label: 'Target action', placeholder: 'Search actions…', onPick: () => pickAction() });
+        const groupField = groupBox.field;
+        const actionField = actionBox.field;
         const fields = el('div');
         const spinner = el('div', { className: 'loading-spinner hidden' });
         const label = el('span', { className: 'btn-lbl', textContent: 'Run Action' });
@@ -175,20 +173,17 @@
         let current;
 
         function fillActions() {
-            const group = groups.length > 1 ? groupSelect.value : '';
+            const group = groups.length > 1 ? groupBox.value : '';
             const options = actions.filter((a) => !group || a.action.split(/[._]/)[0] === group);
-            actionSelect.replaceChildren(el('option', { value: '', textContent: 'Select an action...' }), ...options.map((a) => el('option', { value: a.action, textContent: a.action })));
+            actionBox.setOptions(options.map((a) => ({ value: a.action, badge: a.method })));
             pickAction();
         }
         function pickAction() {
-            current = actions.find((a) => a.action === actionSelect.value);
+            current = actions.find((a) => a.action === actionBox.value);
             fields.replaceChildren(...(current ? fieldsFor(current.input_schema) : []));
             run.disabled = !current;
             resetStep(current && current.action);
         }
-        groupSelect.addEventListener('change', fillActions);
-        actionSelect.addEventListener('change', pickAction);
-
         const form = el(
             'form',
             {},

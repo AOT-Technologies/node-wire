@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import os
 import sys
@@ -93,6 +93,19 @@ def _rest_auth_configured() -> bool:
     return bool(os.environ.get("NW_REST_API_KEY") or os.environ.get("NW_REST_JWT_SECRET"))
 
 
+_HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
+
+
+def _http_method(connector_cls: Any, action: str) -> Optional[str]:
+    # Simplified: generated REST actions call execute_rest(method="GET", ...), so the verb is a
+    # constant of the action's code. No schema field carries it; hand-written connectors have
+    # none of these constants and get no badge.
+    meta = connector_cls.sdk_action_metas().get(action)
+    code = getattr(getattr(connector_cls, meta.fn_name, None), "__code__", None) if meta else None
+    found = _HTTP_VERBS & set(code.co_consts if code else ())
+    return next(iter(found)) if len(found) == 1 else None
+
+
 def _mount_playground(app: FastAPI) -> None:
     """Attach scenario API routes and static UI when playground is available."""
     if not _playground_enabled():
@@ -140,7 +153,9 @@ def _mount_playground(app: FastAPI) -> None:
         # 1,239 actions). Fine for a local-only tool, so no per-action route.
         factory = get_factory()
         connectors: Dict[str, Dict[str, Any]] = {}
-        for entry in build_manifest(factory.list_for_protocol("rest")):
+        rest = factory.list_for_protocol("rest")
+        classes = {c.connector_id: type(c) for c in rest}
+        for entry in build_manifest(rest):
             cid = entry["connector_id"]
             record = connectors.setdefault(
                 cid,
@@ -152,7 +167,11 @@ def _mount_playground(app: FastAPI) -> None:
                 },
             )
             record["actions"].append(
-                {"action": entry["action"], "input_schema": entry["input_schema"]}
+                {
+                    "action": entry["action"],
+                    "input_schema": entry["input_schema"],
+                    "method": _http_method(classes[cid], entry["action"]),
+                }
             )
         return connectors
 

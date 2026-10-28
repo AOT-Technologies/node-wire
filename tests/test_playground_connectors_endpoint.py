@@ -56,6 +56,34 @@ def test_lists_rest_connectors_with_action_input_schemas(monkeypatch: pytest.Mon
     assert client.get("/playground/").status_code == 200
 
 
+def test_gives_each_generated_action_its_http_method(monkeypatch: pytest.MonkeyPatch):
+    """The combobox badges come from the verb a generated action passes to execute_rest."""
+    monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "github")
+    auto_register()
+    factory = ConnectorFactory(config_path=_REPO_ROOT / "config" / "connectors.yaml")
+    factory.load()
+    client = _mounted_client(monkeypatch, factory)
+
+    actions = {
+        a["action"]: a["method"]
+        for a in client.get("/playground/connectors").json()["github"]["actions"]
+    }
+
+    assert actions["pulls_list"] == "GET"
+    assert actions["pulls_create"] == "POST"
+    assert actions["pulls_update"] == "PATCH"
+    assert actions["git_delete_ref"] == "DELETE"
+    assert None not in actions.values()
+
+
+def test_actions_without_a_rest_call_get_no_method(monkeypatch: pytest.MonkeyPatch):
+    client = _mounted_client(monkeypatch, _factory_with(HttpGenericConnector()))
+
+    actions = client.get("/playground/connectors").json()["http_generic"]["actions"]
+
+    assert {a["method"] for a in actions} == {None}
+
+
 def test_gives_the_add_config_dialog_its_template_and_secret_names(
     monkeypatch: pytest.MonkeyPatch,
 ):
