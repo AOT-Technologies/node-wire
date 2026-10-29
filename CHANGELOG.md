@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-28
+
+### Fixed
+
+- Code-scanning alerts in the connector builder, stacklok builder, runtime error and REST modules,
+  and the ToolHive request handler.
+- Dependency lockfiles and GitHub Actions upgraded to resolve Dependabot security alerts.
+
 ## [1.1.0] - 2026-10-22
 
 ### Added
@@ -133,6 +141,7 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Dependency lockfile upgraded to resolve known CVEs in transitive packages.
 - Packaging, publish workflow, and security scanning aligned on the nine-package surface.
 
+[1.1.1]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.1
 [1.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.0
 [1.0.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.0.0
 [0.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v0.1.0
