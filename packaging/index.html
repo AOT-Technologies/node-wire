@@ -3644,9 +3644,10 @@ entry, then pushes <code>v…</code>. Stable releases use it with the version fr
 <h4 id="step-1-prepare-the-release">Step 1 — Prepare the release<a class="headerlink" href="#step-1-prepare-the-release" title="Anchor link to this section">&para;</a></h4>
 <ol>
 <li>Bump lockstep package versions with <code>./scripts/bump-version.py X.Y.Z</code> (root
-   <code>pyproject.toml</code>, every <code>packages/**/pyproject.toml</code>, and connector
-   <code>node-wire-runtime&gt;=…</code> floors). This does <strong>not</strong> touch <code>nw-mcp-builder/</code>,
-   which is versioned independently.</li>
+   <code>pyproject.toml</code>, every <code>packages/**/pyproject.toml</code>, the <code>nw-*</code> tool
+   <code>pyproject.toml</code> files and <code>__version__</code> strings, and package
+   <code>node-wire-runtime&gt;=…</code> floors), then run <code>uv lock</code> in the root and each
+   <code>nw-*</code> directory.</li>
 <li>Fill in the scaffolded <code>CHANGELOG.md</code> notes. Create Release Tag and GitHub
    Release both require a dated <code>## [X.Y.Z] - YYYY-MM-DD</code> section and a footer
    link <code>[X.Y.Z]: …/releases/tag/vX.Y.Z</code> (the bump script scaffolds these when
