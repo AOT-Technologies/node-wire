@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-connectors"
-version = "1.1.0"
+version = "1.1.1"
 description = "Install the Node Wire runtime and all eight official connectors (HTTP, SMTP, Stripe, Slack, Salesforce, Google Drive, Epic and Cerner FHIR) in one step"
 readme = "README.md"
 requires-python = ">=3.11"

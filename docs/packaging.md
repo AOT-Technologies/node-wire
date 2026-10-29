@@ -405,9 +405,10 @@ entry, then pushes `v…`. Stable releases use it with the version from the foll
 #### Step 1 — Prepare the release
 
 1. Bump lockstep package versions with `./scripts/bump-version.py X.Y.Z` (root
-   `pyproject.toml`, every `packages/**/pyproject.toml`, and connector
-   `node-wire-runtime>=…` floors). This does **not** touch `nw-mcp-builder/`,
-   which is versioned independently.
+   `pyproject.toml`, every `packages/**/pyproject.toml`, the `nw-*` tool
+   `pyproject.toml` files and `__version__` strings, and package
+   `node-wire-runtime>=…` floors), then run `uv lock` in the root and each
+   `nw-*` directory.
 2. Fill in the scaffolded `CHANGELOG.md` notes. Create Release Tag and GitHub
    Release both require a dated `## [X.Y.Z] - YYYY-MM-DD` section and a footer
    link `[X.Y.Z]: …/releases/tag/vX.Y.Z` (the bump script scaffolds these when

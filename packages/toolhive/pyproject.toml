@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-toolhive"
-version = "1.1.0"
+version = "1.1.1"
 description = "Node Wire layer for stacklok-built MCP servers behind ToolHive: credential relay, tenant header and config-selection tools"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "node-wire-runtime>=1.1.0",
+    "node-wire-runtime>=1.1.1",
     # ConnectorFactory(auth_provider_hook=...) — added alongside this package.
     "node-wire-bindings>=1.1.0",
     "mcp>=1.6.0,<2",

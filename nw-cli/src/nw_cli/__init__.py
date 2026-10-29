@@ -4,4 +4,4 @@
 
 """nw-cli — unified OpenAPI → connector → wheel → MCP → Docker orchestration."""
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"

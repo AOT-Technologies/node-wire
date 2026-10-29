@@ -4,7 +4,7 @@
 
 [project]
 name = "nw-stacklok-builder"
-version = "1.1.0"
+version = "1.1.1"
 description = "stacklok mcp-builder (vendored) generating MCP servers on the node-wire runtime and connectors"
 requires-python = ">=3.11"
 dependencies = [

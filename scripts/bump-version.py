@@ -5,9 +5,9 @@
 #
 """Bump lockstep package versions for a Node Wire release.
 
-Updates root + packages/**/pyproject.toml (not nw-mcp-builder), connector
-node-wire-runtime dependency floors, and scaffolds a CHANGELOG.md section/link
-when missing.
+Updates root + packages/**/pyproject.toml, the nw-* tool pyproject.toml files
+and their ``__version__`` strings, package node-wire-runtime dependency floors,
+and scaffolds a CHANGELOG.md section/link when missing.
 
 Accepts stable ``MAJOR.MINOR.PATCH`` or PEP 440 pre-releases (``aN`` / ``bN`` /
 ``rcN``).
@@ -46,11 +46,22 @@ CHANGELOG_LINK_RE = re.compile(
     r"^\[\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?\]: ",
     re.MULTILINE,
 )
+DUNDER_VERSION_RE = re.compile(r'^__version__\s*=\s*"[^"]*"', re.MULTILINE)
+# CLI tools release in lockstep, but keep their own dependency floors.
+TOOL_DIRS = ("nw-cli", "nw-connector-builder", "nw-mcp-builder", "nw-stacklok-builder")
+TOOL_DUNDER_VERSION_FILES = (
+    "nw-cli/src/nw_cli/__init__.py",
+    "nw-connector-builder/src/nw_connector_builder/__init__.py",
+)
 RELEASE_URL = "https://github.com/AOT-Technologies/node-wire/releases/tag/v{version}"
 
 
 def _pyproject_paths() -> list[Path]:
     return [ROOT / "pyproject.toml", *sorted((ROOT / "packages").glob("**/pyproject.toml"))]
+
+
+def _tool_pyproject_paths() -> list[Path]:
+    return [ROOT / tool / "pyproject.toml" for tool in TOOL_DIRS]
 
 
 def _is_pre_release(version: str) -> bool:
@@ -61,6 +72,12 @@ def _set_project_version(text: str, version: str, path: Path) -> str:
     if not PROJECT_VERSION_RE.search(text):
         raise SystemExit(f"ERROR: no project version field in {path}")
     return PROJECT_VERSION_RE.sub(f'version = "{version}"', text, count=1)
+
+
+def _set_dunder_version(text: str, version: str, path: Path) -> str:
+    if not DUNDER_VERSION_RE.search(text):
+        raise SystemExit(f"ERROR: no __version__ assignment in {path}")
+    return DUNDER_VERSION_RE.sub(f'__version__ = "{version}"', text, count=1)
 
 
 def _set_runtime_dep(text: str, version: str) -> str:
@@ -161,6 +178,18 @@ def main(argv: list[str] | None = None) -> int:
             and path != ROOT / "packages" / "meta" / "pyproject.toml"
         ):
             updated = _set_runtime_dep(updated, version)
+        if updated != original:
+            rel = path.relative_to(ROOT).as_posix()
+            changed.append(rel)
+            print(f"{'Would update' if args.dry_run else 'Updated'}: {rel}")
+            _write(path, updated, dry_run=args.dry_run)
+
+    tool_files = [(path, _set_project_version) for path in _tool_pyproject_paths()] + [
+        (ROOT / rel, _set_dunder_version) for rel in TOOL_DUNDER_VERSION_FILES
+    ]
+    for path, setter in tool_files:
+        original = path.read_text(encoding="utf-8")
+        updated = setter(original, version, path)
         if updated != original:
             rel = path.relative_to(ROOT).as_posix()
             changed.append(rel)
