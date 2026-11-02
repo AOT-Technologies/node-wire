@@ -706,6 +706,22 @@ class ConnectorFactory:
             return True
         return protocol in cfg.exposed_via
 
+    def config_template(self, connector_id: str) -> Dict[str, Dict[str, Any]]:
+        """The connector's YAML settings as a tenant config doc: ``{"config", "auth"}``.
+
+        ``auth`` is the YAML auth block (secret *names* only, never values: ``connectors.yaml``
+        holds no secrets). ``config`` is every other setting, minus the YAML gating keys.
+        Empty for a connector with no YAML entry.
+        """
+        cfg = self._configs.get(connector_id)
+        if cfg is None:
+            return {"config": {}, "auth": {}}
+        raw = dict(cfg.raw)
+        auth = raw.pop("auth", None) or {}
+        for key in ("enabled", "exposed_via", "auth_schemes"):
+            raw.pop(key, None)
+        return {"config": raw, "auth": auth}
+
     def _lock_for(self, key: Tuple[str, str, str]) -> asyncio.Lock:
         with self._locks_guard:
             lock = self._locks.get(key)
