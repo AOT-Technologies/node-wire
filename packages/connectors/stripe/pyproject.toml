@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-stripe"
-version = "1.1.0"
+version = "1.1.1"
 description = "Node Wire connector for Stripe: payment intents, charges, subscriptions and refunds"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,7 +31,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "node-wire-runtime>=1.1.0",
+    "node-wire-runtime>=1.1.1",
     "stripe>=10.0.0",
 ]
 

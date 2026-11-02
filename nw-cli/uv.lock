@@ -1323,7 +1323,7 @@ wheels = [
 
 [[package]]
 name = "node-wire-bindings"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "../packages/bindings" }
 dependencies = [
     { name = "mcp" },
@@ -1336,7 +1336,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "mcp", specifier = ">=1.6.0,<2" },
-    { name = "node-wire-runtime", specifier = ">=1.1.0" },
+    { name = "node-wire-runtime", specifier = ">=1.1.1" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
@@ -1344,7 +1344,7 @@ requires-dist = [
 
 [[package]]
 name = "node-wire-runtime"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "../packages/runtime" }
 dependencies = [
     { name = "httpx", extra = ["http2"] },
@@ -1381,7 +1381,7 @@ provides-extras = ["aws", "vault", "azure", "gcp"]
 
 [[package]]
 name = "nw-cli"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "nw-connector-builder" },
@@ -1402,7 +1402,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-connector-builder"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "../nw-connector-builder" }
 dependencies = [
     { name = "datamodel-code-generator" },
@@ -1439,7 +1439,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-mcp-builder"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "../nw-mcp-builder" }
 dependencies = [
     { name = "node-wire-bindings" },
@@ -1458,7 +1458,7 @@ requires-dist = [
 
 [[package]]
 name = "nw-stacklok-builder"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "../nw-stacklok-builder" }
 dependencies = [
     { name = "jinja2" },
