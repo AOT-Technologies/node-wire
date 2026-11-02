@@ -183,6 +183,26 @@ class ScopePolicyHook(PolicyHook):
             raise PolicyDenied(f"Missing required scope: {required}")
 
 
+_scope_dotenv_loaded = False
+
+
+def _load_scope_dotenv_once() -> None:
+    """Load ``.env`` files at most once per process; this runs on every MCP request."""
+    global _scope_dotenv_loaded
+    if _scope_dotenv_loaded:
+        return
+    _scope_dotenv_loaded = True
+    repo_root_env = Path(__file__).resolve().parents[3] / ".env"
+    load_dotenv(override=False)
+    load_dotenv(repo_root_env, override=False)
+
+
+@lru_cache(maxsize=None)
+def _log_scope_map_unconfigured() -> None:
+    """Log once per process; ``lru_cache`` suppresses repeats."""
+    logger.info("Scope policy map not configured (env empty)")
+
+
 def load_scope_map_from_env() -> dict[str, str]:
     raw = os.environ.get("NW_MCP_ACTION_SCOPE_MAP_JSON")
     if not raw:
@@ -191,13 +211,17 @@ def load_scope_map_from_env() -> dict[str, str]:
         # explicitly set variables (e.g. pytest conftest, production injection) are not
         # stomped by repo .env — same as playground/scenarios load_dotenv().
         if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "no"):
-            repo_root_env = Path(__file__).resolve().parents[3] / ".env"
-            load_dotenv(override=False)
-            load_dotenv(repo_root_env, override=False)
+            _load_scope_dotenv_once()
         raw = os.environ.get("NW_MCP_ACTION_SCOPE_MAP_JSON")
     if not raw:
-        logger.info("Scope policy map not configured (env empty)")
+        _log_scope_map_unconfigured()
         return {}
+    return dict(_parse_scope_map(raw))
+
+
+@lru_cache(maxsize=8)
+def _parse_scope_map(raw: str) -> tuple[tuple[str, str], ...]:
+    """Parse and validate once per distinct env value; callers get a fresh dict."""
     parsed = json.loads(raw)
     if not isinstance(parsed, dict):
         raise ValueError("NW_MCP_ACTION_SCOPE_MAP_JSON must be a JSON object.")
@@ -212,4 +236,4 @@ def load_scope_map_from_env() -> dict[str, str]:
         "Scope policy map loaded",
         extra={"entries": len(out), "action_keys": sorted(out.keys())},
     )
-    return out
+    return tuple(out.items())

@@ -533,17 +533,27 @@ COPY wheels/ /wheels/
 # `gen-all` produces new wheel files, which invalidates this layer, so that
 # download repeats on each loop. --no-cache-dir told pip to neither read nor
 # write a cache, leaving the mount above permanently empty and doing nothing.
-# --no-compile then avoids writing .pyc files the next two lines only delete.
-# The find still earns its place: it strips the base image's own stdlib
-# __pycache__, which shrinks the /usr/local copied into the final stage.
-# Brace the __pycache__ cleanup so `|| true` cannot mask a failed pip install
-# (shell associates `&&`/`||` left-to-right; bare `pip && find || true && …`
-# succeeds even when pip fails).
+# --no-compile: pip's .pyc would only be deleted by the find below; compileall
+# writes them once, after the cleanup.
+# The find strips every __pycache__, including the base image's stdlib ones:
+# the runtime stage starts FROM the same base, which already ships those, so
+# copying them again would only duplicate them in the /usr/local layer.
+# compileall then writes .pyc for site-packages only. The app runs as a user
+# that cannot write __pycache__ under /usr/local, so without them every
+# container start recompiles every module it imports (measured: +25 MB raw,
+# ~10 MB compressed; cold import 0.82 s -> 0.29 s). checked-hash keeps the
+# .pyc valid whatever file mtimes COPY --from produces.
+# Brace the cleanup and compile steps so `|| true` cannot mask a failed pip
+# install (shell associates `&&`/`||` left-to-right; bare `pip && find || true
+# && …` succeeds even when pip fails). compileall exits non-zero when a package
+# ships a file that is not valid Python 3 (test data, templates); that must not
+# fail the build.
 RUN --mount=type=cache,target=/root/.cache/pip \\
     pip install --no-compile --find-links=/wheels \\
         node-wire-runtime {BINDINGS_DIST_PACKAGE} {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
     && {{ find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true; }} \\
-    && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
+    && {{ python -m compileall -qq -j 0 --invalidation-mode checked-hash \\
+        /usr/local/lib/python3.13/site-packages || true; }}
 
 # --- runtime stage ---
 FROM {PYTHON_313_SLIM_IMAGE}
@@ -584,7 +594,9 @@ COPY --from=deps /usr/local /usr/local
 COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml
 COPY --chmod=0755 src/ /app/src/
 
-RUN chown -R root:root /app \\
+# Bytecode for the host package too, before the tree is made read-only.
+RUN python -m compileall -qq --invalidation-mode checked-hash /app/src \\
+    && chown -R root:root /app \\
     && chmod -R a-w /app
 
 USER app

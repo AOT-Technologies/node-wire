@@ -150,3 +150,68 @@ def test_yaml_specs_load_as_json_data(tmp_path: Path) -> None:
     response = doc["paths"]["/emojis"]["get"]["responses"]["200"]
     example = response["content"]["application/json"]["example"]
     assert example == {"yes": "a", "no": "b", "on": "c", "+1": "d", "released": "2020-07-15"}
+
+
+def test_normalize_leaves_input_untouched_and_unshared() -> None:
+    """Helpers work on shallow copies; the result must still own every container."""
+    import copy
+
+    shared = {"name": "ids", "in": "query", "type": "array", "items": {"type": "string"},
+              "collectionFormat": "csv"}  # fmt: skip
+    doc = {
+        "swagger": "2.0",
+        "info": {"title": "t", "version": "1"},
+        "definitions": {"A": {"type": "object"}},
+        "paths": {
+            "/x": {
+                "parameters": [shared],
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "ok",
+                            "schema": {"$ref": "#/definitions/A"},
+                            "headers": {"H": {"type": "string"}},
+                            "examples": {"application/json": {"a": 1}},
+                        }
+                    }
+                },
+                "delete": {"responses": {"204": {"description": "gone"}}},
+            }
+        },
+    }
+    before = copy.deepcopy(doc)
+    out = normalize_swagger2_to_openapi3(doc)
+    assert doc == before
+
+    def containers(node: object, acc: set[int]) -> set[int]:
+        if isinstance(node, (dict, list)):
+            acc.add(id(node))
+            for v in node.values() if isinstance(node, dict) else node:
+                containers(v, acc)
+        return acc
+
+    assert not containers(out, set()) & containers(doc, set())
+    get, delete = out["paths"]["/x"]["get"], out["paths"]["/x"]["delete"]
+    assert get["parameters"] == delete["parameters"]
+    assert get["parameters"][0] is not delete["parameters"][0]
+    assert get["parameters"][0]["style"] == "form"
+    ok = get["responses"]["200"]
+    assert ok["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/A"}
+    assert ok["content"]["application/json"]["example"] == {"a": 1}
+
+
+def test_parse_spec_text_json_matches_yaml_loader() -> None:
+    """The json fast path gives the same document the YAML spec loader does."""
+    import json
+
+    import yaml
+
+    from nw_connector_builder.load import _SpecLoader, _string_keys, parse_spec_text
+
+    for name in ("demo_pets.openapi.yaml", "slack_web.openapi.yaml"):
+        text = (FIXTURES / name).read_text(encoding="utf-8")
+        doc = _string_keys(yaml.load(text, Loader=_SpecLoader))  # nosec B506 - safe loader
+        assert parse_spec_text(text) == doc
+        assert parse_spec_text(json.dumps(doc)) == doc
+    # Not strict JSON, but valid YAML flow style: still parsed.
+    assert parse_spec_text("{a: 1, 'b': [x]}") == {"a": 1, "b": ["x"]}

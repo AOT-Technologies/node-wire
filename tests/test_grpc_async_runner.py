@@ -45,3 +45,32 @@ def test_background_runner_handles_concurrent_calls() -> None:
         thread.join()
 
     assert errors == []
+
+
+def test_runner_times_out_and_cancels(monkeypatch) -> None:
+    import asyncio
+
+    import pytest
+
+    from bindings.grpc_server.async_runner import BackgroundAsyncRunner
+
+    monkeypatch.setenv("NW_GRPC_CALL_TIMEOUT_SECONDS", "0.05")
+    runner = BackgroundAsyncRunner()
+    runner.start()
+    cancelled = []
+
+    async def _hang() -> None:
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
+
+    with pytest.raises(TimeoutError):
+        runner.run(_hang())
+
+    async def _ok() -> int:
+        return 7
+
+    assert runner.run(_ok()) == 7
+    assert cancelled == [True]

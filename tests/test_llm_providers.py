@@ -644,3 +644,41 @@ def test_gemini_provider_text_response_without_tool_calls() -> None:
         assert out.tool_calls == []
     finally:
         sys.modules.pop("google.generativeai.types", None)
+
+
+def test_openai_provider_converts_tools_once_and_sets_timeout(monkeypatch) -> None:
+    import agents.providers.openai_provider as oai_mod
+
+    monkeypatch.setenv("NW_LLM_TIMEOUT_SECONDS", "45")
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = _openai_style_response("done", [])
+    conversions = 0
+    real = oai_mod._mcp_tool_to_openai
+
+    def counting(t):
+        nonlocal conversions
+        conversions += 1
+        return real(t)
+
+    monkeypatch.setattr(oai_mod, "_mcp_tool_to_openai", counting)
+    with patch("agents.providers.openai_provider.OpenAI", return_value=mock_client):
+        p = oai_mod.OpenAIProvider(api_key="k", model="m")
+    tools = [{"name": "a", "description": "d", "input_schema": {"type": "object"}}]
+    msgs = [LLMMessage(role="user", content="hello")]
+    p.chat_with_tools(msgs, tools)
+    p.chat_with_tools(msgs, tools)
+    assert conversions == 1
+    tools.append({"name": "b", "description": "d", "input_schema": {"type": "object"}})
+    p.chat_with_tools(msgs, tools)
+    assert conversions == 3  # list grew in place: reconverted
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert kwargs["timeout"] == 45.0
+    assert [t["function"]["name"] for t in kwargs["tools"]] == ["a", "b"]
+
+
+@pytest.mark.parametrize("raw", ["abc", "-1", "0"])
+def test_llm_timeout_falls_back_on_bad_values(monkeypatch, raw) -> None:
+    from agents.schema_utils import llm_request_timeout_seconds
+
+    monkeypatch.setenv("NW_LLM_TIMEOUT_SECONDS", raw)
+    assert llm_request_timeout_seconds() == 120.0

@@ -169,21 +169,30 @@ class _LineWriter(io.TextIOBase):
 
     def __init__(self, emit: Callable[[str], None]) -> None:
         self._emit = emit
-        self._buffer = ""
+        self._parts: list[str] = []  # the current, unfinished line
 
     def writable(self) -> bool:
         return True
 
     def write(self, text: str) -> int:
-        self._buffer += text
-        *lines, self._buffer = self._buffer.split("\n")
-        for line in lines:
+        if "\n" not in text:
+            # Only the new text is scanned: a long line written in pieces stays linear.
+            if text:
+                self._parts.append(text)
+            return len(text)
+        first, *rest = text.split("\n")
+        tail = rest.pop()
+        self._parts.append(first)
+        self._emit("".join(self._parts).rstrip("\r"))
+        for line in rest:
             self._emit(line.rstrip("\r"))
+        self._parts = [tail] if tail else []
         return len(text)
 
     def flush(self) -> None:
-        if self._buffer:
-            line, self._buffer = self._buffer, ""
+        if self._parts:
+            line = "".join(self._parts)
+            self._parts = []
             self._emit(line.rstrip("\r"))
 
 

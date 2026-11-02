@@ -35,6 +35,7 @@ def register_config_tools(mcp: FastMCP, client: NodeWireClient) -> None:
         """List the named configs available to your tenant; the default is used unless you
         select another with nw_select_config."""
         try:
+            await client.ensure_ready()
             tenant_id = client.tenant_id()
             return {
                 "tenant_id": tenant_id,
@@ -49,6 +50,7 @@ def register_config_tools(mcp: FastMCP, client: NodeWireClient) -> None:
     ) -> Dict[str, Any]:
         """Use a named config for the rest of this session's tool calls."""
         try:
+            await client.ensure_ready()
             tenant_id = client.select_config(config_name)
         except Exception as exc:  # noqa: BLE001 — surface as a traced tool error
             raise client._rejected(exc, action=SELECT_CONFIG_TOOL, tenant_id=None) from exc

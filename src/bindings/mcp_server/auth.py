@@ -272,16 +272,19 @@ def authenticate_mcp_request(
         )
         return identity
 
-    logger.info(
-        "MCP auth gate status",
-        extra={
-            "auth_disabled": mcp_auth_disabled(),
-            "auth_configured": mcp_auth_configured(),
-            "has_api_key": bool(os.environ.get("NW_MCP_API_KEY")),
-            "has_jwt_secret": bool(os.environ.get("NW_MCP_JWT_SECRET")),
-        },
-    )
-    if mcp_auth_disabled():
+    auth_disabled = mcp_auth_disabled()
+    # Per request: skip the env reads behind ``extra`` when INFO is filtered out.
+    if logger.isEnabledFor(logging.INFO):
+        logger.info(
+            "MCP auth gate status",
+            extra={
+                "auth_disabled": auth_disabled,
+                "auth_configured": mcp_auth_configured(),
+                "has_api_key": bool(os.environ.get("NW_MCP_API_KEY")),
+                "has_jwt_secret": bool(os.environ.get("NW_MCP_JWT_SECRET")),
+            },
+        )
+    if auth_disabled:
         return None
 
     if not mcp_auth_configured():

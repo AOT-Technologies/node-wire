@@ -178,16 +178,19 @@ def _convert_parameters(
     form_required: list[str] = []
     form_is_multipart = False
 
+    # Shallow copies: only top-level keys are set or popped below (path-level params are
+    # shared by every operation of the path). $ref rewriting happens once, over the whole
+    # converted document, which also gives the output its own containers.
     for raw in params:
-        p = copy.deepcopy(raw)
+        p = dict(raw)
         if "$ref" in p:
-            kept.append(_rewrite_refs(p))
+            kept.append(p)
             continue
         loc = p.get("in")
         _param_collection_to_style(p)
 
         if loc == "body":
-            body_schema = _rewrite_refs(p.get("schema") or {"type": "object"})
+            body_schema = p.get("schema") or {"type": "object"}
             body_required = bool(p.get("required"))
             continue
 
@@ -202,7 +205,7 @@ def _convert_parameters(
                     if key in _SCHEMA_KEYS or key == "description":
                         if key in p:
                             schema[key] = p[key]
-            form_props[name] = _rewrite_refs(schema)
+            form_props[name] = schema
             if p.get("required"):
                 form_required.append(name)
             continue
@@ -213,8 +216,8 @@ def _convert_parameters(
             if key in _SCHEMA_KEYS:
                 schema[key] = p.pop(key)
         if schema:
-            p["schema"] = _rewrite_refs(schema)
-        kept.append(_rewrite_refs(p))
+            p["schema"] = schema
+        kept.append(p)
 
     request_body = None
     if body_schema is not None:
@@ -237,8 +240,8 @@ def _convert_parameters(
 def _convert_header(header: dict[str, Any]) -> dict[str, Any]:
     """Swagger 2 response header → OpenAPI 3 header (schema wrapper)."""
     if "$ref" in header:
-        return _rewrite_refs(header)
-    h = copy.deepcopy(header)
+        return header
+    h = dict(header)
     # Headers only ever use style `simple` (comma-separated) in OpenAPI 3.
     h.pop("collectionFormat", None)
     schema = dict(h.pop("schema", None) or {})
@@ -246,8 +249,8 @@ def _convert_header(header: dict[str, Any]) -> dict[str, Any]:
         if key in _SCHEMA_KEYS:
             schema[key] = h.pop(key)
     if schema:
-        h["schema"] = _rewrite_refs(schema)
-    return _rewrite_refs(h)
+        h["schema"] = schema
+    return h
 
 
 def _convert_responses(
@@ -257,30 +260,30 @@ def _convert_responses(
 ) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for code, resp in responses.items():
-        r = copy.deepcopy(resp)
+        r = dict(resp)
         if "$ref" in r:
-            out[code] = _rewrite_refs(r)
+            out[code] = r
             continue
         schema = r.pop("schema", None)
         if schema is not None:
             media = _prefer_json(produces) or "application/json"
-            r["content"] = {media: {"schema": _rewrite_refs(schema)}}
+            r["content"] = {media: {"schema": schema}}
         # Swagger 2.0 puts response examples on the response object, keyed by mime
         # type; OpenAPI 3 has no such property (it lives under content.<mt>.example)
         # and validation rejects the leftover key outright — Slack's published spec
         # carries one on every operation's `default` response.
         examples = r.pop("examples", None)
         if isinstance(examples, dict):
-            content = r.setdefault("content", {})
+            content = r["content"] = dict(r.get("content") or {})
             for mime, value in examples.items():
                 if isinstance(content.get(mime), dict):
-                    content[mime]["example"] = value
+                    content[mime] = {**content[mime], "example": value}
                 else:
                     content[str(mime)] = {"example": value}
         headers = r.get("headers")
         if isinstance(headers, dict):
             r["headers"] = {name: _convert_header(h) for name, h in headers.items()}
-        out[code] = _rewrite_refs(r)
+        out[code] = r
     return out
 
 
@@ -409,7 +412,10 @@ def normalize_swagger2_to_openapi3(
     """
     from urllib.parse import urlparse
 
-    src = copy.deepcopy(doc)
+    # ``doc`` is never mutated: ``src`` is a shallow copy with freshly built paths,
+    # helpers work on shallow copies, and the final ``_rewrite_refs`` rebuilds every
+    # container of the result.
+    src = dict(doc)
     src["paths"] = _inline_global_refs(src)
     info = src.get("info") or {"title": "converted", "version": "0.0.0"}
     source = urlparse(source_url) if source_url else None
@@ -427,7 +433,7 @@ def normalize_swagger2_to_openapi3(
 
     components: dict[str, Any] = {"schemas": {}, "securitySchemes": {}}
     for name, schema in (src.get("definitions") or {}).items():
-        components["schemas"][name] = _rewrite_refs(schema)
+        components["schemas"][name] = schema
     for name, scheme in (src.get("securityDefinitions") or {}).items():
         components["securitySchemes"][name] = _map_security_scheme(name, scheme)
 
@@ -474,7 +480,7 @@ def normalize_swagger2_to_openapi3(
             if request_body is not None:
                 new_op["requestBody"] = request_body
             new_op["responses"] = _convert_responses(op.get("responses") or {}, produces=produces)
-            new_item[method] = _rewrite_refs(new_op)
+            new_item[method] = new_op
         paths[path] = new_item
 
     result: dict[str, Any] = {

@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict
 
@@ -422,7 +423,7 @@ async def config_init(
             )
         try:
             factory_dep.store.init(_init_payload_keeping_default(factory_dep.store, payload))
-            _persist_tenants(factory_dep)
+            await asyncio.to_thread(_persist_tenants, factory_dep)
         except Exception as exc:  # noqa: BLE001
             raise _map_config_error(exc)
         _audit_config_change(request, action="config.init", tenant_id="*")
@@ -433,7 +434,7 @@ async def config_init(
     try:
         _reject_default_tenant_write(tenant_id)
         factory_dep.store.replace_tenant(tenant_id, payload)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     _audit_config_change(request, action="config.init", tenant_id=tenant_id)
@@ -489,7 +490,7 @@ async def secrets_upsert(
     except ValueError as exc:
         raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
     factory_dep.invalidate_configs(tenant_id, cid, [config_name])
-    _persist_tenants(factory_dep)
+    await asyncio.to_thread(_persist_tenants, factory_dep)
     _audit_config_change(
         request,
         action="secrets.upsert",
@@ -553,7 +554,7 @@ async def config_create(
         except ConfigNameConflictError:
             name = str(body.get("name") or "")
             record = factory_dep.store.update(tenant_id, cid, name, body)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request,
             action="config.create",
@@ -627,7 +628,7 @@ async def config_update(
             except ValueError as exc:
                 raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
         record = factory_dep.store.update(tenant_id, cid, name, body)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request,
             action="config.update",
@@ -668,7 +669,7 @@ async def config_delete(
         clear_config_secrets(tenant_id, cid, name)
         if not factory_dep.store.has_config(tenant_id, cid):
             clear_tenant_connector_secrets(tenant_id, cid)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request, action="config.delete", tenant_id=tenant_id, connector_id=cid, config_name=name
         )
@@ -692,7 +693,7 @@ async def config_set_default(
         tenant_id = _config_tenant(request)
         _reject_default_tenant_write(tenant_id)
         factory_dep.store.set_default(tenant_id, cid, name)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request,
             action="config.set_default",
@@ -747,7 +748,8 @@ def _make_endpoint(cid: str, act: str) -> Any:
 
         if per_identity_rate_limit_enabled():
             limiter = get_per_identity_rate_limiter()
-            identity_key = get_request_identity_key(request)
+            # PBKDF2 on a cache miss costs ~0.5 s of CPU: keep it off the event loop.
+            identity_key = await asyncio.to_thread(get_request_identity_key, request)
             rate_key = f"{tenant_id}:{cid}:{act}:{identity_key}"
             result = limiter.consume(rate_key)
             if not result.allowed:

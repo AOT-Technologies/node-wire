@@ -234,21 +234,48 @@ def _auth_failure(exc: Any, tool_name: str) -> Any:
     )
 
 
-def validate_tool_arguments(arguments: Any, input_schema: Any) -> str | None:
+def validate_tool_arguments(
+    arguments: Any, input_schema: Any, *, validator: Any = None
+) -> str | None:
     """Return a formatted error for one schema violation, else ``None``.
 
     ``jsonschema.validate`` raises only the best-matching error, so a call with
-    several problems reports one of them per attempt.
+    several problems reports one of them per attempt. ``validator`` is a prebuilt
+    validator for ``input_schema`` (see :func:`compile_tool_validator`); it skips
+    the meta-schema check and validator construction ``jsonschema.validate`` repeats.
     """
     import jsonschema
 
     if not isinstance(input_schema, dict):
         return None
     try:
-        jsonschema.validate(instance=arguments, schema=input_schema)
+        if validator is None:
+            jsonschema.validate(instance=arguments, schema=input_schema)
+        else:
+            error = jsonschema.exceptions.best_match(validator.iter_errors(arguments))
+            if error is not None:
+                raise error
     except jsonschema.ValidationError as exc:
         return format_tool_validation_error(exc) + _misplaced_key_hint(exc)
     return None
+
+
+def compile_tool_validator(input_schema: Any) -> Any:
+    """A reusable validator equivalent to ``jsonschema.validate``, or ``None``.
+
+    ``None`` for a non-object or invalid schema, so callers fall back to
+    ``jsonschema.validate`` and keep raising the same ``SchemaError`` each call.
+    """
+    import jsonschema
+
+    if not isinstance(input_schema, dict):
+        return None
+    cls = jsonschema.validators.validator_for(input_schema)
+    try:
+        cls.check_schema(input_schema)
+    except jsonschema.SchemaError:
+        return None
+    return cls(input_schema)
 
 
 def _misplaced_key_hint(exc: Any) -> str:
@@ -368,7 +395,9 @@ def mcp_llm_safe_input_schema(schema: Any) -> Any:
     """
     if not isinstance(schema, dict):
         return schema
-    return _strip_json_schema_nulls(_strip_internal_keys(copy.deepcopy(schema)))
+    # _strip_internal_keys rebuilds every dict and list, so the in-place null
+    # rewrite below never touches the caller's schema; no deepcopy needed.
+    return _strip_json_schema_nulls(_strip_internal_keys(schema))
 
 
 def _strip_internal_keys(node: Any) -> Any:
@@ -620,6 +649,11 @@ class McpServer:
         self._manifest_cache: Optional[
             Tuple[Tuple[Any, ...], List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]
         ] = None
+        # (manifest, multitenancy, (connector_id, action) -> (schema, validator));
+        # see _advertised_entry_schema().
+        self._advertised_schema_cache: Optional[
+            Tuple[List[Dict[str, Any]], bool, Dict[Tuple[str, str], Tuple[Any, Any]]]
+        ] = None
         auto_register()
         if factory is not None:
             self._factory = factory
@@ -720,9 +754,35 @@ class McpServer:
     def _tool_input_schema(entry: Mapping[str, Any]) -> Dict[str, Any]:
         return _tool_input_schema(entry, multitenancy=is_multitenancy_enabled())
 
+    def _advertised_entry_schema(self, entry: Mapping[str, Any]) -> Tuple[Any, Any]:
+        """(LLM-safe input schema, compiled validator) for a manifest entry, built once.
+
+        Both depend only on the manifest and the multitenancy flag, yet tools/list
+        and every tools/call used to rebuild them. The cached schema is shared:
+        callers must not mutate it.
+        """
+        manifest, _ = self._manifest()
+        multitenancy = is_multitenancy_enabled()
+        cache = self._advertised_schema_cache
+        if cache is None or cache[0] is not manifest or cache[1] != multitenancy:
+            cache = (manifest, multitenancy, {})
+            self._advertised_schema_cache = cache
+        key = (str(entry["connector_id"]), str(entry["action"]))
+        hit = cache[2].get(key)
+        if hit is None:
+            schema = mcp_llm_safe_input_schema(_tool_input_schema(entry, multitenancy=multitenancy))
+            hit = cache[2][key] = (schema, compile_tool_validator(schema))
+        return hit
+
     def _advertised_input_schema(
         self, tool_name: str, *, identity: CallerIdentity | None = None
     ) -> Dict[str, Any] | None:
+        found = self._advertised_schema_and_validator(tool_name, identity=identity)
+        return None if found is None else cast(Dict[str, Any], found[0])
+
+    def _advertised_schema_and_validator(
+        self, tool_name: str, *, identity: CallerIdentity | None = None
+    ) -> Tuple[Any, Any] | None:
         """The exact schema this caller was shown for ``tool_name``, or ``None``.
 
         Validation has to run against the advertised copy — the one that went
@@ -742,13 +802,18 @@ class McpServer:
             default_mode=load_scope_policy_default_from_env(),
         ):
             return None
-        return cast(Dict[str, Any], mcp_llm_safe_input_schema(self._tool_input_schema(entry)))
+        return self._advertised_entry_schema(entry)
 
-    def _list_tools_impl(self, *, identity: CallerIdentity | None = None) -> List[Dict[str, Any]]:
+    def _list_tools_impl(
+        self, *, identity: CallerIdentity | None = None, advertised: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Visible tools. ``advertised=True`` returns LLM-safe input schemas (cached
+        and shared for manifest tools: do not mutate) for tools/list."""
         scope_map = load_scope_map_from_env()
         default_mode = load_scope_policy_default_from_env()
         manifest, _ = self._manifest()
         tools: List[Dict[str, Any]] = []
+        safe_names: set[str] = set()
         for entry in manifest:
             cid = entry["connector_id"]
             if not self._tool_visible(
@@ -756,7 +821,11 @@ class McpServer:
             ):
                 continue
             tool_desc = _tool_description(entry)
-            input_schema = self._tool_input_schema(entry)
+            if advertised:
+                input_schema = self._advertised_entry_schema(entry)[0]
+                safe_names.add(mcp_advertised_tool_name(cid, str(entry["action"])))
+            else:
+                input_schema = self._tool_input_schema(entry)
 
             tools.append(
                 {
@@ -878,6 +947,10 @@ class McpServer:
                     "output_schema": {"type": "object"},
                 },
             )
+        if advertised:
+            for t in tools:
+                if t["name"] not in safe_names:
+                    t["input_schema"] = mcp_llm_safe_input_schema(t["input_schema"])
         return tools
 
     def _resolve_tool_tenant_id(self, identity: CallerIdentity | None) -> str:
@@ -899,7 +972,12 @@ class McpServer:
             raise NodeWireError(code, str(exc)) from exc
 
     def _store_has_tenant(self, tenant_id: str) -> bool:
-        return tenant_id in self._factory.store.list_tenants()
+        store = self._factory.store
+        # has_tenant is newer than the published node-wire-runtime the host images install.
+        has_tenant = getattr(store, "has_tenant", None)
+        if has_tenant is not None:
+            return bool(has_tenant(tenant_id))
+        return tenant_id in store.list_tenants()
 
     def _effective_tenant_id(
         self,
@@ -1203,15 +1281,13 @@ class McpServer:
             connector_id, action = name.split(".", 1)
             return connector_id, action
 
-        manifest, _ = self._manifest()
-        matches: List[Tuple[str, str]] = []
-        for entry in manifest:
-            cid = str(entry["connector_id"])
-            if self._connector_ids is not None and cid not in self._connector_ids:
-                continue
-            action = str(entry["action"])
-            if mcp_advertised_tool_name(cid, action) == name:
-                matches.append((cid, action))
+        # The index is keyed by advertised name, in manifest order: O(1) per call.
+        _, index = self._manifest()
+        matches: List[Tuple[str, str]] = [
+            (str(entry["connector_id"]), str(entry["action"]))
+            for entry in index.get(name, ())
+            if self._connector_ids is None or str(entry["connector_id"]) in self._connector_ids
+        ]
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
@@ -1420,13 +1496,14 @@ class McpServer:
             )
         # Same schema and validator a direct tools/call uses. None = unknown or
         # hidden from this caller; both read as unknown, so nothing leaks.
-        schema = self._advertised_input_schema(name, identity=identity)
-        if schema is None:
+        found = self._advertised_schema_and_validator(name, identity=identity)
+        if found is None:
             raise NodeWireError(
                 ErrorCode.UNKNOWN_TOOL,
                 f"Unknown tool {name!r}. Use {SEARCH_TOOLS_TOOL} to find tools.",
             )
-        problem = validate_tool_arguments(tool_args, schema)
+        schema, validator = found
+        problem = validate_tool_arguments(tool_args, schema, validator=validator)
         if problem:
             raise NodeWireError(ErrorCode.VALIDATION_ERROR, problem)
         tool_args = {k: v for k, v in tool_args.items() if v is not None}
@@ -1464,7 +1541,13 @@ class McpServer:
         clamped_params: Dict[str, Any] = {}
         connector_cls = get_connector_registry().get(connector_id)
         if connector_cls is not None:
-            meta = connector_cls.sdk_action_metas().get(action)
+            # sdk_action_meta is newer than the published node-wire-runtime; fall back to it.
+            lookup = getattr(connector_cls, "sdk_action_meta", None)
+            meta = (
+                lookup(action)
+                if lookup is not None
+                else connector_cls.sdk_action_metas().get(action)
+            )
             if meta and hasattr(meta.input_model, "model_fields"):
                 for page_param in ["page_size", "limit", "_count"]:
                     if page_param in meta.input_model.model_fields:
@@ -1665,12 +1748,12 @@ class McpServer:
                     },
                 )
             out: list[Tool] = []
-            for t in self._list_tools_impl(identity=identity):
+            for t in self._list_tools_impl(identity=identity, advertised=True):
                 out.append(
                     Tool(
                         name=t["name"],
                         description=t["description"],
-                        inputSchema=mcp_llm_safe_input_schema(t["input_schema"]),
+                        inputSchema=t["input_schema"],
                     )
                 )
             return out
@@ -1696,8 +1779,9 @@ class McpServer:
                     },
                 )
             # After auth, so an unauthenticated caller cannot probe tool shapes.
-            schema = self._advertised_input_schema(tool_name, identity=identity)
-            problem = validate_tool_arguments(arguments or {}, schema)
+            found = self._advertised_schema_and_validator(tool_name, identity=identity)
+            schema, validator = found if found is not None else (None, None)
+            problem = validate_tool_arguments(arguments or {}, schema, validator=validator)
             try:
                 if problem:
                     raise NodeWireError(ErrorCode.VALIDATION_ERROR, problem)

@@ -29,6 +29,10 @@ class SecretProvider(ABC):
     or any other secure storage backend.
     """
 
+    #: True when ``get_secret`` does network I/O per call (e.g. Azure Key Vault), so
+    #: async callers run it in a worker thread. In-memory providers leave it False.
+    blocking_io: bool = False
+
     @abstractmethod
     def get_secret(self, key: str) -> str:
         """Return the secret value for the given key, or raise SecretNotFoundError."""
@@ -213,6 +217,10 @@ class TenantSecretProvider(SecretProvider):
         self._tenant_id = tenant_id
         self._connector_id = connector_id
         self._config_name = (config_name or "").strip() or None
+
+    @property
+    def blocking_io(self) -> bool:  # type: ignore[override]
+        return getattr(self._inner, "blocking_io", False)
 
     def _scoped_key(self, key: str) -> str:
         return tenant_scoped_secret_key(

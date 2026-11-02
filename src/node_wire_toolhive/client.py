@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import threading
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -31,6 +33,9 @@ from node_wire_toolhive import request as _request
 from node_wire_toolhive.relay import relay_auth_provider_hook
 
 _PROTOCOL = "mcp"
+# Upper bound on sessions remembered by nw_select_config; the least recently used
+# session falls back to its default config when evicted.
+_MAX_TRACKED_SESSIONS = 4096
 
 logger = logging.getLogger("node_wire_toolhive")
 
@@ -94,7 +99,9 @@ class NodeWireClient:
         self._factory = factory
         self._ready = factory is not None
         self._lock = threading.Lock()
-        self._selected_config: Dict[str, str] = {}
+        # LRU of session -> config name: sessions never announce their end, so an
+        # unbounded dict grows for the life of the server.
+        self._selected_config: OrderedDict[str, str] = OrderedDict()
 
     @property
     def connector_id(self) -> str:
@@ -116,6 +123,11 @@ class NodeWireClient:
                     self._ready = True
         assert self._factory is not None
         return self._factory
+
+    async def ensure_ready(self) -> None:
+        """Build the factory (registry imports, YAML and tenant loads) off the event loop."""
+        if not self._ready:
+            await asyncio.to_thread(lambda: self.factory)
 
     # ---- tenant / config ---------------------------------------------- #
 
@@ -149,11 +161,19 @@ class NodeWireClient:
                 ErrorCode.CONFIG_NOT_FOUND,
                 f"Unknown config {config_name!r} for tenant {tenant_id!r}",
             )
-        self._selected_config[_request.session_key()] = config_name
+        key = _request.session_key()
+        self._selected_config[key] = config_name
+        self._selected_config.move_to_end(key)
+        while len(self._selected_config) > _MAX_TRACKED_SESSIONS:
+            self._selected_config.popitem(last=False)
         return tenant_id
 
     def selected_config(self) -> Optional[str]:
-        return resolve_config_name(self._selected_config.get(_request.session_key()))
+        key = _request.session_key()
+        name = self._selected_config.get(key)
+        if name is not None:
+            self._selected_config.move_to_end(key)
+        return resolve_config_name(name)
 
     # ---- execution ------------------------------------------------------ #
 
@@ -170,6 +190,7 @@ class NodeWireClient:
         payload = {k: v for k, v in arguments.items() if v is not None}
         token = set_upstream_bearer(_request.bearer_token())
         try:
+            await self.ensure_ready()
             tenant_id = self.tenant_id()
             response = await invoke(
                 self.factory,
