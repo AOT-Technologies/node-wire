@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 AOT Technologies
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Searchable dropdown: type to filter, pick with mouse or keyboard, clear with ×.
 // Simplified: a classic script that sets a global, like window.nwPlayground, because the
 // playground has no module system. Add other shared components as sibling files that do the same.
