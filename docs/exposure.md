@@ -12,7 +12,7 @@ A connector can have hundreds of actions (GitHub has 1,239). An **exposure profi
 
 Two moments, kept apart:
 
-- **Authoring time.** The `nw expose` CLI turns selectors (`method:GET`, `path:/repos/*/branches*`, `search:"merge pull request"`) into an exact list of action names, and writes it to `expose/<connector_id>/<profile>.yaml`.
+- **Authoring time.** The `nw expose` CLI turns selectors (`method:GET`, `path:/repos/*/*/branches/**`, `name:git_*_ref`) into an exact list of action names, and writes it to `expose/<connector_id>/<profile>.yaml`.
 - **Run time.** The server reads only that `actions:` list, as a set. Each call is one lookup. No selector, search or glob is evaluated while serving.
 
 ```yaml
@@ -20,8 +20,8 @@ connector: github
 connector_version: 1.1.0
 profile: github-branches
 select:
-  - path:/repos/*/branches*
-  - name:git_*ref*
+  - path:/repos/*/*/branches/**
+  - name:git_*_ref
 exclude:
   - method:DELETE
 actions:
@@ -64,8 +64,8 @@ See [Errors](errors.md#runtime-wide-codes).
 
 ```bash
 uv run nw expose search github "list branches"                  # find actions by keyword
-uv run nw expose new github github-readonly -s method:GET -x "path:/repos/*/hooks*"
-uv run nw expose new github my-profile                          # on a terminal: prompts for selectors
+uv run nw expose new github github-readonly -s method:GET -x "path:/repos/*/*/hooks/**"
+uv run nw expose new github my-profile                          # on a terminal: prompts (?keywords searches)
 uv run nw expose resolve                                        # refresh every profile
 uv run nw expose resolve --check                                # change nothing; exit 1 if stale
 ```
@@ -73,15 +73,18 @@ uv run nw expose resolve --check                                # change nothing
 | Selector | Picks |
 |---|---|
 | `name:<glob>` (or a bare word) | Actions by name |
-| `path:<glob>` | Actions by their HTTP path. `*` also matches `/` |
+| `path:<glob>` | Actions by their HTTP path |
 | `method:<VERB>` | Actions by HTTP method |
 | `tag:<tag>` | Actions by OpenAPI tag. GitHub's generated actions have no tags yet |
-| `search:<keywords>` | The 20 best BM25 matches over name, path, tags and description |
 
-A profile is every `select:` match minus every `exclude:` match. A select that matches nothing is an error. Selectors use each action's HTTP method and path, which `nw gen-all` writes into the generated connector; `nw expose` reads them from the connector's source. A profile without `select:` is a hand-written list: `resolve` never rewrites it and only checks that its actions still exist.
+In `name:` and `path:` globs, `*` matches within one `/` segment, `**` matches across segments, and a trailing `/**` also matches the path itself (`/branches/**` covers `/branches`). Every other character is literal, including `{owner}`.
+
+A profile is every `select:` match minus every `exclude:` match. A select or an exclude that matches nothing is an error: a mistyped exclude would otherwise expose what it was meant to hide. `path:`, `method:` and `tag:` on a connector whose actions lack that metadata are an error too, not an empty match.
+
+There is no search selector. Keyword search ranks actions, and a ranking can shift when the connector changes, so it only helps you find names: use `nw expose search`, or `?keywords` at the interactive prompt, then write `name:` or `path:` selectors. Selectors use each action's HTTP method and path, which `nw gen-all` writes into the generated connector; `nw expose` reads them from the connector's source. A profile without `select:` is a hand-written list: `resolve` never rewrites it and only checks that its actions still exist.
 
 !!! warning "Review what a selector picks"
-    A path selector can include destructive verbs. Add `exclude:` selectors and read the resulting `actions:` before shipping. For example, a `github-prs` profile built from `path:/repos/*/pulls*` still includes four `DELETE` actions.
+    A path selector can include destructive verbs. Add `exclude:` selectors and read the resulting `actions:` before shipping. For example, a `github-prs` profile built from `path:/repos/*/*/pulls/**` still includes four `DELETE` actions.
 
 ## In the build pipeline
 

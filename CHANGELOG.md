@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`BUSINESS`). Startup fails on an unknown profile or action; `NW_EXPOSE_STRICT_VERSION=true`
   also refuses a profile written for another connector version. See `docs/exposure.md`.
 - `nw expose new | resolve [--check] | search` to author profiles from selectors (`method:`,
-  `path:`, `name:`, `tag:`, `search:`). `nw gen-all` re-resolves them, `nw gen-mcp` and
+  `path:`, `name:`, `tag:`; `*` stays within a path segment, `**` crosses them). A select or
+  exclude that matches nothing is an error. Search only helps find names; it is never stored. `nw gen-all` re-resolves them, `nw gen-mcp` and
   `nw docker-build` refuse stale ones, and generated images carry `expose/`.
 - `@nw_action` accepts `http_method`, `http_path` and `tags`, and `nw gen-all` writes them from the
   spec. The GitHub connector's 1,239 actions now carry them.

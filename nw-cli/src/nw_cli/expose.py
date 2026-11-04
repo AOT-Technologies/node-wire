@@ -12,7 +12,8 @@ changes; ``resolve --check`` fails when a committed list is out of date.
 
 from __future__ import annotations
 
-from fnmatch import fnmatchcase
+import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
@@ -28,8 +29,11 @@ from nw_cli.ui import console, guard
 from node_wire_runtime.exposure import _connector_version
 from node_wire_runtime.tool_search import Bm25Index
 
-SEARCH_LIMIT = 20  # how many best matches one ``search:`` selector keeps
-_KINDS = ("name", "path", "method", "tag", "search")
+SEARCH_LIMIT = 20  # how many matches ``nw expose search`` shows by default
+# No ``search:`` kind: a stored selector must resolve the same way every time, and a
+# BM25 ranking can shift when the connector changes. Search is for finding names only.
+_KINDS = ("name", "path", "method", "tag")
+_METADATA_FIELD = {"path": "http_path", "method": "http_method", "tag": "tags"}
 
 expose_app = typer.Typer(
     name="expose",
@@ -39,8 +43,8 @@ expose_app = typer.Typer(
 )
 
 
-class ExposeError(Exception):
-    """A selector or profile is wrong; the message says how."""
+class ExposeError(ValueError):
+    """A selector or profile is wrong; the message says how (a user error, not a bug in nw)."""
 
 
 def _metas(node_wire_root: Path, connector_id: str) -> tuple[type, dict[str, Any]]:
@@ -58,10 +62,34 @@ def _search(metas: dict[str, Any], query: str, limit: int) -> list[str]:
     return Bm25Index(docs).search(query, limit=limit)
 
 
-def match(metas: dict[str, Any], selector: str) -> set[str]:
-    """Actions one selector picks: ``name:`` (default), ``path:``, ``method:``, ``tag:``, ``search:``.
+@lru_cache(maxsize=256)
+def _glob(pattern: str) -> re.Pattern[str]:
+    """``*`` matches within one path segment, ``**`` across segments, ``?`` one character.
 
-    ``name:`` and ``path:`` take shell-style globs (``*`` also crosses ``/``).
+    A trailing ``/**`` also matches the path itself, so ``/branches/**`` covers ``/branches``.
+    Every other character is literal (``{owner}`` and ``[`` included).
+    """
+    tail = ""
+    if pattern.endswith("/**"):
+        pattern, tail = pattern[:-3], "(?:/.*)?"
+    out = []
+    for part in re.split(r"(\*\*|\*|\?)", pattern):
+        if part == "**":
+            out.append(".*")
+        elif part == "*":
+            out.append("[^/]*")
+        elif part == "?":
+            out.append("[^/]")
+        else:
+            out.append(re.escape(part))
+    return re.compile("".join(out) + tail + r"\Z", re.DOTALL)
+
+
+def match(metas: dict[str, Any], selector: str) -> set[str]:
+    """Actions one selector picks: ``name:`` (default), ``path:``, ``method:``, ``tag:``.
+
+    ``name:`` and ``path:`` take globs: ``*`` stays within one ``/`` segment, ``**`` crosses
+    them, and a trailing ``/**`` also matches the path itself.
     """
     kind, sep, value = selector.partition(":")
     if not sep:
@@ -71,15 +99,19 @@ def match(metas: dict[str, Any], selector: str) -> set[str]:
         raise ExposeError(
             f"Bad selector {selector!r}: use one of {', '.join(_KINDS)} as kind:value"
         )
-    if kind == "search":
-        return set(_search(metas, value, SEARCH_LIMIT))
+    field = _METADATA_FIELD.get(kind)
+    if field and not any(getattr(m, field, None) for m in metas.values()):
+        raise ExposeError(
+            f"Selector {selector!r} needs action {field}, which no action of this connector has "
+            "(generated connectors carry it from the OpenAPI spec); use name: selectors"
+        )
     if kind == "method":
         return {n for n, m in metas.items() if (m.http_method or "").upper() == value.upper()}
     if kind == "tag":
         return {n for n, m in metas.items() if value in m.tags}
     if kind == "path":
-        return {n for n, m in metas.items() if fnmatchcase(m.http_path or "", value)}
-    return {n for n in metas if fnmatchcase(n, value)}
+        return {n for n, m in metas.items() if _glob(value).match(m.http_path or "")}
+    return {n for n in metas if _glob(value).match(n)}
 
 
 def expand(metas: dict[str, Any], select: list[str], exclude: list[str]) -> list[str]:
@@ -91,7 +123,11 @@ def expand(metas: dict[str, Any], select: list[str], exclude: list[str]) -> list
             raise ExposeError(f"Selector {selector!r} matches no action")
         chosen |= found
     for selector in exclude:
-        chosen -= match(metas, selector)
+        found = match(metas, selector)
+        if not found:
+            # A mistyped exclude would silently expose what it was meant to hide.
+            raise ExposeError(f"Exclude {selector!r} matches no action")
+        chosen -= found
     return sorted(chosen)
 
 
@@ -136,7 +172,7 @@ def _ask_selectors(metas: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Prompt loop: one selector per line, ``-`` in front excludes, a blank line finishes."""
     console.print(
         f"Selectors: {', '.join(_KINDS)} as kind:value (a bare word is an action name glob). "
-        "Prefix with - to exclude. Blank line to finish.",
+        "Prefix with - to exclude, ? to search names by keywords. Blank line to finish.",
         highlight=False,
     )
     select: list[str] = []
@@ -145,12 +181,22 @@ def _ask_selectors(metas: dict[str, Any]) -> tuple[list[str], list[str]]:
         line = Prompt.ask("selector", default="", console=console).strip()
         if not line:
             return select, exclude
+        if line.startswith("?"):
+            for name in _search(metas, line[1:], 10):
+                m = metas[name]
+                console.print(
+                    f"  {name}  {m.http_method or '?'} {m.http_path or ''}", highlight=False
+                )
+            continue
         excluded = line.startswith("-")
         selector = line.lstrip("-").strip()
         try:
             found = sorted(match(metas, selector))
         except ExposeError as exc:
             console.print(str(exc), highlight=False)
+            continue
+        if not found:
+            console.print(f"  {selector!r} matches no action; not added", highlight=False)
             continue
         (exclude if excluded else select).append(selector)
         preview = ", ".join(found[:5]) + (" ..." if len(found) > 5 else "")
@@ -262,7 +308,7 @@ def search(
     query: str = typer.Argument(..., help="Keywords, e.g. 'list branches'"),
     limit: int = typer.Option(SEARCH_LIMIT, "--limit", "-n", help="How many matches to show"),
 ) -> None:
-    """Rank a connector's actions against keywords (what a search: selector would pick)."""
+    """Rank a connector's actions against keywords, to find names for selectors."""
     _, metas = _metas(resolve_node_wire_root(), connector_id)
     for name in _search(metas, query, limit):
         m = metas[name]
