@@ -215,3 +215,37 @@ def test_parse_spec_text_json_matches_yaml_loader() -> None:
         assert parse_spec_text(json.dumps(doc)) == doc
     # Not strict JSON, but valid YAML flow style: still parsed.
     assert parse_spec_text("{a: 1, 'b': [x]}") == {"a": 1, "b": ["x"]}
+
+
+def test_inlined_global_refs_share_no_containers() -> None:
+    """Each ``#/parameters`` / ``#/responses`` occurrence gets its own containers.
+
+    Later steps edit inlined parameters in place, so two operations must never share
+    one dict, and the root tables must stay untouched.
+    """
+    import copy
+
+    from nw_connector_builder.normalize_v2 import _inline_global_refs
+
+    limit = {"name": "limit", "in": "query", "type": "integer", "enum": [1, 2]}
+    not_found = {"description": "nf", "schema": {"type": "object", "properties": {"a": {}}}}
+    op = {
+        "parameters": [{"$ref": "#/parameters/Limit"}],
+        "responses": {"404": {"$ref": "#/responses/NotFound"}},
+    }
+    doc = {
+        "paths": {"/a": {"get": copy.deepcopy(op)}, "/b": {"get": copy.deepcopy(op)}},
+        "parameters": {"Limit": limit},
+        "responses": {"NotFound": not_found},
+    }
+    before = copy.deepcopy(doc)
+
+    paths = _inline_global_refs(doc)
+
+    a, b = paths["/a"]["get"], paths["/b"]["get"]
+    assert a["parameters"][0] == limit and a["responses"]["404"] == not_found
+    a["parameters"][0]["enum"].append(3)
+    a["responses"]["404"]["schema"]["properties"]["x"] = {}
+    assert b["parameters"][0]["enum"] == [1, 2]
+    assert "x" not in b["responses"]["404"]["schema"]["properties"]
+    assert doc == before

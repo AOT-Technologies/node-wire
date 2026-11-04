@@ -22,6 +22,7 @@ from bindings.mcp_server.server import (
     CALL_TOOL_TOOL,
     SEARCH_TOOLS_TOOL,
     McpServer,
+    advertised_tool,
     advertised_tools_for_connectors,
     tool_listing_bytes,
 )
@@ -109,6 +110,23 @@ async def test_search_returns_ranked_tools_with_full_schemas(search_server: McpS
     assert "subject" in first["inputSchema"]["properties"]
     # The advertised form: no internal routing keys.
     assert "nw_in" not in str(first["inputSchema"])
+
+
+@pytest.mark.parametrize("multitenancy", [False, True])
+def test_search_hits_equal_advertised_tool_and_share_the_schema_cache(
+    search_server: McpServer, monkeypatch: pytest.MonkeyPatch, multitenancy: bool
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true" if multitenancy else "false")
+    _, index_by_name = search_server._manifest()
+    hits = search_server._invoke_search_tools(
+        {"query": "create contact customer email", "limit": 20}, identity=None
+    )["tools"]
+    assert hits
+    for hit in hits:
+        entry = index_by_name[hit["name"]][0]
+        assert hit == advertised_tool(entry, multitenancy=multitenancy)
+        assert hit["inputSchema"] is search_server._advertised_entry_schema(entry)[0]
+        assert ("config_name" in hit["inputSchema"]["properties"]) is multitenancy
 
 
 async def test_search_limit_is_respected(search_server: McpServer) -> None:

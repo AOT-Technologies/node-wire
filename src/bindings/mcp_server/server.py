@@ -1453,7 +1453,16 @@ class McpServer:
                 entries[0], identity, scope_map=scope_map, default_mode=default_mode
             ):
                 continue
-            found.append(advertised_tool(entries[0]))
+            entry = entries[0]
+            # Same value as advertised_tool(entry), but from the schema cache that
+            # tools/list and tools/call share (the index key is the advertised name).
+            found.append(
+                {
+                    "name": name,
+                    "description": _tool_description(entry),
+                    "inputSchema": self._advertised_entry_schema(entry)[0],
+                }
+            )
             if len(found) == limit:
                 break
 

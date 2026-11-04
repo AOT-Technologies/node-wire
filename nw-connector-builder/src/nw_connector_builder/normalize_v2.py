@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import copy
 from typing import Any
 
 
@@ -156,7 +155,9 @@ def _inline_global_refs(src: dict[str, Any]) -> dict[str, Any]:
             if isinstance(ref, str):
                 for prefix, table in roots.items():
                     if ref.startswith(prefix) and ref[len(prefix) :] in table:
-                        return _walk(copy.deepcopy(table[ref[len(prefix) :]]))
+                        # _walk rebuilds every dict and list, so the inlined copy
+                        # never shares containers with the root table.
+                        return _walk(table[ref[len(prefix) :]])
             return {k: _walk(v) for k, v in node.items()}
         if isinstance(node, list):
             return [_walk(v) for v in node]
