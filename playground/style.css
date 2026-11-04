@@ -432,7 +432,8 @@ body {
 
 .playground-layout {
     display: grid;
-    grid-template-columns: 1.4fr 1fr;
+    /* minmax(0, ...): a long unbroken response must not stretch a column past its share. */
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
     gap: 2.5rem;
 }
 
@@ -722,6 +723,7 @@ textarea:focus {
     border-radius: 0.75rem;
     margin-top: 0.75rem;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
     border: 1px solid rgba(56, 189, 248, 0.2);
     max-height: 250px;
     overflow-y: auto;
@@ -981,6 +983,9 @@ textarea:focus {
         position: sticky;
         bottom: 0;
         z-index: 10;
+        /* A long response must scroll inside the dock, not grow it over the form. */
+        max-height: 60vh;
+        overflow-y: auto;
     }
 }
 
@@ -1372,7 +1377,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* Updated Responsive Layouts */
 @media (max-width: 1100px) {
     .playground-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -2235,7 +2240,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 /* Final Responsive Overrides */
 @media (max-width: 1100px) {
     .playground-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -2751,4 +2756,153 @@ input[type="range"]::-webkit-slider-thumb:hover {
         margin-left: 0;
         justify-content: center;
     }
+}
+
+/* Searchable dropdown (combobox.js) */
+.nw-combobox {
+    position: relative;
+}
+
+.nw-combobox::after {
+    content: '';
+    position: absolute;
+    right: 1.125rem;
+    top: 50%;
+    width: 1.1rem;
+    height: 1.1rem;
+    transform: translateY(-50%);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23475569' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+}
+
+.nw-combobox-input {
+    padding-right: 4.75rem;
+    text-overflow: ellipsis;
+}
+
+.nw-combobox.has-badge .nw-combobox-input {
+    padding-left: 5rem;
+}
+
+.nw-combobox-tag {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.nw-combobox-clear {
+    position: absolute;
+    right: 2.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.3rem;
+    line-height: 1;
+    padding: 0.15rem 0.45rem;
+    cursor: pointer;
+}
+
+.nw-combobox-clear:hover {
+    background: #f1f5f9;
+    color: var(--text-main);
+}
+
+.nw-combobox-list {
+    position: absolute;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.35rem);
+    max-height: 18rem;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.35rem;
+    list-style: none;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+.nw-combobox-list[hidden] {
+    display: none;
+}
+
+.nw-combobox-list [role='option'] {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.nw-combobox-list [role='option'].active {
+    background: color-mix(in srgb, var(--brand-accent) 12%, white);
+}
+
+.nw-combobox-list [aria-selected='true'] {
+    font-weight: 600;
+}
+
+.nw-combobox-list mark {
+    background: color-mix(in srgb, var(--brand-accent) 25%, transparent);
+    color: inherit;
+    border-radius: 0.2rem;
+    padding: 0 0.1rem;
+}
+
+.nw-combobox-hint {
+    padding: 0.45rem 0.7rem 0.2rem;
+    font-size: 0.78rem;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.nw-method {
+    flex: none;
+    min-width: 3.5rem;
+    padding: 0.3rem 0.45rem;
+    border-radius: 0.4rem;
+    background: #e2e8f0;
+    color: #475569;
+    font: 700 0.68rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+.nw-method-get {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.nw-method-post {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.nw-method-put,
+.nw-method-patch {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.nw-method-delete {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Later cards paint over an open list unless the card holding it is raised. */
+.glass-card:has(.nw-combobox-list:not([hidden])) {
+    position: relative;
+    z-index: 40;
 }
