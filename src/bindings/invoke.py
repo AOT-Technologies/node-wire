@@ -12,11 +12,15 @@ resolution, rate limits, and response encoding.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+import logging
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import CATALOGUE, ErrorCode, ErrorMapper
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.ingress import enforce_authoritative_action, normalize_mcp_tool_arguments
+
+logger = logging.getLogger("bindings.invoke")
 
 
 class ConnectorNotExposed(Exception):
@@ -35,6 +39,47 @@ ErrorMapper.register_global(
 )
 
 
+class ActionNotExposed(Exception):
+    """The connector is served, but this deployment's exposure profile hides the action."""
+
+    def __init__(self, connector_id: str, action: str, protocol: str) -> None:
+        self.connector_id = connector_id
+        self.action = action
+        self.protocol = protocol
+        super().__init__(
+            f"Action {action!r} of connector {connector_id!r} is not exposed via {protocol!r}"
+        )
+
+
+ErrorMapper.register_global(
+    ActionNotExposed,
+    CATALOGUE[ErrorCode.ACTION_NOT_EXPOSED],
+    code=ErrorCode.ACTION_NOT_EXPOSED,
+)
+
+
+def build_exposure(
+    factory: Any, protocol: str, *, connector_ids: Optional[Iterable[str]] = None
+) -> ActionExposure:
+    """The process's ``ActionExposure`` for ``protocol`` (see ``NW_EXPOSE_PROFILE``), logged once.
+
+    Raises ``ExposureConfigError`` so a bad profile stops the server instead of exposing everything.
+    """
+    wanted = None if connector_ids is None else set(connector_ids)
+    connectors = [
+        c for c in factory.list_for_protocol(protocol) if wanted is None or c.connector_id in wanted
+    ]
+    exposure = ActionExposure.from_env(connectors, config_path=factory.config_path)
+    if exposure.profile:
+        logger.info("exposure: profile %s", exposure.profile)
+        for cid, count in exposure.summary().items():
+            methods = ", ".join(f"{m} {n}" for m, n in count.by_method.items())
+            logger.info(
+                "exposure: %s: %d of %d actions (%s)", cid, count.exposed, count.total, methods
+            )
+    return exposure
+
+
 async def invoke(
     factory: Any,
     *,
@@ -43,6 +88,7 @@ async def invoke(
     payload: Dict[str, Any],
     protocol: str,
     tenant_id: str,
+    exposure: ActionExposure,
     config_name: Optional[str] = None,
     principal: Optional[str] = None,
     scopes: Optional[Tuple[str, ...]] = None,
@@ -54,6 +100,8 @@ async def invoke(
     """
     if not factory.is_exposed(connector_id, protocol):
         raise ConnectorNotExposed(connector_id, protocol)
+    if not exposure.allows(connector_id, action):
+        raise ActionNotExposed(connector_id, action, protocol)
 
     connector = await factory.get(
         connector_id,

@@ -24,9 +24,11 @@ try:
 except PackageNotFoundError:  # running from a source tree without install
     __version__ = "0.0.0"
 
+from nw_mcp_builder.generate.connector_project import profiles_in_sync
 from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
 
 from nw_cli import ui
+from nw_cli.expose import expose_app, refresh_profiles
 from nw_cli.menu import Option, choose
 from nw_cli.names import docker_image_tag, mcp_project_dir
 from nw_cli.prerequisites import confirm_build, is_interactive
@@ -88,6 +90,8 @@ app = typer.Typer(
     # something still escapes it.
     pretty_exceptions_show_locals=False,
 )
+
+app.add_typer(expose_app, name="expose")
 
 
 def _version_callback(value: bool) -> None:
@@ -296,6 +300,26 @@ def _decide_mode(
     return decision.mode
 
 
+def _has_profiles(node_wire_root: Path, connector_id: str) -> bool:
+    return any((node_wire_root / "expose" / connector_id).glob("*.yaml"))
+
+
+def _require_fresh_profiles(node_wire_root: Path, connector_id: str) -> None:
+    """Refuse to bake an exposure profile that no longer matches its selectors or connector."""
+    stale = refresh_profiles(node_wire_root, connector_id, write=False)
+    if stale:
+        names = ", ".join(str(f.relative_to(node_wire_root)) for f in stale)
+        raise StageError(
+            f"Exposure profiles out of date: {names}. Run: uv run nw expose resolve {connector_id}"
+        )
+
+
+def _refresh_profiles(progress: GenerateProgress, node_wire_root: Path, connector_id: str) -> None:
+    """After codegen the connector may have changed: re-expand the profiles that have selectors."""
+    for file in refresh_profiles(node_wire_root, connector_id, write=True):
+        progress.log(f"Updated {file.relative_to(node_wire_root)}")
+
+
 def _build_wheels(
     progress: GenerateProgress, node_wire_root: Path, packages: list[str], *, rebuild: bool
 ) -> None:
@@ -372,6 +396,11 @@ def gen_all(
         [
             Stage("connector", "Connector codegen", hint="Check the --path spec, then rerun."),
             Stage(
+                "profiles",
+                "Exposure profiles",
+                hint=f"Fix the profile under expose/{id}/, then rerun: uv run nw expose resolve {id}",
+            ),
+            Stage(
                 "wheel",
                 "Wheel build",
                 hint=f"Retry just this step: {_gen_whl_command(packages, id)}",
@@ -390,7 +419,12 @@ def gen_all(
             ),
         ],
     )
-    for key, skip in (("wheel", no_wheel), ("mcp", no_mcp), ("wire", no_wire)):
+    for key, skip in (
+        ("profiles", not _has_profiles(node_wire_root, id)),
+        ("wheel", no_wheel),
+        ("mcp", no_mcp),
+        ("wire", no_wire),
+    ):
         if skip:
             progress.mark_skipped(key)
 
@@ -410,6 +444,8 @@ def gen_all(
             ),
         )
         progress.result("Connector", f"packages/connectors/{id}")
+        if _has_profiles(node_wire_root, id):
+            progress.run_stage("profiles", lambda: _refresh_profiles(progress, node_wire_root, id))
 
         chosen_mode = None
         if not no_mcp:
@@ -516,6 +552,7 @@ def gen_mcp(
     """Build MCP host from an existing connector (requires wheels)."""
     tool_mode = _tool_mode(tool_search, full_tool_list)
     node_wire_root = resolve_node_wire_root()
+    _require_fresh_profiles(node_wire_root, id)
 
     missing = _missing_wheels(node_wire_root, id)
     if missing:
@@ -567,9 +604,15 @@ def docker_build(
         _build_project_image(project_dir, tag)
         return
     node_wire_root = resolve_node_wire_root()
+    _require_fresh_profiles(node_wire_root, id)
     generated = _image_projects(node_wire_root, id)
     if generated:
         chosen = _pick_project(generated, id)
+        if chosen.host and not profiles_in_sync(node_wire_root, id, chosen.path):
+            raise StageError(
+                f"{chosen.path} has different exposure profiles than expose/{id}/. "
+                f"Regenerate it: uv run nw gen-mcp --connector-id {id} --force-output"
+            )
         _build_project_image(chosen.path, tag, image=chosen.image(tag))
         return
     project = mcp_project_dir(node_wire_root, id)

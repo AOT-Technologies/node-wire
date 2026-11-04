@@ -62,6 +62,9 @@ The following variables control how each binding listens and who may call it:
 | `NW_MCP_AUTH_DISABLED` | Disable MCP authentication (local dev only); default (unset) enforces auth. The legacy `NW_MCP_AUTH_ENABLED` flag is deprecated. | `false` |
 | `NW_MCP_API_KEY` | Shared secret for MCP API-key auth (set in production) | _(unset)_ |
 | `NW_MCP_TOOL_MODE` | `list` — every tool in `tools/list`; `search` — list only `nw_search_tools` + `nw_call_tool` and hand out tool schemas on demand (for large connectors). Unknown values fail at startup | `list` |
+| `NW_EXPOSE_PROFILE` | Serve only the actions in `expose/<connector_id>/<profile>.yaml` on every surface; unset exposes everything. See [Action exposure](exposure.md) | _(unset)_ |
+| `NW_EXPOSE_DIR` | Folder holding the exposure profiles | `expose/` beside `config/` |
+| `NW_EXPOSE_STRICT_VERSION` | `true` refuses to start when a profile was written for another connector version (otherwise a warning) | `false` |
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | Scope policy when action map has no entry: `deny` (conventional `mcp:<connector>.<action>`) or `allow` (map-only). Exactly `allow` or `deny` (any case); **any other value fails startup** with a message naming the variable | `deny` |
 | `NW_MCP_SCOPE_POLICY_STRICT` | Fail startup if scope policy would be disabled (`allow` + empty map) | `false` |
 | `NW_GRPC_API_KEY` | Shared secret for gRPC metadata (`authorization` or `x-api-key`) | _(unset)_ |

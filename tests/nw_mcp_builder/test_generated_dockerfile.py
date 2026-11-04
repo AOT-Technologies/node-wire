@@ -122,3 +122,25 @@ def test_repo_dockerfiles_share_generated_base_digest() -> None:
         assert PYTHON_313_SLIM_IMAGE in contents, (
             f"{path.relative_to(_REPO_ROOT)} must use {PYTHON_313_SLIM_IMAGE}"
         )
+
+
+def test_exposure_profiles_are_copied_only_when_the_project_has_them(tmp_path: Path) -> None:
+    from nw_mcp_builder.generate.connector_project import copy_profiles, profiles_in_sync
+
+    kwargs = dict(
+        module_name="smtp_nw_mcp", connector_id="smtp", connector_pkg="node-wire-smtp", mcp_dep="m"
+    )
+    assert "expose/" not in _dockerfile(**kwargs)
+    assert "COPY --chmod=0755 expose/ /app/expose/" in _dockerfile(**kwargs, with_profiles=True)
+    assert "!expose/**" in _dockerignore()
+
+    root, project = tmp_path / "root", tmp_path / "project"
+    project.mkdir()
+    assert copy_profiles(root, "smtp", project) is False
+    (root / "expose" / "smtp").mkdir(parents=True)
+    (root / "expose" / "smtp" / "ro.yaml").write_text("actions: []\n")
+    assert not profiles_in_sync(root, "smtp", project)
+    assert copy_profiles(root, "smtp", project) is True
+    assert profiles_in_sync(root, "smtp", project)
+    (root / "expose" / "smtp" / "ro.yaml").write_text("actions: [a]\n")
+    assert not profiles_in_sync(root, "smtp", project)

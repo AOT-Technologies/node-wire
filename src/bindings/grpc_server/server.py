@@ -15,8 +15,9 @@ from grpc_health.v1 import health as grpc_health
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from bindings.factory import ConnectorFactory
-from bindings.invoke import ConnectorNotExposed, invoke
+from bindings.invoke import ActionNotExposed, ConnectorNotExposed, build_exposure, invoke
 from node_wire_runtime.errors import ErrorCode, NodeWireError, reject
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.config_store import ConfigNotFoundError
@@ -47,7 +48,11 @@ _async_runner = BackgroundAsyncRunner()
 
 
 class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
-    def __init__(self, factory: ConnectorFactory | None = None) -> None:
+    def __init__(
+        self,
+        factory: ConnectorFactory | None = None,
+        exposure: ActionExposure | None = None,
+    ) -> None:
         auto_register()
         if factory is not None:
             self._factory = factory
@@ -58,6 +63,8 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
             from node_wire_runtime.tenant_persistence import load_tenants
 
             load_tenants(self._factory.store)
+        # Injected for tests; otherwise NW_EXPOSE_PROFILE decides (a bad profile stops startup).
+        self._exposure = exposure or build_exposure(self._factory, "grpc")
 
     def _rejected(
         self,
@@ -144,12 +151,15 @@ class ConnectorServiceServicer(connector_pb2_grpc.ConnectorServiceServicer):
                 payload=payload,
                 protocol="grpc",
                 tenant_id=tenant_id,
+                exposure=self._exposure,
                 config_name=resolve_config_name(request.config_name or None),
                 principal=identity.principal if identity else None,
                 scopes=identity.scopes if identity else None,
             )
         except ConnectorNotExposed:
             return self._rejected(not_available, request, tenant_id)
+        except ActionNotExposed as exc:
+            return self._rejected(exc, request, tenant_id)
         except ConfigNotFoundError:
             return self._rejected(
                 NodeWireError(

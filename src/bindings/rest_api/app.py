@@ -22,12 +22,13 @@ if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "
     load_dotenv(override=False)
 
 from bindings.factory import ConnectorFactory
-from bindings.invoke import ConnectorNotExposed, invoke
+from bindings.invoke import ActionNotExposed, ConnectorNotExposed, build_exposure, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime.tenant_persistence import REQUIRED_SECRETS_BY_CONNECTOR
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.config_store import (
     DEFAULT_TENANT,
     ConfigNameConflictError,
@@ -155,8 +156,11 @@ def _mount_playground(app: FastAPI) -> None:
         connectors: Dict[str, Dict[str, Any]] = {}
         rest = factory.list_for_protocol("rest")
         classes = {c.connector_id: type(c) for c in rest}
+        exposure = get_exposure()
         for entry in build_manifest(rest):
             cid = entry["connector_id"]
+            if not exposure.allows(cid, entry["action"]):
+                continue
             record = connectors.setdefault(
                 cid,
                 {
@@ -225,6 +229,7 @@ app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 _mount_playground(app)
 
 _factory: ConnectorFactory | None = None
+_exposure: ActionExposure | None = None
 
 
 def get_factory() -> ConnectorFactory:
@@ -237,6 +242,13 @@ def get_factory() -> ConnectorFactory:
 
         load_tenants(_factory.store)
     return _factory
+
+
+def get_exposure() -> ActionExposure:
+    global _exposure
+    if _exposure is None:
+        _exposure = build_exposure(get_factory(), "rest")
+    return _exposure
 
 
 def _persist_tenants(factory_dep: ConnectorFactory) -> None:
@@ -810,9 +822,18 @@ def _make_endpoint(cid: str, act: str) -> Any:
                 payload=run_payload,
                 protocol="rest",
                 tenant_id=tenant_id,
+                exposure=get_exposure(),
                 config_name=config_name,
                 principal=rest_id.principal if rest_id else None,
                 scopes=rest_id.scopes if rest_id else None,
+            )
+        except ActionNotExposed as exc:
+            raise Rejected(
+                NodeWireError(ErrorCode.ACTION_NOT_EXPOSED, str(exc)),
+                404,
+                connector_id=cid,
+                action=act,
+                tenant_id=tenant_id,
             )
         except ConnectorNotExposed:
             raise Rejected(
@@ -865,6 +886,7 @@ def _make_endpoint(cid: str, act: str) -> Any:
 
 def _build_dynamic_routes() -> None:
     factory = get_factory()
+    exposure = get_exposure()  # a bad profile stops startup here
 
     connectors = factory.list_for_protocol("rest")
     manifest = build_manifest(connectors)
@@ -872,6 +894,8 @@ def _build_dynamic_routes() -> None:
     for entry in manifest:
         connector_id = entry["connector_id"]
         action = entry["action"]
+        if not exposure.allows(connector_id, action):
+            continue
 
         # For REST, let the runtime perform full Pydantic validation.
         # We accept an arbitrary JSON object as the payload and forward it
