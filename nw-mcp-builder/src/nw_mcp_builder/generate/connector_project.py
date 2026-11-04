@@ -574,9 +574,12 @@ COPY wheels/ /wheels/
 # Brace the __pycache__ cleanup so `|| true` cannot mask a failed pip install
 # (shell associates `&&`/`||` left-to-right; bare `pip && find || true && …`
 # succeeds even when pip fails).
+# The local wheels (node-wire-runtime, {BINDINGS_DIST_PACKAGE}, {connector_pkg}) are
+# installed by path, not by name: a name lets pip pick a PyPI release with the
+# same version over the freshly built wheel in /wheels.
 RUN --mount=type=cache,target=/root/.cache/pip \\
     pip install --no-compile --find-links=/wheels \\
-        node-wire-runtime {BINDINGS_DIST_PACKAGE} {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
+        /wheels/*.whl "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
     && {{ find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true; }} \\
     && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
 

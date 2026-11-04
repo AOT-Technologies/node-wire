@@ -86,6 +86,14 @@ def test_generated_dockerfile_pip_failure_is_not_masked_by_pycache_cleanup() -> 
     )
 
 
+def test_generated_dockerfile_installs_local_wheels_by_path() -> None:
+    """Regression: installing by name let pip pick a same-version PyPI release
+    of node-wire-runtime over the freshly built wheel in /wheels."""
+    text = _sample_dockerfile()
+    assert "/wheels/*.whl" in text
+    assert "node-wire-runtime node-wire-bindings" not in text
+
+
 def test_generated_dockerfile_application_tree_is_not_writable() -> None:
     text = _sample_dockerfile()
     assert "chmod -R a-w /app" in text

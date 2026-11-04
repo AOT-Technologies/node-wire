@@ -157,8 +157,8 @@ def _ask_selectors(metas: dict[str, Any]) -> tuple[list[str], list[str]]:
         console.print(f"  {len(found)} actions: {preview}", highlight=False)
         try:
             console.print(f"  now exposed: {len(expand(metas, select, exclude))}", highlight=False)
-        except ExposeError:
-            pass
+        except ExposeError as exc:
+            console.print(f"  {exc}", highlight=False)
 
 
 @expose_app.command("new")
