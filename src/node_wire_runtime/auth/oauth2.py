@@ -51,7 +51,7 @@ import jwt
 
 from node_wire_runtime.secrets import SecretProvider
 
-from .base import AuthProvider, provider_io_off_loop, read_secrets_off_loop
+from .base import AuthProvider, read_secrets_off_loop
 
 logger = logging.getLogger("runtime.auth.oauth2")
 
@@ -255,21 +255,20 @@ class OAuth2AuthProvider(AuthProvider):
             return " ".join(self._static_scopes)
         return None
 
-    # The token URL and client id are config, not credentials, and are logged; they are read
-    # apart from the secrets so a log line never carries a value from a credential read.
+    # The token URL and client id are config, not credentials, and they are logged. They are
+    # read here rather than through read_secrets_off_loop: that helper runs any callable, so
+    # CodeQL merges the return values of all its callers and would mark these as secrets.
+    async def _read_config_value(self, key: str) -> Any:
+        if getattr(self._sp, "blocking_io", False):
+            return await asyncio.to_thread(self._sp.get_secret, key)
+        return self._sp.get_secret(key)
+
     async def _read_token_url(self) -> Any:
-        return await provider_io_off_loop(
-            self._sp, lambda: self._sp.get_secret(self._token_url_secret)
-        )
+        return await self._read_config_value(self._token_url_secret)
 
     async def _read_client_id_and_token_url(self) -> tuple[Any, Any]:
-        return await provider_io_off_loop(
-            self._sp,
-            lambda: (
-                self._sp.get_secret(self._client_id_secret),
-                self._sp.get_secret(self._token_url_secret),
-            ),
-        )
+        client_id = await self._read_config_value(self._client_id_secret)
+        return client_id, await self._read_token_url()
 
     async def _fetch_token(self) -> Dict[str, Any]:
         """Dispatch to the appropriate grant method implementation."""
