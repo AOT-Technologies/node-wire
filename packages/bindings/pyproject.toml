@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-bindings"
-version = "1.1.0"
+version = "1.1.1"
 description = "MCP host surface for Node Wire: ConnectorFactory, shared invoke, and the MCP server used by Node Wire MCP images"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "node-wire-runtime>=1.1.0",
+    "node-wire-runtime>=1.1.1",
     "mcp>=1.6.0,<2",
     "PyJWT[crypto]>=2.8.0",
     "python-dotenv>=1.0.0",

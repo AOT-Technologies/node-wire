@@ -4,7 +4,7 @@
 
 [project]
 name = "nw-cli"
-version = "1.1.0"
+version = "1.1.1"
 description = "Unified CLI for OpenAPI connector codegen, wheel builds, MCP hosts, and Docker images"
 requires-python = ">=3.11"
 dependencies = [

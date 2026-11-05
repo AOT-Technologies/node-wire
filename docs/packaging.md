@@ -21,6 +21,7 @@ The following table lists every package the build script produces:
 | `node-wire-toolhive` **(not published)** | `src/node_wire_toolhive/` | — (credential relay, tenant header, config tools for `nw gen-stacklok` servers) |
 | `node-wire-fhir-cerner` | `src/node_wire_fhir_cerner/` | `fhir_cerner` |
 | `node-wire-fhir-epic` | `src/node_wire_fhir_epic/` | `fhir_epic` |
+| `node-wire-github` | `src/node_wire_github/` | `github` |
 | `node-wire-google-drive` | `src/node_wire_google_drive/` | `google_drive` |
 | `node-wire-http` | `src/node_wire_http_generic/` | `http_generic` |
 | `node-wire-salesforce` | `src/node_wire_salesforce/` | `salesforce` |
@@ -405,9 +406,10 @@ entry, then pushes `v…`. Stable releases use it with the version from the foll
 #### Step 1 — Prepare the release
 
 1. Bump lockstep package versions with `./scripts/bump-version.py X.Y.Z` (root
-   `pyproject.toml`, every `packages/**/pyproject.toml`, and connector
-   `node-wire-runtime>=…` floors). This does **not** touch `nw-mcp-builder/`,
-   which is versioned independently.
+   `pyproject.toml`, every `packages/**/pyproject.toml`, the `nw-*` tool
+   `pyproject.toml` files and `__version__` strings, and package
+   `node-wire-runtime>=…` floors), then run `uv lock` in the root and each
+   `nw-*` directory.
 2. Fill in the scaffolded `CHANGELOG.md` notes. Create Release Tag and GitHub
    Release both require a dated `## [X.Y.Z] - YYYY-MM-DD` section and a footer
    link `[X.Y.Z]: …/releases/tag/vX.Y.Z` (the bump script scaffolds these when

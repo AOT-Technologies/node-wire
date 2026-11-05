@@ -4,7 +4,7 @@
 
 [project]
 name = "node-wire-runtime"
-version = "1.1.0"
+version = "1.1.1"
 description = "Core runtime for Node Wire connectors: typed actions, retries and circuit breaking, error taxonomy, auth, pluggable secrets, multi-tenancy and OpenTelemetry"
 requires-python = ">=3.11"
 license = "Apache-2.0"
