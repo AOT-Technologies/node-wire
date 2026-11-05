@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -145,7 +146,8 @@ class GoogleDriveConnector(BaseConnector):
             creds = await self._auth_provider.get_client_credentials()
             if creds is None:
                 raise GoogleDriveAuthError("Upstream bearer token required")
-            drive = build("drive", "v3", credentials=creds)
+            # Off the loop: build() reads and parses the discovery doc on every call here.
+            drive = await asyncio.to_thread(build, "drive", "v3", credentials=creds)
         else:
             drive = self.get_client()
         extra = {
