@@ -246,6 +246,18 @@ def _profiles(root: Path, connector_id: Optional[str], profile: Optional[str]) -
     return sorted(base.glob(pattern)) if base.is_dir() else []
 
 
+def _read_profile(file: Path) -> dict[str, Any]:
+    try:
+        doc = yaml.safe_load(file.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ExposeError(f"Cannot parse exposure profile {file}: {exc}") from exc
+    if doc is None:
+        return {}
+    if not isinstance(doc, dict):
+        raise ExposeError(f"{file}: expected a mapping at the top level")
+    return doc
+
+
 def refresh_profiles(
     root: Path, connector_id: Optional[str] = None, profile: Optional[str] = None, *, write: bool
 ) -> list[Path]:
@@ -256,7 +268,7 @@ def refresh_profiles(
     stale: list[Path] = []
     for file in _profiles(root, connector_id, profile):
         cid = file.parent.name
-        doc = yaml.safe_load(file.read_text(encoding="utf-8")) or {}
+        doc = _read_profile(file)
         cls, metas = _metas(root, cid)
         select, exclude = list(doc.get("select") or []), list(doc.get("exclude") or [])
         if not select:

@@ -187,3 +187,19 @@ def test_a_bad_selector_is_reported_as_a_user_error_not_a_bug(root: Path) -> Non
     assert result.exit_code != 0
     assert "matches no action" in result.output
     assert "bug in nw" not in result.output and "unexpected" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [("actions: [unclosed\n", "Cannot parse exposure profile"), ("- foo\n", "expected a mapping")],
+)
+def test_a_malformed_profile_is_reported_as_a_user_error_not_a_bug(
+    root: Path, body: str, message: str
+) -> None:
+    file = root / "expose" / "demo" / "ro.yaml"
+    file.parent.mkdir(parents=True)
+    file.write_text(body, encoding="utf-8")
+    result = _run("resolve", "--check")
+    assert result.exit_code != 0
+    assert message in result.output and "ro.yaml" in result.output
+    assert "bug in nw" not in result.output and "unexpected" not in result.output
