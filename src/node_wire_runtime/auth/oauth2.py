@@ -51,7 +51,7 @@ import jwt
 
 from node_wire_runtime.secrets import SecretProvider
 
-from .base import AuthProvider, read_secrets_off_loop
+from .base import AuthProvider, provider_io_off_loop, read_secrets_off_loop
 
 logger = logging.getLogger("runtime.auth.oauth2")
 
@@ -255,15 +255,15 @@ class OAuth2AuthProvider(AuthProvider):
             return " ".join(self._static_scopes)
         return None
 
-    # Non-secret values that get logged are read apart from the credentials, so a log line
-    # never carries a value that came out of the same read as a secret.
+    # The token URL and client id are config, not credentials, and are logged; they are read
+    # apart from the secrets so a log line never carries a value from a credential read.
     async def _read_token_url(self) -> Any:
-        return await read_secrets_off_loop(
+        return await provider_io_off_loop(
             self._sp, lambda: self._sp.get_secret(self._token_url_secret)
         )
 
     async def _read_client_id_and_token_url(self) -> tuple[Any, Any]:
-        return await read_secrets_off_loop(
+        return await provider_io_off_loop(
             self._sp,
             lambda: (
                 self._sp.get_secret(self._client_id_secret),
@@ -288,7 +288,7 @@ class OAuth2AuthProvider(AuthProvider):
 
         refresh_token_secret = self._refresh_token_secret
 
-        def _read() -> tuple[Any, Any, Any, Any, Optional[str]]:
+        def _read() -> tuple[Any, Any, Any, Optional[str]]:
             client_id = self._sp.get_secret(self._client_id_secret)
             client_secret = (
                 self._sp.get_secret(self._client_secret_secret)

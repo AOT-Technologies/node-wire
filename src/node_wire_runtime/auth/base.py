@@ -26,15 +26,24 @@ from typing import Any, Callable, Dict, TypeVar
 _T = TypeVar("_T")
 
 
-async def read_secrets_off_loop(secret_provider: Any, fn: Callable[[], _T]) -> _T:
-    """Run ``fn`` (which reads from ``secret_provider``) without blocking the event loop.
+async def provider_io_off_loop(provider: Any, fn: Callable[[], _T]) -> _T:
+    """Run ``fn`` (which reads from ``provider``) without blocking the event loop.
 
     Network-backed providers (Azure Key Vault) set ``blocking_io``; their reads go to a
     thread. In-memory providers run inline, so they pay no thread hop.
     """
-    if getattr(secret_provider, "blocking_io", False):
+    if getattr(provider, "blocking_io", False):
         return await asyncio.to_thread(fn)
     return fn()
+
+
+async def read_secrets_off_loop(secret_provider: Any, fn: Callable[[], _T]) -> _T:
+    """:func:`provider_io_off_loop` for reads that return credentials.
+
+    Use :func:`provider_io_off_loop` for non-secret config (token URL, client id) that is
+    safe to log.
+    """
+    return await provider_io_off_loop(secret_provider, fn)
 
 
 _upstream_bearer_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
