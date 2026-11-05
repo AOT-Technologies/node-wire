@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import node_wire_runtime.http_safety as hs
+from node_wire_runtime import http_safety as hs
 from node_wire_runtime.http_safety import SsrfBlockedError, assert_safe_destination
 
 

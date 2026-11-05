@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-import bindings.mcp_server.server as server_mod
+from bindings.mcp_server import server as server_mod
 from bindings.mcp_server.server import McpServer, build_manifest, validate_tool_arguments
 
 

@@ -255,6 +255,22 @@ class OAuth2AuthProvider(AuthProvider):
             return " ".join(self._static_scopes)
         return None
 
+    # Non-secret values that get logged are read apart from the credentials, so a log line
+    # never carries a value that came out of the same read as a secret.
+    async def _read_token_url(self) -> Any:
+        return await read_secrets_off_loop(
+            self._sp, lambda: self._sp.get_secret(self._token_url_secret)
+        )
+
+    async def _read_client_id_and_token_url(self) -> tuple[Any, Any]:
+        return await read_secrets_off_loop(
+            self._sp,
+            lambda: (
+                self._sp.get_secret(self._client_id_secret),
+                self._sp.get_secret(self._token_url_secret),
+            ),
+        )
+
     async def _fetch_token(self) -> Dict[str, Any]:
         """Dispatch to the appropriate grant method implementation."""
         if self._grant_method == "private_key_jwt":
@@ -286,12 +302,12 @@ class OAuth2AuthProvider(AuthProvider):
             refresh_token = self._refresh_token_override or self._sp.get_secret(
                 refresh_token_secret
             )
-            token_url = self._sp.get_secret(self._token_url_secret)
-            return client_id, client_secret, refresh_token, token_url, self._resolve_scopes()
+            return client_id, client_secret, refresh_token, self._resolve_scopes()
 
-        client_id, client_secret, refresh_token, token_url, scope = await read_secrets_off_loop(
+        client_id, client_secret, refresh_token, scope = await read_secrets_off_loop(
             self._sp, _read
         )
+        token_url = await self._read_token_url()
 
         post_data: Dict[str, str] = {
             "grant_type": "refresh_token",
@@ -356,18 +372,15 @@ class OAuth2AuthProvider(AuthProvider):
 
         private_key_secret, kid_secret = self._private_key_secret, self._kid_secret
 
-        def _read() -> tuple[Any, Any, Any, Any, Optional[str]]:
+        def _read() -> tuple[Any, Any, Optional[str]]:
             return (
                 self._sp.get_secret(private_key_secret),
                 self._sp.get_secret(kid_secret),
-                self._sp.get_secret(self._client_id_secret),
-                self._sp.get_secret(self._token_url_secret),
                 self._resolve_scopes(),
             )
 
-        private_key_raw, kid, client_id, token_url, scope = await read_secrets_off_loop(
-            self._sp, _read
-        )
+        private_key_raw, kid, scope = await read_secrets_off_loop(self._sp, _read)
+        client_id, token_url = await self._read_client_id_and_token_url()
 
         # Normalise PEM keys stored as single-line env vars with escaped newlines.
         private_key_pem = (
@@ -428,15 +441,15 @@ class OAuth2AuthProvider(AuthProvider):
 
         client_secret_secret = self._client_secret_secret
 
-        def _read() -> tuple[Any, Any, Any, Optional[str]]:
+        def _read() -> tuple[Any, Any, Optional[str]]:
             return (
                 self._sp.get_secret(self._client_id_secret),
                 self._sp.get_secret(client_secret_secret),
-                self._sp.get_secret(self._token_url_secret),
                 self._resolve_scopes(),
             )
 
-        client_id, client_secret, token_url, scope = await read_secrets_off_loop(self._sp, _read)
+        client_id, client_secret, scope = await read_secrets_off_loop(self._sp, _read)
+        token_url = await self._read_token_url()
 
         post_data: Dict[str, str] = {
             "grant_type": "client_credentials",

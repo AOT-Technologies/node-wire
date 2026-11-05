@@ -246,9 +246,7 @@ def test_install_redacts_records_propagated_from_child_loggers() -> None:
 
 
 def test_sanitizing_filter_runs_once_per_record_and_matches_direct_sanitize(monkeypatch) -> None:
-    import logging
-
-    import node_wire_runtime.log_sanitization as ls
+    from node_wire_runtime import log_sanitization as ls
 
     def _record() -> logging.LogRecord:
         rec = logging.LogRecord("t", logging.INFO, __file__, 1, "msg %s", ("x" * 200,), None)

@@ -183,15 +183,9 @@ class ScopePolicyHook(PolicyHook):
             raise PolicyDenied(f"Missing required scope: {required}")
 
 
-_scope_dotenv_loaded = False
-
-
+@lru_cache(maxsize=None)
 def _load_scope_dotenv_once() -> None:
     """Load ``.env`` files at most once per process; this runs on every MCP request."""
-    global _scope_dotenv_loaded
-    if _scope_dotenv_loaded:
-        return
-    _scope_dotenv_loaded = True
     repo_root_env = Path(__file__).resolve().parents[3] / ".env"
     load_dotenv(override=False)
     load_dotenv(repo_root_env, override=False)

@@ -647,7 +647,7 @@ def test_gemini_provider_text_response_without_tool_calls() -> None:
 
 
 def test_openai_provider_converts_tools_once_and_sets_timeout(monkeypatch) -> None:
-    import agents.providers.openai_provider as oai_mod
+    from agents.providers import openai_provider as oai_mod
 
     monkeypatch.setenv("NW_LLM_TIMEOUT_SECONDS", "45")
     mock_client = MagicMock()

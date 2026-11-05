@@ -49,8 +49,6 @@ class GoogleDriveConnector(BaseConnector):
     }
 
     def build_client(self) -> Any:
-        import asyncio
-
         async def _fetch_creds() -> Any:
             return await self._auth_provider.get_client_credentials()
 

@@ -48,8 +48,6 @@ def test_background_runner_handles_concurrent_calls() -> None:
 
 
 def test_runner_times_out_and_cancels(monkeypatch) -> None:
-    import asyncio
-
     import pytest
 
     from bindings.grpc_server.async_runner import BackgroundAsyncRunner

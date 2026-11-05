@@ -13,10 +13,11 @@ from node_wire_runtime.policies import mcp_scope_policy as msp
 
 
 @pytest.fixture(autouse=True)
-def _reset_caches(monkeypatch):
-    monkeypatch.setattr(msp, "_scope_dotenv_loaded", False)
+def _reset_caches():
+    msp._load_scope_dotenv_once.cache_clear()
     msp._parse_scope_map.cache_clear()
     yield
+    msp._load_scope_dotenv_once.cache_clear()
     msp._parse_scope_map.cache_clear()
 
 
