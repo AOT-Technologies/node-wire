@@ -60,6 +60,11 @@ def test_tools_run_connector_actions(node_wire_checkout: NodeWireCheckout, tmp_p
 
     registrations = (module / "api" / "mcp_builder.py").read_text()
     assert "tools = Tools(APIClient())" in registrations
+    # NW_EXPOSE_PROFILE decides which tools are registered.
+    assert (
+        f'if exposure.allows("{CONNECTOR_ID}", "find_pets_by_status"):\n'
+        "            mcp.add_tool(tools.find_pets_by_status)"
+    ) in registrations
     assert "register_config_tools(mcp, tools._client.node_wire)" in registrations
     # Wraps every registered tool, config tools included, so it comes last.
     order = [
@@ -359,3 +364,19 @@ def test_tenants_example_carries_headers_with_a_note(tmp_path: Path) -> None:
     assert doc["headers"] == {"Client-Id": "${TWITCH_CLIENT_ID}"}
     image_config = yaml.safe_load((project / "config" / "connectors.yaml").read_text())
     assert image_config["connectors"]["twitch"]["headers"] == {"Client-Id": "${TWITCH_CLIENT_ID}"}
+
+
+def test_exposure_profiles_are_baked_in_beside_config(
+    node_wire_checkout: NodeWireCheckout, tmp_path: Path
+) -> None:
+    plain = (_generate(node_wire_checkout, tmp_path) / "Dockerfile").read_text()
+    assert "expose/" not in plain
+    shutil.rmtree(tmp_path / "out")
+
+    profiles = node_wire_checkout.root / "expose" / CONNECTOR_ID
+    profiles.mkdir(parents=True)
+    (profiles / "ro.yaml").write_text("actions: [get_pet_by_id]\n", encoding="utf-8")
+    project = _generate(node_wire_checkout, tmp_path)
+    assert (project / "expose" / CONNECTOR_ID / "ro.yaml").is_file()
+    dockerfile = (project / "Dockerfile").read_text()
+    assert "COPY config/ /app/config/\nCOPY expose/ /app/expose/\n" in dockerfile

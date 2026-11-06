@@ -1,0 +1,47 @@
+# Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
+connector: github
+connector_version: 1.1.1
+profile: github-prs
+select:
+- path:/repos/{owner}/{repo}/pulls/**
+- path:/repos/{owner}/{repo}/stacks/**
+exclude:
+- pulls_merge*
+- codespaces_*
+actions:
+- pull_request_stacks_add
+- pull_request_stacks_create
+- pull_request_stacks_get
+- pull_request_stacks_list
+- pull_request_stacks_unstack
+- pulls_check_if_merged
+- pulls_create
+- pulls_create_reply_for_review_comment
+- pulls_create_review
+- pulls_create_review_comment
+- pulls_delete_pending_review
+- pulls_delete_review_comment
+- pulls_dismiss_review
+- pulls_get
+- pulls_get_merge_async_result
+- pulls_get_review
+- pulls_get_review_comment
+- pulls_list
+- pulls_list_comments_for_review
+- pulls_list_commits
+- pulls_list_files
+- pulls_list_requested_reviewers
+- pulls_list_review_comments
+- pulls_list_review_comments_for_repo
+- pulls_list_reviews
+- pulls_remove_requested_reviewers
+- pulls_request_reviewers
+- pulls_rerequest_reviewers
+- pulls_submit_review
+- pulls_update
+- pulls_update_branch
+- pulls_update_review
+- pulls_update_review_comment
+- reactions_create_for_pull_request_review_comment
+- reactions_delete_for_pull_request_comment
+- reactions_list_for_pull_request_review_comment

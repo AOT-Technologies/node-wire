@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 from mcp.types import ListToolsRequest
 
 from bindings.factory import ConnectorFactory
-from bindings.invoke import ConnectorNotExposed, invoke
+from bindings.invoke import ActionNotExposed, ConnectorNotExposed, build_exposure, invoke
 from bindings.mcp_server.tool_search import Bm25Index
 from bindings.mcp_server.auth import (
     McpAuthError,
@@ -28,6 +28,7 @@ from bindings.mcp_server.auth import (
 from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.config_store import ConfigNotFoundError
 from node_wire_runtime.errors import ErrorCode, NodeWireError, error_text, reject
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.identity import (
     MissingTenantError,
     TenantIdentityMismatchError,
@@ -600,6 +601,7 @@ class McpServer:
         connector_ids: Optional[List[str]] = None,
         factory: ConnectorFactory | None = None,
         tool_mode: Optional[str] = None,
+        exposure: ActionExposure | None = None,
     ) -> None:
         self._server_name = server_name
         # "list" (every tool in tools/list) or "search" (nw_search_tools +
@@ -630,6 +632,10 @@ class McpServer:
             from node_wire_runtime.tenant_persistence import load_tenants
 
             load_tenants(self._factory.store)
+        # Injected for tests; otherwise NW_EXPOSE_PROFILE decides (a bad profile stops startup).
+        self._exposure = exposure or build_exposure(
+            self._factory, "mcp", connector_ids=self._connector_ids
+        )
         self._upstream_passthrough = _resolve_upstream_passthrough(
             self._factory, self._connector_ids
         )
@@ -686,7 +692,11 @@ class McpServer:
         key = tuple((c.connector_id, type(c)) for c in connectors)
         cached = self._manifest_cache
         if cached is None or cached[0] != key:
-            manifest = build_manifest(connectors)
+            manifest = [
+                e
+                for e in build_manifest(connectors)
+                if self._exposure.allows(str(e["connector_id"]), str(e["action"]))
+            ]
             index: Dict[str, List[Dict[str, Any]]] = {}
             for entry in manifest:
                 name = mcp_advertised_tool_name(str(entry["connector_id"]), str(entry["action"]))
@@ -1494,6 +1504,7 @@ class McpServer:
                 payload=arguments,
                 protocol="mcp",
                 tenant_id=tenant_id,
+                exposure=self._exposure,
                 config_name=config_name,
                 principal=identity.principal if identity else None,
                 scopes=identity.scopes if identity else None,
@@ -1504,6 +1515,8 @@ class McpServer:
                 ErrorCode.CONNECTOR_NOT_AVAILABLE,
                 f"Connector {connector_id!r} is not available via MCP.",
             )
+        except ActionNotExposed as exc:
+            raise NodeWireError(ErrorCode.ACTION_NOT_EXPOSED, str(exc))
         except ConfigNotFoundError:
             if config_name is not None:
                 raise NodeWireError(

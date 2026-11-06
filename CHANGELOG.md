@@ -19,6 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand-coded panel, listed by `GET /playground/connectors`. A connector built with `nw gen-all`
   appears after a server restart. In multitenancy mode the tenant header, config name and Add
   config dialog work for these connectors (`ConnectorFactory.config_template()`).
+- Action exposure profiles: `NW_EXPOSE_PROFILE` serves only the actions listed in
+  `expose/<connector_id>/<profile>.yaml` on REST, gRPC, MCP and stacklok servers. Hidden actions
+  are left out of listings and refused by `invoke()` with the new `ACTION_NOT_EXPOSED` error
+  (`BUSINESS`). Startup fails on an unknown profile or action; `NW_EXPOSE_STRICT_VERSION=true`
+  also refuses a profile written for another connector version. See `docs/exposure.md`.
+- `nw expose new | resolve [--check] | search` to author profiles from selectors (`method:`,
+  `path:`, `name:`, `tag:`; `*` stays within a path segment, `**` crosses them). A select or
+  exclude that matches nothing is an error. Search only helps find names; it is never stored. `nw gen-all` re-resolves them, `nw gen-mcp` and
+  `nw docker-build` refuse stale ones, and generated images carry `expose/`.
+- `@nw_action` accepts `http_method`, `http_path` and `tags`, and `nw gen-all` writes them from the
+  spec. The GitHub connector's 1,239 actions now carry them.
+- `node_wire_runtime.tool_search` holds the BM25 index (re-exported from
+  `bindings.mcp_server.tool_search`).
+
+### Changed
+
+- `bindings.invoke.invoke()` takes a required `exposure=` argument
+  (`ActionExposure.unrestricted()` keeps today's behaviour).
+- The root Docker image includes the GitHub connector.
+
 ## [1.1.1] - 2026-10-28
 
 ### Fixed

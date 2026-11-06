@@ -489,6 +489,11 @@ def generate_logic_module(connector_id: str, result: DeriveResult) -> str:
         decorator_kw = "" if a.auth else ", requires_auth=False"
         if a.deprecated:
             decorator_kw += ", deprecated=True"
+        # Exposure profiles select on these; they never change how the action runs.
+        decorator_kw += f", http_method={a.method!r}, http_path={a.path!r}"
+        tags = tuple(t for t in a.operation.get("tags") or () if isinstance(t, str))
+        if tags:
+            decorator_kw += f", tags={tags!r}"
         # auth_scheme_name is an OpenAPI securitySchemes key — always emit via !r.
         scheme_kw = f", auth_scheme={a.auth_scheme_name!r}" if a.auth_scheme_name else ""
         # The spec declares this response's success flag; a 2xx body reporting
