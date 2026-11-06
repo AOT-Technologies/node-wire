@@ -23,13 +23,11 @@ class MetaRootInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["meta_root"] = "meta_root"
-    pass
 
 
 class MetaRootOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesListGlobalAdvisoriesInput(BaseModel):
@@ -284,7 +282,6 @@ class SecurityAdvisoriesGetGlobalAdvisoryInput(BaseModel):
 class SecurityAdvisoriesGetGlobalAdvisoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsListAutomationsInput(BaseModel):
@@ -340,7 +337,6 @@ class AgentAutomationsListAvailableAutomationToolsInput(BaseModel):
     action: Literal["agent_automations_list_available_automation_tools"] = (
         "agent_automations_list_available_automation_tools"
     )
-    pass
 
 
 AgentAutomationsListAvailableAutomationToolsOutput = RestResponseOutput
@@ -353,7 +349,6 @@ class AgentAutomationsListAvailableAutomationTriggersInput(BaseModel):
     action: Literal["agent_automations_list_available_automation_triggers"] = (
         "agent_automations_list_available_automation_triggers"
     )
-    pass
 
 
 AgentAutomationsListAvailableAutomationTriggersOutput = RestResponseOutput
@@ -380,7 +375,6 @@ class AgentAutomationsGetAutomationInput(BaseModel):
 class AgentAutomationsGetAutomationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsListAutomationTasksInput(BaseModel):
@@ -475,7 +469,6 @@ class AgentAutomationsListAutomationTasksInput(BaseModel):
 class AgentAutomationsListAutomationTasksOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsListRepoAutomationsInput(BaseModel):
@@ -548,7 +541,6 @@ class AgentAutomationsListRepoAutomationsInput(BaseModel):
 class AgentAutomationsListRepoAutomationsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsCreateRepoAutomationInput(BaseModel):
@@ -706,7 +698,6 @@ class AgentAutomationsCreateRepoAutomationInput(BaseModel):
 class AgentAutomationsCreateRepoAutomationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsGetRepoAutomationInput(BaseModel):
@@ -754,7 +745,6 @@ class AgentAutomationsGetRepoAutomationInput(BaseModel):
 class AgentAutomationsGetRepoAutomationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsEditRepoAutomationInput(BaseModel):
@@ -912,7 +902,6 @@ class AgentAutomationsEditRepoAutomationInput(BaseModel):
 class AgentAutomationsEditRepoAutomationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentAutomationsDeleteRepoAutomationInput(BaseModel):
@@ -1084,7 +1073,6 @@ class AgentTasksListTasksForRepoInput(BaseModel):
 class AgentTasksListTasksForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentTasksCreateTaskInRepoInput(BaseModel):
@@ -1185,7 +1173,6 @@ class AgentTasksCreateTaskInRepoInput(BaseModel):
 class AgentTasksCreateTaskInRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentTasksGetTaskByRepoAndIdInput(BaseModel):
@@ -1231,7 +1218,6 @@ class AgentTasksGetTaskByRepoAndIdInput(BaseModel):
 class AgentTasksGetTaskByRepoAndIdOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentTasksListTasksInput(BaseModel):
@@ -1325,7 +1311,6 @@ class AgentTasksListTasksInput(BaseModel):
 class AgentTasksListTasksOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentTasksGetTaskByIdInput(BaseModel):
@@ -1349,7 +1334,6 @@ class AgentTasksGetTaskByIdInput(BaseModel):
 class AgentTasksGetTaskByIdOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsGetAuthenticatedInput(BaseModel):
@@ -1357,13 +1341,11 @@ class AppsGetAuthenticatedInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["apps_get_authenticated"] = "apps_get_authenticated"
-    pass
 
 
 class AppsGetAuthenticatedOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsCreateFromManifestInput(BaseModel):
@@ -1386,7 +1368,6 @@ class AppsCreateFromManifestInput(BaseModel):
 class AppsCreateFromManifestOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsGetWebhookConfigForAppInput(BaseModel):
@@ -1394,13 +1375,11 @@ class AppsGetWebhookConfigForAppInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["apps_get_webhook_config_for_app"] = "apps_get_webhook_config_for_app"
-    pass
 
 
 class AppsGetWebhookConfigForAppOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsUpdateWebhookConfigForAppInput(BaseModel):
@@ -1446,7 +1425,6 @@ class AppsUpdateWebhookConfigForAppInput(BaseModel):
 class AppsUpdateWebhookConfigForAppOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsListWebhookDeliveriesInput(BaseModel):
@@ -1512,7 +1490,6 @@ class AppsGetWebhookDeliveryInput(BaseModel):
 class AppsGetWebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsRedeliverWebhookDeliveryInput(BaseModel):
@@ -1535,7 +1512,6 @@ class AppsRedeliverWebhookDeliveryInput(BaseModel):
 class AppsRedeliverWebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsListInstallationRequestsForAuthenticatedAppInput(BaseModel):
@@ -1647,7 +1623,6 @@ class AppsGetInstallationInput(BaseModel):
 class AppsGetInstallationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsDeleteInstallationInput(BaseModel):
@@ -1727,7 +1702,6 @@ class AppsCreateInstallationAccessTokenInput(BaseModel):
 class AppsCreateInstallationAccessTokenOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsSuspendInstallationInput(BaseModel):
@@ -1814,7 +1788,6 @@ class AppsCheckTokenInput(BaseModel):
 class AppsCheckTokenOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsResetTokenInput(BaseModel):
@@ -1838,7 +1811,6 @@ class AppsResetTokenInput(BaseModel):
 class AppsResetTokenOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsDeleteTokenInput(BaseModel):
@@ -1938,7 +1910,6 @@ class AppsScopeTokenInput(BaseModel):
 class AppsScopeTokenOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsGetBySlugInput(BaseModel):
@@ -1961,7 +1932,6 @@ class AppsGetBySlugInput(BaseModel):
 class AppsGetBySlugOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ClassroomGetAnAssignmentInput(BaseModel):
@@ -2034,7 +2004,6 @@ class ClassroomListClassroomsInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["classroom_list_classrooms"] = "classroom_list_classrooms"
-    pass
 
 
 ClassroomListClassroomsOutput = RestResponseOutput
@@ -2091,7 +2060,6 @@ class CodesOfConductGetAllCodesOfConductInput(BaseModel):
     action: Literal["codes_of_conduct_get_all_codes_of_conduct"] = (
         "codes_of_conduct_get_all_codes_of_conduct"
     )
-    pass
 
 
 CodesOfConductGetAllCodesOfConductOutput = RestResponseOutput
@@ -2117,7 +2085,6 @@ class CodesOfConductGetConductCodeInput(BaseModel):
 class CodesOfConductGetConductCodeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CredentialsRevokeInput(BaseModel):
@@ -2143,7 +2110,6 @@ class CredentialsRevokeInput(BaseModel):
 class CredentialsRevokeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class EmojisGetInput(BaseModel):
@@ -2151,13 +2117,11 @@ class EmojisGetInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["emojis_get"] = "emojis_get"
-    pass
 
 
 class EmojisGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetActionsCacheRetentionLimitForEnterpriseInput(BaseModel):
@@ -2183,7 +2147,6 @@ class ActionsGetActionsCacheRetentionLimitForEnterpriseInput(BaseModel):
 class ActionsGetActionsCacheRetentionLimitForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetActionsCacheRetentionLimitForEnterpriseInput(BaseModel):
@@ -2243,7 +2206,6 @@ class ActionsGetActionsCacheStorageLimitForEnterpriseInput(BaseModel):
 class ActionsGetActionsCacheStorageLimitForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetActionsCacheStorageLimitForEnterpriseInput(BaseModel):
@@ -2337,7 +2299,6 @@ class OidcCreateOidcCustomPropertyInclusionForEnterpriseInput(BaseModel):
 class OidcCreateOidcCustomPropertyInclusionForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OidcDeleteOidcCustomPropertyInclusionForEnterpriseInput(BaseModel):
@@ -2707,7 +2668,6 @@ class CodeSecurityCreateConfigurationForEnterpriseInput(BaseModel):
 class CodeSecurityCreateConfigurationForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityGetDefaultConfigurationsForEnterpriseInput(BaseModel):
@@ -2767,7 +2727,6 @@ class CodeSecurityGetSingleConfigurationForEnterpriseInput(BaseModel):
 class CodeSecurityGetSingleConfigurationForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityUpdateEnterpriseConfigurationInput(BaseModel):
@@ -3060,7 +3019,6 @@ class CodeSecurityUpdateEnterpriseConfigurationInput(BaseModel):
 class CodeSecurityUpdateEnterpriseConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityDeleteConfigurationForEnterpriseInput(BaseModel):
@@ -3142,7 +3100,6 @@ class CodeSecurityAttachEnterpriseConfigurationInput(BaseModel):
 class CodeSecurityAttachEnterpriseConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecuritySetConfigurationAsDefaultForEnterpriseInput(BaseModel):
@@ -3190,7 +3147,6 @@ class CodeSecuritySetConfigurationAsDefaultForEnterpriseInput(BaseModel):
 class CodeSecuritySetConfigurationAsDefaultForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityGetRepositoriesForEnterpriseInput(BaseModel):
@@ -3306,7 +3262,6 @@ class CopilotCopilotEnterpriseOneDayUsageMetricsInput(BaseModel):
 class CopilotCopilotEnterpriseOneDayUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotEnterpriseUsageMetricsInput(BaseModel):
@@ -3332,7 +3287,6 @@ class CopilotCopilotEnterpriseUsageMetricsInput(BaseModel):
 class CopilotCopilotEnterpriseUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotEnterpriseReposOneDayReportInput(BaseModel):
@@ -3370,7 +3324,6 @@ class CopilotCopilotEnterpriseReposOneDayReportInput(BaseModel):
 class CopilotCopilotEnterpriseReposOneDayReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotEnterpriseUserTeamsOneDayReportInput(BaseModel):
@@ -3408,7 +3361,6 @@ class CopilotCopilotEnterpriseUserTeamsOneDayReportInput(BaseModel):
 class CopilotCopilotEnterpriseUserTeamsOneDayReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotUsersOneDayUsageMetricsInput(BaseModel):
@@ -3446,7 +3398,6 @@ class CopilotCopilotUsersOneDayUsageMetricsInput(BaseModel):
 class CopilotCopilotUsersOneDayUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotUsersUsageMetricsInput(BaseModel):
@@ -3470,7 +3421,6 @@ class CopilotCopilotUsersUsageMetricsInput(BaseModel):
 class CopilotCopilotUsersUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSetEnterpriseCodingAgentPolicyInput(BaseModel):
@@ -3816,7 +3766,6 @@ class DependabotRepositoryAccessForEnterpriseInput(BaseModel):
 class DependabotRepositoryAccessForEnterpriseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotUpdateRepositoryAccessForEnterpriseInput(BaseModel):
@@ -3935,13 +3884,11 @@ class ActivityGetFeedsInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["activity_get_feeds"] = "activity_get_feeds"
-    pass
 
 
 class ActivityGetFeedsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsListInput(BaseModel):
@@ -4030,7 +3977,6 @@ class GistsCreateInput(BaseModel):
 class GistsCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsListPublicInput(BaseModel):
@@ -4142,7 +4088,6 @@ class GistsGetInput(BaseModel):
 class GistsGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsUpdateInput(BaseModel):
@@ -4188,7 +4133,6 @@ class GistsUpdateInput(BaseModel):
 class GistsUpdateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsDeleteInput(BaseModel):
@@ -4289,7 +4233,6 @@ class GistsCreateCommentInput(BaseModel):
 class GistsCreateCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsGetCommentInput(BaseModel):
@@ -4325,7 +4268,6 @@ class GistsGetCommentInput(BaseModel):
 class GistsGetCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsUpdateCommentInput(BaseModel):
@@ -4374,7 +4316,6 @@ class GistsUpdateCommentInput(BaseModel):
 class GistsUpdateCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsDeleteCommentInput(BaseModel):
@@ -4517,7 +4458,6 @@ class GistsForkInput(BaseModel):
 class GistsForkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GistsCheckIsStarredInput(BaseModel):
@@ -4614,7 +4554,6 @@ class GistsGetRevisionInput(BaseModel):
 class GistsGetRevisionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitignoreGetAllTemplatesInput(BaseModel):
@@ -4622,7 +4561,6 @@ class GitignoreGetAllTemplatesInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["gitignore_get_all_templates"] = "gitignore_get_all_templates"
-    pass
 
 
 GitignoreGetAllTemplatesOutput = RestResponseOutput
@@ -4648,7 +4586,6 @@ class GitignoreGetTemplateInput(BaseModel):
 class GitignoreGetTemplateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsListReposAccessibleToInstallationInput(BaseModel):
@@ -4685,7 +4622,6 @@ class AppsListReposAccessibleToInstallationInput(BaseModel):
 class AppsListReposAccessibleToInstallationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsRevokeInstallationAccessTokenInput(BaseModel):
@@ -4695,7 +4631,6 @@ class AppsRevokeInstallationAccessTokenInput(BaseModel):
     action: Literal["apps_revoke_installation_access_token"] = (
         "apps_revoke_installation_access_token"
     )
-    pass
 
 
 AppsRevokeInstallationAccessTokenOutput = RestResponseOutput
@@ -4902,7 +4837,6 @@ class LicensesGetInput(BaseModel):
 class LicensesGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MarkdownRenderInput(BaseModel):
@@ -4991,7 +4925,6 @@ class AppsGetSubscriptionPlanForAccountInput(BaseModel):
 class AppsGetSubscriptionPlanForAccountOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsListPlansInput(BaseModel):
@@ -5114,7 +5047,6 @@ class AppsGetSubscriptionPlanForAccountStubbedInput(BaseModel):
 class AppsGetSubscriptionPlanForAccountStubbedOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsListPlansStubbedInput(BaseModel):
@@ -5219,13 +5151,11 @@ class MetaGetInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["meta_get"] = "meta_get"
-    pass
 
 
 class MetaGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityListPublicEventsForRepoNetworkInput(BaseModel):
@@ -5397,7 +5327,6 @@ class ActivityMarkNotificationsAsReadInput(BaseModel):
 class ActivityMarkNotificationsAsReadOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityGetThreadInput(BaseModel):
@@ -5421,7 +5350,6 @@ class ActivityGetThreadInput(BaseModel):
 class ActivityGetThreadOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityMarkThreadAsReadInput(BaseModel):
@@ -5489,7 +5417,6 @@ class ActivityGetThreadSubscriptionForAuthenticatedUserInput(BaseModel):
 class ActivityGetThreadSubscriptionForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivitySetThreadSubscriptionInput(BaseModel):
@@ -5524,7 +5451,6 @@ class ActivitySetThreadSubscriptionInput(BaseModel):
 class ActivitySetThreadSubscriptionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityDeleteThreadSubscriptionInput(BaseModel):
@@ -5624,7 +5550,6 @@ class ActionsGetActionsCacheRetentionLimitForInput(BaseModel):
 class ActionsGetActionsCacheRetentionLimitForOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetActionsCacheRetentionLimitForInput(BaseModel):
@@ -5684,7 +5609,6 @@ class ActionsGetActionsCacheStorageLimitForOrganizationInput(BaseModel):
 class ActionsGetActionsCacheStorageLimitForOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetActionsCacheStorageLimitForOrganizationInput(BaseModel):
@@ -5810,7 +5734,6 @@ class BillingGetGithubBillingAiCreditUsageReportOrgInput(BaseModel):
 class BillingGetGithubBillingAiCreditUsageReportOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetAllBudgetsOrgInput(BaseModel):
@@ -5883,7 +5806,6 @@ class BillingGetAllBudgetsOrgInput(BaseModel):
 class BillingGetAllBudgetsOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingCreateOrganizationBudgetInput(BaseModel):
@@ -6008,7 +5930,6 @@ class BillingCreateOrganizationBudgetInput(BaseModel):
 class BillingCreateOrganizationBudgetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetBudgetOrgInput(BaseModel):
@@ -6043,7 +5964,6 @@ class BillingGetBudgetOrgInput(BaseModel):
 class BillingGetBudgetOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingUpdateBudgetOrgInput(BaseModel):
@@ -6121,7 +6041,6 @@ class BillingUpdateBudgetOrgInput(BaseModel):
 class BillingUpdateBudgetOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingDeleteBudgetOrgInput(BaseModel):
@@ -6156,7 +6075,6 @@ class BillingDeleteBudgetOrgInput(BaseModel):
 class BillingDeleteBudgetOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetGithubBillingPremiumRequestUsageReportInput(BaseModel):
@@ -6248,7 +6166,6 @@ class BillingGetGithubBillingPremiumRequestUsageReportInput(BaseModel):
 class BillingGetGithubBillingPremiumRequestUsageReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetGithubBillingUsageReportOrgInput(BaseModel):
@@ -6307,7 +6224,6 @@ class BillingGetGithubBillingUsageReportOrgInput(BaseModel):
 class BillingGetGithubBillingUsageReportOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetGithubBillingUsageSummaryReportOrgInput(BaseModel):
@@ -6399,7 +6315,6 @@ class BillingGetGithubBillingUsageSummaryReportOrgInput(BaseModel):
 class BillingGetGithubBillingUsageSummaryReportOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsGetInput(BaseModel):
@@ -6423,7 +6338,6 @@ class OrgsGetInput(BaseModel):
 class OrgsGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdateInput(BaseModel):
@@ -6776,7 +6690,6 @@ class OrgsUpdateInput(BaseModel):
 class OrgsUpdateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsDeleteInput(BaseModel):
@@ -6800,7 +6713,6 @@ class OrgsDeleteInput(BaseModel):
 class OrgsDeleteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetActionsCacheUsageForOrgInput(BaseModel):
@@ -6826,7 +6738,6 @@ class ActionsGetActionsCacheUsageForOrgInput(BaseModel):
 class ActionsGetActionsCacheUsageForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetActionsCacheUsageByRepoForOrgInput(BaseModel):
@@ -6874,7 +6785,6 @@ class ActionsGetActionsCacheUsageByRepoForOrgInput(BaseModel):
 class ActionsGetActionsCacheUsageByRepoForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListHostedRunnersForOrgInput(BaseModel):
@@ -6920,7 +6830,6 @@ class ActionsListHostedRunnersForOrgInput(BaseModel):
 class ActionsListHostedRunnersForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateHostedRunnerForOrgInput(BaseModel):
@@ -7021,7 +6930,6 @@ class ActionsCreateHostedRunnerForOrgInput(BaseModel):
 class ActionsCreateHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListCustomImagesForOrgInput(BaseModel):
@@ -7045,7 +6953,6 @@ class ActionsListCustomImagesForOrgInput(BaseModel):
 class ActionsListCustomImagesForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetCustomImageForOrgInput(BaseModel):
@@ -7080,7 +6987,6 @@ class ActionsGetCustomImageForOrgInput(BaseModel):
 class ActionsGetCustomImageForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteCustomImageFromOrgInput(BaseModel):
@@ -7149,7 +7055,6 @@ class ActionsListCustomImageVersionsForOrgInput(BaseModel):
 class ActionsListCustomImageVersionsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetCustomImageVersionForOrgInput(BaseModel):
@@ -7198,7 +7103,6 @@ class ActionsGetCustomImageVersionForOrgInput(BaseModel):
 class ActionsGetCustomImageVersionForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteCustomImageVersionFromOrgInput(BaseModel):
@@ -7270,7 +7174,6 @@ class ActionsGetHostedRunnersGithubOwnedImagesForOrgInput(BaseModel):
 class ActionsGetHostedRunnersGithubOwnedImagesForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetHostedRunnersPartnerImagesForOrgInput(BaseModel):
@@ -7296,7 +7199,6 @@ class ActionsGetHostedRunnersPartnerImagesForOrgInput(BaseModel):
 class ActionsGetHostedRunnersPartnerImagesForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetHostedRunnersLimitsForOrgInput(BaseModel):
@@ -7322,7 +7224,6 @@ class ActionsGetHostedRunnersLimitsForOrgInput(BaseModel):
 class ActionsGetHostedRunnersLimitsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetHostedRunnersMachineSpecsForOrgInput(BaseModel):
@@ -7348,7 +7249,6 @@ class ActionsGetHostedRunnersMachineSpecsForOrgInput(BaseModel):
 class ActionsGetHostedRunnersMachineSpecsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetHostedRunnersPlatformsForOrgInput(BaseModel):
@@ -7374,7 +7274,6 @@ class ActionsGetHostedRunnersPlatformsForOrgInput(BaseModel):
 class ActionsGetHostedRunnersPlatformsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetHostedRunnerForOrgInput(BaseModel):
@@ -7409,7 +7308,6 @@ class ActionsGetHostedRunnerForOrgInput(BaseModel):
 class ActionsGetHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateHostedRunnerForOrgInput(BaseModel):
@@ -7543,7 +7441,6 @@ class ActionsUpdateHostedRunnerForOrgInput(BaseModel):
 class ActionsUpdateHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteHostedRunnerForOrgInput(BaseModel):
@@ -7578,7 +7475,6 @@ class ActionsDeleteHostedRunnerForOrgInput(BaseModel):
 class ActionsDeleteHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OidcListOidcCustomPropertyInclusionsForOrgInput(BaseModel):
@@ -7638,7 +7534,6 @@ class OidcCreateOidcCustomPropertyInclusionForOrgInput(BaseModel):
 class OidcCreateOidcCustomPropertyInclusionForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OidcDeleteOidcCustomPropertyInclusionForOrgInput(BaseModel):
@@ -7698,7 +7593,6 @@ class OidcGetOidcCustomSubTemplateForOrgInput(BaseModel):
 class OidcGetOidcCustomSubTemplateForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OidcUpdateOidcCustomSubTemplateForOrgInput(BaseModel):
@@ -7746,7 +7640,6 @@ class OidcUpdateOidcCustomSubTemplateForOrgInput(BaseModel):
 class OidcUpdateOidcCustomSubTemplateForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetGithubActionsPermissionsOrganizationInput(BaseModel):
@@ -7772,7 +7665,6 @@ class ActionsGetGithubActionsPermissionsOrganizationInput(BaseModel):
 class ActionsGetGithubActionsPermissionsOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetGithubActionsPermissionsOrganizationInput(BaseModel):
@@ -7854,7 +7746,6 @@ class ActionsGetArtifactAndLogRetentionSettingsInput(BaseModel):
 class ActionsGetArtifactAndLogRetentionSettingsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetArtifactAndLogRetentionSettingsInput(BaseModel):
@@ -7914,7 +7805,6 @@ class ActionsGetForkPrContributorApprovalPermissionsInput(BaseModel):
 class ActionsGetForkPrContributorApprovalPermissionsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetForkPrContributorApprovalPermissionsInput(BaseModel):
@@ -7978,7 +7868,6 @@ class ActionsGetPrivateRepoForkPrWorkflowsSettingsInput(BaseModel):
 class ActionsGetPrivateRepoForkPrWorkflowsSettingsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetPrivateRepoForkPrWorkflowsSettingsInput(BaseModel):
@@ -8093,7 +7982,6 @@ class ActionsListSelectedRepositoriesEnabledGithubActionsInput(BaseModel):
 class ActionsListSelectedRepositoriesEnabledGithubActionsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetSelectedRepositoriesEnabledGithubActionsInput(BaseModel):
@@ -8221,7 +8109,6 @@ class ActionsGetAllowedActionsOrganizationInput(BaseModel):
 class ActionsGetAllowedActionsOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetAllowedActionsOrganizationInput(BaseModel):
@@ -8303,7 +8190,6 @@ class ActionsGetSelfHostedRunnersPermissionsOrganizationInput(BaseModel):
 class ActionsGetSelfHostedRunnersPermissionsOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetSelfHostedRunnersPermissionsOrganizationInput(BaseModel):
@@ -8385,7 +8271,6 @@ class ActionsListSelectedRepositoriesSelfHostedRunnersInput(BaseModel):
 class ActionsListSelectedRepositoriesSelfHostedRunnersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetSelectedRepositoriesSelfHostedRunnersInput(BaseModel):
@@ -8513,7 +8398,6 @@ class ActionsGetGithubActionsDefaultWorkflowPermissionsInput(BaseModel):
 class ActionsGetGithubActionsDefaultWorkflowPermissionsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetGithubActionsDefaultWorkflowPermissionsInput(BaseModel):
@@ -8615,7 +8499,6 @@ class ActionsGetOrgActionsPoliciesInput(BaseModel):
 class ActionsGetOrgActionsPoliciesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateOrgActionsPolicyInput(BaseModel):
@@ -8683,7 +8566,6 @@ class ActionsCreateOrgActionsPolicyInput(BaseModel):
 class ActionsCreateOrgActionsPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetOrgActionsPolicyInput(BaseModel):
@@ -8718,7 +8600,6 @@ class ActionsGetOrgActionsPolicyInput(BaseModel):
 class ActionsGetOrgActionsPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateOrgActionsPolicyInput(BaseModel):
@@ -8797,7 +8678,6 @@ class ActionsUpdateOrgActionsPolicyInput(BaseModel):
 class ActionsUpdateOrgActionsPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteOrgActionsPolicyInput(BaseModel):
@@ -8888,7 +8768,6 @@ class ActionsListSelfHostedRunnerGroupsForOrgInput(BaseModel):
 class ActionsListSelfHostedRunnerGroupsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateSelfHostedRunnerGroupForOrgInput(BaseModel):
@@ -9002,7 +8881,6 @@ class ActionsCreateSelfHostedRunnerGroupForOrgInput(BaseModel):
 class ActionsCreateSelfHostedRunnerGroupForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetSelfHostedRunnerGroupForOrgInput(BaseModel):
@@ -9039,7 +8917,6 @@ class ActionsGetSelfHostedRunnerGroupForOrgInput(BaseModel):
 class ActionsGetSelfHostedRunnerGroupForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateSelfHostedRunnerGroupForOrgInput(BaseModel):
@@ -9142,7 +9019,6 @@ class ActionsUpdateSelfHostedRunnerGroupForOrgInput(BaseModel):
 class ActionsUpdateSelfHostedRunnerGroupForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteSelfHostedRunnerGroupFromOrgInput(BaseModel):
@@ -9235,7 +9111,6 @@ class ActionsListGithubHostedRunnersInGroupForOrgInput(BaseModel):
 class ActionsListGithubHostedRunnersInGroupForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListRepoAccessToSelfHostedRunnerGroupInInput(BaseModel):
@@ -9294,7 +9169,6 @@ class ActionsListRepoAccessToSelfHostedRunnerGroupInInput(BaseModel):
 class ActionsListRepoAccessToSelfHostedRunnerGroupInOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetRepoAccessToSelfHostedRunnerGroupInInput(BaseModel):
@@ -9488,7 +9362,6 @@ class ActionsListSelfHostedRunnersInGroupForOrgInput(BaseModel):
 class ActionsListSelfHostedRunnersInGroupForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetSelfHostedRunnersInGroupForOrgInput(BaseModel):
@@ -9682,7 +9555,6 @@ class ActionsListSelfHostedRunnersForOrgInput(BaseModel):
 class ActionsListSelfHostedRunnersForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetRunnerVersionDeprecationForOrgInput(BaseModel):
@@ -9719,7 +9591,6 @@ class ActionsGetRunnerVersionDeprecationForOrgInput(BaseModel):
 class ActionsGetRunnerVersionDeprecationForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListRunnerApplicationsForOrgInput(BaseModel):
@@ -9814,7 +9685,6 @@ class ActionsGenerateRunnerJitconfigForOrgInput(BaseModel):
 class ActionsGenerateRunnerJitconfigForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateRegistrationTokenForOrgInput(BaseModel):
@@ -9840,7 +9710,6 @@ class ActionsCreateRegistrationTokenForOrgInput(BaseModel):
 class ActionsCreateRegistrationTokenForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateRemoveTokenForOrgInput(BaseModel):
@@ -9864,7 +9733,6 @@ class ActionsCreateRemoveTokenForOrgInput(BaseModel):
 class ActionsCreateRemoveTokenForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetSelfHostedRunnerForOrgInput(BaseModel):
@@ -9901,7 +9769,6 @@ class ActionsGetSelfHostedRunnerForOrgInput(BaseModel):
 class ActionsGetSelfHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteSelfHostedRunnerFromOrgInput(BaseModel):
@@ -9972,7 +9839,6 @@ class ActionsListLabelsForSelfHostedRunnerForOrgInput(BaseModel):
 class ActionsListLabelsForSelfHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsAddCustomLabelsToSelfHostedRunnerForOrgInput(BaseModel):
@@ -10022,7 +9888,6 @@ class ActionsAddCustomLabelsToSelfHostedRunnerForOrgInput(BaseModel):
 class ActionsAddCustomLabelsToSelfHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetCustomLabelsForSelfHostedRunnerForOrgInput(BaseModel):
@@ -10072,7 +9937,6 @@ class ActionsSetCustomLabelsForSelfHostedRunnerForOrgInput(BaseModel):
 class ActionsSetCustomLabelsForSelfHostedRunnerForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsRemoveAllCustomLabelsFromSelfHostedRunnerInput(BaseModel):
@@ -10109,7 +9973,6 @@ class ActionsRemoveAllCustomLabelsFromSelfHostedRunnerInput(BaseModel):
 class ActionsRemoveAllCustomLabelsFromSelfHostedRunnerOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsRemoveCustomLabelFromSelfHostedRunnerForInput(BaseModel):
@@ -10157,7 +10020,6 @@ class ActionsRemoveCustomLabelFromSelfHostedRunnerForInput(BaseModel):
 class ActionsRemoveCustomLabelFromSelfHostedRunnerForOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListOrgSecretsInput(BaseModel):
@@ -10203,7 +10065,6 @@ class ActionsListOrgSecretsInput(BaseModel):
 class ActionsListOrgSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetOrgPublicKeyInput(BaseModel):
@@ -10227,7 +10088,6 @@ class ActionsGetOrgPublicKeyInput(BaseModel):
 class ActionsGetOrgPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetOrgSecretInput(BaseModel):
@@ -10262,7 +10122,6 @@ class ActionsGetOrgSecretInput(BaseModel):
 class ActionsGetOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateOrUpdateOrgSecretInput(BaseModel):
@@ -10342,7 +10201,6 @@ class ActionsCreateOrUpdateOrgSecretInput(BaseModel):
 class ActionsCreateOrUpdateOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteOrgSecretInput(BaseModel):
@@ -10433,7 +10291,6 @@ class ActionsListSelectedReposForOrgSecretInput(BaseModel):
 class ActionsListSelectedReposForOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetSelectedReposForOrgSecretInput(BaseModel):
@@ -10612,7 +10469,6 @@ class ActionsListOrgVariablesInput(BaseModel):
 class ActionsListOrgVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateOrgVariableInput(BaseModel):
@@ -10680,7 +10536,6 @@ class ActionsCreateOrgVariableInput(BaseModel):
 class ActionsCreateOrgVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetOrgVariableInput(BaseModel):
@@ -10715,7 +10570,6 @@ class ActionsGetOrgVariableInput(BaseModel):
 class ActionsGetOrgVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateOrgVariableInput(BaseModel):
@@ -10882,7 +10736,6 @@ class ActionsListSelectedReposForOrgVariableInput(BaseModel):
 class ActionsListSelectedReposForOrgVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetSelectedReposForOrgVariableInput(BaseModel):
@@ -11061,7 +10914,6 @@ class AgentsListOrgSecretsInput(BaseModel):
 class AgentsListOrgSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsGetOrgPublicKeyInput(BaseModel):
@@ -11085,7 +10937,6 @@ class AgentsGetOrgPublicKeyInput(BaseModel):
 class AgentsGetOrgPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsGetOrgSecretInput(BaseModel):
@@ -11120,7 +10971,6 @@ class AgentsGetOrgSecretInput(BaseModel):
 class AgentsGetOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsCreateOrUpdateOrgSecretInput(BaseModel):
@@ -11200,7 +11050,6 @@ class AgentsCreateOrUpdateOrgSecretInput(BaseModel):
 class AgentsCreateOrUpdateOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsDeleteOrgSecretInput(BaseModel):
@@ -11291,7 +11140,6 @@ class AgentsListSelectedReposForOrgSecretInput(BaseModel):
 class AgentsListSelectedReposForOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsSetSelectedReposForOrgSecretInput(BaseModel):
@@ -11470,7 +11318,6 @@ class AgentsListOrgVariablesInput(BaseModel):
 class AgentsListOrgVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsCreateOrgVariableInput(BaseModel):
@@ -11538,7 +11385,6 @@ class AgentsCreateOrgVariableInput(BaseModel):
 class AgentsCreateOrgVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsGetOrgVariableInput(BaseModel):
@@ -11573,7 +11419,6 @@ class AgentsGetOrgVariableInput(BaseModel):
 class AgentsGetOrgVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsUpdateOrgVariableInput(BaseModel):
@@ -11740,7 +11585,6 @@ class AgentsListSelectedReposForOrgVariableInput(BaseModel):
 class AgentsListSelectedReposForOrgVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsSetSelectedReposForOrgVariableInput(BaseModel):
@@ -12047,7 +11891,6 @@ class OrgsCreateArtifactDeploymentRecordInput(BaseModel):
 class OrgsCreateArtifactDeploymentRecordOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsSetClusterDeploymentRecordsInput(BaseModel):
@@ -12144,7 +11987,6 @@ class OrgsSetClusterDeploymentRecordsInput(BaseModel):
 class OrgsSetClusterDeploymentRecordsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsCreateClusterDeploymentRecordsJobInput(BaseModel):
@@ -12221,7 +12063,6 @@ class OrgsCreateClusterDeploymentRecordsJobInput(BaseModel):
 class OrgsCreateClusterDeploymentRecordsJobOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsGetClusterDeploymentRecordsJobInput(BaseModel):
@@ -12272,7 +12113,6 @@ class OrgsGetClusterDeploymentRecordsJobInput(BaseModel):
 class OrgsGetClusterDeploymentRecordsJobOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsCreateArtifactStorageRecordInput(BaseModel):
@@ -12426,7 +12266,6 @@ class OrgsCreateArtifactStorageRecordInput(BaseModel):
 class OrgsCreateArtifactStorageRecordOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListArtifactDeploymentRecordsInput(BaseModel):
@@ -12466,7 +12305,6 @@ class OrgsListArtifactDeploymentRecordsInput(BaseModel):
 class OrgsListArtifactDeploymentRecordsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListArtifactStorageRecordsInput(BaseModel):
@@ -12504,7 +12342,6 @@ class OrgsListArtifactStorageRecordsInput(BaseModel):
 class OrgsListArtifactStorageRecordsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListAttestationsBulkInput(BaseModel):
@@ -12585,7 +12422,6 @@ class OrgsListAttestationsBulkInput(BaseModel):
 class OrgsListAttestationsBulkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsDeleteAttestationsBulkInput(BaseModel):
@@ -12826,7 +12662,6 @@ class OrgsListAttestationsInput(BaseModel):
 class OrgsListAttestationsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListBlockedUsersInput(BaseModel):
@@ -13075,7 +12910,6 @@ class CampaignsCreateCampaignInput(BaseModel):
 class CampaignsCreateCampaignOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CampaignsGetCampaignSummaryInput(BaseModel):
@@ -13110,7 +12944,6 @@ class CampaignsGetCampaignSummaryInput(BaseModel):
 class CampaignsGetCampaignSummaryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CampaignsUpdateCampaignInput(BaseModel):
@@ -13230,7 +13063,6 @@ class CampaignsUpdateCampaignInput(BaseModel):
 class CampaignsUpdateCampaignOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CampaignsDeleteCampaignInput(BaseModel):
@@ -13288,7 +13120,6 @@ class CodeScanningGetAiScanEnablementForOrgInput(BaseModel):
 class CodeScanningGetAiScanEnablementForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningUpdateAiScanEnablementForOrgInput(BaseModel):
@@ -13325,7 +13156,6 @@ class CodeScanningUpdateAiScanEnablementForOrgInput(BaseModel):
 class CodeScanningUpdateAiScanEnablementForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningListAlertsForOrgInput(BaseModel):
@@ -13849,7 +13679,6 @@ class CodeSecurityCreateConfigurationInput(BaseModel):
 class CodeSecurityCreateConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityGetDefaultConfigurationsInput(BaseModel):
@@ -13928,7 +13757,6 @@ class CodeSecurityGetConfigurationInput(BaseModel):
 class CodeSecurityGetConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityUpdateConfigurationInput(BaseModel):
@@ -14254,7 +14082,6 @@ class CodeSecurityUpdateConfigurationInput(BaseModel):
 class CodeSecurityUpdateConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityDeleteConfigurationInput(BaseModel):
@@ -14345,7 +14172,6 @@ class CodeSecurityAttachConfigurationInput(BaseModel):
 class CodeSecurityAttachConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecuritySetConfigurationAsDefaultInput(BaseModel):
@@ -14393,7 +14219,6 @@ class CodeSecuritySetConfigurationAsDefaultInput(BaseModel):
 class CodeSecuritySetConfigurationAsDefaultOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityGetRepositoriesForConfigurationInput(BaseModel):
@@ -14517,7 +14342,6 @@ class CodespacesListInOrganizationInput(BaseModel):
 class CodespacesListInOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesSetCodespacesAccessInput(BaseModel):
@@ -14667,7 +14491,6 @@ class CodespacesListOrgSecretsInput(BaseModel):
 class CodespacesListOrgSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetOrgPublicKeyInput(BaseModel):
@@ -14691,7 +14514,6 @@ class CodespacesGetOrgPublicKeyInput(BaseModel):
 class CodespacesGetOrgPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetOrgSecretInput(BaseModel):
@@ -14726,7 +14548,6 @@ class CodespacesGetOrgSecretInput(BaseModel):
 class CodespacesGetOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCreateOrUpdateOrgSecretInput(BaseModel):
@@ -14808,7 +14629,6 @@ class CodespacesCreateOrUpdateOrgSecretInput(BaseModel):
 class CodespacesCreateOrUpdateOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesDeleteOrgSecretInput(BaseModel):
@@ -14899,7 +14719,6 @@ class CodespacesListSelectedReposForOrgSecretInput(BaseModel):
 class CodespacesListSelectedReposForOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesSetSelectedReposForOrgSecretInput(BaseModel):
@@ -15091,7 +14910,6 @@ class CopilotSpacesListForOrgInput(BaseModel):
 class CopilotSpacesListForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesCreateForOrgInput(BaseModel):
@@ -15171,7 +14989,6 @@ class CopilotSpacesCreateForOrgInput(BaseModel):
 class CopilotSpacesCreateForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesGetForOrgInput(BaseModel):
@@ -15206,7 +15023,6 @@ class CopilotSpacesGetForOrgInput(BaseModel):
 class CopilotSpacesGetForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesUpdateForOrgInput(BaseModel):
@@ -15297,7 +15113,6 @@ class CopilotSpacesUpdateForOrgInput(BaseModel):
 class CopilotSpacesUpdateForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesDeleteForOrgInput(BaseModel):
@@ -15366,7 +15181,6 @@ class CopilotSpacesListCollaboratorsForOrgInput(BaseModel):
 class CopilotSpacesListCollaboratorsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesAddCollaboratorForOrgInput(BaseModel):
@@ -15436,7 +15250,6 @@ class CopilotSpacesAddCollaboratorForOrgInput(BaseModel):
 class CopilotSpacesAddCollaboratorForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesUpdateCollaboratorForOrgInput(BaseModel):
@@ -15506,7 +15319,6 @@ class CopilotSpacesUpdateCollaboratorForOrgInput(BaseModel):
 class CopilotSpacesUpdateCollaboratorForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesRemoveCollaboratorForOrgInput(BaseModel):
@@ -15599,7 +15411,6 @@ class CopilotSpacesListResourcesForOrgInput(BaseModel):
 class CopilotSpacesListResourcesForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesCreateResourceForOrgInput(BaseModel):
@@ -15660,7 +15471,6 @@ class CopilotSpacesCreateResourceForOrgInput(BaseModel):
 class CopilotSpacesCreateResourceForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesGetResourceForOrgInput(BaseModel):
@@ -15706,7 +15516,6 @@ class CopilotSpacesGetResourceForOrgInput(BaseModel):
 class CopilotSpacesGetResourceForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesUpdateResourceForOrgInput(BaseModel):
@@ -15765,7 +15574,6 @@ class CopilotSpacesUpdateResourceForOrgInput(BaseModel):
 class CopilotSpacesUpdateResourceForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesDeleteResourceForOrgInput(BaseModel):
@@ -15836,7 +15644,6 @@ class CopilotGetCopilotOrganizationDetailsInput(BaseModel):
 class CopilotGetCopilotOrganizationDetailsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotListCopilotSeatsInput(BaseModel):
@@ -15882,7 +15689,6 @@ class CopilotListCopilotSeatsInput(BaseModel):
 class CopilotListCopilotSeatsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotAddCopilotSeatsForTeamsInput(BaseModel):
@@ -15918,7 +15724,6 @@ class CopilotAddCopilotSeatsForTeamsInput(BaseModel):
 class CopilotAddCopilotSeatsForTeamsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCancelCopilotSeatAssignmentForTeamsInput(BaseModel):
@@ -15944,7 +15749,6 @@ class CopilotCancelCopilotSeatAssignmentForTeamsInput(BaseModel):
 class CopilotCancelCopilotSeatAssignmentForTeamsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotAddCopilotSeatsForUsersInput(BaseModel):
@@ -15980,7 +15784,6 @@ class CopilotAddCopilotSeatsForUsersInput(BaseModel):
 class CopilotAddCopilotSeatsForUsersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCancelCopilotSeatAssignmentForUsersInput(BaseModel):
@@ -16006,7 +15809,6 @@ class CopilotCancelCopilotSeatAssignmentForUsersInput(BaseModel):
 class CopilotCancelCopilotSeatAssignmentForUsersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotGetCopilotCodingAgentPermissionsOrganizationInput(BaseModel):
@@ -16032,7 +15834,6 @@ class CopilotGetCopilotCodingAgentPermissionsOrganizationInput(BaseModel):
 class CopilotGetCopilotCodingAgentPermissionsOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSetCopilotCodingAgentPermissionsOrganizationInput(BaseModel):
@@ -16114,7 +15915,6 @@ class CopilotListCopilotCodingAgentSelectedRepositoriesInput(BaseModel):
 class CopilotListCopilotCodingAgentSelectedRepositoriesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSetCopilotCodingAgentSelectedRepositoriesInput(BaseModel):
@@ -16242,7 +16042,6 @@ class CopilotCopilotContentExclusionForOrganizationInput(BaseModel):
 class CopilotCopilotContentExclusionForOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSetCopilotContentExclusionForOrganizationInput(BaseModel):
@@ -16278,7 +16077,6 @@ class CopilotSetCopilotContentExclusionForOrganizationInput(BaseModel):
 class CopilotSetCopilotContentExclusionForOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotOrganizationOneDayUsageMetricsInput(BaseModel):
@@ -16316,7 +16114,6 @@ class CopilotCopilotOrganizationOneDayUsageMetricsInput(BaseModel):
 class CopilotCopilotOrganizationOneDayUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotOrganizationUsageMetricsInput(BaseModel):
@@ -16342,7 +16139,6 @@ class CopilotCopilotOrganizationUsageMetricsInput(BaseModel):
 class CopilotCopilotOrganizationUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotOrganizationReposOneDayReportInput(BaseModel):
@@ -16380,7 +16176,6 @@ class CopilotCopilotOrganizationReposOneDayReportInput(BaseModel):
 class CopilotCopilotOrganizationReposOneDayReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotOrganizationUserTeamsOneDayReportInput(BaseModel):
@@ -16418,7 +16213,6 @@ class CopilotCopilotOrganizationUserTeamsOneDayReportInput(BaseModel):
 class CopilotCopilotOrganizationUserTeamsOneDayReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotOrganizationUsersOneDayUsageMetricsInput(BaseModel):
@@ -16456,7 +16250,6 @@ class CopilotCopilotOrganizationUsersOneDayUsageMetricsInput(BaseModel):
 class CopilotCopilotOrganizationUsersOneDayUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotCopilotOrganizationUsersUsageMetricsInput(BaseModel):
@@ -16482,7 +16275,6 @@ class CopilotCopilotOrganizationUsersUsageMetricsInput(BaseModel):
 class CopilotCopilotOrganizationUsersUsageMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotListAlertsForOrgInput(BaseModel):
@@ -16750,7 +16542,6 @@ class DependabotRepositoryAccessForOrgInput(BaseModel):
 class DependabotRepositoryAccessForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotUpdateRepositoryAccessForOrgInput(BaseModel):
@@ -16875,7 +16666,6 @@ class DependabotListOrgSecretsInput(BaseModel):
 class DependabotListOrgSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotGetOrgPublicKeyInput(BaseModel):
@@ -16899,7 +16689,6 @@ class DependabotGetOrgPublicKeyInput(BaseModel):
 class DependabotGetOrgPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotGetOrgSecretInput(BaseModel):
@@ -16934,7 +16723,6 @@ class DependabotGetOrgSecretInput(BaseModel):
 class DependabotGetOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotCreateOrUpdateOrgSecretInput(BaseModel):
@@ -17016,7 +16804,6 @@ class DependabotCreateOrUpdateOrgSecretInput(BaseModel):
 class DependabotCreateOrUpdateOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotDeleteOrgSecretInput(BaseModel):
@@ -17107,7 +16894,6 @@ class DependabotListSelectedReposForOrgSecretInput(BaseModel):
 class DependabotListSelectedReposForOrgSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotSetSelectedReposForOrgSecretInput(BaseModel):
@@ -17460,7 +17246,6 @@ class OrgsCreateWebhookInput(BaseModel):
 class OrgsCreateWebhookOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsGetWebhookInput(BaseModel):
@@ -17495,7 +17280,6 @@ class OrgsGetWebhookInput(BaseModel):
 class OrgsGetWebhookOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdateWebhookInput(BaseModel):
@@ -17573,7 +17357,6 @@ class OrgsUpdateWebhookInput(BaseModel):
 class OrgsUpdateWebhookOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsDeleteWebhookInput(BaseModel):
@@ -17640,7 +17423,6 @@ class OrgsGetWebhookConfigForOrgInput(BaseModel):
 class OrgsGetWebhookConfigForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdateWebhookConfigForOrgInput(BaseModel):
@@ -17708,7 +17490,6 @@ class OrgsUpdateWebhookConfigForOrgInput(BaseModel):
 class OrgsUpdateWebhookConfigForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListWebhookDeliveriesInput(BaseModel):
@@ -17818,7 +17599,6 @@ class OrgsGetWebhookDeliveryInput(BaseModel):
 class OrgsGetWebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsRedeliverWebhookDeliveryInput(BaseModel):
@@ -17863,7 +17643,6 @@ class OrgsRedeliverWebhookDeliveryInput(BaseModel):
 class OrgsRedeliverWebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsPingWebhookInput(BaseModel):
@@ -18163,7 +17942,6 @@ class ApiInsightsGetSummaryStatsInput(BaseModel):
 class ApiInsightsGetSummaryStatsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ApiInsightsGetSummaryStatsByUserInput(BaseModel):
@@ -18222,7 +18000,6 @@ class ApiInsightsGetSummaryStatsByUserInput(BaseModel):
 class ApiInsightsGetSummaryStatsByUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ApiInsightsGetSummaryStatsByActorInput(BaseModel):
@@ -18294,7 +18071,6 @@ class ApiInsightsGetSummaryStatsByActorInput(BaseModel):
 class ApiInsightsGetSummaryStatsByActorOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ApiInsightsGetTimeStatsInput(BaseModel):
@@ -18624,7 +18400,6 @@ class AppsGetOrgInstallationInput(BaseModel):
 class AppsGetOrgInstallationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListAppInstallationsInput(BaseModel):
@@ -18670,7 +18445,6 @@ class OrgsListAppInstallationsInput(BaseModel):
 class OrgsListAppInstallationsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsGetRestrictionsForOrgInput(BaseModel):
@@ -18741,7 +18515,6 @@ class InteractionsSetRestrictionsForOrgInput(BaseModel):
 class InteractionsSetRestrictionsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsRemoveRestrictionsForOrgInput(BaseModel):
@@ -18790,7 +18563,6 @@ class InteractionsGetPullRequestCreationCapForOrgInput(BaseModel):
 class InteractionsGetPullRequestCreationCapForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsUpdatePullRequestCreationCapForOrgInput(BaseModel):
@@ -18851,7 +18623,6 @@ class InteractionsUpdatePullRequestCreationCapForOrgInput(BaseModel):
 class InteractionsUpdatePullRequestCreationCapForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListPendingInvitationsInput(BaseModel):
@@ -18984,7 +18755,6 @@ class OrgsCreateInvitationInput(BaseModel):
 class OrgsCreateInvitationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsCancelInvitationInput(BaseModel):
@@ -19170,7 +18940,6 @@ class OrgsCreateIssueFieldInput(BaseModel):
 class OrgsCreateIssueFieldOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdateIssueFieldInput(BaseModel):
@@ -19249,7 +19018,6 @@ class OrgsUpdateIssueFieldInput(BaseModel):
 class OrgsUpdateIssueFieldOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsDeleteIssueFieldInput(BaseModel):
@@ -19372,7 +19140,6 @@ class OrgsCreateIssueTypeInput(BaseModel):
 class OrgsCreateIssueTypeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdateIssueTypeInput(BaseModel):
@@ -19453,7 +19220,6 @@ class OrgsUpdateIssueTypeInput(BaseModel):
 class OrgsUpdateIssueTypeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsDeleteIssueTypeInput(BaseModel):
@@ -19794,7 +19560,6 @@ class CodespacesGetCodespacesForUserInOrgInput(BaseModel):
 class CodespacesGetCodespacesForUserInOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesDeleteFromOrganizationInput(BaseModel):
@@ -19840,7 +19605,6 @@ class CodespacesDeleteFromOrganizationInput(BaseModel):
 class CodespacesDeleteFromOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesStopInOrganizationInput(BaseModel):
@@ -19886,7 +19650,6 @@ class CodespacesStopInOrganizationInput(BaseModel):
 class CodespacesStopInOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotGetCopilotSeatDetailsForUserInput(BaseModel):
@@ -19923,7 +19686,6 @@ class CopilotGetCopilotSeatDetailsForUserInput(BaseModel):
 class CopilotGetCopilotSeatDetailsForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsGetMembershipForUserInput(BaseModel):
@@ -19958,7 +19720,6 @@ class OrgsGetMembershipForUserInput(BaseModel):
 class OrgsGetMembershipForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsSetMembershipForUserInput(BaseModel):
@@ -20004,7 +19765,6 @@ class OrgsSetMembershipForUserInput(BaseModel):
 class OrgsSetMembershipForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsRemoveMembershipForUserInput(BaseModel):
@@ -20213,7 +19973,6 @@ class MigrationsStartForOrgInput(BaseModel):
 class MigrationsStartForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsGetStatusForOrgInput(BaseModel):
@@ -20259,7 +20018,6 @@ class MigrationsGetStatusForOrgInput(BaseModel):
 class MigrationsGetStatusForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsDownloadArchiveForOrgInput(BaseModel):
@@ -20444,7 +20202,6 @@ class OrgsListOrgRolesInput(BaseModel):
 class OrgsListOrgRolesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsRevokeAllOrgRolesTeamInput(BaseModel):
@@ -20715,7 +20472,6 @@ class OrgsGetOrgRoleInput(BaseModel):
 class OrgsGetOrgRoleOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsListOrgRoleTeamsInput(BaseModel):
@@ -20926,7 +20682,6 @@ class OrgsConvertMemberToOutsideCollaboratorInput(BaseModel):
 class OrgsConvertMemberToOutsideCollaboratorOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsRemoveOutsideCollaboratorInput(BaseModel):
@@ -21073,7 +20828,6 @@ class PackagesGetPackageForOrganizationInput(BaseModel):
 class PackagesGetPackageForOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesDeletePackageForOrgInput(BaseModel):
@@ -21296,7 +21050,6 @@ class PackagesGetPackageVersionForOrganizationInput(BaseModel):
 class PackagesGetPackageVersionForOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesDeletePackageVersionForOrgInput(BaseModel):
@@ -21605,7 +21358,6 @@ class OrgsReviewPatGrantRequestsInBulkInput(BaseModel):
 class OrgsReviewPatGrantRequestsInBulkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsReviewPatGrantRequestInput(BaseModel):
@@ -21899,7 +21651,6 @@ class OrgsUpdatePatAccessesInput(BaseModel):
 class OrgsUpdatePatAccessesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdatePatAccessInput(BaseModel):
@@ -22044,7 +21795,6 @@ class PrivateRegistriesListOrgPrivateRegistriesInput(BaseModel):
 class PrivateRegistriesListOrgPrivateRegistriesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PrivateRegistriesCreateOrgPrivateRegistryInput(BaseModel):
@@ -22365,7 +22115,6 @@ class PrivateRegistriesCreateOrgPrivateRegistryInput(BaseModel):
 class PrivateRegistriesCreateOrgPrivateRegistryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PrivateRegistriesGetOrgPublicKeyInput(BaseModel):
@@ -22391,7 +22140,6 @@ class PrivateRegistriesGetOrgPublicKeyInput(BaseModel):
 class PrivateRegistriesGetOrgPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PrivateRegistriesGetOrgPrivateRegistryInput(BaseModel):
@@ -22428,7 +22176,6 @@ class PrivateRegistriesGetOrgPrivateRegistryInput(BaseModel):
 class PrivateRegistriesGetOrgPrivateRegistryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PrivateRegistriesUpdateOrgPrivateRegistryInput(BaseModel):
@@ -22894,7 +22641,6 @@ class ProjectsGetForOrgInput(BaseModel):
 class ProjectsGetForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsCreateDraftItemForOrgInput(BaseModel):
@@ -22952,7 +22698,6 @@ class ProjectsCreateDraftItemForOrgInput(BaseModel):
 class ProjectsCreateDraftItemForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsListFieldsForOrgInput(BaseModel):
@@ -23062,7 +22807,6 @@ class ProjectsAddFieldForOrgInput(BaseModel):
 class ProjectsAddFieldForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsGetFieldForOrgInput(BaseModel):
@@ -23108,7 +22852,6 @@ class ProjectsGetFieldForOrgInput(BaseModel):
 class ProjectsGetFieldForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsListItemsForOrgInput(BaseModel):
@@ -23240,7 +22983,6 @@ class ProjectsAddItemForOrgInput(BaseModel):
 class ProjectsAddItemForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsGetOrgItemInput(BaseModel):
@@ -23297,7 +23039,6 @@ class ProjectsGetOrgItemInput(BaseModel):
 class ProjectsGetOrgItemOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsUpdateItemForOrgInput(BaseModel):
@@ -23354,7 +23095,6 @@ class ProjectsUpdateItemForOrgInput(BaseModel):
 class ProjectsUpdateItemForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsDeleteItemForOrgInput(BaseModel):
@@ -23511,7 +23251,6 @@ class ProjectsCreateViewForOrgInput(BaseModel):
 class ProjectsCreateViewForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsListViewItemsForOrgInput(BaseModel):
@@ -23672,7 +23411,6 @@ class OrgsExternalPropertiesForReposRegisterOrganizationInput(BaseModel):
 class OrgsExternalPropertiesForReposRegisterOrganizationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsExternalPropertiesForReposGetOrganizationInput(BaseModel):
@@ -23919,7 +23657,6 @@ class OrgsCustomPropertiesForReposGetOrganization1Input(BaseModel):
 class OrgsCustomPropertiesForReposGetOrganization1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsCustomPropertiesForReposCreateOrUpdate1Input(BaseModel):
@@ -24033,7 +23770,6 @@ class OrgsCustomPropertiesForReposCreateOrUpdate1Input(BaseModel):
 class OrgsCustomPropertiesForReposCreateOrUpdate1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsCustomPropertiesForReposDeleteOrganizationInput(BaseModel):
@@ -24690,7 +24426,6 @@ class ReposCreateInOrgInput(BaseModel):
 class ReposCreateInOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetOrgRulesetsInput(BaseModel):
@@ -24834,7 +24569,6 @@ class ReposCreateOrgRulesetInput(BaseModel):
 class ReposCreateOrgRulesetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetOrgRuleSuitesInput(BaseModel):
@@ -24989,7 +24723,6 @@ class ReposGetOrgRuleSuiteInput(BaseModel):
 class ReposGetOrgRuleSuiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetOrgRulesetInput(BaseModel):
@@ -25024,7 +24757,6 @@ class ReposGetOrgRulesetInput(BaseModel):
 class ReposGetOrgRulesetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateOrgRulesetInput(BaseModel):
@@ -25125,7 +24857,6 @@ class ReposUpdateOrgRulesetInput(BaseModel):
 class ReposUpdateOrgRulesetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteOrgRulesetInput(BaseModel):
@@ -25257,7 +24988,6 @@ class OrgsGetOrgRulesetVersionInput(BaseModel):
 class OrgsGetOrgRulesetVersionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningListAlertsForOrgInput(BaseModel):
@@ -25625,7 +25355,6 @@ class SecretScanningBulkCreateOrgCustomPatternsInput(BaseModel):
 class SecretScanningBulkCreateOrgCustomPatternsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningBulkDeleteOrgCustomPatternsInput(BaseModel):
@@ -25695,7 +25424,6 @@ class SecretScanningUpdateOrgCustomPatternInput(BaseModel):
 class SecretScanningUpdateOrgCustomPatternOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningListOrgPatternConfigsInput(BaseModel):
@@ -25721,7 +25449,6 @@ class SecretScanningListOrgPatternConfigsInput(BaseModel):
 class SecretScanningListOrgPatternConfigsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningUpdateOrgPatternConfigsInput(BaseModel):
@@ -25780,7 +25507,6 @@ class SecretScanningUpdateOrgPatternConfigsInput(BaseModel):
 class SecretScanningUpdateOrgPatternConfigsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesListOrgRepositoryAdvisoriesInput(BaseModel):
@@ -25980,7 +25706,6 @@ class OrgsGetImmutableReleasesSettingsInput(BaseModel):
 class OrgsGetImmutableReleasesSettingsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsSetImmutableReleasesSettingsInput(BaseModel):
@@ -26071,7 +25796,6 @@ class OrgsGetImmutableReleasesSettingsRepositoriesInput(BaseModel):
 class OrgsGetImmutableReleasesSettingsRepositoriesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsSetImmutableReleasesSettingsRepositoriesInput(BaseModel):
@@ -26221,7 +25945,6 @@ class HostedComputeListNetworkConfigurationsForOrgInput(BaseModel):
 class HostedComputeListNetworkConfigurationsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class HostedComputeCreateNetworkConfigurationForOrgInput(BaseModel):
@@ -26306,7 +26029,6 @@ class HostedComputeCreateNetworkConfigurationForOrgInput(BaseModel):
 class HostedComputeCreateNetworkConfigurationForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class HostedComputeGetNetworkConfigurationForOrgInput(BaseModel):
@@ -26343,7 +26065,6 @@ class HostedComputeGetNetworkConfigurationForOrgInput(BaseModel):
 class HostedComputeGetNetworkConfigurationForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class HostedComputeUpdateNetworkConfigurationForOrgInput(BaseModel):
@@ -26439,7 +26160,6 @@ class HostedComputeUpdateNetworkConfigurationForOrgInput(BaseModel):
 class HostedComputeUpdateNetworkConfigurationForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class HostedComputeDeleteNetworkConfigurationFromOrgInput(BaseModel):
@@ -26510,7 +26230,6 @@ class HostedComputeGetNetworkSettingsForOrgInput(BaseModel):
 class HostedComputeGetNetworkSettingsForOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsListInput(BaseModel):
@@ -26687,7 +26406,6 @@ class TeamsCreateInput(BaseModel):
 class TeamsCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsGetByNameInput(BaseModel):
@@ -26722,7 +26440,6 @@ class TeamsGetByNameInput(BaseModel):
 class TeamsGetByNameOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsUpdateInOrgInput(BaseModel):
@@ -26834,7 +26551,6 @@ class TeamsUpdateInOrgInput(BaseModel):
 class TeamsUpdateInOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsDeleteInOrgInput(BaseModel):
@@ -27033,7 +26749,6 @@ class TeamsGetMembershipForUserInOrgInput(BaseModel):
 class TeamsGetMembershipForUserInOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsAddOrUpdateMembershipForUserInOrgInput(BaseModel):
@@ -27092,7 +26807,6 @@ class TeamsAddOrUpdateMembershipForUserInOrgInput(BaseModel):
 class TeamsAddOrUpdateMembershipForUserInOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsRemoveMembershipForUserInOrgInput(BaseModel):
@@ -27250,7 +26964,6 @@ class TeamsCheckPermissionsForRepoInOrgInput(BaseModel):
 class TeamsCheckPermissionsForRepoInOrgOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsAddOrUpdateRepoPermissionsInOrgInput(BaseModel):
@@ -27497,13 +27210,11 @@ class RateLimitGetInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["rate_limit_get"] = "rate_limit_get"
-    pass
 
 
 class RateLimitGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetInput(BaseModel):
@@ -27538,7 +27249,6 @@ class ReposGetInput(BaseModel):
 class ReposGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateInput(BaseModel):
@@ -27870,7 +27580,6 @@ class ReposUpdateInput(BaseModel):
 class ReposUpdateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteInput(BaseModel):
@@ -27970,7 +27679,6 @@ class ActionsListArtifactsForRepoInput(BaseModel):
 class ActionsListArtifactsForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetArtifactInput(BaseModel):
@@ -28016,7 +27724,6 @@ class ActionsGetArtifactInput(BaseModel):
 class ActionsGetArtifactOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteArtifactInput(BaseModel):
@@ -28149,7 +27856,6 @@ class ActionsGetActionsCacheRetentionLimitForRepositoryInput(BaseModel):
 class ActionsGetActionsCacheRetentionLimitForRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetActionsCacheRetentionLimitForRepositoryInput(BaseModel):
@@ -28231,7 +27937,6 @@ class ActionsGetActionsCacheStorageLimitForRepositoryInput(BaseModel):
 class ActionsGetActionsCacheStorageLimitForRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetActionsCacheStorageLimitForRepositoryInput(BaseModel):
@@ -28311,7 +28016,6 @@ class ActionsGetActionsCacheUsageInput(BaseModel):
 class ActionsGetActionsCacheUsageOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetActionsCacheListInput(BaseModel):
@@ -28412,7 +28116,6 @@ class ActionsGetActionsCacheListInput(BaseModel):
 class ActionsGetActionsCacheListOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteActionsCacheByKeyInput(BaseModel):
@@ -28469,7 +28172,6 @@ class ActionsDeleteActionsCacheByKeyInput(BaseModel):
 class ActionsDeleteActionsCacheByKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteActionsCacheByIdInput(BaseModel):
@@ -28571,7 +28273,6 @@ class ActionsListConcurrencyGroupsForRepositoryInput(BaseModel):
 class ActionsListConcurrencyGroupsForRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetConcurrencyGroupForRepositoryInput(BaseModel):
@@ -28643,7 +28344,6 @@ class ActionsGetConcurrencyGroupForRepositoryInput(BaseModel):
 class ActionsGetConcurrencyGroupForRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetJobForWorkflowRunInput(BaseModel):
@@ -28690,7 +28390,6 @@ class ActionsGetJobForWorkflowRunInput(BaseModel):
 class ActionsGetJobForWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDownloadJobLogsForWorkflowRunInput(BaseModel):
@@ -28805,7 +28504,6 @@ class ActionsReRunJobForWorkflowRunInput(BaseModel):
 class ActionsReRunJobForWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDownloadStepLogsForWorkflowRunJobInput(BaseModel):
@@ -28900,7 +28598,6 @@ class ActionsGetCustomOidcSubClaimForRepoInput(BaseModel):
 class ActionsGetCustomOidcSubClaimForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetCustomOidcSubClaimForRepoInput(BaseModel):
@@ -28970,7 +28667,6 @@ class ActionsSetCustomOidcSubClaimForRepoInput(BaseModel):
 class ActionsSetCustomOidcSubClaimForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListRepoOrganizationSecretsInput(BaseModel):
@@ -29029,7 +28725,6 @@ class ActionsListRepoOrganizationSecretsInput(BaseModel):
 class ActionsListRepoOrganizationSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListRepoOrganizationVariablesInput(BaseModel):
@@ -29088,7 +28783,6 @@ class ActionsListRepoOrganizationVariablesInput(BaseModel):
 class ActionsListRepoOrganizationVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetGithubActionsPermissionsRepositoryInput(BaseModel):
@@ -29125,7 +28819,6 @@ class ActionsGetGithubActionsPermissionsRepositoryInput(BaseModel):
 class ActionsGetGithubActionsPermissionsRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetGithubActionsPermissionsRepositoryInput(BaseModel):
@@ -29229,7 +28922,6 @@ class ActionsGetWorkflowAccessToRepositoryInput(BaseModel):
 class ActionsGetWorkflowAccessToRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetWorkflowAccessToRepositoryInput(BaseModel):
@@ -29311,7 +29003,6 @@ class ActionsGetArtifactAndLogRetentionSettings1Input(BaseModel):
 class ActionsGetArtifactAndLogRetentionSettings1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetArtifactAndLogRetentionSettings1Input(BaseModel):
@@ -29393,7 +29084,6 @@ class ActionsGetForkPrContributorApprovalPermissions1Input(BaseModel):
 class ActionsGetForkPrContributorApprovalPermissions1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetForkPrContributorApprovalPermissions1Input(BaseModel):
@@ -29479,7 +29169,6 @@ class ActionsGetPrivateRepoForkPrWorkflowsSettings1Input(BaseModel):
 class ActionsGetPrivateRepoForkPrWorkflowsSettings1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetPrivateRepoForkPrWorkflowsSettings1Input(BaseModel):
@@ -29594,7 +29283,6 @@ class ActionsGetAllowedActionsRepositoryInput(BaseModel):
 class ActionsGetAllowedActionsRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetAllowedActionsRepositoryInput(BaseModel):
@@ -29698,7 +29386,6 @@ class ActionsGetGithubActionsDefaultWorkflowPermissions1Input(BaseModel):
 class ActionsGetGithubActionsDefaultWorkflowPermissions1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetGithubActionsDefaultWorkflowPermissions1Input(BaseModel):
@@ -29822,7 +29509,6 @@ class ActionsGetRepoActionsPoliciesInput(BaseModel):
 class ActionsGetRepoActionsPoliciesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateRepoActionsPolicyInput(BaseModel):
@@ -29901,7 +29587,6 @@ class ActionsCreateRepoActionsPolicyInput(BaseModel):
 class ActionsCreateRepoActionsPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetRepoActionsPolicyInput(BaseModel):
@@ -29947,7 +29632,6 @@ class ActionsGetRepoActionsPolicyInput(BaseModel):
 class ActionsGetRepoActionsPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateRepoActionsPolicyInput(BaseModel):
@@ -30037,7 +29721,6 @@ class ActionsUpdateRepoActionsPolicyInput(BaseModel):
 class ActionsUpdateRepoActionsPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteRepoActionsPolicyInput(BaseModel):
@@ -30150,7 +29833,6 @@ class ActionsListSelfHostedRunnersForRepoInput(BaseModel):
 class ActionsListSelfHostedRunnersForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetRunnerVersionDeprecationForRepoInput(BaseModel):
@@ -30198,7 +29880,6 @@ class ActionsGetRunnerVersionDeprecationForRepoInput(BaseModel):
 class ActionsGetRunnerVersionDeprecationForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListRunnerApplicationsForRepoInput(BaseModel):
@@ -30315,7 +29996,6 @@ class ActionsGenerateRunnerJitconfigForRepoInput(BaseModel):
 class ActionsGenerateRunnerJitconfigForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateRegistrationTokenForRepoInput(BaseModel):
@@ -30352,7 +30032,6 @@ class ActionsCreateRegistrationTokenForRepoInput(BaseModel):
 class ActionsCreateRegistrationTokenForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateRemoveTokenForRepoInput(BaseModel):
@@ -30387,7 +30066,6 @@ class ActionsCreateRemoveTokenForRepoInput(BaseModel):
 class ActionsCreateRemoveTokenForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetSelfHostedRunnerForRepoInput(BaseModel):
@@ -30435,7 +30113,6 @@ class ActionsGetSelfHostedRunnerForRepoInput(BaseModel):
 class ActionsGetSelfHostedRunnerForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteSelfHostedRunnerFromRepoInput(BaseModel):
@@ -30528,7 +30205,6 @@ class ActionsListLabelsForSelfHostedRunnerForRepoInput(BaseModel):
 class ActionsListLabelsForSelfHostedRunnerForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsAddCustomLabelsToSelfHostedRunnerForRepoInput(BaseModel):
@@ -30589,7 +30265,6 @@ class ActionsAddCustomLabelsToSelfHostedRunnerForRepoInput(BaseModel):
 class ActionsAddCustomLabelsToSelfHostedRunnerForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsSetCustomLabelsForSelfHostedRunnerForRepoInput(BaseModel):
@@ -30650,7 +30325,6 @@ class ActionsSetCustomLabelsForSelfHostedRunnerForRepoInput(BaseModel):
 class ActionsSetCustomLabelsForSelfHostedRunnerForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsRemoveAllCustomLabelsFromSelfHosted1Input(BaseModel):
@@ -30698,7 +30372,6 @@ class ActionsRemoveAllCustomLabelsFromSelfHosted1Input(BaseModel):
 class ActionsRemoveAllCustomLabelsFromSelfHosted1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsRemoveCustomLabelFromSelfHostedRunnerFor1Input(BaseModel):
@@ -30757,7 +30430,6 @@ class ActionsRemoveCustomLabelFromSelfHostedRunnerFor1Input(BaseModel):
 class ActionsRemoveCustomLabelFromSelfHostedRunnerFor1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListWorkflowRunsForRepoInput(BaseModel):
@@ -30922,7 +30594,6 @@ class ActionsListWorkflowRunsForRepoInput(BaseModel):
 class ActionsListWorkflowRunsForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetWorkflowRunInput(BaseModel):
@@ -30979,7 +30650,6 @@ class ActionsGetWorkflowRunInput(BaseModel):
 class ActionsGetWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteWorkflowRunInput(BaseModel):
@@ -31111,7 +30781,6 @@ class ActionsApproveWorkflowRunInput(BaseModel):
 class ActionsApproveWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListWorkflowRunArtifactsInput(BaseModel):
@@ -31201,7 +30870,6 @@ class ActionsListWorkflowRunArtifactsInput(BaseModel):
 class ActionsListWorkflowRunArtifactsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetWorkflowRunAttemptInput(BaseModel):
@@ -31269,7 +30937,6 @@ class ActionsGetWorkflowRunAttemptInput(BaseModel):
 class ActionsGetWorkflowRunAttemptOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListJobsForWorkflowRunAttemptInput(BaseModel):
@@ -31350,7 +31017,6 @@ class ActionsListJobsForWorkflowRunAttemptInput(BaseModel):
 class ActionsListJobsForWorkflowRunAttemptOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDownloadWorkflowRunAttemptLogsInput(BaseModel):
@@ -31452,7 +31118,6 @@ class ActionsCancelWorkflowRunInput(BaseModel):
 class ActionsCancelWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListConcurrencyGroupsForWorkflowRunInput(BaseModel):
@@ -31533,7 +31198,6 @@ class ActionsListConcurrencyGroupsForWorkflowRunInput(BaseModel):
 class ActionsListConcurrencyGroupsForWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsReviewCustomGatesForRunInput(BaseModel):
@@ -31632,7 +31296,6 @@ class ActionsForceCancelWorkflowRunInput(BaseModel):
 class ActionsForceCancelWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListJobsForWorkflowRunInput(BaseModel):
@@ -31711,7 +31374,6 @@ class ActionsListJobsForWorkflowRunInput(BaseModel):
 class ActionsListJobsForWorkflowRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDownloadWorkflowRunLogsInput(BaseModel):
@@ -31977,7 +31639,6 @@ class ActionsReRunWorkflowInput(BaseModel):
 class ActionsReRunWorkflowOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsReRunWorkflowFailedJobsInput(BaseModel):
@@ -32034,7 +31695,6 @@ class ActionsReRunWorkflowFailedJobsInput(BaseModel):
 class ActionsReRunWorkflowFailedJobsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetWorkflowRunUsageInput(BaseModel):
@@ -32080,7 +31740,6 @@ class ActionsGetWorkflowRunUsageInput(BaseModel):
 class ActionsGetWorkflowRunUsageOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsListRepoSecretsInput(BaseModel):
@@ -32137,7 +31796,6 @@ class ActionsListRepoSecretsInput(BaseModel):
 class ActionsListRepoSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetRepoPublicKeyInput(BaseModel):
@@ -32172,7 +31830,6 @@ class ActionsGetRepoPublicKeyInput(BaseModel):
 class ActionsGetRepoPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetRepoSecretInput(BaseModel):
@@ -32218,7 +31875,6 @@ class ActionsGetRepoSecretInput(BaseModel):
 class ActionsGetRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateOrUpdateRepoSecretInput(BaseModel):
@@ -32287,7 +31943,6 @@ class ActionsCreateOrUpdateRepoSecretInput(BaseModel):
 class ActionsCreateOrUpdateRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteRepoSecretInput(BaseModel):
@@ -32387,7 +32042,6 @@ class ActionsListRepoVariablesInput(BaseModel):
 class ActionsListRepoVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateRepoVariableInput(BaseModel):
@@ -32444,7 +32098,6 @@ class ActionsCreateRepoVariableInput(BaseModel):
 class ActionsCreateRepoVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetRepoVariableInput(BaseModel):
@@ -32490,7 +32143,6 @@ class ActionsGetRepoVariableInput(BaseModel):
 class ActionsGetRepoVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateRepoVariableInput(BaseModel):
@@ -32655,7 +32307,6 @@ class ActionsListRepoWorkflowsInput(BaseModel):
 class ActionsListRepoWorkflowsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetWorkflowInput(BaseModel):
@@ -32701,7 +32352,6 @@ class ActionsGetWorkflowInput(BaseModel):
 class ActionsGetWorkflowOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDisableWorkflowInput(BaseModel):
@@ -32823,7 +32473,6 @@ class ActionsCreateWorkflowDispatchInput(BaseModel):
 class ActionsCreateWorkflowDispatchOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsEnableWorkflowInput(BaseModel):
@@ -33042,7 +32691,6 @@ class ActionsListWorkflowRunsInput(BaseModel):
 class ActionsListWorkflowRunsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetWorkflowUsageInput(BaseModel):
@@ -33088,7 +32736,6 @@ class ActionsGetWorkflowUsageInput(BaseModel):
 class ActionsGetWorkflowUsageOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListActivitiesInput(BaseModel):
@@ -33277,7 +32924,6 @@ class AgentsListRepoOrganizationSecretsInput(BaseModel):
 class AgentsListRepoOrganizationSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsListRepoOrganizationVariablesInput(BaseModel):
@@ -33336,7 +32982,6 @@ class AgentsListRepoOrganizationVariablesInput(BaseModel):
 class AgentsListRepoOrganizationVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsListRepoSecretsInput(BaseModel):
@@ -33393,7 +33038,6 @@ class AgentsListRepoSecretsInput(BaseModel):
 class AgentsListRepoSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsGetRepoPublicKeyInput(BaseModel):
@@ -33428,7 +33072,6 @@ class AgentsGetRepoPublicKeyInput(BaseModel):
 class AgentsGetRepoPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsGetRepoSecretInput(BaseModel):
@@ -33474,7 +33117,6 @@ class AgentsGetRepoSecretInput(BaseModel):
 class AgentsGetRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsCreateOrUpdateRepoSecretInput(BaseModel):
@@ -33543,7 +33185,6 @@ class AgentsCreateOrUpdateRepoSecretInput(BaseModel):
 class AgentsCreateOrUpdateRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsDeleteRepoSecretInput(BaseModel):
@@ -33643,7 +33284,6 @@ class AgentsListRepoVariablesInput(BaseModel):
 class AgentsListRepoVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsCreateRepoVariableInput(BaseModel):
@@ -33700,7 +33340,6 @@ class AgentsCreateRepoVariableInput(BaseModel):
 class AgentsCreateRepoVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsGetRepoVariableInput(BaseModel):
@@ -33746,7 +33385,6 @@ class AgentsGetRepoVariableInput(BaseModel):
 class AgentsGetRepoVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AgentsUpdateRepoVariableInput(BaseModel):
@@ -33996,7 +33634,6 @@ class ReposCreateAttestationInput(BaseModel):
 class ReposCreateAttestationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListAttestationsInput(BaseModel):
@@ -34086,7 +33723,6 @@ class ReposListAttestationsInput(BaseModel):
 class ReposListAttestationsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListAutolinksInput(BaseModel):
@@ -34186,7 +33822,6 @@ class ReposCreateAutolinkInput(BaseModel):
 class ReposCreateAutolinkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetAutolinkInput(BaseModel):
@@ -34232,7 +33867,6 @@ class ReposGetAutolinkInput(BaseModel):
 class ReposGetAutolinkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteAutolinkInput(BaseModel):
@@ -34310,7 +33944,6 @@ class ReposCheckAutomatedSecurityFixesInput(BaseModel):
 class ReposCheckAutomatedSecurityFixesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposEnableAutomatedSecurityFixesInput(BaseModel):
@@ -34489,7 +34122,6 @@ class ReposGetBranchInput(BaseModel):
 class ReposGetBranchOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetBranchProtectionInput(BaseModel):
@@ -34535,7 +34167,6 @@ class ReposGetBranchProtectionInput(BaseModel):
 class ReposGetBranchProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateBranchProtectionInput(BaseModel):
@@ -34702,7 +34333,6 @@ class ReposUpdateBranchProtectionInput(BaseModel):
 class ReposUpdateBranchProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteBranchProtectionInput(BaseModel):
@@ -34791,7 +34421,6 @@ class ReposGetAdminBranchProtectionInput(BaseModel):
 class ReposGetAdminBranchProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposSetAdminBranchProtectionInput(BaseModel):
@@ -34837,7 +34466,6 @@ class ReposSetAdminBranchProtectionInput(BaseModel):
 class ReposSetAdminBranchProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteAdminBranchProtectionInput(BaseModel):
@@ -34928,7 +34556,6 @@ class ReposGetPullRequestReviewProtectionInput(BaseModel):
 class ReposGetPullRequestReviewProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdatePullRequestReviewProtectionInput(BaseModel):
@@ -35042,7 +34669,6 @@ class ReposUpdatePullRequestReviewProtectionInput(BaseModel):
 class ReposUpdatePullRequestReviewProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeletePullRequestReviewProtectionInput(BaseModel):
@@ -35135,7 +34761,6 @@ class ReposGetCommitSignatureProtectionInput(BaseModel):
 class ReposGetCommitSignatureProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCreateCommitSignatureProtectionInput(BaseModel):
@@ -35183,7 +34808,6 @@ class ReposCreateCommitSignatureProtectionInput(BaseModel):
 class ReposCreateCommitSignatureProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteCommitSignatureProtectionInput(BaseModel):
@@ -35274,7 +34898,6 @@ class ReposGetStatusChecksProtectionInput(BaseModel):
 class ReposGetStatusChecksProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateStatusCheckProtectionInput(BaseModel):
@@ -35353,7 +34976,6 @@ class ReposUpdateStatusCheckProtectionInput(BaseModel):
 class ReposUpdateStatusCheckProtectionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposRemoveStatusCheckProtectionInput(BaseModel):
@@ -35634,7 +35256,6 @@ class ReposGetAccessRestrictionsInput(BaseModel):
 class ReposGetAccessRestrictionsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteAccessRestrictionsInput(BaseModel):
@@ -36324,7 +35945,6 @@ class ReposRenameBranchInput(BaseModel):
 class ReposRenameBranchOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksCreateInput(BaseModel):
@@ -36369,7 +35989,6 @@ class ChecksCreateInput(BaseModel):
 class ChecksCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksGetInput(BaseModel):
@@ -36416,7 +36035,6 @@ class ChecksGetInput(BaseModel):
 class ChecksGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksUpdateInput(BaseModel):
@@ -36473,7 +36091,6 @@ class ChecksUpdateInput(BaseModel):
 class ChecksUpdateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksListAnnotationsInput(BaseModel):
@@ -36586,7 +36203,6 @@ class ChecksRerequestRunInput(BaseModel):
 class ChecksRerequestRunOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksCreateSuiteInput(BaseModel):
@@ -36632,7 +36248,6 @@ class ChecksCreateSuiteInput(BaseModel):
 class ChecksCreateSuiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksSetSuitesPreferencesInput(BaseModel):
@@ -36678,7 +36293,6 @@ class ChecksSetSuitesPreferencesInput(BaseModel):
 class ChecksSetSuitesPreferencesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksGetSuiteInput(BaseModel):
@@ -36724,7 +36338,6 @@ class ChecksGetSuiteInput(BaseModel):
 class ChecksGetSuiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksListForSuiteInput(BaseModel):
@@ -36825,7 +36438,6 @@ class ChecksListForSuiteInput(BaseModel):
 class ChecksListForSuiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksRerequestSuiteInput(BaseModel):
@@ -36871,7 +36483,6 @@ class ChecksRerequestSuiteInput(BaseModel):
 class ChecksRerequestSuiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeQualityListFindingsForRepoInput(BaseModel):
@@ -37004,7 +36615,6 @@ class CodeQualityGetFindingInput(BaseModel):
 class CodeQualityGetFindingOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeQualityGetSetupInput(BaseModel):
@@ -37039,7 +36649,6 @@ class CodeQualityGetSetupInput(BaseModel):
 class CodeQualityGetSetupOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeQualityUpdateSetupInput(BaseModel):
@@ -37084,7 +36693,6 @@ class CodeQualityUpdateSetupInput(BaseModel):
 class CodeQualityUpdateSetupOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningGetAiScanEnablementInput(BaseModel):
@@ -37119,7 +36727,6 @@ class CodeScanningGetAiScanEnablementInput(BaseModel):
 class CodeScanningGetAiScanEnablementOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningUpdateAiScanEnablementInput(BaseModel):
@@ -37167,7 +36774,6 @@ class CodeScanningUpdateAiScanEnablementInput(BaseModel):
 class CodeScanningUpdateAiScanEnablementOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningListAlertsForRepoInput(BaseModel):
@@ -37390,7 +36996,6 @@ class CodeScanningGetAlertInput(BaseModel):
 class CodeScanningGetAlertOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningUpdateAlertInput(BaseModel):
@@ -37446,7 +37051,6 @@ class CodeScanningUpdateAlertInput(BaseModel):
 class CodeScanningUpdateAlertOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningGetAutofixInput(BaseModel):
@@ -37492,7 +37096,6 @@ class CodeScanningGetAutofixInput(BaseModel):
 class CodeScanningGetAutofixOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningCreateAutofixInput(BaseModel):
@@ -37538,7 +37141,6 @@ class CodeScanningCreateAutofixInput(BaseModel):
 class CodeScanningCreateAutofixOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningCommitAutofixInput(BaseModel):
@@ -37606,7 +37208,6 @@ class CodeScanningCommitAutofixInput(BaseModel):
 class CodeScanningCommitAutofixOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningListAlertInstancesInput(BaseModel):
@@ -37870,7 +37471,6 @@ class CodeScanningGetAnalysisInput(BaseModel):
 class CodeScanningGetAnalysisOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningDeleteAnalysisInput(BaseModel):
@@ -37927,7 +37527,6 @@ class CodeScanningDeleteAnalysisInput(BaseModel):
 class CodeScanningDeleteAnalysisOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningListCodeqlDatabasesInput(BaseModel):
@@ -38005,7 +37604,6 @@ class CodeScanningGetCodeqlDatabaseInput(BaseModel):
 class CodeScanningGetCodeqlDatabaseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningDeleteCodeqlDatabaseInput(BaseModel):
@@ -38095,7 +37693,6 @@ class CodeScanningCreateVariantAnalysisInput(BaseModel):
 class CodeScanningCreateVariantAnalysisOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningGetVariantAnalysisInput(BaseModel):
@@ -38141,7 +37738,6 @@ class CodeScanningGetVariantAnalysisInput(BaseModel):
 class CodeScanningGetVariantAnalysisOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningGetVariantAnalysisRepoTaskInput(BaseModel):
@@ -38211,7 +37807,6 @@ class CodeScanningGetVariantAnalysisRepoTaskInput(BaseModel):
 class CodeScanningGetVariantAnalysisRepoTaskOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningGetDefaultSetupInput(BaseModel):
@@ -38246,7 +37841,6 @@ class CodeScanningGetDefaultSetupInput(BaseModel):
 class CodeScanningGetDefaultSetupOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningUpdateDefaultSetupInput(BaseModel):
@@ -38347,7 +37941,6 @@ class CodeScanningUpdateDefaultSetupInput(BaseModel):
 class CodeScanningUpdateDefaultSetupOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningUploadSarifInput(BaseModel):
@@ -38466,7 +38059,6 @@ class CodeScanningUploadSarifInput(BaseModel):
 class CodeScanningUploadSarifOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeScanningGetSarifInput(BaseModel):
@@ -38512,7 +38104,6 @@ class CodeScanningGetSarifInput(BaseModel):
 class CodeScanningGetSarifOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodeSecurityGetConfigurationForRepositoryInput(BaseModel):
@@ -38549,7 +38140,6 @@ class CodeSecurityGetConfigurationForRepositoryInput(BaseModel):
 class CodeSecurityGetConfigurationForRepositoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCodeownersErrorsInput(BaseModel):
@@ -38595,7 +38185,6 @@ class ReposCodeownersErrorsInput(BaseModel):
 class ReposCodeownersErrorsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesListInRepositoryForAuthenticatedUserInput(BaseModel):
@@ -38654,7 +38243,6 @@ class CodespacesListInRepositoryForAuthenticatedUserInput(BaseModel):
 class CodespacesListInRepositoryForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCreateWithRepoForAuthenticatedUserInput(BaseModel):
@@ -38812,7 +38400,6 @@ class CodespacesCreateWithRepoForAuthenticatedUserInput(BaseModel):
 class CodespacesCreateWithRepoForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesListDevcontainersInRepositoryForInput(BaseModel):
@@ -38871,7 +38458,6 @@ class CodespacesListDevcontainersInRepositoryForInput(BaseModel):
 class CodespacesListDevcontainersInRepositoryForOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesRepoMachinesForAuthenticatedUserInput(BaseModel):
@@ -38941,7 +38527,6 @@ class CodespacesRepoMachinesForAuthenticatedUserInput(BaseModel):
 class CodespacesRepoMachinesForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesPreFlightWithRepoForAuthenticatedUserInput(BaseModel):
@@ -39000,7 +38585,6 @@ class CodespacesPreFlightWithRepoForAuthenticatedUserInput(BaseModel):
 class CodespacesPreFlightWithRepoForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCheckPermissionsForDevcontainerInput(BaseModel):
@@ -39059,7 +38643,6 @@ class CodespacesCheckPermissionsForDevcontainerInput(BaseModel):
 class CodespacesCheckPermissionsForDevcontainerOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesListRepoSecretsInput(BaseModel):
@@ -39116,7 +38699,6 @@ class CodespacesListRepoSecretsInput(BaseModel):
 class CodespacesListRepoSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetRepoPublicKeyInput(BaseModel):
@@ -39151,7 +38733,6 @@ class CodespacesGetRepoPublicKeyInput(BaseModel):
 class CodespacesGetRepoPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetRepoSecretInput(BaseModel):
@@ -39197,7 +38778,6 @@ class CodespacesGetRepoSecretInput(BaseModel):
 class CodespacesGetRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCreateOrUpdateRepoSecretInput(BaseModel):
@@ -39268,7 +38848,6 @@ class CodespacesCreateOrUpdateRepoSecretInput(BaseModel):
 class CodespacesCreateOrUpdateRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesDeleteRepoSecretInput(BaseModel):
@@ -39489,7 +39068,6 @@ class ReposAddCollaboratorInput(BaseModel):
 class ReposAddCollaboratorOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposRemoveCollaboratorInput(BaseModel):
@@ -39580,7 +39158,6 @@ class ReposGetCollaboratorPermissionLevelInput(BaseModel):
 class ReposGetCollaboratorPermissionLevelOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListCommitCommentsForRepoInput(BaseModel):
@@ -39681,7 +39258,6 @@ class ReposGetCommitCommentInput(BaseModel):
 class ReposGetCommitCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateCommitCommentInput(BaseModel):
@@ -39740,7 +39316,6 @@ class ReposUpdateCommitCommentInput(BaseModel):
 class ReposUpdateCommitCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteCommitCommentInput(BaseModel):
@@ -39921,7 +39496,6 @@ class ReactionsCreateForCommitCommentInput(BaseModel):
 class ReactionsCreateForCommitCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsDeleteForCommitCommentInput(BaseModel):
@@ -40297,7 +39871,6 @@ class ReposCreateCommitCommentInput(BaseModel):
 class ReposCreateCommitCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListPullRequestsAssociatedWithCommitInput(BaseModel):
@@ -40432,7 +40005,6 @@ class ReposGetCommitInput(BaseModel):
 class ReposGetCommitOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksListForRefInput(BaseModel):
@@ -40543,7 +40115,6 @@ class ChecksListForRefInput(BaseModel):
 class ChecksListForRefOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ChecksListSuitesForRefInput(BaseModel):
@@ -40633,7 +40204,6 @@ class ChecksListSuitesForRefInput(BaseModel):
 class ChecksListSuitesForRefOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetCombinedStatusForRefInput(BaseModel):
@@ -40701,7 +40271,6 @@ class ReposGetCombinedStatusForRefInput(BaseModel):
 class ReposGetCombinedStatusForRefOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListCommitStatusesForRefInput(BaseModel):
@@ -40801,7 +40370,6 @@ class ReposGetCommunityProfileMetricsInput(BaseModel):
 class ReposGetCommunityProfileMetricsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCompareCommitsInput(BaseModel):
@@ -40869,7 +40437,6 @@ class ReposCompareCommitsInput(BaseModel):
 class ReposCompareCommitsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetContentInput(BaseModel):
@@ -41035,7 +40602,6 @@ class ReposCreateOrUpdateFileContentsInput(BaseModel):
 class ReposCreateOrUpdateFileContentsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteFileInput(BaseModel):
@@ -41081,7 +40647,6 @@ class ReposDeleteFileInput(BaseModel):
 class ReposDeleteFileOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListContributorsInput(BaseModel):
@@ -41183,7 +40748,6 @@ class CopilotGetCopilotCloudAgentConfigurationInput(BaseModel):
 class CopilotGetCopilotCloudAgentConfigurationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotListAlertsForRepoInput(BaseModel):
@@ -41437,7 +41001,6 @@ class DependabotGetAlertInput(BaseModel):
 class DependabotGetAlertOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotUpdateAlertInput(BaseModel):
@@ -41493,7 +41056,6 @@ class DependabotUpdateAlertInput(BaseModel):
 class DependabotUpdateAlertOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotListRepoSecretsInput(BaseModel):
@@ -41550,7 +41112,6 @@ class DependabotListRepoSecretsInput(BaseModel):
 class DependabotListRepoSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotGetRepoPublicKeyInput(BaseModel):
@@ -41585,7 +41146,6 @@ class DependabotGetRepoPublicKeyInput(BaseModel):
 class DependabotGetRepoPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotGetRepoSecretInput(BaseModel):
@@ -41631,7 +41191,6 @@ class DependabotGetRepoSecretInput(BaseModel):
 class DependabotGetRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotCreateOrUpdateRepoSecretInput(BaseModel):
@@ -41702,7 +41261,6 @@ class DependabotCreateOrUpdateRepoSecretInput(BaseModel):
 class DependabotCreateOrUpdateRepoSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependabotDeleteRepoSecretInput(BaseModel):
@@ -41834,7 +41392,6 @@ class DependencyGraphExportSbomInput(BaseModel):
 class DependencyGraphExportSbomOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependencyGraphFetchSbomReportInput(BaseModel):
@@ -41914,7 +41471,6 @@ class DependencyGraphGenerateSbomReportInput(BaseModel):
 class DependencyGraphGenerateSbomReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class DependencyGraphCreateRepositorySnapshotInput(BaseModel):
@@ -42042,7 +41598,6 @@ class DependencyGraphCreateRepositorySnapshotInput(BaseModel):
 class DependencyGraphCreateRepositorySnapshotOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListDeploymentsInput(BaseModel):
@@ -42273,7 +41828,6 @@ class ReposCreateDeploymentInput(BaseModel):
 class ReposCreateDeploymentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetDeploymentInput(BaseModel):
@@ -42319,7 +41873,6 @@ class ReposGetDeploymentInput(BaseModel):
 class ReposGetDeploymentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteDeploymentInput(BaseModel):
@@ -42475,7 +42028,6 @@ class ReposGetAllEnvironmentsInput(BaseModel):
 class ReposGetAllEnvironmentsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetEnvironmentInput(BaseModel):
@@ -42521,7 +42073,6 @@ class ReposGetEnvironmentInput(BaseModel):
 class ReposGetEnvironmentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCreateOrUpdateEnvironmentInput(BaseModel):
@@ -42611,7 +42162,6 @@ class ReposCreateOrUpdateEnvironmentInput(BaseModel):
 class ReposCreateOrUpdateEnvironmentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteAnEnvironmentInput(BaseModel):
@@ -42724,7 +42274,6 @@ class ReposListDeploymentBranchPoliciesInput(BaseModel):
 class ReposListDeploymentBranchPoliciesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCreateDeploymentBranchPolicyInput(BaseModel):
@@ -42794,7 +42343,6 @@ class ReposCreateDeploymentBranchPolicyInput(BaseModel):
 class ReposCreateDeploymentBranchPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetDeploymentBranchPolicyInput(BaseModel):
@@ -42851,7 +42399,6 @@ class ReposGetDeploymentBranchPolicyInput(BaseModel):
 class ReposGetDeploymentBranchPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateDeploymentBranchPolicyInput(BaseModel):
@@ -42921,7 +42468,6 @@ class ReposUpdateDeploymentBranchPolicyInput(BaseModel):
 class ReposUpdateDeploymentBranchPolicyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteDeploymentBranchPolicyInput(BaseModel):
@@ -43025,7 +42571,6 @@ class ReposGetAllDeploymentProtectionRulesInput(BaseModel):
 class ReposGetAllDeploymentProtectionRulesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCreateDeploymentProtectionRuleInput(BaseModel):
@@ -43084,7 +42629,6 @@ class ReposCreateDeploymentProtectionRuleInput(BaseModel):
 class ReposCreateDeploymentProtectionRuleOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListCustomDeploymentRuleIntegrationsInput(BaseModel):
@@ -43154,7 +42698,6 @@ class ReposListCustomDeploymentRuleIntegrationsInput(BaseModel):
 class ReposListCustomDeploymentRuleIntegrationsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetCustomDeploymentProtectionRuleInput(BaseModel):
@@ -43213,7 +42756,6 @@ class ReposGetCustomDeploymentProtectionRuleInput(BaseModel):
 class ReposGetCustomDeploymentProtectionRuleOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDisableDeploymentProtectionRuleInput(BaseModel):
@@ -43337,7 +42879,6 @@ class ActionsListEnvironmentSecretsInput(BaseModel):
 class ActionsListEnvironmentSecretsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetEnvironmentPublicKeyInput(BaseModel):
@@ -43383,7 +42924,6 @@ class ActionsGetEnvironmentPublicKeyInput(BaseModel):
 class ActionsGetEnvironmentPublicKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetEnvironmentSecretInput(BaseModel):
@@ -43440,7 +42980,6 @@ class ActionsGetEnvironmentSecretInput(BaseModel):
 class ActionsGetEnvironmentSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateOrUpdateEnvironmentSecretInput(BaseModel):
@@ -43522,7 +43061,6 @@ class ActionsCreateOrUpdateEnvironmentSecretInput(BaseModel):
 class ActionsCreateOrUpdateEnvironmentSecretOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsDeleteEnvironmentSecretInput(BaseModel):
@@ -43644,7 +43182,6 @@ class ActionsListEnvironmentVariablesInput(BaseModel):
 class ActionsListEnvironmentVariablesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsCreateEnvironmentVariableInput(BaseModel):
@@ -43712,7 +43249,6 @@ class ActionsCreateEnvironmentVariableInput(BaseModel):
 class ActionsCreateEnvironmentVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsGetEnvironmentVariableInput(BaseModel):
@@ -43769,7 +43305,6 @@ class ActionsGetEnvironmentVariableInput(BaseModel):
 class ActionsGetEnvironmentVariableOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActionsUpdateEnvironmentVariableInput(BaseModel):
@@ -44086,7 +43621,6 @@ class ReposCreateForkInput(BaseModel):
 class ReposCreateForkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitCreateBlobInput(BaseModel):
@@ -44143,7 +43677,6 @@ class GitCreateBlobInput(BaseModel):
 class GitCreateBlobOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitGetBlobInput(BaseModel):
@@ -44188,7 +43721,6 @@ class GitGetBlobInput(BaseModel):
 class GitGetBlobOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitCreateCommitInput(BaseModel):
@@ -44289,7 +43821,6 @@ class GitCreateCommitInput(BaseModel):
 class GitCreateCommitOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitGetCommitInput(BaseModel):
@@ -44335,7 +43866,6 @@ class GitGetCommitInput(BaseModel):
 class GitGetCommitOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitListMatchingRefsInput(BaseModel):
@@ -44424,7 +43954,6 @@ class GitGetRefInput(BaseModel):
 class GitGetRefOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitCreateRefInput(BaseModel):
@@ -44481,7 +44010,6 @@ class GitCreateRefInput(BaseModel):
 class GitCreateRefOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitUpdateRefInput(BaseModel):
@@ -44549,7 +44077,6 @@ class GitUpdateRefInput(BaseModel):
 class GitUpdateRefOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitDeleteRefInput(BaseModel):
@@ -44682,7 +44209,6 @@ class GitCreateTagInput(BaseModel):
 class GitCreateTagOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitGetTagInput(BaseModel):
@@ -44727,7 +44253,6 @@ class GitGetTagInput(BaseModel):
 class GitGetTagOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitCreateTreeInput(BaseModel):
@@ -44784,7 +44309,6 @@ class GitCreateTreeInput(BaseModel):
 class GitCreateTreeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class GitGetTreeInput(BaseModel):
@@ -44841,7 +44365,6 @@ class GitGetTreeInput(BaseModel):
 class GitGetTreeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetHashAlgorithmInput(BaseModel):
@@ -44876,7 +44399,6 @@ class ReposGetHashAlgorithmInput(BaseModel):
 class ReposGetHashAlgorithmOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListWebhooksInput(BaseModel):
@@ -45009,7 +44531,6 @@ class ReposCreateWebhookInput(BaseModel):
 class ReposCreateWebhookOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetWebhookInput(BaseModel):
@@ -45055,7 +44576,6 @@ class ReposGetWebhookInput(BaseModel):
 class ReposGetWebhookOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateWebhookInput(BaseModel):
@@ -45156,7 +44676,6 @@ class ReposUpdateWebhookInput(BaseModel):
 class ReposUpdateWebhookOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteWebhookInput(BaseModel):
@@ -45245,7 +44764,6 @@ class ReposGetWebhookConfigForRepoInput(BaseModel):
 class ReposGetWebhookConfigForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateWebhookConfigForRepoInput(BaseModel):
@@ -45324,7 +44842,6 @@ class ReposUpdateWebhookConfigForRepoInput(BaseModel):
 class ReposUpdateWebhookConfigForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListWebhookDeliveriesInput(BaseModel):
@@ -45456,7 +44973,6 @@ class ReposGetWebhookDeliveryInput(BaseModel):
 class ReposGetWebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposRedeliverWebhookDeliveryInput(BaseModel):
@@ -45512,7 +45028,6 @@ class ReposRedeliverWebhookDeliveryInput(BaseModel):
 class ReposRedeliverWebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposPingWebhookInput(BaseModel):
@@ -45633,7 +45148,6 @@ class ReposCheckImmutableReleasesInput(BaseModel):
 class ReposCheckImmutableReleasesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposEnableImmutableReleasesInput(BaseModel):
@@ -45732,7 +45246,6 @@ class MigrationsGetImportStatusInput(BaseModel):
 class MigrationsGetImportStatusOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsStartImportInput(BaseModel):
@@ -45822,7 +45335,6 @@ class MigrationsStartImportInput(BaseModel):
 class MigrationsStartImportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsUpdateImportInput(BaseModel):
@@ -45901,7 +45413,6 @@ class MigrationsUpdateImportInput(BaseModel):
 class MigrationsUpdateImportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsCancelImportInput(BaseModel):
@@ -46043,7 +45554,6 @@ class MigrationsMapCommitAuthorInput(BaseModel):
 class MigrationsMapCommitAuthorOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsGetLargeFilesInput(BaseModel):
@@ -46121,7 +45631,6 @@ class MigrationsSetLfsPreferenceInput(BaseModel):
 class MigrationsSetLfsPreferenceOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsGetRepoInstallationInput(BaseModel):
@@ -46156,7 +45665,6 @@ class AppsGetRepoInstallationInput(BaseModel):
 class AppsGetRepoInstallationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsGetRestrictionsForRepoInput(BaseModel):
@@ -46249,7 +45757,6 @@ class InteractionsSetRestrictionsForRepoInput(BaseModel):
 class InteractionsSetRestrictionsForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsRemoveRestrictionsForRepoInput(BaseModel):
@@ -46433,7 +45940,6 @@ class InteractionsGetPullRequestCreationCapForRepoInput(BaseModel):
 class InteractionsGetPullRequestCreationCapForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsUpdatePullRequestCreationCapForRepoInput(BaseModel):
@@ -46505,7 +46011,6 @@ class InteractionsUpdatePullRequestCreationCapForRepoInput(BaseModel):
 class InteractionsUpdatePullRequestCreationCapForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListInvitationsInput(BaseModel):
@@ -46616,7 +46121,6 @@ class ReposUpdateInvitationInput(BaseModel):
 class ReposUpdateInvitationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteInvitationInput(BaseModel):
@@ -47001,7 +46505,6 @@ class IssuesCreateInput(BaseModel):
 class IssuesCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListCommentsForRepoInput(BaseModel):
@@ -47136,7 +46639,6 @@ class IssuesGetCommentInput(BaseModel):
 class IssuesGetCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesUpdateCommentInput(BaseModel):
@@ -47195,7 +46697,6 @@ class IssuesUpdateCommentInput(BaseModel):
 class IssuesUpdateCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesDeleteCommentInput(BaseModel):
@@ -47286,7 +46787,6 @@ class IssuesPinCommentInput(BaseModel):
 class IssuesPinCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesUnpinCommentInput(BaseModel):
@@ -47467,7 +46967,6 @@ class ReactionsCreateForIssueCommentInput(BaseModel):
 class ReactionsCreateForIssueCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsDeleteForIssueCommentInput(BaseModel):
@@ -47621,7 +47120,6 @@ class IssuesGetEventInput(BaseModel):
 class IssuesGetEventOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesGetInput(BaseModel):
@@ -47667,7 +47165,6 @@ class IssuesGetInput(BaseModel):
 class IssuesGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesUpdateInput(BaseModel):
@@ -47834,7 +47331,6 @@ class IssuesUpdateInput(BaseModel):
 class IssuesUpdateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesAddAssigneesInput(BaseModel):
@@ -47891,7 +47387,6 @@ class IssuesAddAssigneesInput(BaseModel):
 class IssuesAddAssigneesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesRemoveAssigneesInput(BaseModel):
@@ -47937,7 +47432,6 @@ class IssuesRemoveAssigneesInput(BaseModel):
 class IssuesRemoveAssigneesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesCheckUserCanBeAssignedToIssueInput(BaseModel):
@@ -48127,7 +47621,6 @@ class IssuesCreateCommentInput(BaseModel):
 class IssuesCreateCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListDependenciesBlockedByInput(BaseModel):
@@ -48249,7 +47742,6 @@ class IssuesAddBlockedByDependencyInput(BaseModel):
 class IssuesAddBlockedByDependencyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesRemoveDependencyBlockedByInput(BaseModel):
@@ -48306,7 +47798,6 @@ class IssuesRemoveDependencyBlockedByInput(BaseModel):
 class IssuesRemoveDependencyBlockedByOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListDependenciesBlockingInput(BaseModel):
@@ -49077,7 +48568,6 @@ class IssuesGetParentInput(BaseModel):
 class IssuesGetParentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsListForIssueInput(BaseModel):
@@ -49212,7 +48702,6 @@ class ReactionsCreateForIssueInput(BaseModel):
 class ReactionsCreateForIssueOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsDeleteForIssueInput(BaseModel):
@@ -49388,7 +48877,6 @@ class IssuesAddRelatesToInput(BaseModel):
 class IssuesAddRelatesToOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesRemoveRelatesToInput(BaseModel):
@@ -49445,7 +48933,6 @@ class IssuesRemoveRelatesToInput(BaseModel):
 class IssuesRemoveRelatesToOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesRemoveSubIssueInput(BaseModel):
@@ -49491,7 +48978,6 @@ class IssuesRemoveSubIssueInput(BaseModel):
 class IssuesRemoveSubIssueOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListSubIssuesInput(BaseModel):
@@ -49624,7 +49110,6 @@ class IssuesAddSubIssueInput(BaseModel):
 class IssuesAddSubIssueOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesReprioritizeSubIssueInput(BaseModel):
@@ -49703,7 +49188,6 @@ class IssuesReprioritizeSubIssueInput(BaseModel):
 class IssuesReprioritizeSubIssueOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListSuggestionsInput(BaseModel):
@@ -49851,7 +49335,6 @@ class IssuesApproveSuggestionInput(BaseModel):
 class IssuesApproveSuggestionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesDismissSuggestionInput(BaseModel):
@@ -49908,7 +49391,6 @@ class IssuesDismissSuggestionInput(BaseModel):
 class IssuesDismissSuggestionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListEventsForTimelineInput(BaseModel):
@@ -50106,7 +49588,6 @@ class ReposCreateDeployKeyInput(BaseModel):
 class ReposCreateDeployKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetDeployKeyInput(BaseModel):
@@ -50152,7 +49633,6 @@ class ReposGetDeployKeyInput(BaseModel):
 class ReposGetDeployKeyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteDeployKeyInput(BaseModel):
@@ -50317,7 +49797,6 @@ class IssuesCreateLabelInput(BaseModel):
 class IssuesCreateLabelOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesGetLabelInput(BaseModel):
@@ -50362,7 +49841,6 @@ class IssuesGetLabelInput(BaseModel):
 class IssuesGetLabelOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesUpdateLabelInput(BaseModel):
@@ -50451,7 +49929,6 @@ class IssuesUpdateLabelInput(BaseModel):
 class IssuesUpdateLabelOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesDeleteLabelInput(BaseModel):
@@ -50528,7 +50005,6 @@ class ReposListLanguagesInput(BaseModel):
 class ReposListLanguagesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class LicensesGetForRepoInput(BaseModel):
@@ -50574,7 +50050,6 @@ class LicensesGetForRepoInput(BaseModel):
 class LicensesGetForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposMergeUpstreamInput(BaseModel):
@@ -50620,7 +50095,6 @@ class ReposMergeUpstreamInput(BaseModel):
 class ReposMergeUpstreamOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposMergeInput(BaseModel):
@@ -50688,7 +50162,6 @@ class ReposMergeInput(BaseModel):
 class ReposMergeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesListMilestonesInput(BaseModel):
@@ -50855,7 +50328,6 @@ class IssuesCreateMilestoneInput(BaseModel):
 class IssuesCreateMilestoneOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesGetMilestoneInput(BaseModel):
@@ -50901,7 +50373,6 @@ class IssuesGetMilestoneInput(BaseModel):
 class IssuesGetMilestoneOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesUpdateMilestoneInput(BaseModel):
@@ -50992,7 +50463,6 @@ class IssuesUpdateMilestoneInput(BaseModel):
 class IssuesUpdateMilestoneOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class IssuesDeleteMilestoneInput(BaseModel):
@@ -51251,7 +50721,6 @@ class ActivityMarkRepoNotificationsAsReadInput(BaseModel):
 class ActivityMarkRepoNotificationsAsReadOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetPagesInput(BaseModel):
@@ -51286,7 +50755,6 @@ class ReposGetPagesInput(BaseModel):
 class ReposGetPagesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCreatePagesSiteInput(BaseModel):
@@ -51331,7 +50799,6 @@ class ReposCreatePagesSiteInput(BaseModel):
 class ReposCreatePagesSiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateInformationAboutPagesSiteInput(BaseModel):
@@ -51496,7 +50963,6 @@ class ReposRequestPagesBuildInput(BaseModel):
 class ReposRequestPagesBuildOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetLatestPagesBuildInput(BaseModel):
@@ -51531,7 +50997,6 @@ class ReposGetLatestPagesBuildInput(BaseModel):
 class ReposGetLatestPagesBuildOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetPagesBuildInput(BaseModel):
@@ -51576,7 +51041,6 @@ class ReposGetPagesBuildInput(BaseModel):
 class ReposGetPagesBuildOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCreatePagesDeploymentInput(BaseModel):
@@ -51666,7 +51130,6 @@ class ReposCreatePagesDeploymentInput(BaseModel):
 class ReposCreatePagesDeploymentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetPagesDeploymentInput(BaseModel):
@@ -51712,7 +51175,6 @@ class ReposGetPagesDeploymentInput(BaseModel):
 class ReposGetPagesDeploymentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCancelPagesDeploymentInput(BaseModel):
@@ -51790,7 +51252,6 @@ class ReposGetPagesHealthCheckInput(BaseModel):
 class ReposGetPagesHealthCheckOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCheckPrivateVulnerabilityReportingInput(BaseModel):
@@ -51827,7 +51288,6 @@ class ReposCheckPrivateVulnerabilityReportingInput(BaseModel):
 class ReposCheckPrivateVulnerabilityReportingOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposEnablePrivateVulnerabilityReportingInput(BaseModel):
@@ -52209,7 +51669,6 @@ class PullsCreateInput(BaseModel):
 class PullsCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsListReviewCommentsForRepoInput(BaseModel):
@@ -52343,7 +51802,6 @@ class PullsGetReviewCommentInput(BaseModel):
 class PullsGetReviewCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsUpdateReviewCommentInput(BaseModel):
@@ -52402,7 +51860,6 @@ class PullsUpdateReviewCommentInput(BaseModel):
 class PullsUpdateReviewCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsDeleteReviewCommentInput(BaseModel):
@@ -52587,7 +52044,6 @@ class ReactionsCreateForPullRequestReviewCommentInput(BaseModel):
 class ReactionsCreateForPullRequestReviewCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsDeleteForPullRequestCommentInput(BaseModel):
@@ -52690,7 +52146,6 @@ class PullsGetInput(BaseModel):
 class PullsGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsUpdateInput(BaseModel):
@@ -52792,7 +52247,6 @@ class PullsUpdateInput(BaseModel):
 class PullsUpdateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCreateWithPrForAuthenticatedUserInput(BaseModel):
@@ -52950,7 +52404,6 @@ class CodespacesCreateWithPrForAuthenticatedUserInput(BaseModel):
 class CodespacesCreateWithPrForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsListReviewCommentsInput(BaseModel):
@@ -53206,7 +52659,6 @@ class PullsCreateReviewCommentInput(BaseModel):
 class PullsCreateReviewCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsCreateReplyForReviewCommentInput(BaseModel):
@@ -53278,7 +52730,6 @@ class PullsCreateReplyForReviewCommentInput(BaseModel):
 class PullsCreateReplyForReviewCommentOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsListCommitsInput(BaseModel):
@@ -53541,7 +52992,6 @@ class PullsMergeInput(BaseModel):
 class PullsMergeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsMergeAsyncInput(BaseModel):
@@ -53653,7 +53103,6 @@ class PullsMergeAsyncInput(BaseModel):
 class PullsMergeAsyncOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsGetMergeAsyncResultInput(BaseModel):
@@ -53710,7 +53159,6 @@ class PullsGetMergeAsyncResultInput(BaseModel):
 class PullsGetMergeAsyncResultOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsListRequestedReviewersInput(BaseModel):
@@ -53756,7 +53204,6 @@ class PullsListRequestedReviewersInput(BaseModel):
 class PullsListRequestedReviewersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsRequestReviewersInput(BaseModel):
@@ -53812,7 +53259,6 @@ class PullsRequestReviewersInput(BaseModel):
 class PullsRequestReviewersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsRemoveRequestedReviewersInput(BaseModel):
@@ -53858,7 +53304,6 @@ class PullsRemoveRequestedReviewersInput(BaseModel):
 class PullsRemoveRequestedReviewersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsRerequestReviewersInput(BaseModel):
@@ -53914,7 +53359,6 @@ class PullsRerequestReviewersInput(BaseModel):
 class PullsRerequestReviewersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsListReviewsInput(BaseModel):
@@ -54070,7 +53514,6 @@ class PullsCreateReviewInput(BaseModel):
 class PullsCreateReviewOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsGetReviewInput(BaseModel):
@@ -54127,7 +53570,6 @@ class PullsGetReviewInput(BaseModel):
 class PullsGetReviewOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsUpdateReviewInput(BaseModel):
@@ -54196,7 +53638,6 @@ class PullsUpdateReviewInput(BaseModel):
 class PullsUpdateReviewOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsDeletePendingReviewInput(BaseModel):
@@ -54253,7 +53694,6 @@ class PullsDeletePendingReviewInput(BaseModel):
 class PullsDeletePendingReviewOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsListCommentsForReviewInput(BaseModel):
@@ -54407,7 +53847,6 @@ class PullsDismissReviewInput(BaseModel):
 class PullsDismissReviewOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsSubmitReviewInput(BaseModel):
@@ -54487,7 +53926,6 @@ class PullsSubmitReviewInput(BaseModel):
 class PullsSubmitReviewOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullsUpdateBranchInput(BaseModel):
@@ -54544,7 +53982,6 @@ class PullsUpdateBranchInput(BaseModel):
 class PullsUpdateBranchOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetReadmeInput(BaseModel):
@@ -54590,7 +54027,6 @@ class ReposGetReadmeInput(BaseModel):
 class ReposGetReadmeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetReadmeInDirectoryInput(BaseModel):
@@ -54647,7 +54083,6 @@ class ReposGetReadmeInDirectoryInput(BaseModel):
 class ReposGetReadmeInDirectoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListReleasesInput(BaseModel):
@@ -54836,7 +54271,6 @@ class ReposCreateReleaseInput(BaseModel):
 class ReposCreateReleaseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetReleaseAssetInput(BaseModel):
@@ -54882,7 +54316,6 @@ class ReposGetReleaseAssetInput(BaseModel):
 class ReposGetReleaseAssetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateReleaseAssetInput(BaseModel):
@@ -54960,7 +54393,6 @@ class ReposUpdateReleaseAssetInput(BaseModel):
 class ReposUpdateReleaseAssetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteReleaseAssetInput(BaseModel):
@@ -55082,7 +54514,6 @@ class ReposGenerateReleaseNotesInput(BaseModel):
 class ReposGenerateReleaseNotesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetLatestReleaseInput(BaseModel):
@@ -55117,7 +54548,6 @@ class ReposGetLatestReleaseInput(BaseModel):
 class ReposGetLatestReleaseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetReleaseByTagInput(BaseModel):
@@ -55163,7 +54593,6 @@ class ReposGetReleaseByTagInput(BaseModel):
 class ReposGetReleaseByTagOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetReleaseInput(BaseModel):
@@ -55209,7 +54638,6 @@ class ReposGetReleaseInput(BaseModel):
 class ReposGetReleaseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateReleaseInput(BaseModel):
@@ -55344,7 +54772,6 @@ class ReposUpdateReleaseInput(BaseModel):
 class ReposUpdateReleaseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteReleaseInput(BaseModel):
@@ -55529,7 +54956,6 @@ class ReposUploadReleaseAssetInput(BaseModel):
 class ReposUploadReleaseAssetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsListForReleaseInput(BaseModel):
@@ -55662,7 +55088,6 @@ class ReactionsCreateForReleaseInput(BaseModel):
 class ReactionsCreateForReleaseOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReactionsDeleteForReleaseInput(BaseModel):
@@ -55958,7 +55383,6 @@ class ReposCreateRepoRulesetInput(BaseModel):
 class ReposCreateRepoRulesetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetRepoRuleSuitesInput(BaseModel):
@@ -56124,7 +55548,6 @@ class ReposGetRepoRuleSuiteInput(BaseModel):
 class ReposGetRepoRuleSuiteOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetRepoRulesetInput(BaseModel):
@@ -56181,7 +55604,6 @@ class ReposGetRepoRulesetInput(BaseModel):
 class ReposGetRepoRulesetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposUpdateRepoRulesetInput(BaseModel):
@@ -56293,7 +55715,6 @@ class ReposUpdateRepoRulesetInput(BaseModel):
 class ReposUpdateRepoRulesetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposDeleteRepoRulesetInput(BaseModel):
@@ -56458,7 +55879,6 @@ class ReposGetRepoRulesetVersionInput(BaseModel):
 class ReposGetRepoRulesetVersionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningListAlertsForRepoInput(BaseModel):
@@ -56767,7 +56187,6 @@ class SecretScanningGetAlertInput(BaseModel):
 class SecretScanningGetAlertOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningUpdateAlertInput(BaseModel):
@@ -56823,7 +56242,6 @@ class SecretScanningUpdateAlertInput(BaseModel):
 class SecretScanningUpdateAlertOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningListLocationsForAlertInput(BaseModel):
@@ -57039,7 +56457,6 @@ class SecretScanningBulkCreateRepoCustomPatternsInput(BaseModel):
 class SecretScanningBulkCreateRepoCustomPatternsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningBulkDeleteRepoCustomPatternsInput(BaseModel):
@@ -57131,7 +56548,6 @@ class SecretScanningUpdateRepoCustomPatternInput(BaseModel):
 class SecretScanningUpdateRepoCustomPatternOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningCreatePushProtectionBypassInput(BaseModel):
@@ -57190,7 +56606,6 @@ class SecretScanningCreatePushProtectionBypassInput(BaseModel):
 class SecretScanningCreatePushProtectionBypassOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecretScanningGetScanHistoryInput(BaseModel):
@@ -57225,7 +56640,6 @@ class SecretScanningGetScanHistoryInput(BaseModel):
 class SecretScanningGetScanHistoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesListRepositoryAdvisoriesInput(BaseModel):
@@ -57465,7 +56879,6 @@ class SecurityAdvisoriesCreateRepositoryAdvisoryInput(BaseModel):
 class SecurityAdvisoriesCreateRepositoryAdvisoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesCreatePrivateVulnerabilityReportInput(BaseModel):
@@ -57581,7 +56994,6 @@ class SecurityAdvisoriesCreatePrivateVulnerabilityReportInput(BaseModel):
 class SecurityAdvisoriesCreatePrivateVulnerabilityReportOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesGetRepositoryAdvisoryInput(BaseModel):
@@ -57629,7 +57041,6 @@ class SecurityAdvisoriesGetRepositoryAdvisoryInput(BaseModel):
 class SecurityAdvisoriesGetRepositoryAdvisoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesUpdateRepositoryAdvisoryInput(BaseModel):
@@ -57800,7 +57211,6 @@ class SecurityAdvisoriesUpdateRepositoryAdvisoryInput(BaseModel):
 class SecurityAdvisoriesUpdateRepositoryAdvisoryOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesCreateRepositoryAdvisoryCveInput(BaseModel):
@@ -57848,7 +57258,6 @@ class SecurityAdvisoriesCreateRepositoryAdvisoryCveInput(BaseModel):
 class SecurityAdvisoriesCreateRepositoryAdvisoryCveOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SecurityAdvisoriesCreateForkInput(BaseModel):
@@ -57894,7 +57303,6 @@ class SecurityAdvisoriesCreateForkInput(BaseModel):
 class SecurityAdvisoriesCreateForkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullRequestStacksListInput(BaseModel):
@@ -58007,7 +57415,6 @@ class PullRequestStacksCreateInput(BaseModel):
 class PullRequestStacksCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullRequestStacksGetInput(BaseModel):
@@ -58053,7 +57460,6 @@ class PullRequestStacksGetInput(BaseModel):
 class PullRequestStacksGetOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullRequestStacksAddInput(BaseModel):
@@ -58112,7 +57518,6 @@ class PullRequestStacksAddInput(BaseModel):
 class PullRequestStacksAddOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PullRequestStacksUnstackInput(BaseModel):
@@ -58158,7 +57563,6 @@ class PullRequestStacksUnstackInput(BaseModel):
 class PullRequestStacksUnstackOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityListStargazersForRepoInput(BaseModel):
@@ -58249,7 +57653,6 @@ class ActivityGetStargazerCountForRepoInput(BaseModel):
 class ActivityGetStargazerCountForRepoOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityGetStargazerHistoryForRepoInput(BaseModel):
@@ -58440,7 +57843,6 @@ class ReposGetParticipationStatsInput(BaseModel):
 class ReposGetParticipationStatsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetPunchCardStatsInput(BaseModel):
@@ -58561,7 +57963,6 @@ class ReposCreateCommitStatusInput(BaseModel):
 class ReposCreateCommitStatusOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityListWatchersForRepoInput(BaseModel):
@@ -58650,7 +58051,6 @@ class ActivityGetRepoSubscriptionInput(BaseModel):
 class ActivityGetRepoSubscriptionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivitySetRepoSubscriptionInput(BaseModel):
@@ -58707,7 +58107,6 @@ class ActivitySetRepoSubscriptionInput(BaseModel):
 class ActivitySetRepoSubscriptionOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ActivityDeleteRepoSubscriptionInput(BaseModel):
@@ -58946,7 +58345,6 @@ class ReposGetAllTopicsInput(BaseModel):
 class ReposGetAllTopicsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposReplaceAllTopicsInput(BaseModel):
@@ -58992,7 +58390,6 @@ class ReposReplaceAllTopicsInput(BaseModel):
 class ReposReplaceAllTopicsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetClonesInput(BaseModel):
@@ -59038,7 +58435,6 @@ class ReposGetClonesInput(BaseModel):
 class ReposGetClonesOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposGetTopPathsInput(BaseModel):
@@ -59148,7 +58544,6 @@ class ReposGetViewsInput(BaseModel):
 class ReposGetViewsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposTransferInput(BaseModel):
@@ -59216,7 +58611,6 @@ class ReposTransferInput(BaseModel):
 class ReposTransferOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposCheckVulnerabilityAlertsInput(BaseModel):
@@ -59444,7 +58838,6 @@ class ReposCreateUsingTemplateInput(BaseModel):
 class ReposCreateUsingTemplateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListPublicInput(BaseModel):
@@ -59533,7 +58926,6 @@ class SearchCodeInput(BaseModel):
 class SearchCodeOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SearchCommitsInput(BaseModel):
@@ -59601,7 +58993,6 @@ class SearchCommitsInput(BaseModel):
 class SearchCommitsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SearchIssuesAndPullRequestsInput(BaseModel):
@@ -59706,7 +59097,6 @@ class SearchIssuesAndPullRequestsInput(BaseModel):
 class SearchIssuesAndPullRequestsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SearchLabelsInput(BaseModel):
@@ -59785,7 +59175,6 @@ class SearchLabelsInput(BaseModel):
 class SearchLabelsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SearchReposInput(BaseModel):
@@ -59853,7 +59242,6 @@ class SearchReposInput(BaseModel):
 class SearchReposOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SearchTopicsInput(BaseModel):
@@ -59899,7 +59287,6 @@ class SearchTopicsInput(BaseModel):
 class SearchTopicsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class SearchUsersInput(BaseModel):
@@ -59967,7 +59354,6 @@ class SearchUsersInput(BaseModel):
 class SearchUsersOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsGetLegacyInput(BaseModel):
@@ -59991,7 +59377,6 @@ class TeamsGetLegacyInput(BaseModel):
 class TeamsGetLegacyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsUpdateLegacyInput(BaseModel):
@@ -60092,7 +59477,6 @@ class TeamsUpdateLegacyInput(BaseModel):
 class TeamsUpdateLegacyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsDeleteLegacyInput(BaseModel):
@@ -60343,7 +59727,6 @@ class TeamsGetMembershipForUserLegacyInput(BaseModel):
 class TeamsGetMembershipForUserLegacyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsAddOrUpdateMembershipForUserLegacyInput(BaseModel):
@@ -60391,7 +59774,6 @@ class TeamsAddOrUpdateMembershipForUserLegacyInput(BaseModel):
 class TeamsAddOrUpdateMembershipForUserLegacyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsRemoveMembershipForUserLegacyInput(BaseModel):
@@ -60516,7 +59898,6 @@ class TeamsCheckPermissionsForRepoLegacyInput(BaseModel):
 class TeamsCheckPermissionsForRepoLegacyOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class TeamsAddOrUpdateRepoPermissionsLegacyInput(BaseModel):
@@ -60666,7 +60047,6 @@ class UsersGetAuthenticatedInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["users_get_authenticated"] = "users_get_authenticated"
-    pass
 
 
 UsersGetAuthenticatedOutput = RestResponseOutput
@@ -60770,7 +60150,6 @@ class UsersUpdateAuthenticatedInput(BaseModel):
 class UsersUpdateAuthenticatedOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersListBlockedByAuthenticatedUserInput(BaseModel):
@@ -60915,7 +60294,6 @@ class CodespacesListForAuthenticatedUserInput(BaseModel):
 class CodespacesListForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCreateForAuthenticatedUserInput(BaseModel):
@@ -60940,7 +60318,6 @@ class CodespacesCreateForAuthenticatedUserInput(BaseModel):
 class CodespacesCreateForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesListSecretsForAuthenticatedUserInput(BaseModel):
@@ -60977,7 +60354,6 @@ class CodespacesListSecretsForAuthenticatedUserInput(BaseModel):
 class CodespacesListSecretsForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetPublicKeyForAuthenticatedUserInput(BaseModel):
@@ -60987,13 +60363,11 @@ class CodespacesGetPublicKeyForAuthenticatedUserInput(BaseModel):
     action: Literal["codespaces_get_public_key_for_authenticated_user"] = (
         "codespaces_get_public_key_for_authenticated_user"
     )
-    pass
 
 
 class CodespacesGetPublicKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetSecretForAuthenticatedUserInput(BaseModel):
@@ -61019,7 +60393,6 @@ class CodespacesGetSecretForAuthenticatedUserInput(BaseModel):
 class CodespacesGetSecretForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCreateOrUpdateSecretForAuthenticatedUserInput(BaseModel):
@@ -61079,7 +60452,6 @@ class CodespacesCreateOrUpdateSecretForAuthenticatedUserInput(BaseModel):
 class CodespacesCreateOrUpdateSecretForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesDeleteSecretForAuthenticatedUserInput(BaseModel):
@@ -61128,7 +60500,6 @@ class CodespacesListRepositoriesForSecretForAuthenticatedInput(BaseModel):
 class CodespacesListRepositoriesForSecretForAuthenticatedOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesSetRepositoriesForSecretForAuthenticatedInput(BaseModel):
@@ -61254,7 +60625,6 @@ class CodespacesGetForAuthenticatedUserInput(BaseModel):
 class CodespacesGetForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesUpdateForAuthenticatedUserInput(BaseModel):
@@ -61313,7 +60683,6 @@ class CodespacesUpdateForAuthenticatedUserInput(BaseModel):
 class CodespacesUpdateForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesDeleteForAuthenticatedUserInput(BaseModel):
@@ -61339,7 +60708,6 @@ class CodespacesDeleteForAuthenticatedUserInput(BaseModel):
 class CodespacesDeleteForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesExportForAuthenticatedUserInput(BaseModel):
@@ -61365,7 +60733,6 @@ class CodespacesExportForAuthenticatedUserInput(BaseModel):
 class CodespacesExportForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesGetExportDetailsForAuthenticatedUserInput(BaseModel):
@@ -61402,7 +60769,6 @@ class CodespacesGetExportDetailsForAuthenticatedUserInput(BaseModel):
 class CodespacesGetExportDetailsForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesCodespaceMachinesForAuthenticatedUserInput(BaseModel):
@@ -61428,7 +60794,6 @@ class CodespacesCodespaceMachinesForAuthenticatedUserInput(BaseModel):
 class CodespacesCodespaceMachinesForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesPublishForAuthenticatedUserInput(BaseModel):
@@ -61476,7 +60841,6 @@ class CodespacesPublishForAuthenticatedUserInput(BaseModel):
 class CodespacesPublishForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesStartForAuthenticatedUserInput(BaseModel):
@@ -61502,7 +60866,6 @@ class CodespacesStartForAuthenticatedUserInput(BaseModel):
 class CodespacesStartForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CodespacesStopForAuthenticatedUserInput(BaseModel):
@@ -61528,7 +60891,6 @@ class CodespacesStopForAuthenticatedUserInput(BaseModel):
 class CodespacesStopForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesListDockerMigrationConflictingPackagesFor1Input(BaseModel):
@@ -61538,7 +60900,6 @@ class PackagesListDockerMigrationConflictingPackagesFor1Input(BaseModel):
     action: Literal["packages_list_docker_migration_conflicting_packages_for_1"] = (
         "packages_list_docker_migration_conflicting_packages_for_1"
     )
-    pass
 
 
 PackagesListDockerMigrationConflictingPackagesFor1Output = RestResponseOutput
@@ -61630,7 +60991,6 @@ class UsersDeleteEmailForAuthenticatedUserInput(BaseModel):
     action: Literal["users_delete_email_for_authenticated_user"] = (
         "users_delete_email_for_authenticated_user"
     )
-    pass
 
 
 UsersDeleteEmailForAuthenticatedUserOutput = RestResponseOutput
@@ -61837,7 +61197,6 @@ class UsersCreateGpgKeyForAuthenticatedUserInput(BaseModel):
 class UsersCreateGpgKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersGetGpgKeyForAuthenticatedUserInput(BaseModel):
@@ -61863,7 +61222,6 @@ class UsersGetGpgKeyForAuthenticatedUserInput(BaseModel):
 class UsersGetGpgKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersDeleteGpgKeyForAuthenticatedUserInput(BaseModel):
@@ -61923,7 +61281,6 @@ class AppsListInstallationsForAuthenticatedUserInput(BaseModel):
 class AppsListInstallationsForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsListInstallationReposForAuthenticatedUserInput(BaseModel):
@@ -61971,7 +61328,6 @@ class AppsListInstallationReposForAuthenticatedUserInput(BaseModel):
 class AppsListInstallationReposForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsAddRepoToInstallationForAuthenticatedUserInput(BaseModel):
@@ -62049,7 +61405,6 @@ class InteractionsGetRestrictionsForAuthenticatedUserInput(BaseModel):
     action: Literal["interactions_get_restrictions_for_authenticated_user"] = (
         "interactions_get_restrictions_for_authenticated_user"
     )
-    pass
 
 
 InteractionsGetRestrictionsForAuthenticatedUserOutput = RestResponseOutput
@@ -62089,7 +61444,6 @@ class InteractionsSetRestrictionsForAuthenticatedUserInput(BaseModel):
 class InteractionsSetRestrictionsForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class InteractionsRemoveRestrictionsForAuthenticatedUserInput(BaseModel):
@@ -62099,7 +61453,6 @@ class InteractionsRemoveRestrictionsForAuthenticatedUserInput(BaseModel):
     action: Literal["interactions_remove_restrictions_for_authenticated_user"] = (
         "interactions_remove_restrictions_for_authenticated_user"
     )
-    pass
 
 
 InteractionsRemoveRestrictionsForAuthenticatedUserOutput = RestResponseOutput
@@ -62273,7 +61626,6 @@ class UsersCreatePublicSshKeyForAuthenticatedUserInput(BaseModel):
 class UsersCreatePublicSshKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersGetPublicSshKeyForAuthenticatedUserInput(BaseModel):
@@ -62299,7 +61651,6 @@ class UsersGetPublicSshKeyForAuthenticatedUserInput(BaseModel):
 class UsersGetPublicSshKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersDeletePublicSshKeyForAuthenticatedUserInput(BaseModel):
@@ -62461,7 +61812,6 @@ class OrgsGetMembershipForAuthenticatedUserInput(BaseModel):
 class OrgsGetMembershipForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class OrgsUpdateMembershipForAuthenticatedUserInput(BaseModel):
@@ -62498,7 +61848,6 @@ class OrgsUpdateMembershipForAuthenticatedUserInput(BaseModel):
 class OrgsUpdateMembershipForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsListForAuthenticatedUserInput(BaseModel):
@@ -62645,7 +61994,6 @@ class MigrationsStartForAuthenticatedUserInput(BaseModel):
 class MigrationsStartForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsGetStatusForAuthenticatedUserInput(BaseModel):
@@ -62681,7 +62029,6 @@ class MigrationsGetStatusForAuthenticatedUserInput(BaseModel):
 class MigrationsGetStatusForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class MigrationsGetArchiveForAuthenticatedUserInput(BaseModel):
@@ -62931,7 +62278,6 @@ class PackagesGetPackageForAuthenticatedUserInput(BaseModel):
 class PackagesGetPackageForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesDeletePackageForAuthenticatedUserInput(BaseModel):
@@ -63114,7 +62460,6 @@ class PackagesGetPackageVersionForAuthenticatedUserInput(BaseModel):
 class PackagesGetPackageVersionForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesDeletePackageVersionForAuthenticatedUserInput(BaseModel):
@@ -63615,7 +62960,6 @@ class ReposCreateForAuthenticatedUserInput(BaseModel):
 class ReposCreateForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ReposListInvitationsForAuthenticatedUserInput(BaseModel):
@@ -63762,7 +63106,6 @@ class UsersDeleteSocialAccountForAuthenticatedUserInput(BaseModel):
     action: Literal["users_delete_social_account_for_authenticated_user"] = (
         "users_delete_social_account_for_authenticated_user"
     )
-    pass
 
 
 UsersDeleteSocialAccountForAuthenticatedUserOutput = RestResponseOutput
@@ -63837,7 +63180,6 @@ class UsersCreateSshSigningKeyForAuthenticatedUserInput(BaseModel):
 class UsersCreateSshSigningKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersGetSshSigningKeyForAuthenticatedUserInput(BaseModel):
@@ -63863,7 +63205,6 @@ class UsersGetSshSigningKeyForAuthenticatedUserInput(BaseModel):
 class UsersGetSshSigningKeyForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersDeleteSshSigningKeyForAuthenticatedUserInput(BaseModel):
@@ -64191,7 +63532,6 @@ class ProjectsCreateDraftItemForAuthenticatedUserInput(BaseModel):
 class ProjectsCreateDraftItemForAuthenticatedUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersListInput(BaseModel):
@@ -64337,7 +63677,6 @@ class ProjectsCreateViewForUserInput(BaseModel):
 class ProjectsCreateViewForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersGetByUsernameInput(BaseModel):
@@ -64439,7 +63778,6 @@ class UsersListAttestationsBulkInput(BaseModel):
 class UsersListAttestationsBulkOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersDeleteAttestationsBulkInput(BaseModel):
@@ -64615,7 +63953,6 @@ class UsersListAttestationsInput(BaseModel):
 class UsersListAttestationsOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesListForUserInput(BaseModel):
@@ -64674,7 +64011,6 @@ class CopilotSpacesListForUserInput(BaseModel):
 class CopilotSpacesListForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesCreateForUserInput(BaseModel):
@@ -64754,7 +64090,6 @@ class CopilotSpacesCreateForUserInput(BaseModel):
 class CopilotSpacesCreateForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesGetForUserInput(BaseModel):
@@ -64789,7 +64124,6 @@ class CopilotSpacesGetForUserInput(BaseModel):
 class CopilotSpacesGetForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesUpdateForUserInput(BaseModel):
@@ -64880,7 +64214,6 @@ class CopilotSpacesUpdateForUserInput(BaseModel):
 class CopilotSpacesUpdateForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesDeleteForUserInput(BaseModel):
@@ -64949,7 +64282,6 @@ class CopilotSpacesListCollaboratorsForUserInput(BaseModel):
 class CopilotSpacesListCollaboratorsForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesAddCollaboratorForUserInput(BaseModel):
@@ -65019,7 +64351,6 @@ class CopilotSpacesAddCollaboratorForUserInput(BaseModel):
 class CopilotSpacesAddCollaboratorForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesUpdateCollaboratorForUserInput(BaseModel):
@@ -65089,7 +64420,6 @@ class CopilotSpacesUpdateCollaboratorForUserInput(BaseModel):
 class CopilotSpacesUpdateCollaboratorForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesRemoveCollaboratorForUserInput(BaseModel):
@@ -65182,7 +64512,6 @@ class CopilotSpacesListResourcesForUserInput(BaseModel):
 class CopilotSpacesListResourcesForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesCreateResourceForUserInput(BaseModel):
@@ -65243,7 +64572,6 @@ class CopilotSpacesCreateResourceForUserInput(BaseModel):
 class CopilotSpacesCreateResourceForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesGetResourceForUserInput(BaseModel):
@@ -65289,7 +64617,6 @@ class CopilotSpacesGetResourceForUserInput(BaseModel):
 class CopilotSpacesGetResourceForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesUpdateResourceForUserInput(BaseModel):
@@ -65348,7 +64675,6 @@ class CopilotSpacesUpdateResourceForUserInput(BaseModel):
 class CopilotSpacesUpdateResourceForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class CopilotSpacesDeleteResourceForUserInput(BaseModel):
@@ -65821,7 +65147,6 @@ class UsersGetContextForUserInput(BaseModel):
 class UsersGetContextForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class AppsGetUserInstallationInput(BaseModel):
@@ -65845,7 +65170,6 @@ class AppsGetUserInstallationInput(BaseModel):
 class AppsGetUserInstallationOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersListPublicKeysForUserInput(BaseModel):
@@ -66042,7 +65366,6 @@ class PackagesGetPackageForUserInput(BaseModel):
 class PackagesGetPackageForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesDeletePackageForUserInput(BaseModel):
@@ -66232,7 +65555,6 @@ class PackagesGetPackageVersionForUserInput(BaseModel):
 class PackagesGetPackageVersionForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class PackagesDeletePackageVersionForUserInput(BaseModel):
@@ -66444,7 +65766,6 @@ class ProjectsGetForUserInput(BaseModel):
 class ProjectsGetForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsListFieldsForUserInput(BaseModel):
@@ -66554,7 +65875,6 @@ class ProjectsAddFieldForUserInput(BaseModel):
 class ProjectsAddFieldForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsGetFieldForUserInput(BaseModel):
@@ -66600,7 +65920,6 @@ class ProjectsGetFieldForUserInput(BaseModel):
 class ProjectsGetFieldForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsListItemsForUserInput(BaseModel):
@@ -66732,7 +66051,6 @@ class ProjectsAddItemForUserInput(BaseModel):
 class ProjectsAddItemForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsGetUserItemInput(BaseModel):
@@ -66789,7 +66107,6 @@ class ProjectsGetUserItemInput(BaseModel):
 class ProjectsGetUserItemOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsUpdateItemForUserInput(BaseModel):
@@ -66846,7 +66163,6 @@ class ProjectsUpdateItemForUserInput(BaseModel):
 class ProjectsUpdateItemForUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class ProjectsDeleteItemForUserInput(BaseModel):
@@ -67223,7 +66539,6 @@ class BillingGetGithubBillingAiCreditUsageReportUserInput(BaseModel):
 class BillingGetGithubBillingAiCreditUsageReportUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetGithubBillingPremiumRequestUsageReport1Input(BaseModel):
@@ -67304,7 +66619,6 @@ class BillingGetGithubBillingPremiumRequestUsageReport1Input(BaseModel):
 class BillingGetGithubBillingPremiumRequestUsageReport1Output(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetGithubBillingUsageReportUserInput(BaseModel):
@@ -67363,7 +66677,6 @@ class BillingGetGithubBillingUsageReportUserInput(BaseModel):
 class BillingGetGithubBillingUsageReportUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class BillingGetGithubBillingUsageSummaryReportUserInput(BaseModel):
@@ -67455,7 +66768,6 @@ class BillingGetGithubBillingUsageSummaryReportUserInput(BaseModel):
 class BillingGetGithubBillingUsageSummaryReportUserOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
-    pass
 
 
 class UsersListSocialAccountsForUserInput(BaseModel):
@@ -67657,7 +66969,6 @@ class MetaGetAllVersionsInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["meta_get_all_versions"] = "meta_get_all_versions"
-    pass
 
 
 MetaGetAllVersionsOutput = RestResponseOutput
@@ -67668,7 +66979,6 @@ class MetaGetZenInput(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
     action: Literal["meta_get_zen"] = "meta_get_zen"
-    pass
 
 
 MetaGetZenOutput = RestResponseOutput
