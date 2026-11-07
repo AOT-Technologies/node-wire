@@ -26,8 +26,9 @@ Supported providers (set via LLM_PROVIDER env var):
 
 from __future__ import annotations
 
+import importlib
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, cast
 from urllib.parse import urlparse, urlunparse
 
 # Re-exported for backward compatibility; the canonical home is agents.llm_base.
@@ -78,25 +79,30 @@ OPENROUTER_TOOLS_NOTE = (
     "or personal data. Tool calling may be limited; switch back to Groq if tools fail."
 )
 
-# Optional provider classes when [agents] extras are not installed.
-GroqProvider: Optional[Type[BaseLLMProvider]] = None
-OpenAIProvider: Optional[Type[BaseLLMProvider]] = None
-GeminiProvider: Optional[Type[BaseLLMProvider]] = None
-AnthropicProvider: Optional[Type[BaseLLMProvider]] = None
+# Provider modules import their SDKs (Gemini pulls in grpc/protobuf), so load
+# only the one a caller asks for instead of all four at import time.
+_PROVIDER_MODULES = {
+    "GroqProvider": "agents.providers.groq_provider",
+    "OpenAIProvider": "agents.providers.openai_provider",
+    "GeminiProvider": "agents.providers.gemini_provider",
+    "AnthropicProvider": "agents.providers.anthropic_provider",
+}
 
-try:
-    from agents.providers.groq_provider import GroqProvider as _GroqProvider
-    from agents.providers.openai_provider import OpenAIProvider as _OpenAIProvider
-    from agents.providers.gemini_provider import GeminiProvider as _GeminiProvider
-    from agents.providers.anthropic_provider import AnthropicProvider as _AnthropicProvider
 
-    GroqProvider = _GroqProvider
-    OpenAIProvider = _OpenAIProvider
-    GeminiProvider = _GeminiProvider
-    AnthropicProvider = _AnthropicProvider
-except ImportError:
-    # Leave all four as None; create() raises ImportError with a clear message.
-    pass
+def _provider_class(name: str) -> Optional[Type[BaseLLMProvider]]:
+    """The provider class, or ``None`` when its module can't be imported."""
+    try:
+        module = importlib.import_module(_PROVIDER_MODULES[name])
+    except ImportError:
+        return None
+    return cast(Type[BaseLLMProvider], getattr(module, name))
+
+
+def __getattr__(name: str) -> Any:
+    # Keeps ``llm_factory.GroqProvider`` (etc.) working without the eager import.
+    if name in _PROVIDER_MODULES:
+        return _provider_class(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def parse_llm_option(llm_option: str) -> tuple[str, str]:
@@ -219,21 +225,25 @@ class LLMProviderFactory:
         provider = provider.lower().strip()
 
         if provider == "groq":
-            if GroqProvider is None:
+            provider_cls = _provider_class("GroqProvider")
+            if provider_cls is None:
                 raise ImportError("GroqProvider could not be loaded. Check dependencies.")
-            return GroqProvider(**kwargs)
+            return provider_cls(**kwargs)
         elif provider in ("openai", "nvidia", "ollama", "openrouter"):
-            if OpenAIProvider is None:
+            provider_cls = _provider_class("OpenAIProvider")
+            if provider_cls is None:
                 raise ImportError("OpenAIProvider could not be loaded. Check dependencies.")
-            return OpenAIProvider(**kwargs)
+            return provider_cls(**kwargs)
         elif provider == "gemini":
-            if GeminiProvider is None:
+            provider_cls = _provider_class("GeminiProvider")
+            if provider_cls is None:
                 raise ImportError("GeminiProvider could not be loaded. Check dependencies.")
-            return GeminiProvider(**kwargs)
+            return provider_cls(**kwargs)
         elif provider == "anthropic":
-            if AnthropicProvider is None:
+            provider_cls = _provider_class("AnthropicProvider")
+            if provider_cls is None:
                 raise ImportError("AnthropicProvider could not be loaded. Check dependencies.")
-            return AnthropicProvider(**kwargs)
+            return provider_cls(**kwargs)
         else:
             supported = ["groq", "openai", "gemini", "anthropic", "nvidia", "ollama", "openrouter"]
             raise ValueError(

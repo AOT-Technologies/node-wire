@@ -541,3 +541,38 @@ def test_write_private_file_replaces_a_stale_world_readable_temp(tmp_path: Path)
     assert path.read_bytes() == b"new"
     assert path.stat().st_mode & 0o777 == 0o600
     assert not stale.exists()
+
+
+def test_blocking_io_flag_propagates_and_static_token_offloads() -> None:
+    import asyncio
+    import threading
+
+    from node_wire_runtime.auth.static_token import StaticTokenAuthProvider
+    from node_wire_runtime.secrets.base import SecretProvider, TenantSecretProvider
+    from node_wire_runtime.secrets.chained import ChainedSecretProvider
+
+    seen_threads: list[str] = []
+
+    class _Remote(SecretProvider):
+        blocking_io = True
+
+        def get_secret(self, key: str) -> str:
+            seen_threads.append(threading.current_thread().name)
+            return "tok"
+
+    class _Local(SecretProvider):
+        def get_secret(self, key: str) -> str:
+            seen_threads.append(threading.current_thread().name)
+            return "tok"
+
+    assert ChainedSecretProvider(_Local(), _Remote()).blocking_io
+    assert not ChainedSecretProvider(_Local()).blocking_io
+    assert TenantSecretProvider(_Remote(), "t", "c").blocking_io
+
+    async def _run(provider: SecretProvider) -> dict:
+        auth = StaticTokenAuthProvider(secret_provider=provider, secret_key="K", cache=False)
+        return await auth.get_headers()
+
+    main = threading.current_thread().name
+    assert asyncio.run(_run(_Remote())) == asyncio.run(_run(_Local()))
+    assert seen_threads[0] != main and seen_threads[1] == main

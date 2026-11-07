@@ -102,6 +102,9 @@ def test_project_packaging(node_wire_checkout: NodeWireCheckout, tmp_path: Path)
     assert "COPY config/ /app/config/" in dockerfile
     assert f"NW_UPSTREAM_BEARER_CONNECTORS={CONNECTOR_ID}" in dockerfile
     assert "NW_MULTITENANCY_ENABLED=true" in dockerfile
+    # src/ is installed editable, so it is precompiled explicitly (UV_COMPILE_BYTECODE
+    # covers site-packages only).
+    assert "compileall -q -j 0 --invalidation-mode checked-hash src" in dockerfile
     ignored = (project / ".dockerignore").read_text().splitlines()
     # Allow-list, so a tenants file under any name (tenants.prod.yaml) stays out of the image.
     assert ignored[-2:] == ["config/*", "!config/connectors.yaml"]
@@ -149,6 +152,7 @@ def test_runtime_log_fields_and_telemetry_are_wired(
     ("relative", "old"),
     [
         ("Dockerfile", "COPY --from=builder /app/src /app/src\n"),
+        ("Dockerfile", "RUN uv sync --no-dev --frozen\n"),
         ("src/petstore_mcp/api/mcp_builder.py", "return mcp"),
         ("src/petstore_mcp/settings.py", 'env_file_encoding="utf-8",'),
         ("src/petstore_mcp/__main__.py", 'if __name__ == "__main__":'),

@@ -218,28 +218,77 @@ async def test_stripe_create_subscription_latest_invoice_payment_intent_client_s
 
 
 @pytest.mark.asyncio
-async def test_stripe_create_subscription_setup_intent_object_id():
-    """Cover _stripe_obj_id when pending_setup_intent is an object, not a string."""
+async def test_stripe_create_subscription_expanded_setup_intent_needs_no_retrieve():
+    """create expands pending_setup_intent, so its client_secret is read inline."""
     connector = _connector()
     params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
 
-    setup_intent_obj = MagicMock(id="seti_obj")
+    setup_intent_obj = MagicMock(id="seti_obj", client_secret="seti_obj_secret")
     mock_sub = MagicMock(
         id="sub_obj",
         status="incomplete",
         pending_setup_intent=setup_intent_obj,
         latest_invoice=None,
     )
-    mock_si = MagicMock(client_secret="seti_obj_secret")
 
     with (
-        patch("stripe.Subscription.create", return_value=mock_sub),
-        patch("stripe.SetupIntent.retrieve", return_value=mock_si) as mock_si_retrieve,
+        patch("stripe.Subscription.create", return_value=mock_sub) as mock_sub_create,
+        patch("stripe.SetupIntent.retrieve") as mock_si_retrieve,
     ):
         result = await connector.create_subscription(params, trace_id="test-trace")
 
     assert result.client_secret == "seti_obj_secret"
-    mock_si_retrieve.assert_called_once_with("seti_obj", api_key="sk_test_mock")
+    assert mock_sub_create.call_args.kwargs["expand"] == ["latest_invoice", "pending_setup_intent"]
+    mock_si_retrieve.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_expanded_invoice_skips_invoice_retrieve():
+    """Pre-basil API: the expanded invoice carries a payment_intent id; only the PI is fetched."""
+    connector = _connector()
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+
+    mock_sub = MagicMock(
+        id="sub_inv",
+        status="incomplete",
+        pending_setup_intent=None,
+        latest_invoice=MagicMock(id="in_abc", payment_intent="pi_abc"),
+    )
+    mock_pi = MagicMock(client_secret="pi_secret_xyz")
+
+    with (
+        patch("stripe.Subscription.create", return_value=mock_sub),
+        patch("stripe.Invoice.retrieve") as mock_inv_retrieve,
+        patch("stripe.PaymentIntent.retrieve", return_value=mock_pi) as mock_pi_retrieve,
+    ):
+        result = await connector.create_subscription(params, trace_id="test-trace")
+
+    assert result.client_secret == "pi_secret_xyz"
+    mock_inv_retrieve.assert_not_called()
+    mock_pi_retrieve.assert_called_once_with("pi_abc", api_key="sk_test_mock")
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_expanded_invoice_without_payment_intent():
+    """basil+ API: invoices have no payment_intent field, so no further calls are made."""
+    connector = _connector()
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+
+    invoice = MagicMock(id="in_new", spec=["id"])
+    mock_sub = MagicMock(
+        id="sub_new", status="incomplete", pending_setup_intent=None, latest_invoice=invoice
+    )
+
+    with (
+        patch("stripe.Subscription.create", return_value=mock_sub),
+        patch("stripe.Invoice.retrieve") as mock_inv_retrieve,
+        patch("stripe.PaymentIntent.retrieve") as mock_pi_retrieve,
+    ):
+        result = await connector.create_subscription(params, trace_id="test-trace")
+
+    assert result.client_secret is None
+    mock_inv_retrieve.assert_not_called()
+    mock_pi_retrieve.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

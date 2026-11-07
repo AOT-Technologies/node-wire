@@ -32,6 +32,10 @@ def configure_logging(verbose: bool = False, level: str | None = None) -> None:
     )
     structlog.configure(
         processors=[
+            # node-wire: drop records below the level before any processing; the
+            # per-parameter debug calls otherwise render and are discarded after
+            # (nw-stacklok-builder/UPSTREAM.md).
+            structlog.stdlib.filter_by_level,
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
             structlog.stdlib.add_logger_name,
@@ -39,4 +43,5 @@ def configure_logging(verbose: bool = False, level: str | None = None) -> None:
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
     )

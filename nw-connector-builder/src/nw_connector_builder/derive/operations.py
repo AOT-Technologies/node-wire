@@ -122,9 +122,13 @@ _RESERVED_FIELD_NAMES = frozenset(
 )
 
 
+_NON_FIELD_CHAR = re.compile(r"[^a-zA-Z0-9_]")
+_UNDERSCORE_RUN = re.compile(r"_+")
+
+
 def _sanitize_field_name(wire: str) -> str:
-    name = re.sub(r"[^a-zA-Z0-9_]", "_", wire)
-    name = re.sub(r"_+", "_", name).strip("_").lower()
+    name = _NON_FIELD_CHAR.sub("_", wire)
+    name = _UNDERSCORE_RUN.sub("_", name).strip("_").lower()
     if not name:
         name = "field"
     if name[0].isdigit():
@@ -242,7 +246,8 @@ def _body_property_plans(
     shape = _object_properties(schema)
     if shape is None:
         return None
-    properties, required = shape
+    properties, required_list = shape
+    required = set(required_list)
     plans: list[ParamPlan] = []
     for wire, prop in properties.items():
         prop = prop if isinstance(prop, dict) else {}

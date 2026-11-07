@@ -18,6 +18,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
+from agents.schema_utils import ToolConversionCache, llm_request_timeout_seconds
 
 logger = logging.getLogger("agents.providers.anthropic")
 
@@ -109,6 +110,7 @@ class AnthropicProvider(BaseLLMProvider):
         self._anthropic = anthropic
         self._client = anthropic.Anthropic(api_key=api_key)
         self._model = model
+        self._tool_cache = ToolConversionCache()
         # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.info(
             "AnthropicProvider initialised | model=%s",
@@ -121,12 +123,13 @@ class AnthropicProvider(BaseLLMProvider):
         tools: List[Dict[str, Any]],
     ) -> LLMResponse:
         claude_messages, system_prompt = _messages_to_claude(messages)
-        claude_tools = [_mcp_tool_to_claude(t) for t in tools] if tools else []
+        claude_tools = self._tool_cache.get(tools, _mcp_tool_to_claude) if tools else []
 
         kwargs: Dict[str, Any] = {
             "model": self._model,
             "max_tokens": 4096,
             "messages": claude_messages,
+            "timeout": llm_request_timeout_seconds(),
         }
         if system_prompt:
             kwargs["system"] = system_prompt

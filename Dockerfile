@@ -59,6 +59,10 @@ RUN pip install --no-cache-dir --find-links=/wheels \
     "mcp>=1.6.0,<2" \
     && rm -rf /wheels
 
+# pip already compiled site-packages; precompile the copied source too, or each
+# fresh container recompiles it on first import.
+RUN python -m compileall -q /app/src
+
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home /app app \
     && chown -R app:app /app

@@ -32,6 +32,8 @@ class AzureKeyVaultProvider(SecretProvider):
     credentials, and interactive logins without changing application code.
     """
 
+    blocking_io = True  # one Key Vault HTTP round trip per get_secret
+
     def __init__(self, vault_url: str) -> None:
         DefaultAzureCredential, SecretClient, _, _ = _import_azure()
         try:

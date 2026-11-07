@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional
 
 from node_wire_runtime.secrets import SecretProvider
 
-from .base import AuthProvider
+from .base import AuthProvider, read_secrets_off_loop
 
 logger = logging.getLogger("runtime.auth.service_account")
 
@@ -136,7 +136,7 @@ class ServiceAccountAuthProvider(AuthProvider):
         this provider. The Google auth library handles token refresh internally.
         """
         if self._credentials is None:
-            self._credentials = self._build_credentials()
+            self._credentials = await read_secrets_off_loop(self._sp, self._build_credentials)
         return self._credentials
 
     async def refresh(self) -> None:

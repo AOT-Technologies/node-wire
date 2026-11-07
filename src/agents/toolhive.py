@@ -321,6 +321,26 @@ class ToolHiveMcpClient:
             "TOOLHIVE_MCP_BEARER_TOKEN"
         ) or os.environ.get("TOOLHIVE_MCP_API_KEY")
         self._extra_headers: Dict[str, str] = dict(extra_headers or {})
+        self._http: Any = None
+
+    def _client(self) -> Any:
+        """One connection pool per client instead of a new one per JSON-RPC call."""
+        import httpx
+
+        if self._http is None or self._http.is_closed:
+            self._http = httpx.AsyncClient(timeout=60.0)
+        return self._http
+
+    async def aclose(self) -> None:
+        if self._http is not None:
+            await self._http.aclose()
+            self._http = None
+
+    async def __aenter__(self) -> "ToolHiveMcpClient":
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.aclose()
 
     def _build_request_headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {
@@ -358,8 +378,6 @@ class ToolHiveMcpClient:
 
     async def _initialize(self) -> None:
         """Send MCP initialize + initialized handshake; store session ID."""
-        import httpx
-
         init_payload = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
@@ -370,33 +388,31 @@ class ToolHiveMcpClient:
                 "clientInfo": {"name": "node-wire", "version": __version__},
             },
         }
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                self._base_url,
-                json=init_payload,
-                headers=self._build_request_headers(),
-            )
-            resp.raise_for_status()
-            session_id = resp.headers.get("Mcp-Session-Id")
-            if session_id:
-                self._session_id = session_id
-            data = resp.json()
-            if "error" in data:
-                raise RuntimeError(f"MCP initialize error: {data['error']}")
+        client = self._client()
+        resp = await client.post(
+            self._base_url,
+            json=init_payload,
+            headers=self._build_request_headers(),
+        )
+        resp.raise_for_status()
+        session_id = resp.headers.get("Mcp-Session-Id")
+        if session_id:
+            self._session_id = session_id
+        data = resp.json()
+        if "error" in data:
+            raise RuntimeError(f"MCP initialize error: {data['error']}")
 
-            # Send the initialized notification (fire-and-forget; no id = notification)
-            notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-            try:
-                await client.post(self._base_url, json=notif, headers=self._build_request_headers())
-            except Exception as exc:
-                # Notifications have no response; ignore transport errors.
-                logger.debug("MCP initialized notification failed: %s", exc)
+        # Send the initialized notification (fire-and-forget; no id = notification)
+        notif = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+        try:
+            await client.post(self._base_url, json=notif, headers=self._build_request_headers())
+        except Exception as exc:
+            # Notifications have no response; ignore transport errors.
+            logger.debug("MCP initialized notification failed: %s", exc)
 
         self._initialized = True
 
     async def _rpc(self, method: str, params: Dict[str, Any]) -> Any:
-        import httpx
-
         if not self._initialized:
             await self._initialize()
 
@@ -411,13 +427,12 @@ class ToolHiveMcpClient:
             payload["params"] = self._inject_auth_meta(params)
 
         url = self._base_url
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload, headers=self._build_request_headers())
-            resp.raise_for_status()
-            data = resp.json()
-            if "error" in data:
-                raise RuntimeError(f"MCP error: {data['error']}")
-            return data.get("result")
+        resp = await self._client().post(url, json=payload, headers=self._build_request_headers())
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data:
+            raise RuntimeError(f"MCP error: {data['error']}")
+        return data.get("result")
 
     async def list_tools(self) -> List[Dict[str, Any]]:
         result = await self._rpc("tools/list", {})
@@ -445,20 +460,31 @@ class MultiMcpClient:
         self._clients = clients
         self._tool_to_client_idx: Dict[str, int] = {}
 
+    async def aclose(self) -> None:
+        for c in self._clients:
+            close = getattr(c, "aclose", None)
+            if close is not None:
+                await close()
+
     async def list_tools(self) -> List[Dict[str, Any]]:
         merged: List[Dict[str, Any]] = []
         tool_to_idx: Dict[str, int] = {}
         success_count = 0
         fail_count = 0
 
-        for idx, c in enumerate(self._clients):
-            try:
-                tools = await c.list_tools()
-                success_count += 1
-            except Exception as exc:
-                logger.warning("MultiMcpClient: client %d unreachable, skipping: %s", idx, exc)
+        # Query servers concurrently, then merge in client order so the
+        # first-writer-wins rule below is unchanged.
+        results = await asyncio.gather(
+            *(c.list_tools() for c in self._clients), return_exceptions=True
+        )
+        for idx, tools in enumerate(results):
+            if isinstance(tools, BaseException):
+                if not isinstance(tools, Exception):
+                    raise tools
+                logger.warning("MultiMcpClient: client %d unreachable, skipping: %s", idx, tools)
                 fail_count += 1
                 continue
+            success_count += 1
             for t in tools:
                 name = t.get("name")
                 if not name:
@@ -736,7 +762,7 @@ class ToolHiveAgent:
             started = time.perf_counter()
 
             try:
-                llm_resp = self._llm.chat_with_tools(messages, tools)
+                llm_resp = await asyncio.to_thread(self._llm.chat_with_tools, messages, tools)
             except Exception as exc:
                 result.error = f"LLM error at step {step_num}: {exc}"
                 logger.error(result.error)
@@ -962,7 +988,7 @@ class ToolHiveAgent:
             started = time.perf_counter()
 
             try:
-                llm_resp = self._llm.chat_with_tools(messages, tools)
+                llm_resp = await asyncio.to_thread(self._llm.chat_with_tools, messages, tools)
             except Exception as exc:
                 logger.error("LLM error at step %d: %s", step_num, exc, exc_info=True)
                 error = (
@@ -1147,7 +1173,12 @@ async def _run_agent(args: argparse.Namespace) -> None:
         async with mcp_client_context as mcp_client:
             await _run_with_client(mcp_client, "local-stdio")
     else:
-        await _run_with_client(mcp_client_context, ",".join(urls))
+        try:
+            await _run_with_client(mcp_client_context, ",".join(urls))
+        finally:
+            close = getattr(mcp_client_context, "aclose", None)
+            if close is not None:
+                await close()
 
 
 async def _execute_task(

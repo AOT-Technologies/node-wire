@@ -116,6 +116,24 @@ async def test_selected_config_is_per_session(
     assert [r.url.host for r in upstream] == ["acme-eu.example.test", "acme.example.test"]
 
 
+async def test_selected_config_map_is_bounded(
+    node_wire_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import node_wire_toolhive.client as client_mod
+
+    monkeypatch.setattr(client_mod, "_MAX_TRACKED_SESSIONS", 2)
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    for session in ("s1", "s2"):
+        with mcp_request(_headers("acme", "tok", session=session)):
+            client.select_config("eu")
+    with mcp_request(_headers("acme", "tok", session="s1")):
+        assert client.selected_config() == "eu"  # touch s1 so s2 is least recent
+    with mcp_request(_headers("acme", "tok", session="s3")):
+        client.select_config("eu")
+
+    assert list(client._selected_config) == ["s1", "s3"]
+
+
 async def test_selecting_an_unknown_config_fails(node_wire_env: Path) -> None:
     client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
     with mcp_request(_headers("acme", "tok")), pytest.raises(NodeWireError) as excinfo:

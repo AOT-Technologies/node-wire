@@ -15,11 +15,13 @@ Steps:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
 import subprocess  # nosec B404  # local build tool; all calls below use arg lists, no shell=True
 import textwrap
+import time
 from pathlib import Path
 
 import yaml
@@ -28,6 +30,7 @@ from nw_mcp_builder.connector_class import load_connector_class
 from nw_mcp_builder.generate.connector_project import connector_dist_package_name
 from nw_mcp_builder.pipeline import run_connector_pipeline
 from nw_mcp_builder.schema.models import MCP_TOOL_NAME_LIMIT
+from nw_mcp_builder.wheel_cache import is_fresh, record_build, stamped_wheels
 from nw_mcp_builder.tool_listing import (
     DEFAULT_MAX_TOOL_LISTING_KB,
     ChooseToolMode,
@@ -156,14 +159,30 @@ def build_connector_wheels(
     *,
     python: str | None = None,
 ) -> tuple[Path, Path, Path]:
-    """Build runtime + bindings + connector wheels into each package's ``dist/``."""
-    runtime_pkg = node_wire_root / "packages" / "runtime"
-    bindings_pkg = node_wire_root / "packages" / "bindings"
+    """Build runtime + bindings + connector wheels into each package's ``dist/``.
+
+    The runtime and bindings wheels are reused while their sources are unchanged (a source
+    stamp per interpreter, see :mod:`nw_mcp_builder.wheel_cache`); the connector, just
+    regenerated, is always rebuilt.
+    """
     connector_pkg = node_wire_root / "packages" / "connectors" / connector_id
-    runtime_whl = _build_wheel(runtime_pkg, python=python)
-    bindings_whl = _build_wheel(bindings_pkg, python=python)
+    runtime_whl = _build_wheel_unless_fresh(node_wire_root, "packages/runtime", python=python)
+    bindings_whl = _build_wheel_unless_fresh(node_wire_root, "packages/bindings", python=python)
     connector_whl = _build_wheel(connector_pkg, python=python)
     return runtime_whl, bindings_whl, connector_whl
+
+
+def _build_wheel_unless_fresh(node_wire_root: Path, package: str, *, python: str | None) -> Path:
+    interpreter = hashlib.sha256((python or "default").encode()).hexdigest()[:12]
+    key = f"mcp-host-{interpreter}"
+    if is_fresh(node_wire_root, package, key):
+        wheel = max(stamped_wheels(node_wire_root, package, key), key=lambda p: p.stat().st_mtime)
+        logger.info("Reusing %s (sources unchanged)", wheel.name)
+        return wheel
+    started = time.time()
+    wheel = _build_wheel(node_wire_root / package, python=python)
+    record_build(node_wire_root, package, key, since=started)
+    return wheel
 
 
 def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
