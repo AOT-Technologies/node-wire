@@ -351,8 +351,6 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 lines.append(
                     f"    body: {body_type} | None = Field(None, json_schema_extra={body_extra!r})"
                 )
-        if len(action.params) == 0 and not has_whole_body:
-            lines.append("    pass")
         lines.append("")
         lines.append("")
 
@@ -365,7 +363,6 @@ def generate_schema_module(connector_id: str, result: DeriveResult) -> str:
                 '    model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)'
             )
             lines.append("    # OpenAPI object success schema — permissive allow for nested props")
-            lines.append("    pass")
         lines.append("")
         lines.append("")
 
