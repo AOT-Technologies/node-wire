@@ -738,6 +738,20 @@ def test_registry_file_problems_name_the_variable(
     assert "NW_API_KEYS_FILE" in str(exc.value)
 
 
+def test_registry_lookup_maps_each_key_to_its_own_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    keys = [(f"key-{i}", f"secret-{i}", f"tenant-{i}") for i in range(50)]
+    _write_registry(tmp_path, monkeypatch, *keys)
+
+    for key_id, secret, tenant in keys:
+        claims = api_key_registry_claims(secret)
+        assert claims is not None
+        assert (claims["sub"], claims["tenant_id"]) == (key_id, tenant)
+    assert api_key_registry_claims("not-a-registry-key") is None
+    assert api_key_registry_claims("") is None
+
+
 def test_registry_normalises_a_valid_entry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     entry = {"key_id": " k ", "hash": _GOOD_HASH.upper(), "tenant": " acme "}
     _registry_file(tmp_path, monkeypatch, [entry])

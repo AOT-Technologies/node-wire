@@ -41,6 +41,7 @@ backends cache internally:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from typing import Dict, Optional
@@ -107,6 +108,12 @@ class StaticTokenAuthProvider(AuthProvider):
         value = f"{self._prefix} {raw}".strip() if self._prefix else raw
         return {self._header_name: value}
 
+    async def _build_header_async(self) -> Dict[str, str]:
+        # Network-backed providers (Azure Key Vault) would block the event loop.
+        if getattr(self._secret_provider, "blocking_io", False):
+            return await asyncio.to_thread(self._build_header)
+        return self._build_header()
+
     async def get_headers(self) -> Dict[str, str]:
         """Return the header dict; cache when ``cache=True``, else re-read."""
         if not self._cache:
@@ -114,13 +121,13 @@ class StaticTokenAuthProvider(AuthProvider):
                 "StaticTokenAuthProvider: resolving secret (uncached)",
                 extra={"header": self._header_name},
             )
-            return self._build_header()
+            return await self._build_header_async()
         if self._cached_header is None:
             logger.debug(
                 "StaticTokenAuthProvider: resolving secret",
                 extra={"header": self._header_name},
             )
-            self._cached_header = self._build_header()
+            self._cached_header = await self._build_header_async()
         return dict(self._cached_header)
 
     async def refresh(self) -> None:

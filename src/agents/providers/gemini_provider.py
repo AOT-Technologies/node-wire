@@ -20,6 +20,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
+from agents.schema_utils import ToolConversionCache, llm_request_timeout_seconds
 
 logger = logging.getLogger("agents.providers.gemini")
 
@@ -69,6 +70,7 @@ class GeminiProvider(BaseLLMProvider):
         self._genai = genai
         self._model_name = model
         self._history: List[Any] = []
+        self._tool_cache = ToolConversionCache()
         # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.info(
             "GeminiProvider initialised | model=%s",
@@ -86,19 +88,17 @@ class GeminiProvider(BaseLLMProvider):
         # Build Gemini tools
         gemini_tools: Optional[List[Any]] = None
         if tools:
-            decls = []
-            for t in tools:
-                schema = _mcp_schema_to_gemini(
-                    t.get("input_schema", {"type": "object", "properties": {}})
+
+            def _declaration(t: Dict[str, Any]) -> Any:
+                return FunctionDeclaration(
+                    name=t["name"],
+                    description=t.get("description", ""),
+                    parameters=_mcp_schema_to_gemini(
+                        t.get("input_schema", {"type": "object", "properties": {}})
+                    ),
                 )
-                decls.append(
-                    FunctionDeclaration(
-                        name=t["name"],
-                        description=t.get("description", ""),
-                        parameters=schema,
-                    )
-                )
-            gemini_tools = [Tool(function_declarations=decls)]
+
+            gemini_tools = [Tool(function_declarations=self._tool_cache.get(tools, _declaration))]
 
         # Translate conversation to Gemini Contents format
         chat_history = []
@@ -147,7 +147,11 @@ class GeminiProvider(BaseLLMProvider):
         )
         chat = model.start_chat(history=chat_history[:-1] if chat_history else [])
         last_msg = chat_history[-1]["parts"] if chat_history else [last_user_content or ""]
-        response = chat.send_message(last_msg, tools=gemini_tools)
+        response = chat.send_message(
+            last_msg,
+            tools=gemini_tools,
+            request_options={"timeout": llm_request_timeout_seconds()},
+        )
 
         # Parse response
         tool_calls: List[ToolCall] = []

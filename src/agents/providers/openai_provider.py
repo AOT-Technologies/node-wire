@@ -18,7 +18,11 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
-from agents.schema_utils import openai_compatible_tool_parameters
+from agents.schema_utils import (
+    ToolConversionCache,
+    llm_request_timeout_seconds,
+    openai_compatible_tool_parameters,
+)
 
 logger = logging.getLogger("agents.providers.openai")
 
@@ -110,6 +114,7 @@ class OpenAIProvider(BaseLLMProvider):
             client_kwargs["base_url"] = base_url
         self._client = OpenAI(**client_kwargs)
         self._model = model
+        self._tool_cache = ToolConversionCache()
         # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.info(
             "OpenAIProvider initialised | model=%s | base_url=%s",
@@ -123,9 +128,13 @@ class OpenAIProvider(BaseLLMProvider):
         tools: List[Dict[str, Any]],
     ) -> LLMResponse:
         oai_messages = _messages_to_openai(messages)
-        oai_tools = [_mcp_tool_to_openai(t) for t in tools] if tools else []
+        oai_tools = self._tool_cache.get(tools, _mcp_tool_to_openai) if tools else []
 
-        kwargs: Dict[str, Any] = {"model": self._model, "messages": oai_messages}
+        kwargs: Dict[str, Any] = {
+            "model": self._model,
+            "messages": oai_messages,
+            "timeout": llm_request_timeout_seconds(),
+        }
         if oai_tools:
             kwargs["tools"] = oai_tools
             kwargs["tool_choice"] = "auto"

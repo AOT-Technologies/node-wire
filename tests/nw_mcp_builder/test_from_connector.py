@@ -358,3 +358,23 @@ def test_project_needs_its_connector_wired(fake_node_wire: Path, package_root: P
             package_root=package_root,
             skip_build_wheels=True,
         )
+
+
+def test_connector_class_is_imported_once_while_source_is_unchanged(fake_node_wire: Path) -> None:
+    from nw_mcp_builder import connector_class
+
+    logic = fake_node_wire / "src" / "node_wire_demo_conn" / "logic.py"
+    first = connector_class.load_connector_class(logic)
+    with patch.object(connector_class, "_import_connector_class") as reimport:
+        assert discover_actions(logic)  # same run, same source: no re-import
+        reimport.assert_not_called()
+
+    logic.write_text(
+        logic.read_text(encoding="utf-8").replace(
+            '@nw_action("ping")', '@nw_action("pong.renamed")'
+        ),
+        encoding="utf-8",
+    )
+    second = connector_class.load_connector_class(logic)
+    assert second is not first
+    assert "pong.renamed" in discover_actions(logic)

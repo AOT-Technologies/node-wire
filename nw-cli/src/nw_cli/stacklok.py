@@ -148,12 +148,15 @@ def _resolve_source(source: str, scope_dir: Path) -> str:
 def _prepared_doc(spec_source: str) -> Dict[str, Any] | None:
     """The document of a file written by :func:`prepare_spec`, if ``spec_source`` is one."""
     path = Path(spec_source)
-    if spec_source.startswith(("http://", "https://")) or not path.is_file():
+    # prepare_spec only writes .json, so any other file isn't one of its outputs.
+    if spec_source.startswith(("http://", "https://")) or path.suffix != ".json":
+        return None
+    if not path.is_file():
         return None
     try:
         text = path.read_text(encoding="utf-8")
-        doc = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
-    except (OSError, ValueError, yaml.YAMLError):
+        doc = json.loads(text)
+    except (OSError, ValueError):
         return None
     if not isinstance(doc, dict) or not doc.get(PREPARED_SOURCE_KEY):
         return None
@@ -285,6 +288,16 @@ def validate_stacklok_scope(scope: StacklokScope, work_dir: Path) -> tuple[Scope
     Fast (no build), so callers run it before the slow stages. A scope stacklok cannot even
     load is reported as an error, not raised.
     """
+    check, scope_file, spec_file, _loaded = load_and_validate_stacklok_scope(scope, work_dir)
+    return check, scope_file, spec_file
+
+
+ValidatedScope = tuple[ScopeCheck, Path, Path, "tuple[Any, Any] | None"]
+
+
+def load_and_validate_stacklok_scope(scope: StacklokScope, work_dir: Path) -> ValidatedScope:
+    """:func:`validate_stacklok_scope`, plus the loaded ``(scope, spec)`` models (None when
+    stacklok cannot load them) so the generator doesn't parse the spec again."""
     from mcp_builder.log import configure_logging
     from mcp_builder.schema.models import load_scope
     from mcp_builder.spec import load_openapi_spec
@@ -295,17 +308,20 @@ def validate_stacklok_scope(scope: StacklokScope, work_dir: Path) -> tuple[Scope
     scope_file = scope.write(work_dir)
     spec_file = materialize_spec(scope.spec_source, work_dir)
     try:
-        result = validate_scope(load_scope(scope_file), load_openapi_spec(spec_file))
+        loaded = (load_scope(scope_file), load_openapi_spec(spec_file))
+        result = validate_scope(*loaded)
     except (ValueError, OSError, yaml.YAMLError) as exc:
         return (
             ScopeCheck(errors=[f"stacklok cannot load the scope: {exc}"], warnings=[]),
             scope_file,
             spec_file,
+            None,
         )
     return (
         ScopeCheck(errors=list(result.errors), warnings=list(result.warnings)),
         scope_file,
         spec_file,
+        loaded,
     )
 
 
@@ -319,8 +335,13 @@ def run_stacklok_generate(
     wheels: bool = True,
     lock: bool = True,
     log: LogFn | None = None,
+    validated: ValidatedScope | None = None,
 ) -> Path:
-    """Validate the scope with stacklok's validator, then run its generator in node-wire mode."""
+    """Validate the scope with stacklok's validator, then run its generator in node-wire mode.
+
+    ``validated``: the result of :func:`load_and_validate_stacklok_scope` for this scope, when
+    the caller already ran it (its files must still exist); skips validating and parsing again.
+    """
     from mcp_builder.log import configure_logging
     from mcp_builder.pipeline import run_pipeline
     from nw_stacklok.hooks import NodeWireOptions
@@ -328,7 +349,9 @@ def run_stacklok_generate(
     # stacklok logs every planning step at debug; keep the progress display readable.
     configure_logging(level="warning")
 
-    check, scope_file, spec_file = validate_stacklok_scope(scope, work_dir)
+    check, scope_file, spec_file, loaded = validated or load_and_validate_stacklok_scope(
+        scope, work_dir
+    )
     for warning in check.warnings:
         (log or print)(f"scope warning: {warning}")
     if check.errors:
@@ -348,4 +371,5 @@ def run_stacklok_generate(
         template_dir(node_wire_root),
         output_dir,
         node_wire=NodeWireOptions(node_wire_root, wheels=wheels, lock=lock),
+        preloaded=loaded,
     )

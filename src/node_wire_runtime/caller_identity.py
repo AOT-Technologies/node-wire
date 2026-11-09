@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Mapping
 
 import jwt
@@ -151,6 +152,12 @@ def load_api_key_registry() -> tuple[Mapping[str, Any], ...]:
     return _read_api_key_registry(os.environ[API_KEYS_FILE_ENV].strip())
 
 
+@lru_cache(maxsize=None)
+def _api_key_registry_index(path: str) -> Mapping[str, Mapping[str, Any]]:
+    """Registry entries by hash; unique, because the loader rejects duplicate hashes."""
+    return MappingProxyType({entry["hash"]: entry for entry in _read_api_key_registry(path)})
+
+
 def api_key_registry_claims(token: str) -> dict[str, Any] | None:
     """JWT-style claims for a registry key matching ``token``, else ``None``."""
     if not api_key_registry_configured():
@@ -160,14 +167,16 @@ def api_key_registry_claims(token: str) -> dict[str, Any] | None:
     # to brute-force; a slow KDF would only add ~300 ms of event-loop-blocking CPU to every
     # request with a bad token. Same trade-off as GitHub/Stripe-style API-key storage.
     digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    for entry in load_api_key_registry():
-        if hmac.compare_digest(digest, entry["hash"]):
-            return {
-                "sub": entry["key_id"],
-                "tenant_id": entry["tenant"],
-                "scopes": entry["scopes"],
-            }
-    return None
+    # One dict probe instead of scanning every key: this runs first on every authenticated
+    # request. The probe key is a SHA-256 digest, so its timing reveals nothing usable.
+    entry = _api_key_registry_index(os.environ[API_KEYS_FILE_ENV].strip()).get(digest)
+    if entry is None or not hmac.compare_digest(digest, entry["hash"]):
+        return None
+    return {
+        "sub": entry["key_id"],
+        "tenant_id": entry["tenant"],
+        "scopes": entry["scopes"],
+    }
 
 
 class JwtVerificationNotConfigured(jwt.InvalidTokenError):

@@ -186,6 +186,10 @@ class StripeConnector(BaseConnector):
                 default_payment_method=payment_method_id,
                 metadata=params.metadata,
                 idempotency_key=params.idempotency_key or trace_id,
+                # Return both inline instead of a retrieve round trip each. Only fields
+                # that exist in every API version stripe>=10 pins: invoice.payment_intent
+                # was removed in 2025-03-31.basil, so it is not expanded.
+                expand=["latest_invoice", "pending_setup_intent"],
             )
 
         try:
@@ -214,19 +218,16 @@ class StripeConnector(BaseConnector):
             oid = getattr(obj, "id", None)
             return str(oid) if oid is not None else str(obj)
 
+        # Expanded on create, so these are objects; a bare id (unexpanded) is still fetched.
         if pending_setup_intent:
-            si = await asyncio.to_thread(
-                stripe.SetupIntent.retrieve,
-                _stripe_obj_id(pending_setup_intent),
-                api_key=api_key,
-            )
+            si = pending_setup_intent
+            if isinstance(si, str):
+                si = await asyncio.to_thread(stripe.SetupIntent.retrieve, si, api_key=api_key)
             client_secret = getattr(si, "client_secret", None)
         elif latest_invoice_id:
-            inv = await asyncio.to_thread(
-                stripe.Invoice.retrieve,
-                _stripe_obj_id(latest_invoice_id),
-                api_key=api_key,
-            )
+            inv = latest_invoice_id
+            if isinstance(inv, str):
+                inv = await asyncio.to_thread(stripe.Invoice.retrieve, inv, api_key=api_key)
             pi_id = getattr(inv, "payment_intent", None)
             if pi_id:
                 pi = await asyncio.to_thread(

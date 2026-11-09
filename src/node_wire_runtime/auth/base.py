@@ -18,9 +18,24 @@ Both are unified behind this interface so connectors stay credential-agnostic.
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Callable, Dict, TypeVar
+
+_T = TypeVar("_T")
+
+
+async def read_secrets_off_loop(secret_provider: Any, fn: Callable[[], _T]) -> _T:
+    """Run ``fn`` (which reads from ``secret_provider``) without blocking the event loop.
+
+    Network-backed providers (Azure Key Vault) set ``blocking_io``; their reads go to a
+    thread. In-memory providers run inline, so they pay no thread hop.
+    """
+    if getattr(secret_provider, "blocking_io", False):
+        return await asyncio.to_thread(fn)
+    return fn()
+
 
 _upstream_bearer_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "_upstream_bearer", default=None

@@ -51,7 +51,7 @@ import jwt
 
 from node_wire_runtime.secrets import SecretProvider
 
-from .base import AuthProvider
+from .base import AuthProvider, read_secrets_off_loop
 
 logger = logging.getLogger("runtime.auth.oauth2")
 
@@ -255,6 +255,21 @@ class OAuth2AuthProvider(AuthProvider):
             return " ".join(self._static_scopes)
         return None
 
+    # The token URL and client id are config, not credentials, and they are logged. They are
+    # read here rather than through read_secrets_off_loop: that helper runs any callable, so
+    # CodeQL merges the return values of all its callers and would mark these as secrets.
+    async def _read_config_value(self, key: str) -> Any:
+        if getattr(self._sp, "blocking_io", False):
+            return await asyncio.to_thread(self._sp.get_secret, key)
+        return self._sp.get_secret(key)
+
+    async def _read_token_url(self) -> Any:
+        return await self._read_config_value(self._token_url_secret)
+
+    async def _read_client_id_and_token_url(self) -> tuple[Any, Any]:
+        client_id = await self._read_config_value(self._client_id_secret)
+        return client_id, await self._read_token_url()
+
     async def _fetch_token(self) -> Dict[str, Any]:
         """Dispatch to the appropriate grant method implementation."""
         if self._grant_method == "private_key_jwt":
@@ -270,18 +285,28 @@ class OAuth2AuthProvider(AuthProvider):
                 "OAuth2AuthProvider (refresh_token): 'refresh_token_secret' must be configured."
             )
 
-        client_id = self._sp.get_secret(self._client_id_secret)
-        client_secret = (
-            self._sp.get_secret(self._client_secret_secret) if self._client_secret_secret else None
+        refresh_token_secret = self._refresh_token_secret
+
+        def _read() -> tuple[Any, Any, Any, Optional[str]]:
+            client_id = self._sp.get_secret(self._client_id_secret)
+            client_secret = (
+                self._sp.get_secret(self._client_secret_secret)
+                if self._client_secret_secret
+                else None
+            )
+            # Prefer a rotated value seen earlier in this process over the secret store: some
+            # IdPs (Entra included) issue single-use refresh tokens, and the store may still
+            # hold the now-invalidated one if the rotation callback hasn't persisted the update
+            # yet (or failed, or wasn't configured at all — see _notify_refresh_token_rotated).
+            refresh_token = self._refresh_token_override or self._sp.get_secret(
+                refresh_token_secret
+            )
+            return client_id, client_secret, refresh_token, self._resolve_scopes()
+
+        client_id, client_secret, refresh_token, scope = await read_secrets_off_loop(
+            self._sp, _read
         )
-        # Prefer a rotated value seen earlier in this process over the secret store: some
-        # IdPs (Entra included) issue single-use refresh tokens, and the store may still hold
-        # the now-invalidated one if the rotation callback hasn't persisted the update yet
-        # (or failed, or wasn't configured at all — see _notify_refresh_token_rotated).
-        refresh_token = self._refresh_token_override or self._sp.get_secret(
-            self._refresh_token_secret
-        )
-        token_url = self._sp.get_secret(self._token_url_secret)
+        token_url = await self._read_token_url()
 
         post_data: Dict[str, str] = {
             "grant_type": "refresh_token",
@@ -291,7 +316,6 @@ class OAuth2AuthProvider(AuthProvider):
         if client_secret:
             post_data["client_secret"] = client_secret
 
-        scope = self._resolve_scopes()
         if scope:
             post_data["scope"] = scope
 
@@ -345,10 +369,17 @@ class OAuth2AuthProvider(AuthProvider):
                 "both 'private_key_secret' and 'kid_secret' must be configured."
             )
 
-        private_key_raw = self._sp.get_secret(self._private_key_secret)
-        kid = self._sp.get_secret(self._kid_secret)
-        client_id = self._sp.get_secret(self._client_id_secret)
-        token_url = self._sp.get_secret(self._token_url_secret)
+        private_key_secret, kid_secret = self._private_key_secret, self._kid_secret
+
+        def _read() -> tuple[Any, Any, Optional[str]]:
+            return (
+                self._sp.get_secret(private_key_secret),
+                self._sp.get_secret(kid_secret),
+                self._resolve_scopes(),
+            )
+
+        private_key_raw, kid, scope = await read_secrets_off_loop(self._sp, _read)
+        client_id, token_url = await self._read_client_id_and_token_url()
 
         # Normalise PEM keys stored as single-line env vars with escaped newlines.
         private_key_pem = (
@@ -366,7 +397,6 @@ class OAuth2AuthProvider(AuthProvider):
             "exp": now + self._jwt_ttl_secs,
         }
 
-        scope = self._resolve_scopes()
         if scope:
             claims["scope"] = scope
 
@@ -408,16 +438,23 @@ class OAuth2AuthProvider(AuthProvider):
                 "'client_secret_secret' must be configured."
             )
 
-        client_id = self._sp.get_secret(self._client_id_secret)
-        client_secret = self._sp.get_secret(self._client_secret_secret)
-        token_url = self._sp.get_secret(self._token_url_secret)
+        client_secret_secret = self._client_secret_secret
+
+        def _read() -> tuple[Any, Any, Optional[str]]:
+            return (
+                self._sp.get_secret(self._client_id_secret),
+                self._sp.get_secret(client_secret_secret),
+                self._resolve_scopes(),
+            )
+
+        client_id, client_secret, scope = await read_secrets_off_loop(self._sp, _read)
+        token_url = await self._read_token_url()
 
         post_data: Dict[str, str] = {
             "grant_type": "client_credentials",
             "client_id": client_id,
             "client_secret": client_secret,
         }
-        scope = self._resolve_scopes()
         if scope:
             post_data["scope"] = scope
 

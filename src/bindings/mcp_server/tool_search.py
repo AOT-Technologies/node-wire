@@ -47,24 +47,28 @@ class Bm25Index:
         self._idf = {
             term: math.log(1 + (count - df + 0.5) / (df + 0.5)) for term, df in doc_freq.items()
         }
+        # term -> [(key, tf)]: a search scores only documents containing a query word.
+        self._postings: dict[str, list[tuple[str, int]]] = {}
+        for key, terms in self._terms.items():
+            for term, tf in terms.items():
+                self._postings.setdefault(term, []).append((key, tf))
 
     def search(self, query: str, *, limit: int) -> list[str]:
         """Keys of the best-matching documents, best first; only those matching a query word."""
         words = set(tokenize(query))
         scores: dict[str, float] = {}
-        for key, terms in self._terms.items():
-            score = 0.0
-            length_norm = (
-                1
-                - self._b
-                + self._b * (self._lengths[key] / self._avg_length if self._avg_length else 0.0)
-            )
-            for word in words:
-                tf = terms.get(word, 0)
-                if not tf:
-                    continue
-                score += self._idf[word] * tf * (self._k1 + 1) / (tf + self._k1 * length_norm)
-            if score > 0:
-                scores[key] = score
+        # Per document, terms are added in the same word order as a full scan would,
+        # so scores (and therefore ranking) are identical.
+        for word in words:
+            for key, tf in self._postings.get(word, ()):
+                length_norm = (
+                    1
+                    - self._b
+                    + self._b * (self._lengths[key] / self._avg_length if self._avg_length else 0.0)
+                )
+                scores[key] = scores.get(key, 0.0) + (
+                    self._idf[word] * tf * (self._k1 + 1) / (tf + self._k1 * length_norm)
+                )
+        scores = {k: v for k, v in scores.items() if v > 0}
         ranked = sorted(scores, key=lambda k: (-scores[k], k))
         return ranked[: max(limit, 0)]

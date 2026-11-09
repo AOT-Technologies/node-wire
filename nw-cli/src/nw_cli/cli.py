@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 import typer
-import yaml
 from typer.core import TyperGroup
 
 try:
@@ -626,6 +625,8 @@ class _ImageProject:
 
 def _project_connectors(project: Path) -> dict[str, Any]:
     """The ``connectors`` mapping of a generated project's ``config/connectors.yaml``."""
+    import yaml
+
     try:
         doc = yaml.safe_load((project / "config" / "connectors.yaml").read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
@@ -1068,48 +1069,51 @@ def _stacklok_phase3(
     """
     from nw_cli.stacklok import (
         default_output_dir,
+        load_and_validate_stacklok_scope,
         read_scope,
         run_stacklok_generate,
         run_stacklok_wheel_build,
-        validate_stacklok_scope,
     )
 
     scoped = read_scope(scope_file, connector_id)
     out = output_dir or default_output_dir(node_wire_root)
-    if not reviewed:
-        # Seconds, before the minutes of codegen and wheel builds an invalid scope would waste.
-        with tempfile.TemporaryDirectory(prefix="nw-validate-") as work:
-            check, _, _ = validate_stacklok_scope(scoped, Path(work))
-        if not check.ok:
-            raise StageError(
-                f"Scope {scope_file} fails stacklok validation:\n"
-                + "\n".join(f"  - {e}" for e in check.errors)
-            )
-    replace_output = force or _confirm_replace(progress, out / f"{scoped.server_name}-mcp")
-
-    # Always regenerated: the scope's endpoints must map onto a connector built from this
-    # very spec. nw-connector-builder still refuses to overwrite a hand-written connector.
-    progress.run_stage(
-        "connector",
-        lambda: _build_connector(
-            progress,
-            node_wire_root,
-            spec=scoped.connector_spec_source,
-            connector_id=scoped.connector_id,
-            wire=True,
-            force=True,
-            base_url=scoped.base_url,
-            auth=auth or scoped.connector_auth,
-            headers=headers or scoped.connector_headers,
-        ),
-    )
-    progress.run_stage(
-        "wheel",
-        lambda: run_stacklok_wheel_build(
-            node_wire_root, scoped.connector_id, log=progress.log, output=progress.output
-        ),
-    )
+    # One work dir for the whole phase: the early validation's files and loaded spec are
+    # handed to the generator instead of being validated and parsed again.
     with tempfile.TemporaryDirectory(prefix="nw-stacklok-") as work:
+        validated = None
+        if not reviewed:
+            # Seconds, before the minutes of codegen and wheel builds an invalid scope would waste.
+            validated = load_and_validate_stacklok_scope(scoped, Path(work))
+            check = validated[0]
+            if not check.ok:
+                raise StageError(
+                    f"Scope {scope_file} fails stacklok validation:\n"
+                    + "\n".join(f"  - {e}" for e in check.errors)
+                )
+        replace_output = force or _confirm_replace(progress, out / f"{scoped.server_name}-mcp")
+
+        # Always regenerated: the scope's endpoints must map onto a connector built from this
+        # very spec. nw-connector-builder still refuses to overwrite a hand-written connector.
+        progress.run_stage(
+            "connector",
+            lambda: _build_connector(
+                progress,
+                node_wire_root,
+                spec=scoped.connector_spec_source,
+                connector_id=scoped.connector_id,
+                wire=True,
+                force=True,
+                base_url=scoped.base_url,
+                auth=auth or scoped.connector_auth,
+                headers=headers or scoped.connector_headers,
+            ),
+        )
+        progress.run_stage(
+            "wheel",
+            lambda: run_stacklok_wheel_build(
+                node_wire_root, scoped.connector_id, log=progress.log, output=progress.output
+            ),
+        )
         project = progress.run_stage(
             "stacklok",
             lambda: run_stacklok_generate(
@@ -1120,6 +1124,7 @@ def _stacklok_phase3(
                 force_output=replace_output,
                 lock=not no_lock,
                 log=progress.log,
+                validated=validated,
             ),
         )
     progress.result("MCP server", ui.display_path(project, node_wire_root))

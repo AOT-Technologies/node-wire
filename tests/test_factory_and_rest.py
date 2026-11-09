@@ -430,3 +430,38 @@ async def test_factory_instances_cache_safe_under_concurrent_get_and_invalidate(
     with factory._instances_guard:
         _ = list(factory._instances.items())
         assert len(factory._instances) <= 1
+
+
+@pytest.mark.asyncio
+async def test_factory_locks_are_dropped_with_their_instances(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """_locks must stay bounded like _instances (evicted or invalidated keys go)."""
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
+    factory = ConnectorFactory()
+    factory.store.init(
+        {
+            DEFAULT_TENANT: {
+                "http_generic": [
+                    {"name": f"c{i}", "default": i == 0, "config": {}} for i in range(5)
+                ],
+            }
+        }
+    )
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", lambda self, record: MagicMock())
+    factory._max_instances = 2
+
+    for i in range(5):
+        await factory.get("http_generic", tenant_id=DEFAULT_TENANT, config_name=f"c{i}")
+    assert set(factory._instances) == {
+        (DEFAULT_TENANT, "http_generic", "c3"),
+        (DEFAULT_TENANT, "http_generic", "c4"),
+    }
+    assert set(factory._locks) <= set(factory._instances)
+
+    factory.invalidate_configs(DEFAULT_TENANT, "http_generic", ["c3", "c4"])
+    assert factory._locks == {}
+    # A dropped lock is recreated on demand.
+    await factory.get("http_generic", tenant_id=DEFAULT_TENANT, config_name="c1")
+    assert (DEFAULT_TENANT, "http_generic", "c1") in factory._instances

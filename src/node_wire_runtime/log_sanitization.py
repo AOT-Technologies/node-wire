@@ -9,6 +9,8 @@ from __future__ import annotations
 import contextvars
 import logging
 import re
+import weakref
+from functools import lru_cache
 from typing import Any, Optional
 
 import httpx
@@ -90,6 +92,7 @@ def _normalize_key(key: str) -> str:
     return key.lower().replace("_", "").replace("-", "").replace(" ", "")
 
 
+@lru_cache(maxsize=4096)
 def _is_phi_key(key: str) -> bool:
     if key.lower() in _ALWAYS_REDACT_KEYS:
         return True
@@ -97,6 +100,7 @@ def _is_phi_key(key: str) -> bool:
     return any(s in k for s in _SENSITIVE_SUBSTRINGS)
 
 
+@lru_cache(maxsize=4096)
 def _is_secret_key(key: str) -> bool:
     k = _normalize_key(key)
     return any(s in k for s in _SECRET_SUBSTRINGS)
@@ -167,10 +171,21 @@ def sanitize_log_record(record: logging.LogRecord) -> None:
 
 
 class SanitizingLogFilter(logging.Filter):
-    """Apply value-aware redaction to every log record before handlers/export."""
+    """Apply value-aware redaction to every log record before handlers/export.
+
+    The filter sits on the root logger and on every handler, so one record passes
+    through it several times. Sanitizing is idempotent, so later passes skip
+    records already done (tracked out of band: a marker attribute would be
+    exported by the OTLP handler).
+    """
+
+    _done: "weakref.WeakSet[logging.LogRecord]" = weakref.WeakSet()
 
     def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        if record in self._done:
+            return True
         sanitize_log_record(record)
+        self._done.add(record)
         return True
 
 

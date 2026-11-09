@@ -101,3 +101,29 @@ def test_build_connector_wheels_calls_all_three(tmp_path: Path) -> None:
     with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=fake_build):
         out = build_connector_wheels(tmp_path, "demo")
     assert out == (r_whl, b_whl, c_whl)
+
+
+def test_unchanged_runtime_and_bindings_wheels_are_reused(tmp_path: Path) -> None:
+    built: list[str] = []
+    for pkg in ("runtime", "bindings", "connectors/demo"):
+        (tmp_path / "packages" / pkg).mkdir(parents=True)
+        (tmp_path / "packages" / pkg / "setup.py").write_text(pkg, encoding="utf-8")
+
+    def fake_build(package_dir: Path, *, python: str | None = None) -> Path:
+        built.append(package_dir.name)
+        whl = package_dir / "dist" / f"{package_dir.name}-{len(built)}.whl"
+        whl.parent.mkdir(parents=True, exist_ok=True)
+        whl.write_bytes(b"w")
+        return whl
+
+    with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=fake_build):
+        first = build_connector_wheels(tmp_path, "demo")
+        second = build_connector_wheels(tmp_path, "demo")
+        assert built == ["runtime", "bindings", "demo", "demo"]
+        assert second[:2] == first[:2]
+
+        (tmp_path / "packages" / "runtime" / "setup.py").write_text("changed", encoding="utf-8")
+        build_connector_wheels(tmp_path, "demo")
+        # A different interpreter is a different build flavour.
+        build_connector_wheels(tmp_path, "demo", python="3.12")
+    assert built[4:] == ["runtime", "demo", "runtime", "bindings", "demo"]

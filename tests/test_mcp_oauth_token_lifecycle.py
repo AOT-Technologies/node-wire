@@ -308,3 +308,49 @@ async def test_refresh_tokens_skips_exchange_when_another_caller_won() -> None:
         result = await mgr.refresh_tokens(stale, http_client=client)
 
     assert result.access_token == "new"
+
+
+@pytest.mark.asyncio
+async def test_restored_tokens_read_from_store_once() -> None:
+    """Tokens persisted by an earlier process are read once, not per request."""
+    store = InMemoryTokenStore()
+    stored = stored_from_oauth_response(
+        user_id="alice",
+        mcp_server_url="https://mcp.example.com/mcp",
+        issuer="https://issuer.example",
+        access_token="persisted",
+        token_type="Bearer",
+        expires_in=3600,
+        refresh_token="rt",
+        scope=None,
+    )
+    store.save(stored)
+    reads = 0
+    real_get = store.get
+
+    def counting_get(key: str):
+        nonlocal reads
+        reads += 1
+        return real_get(key)
+
+    store.get = counting_get  # type: ignore[method-assign]
+    mgr = _manager(store=store)  # fresh manager: nothing in memory yet
+
+    assert await mgr.get_bearer_token() == "persisted"
+    assert await mgr.get_bearer_token() == "persisted"
+    assert reads == 1
+
+
+def test_audience_check_repeats_until_a_token_passes() -> None:
+    import jwt
+
+    mgr = _manager()
+    bad = jwt.encode({"aud": "https://other.example/mcp"}, "k" * 32, algorithm="HS256")
+    good = jwt.encode({"aud": "https://mcp.example.com/mcp"}, "k" * 32, algorithm="HS256")
+    for _ in range(2):
+        with pytest.raises(McpAudienceMismatch):
+            mgr.validate_access_token_audience(bad)
+    mgr.validate_access_token_audience(good)
+    mgr.validate_access_token_audience(good)
+    with pytest.raises(McpAudienceMismatch):
+        mgr.validate_access_token_audience(bad)
