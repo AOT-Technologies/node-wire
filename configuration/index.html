@@ -3137,6 +3137,11 @@ SPDX-License-Identifier: Apache-2.0
 <td><em>(unset)</em></td>
 </tr>
 <tr>
+<td><code>NW_REST_DNS_CACHE_SECONDS</code></td>
+<td>How long a host that passed the outbound SSRF DNS check (no loopback, private or metadata address) is trusted before it is resolved again. Hosts that fail the check are re-resolved on every call. <code>0</code> resolves on every call.</td>
+<td><code>30</code></td>
+</tr>
+<tr>
 <td><code>NW_REST_TRUST_ENV</code></td>
 <td>When <code>true</code>, generated REST connectors construct httpx with <code>trust_env=True</code> so <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> apply. Default remains SSRF-safe (<code>false</code>); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled.</td>
 <td><code>false</code></td>
