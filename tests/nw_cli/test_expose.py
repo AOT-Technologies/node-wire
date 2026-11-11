@@ -172,6 +172,20 @@ def test_resolve_check_detects_a_stale_list_and_resolve_fixes_it(root: Path) -> 
     assert _run("resolve", "--check").exit_code == 0
 
 
+def test_resolve_check_ignores_an_unreadable_connector_version(root: Path) -> None:
+    """CI installs only the root project, so the connector's version cannot be read there."""
+    with patch("nw_cli.expose._connector_version", return_value="1.0.0"):
+        assert _run("new", "demo", "ro", "-s", "method:GET").exit_code == 0
+        assert _run("resolve", "--check").exit_code == 0
+    file = root / "expose" / "demo" / "ro.yaml"
+    with patch("nw_cli.expose._connector_version", return_value=None):
+        assert _run("resolve", "--check").exit_code == 0
+        assert _run("resolve").exit_code == 0
+    assert yaml.safe_load(file.read_text(encoding="utf-8"))["connector_version"] == "1.0.0"
+    with patch("nw_cli.expose._connector_version", return_value="2.0.0"):
+        assert _run("resolve", "--check").exit_code == 1  # a real version change is still stale
+
+
 def test_search_lists_ranked_actions(root: Path) -> None:
     result = _run("search", "demo", "users")
     assert result.exit_code == 0 and "create_user  POST /users" in result.output

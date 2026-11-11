@@ -155,9 +155,13 @@ def _document(
     select: list[str],
     exclude: list[str],
     actions: list[str],
+    recorded_version: Optional[str] = None,
 ) -> dict[str, Any]:
     doc: dict[str, Any] = {"connector": connector_id}
-    version = _connector_version(cls)
+    # Simplified: the version is advisory. When the connector is not installed here (CI
+    # installs only the root project) keep the one the file already records, so an
+    # unreadable version never makes a profile look stale.
+    version = _connector_version(cls) or recorded_version
     if version:
         doc["connector_version"] = version
     doc["profile"] = profile
@@ -276,7 +280,15 @@ def refresh_profiles(
             if gone:
                 raise ExposeError(f"{file}: connector {cid} has no action(s) {', '.join(gone)}")
             continue
-        fresh = _document(cid, file.stem, cls, select, exclude, expand(metas, select, exclude))
+        fresh = _document(
+            cid,
+            file.stem,
+            cls,
+            select,
+            exclude,
+            expand(metas, select, exclude),
+            doc.get("connector_version"),
+        )
         if fresh == {k: doc.get(k) for k in fresh} and set(doc) == set(fresh):
             continue
         stale.append(file)

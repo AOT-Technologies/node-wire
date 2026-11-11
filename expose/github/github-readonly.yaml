@@ -1,6 +1,6 @@
 # Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
 connector: github
-connector_version: 1.1.1
+connector_version: 1.1.2
 profile: github-readonly
 select:
 - path:/repos/{owner}/{repo}/**

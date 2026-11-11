@@ -1,5 +1,6 @@
 # Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
 connector: slack_api
+connector_version: 1.0.0
 profile: slack-chat
 select:
 - path:/chat.**

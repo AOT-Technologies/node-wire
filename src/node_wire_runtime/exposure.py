@@ -44,10 +44,15 @@ def _suggest(name: str, known: Iterable[str]) -> str:
 
 
 def _connector_version(cls: type) -> Optional[str]:
-    """Installed version of the distribution that ships ``cls``; ``None`` if unknown."""
-    top = cls.__module__.split(".")[0]
+    """Installed version of the connector's own ``node-wire-<id>`` package; ``None`` if unknown.
+
+    Not ``packages_distributions()``: in a source checkout every ``node_wire_*`` module belongs
+    to the root ``node-wire`` package, whose version changes with each release, not with the
+    connector.
+    """
+    name = f"node-wire-{getattr(cls, 'connector_id', '')}".replace("_", "-")
     try:
-        return metadata.version(metadata.packages_distributions()[top][0])
+        return metadata.version(name)
     except Exception:  # noqa: BLE001 - version is advisory, never fail startup over it
         return None
 

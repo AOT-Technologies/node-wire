@@ -583,6 +583,9 @@ COPY wheels/ /wheels/
 # && …` succeeds even when pip fails). compileall exits non-zero when a package
 # ships a file that is not valid Python 3 (test data, templates); that must not
 # fail the build.
+# The local wheels (node-wire-runtime, {BINDINGS_DIST_PACKAGE}, {connector_pkg}) are
+# installed by path, not by name: a name lets pip pick a PyPI release with the
+# same version over the freshly built wheel in /wheels.
 RUN --mount=type=cache,target=/root/.cache/pip \\
     pip install --no-compile --find-links=/wheels \\
         /wheels/*.whl "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\

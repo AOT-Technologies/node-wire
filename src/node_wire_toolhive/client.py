@@ -134,7 +134,7 @@ class NodeWireClient:
                 self.factory, _PROTOCOL, connector_ids=[self._connector_id]
             )
         return self._exposure
-      
+
     async def ensure_ready(self) -> None:
         """Build the factory (registry imports, YAML and tenant loads) off the event loop."""
         if not self._ready:

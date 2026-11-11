@@ -644,8 +644,6 @@ def generate_model_tests(connector_id: str, result: DeriveResult) -> str:
         "# SPDX-License-Identifier: Apache-2.0",
         "from __future__ import annotations",
         "",
-        "import json",
-        "",
         "from polyfactory.factories.pydantic_factory import ModelFactory",
         "",
         f"from node_wire_{connector_id} import schema as sch",

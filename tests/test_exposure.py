@@ -145,6 +145,25 @@ def test_invalid_files_refuse_to_start(expose_dir, monkeypatch, body):
         ActionExposure.from_env([_connector()])
 
 
+def test_connector_version_is_the_connectors_own_package_not_the_root(monkeypatch):
+    """In a source checkout every module belongs to the root package, whose version tracks
+    releases of the whole repo; the profile must be compared with the connector's package."""
+    from node_wire_runtime import exposure
+
+    def fake(name: str) -> str:
+        if name == "node-wire-demo":
+            return "9.9.9"
+        raise exposure.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(exposure.metadata, "version", fake)
+    assert exposure._connector_version(_Demo) == "9.9.9"
+
+    class _Other(_Demo):
+        connector_id = "demo_two"
+
+    assert exposure._connector_version(_Other) is None  # node-wire-demo-two is not installed
+
+
 def test_version_drift_warns_and_strict_refuses(expose_dir, monkeypatch, caplog):
     monkeypatch.setattr("node_wire_runtime.exposure._connector_version", lambda cls: "2.0.0")
     _profile(expose_dir, "p", "connector_version: 1.0.0\nactions: [list_things]\n")

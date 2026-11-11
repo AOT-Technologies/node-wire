@@ -92,8 +92,8 @@ def test_generated_dockerfile_installs_local_wheels_by_path() -> None:
     text = _sample_dockerfile()
     assert "/wheels/*.whl" in text
     assert "node-wire-runtime node-wire-bindings" not in text
-    
-    
+
+
 def test_generated_dockerfile_ships_bytecode() -> None:
     """The app user cannot write __pycache__, so .pyc must be built into the image;
     deleting them made every container start recompile its imports."""
