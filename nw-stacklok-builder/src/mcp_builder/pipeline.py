@@ -24,8 +24,9 @@ from mcp_builder.generate.renderers.client import render_client_module
 from mcp_builder.generate.renderers.manifests import render_manifests
 from mcp_builder.generate.renderers.tools import render_tools_module
 from mcp_builder.generate.scaffold import scaffold_project
-from mcp_builder.schema.models import load_scope
+from mcp_builder.schema.models import MCPScope, load_scope
 from mcp_builder.spec import load_openapi_spec
+from mcp_builder.spec.types import OpenAPISpec
 
 # node-wire: optional node-wire runtime mode (nw-stacklok-builder/UPSTREAM.md).
 from nw_stacklok import hooks as node_wire_hooks
@@ -40,6 +41,8 @@ def run_pipeline(
     template_dir: Path,
     output_dir: Path,
     node_wire: NodeWireOptions | None = None,
+    # node-wire: skip re-loading what the caller already loaded and validated.
+    preloaded: tuple[MCPScope, OpenAPISpec] | None = None,
 ) -> Path:
     """Run the full MCP server generation pipeline.
 
@@ -60,15 +63,20 @@ def run_pipeline(
         output_dir: Directory where the generated project will be created.
         node_wire: node-wire mode options; required when the scope has a
             ``runtime: node_wire`` block (tools then run on that connector).
+        preloaded: ``(scope, spec)`` already loaded from ``scope_yaml`` and
+            ``openapi_spec``; skips parsing them again.
 
     Returns:
         Path to the generated project directory.
     """
-    logger.info("Loading scope from %s", scope_yaml)
-    scope = load_scope(scope_yaml)
+    if preloaded is not None:
+        scope, spec = preloaded
+    else:
+        logger.info("Loading scope from %s", scope_yaml)
+        scope = load_scope(scope_yaml)
 
-    logger.info("Loading OpenAPI spec from %s", openapi_spec)
-    spec = load_openapi_spec(openapi_spec)
+        logger.info("Loading OpenAPI spec from %s", openapi_spec)
+        spec = load_openapi_spec(openapi_spec)
 
     logger.info("Building server plan for '%s'", scope.server.name)
     plan = build_server_plan(scope, spec)

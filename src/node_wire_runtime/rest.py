@@ -6,17 +6,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
 import os
 import re
+import weakref
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, Mapping, Optional, Type
 from urllib.parse import quote
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from .base_connector import BaseConnector
 from .http_safety import (
@@ -28,6 +30,25 @@ from .http_safety import (
 )
 
 logger = logging.getLogger("runtime.rest")
+
+_BASE64_RE = re.compile(r"[A-Za-z0-9+/]+={0,2}")
+
+# One pooled client per event loop (httpx clients can't cross loops), keyed by
+# client class and trust_env. Reusing it saves a TCP connect + TLS handshake per call.
+_SHARED_CLIENTS: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, Dict[Any, Any]]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _shared_client(trust_env: bool) -> Any:
+    per_loop = _SHARED_CLIENTS.setdefault(asyncio.get_running_loop(), {})
+    key = (httpx.AsyncClient, trust_env)
+    client = per_loop.get(key)
+    if client is None or getattr(client, "is_closed", False):
+        client = httpx.AsyncClient(trust_env=trust_env, follow_redirects=False)
+        per_loop[key] = client
+    return client
+
 
 __all__ = [
     "RestResponseOutput",
@@ -619,7 +640,7 @@ def _looks_base64(value: str) -> bool:
         return False
     if "=" not in value[-3:]:
         return False
-    return bool(re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", value))
+    return bool(_BASE64_RE.fullmatch(value))
 
 
 class RestConnector(BaseConnector):
@@ -809,16 +830,13 @@ class RestConnector(BaseConnector):
 
         timeout = float(os.getenv("NW_TIMEOUT", "30.0"))
         trust_env = rest_trust_env()
-        async with httpx.AsyncClient(
-            timeout=timeout, trust_env=trust_env, follow_redirects=False
-        ) as client:
-            response = await client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                timeout=timeout,
-                **body_kwargs,
-            )
+        response = await _shared_client(trust_env).request(
+            method=method.upper(),
+            url=url,
+            headers=headers,
+            timeout=timeout,
+            **body_kwargs,
+        )
 
         if response.status_code >= 500:
             response.raise_for_status()
@@ -848,6 +866,17 @@ class RestConnector(BaseConnector):
 
         if not response.content:
             return output_model.model_validate({})
+
+        # No envelope to inspect: parse and validate in one pass from bytes
+        # (pydantic-core's parser) instead of json() then a second walk.
+        if not envelope_ok_field:
+            try:
+                return output_model.model_validate_json(response.content)
+            except ValidationError as exc:
+                if not all(e.get("type") == "json_invalid" for e in exc.errors()):
+                    raise
+                # Not UTF-8 JSON: fall through to response.json(), which also
+                # accepts UTF-16/32, so results and the error below are unchanged.
 
         try:
             payload = response.json()

@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Callable, Dict, List, Optional
 
 
 def openai_compatible_tool_parameters(input_schema: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -34,3 +35,39 @@ def openai_compatible_tool_parameters(input_schema: Optional[Dict[str, Any]]) ->
         elif t != "null":
             prop["type"] = [t, "null"]
     return schema
+
+
+def llm_request_timeout_seconds() -> float:
+    """Per-request LLM timeout (``NW_LLM_TIMEOUT_SECONDS``, default 120 s).
+
+    SDK defaults are 600 s (OpenAI, Anthropic) or unbounded (Gemini); one hung
+    call would otherwise hold an agent step for ten minutes.
+    """
+    try:
+        value = float(os.environ.get("NW_LLM_TIMEOUT_SECONDS", "120"))
+    except ValueError:
+        return 120.0
+    return value if value > 0 else 120.0
+
+
+class ToolConversionCache:
+    """Convert an MCP tool list once per agent run instead of on every step.
+
+    The agent passes the same list object to every ``chat_with_tools`` call; the
+    length check also catches a list extended in place.
+    """
+
+    def __init__(self) -> None:
+        self._src: Optional[List[Dict[str, Any]]] = None
+        self._len = -1
+        self._out: List[Any] = []
+
+    def get(
+        self,
+        tools: List[Dict[str, Any]],
+        convert: Callable[[Dict[str, Any]], Any],
+    ) -> List[Any]:
+        if tools is not self._src or len(tools) != self._len:
+            self._src, self._len = tools, len(tools)
+            self._out = [convert(t) for t in tools]
+        return self._out

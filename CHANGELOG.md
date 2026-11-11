@@ -13,8 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-11-06
+
 ### Added
 
+- **`node-wire-github`** connector package, generated from GitHub's REST OpenAPI spec with
+  `nw-connector-builder` (1,239 actions). It is built by `scripts/build-packages.sh` and configured in
+  `config/connectors.yaml` and `sample.env`.
 - The playground adds a card and a generic form for every REST-exposed connector that has no
   hand-coded panel, listed by `GET /playground/connectors`. A connector built with `nw gen-all`
   appears after a server restart. In multitenancy mode the tenant header, config name and Add
@@ -38,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `bindings.invoke.invoke()` takes a required `exposure=` argument
   (`ActionExposure.unrestricted()` keeps today's behaviour).
 - The root Docker image includes the GitHub connector.
+- The playground action picker is a searchable dropdown showing each action's HTTP method, and the
+  GitHub token field lets you pick a personal access token or an OAuth token.
+
+### Fixed
+
+- `nw-connector-builder` no longer emits a redundant `pass` in generated schema models, which
+  raised CodeQL `py/unnecessary-pass` alerts.
+- `pyasn1` upgraded to 0.6.5 and GitHub Actions upgraded to resolve Dependabot security alerts.
 
 ## [1.1.1] - 2026-10-28
 
@@ -167,6 +180,7 @@ policy and [docs/public-api.md](docs/public-api.md) for the supported surface.
 - Dependency lockfile upgraded to resolve known CVEs in transitive packages.
 - Packaging, publish workflow, and security scanning aligned on the nine-package surface.
 
+[1.1.2]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.2
 [1.1.1]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.1
 [1.1.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.1.0
 [1.0.0]: https://github.com/AOT-Technologies/node-wire/releases/tag/v1.0.0

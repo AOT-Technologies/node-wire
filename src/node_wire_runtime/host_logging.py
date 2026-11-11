@@ -19,7 +19,6 @@ from node_wire_runtime.log_sanitization import (
     LOG_RECORD_STANDARD_KEYS,
     install_sanitizing_log_filter,
 )
-from node_wire_runtime.observability import init_observability
 
 _OTLP_ENDPOINT_VARS = ("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
 # Added by logging itself or by uvicorn; never runtime fields.
@@ -47,6 +46,17 @@ class ExtraFieldsFormatter(logging.Formatter):
             return line
         head, sep, tail = line.partition("\n")  # keep tracebacks below the fields
         return f"{head} {' '.join(fields)}{sep}{tail}"
+
+
+def init_observability(app_name: str) -> None:
+    """Start OpenTelemetry; imports the SDK and OTLP exporters only when called.
+
+    Those imports (protobuf, requests, the OTel SDK) are a large share of startup for
+    the MCP stdio servers, which run without a collector unless OTLP is configured.
+    """
+    from node_wire_runtime.observability import init_observability as _init_observability
+
+    _init_observability(app_name=app_name)
 
 
 def otlp_configured() -> bool:

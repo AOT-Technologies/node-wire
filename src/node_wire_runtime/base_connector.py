@@ -12,6 +12,7 @@ import time
 import uuid
 from abc import ABC
 from collections import defaultdict
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import (
     Annotated,
@@ -119,6 +120,49 @@ _caller_execution_ctx: contextvars.ContextVar[
 
 # Populated by BaseConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
+
+
+class _LazyModelDump(Mapping[str, Any]):
+    """``model.model_dump()`` as a read-only mapping, computed on first access.
+
+    Policy hooks receive the input payload, but the shipped ones never read it;
+    dumping eagerly copied every request body (including base64 file content).
+    """
+
+    __slots__ = ("_model", "_data")
+
+    def __init__(self, model: BaseModel) -> None:
+        self._model = model
+        self._data: Optional[Dict[str, Any]] = None
+
+    def _dump(self) -> Dict[str, Any]:
+        if self._data is None:
+            self._data = self._model.model_dump()
+        return self._data
+
+    def __getitem__(self, key: str) -> Any:
+        return self._dump()[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._dump())
+
+    def __len__(self) -> int:
+        return len(self._dump())
+
+    def __repr__(self) -> str:
+        return repr(self._dump())
+
+
+def _policy_action_of(model: BaseModel, payload: Mapping[str, Any], default: str) -> Any:
+    """``payload.get("action", default)`` without dumping when the field is readable."""
+    root = getattr(model, "root", model) if isinstance(model, RootModel) else model
+    if isinstance(root, BaseModel):
+        field = type(root).model_fields.get("action")
+        if field is None:
+            return default
+        if not field.exclude:
+            return getattr(root, "action")
+    return payload.get("action", default)
 
 
 def get_connector_registry() -> Dict[str, Type["BaseConnector"]]:
@@ -719,8 +763,9 @@ class BaseConnector(ABC):
 
                 # Policy hook
                 if self._policy_hook is not None:
-                    input_payload = input_model.model_dump()
-                    policy_action = str(input_payload.get("action", self.action))
+                    # Shipped hooks never read input_payload; dump only if one does.
+                    input_payload = _LazyModelDump(input_model)
+                    policy_action = str(_policy_action_of(input_model, input_payload, self.action))
                     context = PolicyContext(
                         connector_id=self.connector_id,
                         action=policy_action,
@@ -855,6 +900,11 @@ class BaseConnector(ABC):
     def sdk_action_metas(cls) -> Dict[str, NwActionMeta]:
         """Registry of action name -> metadata (for manifest/ingress)."""
         return dict(cls._action_registry)
+
+    @classmethod
+    def sdk_action_meta(cls, action: str) -> Optional[NwActionMeta]:
+        """Metadata for one action without copying the registry (per-request lookups)."""
+        return cls._action_registry.get(action)
 
     @classmethod
     def nw_action_metas(cls) -> Dict[str, NwActionMeta]:

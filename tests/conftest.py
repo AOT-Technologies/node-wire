@@ -113,6 +113,16 @@ def _rest_auth_disabled_for_tests(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _ssrf_dns_cache_cleared() -> None:
+    """Tests fake DNS per test; a passed check cached by one must not leak into the next."""
+    from node_wire_runtime.http_safety import clear_dns_check_cache
+
+    clear_dns_check_cache()
+    yield
+    clear_dns_check_cache()
+
+
+@pytest.fixture(autouse=True)
 def _tenants_isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep tenants.yaml off the repo and clear overlay between tests."""
     path = tmp_path / "tenants.yaml"

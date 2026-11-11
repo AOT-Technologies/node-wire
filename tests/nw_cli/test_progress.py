@@ -120,3 +120,17 @@ def test_a_stage_hint_replaces_the_default_hint() -> None:
     assert isinstance(raised.value.__cause__, RuntimeError)
     text = out.getvalue()
     assert "Needs Docker running" in text and "nw gen-whl" not in text
+
+
+def test_line_writer_emits_whole_lines_from_any_chunking() -> None:
+    from nw_cli.progress import _LineWriter
+
+    lines: list[str] = []
+    writer = _LineWriter(lines.append)
+    for chunk in ["par", "tial", " line\nnext\r\n", "", "\n", "x" * 3, "\r", "tail"]:
+        writer.write(chunk)
+    assert lines == ["partial line", "next", ""]
+    writer.flush()
+    assert lines == ["partial line", "next", "", "xxx\rtail"]
+    writer.flush()  # nothing pending: no empty line
+    assert len(lines) == 4

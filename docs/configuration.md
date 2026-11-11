@@ -78,6 +78,7 @@ The following variables control how each binding listens and who may call it:
 | `NW_SMTP_ALLOWED_HOSTS` | Optional comma-separated SMTP relay hostnames permitted for `smtp.send_email` (recommended for production) | _(unset = env relay only)_ |
 | `NW_HTTP_GENERIC_ALLOWED_HOSTS` | Optional egress allowlist for the `http_generic` connector only | _(unset)_ |
 | `NW_REST_ALLOWED_HOSTS` | Egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. **Required** for any `base_url` (YAML, `tenants.yaml` or `/v1`) whose host differs from the connector's spec server; without it such configs are rejected at write time and at call time. | _(unset)_ |
+| `NW_REST_DNS_CACHE_SECONDS` | How long a host that passed the outbound SSRF DNS check (no loopback, private or metadata address) is trusted before it is resolved again. Hosts that fail the check are re-resolved on every call. `0` resolves on every call. | `30` |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
 
 ### Authentication & request limits

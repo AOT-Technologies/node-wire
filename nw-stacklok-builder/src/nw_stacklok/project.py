@@ -222,6 +222,16 @@ def _update_dockerfile(
             "COPY wheels/ ./wheels/\nCOPY pyproject.toml uv.lock* README.md ./\n",
             where=path.name,
         )
+    # The project installs editable, so UV_COMPILE_BYTECODE only covers site-packages;
+    # compile src/ too, or every container start recompiles it (the runtime image sets
+    # PYTHONDONTWRITEBYTECODE). checked-hash .pyc stay valid whatever mtimes COPY leaves.
+    text = _replace_once(
+        text,
+        "RUN uv sync --no-dev --frozen\n",
+        "RUN uv sync --no-dev --frozen \\\n"
+        "    && .venv/bin/python -m compileall -q -j 0 --invalidation-mode checked-hash src\n",
+        where=path.name,
+    )
     env = {
         **RUNTIME_ENV,
         "NW_ALLOWED_CONNECTORS": connector_id,

@@ -243,3 +243,37 @@ def test_install_redacts_records_propagated_from_child_loggers() -> None:
             root.removeFilter(flt)
         for flt in original_filters:
             root.addFilter(flt)
+
+
+def test_sanitizing_filter_runs_once_per_record_and_matches_direct_sanitize(monkeypatch) -> None:
+    from node_wire_runtime import log_sanitization as ls
+
+    def _record() -> logging.LogRecord:
+        rec = logging.LogRecord("t", logging.INFO, __file__, 1, "msg %s", ("x" * 200,), None)
+        rec.api_key = "secret"
+        rec.payload = {"token": "t", "ok": 1}
+        return rec
+
+    calls = 0
+    real = ls.sanitize_log_record
+
+    def counting(record):
+        nonlocal calls
+        calls += 1
+        real(record)
+
+    monkeypatch.setattr(ls, "sanitize_log_record", counting)
+    flt = ls.SanitizingLogFilter()
+    rec = _record()
+    for _ in range(3):  # root logger + two handlers
+        assert flt.filter(rec)
+    assert calls == 1
+
+    expected = _record()
+    real(expected)
+    assert (rec.args, rec.api_key, rec.payload) == (
+        expected.args,
+        expected.api_key,
+        expected.payload,
+    )
+    assert "_nw_sanitized" not in vars(rec)

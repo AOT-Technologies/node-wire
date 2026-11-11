@@ -92,6 +92,24 @@ def test_generated_dockerfile_installs_local_wheels_by_path() -> None:
     text = _sample_dockerfile()
     assert "/wheels/*.whl" in text
     assert "node-wire-runtime node-wire-bindings" not in text
+    
+    
+def test_generated_dockerfile_ships_bytecode() -> None:
+    """The app user cannot write __pycache__, so .pyc must be built into the image;
+    deleting them made every container start recompile its imports."""
+    text = _sample_dockerfile()
+    assert "-name '*.pyc'" not in text
+    assert (
+        "&& { python -m compileall -qq -j 0 --invalidation-mode checked-hash \\\n"
+        "        /usr/local/lib/python3.13/site-packages || true; }"
+    ) in text
+    assert text.index("find /usr/local -type d -name '__pycache__'") < text.index(
+        "python -m compileall -qq -j 0"
+    )
+    host_compile = "RUN python -m compileall -qq --invalidation-mode checked-hash /app/src"
+    assert host_compile in text
+    assert text.index("COPY --chmod=0755 src/ /app/src/") < text.index(host_compile)
+    assert text.index(host_compile) < text.index("chmod -R a-w /app")
 
 
 def test_generated_dockerfile_application_tree_is_not_writable() -> None:
