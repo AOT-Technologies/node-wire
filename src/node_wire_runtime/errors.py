@@ -36,6 +36,7 @@ class ErrorCode:
     INVALID_JSON = "INVALID_JSON"
     UNKNOWN_TOOL = "UNKNOWN_TOOL"
     CONNECTOR_NOT_AVAILABLE = "CONNECTOR_NOT_AVAILABLE"
+    ACTION_NOT_EXPOSED = "ACTION_NOT_EXPOSED"
     RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
     # Tenants and named configs
     MISSING_TENANT = "MISSING_TENANT"
@@ -62,6 +63,7 @@ CATALOGUE: Dict[str, ErrorCategory] = {
     ErrorCode.INVALID_JSON: ErrorCategory.BUSINESS,
     ErrorCode.UNKNOWN_TOOL: ErrorCategory.BUSINESS,
     ErrorCode.CONNECTOR_NOT_AVAILABLE: ErrorCategory.BUSINESS,
+    ErrorCode.ACTION_NOT_EXPOSED: ErrorCategory.BUSINESS,
     ErrorCode.RATE_LIMIT_EXCEEDED: ErrorCategory.RETRYABLE,
     ErrorCode.MISSING_TENANT: ErrorCategory.AUTH,
     ErrorCode.TENANT_NOT_ALLOWED: ErrorCategory.AUTH,

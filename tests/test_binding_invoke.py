@@ -10,6 +10,7 @@ import pytest
 
 from bindings.invoke import ConnectorNotExposed, invoke
 from node_wire_runtime import ConnectorResponse
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.config_store import ConfigNotFoundError
 
 
@@ -42,6 +43,7 @@ async def test_invoke_not_exposed(fake_factory: MagicMock, fake_connector: Magic
             payload={},
             protocol="rest",
             tenant_id="__default__",
+            exposure=ActionExposure.unrestricted(),
         )
 
     fake_factory.get.assert_not_called()
@@ -60,6 +62,7 @@ async def test_invoke_config_not_found(fake_factory: MagicMock, fake_connector: 
             payload={},
             protocol="mcp",
             tenant_id="acme",
+            exposure=ActionExposure.unrestricted(),
             config_name="nope",
         )
 
@@ -76,6 +79,7 @@ async def test_invoke_action_mismatch(fake_factory: MagicMock, fake_connector: M
             payload={"action": "other"},
             protocol="grpc",
             tenant_id="__default__",
+            exposure=ActionExposure.unrestricted(),
         )
 
     fake_connector.run.assert_not_called()
@@ -90,6 +94,7 @@ async def test_invoke_happy_path(fake_factory: MagicMock, fake_connector: MagicM
         payload={"text": "hi"},
         protocol="rest",
         tenant_id="acme",
+        exposure=ActionExposure.unrestricted(),
         config_name="main",
         principal="user-1",
         scopes=("read",),
@@ -120,6 +125,7 @@ async def test_invoke_get_does_not_pass_action(fake_factory: MagicMock) -> None:
         payload={},
         protocol="rest",
         tenant_id="__default__",
+        exposure=ActionExposure.unrestricted(),
     )
 
     _, kwargs = fake_factory.get.call_args

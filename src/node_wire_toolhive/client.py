@@ -17,10 +17,11 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp.exceptions import ToolError
 
 from bindings.factory import ConnectorFactory
-from bindings.invoke import invoke
+from bindings.invoke import build_exposure, invoke
 from node_wire_runtime.auth.base import reset_upstream_bearer, set_upstream_bearer
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.errors import ErrorCode, NodeWireError, reject
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.identity import (
     is_multitenancy_enabled,
     resolve_config_name,
@@ -97,6 +98,7 @@ class NodeWireClient:
         self._connector_id = connector_id
         self._config_path = config_path
         self._factory = factory
+        self._exposure: Optional[ActionExposure] = None
         self._ready = factory is not None
         self._lock = threading.Lock()
         # LRU of session -> config name: sessions never announce their end, so an
@@ -123,6 +125,15 @@ class NodeWireClient:
                     self._ready = True
         assert self._factory is not None
         return self._factory
+
+    @property
+    def exposure(self) -> ActionExposure:
+        """This process's exposure profile (``NW_EXPOSE_PROFILE``), built on first use."""
+        if self._exposure is None:
+            self._exposure = build_exposure(
+                self.factory, _PROTOCOL, connector_ids=[self._connector_id]
+            )
+        return self._exposure
 
     async def ensure_ready(self) -> None:
         """Build the factory (registry imports, YAML and tenant loads) off the event loop."""
@@ -200,6 +211,7 @@ class NodeWireClient:
                 protocol=_PROTOCOL,
                 tenant_id=tenant_id,
                 config_name=self.selected_config(),
+                exposure=self.exposure,
             )
         except Exception as exc:  # noqa: BLE001 — surface as a tool error, never a crash
             raise self._rejected(exc, action=action, tenant_id=tenant_id) from exc

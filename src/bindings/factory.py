@@ -283,6 +283,11 @@ class ConnectorFactory:
         self._loop: asyncio.AbstractEventLoop | None = None
 
     @property
+    def config_path(self) -> str:
+        """The resolved ``connectors.yaml`` path (exposure profiles live beside its folder)."""
+        return self._config_path
+
+    @property
     def store(self) -> ConnectorConfigStore:
         """The runtime connector config store backing this factory."""
         return self._store
