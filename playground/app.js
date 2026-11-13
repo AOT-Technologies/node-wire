@@ -1137,9 +1137,8 @@ document.addEventListener('DOMContentLoaded', () => {
         google_drive: {
             config: {},
             auth: {
-                provider: 'service_account',
-                sa_json_secret: 'GOOGLE_DRIVE_SA_JSON',
-                scopes: ['https://www.googleapis.com/auth/drive'],
+                provider: 'static_token',
+                secret_key: 'GOOGLE_DRIVE_ACCESS_TOKEN',
             },
         },
         fhir_epic: {
@@ -1210,7 +1209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Format / required secret validation is server-side only (tenant_store).
     const _connectorSecretFields = {
         google_drive: [
-            { key: 'GOOGLE_DRIVE_SA_JSON', label: 'Service account JSON', type: 'textarea', required: true },
+            { key: 'GOOGLE_DRIVE_ACCESS_TOKEN', label: 'OAuth2 access token (Drive scope)', type: 'text', required: true },
         ],
         fhir_epic: [
             { key: 'EPIC_CLIENT_ID', label: 'Client ID', type: 'text', required: true },

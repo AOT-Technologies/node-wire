@@ -42,10 +42,8 @@ connectors:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
     auth:
-      provider: service_account
-      sa_json_secret: GOOGLE_DRIVE_SA_JSON
-      scopes:
-      - https://www.googleapis.com/auth/drive
+      provider: static_token
+      secret_key: GOOGLE_DRIVE_ACCESS_TOKEN  # OAuth2 access token, sent as "Authorization: Bearer"
     # OIDC / per-user Drive (ToolHive upstream bearer passthrough) — credential
     # relay, a trust-boundary decision: Node Wire forwards the caller's own inbound
     # token to Google Drive's API as-is, verifying nothing about whether that token
