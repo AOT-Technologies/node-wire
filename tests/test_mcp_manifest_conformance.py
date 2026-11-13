@@ -53,7 +53,7 @@ def test_unified_manifest_includes_representative_tools_for_each_connector() -> 
     expected_tools = {
         "http_generic_request",
         "smtp_send_email",
-        "stripe_charge",
+        "stripe_post_charges",
         "google_drive_files_list",
         "fhir_epic_read_patient",
         "fhir_cerner_read_patient",

@@ -78,7 +78,7 @@ REQUIRED_SECRETS_BY_CONNECTOR: Dict[str, List[str]] = {
     "fhir_epic": ["EPIC_CLIENT_ID", "EPIC_PRIVATE_KEY", "EPIC_KID"],
     "fhir_cerner": ["CERNER_CLIENT_ID", "CERNER_PRIVATE_KEY", "CERNER_KID"],
     "slack": ["SLACK_BOT_TOKEN"],
-    "stripe": ["stripe_api_key"],
+    "stripe": ["STRIPE_BASIC_AUTH"],
     "salesforce": [
         "SALESFORCE_CLIENT_ID",
         "SALESFORCE_CLIENT_SECRET",
@@ -103,7 +103,7 @@ SECRET_FORMAT_BY_CONNECTOR: Dict[str, Dict[str, str]] = {
         "CERNER_SCOPES": "scopes_space_separated",
     },
     "slack": {"SLACK_BOT_TOKEN": "slack_bot_token"},  # nosec B105
-    "stripe": {"stripe_api_key": "stripe_secret_key"},
+    "stripe": {"STRIPE_BASIC_AUTH": "opaque_secret"},  # nosec B105
     "salesforce": {
         "SALESFORCE_CLIENT_ID": "opaque_secret",
         "SALESFORCE_CLIENT_SECRET": "opaque_secret",  # nosec B105

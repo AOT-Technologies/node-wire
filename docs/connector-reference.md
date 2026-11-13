@@ -152,7 +152,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 ### `stripe`
 
 - **Package:** `node-wire-stripe`, `src/node_wire_stripe/`. MCP image `nw-stripe`.
-- **Secrets / settings:** `STRIPE_API_KEY`, sent raw in `Authorization` (`prefix: ""`).
+- **Secrets / settings:** `STRIPE_BASIC_AUTH` (the Stripe secret key followed by a colon, `sk_test_...:`), sent as HTTP Basic in `Authorization` (`prefix: Basic`, `encoding: base64`).
 - **Errors:** `src/node_wire_stripe/logic.py` is the worked `error_map` example
   ([Build a connector](connectors-build.md#optional-error_map-for-errormapper)).
 

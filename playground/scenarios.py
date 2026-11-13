@@ -1145,9 +1145,9 @@ async def stripe_charge_scenario(
     # STEP 2: Confirm Charge
     add_step("Confirm Charge", "pending", display_name="Process Charge")
     try:
-        from node_wire_stripe.schema import ChargeInput
+        from node_wire_stripe.schema import PostChargesInput
 
-        charge_input = ChargeInput(
+        charge_input = PostChargesInput(
             amount=payload.amount,
             currency=payload.currency,
             source=payload.source,
@@ -1157,9 +1157,11 @@ async def stripe_charge_scenario(
         charge_res = await run_action(connector, charge_input)
 
         steps[-1].status = "success"
-        steps[-1].details = f"Charge Processed: {charge_res.charge_id}"
+        charge = charge_res.model_dump()
+        charge_id = charge.get("id")
+        steps[-1].details = f"Charge Processed: {charge_id}"
         steps[-1].display_name = "Charge Successful"
-        steps[-1].data = {"raw": charge_res.model_dump()}
+        steps[-1].data = {"raw": charge}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 2 failed")
 
@@ -1167,15 +1169,15 @@ async def stripe_charge_scenario(
     add_step("Verify Transaction", "pending", display_name="Verify Receipt")
     try:
         beautiful_data = {
-            "id": charge_res.charge_id,
+            "id": charge_id,
             "type": "Payment Receipt",
             "date": datetime.now().isoformat(),
-            "status": charge_res.status,
+            "status": "succeeded" if charge.get("paid") else "failed",
             "patient_name": "Demo User",
             "author": "Stripe Gateway",
             "category": "Financial",
             "description": payload.description or "No description",
-            "content_text": f"Charge of {payload.amount / 100:.2f} {payload.currency.upper()} processed successfully. Receipt: {charge_res.receipt_url or 'N/A'}",
+            "content_text": f"Charge of {payload.amount / 100:.2f} {payload.currency.upper()} processed successfully. Receipt: {charge.get('receipt_url') or 'N/A'}",
         }
         steps[-1].status = "success"
         steps[-1].details = "Transaction Verified"
@@ -1185,7 +1187,7 @@ async def stripe_charge_scenario(
         return ScenarioResponse(
             success=True,
             steps=steps,
-            final_resource_id=charge_res.charge_id,
+            final_resource_id=charge_id,
             human_summary=f"Successfully processed {payload.amount / 100:.2f} {payload.currency.upper()} charge.",
             trace_id=trace_id,
         )
@@ -1218,19 +1220,20 @@ async def stripe_payment_intent_scenario(
 
     add_step("Create Payment Intent", "pending", display_name="Create Intent")
     try:
-        from node_wire_stripe.schema import CreatePaymentIntentInput
+        from node_wire_stripe.schema import PostPaymentIntentsInput
 
-        pi_input = CreatePaymentIntentInput(
+        pi_input = PostPaymentIntentsInput(
             amount=payload.amount,
             currency=payload.currency,
-            customer_id=payload.customer_id,
+            customer=payload.customer_id,
             payment_method=payload.payment_method,
             confirm=payload.confirm,
         )
         res = await run_action(connector, pi_input)
         steps[-1].status = "success"
-        steps[-1].details = f"Created Intent: {res.payment_intent_id}"
-        steps[-1].data = {"raw": res.model_dump()}
+        pi = res.model_dump()
+        steps[-1].details = f"Created Intent: {pi.get('id')}"
+        steps[-1].data = {"raw": pi}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 2 failed")
 
@@ -1243,8 +1246,8 @@ async def stripe_payment_intent_scenario(
         return ScenarioResponse(
             success=True,
             steps=steps,
-            final_resource_id=res.payment_intent_id,
-            human_summary=f"Successfully created payment intent {res.payment_intent_id}.",
+            final_resource_id=pi.get("id"),
+            human_summary=f"Successfully created payment intent {pi.get('id')}.",
             trace_id=trace_id,
         )
     except Exception as e:
@@ -1276,28 +1279,29 @@ async def stripe_subscription_scenario(
 
     add_step("Create Subscription", "pending", display_name="Create Sub")
     try:
-        from node_wire_stripe.schema import CreateSubscriptionInput
+        from node_wire_stripe.schema import PostSubscriptionsInput
 
-        sub_input = CreateSubscriptionInput(
-            customer_id=payload.customer_id,
-            price_id=payload.price_id,
-            card_token=payload.card_token,
+        sub_input = PostSubscriptionsInput(
+            customer=payload.customer_id,
+            items=[{"price": payload.price_id}],
+            default_source=payload.card_token,
         )
         res = await run_action(connector, sub_input)
+        sub = res.model_dump()
         steps[-1].status = "success"
-        steps[-1].details = f"Subscription Created: {res.subscription_id}"
-        steps[-1].data = {"raw": res.model_dump()}
+        steps[-1].details = f"Subscription Created: {sub.get('id')}"
+        steps[-1].data = {"raw": sub}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 2 failed")
 
     add_step("Verify Provisioning", "pending", display_name="Verify Sub")
     try:
         steps[-1].status = "success"
-        steps[-1].details = f"Subscription {res.subscription_id} is {res.status}"
+        steps[-1].details = f"Subscription {sub.get('id')} is {sub.get('status')}"
         return ScenarioResponse(
             success=True,
             steps=steps,
-            final_resource_id=res.subscription_id,
+            final_resource_id=sub.get("id"),
             human_summary="Successfully provisioned subscription for customer.",
             trace_id=trace_id,
         )
@@ -1330,24 +1334,27 @@ async def stripe_cancel_subscription_scenario(
 
     add_step("Cancel Subscription", "pending", display_name="Cancel Sub")
     try:
-        from node_wire_stripe.schema import CancelSubscriptionInput
+        from node_wire_stripe.schema import DeleteSubscriptionsSubscriptionExposedIdInput
 
-        can_input = CancelSubscriptionInput(subscription_id=payload.subscription_id)
+        can_input = DeleteSubscriptionsSubscriptionExposedIdInput(
+            subscription_exposed_id=payload.subscription_id
+        )
         res = await run_action(connector, can_input)
+        sub = res.model_dump()
         steps[-1].status = "success"
-        steps[-1].details = f"Cancelled Sub: {res.subscription_id}"
-        steps[-1].data = {"raw": res.model_dump()}
+        steps[-1].details = f"Cancelled Sub: {sub.get('id')}"
+        steps[-1].data = {"raw": sub}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 2 failed")
 
     add_step("Verify Termination", "pending", display_name="Verify Cancel")
     try:
         steps[-1].status = "success"
-        steps[-1].details = f"Cancellation verified. Status: {res.status}"
+        steps[-1].details = f"Cancellation verified. Status: {sub.get('status')}"
         return ScenarioResponse(
             success=True,
             steps=steps,
-            final_resource_id=res.subscription_id,
+            final_resource_id=sub.get("id"),
             human_summary="Successfully canceled subscription.",
             trace_id=trace_id,
         )
@@ -1382,28 +1389,29 @@ async def stripe_refund_scenario(
 
     add_step("Process Refund", "pending", display_name="Issue Refund")
     try:
-        from node_wire_stripe.schema import IssueRefundInput
+        from node_wire_stripe.schema import PostRefundsInput
 
-        ref_input = IssueRefundInput(
-            charge_id=payload.charge_id,
-            payment_intent_id=payload.payment_intent_id,
+        ref_input = PostRefundsInput(
+            charge=payload.charge_id,
+            payment_intent=payload.payment_intent_id,
             amount=payload.amount,
         )
         res = await run_action(connector, ref_input)
+        refund = res.model_dump()
         steps[-1].status = "success"
-        steps[-1].details = f"Refund Processed: {res.refund_id}"
-        steps[-1].data = {"raw": res.model_dump()}
+        steps[-1].details = f"Refund Processed: {refund.get('id')}"
+        steps[-1].data = {"raw": refund}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 2 failed")
 
     add_step("Verify Refund", "pending", display_name="Verify Receipt")
     try:
         steps[-1].status = "success"
-        steps[-1].details = f"Refund recorded properly. Status: {res.status}"
+        steps[-1].details = f"Refund recorded properly. Status: {refund.get('status')}"
         return ScenarioResponse(
             success=True,
             steps=steps,
-            final_resource_id=res.refund_id,
+            final_resource_id=refund.get("id"),
             human_summary="Successfully issued refund.",
             trace_id=trace_id,
         )
