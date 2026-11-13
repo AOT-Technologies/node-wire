@@ -46,11 +46,11 @@ from node_wire_fhir_cerner.schema import (
     FhirCernerPatientReadInput,
 )
 from node_wire_google_drive.schema import (
-    GoogleDriveOperationInput,
-    PermissionsCreateOperation,
-    FilesGetOperation,
-    FilesListOperation,
-    FilesUpdateOperation,
+    DriveFilesCreateInput,
+    DriveFilesGetInput,
+    DriveFilesListInput,
+    DriveFilesUpdateInput,
+    DrivePermissionsCreateInput,
 )
 from node_wire_salesforce.logic import SalesforceConnector
 from node_wire_salesforce.schema import (
@@ -1442,21 +1442,14 @@ async def gdrive_archival_scenario(
             page_size = max(1, min(100, page_size))
             q = (payload.list_query or "").strip() or None
             fields = (payload.list_fields or "").strip() or None
-            list_op = FilesListOperation(
-                action="files.list",
-                page_size=page_size,
-                query=q,
-                fields=fields,
-            )
-            list_input = GoogleDriveOperationInput.model_validate(
-                list_op.model_dump(exclude_none=True)
-            )
+            list_input = DriveFilesListInput(pageSize=page_size, q=q, fields=fields)
             res = await run_action(connector, list_input)
-            n = len(res.raw.get("files") or [])
+            raw = res.model_dump()
+            n = len(raw.get("files") or [])
             steps[-1].status = "success"
             steps[-1].details = f"Retrieved {n} file(s) (page_size={page_size})"
             steps[-1].display_name = "Files Listed"
-            steps[-1].data = {"raw": res.raw}
+            steps[-1].data = {"raw": raw}
             return ScenarioResponse(
                 success=True,
                 steps=steps,
@@ -1474,21 +1467,15 @@ async def gdrive_archival_scenario(
             if not fid:
                 raise ValueError("get_file_id is required")
             gf = (payload.get_fields or "").strip() or None
-            get_op = FilesGetOperation(
-                action="files.get",
-                file_id=fid,
-                fields=gf,
-            )
-            get_input = GoogleDriveOperationInput.model_validate(
-                get_op.model_dump(exclude_none=True)
-            )
+            get_input = DriveFilesGetInput(fileId=fid, fields=gf)
             res = await run_action(connector, get_input)
-            got_id = res.raw.get("id") or fid
-            name = res.raw.get("name", "")
+            raw = res.model_dump()
+            got_id = raw.get("id") or fid
+            name = raw.get("name", "")
             steps[-1].status = "success"
             steps[-1].details = f"Retrieved metadata for file id {got_id}"
             steps[-1].display_name = "File metadata retrieved"
-            steps[-1].data = {"raw": res.raw}
+            steps[-1].data = {"raw": raw}
             return ScenarioResponse(
                 success=True,
                 steps=steps,
@@ -1525,16 +1512,21 @@ async def gdrive_archival_scenario(
         steps[-1].display_name = "Request prepared"
         steps[-1].data = {"raw": preview}
 
-        update_op = FilesUpdateOperation(
-            action="files.update",
-            file_id=fid,
-            name=new_name,
-            mime_type=new_mime,
-            add_parents=add_ids,
-            remove_parents=remove_ids,
-        )
-        upd_input = GoogleDriveOperationInput.model_validate(
-            update_op.model_dump(exclude_none=True)
+        # Simplified: the generated files.update exposes only the content body, addParents and
+        # removeParents; it cannot rename a file or change its MIME type.
+        if new_name or new_mime:
+            return _safe_error_return(
+                ValueError(
+                    "update_name / update_mime_type are not supported by the Drive connector"
+                ),
+                steps,
+                trace_id,
+                "files.update failed",
+            )
+        upd_input = DriveFilesUpdateInput(
+            fileId=fid,
+            addParents=",".join(add_ids) if add_ids else None,
+            removeParents=",".join(remove_ids) if remove_ids else None,
         )
 
         add_step("Drive Update", "pending", display_name="Apply file update")
@@ -1543,22 +1535,18 @@ async def gdrive_archival_scenario(
         except Exception as e:
             return _safe_error_return(e, steps, trace_id, "files.update failed")
 
-        rid = res.raw.get("id") or fid
-        fname = res.raw.get("name", "")
+        upd_raw = res.model_dump()
+        rid = upd_raw.get("id") or fid
+        fname = upd_raw.get("name", "")
         steps[-1].status = "success"
         steps[-1].details = f"Drive API updated file {rid}"
         steps[-1].display_name = "File updated"
-        steps[-1].data = {"raw": res.raw}
+        steps[-1].data = {"raw": upd_raw}
 
         add_step("Update Verify", "pending", display_name="Verify file metadata")
         try:
-            get_op = FilesGetOperation(
-                action="files.get",
-                file_id=str(rid),
-                fields="id,name,mimeType,parents,webViewLink",
-            )
-            get_input = GoogleDriveOperationInput.model_validate(
-                get_op.model_dump(exclude_none=True)
+            get_input = DriveFilesGetInput(
+                fileId=str(rid), fields="id,name,mimeType,parents,webViewLink"
             )
             get_res = await run_action(connector, get_input)
         except Exception as e:
@@ -1567,7 +1555,7 @@ async def gdrive_archival_scenario(
         steps[-1].status = "success"
         steps[-1].details = "Metadata refreshed after update"
         steps[-1].display_name = "Metadata verified"
-        steps[-1].data = {"raw": get_res.raw}
+        steps[-1].data = {"raw": get_res.model_dump()}
 
         add_step("Update Complete", "pending", display_name="Complete update")
         steps[-1].status = "success"
@@ -1608,21 +1596,14 @@ async def gdrive_archival_scenario(
     try:
         mime_type = payload.file_mime_type
         folder_id = payload.folder_id or os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
-        op_payload = {
-            "action": payload.action,
-            "name": payload.document_name,
-            "mime_type": mime_type,
-            "parents": [folder_id] if folder_id else None,
-        }
-        if payload.file_base64:
-            op_payload["content_base64"] = payload.file_base64
-        elif payload.content:
-            op_payload["content"] = payload.content
-
-        upload_input = GoogleDriveOperationInput.model_validate(op_payload)
+        # Simplified: the generated files.create sends only the content body, so the file's
+        # name, MIME type and parent folder cannot be set here (Drive names it "Untitled").
+        _ = (mime_type, folder_id)
+        upload_input = DriveFilesCreateInput(body=payload.content or payload.file_base64 or "")
 
         res = await run_action(connector, upload_input)
-        file_id = res.raw.get("id")
+        upload_raw = res.model_dump()
+        file_id = upload_raw.get("id")
 
         if not file_id:
             raise ValueError("File upload failed, no ID returned")
@@ -1630,43 +1611,36 @@ async def gdrive_archival_scenario(
         steps[-1].status = "success"
         steps[-1].details = f"File uploaded. ID: {file_id}"
         steps[-1].display_name = "Document Archived"
-        steps[-1].data = {"file_id": file_id, "raw": res.raw}
+        steps[-1].data = {"file_id": file_id, "raw": upload_raw}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 2 failed")
 
     # STEP 3: Establish Data Access
     add_step("Access Control", "pending", display_name="Establish Data Access")
     try:
-        perm_input = GoogleDriveOperationInput(
-            PermissionsCreateOperation(
-                action="permissions.create",
-                file_id=file_id,
-                role="reader",
-                email_address=payload.recipient_email,
-                type="user",
-            )
+        perm_input = DrivePermissionsCreateInput(
+            fileId=file_id,
+            role="reader",
+            emailAddress=payload.recipient_email,
+            type="user",
         )
         perm_res = await run_action(connector, perm_input)
 
         steps[-1].status = "success"
         steps[-1].details = f"Read access granted to {payload.recipient_email}"
         steps[-1].display_name = "Access Control Applied"
-        steps[-1].data = {"raw": perm_res.raw}
+        steps[-1].data = {"raw": perm_res.model_dump()}
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
 
     # STEP 4: Verify Integrity
     add_step("Integrity Verification", "pending", display_name="Verify Integrity")
     try:
-        get_input = GoogleDriveOperationInput(
-            FilesGetOperation(
-                action="files.get",
-                file_id=file_id,
-                fields="id, name, mimeType, webViewLink, size, createdTime, owners",
-            )
+        get_input = DriveFilesGetInput(
+            fileId=file_id, fields="id, name, mimeType, webViewLink, size, createdTime, owners"
         )
         get_res = await run_action(connector, get_input)
-        file_metadata = get_res.raw
+        file_metadata = get_res.model_dump()
 
         beautiful_data = {
             "id": file_id,
@@ -2008,7 +1982,7 @@ AGENT_GUARDRAIL_PROMPT = (
     "emails via SMTP.\n"
     "Tool names are `<connector_id>_<action>` with dots in the action replaced by "
     "underscores (e.g. `fhir_cerner_read_patient`, `fhir_epic_read_patient`, "
-    "`google_drive_files_upload`, `smtp_send_email`). "
+    "`google_drive_drive_files_create`, `smtp_send_email`). "
     "Use exactly the names and JSON-schema arguments from tools/list.\n\n"
     "WORKFLOW (MUST EXECUTE SEQUENTIALLY, ONE STRICT STEP AT A TIME):\n"
     "When asked to 'Send patient summaries via email' or similar tasks, you MUST follow this exact flow in order. DO NOT parallelize these steps:\n"
@@ -2018,7 +1992,7 @@ AGENT_GUARDRAIL_PROMPT = (
     "     - Use `search_patients` only when you have no ID, or after `read_patient` failed and you need a fallback.\n"
     "     CRITICAL: If the user has NOT provided a patient ID or name in their message, you MUST ASK them for it. DO NOT call tools with a guessed or hallucinated ID like '12345'.\n"
     "  2. Second turn: Once you have the patient data from step 1, create a file on Google Drive containing the masked patient summary. Do NOT use placeholder content.\n"
-    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive_files_upload`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
+    "  3. Third turn: Once step 2 returns a shareable Drive URL (see `data.raw.webViewLink` from tool `google_drive_drive_files_create`), send an email with that exact link. Do NOT call the email tool until you have the link.\n"
     "     CRITICAL: You MUST ask the user for the recipient email address if they haven't provided it. DO NOT guess email addresses like 'recipient_email@example.com'.\n"
     "     CRITICAL: In the email body, you MUST insert the actual URL string returned from step 2 (e.g. 'https://drive.google.com/...'). Do NOT literally write the text '<web_view_link>'.\n\n"
     "DATA PRIVACY & MASKING — follow these strictly:\n"
@@ -2028,7 +2002,7 @@ AGENT_GUARDRAIL_PROMPT = (
     "  - NEVER use the placeholder values ('1990-05-12', '12724066', or 'Name') in your reports - always use the real patient data masked accordingly.\n"
     "- EMAIL WORKFLOW: When sending patient details to an email recipient:\n"
     "  1. ALWAYS upload the masked patient summary to Google Drive first.\n"
-    "  2. Use `data.raw.webViewLink` from the `google_drive_files_upload` tool result.\n"
+    "  2. Use `data.raw.webViewLink` from the `google_drive_drive_files_create` tool result.\n"
     "  3. In the email body, provide that link instead of the actual data.\n"
     "  4. The email body should be professional: 'Patient data summary from the EHR is available at the following secure link: [Link]'\n\n"
     "GUARDRAILS:\n"

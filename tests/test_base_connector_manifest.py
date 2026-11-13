@@ -315,168 +315,36 @@ def test_normalize_mcp_tool_arguments_search_patients_maps_legacy():
     FhirCernerPatientSearchInput.model_validate({**out2, "action": "search_patients"})
 
 
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_mime_type_alias():
-    from node_wire_google_drive.schema import FilesUploadOperation
+def test_normalize_mcp_tool_arguments_google_drive_passes_generated_inputs_through():
+    from node_wire_google_drive.schema import DriveFilesGetInput
 
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "name": "a.txt",
-            "mimeType": "text/plain",
-            "parents": ["folder1"],
-            "content": "hello",
-        },
-    )
-    assert out["mime_type"] == "text/plain"
-    assert "mimeType" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
+    args = {"fileId": "f1", "fields": "id,name"}
+    out = _normalize_for_mcp("google_drive", "drive_files_get", args)
+
+    assert out == args
+    DriveFilesGetInput.model_validate({**out, "action": "drive_files_get"})
 
 
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_action_upload():
-    from node_wire_google_drive.schema import FilesUploadOperation
+def test_normalize_mcp_tool_arguments_google_drive_files_create_body_is_unchanged():
+    from node_wire_google_drive.schema import DriveFilesCreateInput
 
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "action": "upload",
-            "name": "a.txt",
-            "mime_type": "text/plain",
-            "content": "x",
-        },
-    )
-    assert out["action"] == "files.upload"
-    FilesUploadOperation.model_validate(out)
+    out = _normalize_for_mcp("google_drive", "drive_files_create", {"body": "hello"})
+
+    assert out == {"body": "hello"}
+    DriveFilesCreateInput.model_validate({**out, "action": "drive_files_create"})
 
 
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_nested_file():
-    from node_wire_google_drive.schema import FilesUploadOperation
+def test_normalize_mcp_tool_arguments_google_drive_does_not_rewrite_unknown_aliases():
+    from pydantic import ValidationError
 
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "content": "body",
-            "file": {
-                "mime_type": "text/plain",
-                "name": "nested.txt",
-                "parents": ["p1"],
-            },
-        },
-    )
-    assert out["name"] == "nested.txt"
-    assert out["mime_type"] == "text/plain"
-    assert out["parents"] == ["p1"]
-    assert "file" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
+    from node_wire_google_drive.schema import DriveFilesGetInput
 
+    args = {"fileId": "f1", "file_id": "other", "mimeType": "text/plain"}
+    out = _normalize_for_mcp("google_drive", "drive_files_get", args)
 
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_string_maps_to_content():
-    from node_wire_google_drive.schema import FilesUploadOperation
-
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "name": "a.txt",
-            "mime_type": "text/plain",
-            "media": "hello",
-        },
-    )
-    assert out["content"] == "hello"
-    assert "media" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
-
-
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_object_text_alias_maps_to_content():
-    from node_wire_google_drive.schema import FilesUploadOperation
-
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "name": "a.txt",
-            "mime_type": "text/plain",
-            "media": {"text": "hello"},
-        },
-    )
-    assert out["content"] == "hello"
-    assert "media" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
-
-
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_object_base64_maps_to_content_base64():
-    from node_wire_google_drive.schema import FilesUploadOperation
-
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "name": "a.pdf",
-            "mime_type": "application/pdf",
-            "media": {"base64": "Zg=="},
-        },
-    )
-    assert out["content_base64"] == "Zg=="
-    assert "media" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
-
-
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_media_metadata_aliases_are_used_when_missing():
-    from node_wire_google_drive.schema import FilesUploadOperation
-
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "media": {
-                "name": "nested.txt",
-                "mimeType": "text/plain",
-                "parents": "p1,p2",
-                "content": "hi",
-            }
-        },
-    )
-    assert out["name"] == "nested.txt"
-    assert out["mime_type"] == "text/plain"
-    assert out["parents"] == ["p1", "p2"]
-    assert out["content"] == "hi"
-    assert "media" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
-
-
-def test_normalize_mcp_tool_arguments_google_drive_files_upload_canonical_content_wins_over_media_alias():
-    from node_wire_google_drive.schema import FilesUploadOperation
-
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "name": "root.txt",
-            "mime_type": "text/plain",
-            "content": "root",
-            "media": {"content": "ignored"},
-        },
-    )
-    assert out["content"] == "root"
-    assert "media" not in out
-    FilesUploadOperation.model_validate({**out, "action": "files.upload"})
-
-
-def test_normalize_mcp_tool_arguments_google_drive_canonical_mime_type_wins_over_nested():
-    out = _normalize_for_mcp(
-        "google_drive",
-        "files.upload",
-        {
-            "mime_type": "text/plain",
-            "name": "root.txt",
-            "content": "c",
-            "file": {"mime_type": "application/json", "name": "ignored.txt"},
-        },
-    )
-    assert out["mime_type"] == "text/plain"
-    assert out["name"] == "root.txt"
+    assert out == args
+    with pytest.raises(ValidationError):
+        DriveFilesGetInput.model_validate({**out, "action": "drive_files_get"})
 
 
 @pytest.mark.asyncio
@@ -507,8 +375,8 @@ async def test_mcp_server_invoke_tool_passes_normalized_payload_to_connector_run
 
 
 @pytest.mark.asyncio
-async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() -> None:
-    """invoke_tool should normalize Drive upload aliases before connector.run."""
+async def test_mcp_server_invoke_google_drive_files_get_passes_payload_to_connector() -> None:
+    """invoke_tool should hand the Drive payload to connector.run with the action injected."""
     from bindings.mcp_server.server import McpServer
     from node_wire_runtime.models import ConnectorResponse
 
@@ -520,37 +388,22 @@ async def test_mcp_server_invoke_google_drive_files_upload_normalizes_payload() 
 
     async def fake_run(raw_input, **_kwargs):
         captured["payload"] = dict(raw_input)
-        return ConnectorResponse(success=True, data={"raw": {}}, trace_id="t")
+        return ConnectorResponse(success=True, data={"id": "f1"}, trace_id="t")
 
     orig_run = gdrive.run
+    old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
     try:
         # Set NW_RATE_LIMIT_DISABLED env var to disable rate limiting in MCP server
-        old_rate_limit = os.environ.get("NW_RATE_LIMIT_DISABLED")
         os.environ["NW_RATE_LIMIT_DISABLED"] = "true"
-
         gdrive.run = fake_run
-        await server.invoke_tool(
-            "google_drive.files.upload",
-            {
-                "mimeType": "text/plain",
-                "name": "patient_summary.txt",
-                "parents": ["folder-id"],
-                "content": "summary",
-                "media": {"content": "ignored"},
-                "action": "upload",
-            },
-        )
-
-        # Restore original rate limit value
-        if old_rate_limit is not None:
-            os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
+        await server.invoke_tool("google_drive.drive_files_get", {"fileId": "f1"})
     finally:
         gdrive.run = orig_run
+        if old_rate_limit is not None:
+            os.environ["NW_RATE_LIMIT_DISABLED"] = old_rate_limit
 
-    assert captured["payload"]["mime_type"] == "text/plain"
-    assert captured["payload"]["action"] == "files.upload"
-    assert "mimeType" not in captured["payload"]
-    assert "media" not in captured["payload"]
+    assert captured["payload"]["fileId"] == "f1"
+    assert captured["payload"]["action"] == "drive_files_get"
 
 
 def test_build_manifest_mcp_input_schema_omits_action_property() -> None:
@@ -564,22 +417,15 @@ def test_build_manifest_mcp_input_schema_omits_action_property() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mcp_server_invoke_rejects_legacy_upload_when_env_reject(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("NODE_WIRE_LEGACY_GDRIVE_ACTION_UPLOAD", "reject")
+async def test_mcp_server_invoke_rejects_short_action_alias() -> None:
+    """The payload action must be the full action name; a short alias is a mismatch."""
     from bindings.mcp_server.server import McpServer
 
     server = McpServer(connector_ids=["google_drive"])
     with pytest.raises(ValueError, match="does not match"):
         await server.invoke_tool(
-            "google_drive.files.upload",
-            {
-                "name": "x.txt",
-                "mime_type": "text/plain",
-                "content": "a",
-                "action": "upload",
-            },
+            "google_drive.drive_files_get",
+            {"fileId": "f1", "action": "get"},
         )
 
 
@@ -597,12 +443,10 @@ async def test_mcp_server_invoke_rejects_conflicting_action() -> None:
 
         with pytest.raises(ValueError, match="does not match"):
             await server.invoke_tool(
-                "google_drive.files.upload",
+                "google_drive.drive_files_create",
                 {
-                    "name": "x.txt",
-                    "mime_type": "text/plain",
-                    "content": "a",
-                    "action": "files.list",
+                    "body": "a",
+                    "action": "drive_files_list",
                 },
             )
     finally:
@@ -872,11 +716,11 @@ def test_manifest_strict_action_retains_additional_properties():
     factory.load()
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
 
-    # files.list uses BaseDriveOperation(extra="forbid") and is not alias_tolerant
+    # Generated Drive inputs use extra="forbid" and are not alias_tolerant
     files_list = next(
         e
         for e in mcp_manifest
-        if e["connector_id"] == "google_drive" and e["action"] == "files.list"
+        if e["connector_id"] == "google_drive" and e["action"] == "drive_files_list"
     )
     assert files_list["input_schema"].get("additionalProperties") is False
 
@@ -889,8 +733,9 @@ def test_manifest_alias_tolerant_actions_strip_additional_properties():
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     by_key = {(e["connector_id"], e["action"]): e for e in mcp_manifest}
 
-    # files.upload is alias_tolerant via SdkActionSpec
-    assert "additionalProperties" not in by_key[("google_drive", "files.upload")]["input_schema"]
+    # generated google_drive actions are strict, so they keep additionalProperties: false
+    drive_schema = by_key[("google_drive", "drive_files_create")]["input_schema"]
+    assert drive_schema.get("additionalProperties") is False
     # smtp send_email is alias_tolerant via @sdk_action kwarg
     assert "additionalProperties" not in by_key[("smtp", "send_email")]["input_schema"]
     # fhir read_patient / search_patients / search_encounter are alias_tolerant
@@ -906,10 +751,10 @@ def test_sdk_action_meta_alias_tolerant_propagates():
     """alias_tolerant must be correctly stored in _action_registry for all paths."""
     auto_register()
 
-    # google_drive files.upload: alias_tolerant via SdkActionSpec → _make_spec_handler
+    # generated google_drive actions are strict (not alias_tolerant)
     gd_cls = _CONNECTOR_REGISTRY["google_drive"]
-    assert gd_cls._action_registry["files.upload"].alias_tolerant is True
-    assert gd_cls._action_registry["files.list"].alias_tolerant is False
+    assert gd_cls._action_registry["drive_files_create"].alias_tolerant is False
+    assert gd_cls._action_registry["drive_files_list"].alias_tolerant is False
 
     # smtp send_email: alias_tolerant via @sdk_action kwarg
     smtp_cls = _CONNECTOR_REGISTRY["smtp"]
@@ -939,8 +784,8 @@ def test_sdk_action_meta_mcp_normalize_propagates():
     auto_register()
 
     gd_cls = _CONNECTOR_REGISTRY["google_drive"]
-    assert gd_cls._action_registry["files.upload"].mcp_normalize is not None
-    assert gd_cls._action_registry["files.list"].mcp_normalize is None
+    assert gd_cls._action_registry["drive_files_create"].mcp_normalize is None
+    assert gd_cls._action_registry["drive_files_list"].mcp_normalize is None
 
     smtp_cls = _CONNECTOR_REGISTRY["smtp"]
     assert smtp_cls._action_registry["send_email"].mcp_normalize is not None

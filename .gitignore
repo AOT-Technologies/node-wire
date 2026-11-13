@@ -101,3 +101,4 @@ nw-stacklok-builder/scoping/*/tool-scoping.md
 # The GitHub and Twitch tutorials are local working documents, not part of the published docs
 /docs/cli/tutorial-github.md
 /docs/cli/tutorial-twitch.md
+"PR_stripe.md" 
