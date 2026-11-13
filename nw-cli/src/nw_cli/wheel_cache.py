@@ -2,13 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Wheel source stamps; shared with nw-mcp-builder, which owns the implementation."""
+"""Wheel state; shared with nw-mcp-builder, which owns the implementation."""
 
 from nw_mcp_builder.wheel_cache import (
-    is_fresh,
+    WHEEL_STAMP_KEY,
+    WheelState,
+    WheelsNotFreshError,
+    fresh_wheels,
     package_source_hash,
-    record_build,
+    stamp_build,
     stamp_path,
+    wheel_state,
 )
 
-__all__ = ["is_fresh", "package_source_hash", "record_build", "stamp_path"]
+__all__ = [
+    "WHEEL_STAMP_KEY",
+    "WheelState",
+    "WheelsNotFreshError",
+    "fresh_wheels",
+    "package_source_hash",
+    "stamp_build",
+    "stamp_path",
+    "wheel_state",
+]

@@ -172,7 +172,8 @@ def _register_files_upload() -> None:
 def _register_files_delete() -> None:
     def _post_delete(_result: Any, model: BaseModel) -> Dict[str, Any]:
         file_id = getattr(model, "file_id", None)
-        return {"file_id": file_id, "status": "deleted"}
+        # files.update(trashed=True) moves the file to the trash; it is not deleted.
+        return {"file_id": file_id, "status": "trashed"}
 
     GOOGLE_DRIVE_ACTION_SPECS["files.delete"] = SdkActionSpec(
         resource_segments=("files",),

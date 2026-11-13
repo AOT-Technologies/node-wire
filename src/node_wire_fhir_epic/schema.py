@@ -66,6 +66,9 @@ class FhirPatientSearchOutput(BaseModel):
     total: Optional[int] = None
     errors: List[Dict[str, Any]] = Field(default_factory=list)
 
+    next_link: Optional[str] = None
+    """URL of the next page of results (the Bundle's ``next`` link), or None on the last page."""
+
 
 # ---------------------------------------------------------------------------
 # Encounter – Search
@@ -92,6 +95,9 @@ class FhirEncounterSearchOutput(BaseModel):
 
     total: Optional[int] = None
     """Total number of results reported by the Bundle."""
+
+    next_link: Optional[str] = None
+    """URL of the next page of results (the Bundle's ``next`` link), or None on the last page."""
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +206,9 @@ class FhirDocumentReferenceSearchOutput(BaseModel):
     total: Optional[int] = None
     """Total number of results reported by the Bundle."""
 
+    next_link: Optional[str] = None
+    """URL of the next page of results (the Bundle's ``next`` link), or None on the last page."""
+
 
 class FhirEpicOperationOutput(BaseModel):
     """
@@ -213,3 +222,4 @@ class FhirEpicOperationOutput(BaseModel):
     total: Optional[int] = None
     resource_id: Optional[str] = None
     errors: Optional[list[Dict[str, Any]]] = None
+    next_link: Optional[str] = None

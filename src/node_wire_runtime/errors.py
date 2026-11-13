@@ -47,12 +47,15 @@ class ErrorCode:
     CONFIG_NAME_CONFLICT = "CONFIG_NAME_CONFLICT"
     CONFIG_DEFAULT_REQUIRED = "CONFIG_DEFAULT_REQUIRED"
     CONFIG_INVALID = "CONFIG_INVALID"
+    SELECTION_EXPIRED = "SELECTION_EXPIRED"
     # Authorization and credentials
     POLICY_DENIED = "POLICY_DENIED"
     PROXY_AUTH_FAILED = "PROXY_AUTH_FAILED"
     UPSTREAM_TOKEN_MISSING = "UPSTREAM_TOKEN_MISSING"  # nosec B105 - error code, not a credential
     SECRET_NOT_FOUND = "SECRET_NOT_FOUND"  # nosec B105 - error code, not a credential
     TENANT_SECRET_NOT_FOUND = "TENANT_SECRET_NOT_FOUND"  # nosec B105 - error code, not a credential
+    # The upstream
+    OUTCOME_UNKNOWN = "OUTCOME_UNKNOWN"
 
 
 #: Each runtime-wide code's category. Codes shipped in 1.0.0 keep theirs through 1.x.
@@ -74,6 +77,9 @@ CATALOGUE: Dict[str, ErrorCategory] = {
     ErrorCode.CONFIG_NAME_CONFLICT: ErrorCategory.BUSINESS,
     ErrorCode.CONFIG_DEFAULT_REQUIRED: ErrorCategory.BUSINESS,
     ErrorCode.CONFIG_INVALID: ErrorCategory.BUSINESS,
+    # A session's config selection was dropped from the bounded per-session map: the caller
+    # selects again (or retries to use the tenant default).
+    ErrorCode.SELECTION_EXPIRED: ErrorCategory.BUSINESS,
     ErrorCode.POLICY_DENIED: ErrorCategory.AUTH,
     ErrorCode.PROXY_AUTH_FAILED: ErrorCategory.AUTH,
     ErrorCode.UPSTREAM_TOKEN_MISSING: ErrorCategory.AUTH,
@@ -81,6 +87,9 @@ CATALOGUE: Dict[str, ErrorCategory] = {
     # failure of the caller's authentication.
     ErrorCode.SECRET_NOT_FOUND: ErrorCategory.FATAL,
     ErrorCode.TENANT_SECRET_NOT_FOUND: ErrorCategory.FATAL,
+    # A write that may or may not have been applied: not RETRYABLE, because retrying it could
+    # apply it twice. The caller checks the upstream before trying again.
+    ErrorCode.OUTCOME_UNKNOWN: ErrorCategory.FATAL,
 }
 
 
@@ -94,6 +103,31 @@ class NodeWireError(ValueError):
         self.category = CATALOGUE[code]
         self.message = message
         self.details = details
+
+
+class OutcomeUnknownError(NodeWireError):
+    """A non-idempotent call failed after its request may have reached the upstream (a timeout,
+    a dropped connection or a 5xx), so it was not retried. ``__cause__`` is the original error."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(ErrorCode.OUTCOME_UNKNOWN, message)
+
+
+class NestedConnectorActionError(Exception):
+    """Nested action invoked via ``call_action`` returned ``ConnectorResponse.success=False``.
+
+    Resolves to the nested call's own code and category. ``counts_against_breaker`` says whether
+    the nested failure showed the upstream unhealthy; the outer call reports it to the breaker
+    when it owns that breaker.
+    """
+
+    def __init__(
+        self, response: ConnectorResponse, *, counts_against_breaker: bool = False
+    ) -> None:
+        self.response = response
+        self.counts_against_breaker = counts_against_breaker
+        msg = response.message or response.error_code or "Nested action failed"
+        super().__init__(msg)
 
 
 @dataclass
@@ -176,13 +210,20 @@ class ErrorMapper:
         Resolve an exception instance to a mapped error.
 
         Lookup order:
-        0. a :class:`NodeWireError` carries its own code
+        0. a :class:`NodeWireError` carries its own code; a :class:`NestedConnectorActionError`
+           carries the nested call's code and category
         1. ``connector_id``'s own registry (closest MRO match)
         2. the runtime-wide global registry (closest MRO match)
         3. default ``FATAL`` with the exception's type name
         """
         if isinstance(exc, NodeWireError):
             return MappedError(code=exc.code, category=exc.category)
+        if isinstance(exc, NestedConnectorActionError):
+            nested = exc.response
+            return MappedError(
+                code=nested.error_code or type(exc).__name__,
+                category=nested.error_category or ErrorCategory.FATAL,
+            )
         scoped = cls._connector_registries.get(connector_id)
         if scoped:
             hit = _closest_match(exc, scoped)

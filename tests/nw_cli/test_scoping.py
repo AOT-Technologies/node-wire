@@ -194,3 +194,17 @@ def test_allowed_tools_write_windows_paths_in_posix_form() -> None:
 
     rules = allowed_tools(_WindowsPath())  # type: ignore[arg-type]
     assert rules[-1] == "Edit(//c/Users/dev/node-wire/scoping/demo/**)"
+
+
+def test_a_new_scoping_run_clears_the_previous_reasoning_and_state(tmp_path: Path) -> None:
+    from unittest.mock import patch
+
+    from nw_cli.scoping import STATE_FILE, SUMMARY_FILE, _prepare_run
+
+    work = tmp_path / "work"
+    work.mkdir()
+    for name in ("mcp-scope.yaml", SUMMARY_FILE, STATE_FILE):
+        (work / name).write_text("old", encoding="utf-8")
+    with patch("nw_cli.scoping.link_skill"):
+        _prepare_run(tmp_path, work)
+    assert list(work.iterdir()) == []

@@ -7,15 +7,20 @@
 from __future__ import annotations
 
 import os
-import re
 import subprocess  # nosec B404  # local CLI pipeline; Popen below uses an arg list, no shell=True
 import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from nw_cli.names import docker_image_tag, mcp_project_dir
+from nw_cli.names import mcp_project_dir
 from nw_cli.prerequisites import require_docker
-from nw_cli.wheel_cache import is_fresh, record_build
+from nw_cli.wheel_cache import (
+    WHEEL_STAMP_KEY,  # noqa: F401  # re-exported
+    WheelState,
+    package_source_hash,
+    stamp_build,
+    wheel_state,
+)
 
 LogFn = Callable[[str], None]
 
@@ -79,10 +84,6 @@ def _stop(proc: subprocess.Popen[str]) -> None:
         proc.wait()
 
 
-# Source-stamp key for wheel builds: every package builds one pure-Python wheel.
-WHEEL_STAMP_KEY = "py3-none-any"
-
-
 def wheel_packages(
     *, connector_id: str | None = None, runtime: bool = False, bindings: bool = False
 ) -> list[str]:
@@ -103,8 +104,16 @@ def mcp_host_packages(connector_id: str) -> list[str]:
 
 
 def stale_wheel_packages(node_wire_root: Path, packages: Sequence[str]) -> list[str]:
-    """The packages whose wheels are missing or older than their sources."""
-    return [p for p in packages if not is_fresh(node_wire_root, p, WHEEL_STAMP_KEY)]
+    """The packages whose wheel is not ``FRESH`` (missing, or not built from these sources)."""
+    return [p for p in packages if wheel_state(node_wire_root, p) is not WheelState.FRESH]
+
+
+def describe_wheel_states(node_wire_root: Path, packages: Sequence[str]) -> str:
+    """``packages/runtime (stale), ...`` for the packages that are not ``FRESH``."""
+    return ", ".join(
+        f"{p} ({wheel_state(node_wire_root, p).value})"
+        for p in stale_wheel_packages(node_wire_root, packages)
+    )
 
 
 def run_wheel_build(
@@ -115,12 +124,13 @@ def run_wheel_build(
     bindings: bool = False,
     packages: Sequence[str] | None = None,
     log: LogFn | None = None,
-) -> None:
-    """Build wheels with one ``scripts/build-packages.sh`` run.
+) -> dict[str, Path]:
+    """Build wheels with one ``scripts/build-packages.sh`` run; returns ``{package: wheel}``.
 
     Targets are ``packages`` when given, else the runtime / bindings / connector selection.
-    Each built package gets a source stamp, so :func:`stale_wheel_packages` can skip it next
-    time while its sources are unchanged.
+    Each package that builds gets a source stamp (see :mod:`nw_mcp_builder.wheel_cache`), so
+    :func:`stale_wheel_packages` can skip it next time while its sources are unchanged; a
+    failed package is named in the error and the others keep their stamps.
     """
     targets = (
         list(packages)
@@ -138,15 +148,39 @@ def run_wheel_build(
         raise StageError(
             f"No such package: {', '.join(absent)} (generate the connector first: nw gen-all)"
         )
+    # Hashed before the build: an edit made while it runs leaves that wheel stale.
+    digests = {t: package_source_hash(node_wire_root, t) for t in targets}
     # Relative POSIX path: cwd is node_wire_root. An absolute Windows path
     # (G:\...) is eaten by Git Bash as escape sequences (exit 127).
     cmd = ["bash", "scripts/build-packages.sh", *targets]
     started = time.time()
-    code = run_logged_command(cmd, cwd=node_wire_root, log=log)
-    if code != 0:
-        raise StageError(f"Wheel build failed (exit {code}): {' '.join(cmd)}")
-    for package in targets:
-        record_build(node_wire_root, package, WHEEL_STAMP_KEY, since=started)
+    try:
+        code = run_logged_command(cmd, cwd=node_wire_root, log=log)
+    finally:
+        # Even after a failure or Ctrl-C: every package that did build keeps its stamp.
+        built = _stamp_built(node_wire_root, digests, since=started)
+    failed = [t for t in targets if t not in built]
+    if code != 0 or failed:
+        raise StageError(
+            f"Wheel build failed (exit {code}) for: {', '.join(failed) or 'none listed'}"
+            f" ({' '.join(cmd)})"
+        )
+    return built
+
+
+def _stamp_built(node_wire_root: Path, digests: dict[str, str], *, since: float) -> dict[str, Path]:
+    """Stamp each package whose build wrote a pure wheel after ``since``; returns those."""
+    built: dict[str, Path] = {}
+    for package, digest in digests.items():
+        dist = node_wire_root / package / "dist"
+        written = [w for w in dist.glob("*.whl") if w.stat().st_mtime >= since - 1]
+        if not written:
+            continue  # not reached, or failed (build-packages.sh deletes old wheels first)
+        try:
+            built[package] = stamp_build(node_wire_root, package, digest)
+        except FileNotFoundError:
+            continue
+    return built
 
 
 def run_mcp_build(
@@ -164,16 +198,28 @@ def run_mcp_build(
     # Imported here: it loads pydantic and the generator models, which most ``nw``
     # commands (and ``--help``) never need.
     from nw_mcp_builder.from_connector import run_from_connector
+    from nw_mcp_builder.wheel_cache import WheelsNotFreshError
 
     package_root = node_wire_root / "nw-mcp-builder"
-    return run_from_connector(
-        connector_id,
-        node_wire_root=node_wire_root,
-        package_root=package_root,
-        skip_build_wheels=True,
-        force_output=force_output,
-        tool_mode=tool_mode,
-    )
+    try:
+        return run_from_connector(
+            connector_id,
+            node_wire_root=node_wire_root,
+            package_root=package_root,
+            skip_build_wheels=True,
+            force_output=force_output,
+            tool_mode=tool_mode,
+        )
+    except WheelsNotFreshError as exc:
+        flags = " ".join(
+            "--runtime"
+            if p == "packages/runtime"
+            else "--bindings"
+            if p == "packages/bindings"
+            else f"--connector-id {connector_id}"
+            for p in exc.packages
+        )
+        raise StageError(f"{exc}. Build them first: uv run nw gen-whl {flags}") from exc
 
 
 def run_docker_build(
@@ -193,7 +239,7 @@ def run_docker_build(
     project = mcp_project_dir(node_wire_root, connector_id)
     if not project.is_dir():
         raise StageError(f"MCP project directory not found: {project}")
-    return build_image(project, docker_image_tag(connector_id, tag), log=log)
+    return build_image(project, f"{project.name}:{tag}", log=log)
 
 
 def build_image(project: Path, image: str, *, log: LogFn | None = None) -> str:
@@ -222,42 +268,25 @@ def build_image(project: Path, image: str, *, log: LogFn | None = None) -> str:
     return image
 
 
-_ALL_PACKAGES_RE = re.compile(
-    r"(ALL_PACKAGES=\(\n)(.*?)(\n\))",
-    re.DOTALL,
-)
-
-
 def register_all_packages(node_wire_root: Path, connector_id: str) -> bool:
-    """Insert ``packages/connectors/<id>`` into ``ALL_PACKAGES`` if missing.
+    """Insert ``packages/connectors/<id>`` into ``ALL_PACKAGES`` if missing (True if added)."""
+    from nw_connector_builder.wire import WireError
+    from nw_connector_builder.wire import register_all_packages as _register
 
-    Returns True if the file was modified.
+    try:
+        return _register(node_wire_root, connector_id)
+    except WireError as exc:
+        raise StageError(str(exc)) from exc
+
+
+def run_wire(node_wire_root: Path, connector_id: str) -> str:
+    """Wire a built connector in (connectors.yaml, sample.env, ALL_PACKAGES); idempotent.
+
+    Returns what happened to ``ALL_PACKAGES`` (``added``, ``present``, ``skipped (...)``).
     """
-    script = node_wire_root / "scripts" / "build-packages.sh"
-    text = script.read_text(encoding="utf-8")
-    entry = f"packages/connectors/{connector_id}"
+    from nw_connector_builder.wire import WireError, wire_connector_from_report
 
-    match = _ALL_PACKAGES_RE.search(text)
-    if not match:
-        raise StageError(f"ALL_PACKAGES block not found in {script}")
-
-    body = match.group(2)
-    # Already present as a whole line entry
-    for line in body.splitlines():
-        if line.strip() == entry:
-            return False
-
-    # Preserve indentation from existing connector lines (2 spaces)
-    indent = "  "
-    for line in body.splitlines():
-        stripped = line.lstrip()
-        if stripped.startswith("packages/connectors/"):
-            indent = line[: len(line) - len(stripped)]
-            break
-
-    new_body = body.rstrip("\n") + f"\n{indent}{entry}"
-    new_text = (
-        text[: match.start()] + match.group(1) + new_body + match.group(3) + text[match.end() :]
-    )
-    script.write_text(new_text, encoding="utf-8")
-    return True
+    try:
+        return str(wire_connector_from_report(node_wire_root, connector_id)["all_packages"])
+    except WireError as exc:
+        raise StageError(str(exc)) from exc

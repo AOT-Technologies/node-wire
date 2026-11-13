@@ -76,3 +76,17 @@ def test_stock_generation(
     assert "kind: MCPServer" in (project / "deploy" / "mcpserver.yaml").read_text()
     assert f'name = "{server}-mcp"' in (project / "pyproject.toml").read_text()
     _compile_all(project)
+
+
+def test_a_missing_patch_anchor_fails_hard() -> None:
+    """A template that no longer has an anchor must not produce a server with no tools."""
+    from types import SimpleNamespace
+
+    from mcp_builder.generate.patches import PatchAnchorError, patch_mcp_builder
+
+    plan = SimpleNamespace(module_name="x_mcp", server_name="x", tools=[])
+    with pytest.raises(PatchAnchorError, match="return mcp"):
+        patch_mcp_builder(
+            'from x_mcp.settings import Settings\nmcp = FastMCP("t")\ntools = Tools()\n',
+            plan,  # type: ignore[arg-type]
+        )

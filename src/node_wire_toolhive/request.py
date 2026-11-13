@@ -15,12 +15,15 @@ from __future__ import annotations
 import hmac
 import logging
 import os
+import uuid
 from typing import Mapping, Optional
 
 from mcp.server.lowlevel.server import request_ctx
 
 _SESSION_HEADER = "mcp-session-id"
 _STDIO_SESSION = "stdio"
+# Attribute holding the generated key of a session that sent no mcp-session-id.
+_SESSION_KEY_ATTR = "_nw_session_key"
 PROXY_SECRET_ENV = "NW_PROXY_SECRET"  # nosec B105 - env var name, not a credential
 PROXY_SECRET_HEADER = "x-nw-proxy-secret"  # nosec B105 - header name, not a credential
 # What nw_stacklok's generated proxy-secret.yaml ships until the operator replaces it.
@@ -75,13 +78,23 @@ def from_tenant_proxy() -> bool:
 
 
 def session_key() -> str:
-    """Stable key for the current MCP session (``mcp-session-id``; ``stdio`` without HTTP)."""
+    """Stable key for the current MCP session (``mcp-session-id``; ``stdio`` without HTTP).
+
+    A session that sent no ``mcp-session-id`` gets a random key stored on the session object,
+    so the key can never be reused by a later session (``id()`` can be, once the first session
+    is garbage collected).
+    """
     headers = request_headers()
     if headers:
         sid = (headers.get(_SESSION_HEADER) or "").strip()
         if sid:
             return sid
     try:
-        return f"session-{id(request_ctx.get().session)}"
+        session = request_ctx.get().session
     except LookupError:
         return _STDIO_SESSION
+    key = getattr(session, _SESSION_KEY_ATTR, None)
+    if key is None:
+        key = f"generated-{uuid.uuid4().hex}"
+        setattr(session, _SESSION_KEY_ATTR, key)
+    return key

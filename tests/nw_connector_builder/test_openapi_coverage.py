@@ -123,7 +123,7 @@ def _build(tmp_path_factory: pytest.TempPathFactory, fixture: str) -> Built:
         wire=True,
         report_path=root / "abort.json",
     )
-    assert code == 0
+    assert code.exit_code == 0
     return Built(root, connector_id)
 
 

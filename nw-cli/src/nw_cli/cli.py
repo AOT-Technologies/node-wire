@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-import json
 import re
 import tempfile
 import time
 from dataclasses import dataclass, replace
+from enum import Enum
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import Any, Optional
@@ -27,18 +27,19 @@ from nw_mcp_builder.tool_listing import DEFAULT_MAX_TOOL_LISTING_KB
 
 from nw_cli import ui
 from nw_cli.menu import Option, choose
-from nw_cli.names import docker_image_tag, mcp_project_dir
+from nw_cli.names import mcp_project_dir
 from nw_cli.prerequisites import confirm_build, is_interactive
 from nw_cli.progress import GenerateProgress, Stage
 from nw_cli.root import resolve_node_wire_root
 from nw_cli.stages import (
     StageError,
     build_image,
+    describe_wheel_states,
     mcp_host_packages,
-    register_all_packages,
     run_docker_build,
     run_mcp_build,
     run_wheel_build,
+    run_wire,
     stale_wheel_packages,
     wheel_packages,
 )
@@ -57,7 +58,7 @@ _HELP = """\
 Turn an OpenAPI/Swagger spec into a runnable MCP server.
 
 The pipeline runs in four stages, each also available on its own:
-[bold]gen-all[/bold] (codegen → wheel → mcp → wire), then [bold]gen-whl[/bold],
+[bold]gen-all[/bold] (codegen → wire → wheel → mcp), then [bold]wire[/bold], [bold]gen-whl[/bold],
 [bold]gen-mcp[/bold], and [bold]docker-build[/bold].
 
 [bold]gen-stacklok[/bold] builds a stacklok mcp-builder server (ToolHive-ready) on the
@@ -210,15 +211,6 @@ def _gen_whl_command(packages: list[str], connector_id: str) -> str:
     return " ".join(["uv run nw gen-whl", *flags])
 
 
-def _missing_wheels(node_wire_root: Path, connector_id: str) -> list[str]:
-    """The MCP host's packages with no pure-Python wheel in ``dist/`` yet."""
-    return [
-        p
-        for p in mcp_host_packages(connector_id)
-        if not any((node_wire_root / p / "dist").glob("*-py3-none-any.whl"))
-    ]
-
-
 def _build_connector(
     progress: GenerateProgress,
     node_wire_root: Path,
@@ -235,7 +227,7 @@ def _build_connector(
     from nw_connector_builder.pipeline import UsageError, run_build
 
     try:
-        code = run_build(
+        outcome = run_build(
             spec=spec,
             connector_id=connector_id,
             node_wire_root=node_wire_root,
@@ -248,30 +240,38 @@ def _build_connector(
         )
     except UsageError as exc:
         raise StageError(str(exc)) from exc
-    report = _read_report(node_wire_root, connector_id)
-    if code != 0:
-        wire_error = (report.get("wire") or {}).get("error")
+    if not outcome.ok:
+        wire_error = (outcome.wire or {}).get("error")
         if wire_error:
             raise StageError(f"Connector generated, but wiring it in failed: {wire_error}")
-        raise StageError(f"Connector build returned exit code {code}")
-    summary = report.get("summary") or {}
+        raise StageError(f"Connector build returned exit code {outcome.exit_code}")
+    summary = outcome.report.get("summary") or {}
     if "generated" in summary:
         progress.log(
             f"{summary.get('generated')}/{summary.get('total_operations')} operations generated, "
-            f"{summary.get('soft_dropped')} skipped (details: packages/connectors/"
-            f"{connector_id}/report.json)"
+            f"{summary.get('soft_dropped')} skipped (details: "
+            f"{ui.display_path(outcome.report_path, node_wire_root)})"
         )
     if summary.get("coverage_warning"):
         progress.log("warning: fewer than half of the spec's operations became actions")
 
 
-def _read_report(node_wire_root: Path, connector_id: str) -> dict:
-    path = node_wire_root / "packages" / "connectors" / connector_id / "report.json"
-    try:
-        report = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return report if isinstance(report, dict) else {}
+def _connector_exists(node_wire_root: Path, connector_id: str) -> bool:
+    return (node_wire_root / "src" / f"node_wire_{connector_id}").exists()
+
+
+def _gen_mcp_hint(node_wire_root: Path, connector_id: str) -> str:
+    """``nw gen-mcp`` as it would succeed now: ``--force-output`` only over an existing host."""
+    replace = mcp_project_dir(node_wire_root, connector_id).exists()
+    return f"Retry just this step: uv run nw gen-mcp --connector-id {connector_id}" + (
+        " --force-output" if replace else ""
+    )
+
+
+def _gen_whl_hint(node_wire_root: Path, packages: list[str], connector_id: str) -> str:
+    """``nw gen-whl`` for the wheels that are still not built from their current sources."""
+    todo = stale_wheel_packages(node_wire_root, packages) or packages
+    return f"Retry just this step: {_gen_whl_command(todo, connector_id)}"
 
 
 def _decide_mode(
@@ -317,7 +317,9 @@ def gen_all(
     no_wheel: bool = typer.Option(False, "--no-wheel", help="Skip wheel build"),
     no_mcp: bool = typer.Option(False, "--no-mcp", help="Skip MCP host build"),
     no_wire: bool = typer.Option(
-        False, "--no-wire", help="Skip connectors.yaml / sample.env / ALL_PACKAGES"
+        False,
+        "--no-wire",
+        help="Skip connectors.yaml / sample.env / ALL_PACKAGES (run `nw wire` later)",
     ),
     force: bool = typer.Option(False, "--force", help="Overwrite existing connector / MCP output"),
     rebuild_wheels: bool = typer.Option(
@@ -350,7 +352,7 @@ def gen_all(
         rich_help_panel="Tool listing",
     ),
 ) -> None:
-    """One-shot: connector codegen → wheel → MCP host → wire."""
+    """One-shot: connector codegen → wire → wheel → MCP host."""
     tool_mode = _tool_mode(tool_search, full_tool_list)
     headers = _header_options(header)
     node_wire_root = resolve_node_wire_root()
@@ -358,35 +360,34 @@ def gen_all(
 
     if no_wheel and not no_mcp:
         # Fail before codegen, not after it: the MCP host bundles these wheels.
-        missing = _missing_wheels(node_wire_root, id)
-        if missing:
+        not_fresh = stale_wheel_packages(node_wire_root, packages)
+        if not_fresh:
             raise StageError(
-                f"--no-wheel, but the MCP host needs wheels that are missing: {', '.join(missing)}. "
-                f"Drop --no-wheel, or build them first: {_gen_whl_command(missing, id)}"
+                "--no-wheel, but the MCP host needs wheels not built from the current sources: "
+                f"{describe_wheel_states(node_wire_root, packages)}. "
+                f"Drop --no-wheel, or build them first: {_gen_whl_command(not_fresh, id)}"
             )
 
     rerun = f"uv run nw gen-all --connector-id {id} --path {path}" + _build_flags(auth, headers)
     progress = _progress(
         "gen-all",
         [
-            Stage("connector", "Connector codegen", hint="Check the --path spec, then rerun."),
             Stage(
-                "wheel",
-                "Wheel build",
-                hint=f"Retry just this step: {_gen_whl_command(packages, id)}",
-            ),
-            Stage(
-                "mcp",
-                "MCP host build",
-                hint=f"Retry just this step: uv run nw gen-mcp --connector-id {id}"
-                + (" --force-output" if force else ""),
+                "connector",
+                "Connector codegen",
+                hint=lambda: (
+                    "Check the --path spec, then rerun: "
+                    + rerun
+                    + (" --force" if _connector_exists(node_wire_root, id) and not force else "")
+                ),
             ),
             Stage(
                 "wire",
-                "Register in ALL_PACKAGES",
-                hint="Check the ALL_PACKAGES block in scripts/build-packages.sh, then rerun: "
-                + rerun,
+                "Wire connector in",
+                hint=f"Retry just this step: uv run nw wire --connector-id {id}",
             ),
+            Stage("wheel", "Wheel build", hint=lambda: _gen_whl_hint(node_wire_root, packages, id)),
+            Stage("mcp", "MCP host build", hint=lambda: _gen_mcp_hint(node_wire_root, id)),
         ],
     )
     for key, skip in (("wheel", no_wheel), ("mcp", no_mcp), ("wire", no_wire)):
@@ -401,7 +402,7 @@ def gen_all(
                 node_wire_root,
                 spec=path,
                 connector_id=id,
-                wire=not no_wire,
+                wire=False,  # the wire stage below, with its own retry command
                 force=force,
                 base_url=base_url,
                 auth=auth,
@@ -409,6 +410,11 @@ def gen_all(
             ),
         )
         progress.result("Connector", f"packages/connectors/{id}")
+
+        # Before the MCP host: it bakes the connector's connectors.yaml entry.
+        all_packages = progress.run_stage("wire", lambda: run_wire(node_wire_root, id))
+        if all_packages is not None:
+            progress.result("ALL_PACKAGES", all_packages)
 
         chosen_mode = None
         if not no_mcp:
@@ -429,10 +435,33 @@ def gen_all(
                 ),
             )
             progress.result("MCP host", ui.display_path(project, node_wire_root))
-
-        progress.run_stage("wire", lambda: register_all_packages(node_wire_root, id))
     if not no_mcp:
         _next_docker_build(id)
+
+
+@app.command("wire")
+@guard
+def wire(
+    id: str = typer.Option(
+        ..., "--connector-id", help="A connector already built (gen-all)", callback=_connector_id
+    ),
+) -> None:
+    """Wire a built connector in: connectors.yaml, sample.env and ALL_PACKAGES (idempotent)."""
+    node_wire_root = resolve_node_wire_root()
+    progress = _progress(
+        "wire",
+        [
+            Stage(
+                "wire",
+                "Wire connector in",
+                hint=f"Rebuild the connector first if its report is missing: uv run nw gen-all "
+                f"--connector-id {id} --path <spec>",
+            )
+        ],
+    )
+    with progress:
+        all_packages = progress.run_stage("wire", lambda: run_wire(node_wire_root, id))
+        progress.result("ALL_PACKAGES", all_packages)
 
 
 @app.command("gen-whl")
@@ -467,27 +496,22 @@ def gen_whl(
 
 
 def _mcp_host_stages(
-    connector_id: str, *, force_output: bool, wheels: bool, host: bool = True
+    node_wire_root: Path, connector_id: str, *, wheels: bool, host: bool = True
 ) -> list[Stage]:
     """Only the prerequisite stages this run needs: nothing already built is listed."""
     stages = []
+    packages = mcp_host_packages(connector_id)
     if wheels:
         stages.append(
             Stage(
                 "wheel",
                 "Wheel build",
-                hint="Build them yourself with: "
-                + _gen_whl_command(mcp_host_packages(connector_id), connector_id),
+                hint=lambda: _gen_whl_hint(node_wire_root, packages, connector_id),
             )
         )
     if host:
         stages.append(
-            Stage(
-                "mcp",
-                "MCP host build",
-                hint=f"Retry: uv run nw gen-mcp --connector-id {connector_id}"
-                + (" --force-output" if force_output else ""),
-            )
+            Stage("mcp", "MCP host build", hint=lambda: _gen_mcp_hint(node_wire_root, connector_id))
         )
     return stages
 
@@ -516,16 +540,15 @@ def gen_mcp(
     tool_mode = _tool_mode(tool_search, full_tool_list)
     node_wire_root = resolve_node_wire_root()
 
-    missing = _missing_wheels(node_wire_root, id)
+    missing = stale_wheel_packages(node_wire_root, mcp_host_packages(id))
     if missing:
         confirm_build(
-            f"No wheels yet for {', '.join(missing)} — build them now?",
+            "Wheels missing or not built from the current sources: "
+            f"{describe_wheel_states(node_wire_root, missing)} — build them now?",
             fix_command=_gen_whl_command(missing, id),
         )
 
-    progress = _progress(
-        "gen-mcp", _mcp_host_stages(id, force_output=force_output, wheels=bool(missing))
-    )
+    progress = _progress("gen-mcp", _mcp_host_stages(node_wire_root, id, wheels=bool(missing)))
     with progress:
         mode = _decide_mode(progress, node_wire_root, id, tool_mode, max_tool_listing_kb)
         if missing:
@@ -574,9 +597,9 @@ def docker_build(
     project = mcp_project_dir(node_wire_root, id)
 
     need_host = not project.is_dir()
-    missing = _missing_wheels(node_wire_root, id) if need_host else []
+    missing = stale_wheel_packages(node_wire_root, mcp_host_packages(id)) if need_host else []
     if need_host:
-        also = f" (and the missing wheels: {', '.join(missing)})" if missing else ""
+        also = f" (and the wheels to build: {', '.join(missing)})" if missing else ""
         confirm_build(
             f"MCP project not found at {project} — generate it now{also}?",
             fix_command=f"uv run nw gen-mcp --connector-id {id}",
@@ -585,7 +608,7 @@ def docker_build(
     progress = _progress(
         "docker-build",
         [
-            *_mcp_host_stages(id, force_output=False, wheels=bool(missing), host=need_host),
+            *_mcp_host_stages(node_wire_root, id, wheels=bool(missing), host=need_host),
             Stage(
                 "docker",
                 "Docker image",
@@ -620,7 +643,7 @@ class _ImageProject:
     connector_id: str
 
     def image(self, tag: str) -> str:
-        return docker_image_tag(self.connector_id, tag) if self.host else f"{self.path.name}:{tag}"
+        return f"{self.path.name}:{tag}"  # <server>-mcp, for gen-mcp hosts and stacklok servers
 
 
 def _project_connectors(project: Path) -> dict[str, Any]:
@@ -798,8 +821,10 @@ def gen_stacklok(
     """
     from nw_cli.scoping import (
         ScopingRequest,
+        record_scope,
         run_ai_scoping,
         run_ai_scoping_interactive,
+        scope_reviewed,
         scoping_dir,
     )
     from nw_cli.review import review_scope
@@ -848,9 +873,6 @@ def gen_stacklok(
         assert id is not None
         work_dir = scoping_dir(node_wire_root, id)
         existing = work_dir / "mcp-scope.yaml"
-        reuse = existing.is_file() and not rescope
-        if reuse:
-            progress.mark_skipped("scoping")
         with progress:
             prepared = progress.run_stage(
                 "spec",
@@ -858,7 +880,6 @@ def gen_stacklok(
                     path, prepared_spec_path(node_wire_root, id), auth=auth, headers=headers
                 ),
             )
-            reused_at = existing.stat().st_mtime if reuse else None
             request = ScopingRequest(
                 spec=prepared,
                 connector_id=id,
@@ -895,21 +916,35 @@ def gen_stacklok(
                     log=progress.log,
                 )
 
-            produced = progress.run_stage("scoping", _scoping)
+            def _rescope(feedback: str | None = None) -> Path:
+                produced = _scoping(feedback)
+                record_scope(work_dir, prepared, reviewed=False)
+                return produced
+
+            source = _scope_source(progress, existing, prepared, rescope=rescope, connector_id=id)
+            if source is _ScopeSource.REUSE:
+                progress.mark_skipped("scoping")
+                reused_at: float | None = existing.stat().st_mtime
+            else:
+                progress.run_stage("scoping", _rescope)
+                reused_at = None
             decision, scope_file = progress.run_stage(
                 "review",
                 lambda: review_scope(
                     progress,
                     node_wire_root=node_wire_root,
-                    scope_file=produced or existing,
+                    scope_file=existing,
                     connector_id=id,
                     summary=work_dir / "scoping-summary.md",
                     output_dir=output_dir or default_output_dir(node_wire_root),
                     force=force,
                     reused_at=reused_at,
-                    rescope=_scoping,
+                    rescope=_rescope,
+                    reviewed=scope_reviewed(work_dir),
                 ),
             )
+            if decision.generate:
+                record_scope(work_dir, prepared, reviewed=True)
             project = (
                 _stacklok_phase3(
                     progress,
@@ -962,6 +997,49 @@ def gen_stacklok(
         ),
         note=f"Kubernetes: {ui.display_path(project / 'deploy' / 'README.md')}.",
     )
+
+
+class _ScopeSource(Enum):
+    """Where ``gen-stacklok --path`` takes its scope from."""
+
+    REUSE = "reuse"  # the saved scope, made from this very spec
+    SCOPE = "scope"  # a new AI scoping run
+
+
+def _scope_source(
+    progress: GenerateProgress,
+    existing: Path,
+    prepared: Path,
+    *,
+    rescope: bool,
+    connector_id: str,
+) -> _ScopeSource:
+    """Reuse the saved scope only when it was made from this spec; otherwise ask (or stop)."""
+    from nw_cli.scoping import SavedScope, record_scope, saved_scope
+
+    status = saved_scope(existing.parent, prepared)
+    if rescope or status is SavedScope.NONE:
+        return _ScopeSource.SCOPE
+    if status is SavedScope.CURRENT:
+        return _ScopeSource.REUSE
+    shown = ui.display_path(existing)
+    if not is_interactive():
+        raise StageError(
+            f"The saved scope {shown} was not made from this spec (it changed, or the scope "
+            "predates nw recording it). Pass --rescope to redo the AI scoping, or use the scope "
+            f"as it is: uv run nw gen-stacklok --scope {shown} --connector-id {connector_id}"
+        )
+    from rich.prompt import Confirm
+
+    with progress.paused():
+        redo = Confirm.ask(
+            f"The saved scope {shown} was not made from this spec. Redo the AI scoping?",
+            default=True,
+        )
+    if redo:
+        return _ScopeSource.SCOPE
+    record_scope(existing.parent, prepared, reviewed=False)  # kept for this spec, on purpose
+    return _ScopeSource.REUSE
 
 
 _HOST_PORT = 8200  # published host port; the server listens on 8100 inside the image

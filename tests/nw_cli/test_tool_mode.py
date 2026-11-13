@@ -28,6 +28,29 @@ from nw_mcp_builder.tool_listing import ToolListing, ToolModeDecision, ToolModeP
 runner = CliRunner()
 
 
+def _ok_build(**overrides):
+    """A successful ``run_build`` outcome (what the connector stage reads)."""
+    from nw_connector_builder.pipeline import BuildOutcome
+
+    fields = dict(
+        stage_reached="promoted",
+        promoted=True,
+        mcp=None,
+        wire=None,
+        report={"summary": {}},
+        report_path=Path("report.json"),
+    )
+    fields.update(overrides)
+    return BuildOutcome(**fields)
+
+
+def stamp_wheels(root: Path, *packages: str) -> None:
+    from nw_mcp_builder.wheel_cache import package_source_hash, stamp_build
+
+    for package in packages:
+        stamp_build(root, package, package_source_hash(root, package))
+
+
 def _prompt() -> ToolModePrompt:
     return ToolModePrompt(
         connector_id="slack_web",
@@ -159,11 +182,14 @@ def fake_root(tmp_path: Path) -> Path:
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"x")
+    stamp_wheels(tmp_path, "packages/runtime", "packages/bindings", "packages/connectors/pet_store")
     return tmp_path
 
 
 def test_gen_all_decides_after_codegen_and_passes_the_mode(fake_root: Path) -> None:
     order: list[str] = []
+    # The connector was just regenerated: its wheel needs a build.
+    (fake_root / "packages/connectors/pet_store/dist/.nw-source-py3-none-any.sha256").unlink()
 
     def fake_decide(root: Path, connector_id: str, **kwargs: Any) -> ToolModeDecision:
         order.append("decide")
@@ -180,12 +206,12 @@ def test_gen_all_decides_after_codegen_and_passes_the_mode(fake_root: Path) -> N
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch(
             "nw_connector_builder.pipeline.run_build",
-            side_effect=lambda **k: order.append("connector") or 0,
+            side_effect=lambda **k: order.append("connector") or _ok_build(),
         ),
         patch("nw_cli.cli.decide_tool_mode", side_effect=fake_decide),
         patch("nw_cli.cli.run_wheel_build", side_effect=lambda *a, **k: order.append("wheel")),
         patch("nw_cli.cli.run_mcp_build", side_effect=fake_mcp),
-        patch("nw_cli.cli.register_all_packages", return_value=True),
+        patch("nw_cli.cli.run_wire", return_value="added"),
     ):
         result = runner.invoke(
             app,
@@ -225,10 +251,10 @@ def test_gen_all_rejects_both_mode_flags(fake_root: Path) -> None:
 def test_gen_all_skips_the_decision_without_an_mcp_stage(fake_root: Path) -> None:
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch("nw_connector_builder.pipeline.run_build", return_value=0),
+        patch("nw_connector_builder.pipeline.run_build", return_value=_ok_build()),
         patch("nw_cli.cli.decide_tool_mode") as decide,
         patch("nw_cli.cli.run_wheel_build"),
-        patch("nw_cli.cli.register_all_packages", return_value=True),
+        patch("nw_cli.cli.run_wire", return_value="added"),
     ):
         result = runner.invoke(
             app,

@@ -57,6 +57,8 @@ class LoopbackRedirectListener:
     Bind ``127.0.0.1`` on an ephemeral port and accept exactly one HTTP callback.
 
     Per MCP security requirements: exact path match, single callback, then close.
+    Empty, malformed and non-GET connections are answered (or dropped) without
+    settling the callback, so the listener keeps waiting for the real redirect.
     """
 
     def __init__(
@@ -78,6 +80,8 @@ class LoopbackRedirectListener:
         return self._binding
 
     async def start(self) -> LoopbackRedirectBinding:
+        if self._callback_future is not None:
+            raise RuntimeError("Listener already started; use a new listener per authorization")
         loop = asyncio.get_running_loop()
         self._callback_future = loop.create_future()
 
@@ -159,7 +163,9 @@ class LoopbackRedirectListener:
                     await writer.wait_closed()
                 except Exception as exc:
                     logger.debug("Redirect listener connection close failed: %s", exc)
-                if self._server:
+                # Stray connections (pre-connects, probes, non-GET) leave the future
+                # unsettled; keep listening for the real callback until it is.
+                if self._server and self._callback_future and self._callback_future.done():
                     self._server.close()
 
         self._server = await asyncio.start_server(_handle, sock=sock)

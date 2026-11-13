@@ -48,6 +48,9 @@ class GoogleDriveConnector(BaseConnector):
         GoogleDriveFatalError: (ErrorCategory.FATAL, "GDRIVE_FATAL"),
     }
 
+    # The credentials object the cached client was built from (see _drive_client).
+    _client_creds: Any = None
+
     def build_client(self) -> Any:
         async def _fetch_creds() -> Any:
             return await self._auth_provider.get_client_credentials()
@@ -64,6 +67,7 @@ class GoogleDriveConnector(BaseConnector):
                     creds = pool.submit(asyncio.run, _fetch_creds()).result()
             else:
                 creds = loop.run_until_complete(_fetch_creds())
+        self._client_creds = creds
         if creds is None:
             # Fallback for NoAuthProvider or unconfigured provider —
             # attempt direct secret resolution for backward compatibility.
@@ -111,6 +115,33 @@ class GoogleDriveConnector(BaseConnector):
             self._client = self.build_client()
         return self._client
 
+    async def _drive_client(self) -> Any:
+        """The cached Drive client, rebuilt off the event loop when it is missing or stale.
+
+        Stale: the auth provider now hands out a different credentials object than the client
+        was built with (it refreshed, e.g. after a rotated service-account key).
+        """
+        if self._client is not None:
+            current = await self._auth_provider.get_client_credentials()
+            if current is self._client_creds:
+                return self._client
+            self._client = None
+        # Off the loop: build() reads and parses the discovery document.
+        return await asyncio.to_thread(self.get_client)
+
+    async def _drop_client_after_auth_error(self) -> None:
+        """Forget the cached client and the provider's credentials, so the next call starts
+        from the current secret instead of failing the same way until a restart."""
+        self._client = None
+        self._client_creds = None
+        try:
+            await self._auth_provider.refresh()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Google Drive: auth provider refresh failed after an auth error",
+                extra={"connector_id": self.connector_id, "error_type": type(exc).__name__},
+            )
+
     def _translate_and_raise_http_error(self, exc: HttpError) -> None:
         status = exc.resp.status
         content_str = str(getattr(exc, "content", "") or "")
@@ -147,7 +178,7 @@ class GoogleDriveConnector(BaseConnector):
             # Off the loop: build() reads and parses the discovery doc on every call here.
             drive = await asyncio.to_thread(build, "drive", "v3", credentials=creds)
         else:
-            drive = self.get_client()
+            drive = await self._drive_client()
         extra = {
             "trace_id": trace_id,
             "connector_id": self.connector_id,
@@ -163,7 +194,11 @@ class GoogleDriveConnector(BaseConnector):
                 getattr(getattr(exc, "resp", None), "status", None),
                 extra=extra,
             )
-            self._translate_and_raise_http_error(exc)
+            try:
+                self._translate_and_raise_http_error(exc)
+            except GoogleDriveAuthError:
+                await self._drop_client_after_auth_error()
+                raise
         return GoogleDriveOperationOutput(
             raw=raw,
             description=f"Successfully executed {action_name}",

@@ -130,7 +130,16 @@ connectors:
         pkg / "dist" / "node_wire_demo_conn-1.0.0-py3-none-any.whl",
         package_dir="node_wire_demo_conn-1.0.0.dist-info",
     )
+    stamp_fake_wheels(root, connector_id)
     return root
+
+
+def stamp_fake_wheels(root: Path, connector_id: str = "demo_conn") -> None:
+    """Stamp the wheels in dist/ as built from the current sources (what a real build does)."""
+    from nw_mcp_builder.wheel_cache import package_source_hash, stamp_build
+
+    for package in ("packages/runtime", "packages/bindings", f"packages/connectors/{connector_id}"):
+        stamp_build(root, package, package_source_hash(root, package))
 
 
 @pytest.fixture

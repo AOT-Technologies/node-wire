@@ -59,3 +59,36 @@ def test_grpc_health_servicer_is_registered():
         assert (
             set_calls["aot.connectors.ConnectorService"] == health_pb2.HealthCheckResponse.SERVING
         )
+
+
+def test_grpc_health_goes_serving_only_after_the_server_started():
+    events: list[str] = []
+    with (
+        patch("bindings.grpc_server.server.grpc.server") as mock_grpc_server,
+        patch(
+            "bindings.grpc_server.server.connector_pb2_grpc.add_ConnectorServiceServicer_to_server"
+        ),
+        patch("bindings.grpc_server.server.health_pb2_grpc.add_HealthServicer_to_server"),
+        patch("bindings.grpc_server.server.grpc_health.HealthServicer") as mock_health_cls,
+        patch("bindings.grpc_server.server.configure_grpc_server_port"),
+        patch("bindings.grpc_server.server._async_runner"),
+        patch("bindings.grpc_server.server.ConnectorServiceServicer"),
+    ):
+        fake_server = MagicMock()
+        fake_server.start.side_effect = lambda: events.append("start")
+        fake_server.wait_for_termination.side_effect = KeyboardInterrupt
+        mock_grpc_server.return_value = fake_server
+        health = MagicMock()
+        health.set.side_effect = lambda name, status: events.append(f"set:{status}")
+        mock_health_cls.return_value = health
+
+        from bindings.grpc_server.server import serve
+
+        try:
+            serve(port=0)
+        except KeyboardInterrupt:
+            pass
+
+    serving = f"set:{health_pb2.HealthCheckResponse.SERVING}"
+    assert serving in events
+    assert events.index("start") < events.index(serving)

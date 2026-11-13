@@ -74,56 +74,68 @@ def test_build_wheel_raises_when_no_whl(tmp_path: Path) -> None:
             _build_wheel(pkg)
 
 
-def test_build_connector_wheels_calls_all_three(tmp_path: Path) -> None:
-    runtime = tmp_path / "packages" / "runtime"
-    bindings = tmp_path / "packages" / "bindings"
-    connector = tmp_path / "packages" / "connectors" / "demo"
-    runtime.mkdir(parents=True)
-    bindings.mkdir(parents=True)
-    connector.mkdir(parents=True)
-    r_whl = runtime / "dist" / "r.whl"
-    b_whl = bindings / "dist" / "b.whl"
-    c_whl = connector / "dist" / "c.whl"
-
-    def fake_build(package_dir: Path, *, python: str | None = None) -> Path:
-        if package_dir == runtime:
-            r_whl.parent.mkdir(parents=True, exist_ok=True)
-            r_whl.write_bytes(b"r")
-            return r_whl
-        if package_dir == bindings:
-            b_whl.parent.mkdir(parents=True, exist_ok=True)
-            b_whl.write_bytes(b"b")
-            return b_whl
-        c_whl.parent.mkdir(parents=True, exist_ok=True)
-        c_whl.write_bytes(b"c")
-        return c_whl
-
-    with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=fake_build):
-        out = build_connector_wheels(tmp_path, "demo")
-    assert out == (r_whl, b_whl, c_whl)
-
-
-def test_unchanged_runtime_and_bindings_wheels_are_reused(tmp_path: Path) -> None:
-    built: list[str] = []
-    for pkg in ("runtime", "bindings", "connectors/demo"):
-        (tmp_path / "packages" / pkg).mkdir(parents=True)
-        (tmp_path / "packages" / pkg / "setup.py").write_text(pkg, encoding="utf-8")
-
+def _fake_builder(built: list[str]):
     def fake_build(package_dir: Path, *, python: str | None = None) -> Path:
         built.append(package_dir.name)
-        whl = package_dir / "dist" / f"{package_dir.name}-{len(built)}.whl"
+        whl = package_dir / "dist" / f"{package_dir.name}-{len(built)}-py3-none-any.whl"
         whl.parent.mkdir(parents=True, exist_ok=True)
+        for old in whl.parent.glob("*.whl"):
+            old.unlink()
         whl.write_bytes(b"w")
         return whl
 
-    with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=fake_build):
+    return fake_build
+
+
+def _packages(root: Path) -> None:
+    for pkg in ("runtime", "bindings", "connectors/demo"):
+        (root / "packages" / pkg).mkdir(parents=True)
+        (root / "packages" / pkg / "setup.py").write_text(pkg, encoding="utf-8")
+
+
+def test_build_connector_wheels_returns_the_three_built_wheels(tmp_path: Path) -> None:
+    _packages(tmp_path)
+    built: list[str] = []
+    with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=_fake_builder(built)):
+        out = build_connector_wheels(tmp_path, "demo")
+    assert [w.name for w in out] == [
+        "runtime-1-py3-none-any.whl",
+        "bindings-2-py3-none-any.whl",
+        "demo-3-py3-none-any.whl",
+    ]
+
+
+def test_wheels_with_unchanged_sources_are_reused(tmp_path: Path) -> None:
+    """One stamp per package, whatever interpreter builds it: the wheels are pure Python."""
+    _packages(tmp_path)
+    built: list[str] = []
+    with patch("nw_mcp_builder.from_connector._build_wheel", side_effect=_fake_builder(built)):
         first = build_connector_wheels(tmp_path, "demo")
-        second = build_connector_wheels(tmp_path, "demo")
-        assert built == ["runtime", "bindings", "demo", "demo"]
-        assert second[:2] == first[:2]
+        second = build_connector_wheels(tmp_path, "demo", python="3.12")
+        assert built == ["runtime", "bindings", "demo"]
+        assert second == first
 
         (tmp_path / "packages" / "runtime" / "setup.py").write_text("changed", encoding="utf-8")
         build_connector_wheels(tmp_path, "demo")
-        # A different interpreter is a different build flavour.
-        build_connector_wheels(tmp_path, "demo", python="3.12")
-    assert built[4:] == ["runtime", "demo", "runtime", "bindings", "demo"]
+    assert built[3:] == ["runtime"]
+
+
+def test_a_failed_build_keeps_the_wheels_already_stamped(tmp_path: Path) -> None:
+    from nw_mcp_builder.wheel_cache import WheelState, wheel_state
+
+    _packages(tmp_path)
+    built: list[str] = []
+    ok = _fake_builder(built)
+
+    def fail_on_bindings(package_dir: Path, *, python: str | None = None) -> Path:
+        if package_dir.name == "bindings":
+            raise RuntimeError("Wheel build failed")
+        return ok(package_dir, python=python)
+
+    with (
+        patch("nw_mcp_builder.from_connector._build_wheel", side_effect=fail_on_bindings),
+        pytest.raises(RuntimeError),
+    ):
+        build_connector_wheels(tmp_path, "demo")
+    assert wheel_state(tmp_path, "packages/runtime") is WheelState.FRESH
+    assert wheel_state(tmp_path, "packages/bindings") is WheelState.MISSING

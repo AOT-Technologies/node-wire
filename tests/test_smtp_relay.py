@@ -224,3 +224,90 @@ def test_smtp_connector_falls_back_to_env_credentials(monkeypatch: pytest.Monkey
     asyncio.run(_run())
     assert captured["username"] == "env-user"
     assert captured["password"] == "env-pass"
+
+
+# ---------------------------------------------------------------------------
+# Typed send failures (D4): connect errors retried, timeouts not
+# ---------------------------------------------------------------------------
+
+import aiosmtplib  # noqa: E402
+
+from node_wire_runtime.models import ErrorCategory  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("raised", "code", "category", "attempts", "hint"),
+    [
+        (
+            aiosmtplib.SMTPConnectError("refused"),
+            "SMTP_CONNECT_ERROR",
+            ErrorCategory.RETRYABLE,
+            3,
+            "Could not connect",
+        ),
+        (
+            aiosmtplib.SMTPConnectTimeoutError("slow"),
+            "SMTP_CONNECT_ERROR",
+            ErrorCategory.RETRYABLE,
+            3,
+            "Could not connect",
+        ),
+        (
+            aiosmtplib.SMTPReadTimeoutError("slow"),
+            "SMTP_TIMEOUT",
+            ErrorCategory.FATAL,
+            1,
+            "timed out",
+        ),
+        (
+            aiosmtplib.SMTPServerDisconnected("gone"),
+            "SMTP_DISCONNECTED",
+            ErrorCategory.FATAL,
+            1,
+            "may have been sent",
+        ),
+        (
+            aiosmtplib.SMTPAuthenticationError(535, "bad creds"),
+            "SMTP_AUTH_ERROR",
+            ErrorCategory.AUTH,
+            1,
+            "SMTP_USERNAME",
+        ),
+    ],
+)
+def test_smtp_send_failures_map_to_typed_codes(
+    monkeypatch: pytest.MonkeyPatch, raised, code, category, attempts, hint
+) -> None:
+    from functools import partial
+
+    from node_wire_runtime.resilience import with_resilience
+
+    monkeypatch.setattr(
+        "node_wire_runtime.base_connector.with_resilience",
+        partial(with_resilience, base_wait=0.001, max_wait=0.002),
+    )
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    calls = {"n": 0}
+
+    async def failing_send(*args: object, **kwargs: object) -> tuple[int, str]:
+        calls["n"] += 1
+        raise raised
+
+    async def _run():
+        with patch("node_wire_smtp.logic.aiosmtplib.send", new=failing_send):
+            return await SmtpConnector().run(
+                {
+                    "action": "send_email",
+                    "from_email": "a@example.com",
+                    "to": ["b@example.com"],
+                    "subject": "s",
+                    "body": "hi",
+                }
+            )
+
+    resp = asyncio.run(_run())
+    assert resp.error_code == code
+    assert resp.error_category is category
+    assert calls["n"] == attempts
+    assert hint in (resp.message or "")

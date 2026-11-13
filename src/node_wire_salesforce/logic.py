@@ -94,7 +94,14 @@ class SalesforceConnector(BaseConnector):
     async def read_lead(self, params: ReadLeadInput, *, trace_id: str) -> SalesforceOperationOutput:
         return await self._execute_rest("GET", f"Lead/{params.record_id}", None, trace_id)
 
-    @sdk_action("update_lead", alias_tolerant=True, mcp_normalize=normalize_salesforce_update_lead)
+    # PATCH sets the given fields to the given values: repeating it changes nothing more, so a
+    # timeout or 5xx is retried. create_* (POST) is not: see OUTCOME_UNKNOWN in docs/errors.md.
+    @sdk_action(
+        "update_lead",
+        alias_tolerant=True,
+        mcp_normalize=normalize_salesforce_update_lead,
+        idempotent=True,
+    )
     async def update_lead(
         self, params: UpdateLeadInput, *, trace_id: str
     ) -> SalesforceOperationOutput:
@@ -127,7 +134,10 @@ class SalesforceConnector(BaseConnector):
         return await self._execute_rest("GET", f"Contact/{params.record_id}", None, trace_id)
 
     @sdk_action(
-        "update_contact", alias_tolerant=True, mcp_normalize=normalize_salesforce_update_contact
+        "update_contact",
+        alias_tolerant=True,
+        mcp_normalize=normalize_salesforce_update_contact,
+        idempotent=True,
     )
     async def update_contact(
         self, params: UpdateContactInput, *, trace_id: str

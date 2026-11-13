@@ -64,7 +64,9 @@ def server(
         PETSTORE_SPEC,
         TEMPLATE,
         out,
-        node_wire=NodeWireOptions(node_wire_checkout.root, wheels=False),
+        node_wire=NodeWireOptions(
+            node_wire_checkout.root, wheels=node_wire_checkout.wheels(tmp_path), lock=False
+        ),
     )
     example = yaml.safe_load((project / "config" / "tenants.example.yaml").read_text())
     doc = example["tenants"]["example-tenant"][CONNECTOR_ID][0]

@@ -510,6 +510,15 @@ _session_tenant_ctx: ContextVar[str | None] = ContextVar(
     default=None,
 )
 
+# Key of the caller's tenant/config selection for the current streamable-http request:
+# (principal, request tenant, Mcp-Session-Id or ""). None on stdio, where the selection is
+# process-wide. The principal and tenant are part of the key so a client-chosen session id can
+# never reach another caller's selection.
+_session_key_ctx: ContextVar[Tuple[str, str, str] | None] = ContextVar(
+    "mcp_session_selection_key",
+    default=None,
+)
+
 
 def _process_response_payload(data: Any, max_items: int) -> Tuple[Any, bool, int, Optional[str]]:
     """
@@ -651,8 +660,9 @@ class McpServer:
                 f"expected one of {sorted(TOOL_MODES)}"
             )
         self._tool_mode = mode
-        # (manifest identity, index); see _search_index().
-        self._search_index_cache: Optional[Tuple[int, Bm25Index]] = None
+        # (manifest, index); see _search_index(). Holds the manifest object itself: an id()
+        # can be reused by a later manifest once the first is freed.
+        self._search_index_cache: Optional[Tuple[List[Dict[str, Any]], Bm25Index]] = None
         self._connector_ids: Optional[frozenset[str]] = (
             None if connector_ids is None else frozenset(connector_ids)
         )
@@ -687,12 +697,13 @@ class McpServer:
             if self._upstream_passthrough
             else ()
         )
-        # §6.4: which tenant/config this session has selected — one in-memory
-        # overlay for this process (stdio and HTTP). Split ToolHive images do
-        # not share it — run one MCP with all connectors.
+        # §6.4: which tenant/config this session has selected — process-wide on
+        # stdio, one entry per caller session on HTTP (_session_key_ctx). Split
+        # ToolHive images do not share it — run one MCP with all connectors.
         self._tenant_session = TenantSessionOverlay(
             store_has_tenant=self._store_has_tenant,
             config_coverage=self._config_coverage,
+            session_key=_session_key_ctx.get,
         )
         try:
             from importlib.metadata import version as pkg_version
@@ -1229,6 +1240,13 @@ class McpServer:
             raise NodeWireError(
                 ErrorCode.VALIDATION_ERROR, f"{SELECT_TENANT_TOOL} requires tenant_id"
             )
+        request_tenant = _session_tenant_ctx.get()
+        # An HTTP caller is bound to its request tenant: it may re-select it, never another.
+        if request_tenant is not None and tenant_id != request_tenant:
+            raise NodeWireError(
+                ErrorCode.TENANT_IDENTITY_MISMATCH,
+                f"tenant_id {tenant_id!r} does not match the request tenant {request_tenant!r}",
+            )
         self._tenant_session.select_tenant(tenant_id)
         connector_id = _optional_str(arguments.get("connector_id"))
         configs = self._list_configs_for_tenant(tenant_id, connector_id)
@@ -1469,7 +1487,7 @@ class McpServer:
         """BM25 index over every connector tool, rebuilt when the manifest is."""
         manifest, _ = self._manifest()
         cached = self._search_index_cache
-        if cached is None or cached[0] != id(manifest):
+        if cached is None or cached[0] is not manifest:
             documents: Dict[str, str] = {}
             for entry in manifest:
                 tool = advertised_tool(entry, multitenancy=False)
@@ -1479,7 +1497,7 @@ class McpServer:
                     if isinstance(spec, dict) and spec.get("description"):
                         parts.append(str(spec["description"]))
                 documents[tool["name"]] = " ".join(parts)
-            cached = (id(manifest), Bm25Index(documents))
+            cached = (manifest, Bm25Index(documents))
             self._search_index_cache = cached
         return cached[1]
 
@@ -1982,9 +2000,17 @@ class McpServer:
                     )
                 token = _streamable_http_identity_ctx.set(identity)
                 tenant_token = _session_tenant_ctx.set(session_tenant)
+                key_token = _session_key_ctx.set(
+                    (
+                        identity.principal if identity is not None else "",
+                        session_tenant,
+                        (request.headers.get("mcp-session-id") or "").strip(),
+                    )
+                )
                 try:
                     return await call_next(request)
                 finally:
+                    _session_key_ctx.reset(key_token)
                     _session_tenant_ctx.reset(tenant_token)
                     _streamable_http_identity_ctx.reset(token)
                     reset_upstream_passthrough_context()

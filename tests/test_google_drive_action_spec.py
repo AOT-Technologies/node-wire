@@ -74,7 +74,7 @@ def test_files_delete_returns_synthetic_raw():
     with patch.object(connector, "get_client", return_value=drive):
         result = asyncio.run(connector.internal_execute(params, trace_id="t"))
 
-    assert result.raw == {"file_id": "fid-99", "status": "deleted"}
+    assert result.raw == {"file_id": "fid-99", "status": "trashed"}
     files_api.update.assert_called_once_with(
         fileId="fid-99",
         body={"trashed": True},

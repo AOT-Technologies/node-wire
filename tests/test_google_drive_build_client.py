@@ -154,3 +154,98 @@ def test_get_client_caches_build_client_result() -> None:
     assert first is mock_drive
     assert second is mock_drive
     mock_build_client.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Cached client lifecycle: off the loop, dropped on AUTH errors and on refresh
+# ---------------------------------------------------------------------------
+
+
+def _provider(creds: object) -> MagicMock:
+    provider = _auth_provider_with_creds(creds)
+    provider.per_request_credentials = False
+    return provider
+
+
+def _list_params():
+    from node_wire_google_drive.schema import GoogleDriveOperationInput
+
+    return GoogleDriveOperationInput.model_validate({"action": "files.list", "page_size": 1})
+
+
+async def _ok_spec(*_args: object, **_kwargs: object) -> dict:
+    return {"files": []}
+
+
+@pytest.mark.asyncio
+async def test_client_is_built_off_the_event_loop() -> None:
+    import threading
+
+    connector = _connector(auth_provider=_provider(object()))
+    threads: list[str] = []
+
+    def _build(*args: object, **kwargs: object) -> MagicMock:
+        threads.append(threading.current_thread().name)
+        return MagicMock(name="drive")
+
+    with (
+        patch("node_wire_google_drive.logic.build", side_effect=_build),
+        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_ok_spec),
+    ):
+        await connector.internal_execute(_list_params(), trace_id="t")
+
+    assert threads and threads[0] != threading.main_thread().name
+
+
+@pytest.mark.asyncio
+async def test_client_is_rebuilt_after_the_provider_refreshes_its_credentials() -> None:
+    first, second = object(), object()
+    provider = _provider(first)
+    connector = _connector(auth_provider=provider)
+
+    with (
+        _patch_build() as mock_build,
+        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_ok_spec),
+    ):
+        await connector.internal_execute(_list_params(), trace_id="t1")
+        await connector.internal_execute(_list_params(), trace_id="t2")
+        assert mock_build.call_count == 1  # cached
+
+        provider.get_client_credentials = AsyncMock(return_value=second)  # rotated
+        await connector.internal_execute(_list_params(), trace_id="t3")
+
+    assert mock_build.call_count == 2
+    assert mock_build.call_args.kwargs["credentials"] is second
+
+
+@pytest.mark.asyncio
+async def test_an_auth_error_drops_the_cached_client_and_refreshes_the_provider() -> None:
+    from googleapiclient.errors import HttpError
+
+    from node_wire_google_drive.exceptions import GoogleDriveAuthError
+
+    provider = _provider(object())
+    provider.refresh = AsyncMock(return_value=None)
+    connector = _connector(auth_provider=provider)
+
+    async def _unauthorized(*_args: object, **_kwargs: object) -> None:
+        resp = MagicMock()
+        resp.status = 401
+        resp.reason = "unauthorized"
+        raise HttpError(resp, b"error")
+
+    with (
+        _patch_build() as mock_build,
+        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_unauthorized),
+    ):
+        with pytest.raises(GoogleDriveAuthError):
+            await connector.internal_execute(_list_params(), trace_id="t1")
+        assert connector._client is None
+        provider.refresh.assert_awaited_once()
+
+    with (
+        _patch_build() as mock_build,
+        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_ok_spec),
+    ):
+        await connector.internal_execute(_list_params(), trace_id="t2")
+    mock_build.assert_called_once()

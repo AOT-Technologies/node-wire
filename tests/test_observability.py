@@ -193,3 +193,52 @@ def test_otlp_log_export_skips_values_otel_cannot_carry(caplog: pytest.LogCaptur
     assert "_logger" not in attributes
     assert not [r for r in caplog.records if r.name == "opentelemetry.attributes"]
     assert "_logger" in record.__dict__  # the record itself is left for the other handlers
+
+
+def test_concurrent_init_observability_configures_exporters_once() -> None:
+    import threading
+    import time
+
+    real_tracer_provider = obs.TracerProvider
+
+    def _slow_tracer_provider(*args: object, **kwargs: object) -> object:
+        time.sleep(0.05)  # widen the window between the check and the flag
+        return real_tracer_provider(*args, **kwargs)
+
+    with _observability_test_patches() as (span_exp, log_exp, _mock_tl, metric_exp):
+        with patch(
+            "node_wire_runtime.observability.TracerProvider", side_effect=_slow_tracer_provider
+        ):
+            threads = [
+                threading.Thread(target=obs.init_observability, args=(f"app-{i}",))
+                for i in range(4)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+    assert span_exp.call_count == 1
+    assert log_exp.call_count == 1
+    assert metric_exp.call_count == 1
+
+
+def test_a_failed_init_is_not_rerun_over_its_partial_setup() -> None:
+    """Once global providers are touched, a later failure must not lead a second call to add
+    a second set of handlers and exporters."""
+    with _observability_test_patches() as (span_exp, _log_exp, _mock_tl, metric_exp):
+        metric_exp.side_effect = RuntimeError("collector misconfigured")
+        with pytest.raises(RuntimeError):
+            obs.init_observability("app-x")
+        obs.init_observability("app-x")
+    assert span_exp.call_count == 1
+
+
+def test_malformed_otlp_headers_fail_before_anything_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "no-equals-sign")
+    with _observability_test_patches() as (span_exp, _log_exp, _mock_tl, _metric_exp):
+        with pytest.raises(ValueError):
+            obs.init_observability("app-bad")
+        assert span_exp.call_count == 0
+        assert obs._STATE["initialized"] is False

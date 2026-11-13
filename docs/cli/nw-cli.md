@@ -64,9 +64,9 @@ The following recording shows a trial run on a copy of the Swagger Petstore spec
 |------|--------|
 | `--connector-id` | Connector id (required) |
 | `--path` | OpenAPI/Swagger file or URL (required) |
-| `--no-wheel` | Skip wheel build; the MCP host bundles the wheels already in `dist/` (checked before codegen starts) |
+| `--no-wheel` | Skip wheel build; the MCP host bundles the wheels already in `dist/`, which must be stamped as built from the current sources (checked before codegen starts, and again by the MCP stage) |
 | `--no-mcp` | Skip MCP host build |
-| `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration. The MCP stage needs the `connectors.yaml` entry, so combine with `--no-mcp` unless the connector is already wired |
+| `--no-wire` | Skip `connectors.yaml` / `sample.env` / `ALL_PACKAGES` registration (`nw wire` does it later). The MCP stage needs the `connectors.yaml` entry, so combine with `--no-mcp` unless the connector is already wired |
 | `--force` | Overwrite existing connector / MCP output |
 | `--rebuild-wheels` | Rebuild every wheel, even those whose sources are unchanged |
 | `--base-url` | API base URL when the spec has none, or only a relative one (overrides `servers[0]`) |
@@ -76,14 +76,17 @@ The following recording shows a trial run on a copy of the Swagger Petstore spec
 | `--full-tool-list` | MCP host lists every tool, even over budget (no prompt, no warning) |
 | `--max-tool-listing-kb` | Tool listing budget in KB (default `25`) |
 
-Checks that need no work run first: the connector id must be a lowercase Python identifier, and with `--no-wheel` the wheels the MCP host bundles must already exist. Then the stages run in-process and in order, each skippable independently:
+Checks that need no work run first: the connector id must be a lowercase Python identifier, and with `--no-wheel` the wheels the MCP host bundles must be built from their current sources. Then the stages run in-process and in order, each skippable independently:
 
 ```mermaid
 flowchart TD
-    Start(["nw gen-all"]) --> Preflight{"Pre-flight<br/>valid --connector-id?<br/>--no-wheel: wheels present?"}
+    Start(["nw gen-all"]) --> Preflight{"Pre-flight<br/>valid --connector-id?<br/>--no-wheel: wheels fresh?"}
     Preflight -- "no" --> Fail(["exit 2 / 1<br/>before any work"])
-    Preflight -- "yes" --> Connector["Connector codegen<br/>run_build(no_mcp=True)<br/>+ connectors.yaml / sample.env"]
-    Connector --> McpWanted{"Build an<br/>MCP host?"}
+    Preflight -- "yes" --> Connector["Connector codegen<br/>run_build(no_mcp=True)"]
+    Connector --> WireGate{"Wire the<br/>connector in?"}
+    WireGate -- "yes" --> Wire["Wire in (same as nw wire)<br/>connectors.yaml / sample.env / ALL_PACKAGES"]
+    WireGate -- "no (--no-wire)" --> McpWanted
+    Wire --> McpWanted{"Build an<br/>MCP host?"}
 
     McpWanted -- "yes" --> ToolMode["Decide tool mode<br/>measure listing against --max-tool-listing-kb<br/>TTY: ask · non-TTY: full list + warning"]
     McpWanted -- "no (--no-mcp)" --> WheelGate
@@ -94,12 +97,8 @@ flowchart TD
     Wheel --> McpGate{"MCP host<br/>requested?"}
 
     McpGate -- "yes" --> McpBuild["MCP host build<br/>run_mcp_build"]
-    McpGate -- "no (--no-mcp)" --> WireGate
-    McpBuild --> WireGate{"Wire the<br/>connector in?"}
-
-    WireGate -- "yes" --> Wire["Register in ALL_PACKAGES"]
-    WireGate -- "no (--no-wire)" --> Done(["Done"])
-    Wire --> Done
+    McpGate -- "no (--no-mcp)" --> Done(["Done"])
+    McpBuild --> Done
 
     classDef stage fill:#ddf1fb,stroke:#1a88b0,stroke-width:1px,color:#0d2f3d
     classDef gate fill:#fdf2d6,stroke:#b8860b,stroke-width:1px,color:#3a2c05
@@ -111,12 +110,16 @@ flowchart TD
     class Fail bad
 ```
 
-Stages are **in-process** function calls (never re-invokes `nw`). Connector codegen always passes `no_mcp=True` to `run_build` so the builder’s host-only MCP hand-off is skipped; MCP uses `skip_build_wheels=True` against wheels from `build-packages.sh`.
+Stages are **in-process** function calls (never re-invokes `nw`). Connector codegen always passes `no_mcp=True` to `run_build` so the builder’s host-only MCP hand-off is skipped; MCP uses `skip_build_wheels=True` against wheels from `build-packages.sh`. Wiring comes before the MCP host because the host bakes the connector's `connectors.yaml` entry.
+
+When a stage fails, the panel's retry command is worked out from what is on disk at that moment: `--force` only when the connector already exists, `--force-output` only when an MCP host is already there, and `nw gen-whl` with only the packages whose wheels are still not fresh.
 
 #### When wire is enabled
 
-- `run_build(..., wire=True)` updates `config/connectors.yaml` and `sample.env`
-- `nw` inserts `packages/connectors/<id>` into `scripts/build-packages.sh`’s `ALL_PACKAGES` list if missing
+The wire stage is the same idempotent step as [`nw wire`](#nw-wire), `nw-connector-builder --wire` and the connector stage of `gen-stacklok`:
+
+- `config/connectors.yaml` gets the connector's entry and `sample.env` its id and secret names
+- `packages/connectors/<id>` is inserted into `scripts/build-packages.sh`’s `ALL_PACKAGES` list if missing. A connector git ignores (a local test build such as `slack_web`) is never added: `ALL_PACKAGES` is tracked
 - Keeping the connector? Add its row to the [Package inventory](../packaging.md#package-inventory) in `docs/packaging.md`. The first cell is the `project.name` from its `pyproject.toml` in backticks, for example: `` | `node-wire-<id-dashed>` | `src/node_wire_<id>/` | `<id>` | `` (`<id-dashed>` is defined in the next paragraph). `tests/test_docs_lifecycle.py` fails until that table's names match `ALL_PACKAGES` exactly. For a throwaway connector, revert the three wire edits once you are done (or pass `--no-wire --no-mcp` up front if you don't need the MCP host). Undo only what `gen-all` changed (`git diff config/connectors.yaml sample.env scripts/build-packages.sh` shows it): delete the added `<id>:` block, the `ALL_PACKAGES` line and the `<ID>_*` secret lines with their comment, and remove `,<id>` from the existing `NW_ALLOWED_CONNECTORS` line. Don't `git checkout` the whole file, which also discards any other uncommitted edits in it.
 
 **Where the outputs land.** After a successful run (exit `0`, every stage ✓ in the summary panel), check these paths. `<id-dashed>` is the connector id with `_` replaced by `-` (`pet_store` → `pet-store`).
@@ -136,7 +139,17 @@ Stages are **in-process** function calls (never re-invokes `nw`). Connector code
 
 Revert the wire edits as in the preceding list, then delete the generated paths: `src/node_wire_<id>/` (and `src/node_wire_<id>.egg-info/` if present), `packages/connectors/<id>/`, `nw-mcp-builder/fixtures/<id>_nw.yaml` and `nw-mcp-builder/out/<id-dashed>-nw-mcp/`. Leave `packages/runtime/dist/` and `packages/bindings/dist/` alone; other connectors reuse those wheels. If you ran `nw docker-build`, also remove the image: `docker rmi <id-dashed>-nw-mcp:latest`.
 
-**Wheel reuse.** Each wheel build stamps the package's `dist/` with a hash of its sources (`.nw-source-py3-none-any.sha256`). The next `gen-all` rebuilds only the packages whose sources changed or whose stamped wheels are gone, all in one `build-packages.sh` run; `--rebuild-wheels` rebuilds everything.
+**Wheel state.** Each package's wheel is one of: *missing*, *stale* or *fresh*. A wheel build hashes the package's sources **before** it starts and, as each package passes, stamps its `dist/` with that hash and the one wheel it wrote (`.nw-source-py3-none-any.sha256`); a package that fails keeps no stamp, and the others keep theirs. Only the stamped wheel of a build from the current sources is fresh: an unstamped wheel (built by `scripts/build-packages.sh` alone, or before this check) is stale, and so is one whose sources changed since. Every command asks the same check: `gen-all` rebuilds only the packages that are not fresh, all in one `build-packages.sh` run (`--rebuild-wheels` rebuilds everything); `gen-mcp`, `docker-build` and `gen-stacklok` bundle only fresh wheels, handed to the generator by path, never "the newest file in `dist/`". A connector regenerated after its wheel was built is therefore rebuilt, never bundled with the old wheel.
+
+**Generated projects are replaced whole.** `gen-mcp` / `gen-all` (and `gen-stacklok`) write the project into a hidden staging folder next to it (`.<name>.tmp-<pid>`) and move it into place only once it is complete; an existing project is removed only after that. A failed or interrupted run leaves the previous project as it was. Leftover staging folders from a crashed run are removed by the next one.
+
+### `nw wire`
+
+```bash
+uv run nw wire --connector-id <id>
+```
+
+Wires a connector that `gen-all` (or `nw-connector-builder`) already built: its `connectors.yaml` entry, its `sample.env` lines and its `ALL_PACKAGES` line, from what the build recorded in `packages/connectors/<id>/report.json`. Every step is idempotent, so it is safe to run again, for example after `gen-all --no-wire`, or to retry a failed wire stage.
 
 **Tool mode.** Right after codegen (before the wheel builds), the connector's MCP tool listing is measured. Over the budget (`--max-tool-listing-kb`, default 25 KB) the progress bars pause and you are asked how the MCP host should expose its tools — the full tool list, or tool search (`nw_search_tools` + `nw_call_tool`, schemas on demand) — with an explanation of where tool search can fail. Without a terminal the full list is generated and a warning names the flags. `--tool-search` / `--full-tool-list` decide up front. The build never fails on size; the choice becomes the host's default `NW_MCP_TOOL_MODE`. Wording and logic live in nw-mcp-builder (`nw_mcp_builder/tool_listing.py`); see its README.
 
@@ -149,7 +162,7 @@ uv run nw gen-whl --connector-id pet_store   # one connector
 uv run nw gen-whl --runtime                  # packages/runtime only
 ```
 
-Runs `scripts/build-packages.sh` for the selected packages. Each gets one pure-Python (`py3-none-any`) wheel that every image and platform can install, so there is no platform mode and no Docker requirement. Runtime is not rebuilt with every connector build — use `--runtime` when needed. `--connector-id` is required unless `--runtime` and/or `--bindings` is set. Flags combine into one build run (`--runtime --bindings --connector-id pet_store` builds all three). `gen-whl` always builds; it also writes the source stamps `gen-all` reuses. `--bindings` builds `packages/bindings` (the MCP host surface) — `gen-mcp` asks you to run `nw gen-whl --bindings` when that wheel is missing.
+Runs `scripts/build-packages.sh` for the selected packages. Each gets one pure-Python (`py3-none-any`) wheel that every image and platform can install, so there is no platform mode and no Docker requirement. Runtime is not rebuilt with every connector build — use `--runtime` when needed. `--connector-id` is required unless `--runtime` and/or `--bindings` is set. Flags combine into one build run (`--runtime --bindings --connector-id pet_store` builds all three). `gen-whl` always builds; it also writes the source stamps every other command checks (see **Wheel state** above). `--bindings` builds `packages/bindings` (the MCP host surface) — `gen-mcp` asks you to run `nw gen-whl --bindings` when that wheel is missing or stale.
 
 ### `nw gen-mcp`
 
@@ -223,8 +236,14 @@ With `--path` it runs stacklok's Phases 1–3 in one go:
    With output piped the menu takes a typed letter instead; with no terminal at all it stops here;
 4. generates.
 
-A second `--path` run reuses the scope in `nw-stacklok-builder/scoping/<id>/` (the review says so,
-with its date; `r` or `--rescope` redoes it). The connector is always rebuilt from the spec. With
+A second `--path` run reuses the scope in `nw-stacklok-builder/scoping/<id>/` only when it was made
+from the same prepared spec (the review says so, with its date; `r` or `--rescope` redoes it).
+`nw` records that in `mcp-scope.state.json` next to the scope: the hash of the prepared spec, the
+hash of the scope, and whether you approved that scope in the review. When the spec changed (or
+the scope predates that file), a terminal asks whether to redo the AI scoping; without one the
+command stops and names `--rescope` and the `--scope` command to use the scope as it is. A scope you
+approved and have not edited since is generated without a terminal too; any other stops for
+review. A new scoping run clears the previous `scoping-summary.md` and state with the scope. The connector is always rebuilt from the spec. With
 `--scope`, the scope is validated before anything is built, and you're asked whether to replace an
 existing output project; `--force` replaces it without asking.
 

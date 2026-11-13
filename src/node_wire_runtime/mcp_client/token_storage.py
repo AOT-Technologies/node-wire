@@ -13,9 +13,10 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from .config import McpClientConfig, TokenStoreMode, canonicalize_mcp_server_url
+from .storage import ClientRegistration
 from node_wire_runtime.secrets import (
     ChainedSecretProvider,
     EnvSecretProvider,
@@ -42,9 +43,14 @@ class StoredOAuthTokens:
     scope: Optional[str]
     expires_at: Optional[float]
     updated_at: float
+    # The client the tokens were issued to. Stored with them so a refresh after a
+    # restart (or behind an injected reauthorize callback) knows which client_id
+    # to present. Records written before this field existed load with ``None``.
+    client_registration: Optional[ClientRegistration] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> StoredOAuthTokens:
+        reg_data = data.get("client_registration")
         return cls(
             user_id=str(data["user_id"]),
             mcp_server_url=str(data["mcp_server_url"]),
@@ -55,7 +61,20 @@ class StoredOAuthTokens:
             scope=data.get("scope"),
             expires_at=data.get("expires_at"),
             updated_at=float(data.get("updated_at") or time.time()),
+            client_registration=(
+                ClientRegistration.from_dict(reg_data) if isinstance(reg_data, dict) else None
+            ),
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = asdict(self)
+        if self.client_registration is None:
+            data.pop("client_registration")
+        else:
+            data["client_registration"]["redirect_uris"] = list(
+                self.client_registration.redirect_uris
+            )
+        return data
 
     def is_expired(self, *, lead_seconds: int) -> bool:
         if self.expires_at is None:
@@ -132,7 +151,7 @@ class FileEncryptedTokenStore(TokenStore):
     def save(self, tokens: StoredOAuthTokens) -> None:
         key = token_partition_key(tokens.user_id, tokens.mcp_server_url, tokens.issuer)
         path = self._path(key)
-        payload = json.dumps(asdict(tokens)).encode("utf-8")
+        payload = json.dumps(tokens.to_dict()).encode("utf-8")
         path.write_bytes(self._fernet.encrypt(payload))
 
     def delete(self, partition_key: str) -> None:
@@ -162,7 +181,7 @@ class OsKeychainTokenStore(TokenStore):
 
     def save(self, tokens: StoredOAuthTokens) -> None:
         key = token_partition_key(tokens.user_id, tokens.mcp_server_url, tokens.issuer)
-        payload = json.dumps(asdict(tokens))
+        payload = json.dumps(tokens.to_dict())
         if self._keyring is not None:
             try:
                 self._keyring.set_password(_KEYRING_SERVICE, key, payload)
@@ -220,7 +239,7 @@ class SecretProviderTokenStore(TokenStore):
     def save(self, tokens: StoredOAuthTokens) -> None:
         key = token_partition_key(tokens.user_id, tokens.mcp_server_url, tokens.issuer)
         OverlaySecretProvider.instance().set_secret(
-            self._secret_key(key), json.dumps(asdict(tokens))
+            self._secret_key(key), json.dumps(tokens.to_dict())
         )
 
     def delete(self, partition_key: str) -> None:

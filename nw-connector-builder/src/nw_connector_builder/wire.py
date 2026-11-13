@@ -2,16 +2,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""``--wire``: comment-preserving connectors.yaml + sample.env edits."""
+"""Wiring a connector into the repo: connectors.yaml, sample.env and ALL_PACKAGES.
+
+:func:`wire_connector` is the one entry point (``--wire``, ``nw gen-all``, ``nw gen-stacklok``
+and ``nw wire``). Every step is idempotent, so wiring again is always safe;
+:func:`wire_connector_from_report` re-wires a built connector from its ``report.json``.
+"""
 
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import re
+import shutil
+import subprocess  # nosec B404  # fixed `git check-ignore` argv, no shell
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from nw_connector_builder.options import header_env_vars
@@ -200,3 +209,133 @@ def apply_wire(
         header_env=header_env_vars(headers or {}),
     )
     logger.info("--wire updated %s and %s", yaml_path, env_path)
+
+
+_ALL_PACKAGES_RE = re.compile(r"(ALL_PACKAGES=\(\n)(.*?)(\n\))", re.DOTALL)
+
+
+def register_all_packages(node_wire_root: Path, connector_id: str) -> bool:
+    """Insert ``packages/connectors/<id>`` into ``ALL_PACKAGES`` if missing.
+
+    Returns True if the file was modified.
+    """
+    script = node_wire_root / "scripts" / "build-packages.sh"
+    text = script.read_text(encoding="utf-8")
+    entry = f"packages/connectors/{connector_id}"
+
+    match = _ALL_PACKAGES_RE.search(text)
+    if not match:
+        raise WireError(f"ALL_PACKAGES block not found in {script}")
+
+    body = match.group(2)
+    if any(line.strip() == entry for line in body.splitlines()):
+        return False
+
+    # Preserve indentation from existing connector lines (2 spaces)
+    indent = "  "
+    for line in body.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("packages/"):
+            indent = line[: len(line) - len(stripped)]
+            break
+
+    new_body = body.rstrip("\n") + f"\n{indent}{entry}"
+    new_text = (
+        text[: match.start()] + match.group(1) + new_body + match.group(3) + text[match.end() :]
+    )
+    _replace_atomically(script, new_text)
+    return True
+
+
+def _git_ignored(node_wire_root: Path, relative: str) -> bool:
+    """True when git ignores ``relative`` (a local-only build such as ``slack_web``)."""
+    git = shutil.which("git")
+    if git is None:
+        return False
+    result = subprocess.run(  # nosec B603  # fixed argv, no shell
+        [git, "check-ignore", "-q", relative],
+        cwd=node_wire_root,
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _wire_all_packages(node_wire_root: Path, connector_id: str) -> str:
+    package = f"packages/connectors/{connector_id}"
+    if not (node_wire_root / "scripts" / "build-packages.sh").is_file():
+        return "skipped (no scripts/build-packages.sh)"
+    # ALL_PACKAGES is tracked; a git-ignored connector must never be listed in it.
+    if _git_ignored(node_wire_root, package + "/"):
+        return "skipped (git-ignored)"
+    return "added" if register_all_packages(node_wire_root, connector_id) else "present"
+
+
+def wire_connector(
+    node_wire_root: Path,
+    connector_id: str,
+    *,
+    base_url: str,
+    auth_block: dict[str, Any],
+    secret_keys: list[str],
+    secret_defaults: dict[str, str] | None = None,
+    host_supplied: bool = False,
+    extra_auth_plans: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Wire ``connector_id`` in: connectors.yaml, sample.env, then ``ALL_PACKAGES``.
+
+    Idempotent. Returns the report's ``wire`` entry.
+    """
+    apply_wire(
+        node_wire_root,
+        connector_id,
+        base_url=base_url,
+        auth_block=auth_block,
+        secret_keys=secret_keys,
+        secret_defaults=secret_defaults,
+        host_supplied=host_supplied,
+        extra_auth_plans=extra_auth_plans,
+        headers=headers,
+    )
+    return {
+        "ok": True,
+        "wired": True,
+        "all_packages": _wire_all_packages(node_wire_root, connector_id),
+    }
+
+
+def wire_connector_from_report(node_wire_root: Path, connector_id: str) -> dict[str, Any]:
+    """:func:`wire_connector` with what the connector's ``report.json`` recorded at build time."""
+    path = node_wire_root / "packages" / "connectors" / connector_id / "report.json"
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise WireError(
+            f"{connector_id!r} has no build report at {path}; build the connector first "
+            "(nw gen-all)"
+        ) from exc
+    summary = report.get("summary") or {}
+    auth = report.get("auth")
+    if summary.get("error") or not isinstance(auth, dict):
+        raise WireError(f"{path} is not the report of a successful build; rebuild the connector")
+    extra = {
+        name: SimpleNamespace(
+            yaml_block=plan.get("yaml") or {},
+            secret_keys=list(plan.get("secret_keys") or []),
+            secret_defaults=dict(plan.get("secret_defaults") or {}),
+            tier=plan.get("tier"),
+        )
+        for name, plan in (auth.get("extra_schemes") or {}).items()
+    }
+    return wire_connector(
+        node_wire_root,
+        connector_id,
+        base_url=summary.get("default_base_url") or "",
+        auth_block=auth.get("yaml") or {},
+        secret_keys=list(auth.get("secret_keys") or []),
+        secret_defaults=dict(auth.get("secret_defaults") or {}),
+        host_supplied=auth.get("tier") == "host_supplied",
+        extra_auth_plans=extra,
+        headers=dict(report.get("headers") or {}),
+    )

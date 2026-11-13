@@ -19,14 +19,14 @@ from nw_cli.stages import (
 )
 
 
-def test_run_wheel_build_passes_only_package_paths(tmp_path: Path) -> None:
+def test_run_wheel_build_passes_only_package_paths(tmp_path: Path, fake_wheel_builder) -> None:
     """Pure-Python wheels: no platform mode flag, and no Docker check."""
     script = tmp_path / "scripts" / "build-packages.sh"
     script.parent.mkdir(parents=True)
     script.write_text("#!/bin/bash\n", encoding="utf-8")
     (tmp_path / "packages" / "runtime").mkdir(parents=True)
     with (
-        patch("nw_cli.stages.run_logged_command", return_value=0) as run,
+        patch("nw_cli.stages.run_logged_command", side_effect=fake_wheel_builder(tmp_path)) as run,
         patch("nw_cli.prerequisites.docker_problem", return_value="no docker"),
     ):
         run_wheel_build(tmp_path, runtime=True)
@@ -53,13 +53,13 @@ def test_run_wheel_build_nonzero_exit(tmp_path: Path) -> None:
             run_wheel_build(tmp_path, connector_id="pet_store")
 
 
-def test_run_wheel_build_uses_posix_relative_script(tmp_path: Path) -> None:
+def test_run_wheel_build_uses_posix_relative_script(tmp_path: Path, fake_wheel_builder) -> None:
     """Git Bash treats \\ in argv as escapes; never pass an absolute Windows path."""
     script = tmp_path / "scripts" / "build-packages.sh"
     script.parent.mkdir(parents=True)
     script.write_text("#!/bin/bash\n", encoding="utf-8")
     (tmp_path / "packages" / "connectors" / "pet_store").mkdir(parents=True)
-    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
+    with patch("nw_cli.stages.run_logged_command", side_effect=fake_wheel_builder(tmp_path)) as run:
         run_wheel_build(tmp_path, connector_id="pet_store")
     cmd = run.call_args.args[0]
     assert cmd[0] == "bash"

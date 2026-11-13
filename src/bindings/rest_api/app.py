@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 
 import os
 import sys
+import threading
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -226,17 +227,24 @@ app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 _mount_playground(app)
 
 _factory: ConnectorFactory | None = None
+_factory_lock = threading.Lock()
 
 
 def get_factory() -> ConnectorFactory:
+    """The process's ConnectorFactory, built once. Published only after it has loaded, so a
+    failed load is retried by the next request instead of leaving an empty factory behind."""
     global _factory
-    if _factory is None:
-        _factory = ConnectorFactory()
-        auto_register()
-        _factory.load()
-        from node_wire_runtime.tenant_persistence import load_tenants
+    if _factory is not None:
+        return _factory
+    with _factory_lock:
+        if _factory is None:
+            factory = ConnectorFactory()
+            auto_register()
+            factory.load()
+            from node_wire_runtime.tenant_persistence import load_tenants
 
-        load_tenants(_factory.store)
+            load_tenants(factory.store)
+            _factory = factory
     return _factory
 
 

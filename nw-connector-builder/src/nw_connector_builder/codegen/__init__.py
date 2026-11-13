@@ -582,7 +582,9 @@ def generate_init_module(connector_id: str) -> str:
 # 1.1.0: connectors.yaml `headers:`, cookie / querystring parameters, every OpenAPI style,
 # `nw_allow_reserved` / `nw_format` / `nw_part_content_type`, AND-combined auth schemes. An
 # older runtime would silently drop or mis-encode them.
-_MIN_RUNTIME_VERSION = "1.1.0"
+# 1.2.0: a POST/PATCH that times out or gets a 5xx is not retried (OUTCOME_UNKNOWN). An older
+# runtime retries it, which can apply a generated create operation twice.
+_MIN_RUNTIME_VERSION = "1.2.0"
 
 
 def generate_package_pyproject(connector_id: str) -> str:

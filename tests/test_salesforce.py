@@ -298,3 +298,50 @@ async def test_salesforce_read_contact_non_json_response_uses_text():
 
     assert result.success is True
     assert result.data == {"text": "not-json-body"}
+
+
+# ---------------------------------------------------------------------------
+# Writes whose outcome is unknown (D3): not retried, OUTCOME_UNKNOWN
+# ---------------------------------------------------------------------------
+
+
+def _always(status: int, calls: list):
+    async def _request(self, method, url, **kwargs):
+        calls.append(method)
+        return httpx.Response(status, request=httpx.Request(method, url))
+
+    return _request
+
+
+@pytest.fixture
+def _fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    from functools import partial
+
+    from node_wire_runtime.resilience import with_resilience
+
+    monkeypatch.setattr(
+        "node_wire_runtime.base_connector.with_resilience",
+        partial(with_resilience, base_wait=0.001, max_wait=0.002),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("_fast_retries")
+async def test_salesforce_create_5xx_is_not_retried_and_reports_outcome_unknown():
+    calls: list = []
+    with patch("httpx.AsyncClient.request", _always(503, calls)):
+        resp = await _connector().run({"action": "create_lead", "LastName": "Doe", "Company": "X"})
+    assert calls == ["POST"]
+    assert resp.error_code == "OUTCOME_UNKNOWN"
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("_fast_retries")
+async def test_salesforce_update_is_idempotent_and_retried_on_5xx():
+    calls: list = []
+    with patch("httpx.AsyncClient.request", _always(503, calls)):
+        resp = await _connector().run(
+            {"action": "update_lead", "record_id": "00Q123456789012", "fields": {"Company": "Y"}}
+        )
+    assert calls == ["PATCH"] * 3
+    assert resp.error_code == "SALESFORCE_TRANSIENT_ERROR"

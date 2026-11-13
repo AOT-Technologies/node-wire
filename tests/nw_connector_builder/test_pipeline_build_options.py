@@ -48,7 +48,7 @@ def _build(tmp_path: Path, **options: object) -> Path:
         report_path=tmp_path / "abort.json",
         **options,
     )
-    assert code == 0
+    assert code.exit_code == 0
     return root
 
 
@@ -87,7 +87,7 @@ def test_spec_flaws_cost_only_the_broken_operation(tmp_path: Path) -> None:
 def test_without_auth_the_connector_is_anonymous(tmp_path: Path) -> None:
     root = _build(tmp_path)
     assert _entry(root).get("auth", {"provider": "none"})["provider"] == "none"
-    assert _runtime_floor(root) == "node-wire-runtime>=1.1.0"
+    assert _runtime_floor(root) == "node-wire-runtime>=1.2.0"
 
 
 def test_auth_declares_the_scheme_the_spec_leaves_out(tmp_path: Path) -> None:
@@ -127,7 +127,7 @@ def test_headers_are_wired_documented_and_pin_the_runtime(tmp_path: Path) -> Non
     assert _report(root)["headers"]["Client-Id"] == "${UNRULY_CLIENT_ID}"
     readme = (root / "src" / "node_wire_unruly" / "README.md").read_text()
     assert "### Fixed headers" in readme
-    assert _runtime_floor(root) == "node-wire-runtime>=1.1.0"
+    assert _runtime_floor(root) == "node-wire-runtime>=1.2.0"
 
 
 @pytest.mark.parametrize("bad", ["Client-Id", "=x", "Authorization=Bearer x", "Bad Name=x"])

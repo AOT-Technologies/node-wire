@@ -127,11 +127,62 @@ async def test_selected_config_map_is_bounded(
         with mcp_request(_headers("acme", "tok", session=session)):
             client.select_config("eu")
     with mcp_request(_headers("acme", "tok", session="s1")):
-        assert client.selected_config() == "eu"  # touch s1 so s2 is least recent
+        assert client.selected_config("acme") == "eu"  # touch s1 so s2 is least recent
     with mcp_request(_headers("acme", "tok", session="s3")):
         client.select_config("eu")
 
-    assert list(client._selected_config) == ["s1", "s3"]
+    assert list(client._selected_config) == [("s1", "acme"), ("s3", "acme")]
+
+
+async def test_selected_config_is_keyed_by_session_and_tenant(
+    node_wire_env: Path, upstream: List[httpx.Request]
+) -> None:
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    with mcp_request(_headers("acme", "tok", session="shared")):
+        client.select_config("eu")
+    with mcp_request(_headers("globex", "tok", session="shared")):
+        await client.run("get_pet", {"petid": "p1"})
+
+    assert [r.url.host for r in upstream] == ["globex.example.test"]
+
+
+async def test_evicted_selection_is_reported_once(
+    node_wire_env: Path, upstream: List[httpx.Request], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import node_wire_toolhive.client as client_mod
+
+    monkeypatch.setattr(client_mod, "_MAX_TRACKED_SESSIONS", 1)
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    for session in ("s1", "s2"):
+        with mcp_request(_headers("acme", "tok", session=session)):
+            client.select_config("eu")
+
+    with mcp_request(_headers("acme", "tok", session="s1")):
+        with pytest.raises(NodeWireToolError, match="expired") as excinfo:
+            await client.run("get_pet", {"petid": "p1"})
+        assert excinfo.value.error_code == "SELECTION_EXPIRED"
+        await client.run("get_pet", {"petid": "p1"})
+
+    assert [r.url.host for r in upstream] == ["acme.example.test"]
+
+
+async def test_session_without_header_gets_a_stable_generated_key(
+    node_wire_env: Path, upstream: List[httpx.Request]
+) -> None:
+    from types import SimpleNamespace
+
+    client = NodeWireClient(CONNECTOR_ID, config_path=node_wire_env)
+    session = SimpleNamespace()
+    headers = {"x-tenant-id": "acme", "authorization": "Bearer tok"}
+    with mcp_request(headers, session=session):
+        client.select_config("eu")
+    with mcp_request(headers, session=session):
+        await client.run("get_pet", {"petid": "p1"})
+
+    ((key, tenant),) = list(client._selected_config)
+    assert tenant == "acme"
+    assert not key.startswith("session-")
+    assert upstream[-1].url.host == "acme-eu.example.test"
 
 
 async def test_selecting_an_unknown_config_fails(node_wire_env: Path) -> None:

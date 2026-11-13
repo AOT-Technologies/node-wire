@@ -23,7 +23,10 @@ def build_report(
     mcp: dict[str, Any] | None = None,
     wire: dict[str, Any] | None = None,
     error: str | None = None,
+    source_hash: str | None = None,
 ) -> dict[str, Any]:
+    """``source_hash``: the promoted package's source hash (see ``nw_mcp_builder.wheel_cache``),
+    so a reader can tell whether this report still describes the code on disk."""
     summary: dict[str, Any] = {
         "id": connector_id,
         "spec_source": meta.get("origin"),
@@ -32,6 +35,8 @@ def build_report(
         "spec_content_hash": meta.get("content_hash"),
         "error": error,
     }
+    if source_hash is not None:
+        summary["source_hash"] = source_hash
     report: dict[str, Any] = {"summary": summary}
 
     if result is not None:
@@ -73,6 +78,7 @@ def build_report(
             "tier": result.auth_plan.tier,
             "secret_key": result.auth_plan.secret_key,
             "secret_keys": result.auth_plan.secret_keys,
+            "secret_defaults": dict(result.auth_plan.secret_defaults or {}),
             "yaml": result.auth_plan.yaml_block,
             "notes": result.auth_plan.notes,
         }
@@ -84,6 +90,7 @@ def build_report(
                     "tier": plan.tier,
                     "secret_key": plan.secret_key,
                     "secret_keys": plan.secret_keys,
+                    "secret_defaults": dict(plan.secret_defaults or {}),
                     "yaml": plan.yaml_block,
                     "notes": plan.notes,
                 }

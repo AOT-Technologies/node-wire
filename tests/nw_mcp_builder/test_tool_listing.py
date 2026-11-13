@@ -192,10 +192,18 @@ def test_over_budget_choice_is_made_before_wheels_are_built(
     fake_node_wire: Path, package_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     order: list[str] = []
-    monkeypatch.setattr(
-        "nw_mcp_builder.from_connector.build_connector_wheels",
-        lambda *a, **k: order.append("wheels"),
+    from nw_mcp_builder.wheel_cache import fresh_wheels
+
+    stamped = fresh_wheels(
+        fake_node_wire,
+        ["packages/runtime", "packages/bindings", "packages/connectors/demo_conn"],
     )
+
+    def build(*a, **k):
+        order.append("wheels")
+        return tuple(stamped.values())
+
+    monkeypatch.setattr("nw_mcp_builder.from_connector.build_connector_wheels", build)
 
     def choose(prompt: ToolModePrompt) -> str:
         order.append("asked")

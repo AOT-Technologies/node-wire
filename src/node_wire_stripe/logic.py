@@ -86,10 +86,14 @@ class StripeConnector(BaseConnector):
             )
             raise
 
+        # Stripe's own status: "succeeded", "pending" (e.g. some bank debits) or "failed".
+        status = getattr(charge, "status", None)
+        if not isinstance(status, str):
+            status = "succeeded" if getattr(charge, "paid", False) else "failed"
         return StripeOperationOutput(
             charge_id=getattr(charge, "id", None),
             receipt_url=getattr(charge, "receipt_url", None),
-            status="succeeded" if getattr(charge, "paid", False) else "failed",
+            status=status,
         )
 
     @nw_action("create_payment_intent")
@@ -161,6 +165,10 @@ class StripeConnector(BaseConnector):
             },
         )
 
+        # One key per step, derived from the caller's key (or this run's trace id): a retry
+        # replays each step Stripe already did instead of repeating it.
+        base_key = params.idempotency_key or trace_id
+
         def _create() -> stripe.Subscription:
             payment_method_id = params.default_payment_method
 
@@ -170,11 +178,13 @@ class StripeConnector(BaseConnector):
                     api_key=api_key,
                     type="card",
                     card={"token": params.card_token},
+                    idempotency_key=f"{base_key}:pm",
                 )
                 stripe.PaymentMethod.attach(
                     pm.id,
                     api_key=api_key,
                     customer=params.customer_id,
+                    idempotency_key=f"{base_key}:attach",
                 )
                 payment_method_id = pm.id
 
@@ -185,7 +195,7 @@ class StripeConnector(BaseConnector):
                 payment_behavior=params.payment_behavior,
                 default_payment_method=payment_method_id,
                 metadata=params.metadata,
-                idempotency_key=params.idempotency_key or trace_id,
+                idempotency_key=f"{base_key}:sub",
                 # Return both inline instead of a retrieve round trip each. Only fields
                 # that exist in every API version stripe>=10 pins: invoice.payment_intent
                 # was removed in 2025-03-31.basil, so it is not expanded.
@@ -207,8 +217,36 @@ class StripeConnector(BaseConnector):
             )
             raise
 
-        # Subscription might have a setup_intent or latest_invoice.payment_intent
-        client_secret = None
+        # The subscription exists from here on. A failed lookup of its client secret must not
+        # fail the action (a retry could not undo the create); report what was created instead.
+        partial = None
+        try:
+            client_secret = await self._subscription_client_secret(sub, api_key)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Stripe Subscription created, but its client secret lookup failed",
+                extra={
+                    "trace_id": trace_id,
+                    "connector_id": self.connector_id,
+                    "action": "create_subscription",
+                    "subscription_id": getattr(sub, "id", None),
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                },
+            )
+            client_secret = None
+            partial = True
+
+        return StripeOperationOutput(
+            subscription_id=getattr(sub, "id", None),
+            status=getattr(sub, "status", None),
+            client_secret=client_secret,
+            partial=partial,
+        )
+
+    @staticmethod
+    async def _subscription_client_secret(sub: Any, api_key: str) -> str | None:
+        """The client secret of a new subscription's setup intent or first payment intent."""
         pending_setup_intent = getattr(sub, "pending_setup_intent", None)
         latest_invoice_id = getattr(sub, "latest_invoice", None)
 
@@ -223,8 +261,8 @@ class StripeConnector(BaseConnector):
             si = pending_setup_intent
             if isinstance(si, str):
                 si = await asyncio.to_thread(stripe.SetupIntent.retrieve, si, api_key=api_key)
-            client_secret = getattr(si, "client_secret", None)
-        elif latest_invoice_id:
+            return getattr(si, "client_secret", None)
+        if latest_invoice_id:
             inv = latest_invoice_id
             if isinstance(inv, str):
                 inv = await asyncio.to_thread(stripe.Invoice.retrieve, inv, api_key=api_key)
@@ -235,13 +273,8 @@ class StripeConnector(BaseConnector):
                     _stripe_obj_id(pi_id),
                     api_key=api_key,
                 )
-                client_secret = getattr(pi, "client_secret", None)
-
-        return StripeOperationOutput(
-            subscription_id=getattr(sub, "id", None),
-            status=getattr(sub, "status", None),
-            client_secret=client_secret,
-        )
+                return getattr(pi, "client_secret", None)
+        return None
 
     @nw_action("cancel_subscription")
     async def cancel_subscription(

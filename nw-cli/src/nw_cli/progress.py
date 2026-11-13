@@ -49,7 +49,7 @@ from rich.text import Text
 
 from nw_cli.ui import AMBER, BLUE, PINK, TEXT, ReportedError, describe, exit_code_for
 
-__all__ = ["GenerateProgress", "Stage", "StageStatus"]
+__all__ = ["GenerateProgress", "InvalidStageTransition", "Stage", "StageStatus"]
 
 TAIL_LINES = 15
 
@@ -266,16 +266,30 @@ class StageStatus(Enum):
     STOPPED = "stopped"  # the user chose to stop here; not a failure
 
 
+# The only moves a stage can make; anything else is a bug in the command driving it.
+_TRANSITIONS: dict[StageStatus, frozenset[StageStatus]] = {
+    StageStatus.PENDING: frozenset({StageStatus.RUNNING, StageStatus.SKIPPED}),
+    StageStatus.RUNNING: frozenset({StageStatus.DONE, StageStatus.FAILED}),
+    StageStatus.DONE: frozenset({StageStatus.STOPPED}),
+    StageStatus.SKIPPED: frozenset(),
+    StageStatus.FAILED: frozenset(),
+    StageStatus.STOPPED: frozenset(),
+}
+
+
+class InvalidStageTransition(RuntimeError):
+    """A stage was moved to a status it cannot reach from its current one."""
+
+
 @dataclass
 class Stage:
     key: str
     label: str
-    skipped: bool = False
     status: StageStatus = StageStatus.PENDING
     task_id: TaskID | None = None
     error: str | None = None
-    # Shown under a failure.
-    hint: str | None = None
+    # Shown under a failure; a callable is asked then, so it can look at what is on disk.
+    hint: str | Callable[[], str] | None = None
     elapsed: float | None = None
 
 
@@ -315,17 +329,27 @@ class GenerateProgress:
                 Stage("wire", "Wire / ALL_PACKAGES"),
             ]
 
+    def _stage(self, key: str) -> Stage:
+        return next(s for s in self.stages if s.key == key)
+
+    def _move(self, stage: Stage, status: StageStatus) -> None:
+        if status not in _TRANSITIONS[stage.status]:
+            raise InvalidStageTransition(
+                f"stage {stage.key!r}: {stage.status.value} -> {status.value}"
+            )
+        stage.status = status
+
     def mark_skipped(self, key: str) -> None:
-        for s in self.stages:
-            if s.key == key:
-                s.skipped = True
-                s.status = StageStatus.SKIPPED
-                break
+        """Skip a stage that has not run, before or while the bars are live."""
+        stage = self._stage(key)
+        self._move(stage, StageStatus.SKIPPED)
+        if self._progress is not None and stage.task_id is not None:
+            self._refresh(stage)
 
     def mark_stopped(self, key: str) -> None:
         """The user stopped the run at this (finished) stage; the summary says so."""
-        stage = next(s for s in self.stages if s.key == key)
-        stage.status = StageStatus.STOPPED
+        stage = self._stage(key)
+        self._move(stage, StageStatus.STOPPED)
         if self._progress is not None and stage.task_id is not None:
             self._refresh(stage)
 
@@ -426,7 +450,7 @@ class GenerateProgress:
         self._streaming()
         self._progress.start()
         for s in self.stages:
-            if s.skipped:
+            if s.status == StageStatus.SKIPPED:
                 tid = self._progress.add_task(self._desc(s), total=1, completed=1)
             else:
                 tid = self._progress.add_task(self._desc(s), total=1, completed=0, start=False)
@@ -528,7 +552,7 @@ class GenerateProgress:
                 col.finished_style = style
 
     def _fail(self, stage: Stage, exc: BaseException) -> None:
-        stage.status = StageStatus.FAILED
+        self._move(stage, StageStatus.FAILED)
         stage.error = "Interrupted." if isinstance(exc, KeyboardInterrupt) else describe(exc)
         stage.elapsed = time.monotonic() - self._started.get(stage.key, time.monotonic())
         self._failed = True
@@ -536,12 +560,12 @@ class GenerateProgress:
 
     def run_stage(self, key: str, fn: Callable[[], Any]) -> Any:
         """Mark stage running, call *fn*, mark done/failed. Re-raises on failure."""
-        stage = next(s for s in self.stages if s.key == key)
-        if stage.skipped:
+        stage = self._stage(key)
+        if stage.status == StageStatus.SKIPPED:
             return None
 
         assert self._progress is not None and stage.task_id is not None
-        stage.status = StageStatus.RUNNING
+        self._move(stage, StageStatus.RUNNING)
         self._tail.clear()
         self._progress.detail = ""
         self._started[key] = time.monotonic()
@@ -555,7 +579,7 @@ class GenerateProgress:
             self._fail(stage, exc)
             raise
 
-        stage.status = StageStatus.DONE
+        self._move(stage, StageStatus.DONE)
         stage.elapsed = time.monotonic() - self._started[key]
         self._progress.detail = ""
         self._refresh(stage)
@@ -601,7 +625,7 @@ class GenerateProgress:
                         f"{escape(failed.error or '')}"
                     )
                 )
-                hint = failed.hint
+                hint = failed.hint() if callable(failed.hint) else failed.hint
                 if self._tail and not self._streaming():
                     parts.append(Text("\nLast output:", style="dim"))
                     parts.append(Text("\n".join(f"  {line}" for line in self._tail), style="dim"))

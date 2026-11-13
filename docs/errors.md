@@ -81,11 +81,34 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.
 | `CONFIG_NAME_CONFLICT` | `BUSINESS` | Creating a config whose name already exists |
 | `CONFIG_DEFAULT_REQUIRED` | `BUSINESS` | Deleting the default config without naming a new one |
 | `CONFIG_INVALID` | `BUSINESS` | Any other config-store refusal |
+| `SELECTION_EXPIRED` | `BUSINESS` | stacklok servers: the session's `nw_select_config` choice was dropped because too many sessions were tracked. Reported once; select again, or retry to use the tenant default |
 | `POLICY_DENIED` | `AUTH` | The policy hook (for example, the MCP scope policy) refused the action |
 | `PROXY_AUTH_FAILED` | `AUTH` | stacklok servers: the request lacks the ToolHive tenant proxy's `X-NW-Proxy-Secret` |
 | `UPSTREAM_TOKEN_MISSING` | `AUTH` | stacklok servers: ToolHive forwarded no `Authorization: Bearer` credential |
 | `SECRET_NOT_FOUND` | `FATAL` | The server lacks a secret it is configured to read (a misconfiguration, so REST answers 500) |
 | `TENANT_SECRET_NOT_FOUND` | `FATAL` | The same, for a tenant's secret |
+| `OUTCOME_UNKNOWN` | `FATAL` | A write failed after its request may have reached the upstream (a timeout, a dropped connection, a 5xx), so it was not retried. Check whether it took effect before trying again. See [Retries](#retries) |
+
+## Retries
+
+`run()` retries a `RETRYABLE` failure up to three times, with exponential backoff, unless a retry
+could apply a write twice:
+
+- A request that never left (a connect error or connect timeout) and a `429` are always retried.
+- Otherwise the action decides. An action declared with `@nw_action(..., idempotent=True)` (or
+  `False`) says so itself. An action that declares nothing is judged by the HTTP request that
+  failed: `GET`, `HEAD`, `PUT`, `DELETE` and `OPTIONS` are retried, and so is a `POST` or `PATCH`
+  sent with an `Idempotency-Key` or `If-None-Exist` header. Any other `POST` or `PATCH` is not.
+- A failure that is not retried for this reason is reported as `OUTCOME_UNKNOWN`. The original
+  error is logged under the same trace id. A failure with no HTTP request behind it, in an action
+  that declares nothing, is retried as before.
+
+Generated REST connectors get this from the HTTP method of each operation, without regeneration.
+The circuit breaker counts `OUTCOME_UNKNOWN` as an upstream failure.
+
+A nested `call_action` on the same connector instance and tenant leaves the circuit breaker to the
+outer call: the nested call is neither rejected by nor counted on the breaker its outer call holds.
+The outer call reports the nested call's code and category, and does not retry it again.
 
 ## Per surface
 

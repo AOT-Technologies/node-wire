@@ -10,8 +10,8 @@ import json
 import logging
 import shutil
 import tomllib
-import zipfile
 from pathlib import Path
+from typing import Dict
 
 import pytest
 import yaml
@@ -22,11 +22,22 @@ from nw_stacklok.project import TemplateChangedError, WheelsMissingError, finish
 from node_wire_toolhive import request as toolhive_request
 from nw_stacklok.resolve import NodeWireResolveError
 
-from .conftest import CONNECTOR_ID, FIXTURES, PETSTORE_SPEC, TEMPLATE, NodeWireCheckout
+from .conftest import (
+    CONNECTOR_ID,
+    FIXTURES,
+    PETSTORE_SPEC,
+    TEMPLATE,
+    NodeWireCheckout,
+    fake_wheel,
+)
 
 
 def _generate(
-    checkout: NodeWireCheckout, tmp_path: Path, *, wheels: bool = False, **scope_overrides
+    checkout: NodeWireCheckout,
+    tmp_path: Path,
+    *,
+    wheels: Dict[str, Path] | None = None,
+    **scope_overrides,
 ) -> Path:
     out = tmp_path / "out"
     out.mkdir(exist_ok=True)
@@ -35,7 +46,9 @@ def _generate(
         PETSTORE_SPEC,
         TEMPLATE,
         out,
-        node_wire=NodeWireOptions(checkout.root, wheels=wheels),
+        node_wire=NodeWireOptions(
+            checkout.root, wheels=wheels or checkout.wheels(tmp_path), lock=False
+        ),
     )
 
 
@@ -178,7 +191,9 @@ def test_a_changed_stacklok_template_fails_the_build(
     target.write_text(target.read_text().replace(old, "# changed upstream"))
 
     with pytest.raises(TemplateChangedError, match=target.name):
-        finish_project(project, captured["plan"], wheels=False, lock=False)
+        finish_project(
+            project, captured["plan"], wheels=node_wire_checkout.wheels(tmp_path), lock=False
+        )
 
 
 def test_manifests_one_backend_and_a_proxy_per_tenant(
@@ -283,34 +298,19 @@ def test_runtime_block_requires_node_wire_options(
         run_pipeline(node_wire_checkout.scope(tmp_path), PETSTORE_SPEC, TEMPLATE, out)
 
 
-def _fake_wheel(dist: Path, dist_name: str, tags: str = "py3-none-any") -> Path:
-    dist.mkdir(parents=True, exist_ok=True)
-    stem = dist_name.replace("-", "_")
-    wheel = dist / f"{stem}-1.1.0-{tags}.whl"
-    with zipfile.ZipFile(wheel, "w") as zf:
-        zf.writestr(f"{stem}-1.1.0.dist-info/METADATA", "")
-    return wheel
-
-
-def test_pure_wheels_are_pinned_as_uv_sources(
+def test_the_handed_over_wheels_are_pinned_as_uv_sources(
     node_wire_checkout: NodeWireCheckout, tmp_path: Path
 ) -> None:
-    checkout = _checkout_copy(node_wire_checkout, tmp_path)
-    packages = checkout.root / "packages"
-    dists = {
-        "node-wire-runtime": packages / "runtime" / "dist",
-        "node-wire-bindings": packages / "bindings" / "dist",
-        "node-wire-toolhive": packages / "toolhive" / "dist",
-        "node-wire-pet-store": packages / "connectors" / CONNECTOR_ID / "dist",
-    }
-    for dist in dists.values():
-        shutil.rmtree(dist, ignore_errors=True)
-    for name, dist in dists.items():
-        _fake_wheel(dist, name)
-    # A compiled wheel left over from before the packages were pure Python is not used.
-    _fake_wheel(dists["node-wire-runtime"], "node-wire-runtime", "cp313-cp313-musllinux_1_2_x86_64")
+    """The wheels the build stage resolved are used as given; dist/ is never scanned."""
+    wheels = node_wire_checkout.wheels(tmp_path)
+    # A newer file in dist/ (compiled leftover or not) must not be picked up.
+    fake_wheel(
+        node_wire_checkout.root / "packages" / "runtime" / "dist",
+        "node-wire-runtime",
+        "cp313-cp313-musllinux_1_2_x86_64",
+    )
 
-    project = _generate(checkout, tmp_path, wheels=True)
+    project = _generate(node_wire_checkout, tmp_path, wheels=wheels)
 
     pyproject = tomllib.loads((project / "pyproject.toml").read_text())
     assert "environments" not in pyproject["tool"].get("uv", {})
@@ -318,19 +318,98 @@ def test_pure_wheels_are_pinned_as_uv_sources(
     assert sources["node-wire-runtime"] == {
         "path": "wheels/node_wire_runtime-1.1.0-py3-none-any.whl"
     }
-    assert set(sources) == set(dists)
+    assert set(sources) == set(wheels)
     for source in sources.values():
         assert (project / source["path"]).is_file()
     assert not list((project / "wheels").glob("*musllinux*"))
     assert "COPY wheels/ ./wheels/" in (project / "Dockerfile").read_text()
 
 
-def test_missing_wheels_are_reported(node_wire_checkout: NodeWireCheckout, tmp_path: Path) -> None:
+def test_missing_wheels_fail_before_anything_is_written(
+    node_wire_checkout: NodeWireCheckout, tmp_path: Path
+) -> None:
+    wheels = node_wire_checkout.wheels(tmp_path)
+    del wheels["node-wire-toolhive"]
+    with pytest.raises(WheelsMissingError, match="node-wire-toolhive"):
+        _generate(node_wire_checkout, tmp_path, wheels=wheels)
+    assert list((tmp_path / "out").iterdir()) == []
+
+
+def test_a_compiled_wheel_is_refused(node_wire_checkout: NodeWireCheckout, tmp_path: Path) -> None:
+    wheels = node_wire_checkout.wheels(tmp_path)
+    wheels["node-wire-runtime"] = fake_wheel(
+        tmp_path / "compiled", "node-wire-runtime", "cp313-cp313-linux_x86_64"
+    )
+    with pytest.raises(WheelsMissingError, match="py3-none-any"):
+        _generate(node_wire_checkout, tmp_path, wheels=wheels)
+
+
+def test_wheels_cannot_be_turned_off(node_wire_checkout: NodeWireCheckout) -> None:
+    """node-wire-toolhive and node-wire-bindings are not on PyPI: a server without the
+    bundled wheels cannot be installed."""
+    with pytest.raises(ValueError, match="not published"):
+        NodeWireOptions(node_wire_checkout.root, wheels=False)  # type: ignore[arg-type]
+    assert NodeWireOptions(node_wire_checkout.root, wheels={}).lock is True
+
+
+def test_a_connector_missing_from_the_config_fails_before_anything_is_written(
+    node_wire_checkout: NodeWireCheckout, tmp_path: Path
+) -> None:
     checkout = _checkout_copy(node_wire_checkout, tmp_path)
-    for dist in (checkout.root / "packages").rglob("dist"):
-        shutil.rmtree(dist)
-    with pytest.raises(WheelsMissingError, match="No py3-none-any wheel for"):
-        _generate(checkout, tmp_path, wheels=True)
+    (checkout.root / "config" / "connectors.yaml").write_text("connectors: {}\n")
+    with pytest.raises(FileNotFoundError, match="no entry for connector"):
+        _generate(checkout, tmp_path)
+    assert list((tmp_path / "out").iterdir()) == []
+
+
+def test_manifests_are_written_before_the_lock(
+    node_wire_checkout: NodeWireCheckout, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen = {}
+
+    def fake_lock(project_dir: Path) -> None:
+        seen["deploy"] = sorted(p.name for p in (project_dir / "deploy").iterdir())
+
+    monkeypatch.setattr("nw_stacklok.project._lock", fake_lock)
+    out = tmp_path / "out"
+    out.mkdir()
+    run_pipeline(
+        node_wire_checkout.scope(tmp_path),
+        PETSTORE_SPEC,
+        TEMPLATE,
+        out,
+        node_wire=NodeWireOptions(
+            node_wire_checkout.root, wheels=node_wire_checkout.wheels(tmp_path)
+        ),
+    )
+    assert "backend.yaml" in seen["deploy"]
+
+
+def test_an_invalid_scope_is_rejected_by_the_pipeline_itself(
+    node_wire_checkout: NodeWireCheckout, tmp_path: Path
+) -> None:
+    scope = yaml.safe_load((FIXTURES / "petstore.yaml").read_text())
+    scope["groups"][0]["tools"][0]["endpoint"] = "GET /no/such/path"
+    with pytest.raises(ValueError, match="fails validation"):
+        _generate(node_wire_checkout, tmp_path, groups=scope["groups"])
+    assert list((tmp_path / "out").iterdir()) == []
+
+
+def test_a_plan_with_an_unbound_tool_is_refused() -> None:
+    from types import SimpleNamespace
+
+    from nw_stacklok.hooks import check_node_wire_plan
+
+    plan = SimpleNamespace(
+        node_wire=object(),
+        tools=[
+            SimpleNamespace(
+                tool_name="t", nw_action=None, path_params=[], query_params=[], body_fields=[]
+            )
+        ],
+    )
+    with pytest.raises(AssertionError, match="t"):
+        check_node_wire_plan(plan)  # type: ignore[arg-type]
 
 
 def test_tenants_example_carries_headers_with_a_note(tmp_path: Path) -> None:

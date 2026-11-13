@@ -13,6 +13,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP tenant selection on streamable-http is per caller.** `nw_select_config` and
+  `nw_select_tenant` are kept per caller session (principal, request tenant, `Mcp-Session-Id`)
+  instead of once per process, so one client's selection no longer changes another's. On HTTP,
+  `nw_select_tenant` for a tenant other than the request's tenant fails with
+  `TENANT_IDENTITY_MISMATCH` and lists no configs. stdio keeps one process-wide selection.
+  Changing tenant drops a selected config the new tenant lacks; a selected tenant that has since
+  been deleted fails with `TENANT_NOT_ALLOWED`. See `docs/architecture/tenancy.md`.
+- **Generated nw-mcp-builder hosts run with MCP auth on by default.** Local-dev mode (auth off,
+  scope policy `allow`) is now opt-in with `NW_MCP_LOCAL_DEV=true`, which the generated
+  `.env.example` sets; detecting a container no longer decides auth. Regenerate existing hosts.
+- stacklok servers keep `nw_select_config` per MCP session and tenant; a selection dropped from
+  the bounded map fails once with the new `SELECTION_EXPIRED` code instead of silently using the
+  tenant default.
+- `OverlaySecretProvider.replace_all` takes a required `namespace=` and replaces only the keys it
+  wrote under that namespace; all overlay reads and writes are locked.
+- MCP client: `insufficient_scope` on a 401 or 403 re-authorizes with the new scopes; an expired
+  MCP session (404) is re-initialized and the request retried once; calls after `aclose()` raise
+  `McpSessionClosedError`; a callback with an unknown or expired `state` raises
+  `McpOAuthSecurityError`.
+- ToolHiveAgent: `run()` and `run_events()` share one loop (`AgentRunResult.outcome`); tool errors
+  passed to the LLM no longer contain raw exception text, and tool results are no longer logged.
+  `MultiMcpClient` sends `nw_select_*` to every server.
+- `nw-cli` / builders: `gen-mcp`, `docker-build` and `gen-all --no-wheel` use source-hash wheel
+  freshness (a regenerated connector's old wheel is rebuilt, never bundled), and hosts receive the
+  exact wheels that were built. Generated projects are written to a temporary directory and swapped
+  in only when complete; the output name comes from the fixture's `server.name`. `nw-connector-builder`
+  returns a typed build outcome and recovers an interrupted promote. `gen-stacklok` reuses a saved
+  scope only when the spec hash matches. stacklok generation validates the scope, fails on a
+  missing template patch anchor, and defaults to locking.
+- **`node-wire-runtime` 1.2.0: writes whose outcome is unknown are no longer retried.** A
+  `RETRYABLE` failure after a `POST` or `PATCH` may have reached the upstream (a timeout, a dropped
+  connection, a 5xx), so the call is now reported as the new `OUTCOME_UNKNOWN` code (`FATAL`)
+  instead of being retried. Connect errors and `429`s are still retried for every method, and so
+  is a write sent with an `Idempotency-Key` or `If-None-Exist` header or an action declared
+  `@nw_action(..., idempotent=True)`. Generated REST connectors get this by HTTP method without
+  regeneration; regenerated ones require runtime 1.2.0. See `docs/errors.md#retries`.
+- A nested `call_action` on the same connector instance leaves the circuit breaker to its outer
+  call: repeated nested upstream failures now open the breaker, and a half-open trial whose nested
+  call failed (or never reached the upstream) no longer closes it. The outer call reports the
+  nested call's code and category. An unmapped `FATAL` error no longer resets the breaker's
+  failure count or closes a half-open trial.
+- `smtp`: send failures raise typed errors instead of `ValueError`: `SMTP_AUTH_ERROR` (`AUTH`),
+  `SMTP_CONNECT_ERROR` (`RETRYABLE`), `SMTP_TIMEOUT` and the new `SMTP_DISCONNECTED` (`FATAL`, not
+  retried, because the message may have been sent).
+- `stripe`: `create_subscription` sends one idempotency key per step (`<key>:pm`, `<key>:attach`,
+  `<key>:sub`), and returns the created subscription with `partial: true` when only the follow-up
+  client-secret lookup fails. `charge` reports Stripe's own status (`pending` is no longer
+  reported as `failed`).
+- `slack`: `upload_file` retries a failed upload or completion step on its own instead of starting
+  a new upload; a completion that still fails is `SLACK_UPLOAD_ERROR` naming the file id.
+- `google_drive`: `files.delete` reports `"status": "trashed"` (it moves the file to the trash).
+  The cached Drive client is built off the event loop, and dropped after an `AUTH` error or when
+  the auth provider's credentials change.
+- `salesforce`: `update_*` actions are declared idempotent (retried after a timeout or 5xx);
+  `create_*` returns `OUTCOME_UNKNOWN` instead.
+
+### Added
+
+- `nw wire <id>`: the idempotent wiring step (`connectors.yaml`, `sample.env`, `ALL_PACKAGES`)
+  on its own; `gen-all` rerun hints are now computed from what is on disk.
+- `fhir_epic` / `fhir_cerner`: searches return `next_link`, the Bundle's next-page URL.
+  `fhir_epic` `create_document_reference` sends `If-None-Exist` for the first identifier with a
+  system and value (FHIR conditional create), so a timed-out create is retried safely.
+
+### Fixed
+
+- A default config set with `set_default` (for example via REST) is kept across a restart; the
+  config store enforces exactly one default per scope.
+- Loading tenants no longer wipes stored MCP OAuth tokens from the secret overlay.
+- A cached connector instance is rebuilt when its config record changes, including the default
+  instance, which is now bounded by the cache size.
+- MCP client OAuth: an expired token is refreshed after a restart (the client registration is
+  stored with the tokens) instead of forcing a browser login; a token with the wrong audience is
+  never stored; pending authorizations are keyed by `state` with a TTL; discovery is cached.
+- The loopback redirect listener no longer closes on a browser preconnect or malformed request.
+- `OAuth2AuthProvider`: tokens shorter-lived than the expiry buffer are reused, and a rejected
+  refresh-token override is cleared.
+- REST: the lazy connector factory is published only after it has loaded. gRPC: a dead background
+  loop fails calls immediately, and health reports `SERVING` only after the server has started.
+- `init_observability` is serialised by a lock, and a failure after it started configuring
+  providers no longer leads a second call to install duplicate handlers and exporters.
+- `BufferedStreamIterator` yields buffered items before re-raising an upstream error, and logs a
+  cancelled stream as cancelled rather than completed.
+
 ## [1.1.2] - 2026-11-06
 
 ### Added

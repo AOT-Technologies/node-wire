@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
+import asyncio
 import os
 import time
 import logging
@@ -16,6 +17,7 @@ class StreamSignal(str, Enum):
     CHUNK = "chunk"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 def stream_completion_log(trace_id: str, success: bool, *, connector_id: str, action: str) -> None:
@@ -60,6 +62,23 @@ def resolve_stream_buffer_ms(override: Optional[int] = None) -> int:
     return max(0, min(n, 30000))
 
 
+def _stream_cancelled_log(trace_id: str, *, connector_id: str, action: str) -> None:
+    status = StreamSignal.CANCELLED.value
+    logger.info(
+        "Stream cancelled | trace_id=%s | connector_id=%s | action=%s | status=%s",
+        trace_id,
+        connector_id,
+        action,
+        status,
+        extra={
+            "trace_id": trace_id,
+            "connector_id": connector_id,
+            "action": action,
+            "stream_status": status,
+        },
+    )
+
+
 async def BufferedStreamIterator(
     iterator: AsyncIterator[Dict[str, Any]],
     buffer_ms: int,
@@ -67,31 +86,52 @@ async def BufferedStreamIterator(
     connector_id: str = "agent",
     action: str = "stream",
 ) -> AsyncIterator[Dict[str, Any]]:
-    success = True
+    """Yield ``iterator``'s items, batched into flushes at most every ``buffer_ms``.
+
+    Items already received are yielded before an upstream error is re-raised. Logs one line
+    when the stream ends: completed, failed, or cancelled (the task was cancelled or the
+    consumer stopped early).
+    """
+    outcome: Optional[StreamSignal] = None
+    buffer: list[Dict[str, Any]] = []
     try:
         if buffer_ms <= 0:
             async for item in iterator:
                 yield item
-            return
+        else:
+            buffer_sec = buffer_ms / 1000.0
+            last_flush = time.monotonic()
 
-        buffer_sec = buffer_ms / 1000.0
-        buffer = []
-        last_flush = time.monotonic()
+            async for item in iterator:
+                buffer.append(item)
+                now = time.monotonic()
+                if now - last_flush >= buffer_sec:
+                    pending, buffer = buffer, []
+                    for b_item in pending:
+                        yield b_item
+                    last_flush = now
 
-        async for item in iterator:
-            buffer.append(item)
-            now = time.monotonic()
-            if now - last_flush >= buffer_sec:
-                for b_item in buffer:
-                    yield b_item
-                buffer.clear()
-                last_flush = now
-
-        for b_item in buffer:
-            yield b_item
+            pending, buffer = buffer, []
+            for b_item in pending:
+                yield b_item
+        outcome = StreamSignal.COMPLETED
     except Exception:
-        success = False
+        outcome = StreamSignal.FAILED
+        # What the upstream sent before failing still reaches the consumer.
+        pending, buffer = buffer, []
+        for b_item in pending:
+            yield b_item
+        raise
+    except (asyncio.CancelledError, GeneratorExit):
+        outcome = StreamSignal.CANCELLED
         raise
     finally:
-        # Automatically emit completion log when stream ends
-        stream_completion_log(trace_id, success, connector_id=connector_id, action=action)
+        if outcome is StreamSignal.CANCELLED or outcome is None:
+            _stream_cancelled_log(trace_id, connector_id=connector_id, action=action)
+        else:
+            stream_completion_log(
+                trace_id,
+                outcome is StreamSignal.COMPLETED,
+                connector_id=connector_id,
+                action=action,
+            )

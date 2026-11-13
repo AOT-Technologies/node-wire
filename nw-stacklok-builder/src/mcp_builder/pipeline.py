@@ -27,6 +27,7 @@ from mcp_builder.generate.scaffold import scaffold_project
 from mcp_builder.schema.models import MCPScope, load_scope
 from mcp_builder.spec import load_openapi_spec
 from mcp_builder.spec.types import OpenAPISpec
+from mcp_builder.validate import validate_scope
 
 # node-wire: optional node-wire runtime mode (nw-stacklok-builder/UPSTREAM.md).
 from nw_stacklok import hooks as node_wire_hooks
@@ -78,6 +79,14 @@ def run_pipeline(
         logger.info("Loading OpenAPI spec from %s", openapi_spec)
         spec = load_openapi_spec(openapi_spec)
 
+    # node-wire: validate here, not only in callers, so no path generates from an invalid scope.
+    validation = validate_scope(scope, spec)
+    if validation.errors:
+        raise ValueError(
+            f"Scope '{scope.server.name}' fails validation:\n"
+            + "\n".join(f"  - {e}" for e in validation.errors)
+        )
+
     logger.info("Building server plan for '%s'", scope.server.name)
     plan = build_server_plan(scope, spec)
     plan = node_wire_hooks.attach(plan, scope, node_wire)
@@ -102,8 +111,6 @@ def run_pipeline(
     # Patch scaffolded wiring files
     _patch_file(module_dir / "api" / "mcp_builder.py", patch_mcp_builder, plan)
     _patch_file(module_dir / "api" / "app_builder.py", patch_app_builder, plan)
-    if plan.node_wire is not None and node_wire is not None:
-        node_wire_hooks.finish(project_dir, plan, node_wire)
 
     # Write deployment manifests
     deploy_dir = project_dir / "deploy"
@@ -111,6 +118,10 @@ def run_pipeline(
     manifests = node_wire_hooks.manifests(plan) if plan.node_wire else render_manifests(plan)
     for filename, content in manifests.items():
         _write_file(deploy_dir / filename, content)
+
+    # node-wire: last, after the manifests: finishing ends with `uv lock`.
+    if plan.node_wire is not None and node_wire is not None:
+        node_wire_hooks.finish(project_dir, plan, node_wire)
 
     logger.info("Generated project at %s", project_dir)
     return project_dir

@@ -15,10 +15,14 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
+import dataclasses
+
 from node_wire_runtime.config_store import DEFAULT_TENANT
+from node_wire_runtime.errors import ErrorCode
 from node_wire_runtime.tenant_session import (
     MISSING_TENANT_SELECT_MESSAGE,
     PIN_LOCKED_MESSAGE,
+    Selection,
     TenantSessionOverlay,
     allowed_tenants_from_env,
     pin_locked_from_env,
@@ -30,6 +34,8 @@ def _overlay(
     tenants: Optional[Dict[str, Dict[str, List[str]]]] = None,
     pin_locked: bool = False,
     allowed: Optional[frozenset[str]] = None,
+    session: Optional[List[Optional[str]]] = None,
+    max_sessions: int = 4096,
 ) -> TenantSessionOverlay:
     """Build an overlay over an in-memory fake store: tenants maps
     tenant_id -> {config_name: [connector_ids with that config]}."""
@@ -49,6 +55,8 @@ def _overlay(
         config_coverage=config_coverage,
         pin_locked=lambda: pin_locked,
         allowed_tenants=lambda: allowed,
+        session_key=(lambda: session[0]) if session is not None else (lambda: None),
+        max_sessions=max_sessions,
     )
 
 
@@ -168,13 +176,13 @@ def test_set_selected_tenant_bypasses_guardrails():
     assert overlay.selected_tenant_id == "acme"
 
 
-def test_set_selected_tenant_does_not_touch_config():
-    overlay = _overlay(tenants={"acme": {"prod": ["c1"]}})
+def test_set_selected_tenant_drops_config_the_new_tenant_lacks():
+    overlay = _overlay(tenants={"acme": {"prod": ["c1"]}, "globex": {}})
     overlay.select_tenant("acme")
     overlay.select_config("acme", "prod")
     overlay.set_selected_tenant("globex")
     assert overlay.selected_tenant_id == "globex"
-    assert overlay.selected_config_name == "prod"  # unlike select_tenant, no clearing
+    assert overlay.selected_config_name is None
 
 
 def test_set_selected_config_bypasses_coverage_check():
@@ -384,3 +392,51 @@ def test_effective_config_name_ignores_arg_when_multitenancy_disabled(monkeypatc
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "false")
     overlay = _overlay(tenants={"acme": {"prod": ["c1"]}})
     assert overlay.effective_config_name(config_arg="prod") is None
+
+
+# --------------------------------------------------------------------------- #
+# selection scope: process-wide (stdio) vs per session (HTTP)
+# --------------------------------------------------------------------------- #
+
+
+def test_selection_is_immutable():
+    overlay = _overlay(tenants={"acme": {}})
+    overlay.select_tenant("acme")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        overlay.selection.tenant_id = "globex"  # type: ignore[misc]
+    assert overlay.selection == Selection(tenant_id="acme")
+
+
+def test_session_selections_are_independent():
+    current: List[Optional[str]] = ["s1"]
+    overlay = _overlay(tenants={"acme": {"prod": ["c1"], "dev": ["c1"]}}, session=current)
+    overlay.select_config("acme", "prod")
+    current[0] = "s2"
+    assert overlay.selected_config_name is None
+    overlay.select_config("acme", "dev")
+    current[0] = "s1"
+    assert overlay.selected_config_name == "prod"
+    current[0] = None  # stdio / process scope is separate again
+    assert overlay.selected_config_name is None
+
+
+def test_session_map_is_bounded():
+    current: List[Optional[str]] = ["s1"]
+    overlay = _overlay(tenants={"acme": {"prod": ["c1"]}}, session=current, max_sessions=2)
+    for sid in ("s1", "s2", "s3"):
+        current[0] = sid
+        overlay.select_config("acme", "prod")
+    current[0] = "s1"
+    assert overlay.selected_config_name is None
+    current[0] = "s3"
+    assert overlay.selected_config_name == "prod"
+
+
+def test_selected_tenant_rechecked_on_read():
+    tenants: Dict[str, Dict[str, List[str]]] = {"acme": {}}
+    overlay = _overlay(tenants=tenants)
+    overlay.select_tenant("acme")
+    del tenants["acme"]
+    with pytest.raises(ValueError, match="no longer exists") as exc:
+        overlay.effective_tenant_id(resolve_from_request=lambda: "fallback")
+    assert exc.value.code == ErrorCode.TENANT_NOT_ALLOWED

@@ -465,3 +465,91 @@ async def test_factory_locks_are_dropped_with_their_instances(
     # A dropped lock is recreated on demand.
     await factory.get("http_generic", tenant_id=DEFAULT_TENANT, config_name="c1")
     assert (DEFAULT_TENANT, "http_generic", "c1") in factory._instances
+
+
+@pytest.mark.asyncio
+async def test_factory_get_rebuilds_when_config_changed_during_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A write landing between get()'s resolve and its cache insert must not leave the old
+    config cached: the next get() sees the new config."""
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
+    factory = ConnectorFactory()
+    store = factory.store
+    store.init(
+        {DEFAULT_TENANT: {"http_generic": [{"name": "default", "default": True, "config": {}}]}}
+    )
+
+    def _fake(self: ConnectorFactory, record):
+        inst = MagicMock()
+        inst.raw_config = dict(record.raw.get("config") or {})
+        return inst
+
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", _fake)
+    real_resolve = store.resolve
+    calls = {"n": 0}
+
+    def resolve_then_write(*args, **kwargs):
+        record = real_resolve(*args, **kwargs)
+        calls["n"] += 1
+        if calls["n"] == 1:
+            store.replace_tenant(
+                DEFAULT_TENANT,
+                {"http_generic": [{"name": "default", "default": True, "config": {"v": 2}}]},
+            )
+        return record
+
+    monkeypatch.setattr(store, "resolve", resolve_then_write)
+
+    await factory.get("http_generic", tenant_id=DEFAULT_TENANT)
+    fresh = await factory.get("http_generic", tenant_id=DEFAULT_TENANT)
+    assert fresh.raw_config == {"v": 2}
+
+
+def test_factory_default_instance_respects_the_cache_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
+    factory = ConnectorFactory()
+    factory.store.init(
+        {
+            DEFAULT_TENANT: {
+                cid: [{"name": "default", "default": True, "config": {}}]
+                for cid in ("http_generic", "smtp", "stripe")
+            }
+        }
+    )
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", lambda self, record: MagicMock())
+    factory._max_instances = 2
+    for cid in ("http_generic", "smtp", "stripe"):
+        factory._default_instance(cid)
+    assert len(factory._instances) == 2
+
+
+def test_factory_default_instance_rebuilds_after_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from node_wire_runtime.config_store import DEFAULT_TENANT
+
+    factory = ConnectorFactory()
+    factory.store.init(
+        {DEFAULT_TENANT: {"http_generic": [{"name": "default", "default": True, "config": {}}]}}
+    )
+
+    def _fake(self: ConnectorFactory, record):
+        inst = MagicMock()
+        inst.raw_config = dict(record.raw.get("config") or {})
+        return inst
+
+    monkeypatch.setattr(ConnectorFactory, "_instantiate", _fake)
+    first = factory._default_instance("http_generic")
+    # A stale entry left behind (e.g. by a racing build) is detected by version, not luck.
+    factory.store.replace_tenant(
+        DEFAULT_TENANT,
+        {"http_generic": [{"name": "default", "default": True, "config": {"v": 2}}]},
+    )
+    with factory._instances_guard:
+        factory._instances[(DEFAULT_TENANT, "http_generic", "default")] = first
+    assert factory._default_instance("http_generic").raw_config == {"v": 2}

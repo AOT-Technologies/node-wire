@@ -21,9 +21,9 @@ from .env_config import (
     mcp_oauth_enabled,
     mcp_oauth_user_id,
 )
-from .exceptions import McpOAuthFlowAborted, McpTokenRefreshError
 from .oauth_flow import OAuthTokenSet
-from .token_manager import TokenManager
+from .session import McpHttpSession
+from .token_manager import McpRecoveryAction, TokenManager
 from .token_storage import make_token_store
 
 logger = logging.getLogger("runtime.mcp_client.client")
@@ -50,8 +50,7 @@ class McpOAuthClient:
         self._base_url = base_url.rstrip("/")
         self._config = config or config_from_env(server_url=base_url)
         self._user_id = user_id or mcp_oauth_user_id()
-        self._session_id: Optional[str] = None
-        self._initialized = False
+        self._session = McpHttpSession()
         self._http = http_client
         self._owns_http = http_client is None
         self._extra_headers = dict(extra_headers or {})
@@ -68,6 +67,7 @@ class McpOAuthClient:
         return self._http
 
     async def aclose(self) -> None:
+        self._session.close()
         if self._owns_http and self._http is not None:
             await self._http.aclose()
             self._http = None
@@ -78,20 +78,15 @@ class McpOAuthClient:
         await self._token_manager.ensure_discovery(www_authenticate=www_authenticate)
         await self._token_manager.get_bearer_token(http_client=http)
 
-    async def _auth_headers(self) -> Dict[str, str]:
-        http = await self._get_client()
-        token = await self._token_manager.get_bearer_token(http_client=http)
-        return {
+    def _headers(self, token: str) -> Dict[str, str]:
+        out = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
             "Authorization": f"Bearer {token}",
         }
-
-    def _merge_headers(self, extra: Dict[str, str]) -> Dict[str, str]:
-        out = dict(extra)
         out.update(self._extra_headers)
-        if self._session_id:
-            out["Mcp-Session-Id"] = self._session_id
+        if self._session.session_id:
+            out["Mcp-Session-Id"] = self._session.session_id
         return out
 
     async def _request(
@@ -99,51 +94,31 @@ class McpOAuthClient:
         method: str,
         *,
         json_body: Optional[Dict[str, Any]] = None,
-        retried_auth: bool = False,
     ) -> httpx.Response:
+        """Send one request; on 401/403 recover the token once and resend."""
         client = await self._get_client()
-        headers = self._merge_headers(await self._auth_headers())
-        resp = await client.request(method, self._base_url, json=json_body, headers=headers)
+        token = await self._token_manager.get_bearer_token(http_client=client)
+        resp = await client.request(
+            method, self._base_url, json=json_body, headers=self._headers(token)
+        )
+        if resp.status_code not in (401, 403):
+            return resp
 
-        if resp.status_code == 401 and not retried_auth:
-            www = resp.headers.get("WWW-Authenticate")
-            action = await self._token_manager.handle_mcp_response(401, www)
-            if action == "forbidden":
-                resp.raise_for_status()
-            if action == "reauthorize":
-                await self.ensure_authorized(www_authenticate=www)
-                return await self._request(
-                    method,
-                    json_body=json_body,
-                    retried_auth=True,
-                )
-            stored = self._token_manager.load_stored()
-            if stored and stored.refresh_token:
-                try:
-                    await self._token_manager.refresh_tokens(stored, http_client=client)
-                    return await self._request(
-                        method,
-                        json_body=json_body,
-                        retried_auth=True,
-                    )
-                except McpTokenRefreshError:
-                    self._token_manager.discard_tokens()
-            else:
-                self._token_manager.discard_tokens()
-            try:
-                await self._token_manager.get_bearer_token(http_client=client)
-            except McpOAuthFlowAborted:
-                await self.ensure_authorized(www_authenticate=www)
-            return await self._request(
-                method,
-                json_body=json_body,
-                retried_auth=True,
-            )
-
-        if resp.status_code == 403:
-            await self._token_manager.handle_mcp_response(403, None)
+        www = resp.headers.get("WWW-Authenticate")
+        action = await self._token_manager.handle_mcp_response(resp.status_code, www)
+        if action is McpRecoveryAction.FORBIDDEN:
             resp.raise_for_status()
-
+        if action is McpRecoveryAction.REAUTHORIZE:
+            token = await self._token_manager.reauthorize(rejected_token=token, http_client=client)
+        else:
+            token = await self._token_manager.get_bearer_token(
+                force_refresh=True, rejected_token=token, http_client=client
+            )
+        resp = await client.request(
+            method, self._base_url, json=json_body, headers=self._headers(token)
+        )
+        if resp.status_code == 403:
+            resp.raise_for_status()
         return resp
 
     async def _initialize(self) -> None:
@@ -161,7 +136,7 @@ class McpOAuthClient:
         resp.raise_for_status()
         session_id = resp.headers.get("Mcp-Session-Id")
         if session_id:
-            self._session_id = session_id
+            self._session.session_id = session_id
         data = resp.json()
         if "error" in data:
             raise RuntimeError(f"MCP initialize error: {data['error']}")
@@ -171,19 +146,17 @@ class McpOAuthClient:
             await self._request("POST", json_body=notif)
         except Exception as exc:
             logger.debug("MCP initialized notification failed (non-fatal): %s", exc)
-        self._initialized = True
 
     async def _rpc(self, method: str, params: Dict[str, Any]) -> Any:
-        if not self._initialized:
-            await self._initialize()
-
         payload: Dict[str, Any] = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
             "method": method,
             "params": params,
         }
-        resp = await self._request("POST", json_body=payload)
+        resp = await self._session.send(
+            lambda: self._request("POST", json_body=payload), self._initialize
+        )
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:

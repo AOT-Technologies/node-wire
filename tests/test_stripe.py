@@ -142,10 +142,12 @@ async def test_stripe_create_subscription_with_card_token():
     assert result.status == "active"
 
     mock_pm_create.assert_called_once()
-    mock_pm_attach.assert_called_once_with("pm_123", api_key="sk_test_mock", customer="cus_123")
+    mock_pm_attach.assert_called_once_with(
+        "pm_123", api_key="sk_test_mock", customer="cus_123", idempotency_key="test-trace:attach"
+    )
     mock_sub_create.assert_called_once()
     assert mock_sub_create.call_args.kwargs["default_payment_method"] == "pm_123"
-    assert mock_sub_create.call_args.kwargs["idempotency_key"] == "test-trace"
+    assert mock_sub_create.call_args.kwargs["idempotency_key"] == "test-trace:sub"
 
 
 @pytest.mark.asyncio
@@ -516,3 +518,60 @@ async def test_stripe_issue_refund_failure_logs_and_raises():
     with patch("stripe.Refund.create", side_effect=RuntimeError("refund failed")):
         with pytest.raises(RuntimeError, match="refund failed"):
             await connector.issue_refund(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# Subscription saga: per-step idempotency keys, partial result, charge status
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_uses_one_idempotency_key_per_step():
+    params = CreateSubscriptionInput(
+        customer_id="cus_123", price_id="price_abc", card_token="tok_visa", idempotency_key="k1"
+    )
+    mock_sub = MagicMock(
+        id="sub_1", status="active", pending_setup_intent=None, latest_invoice=None
+    )
+    with (
+        patch("stripe.PaymentMethod.create", return_value=MagicMock(id="pm_1")) as pm_create,
+        patch("stripe.PaymentMethod.attach") as pm_attach,
+        patch("stripe.Subscription.create", return_value=mock_sub) as sub_create,
+    ):
+        await _connector().create_subscription(params, trace_id="trace-1")
+
+    assert pm_create.call_args.kwargs["idempotency_key"] == "k1:pm"
+    assert pm_attach.call_args.kwargs["idempotency_key"] == "k1:attach"
+    assert sub_create.call_args.kwargs["idempotency_key"] == "k1:sub"
+
+
+@pytest.mark.asyncio
+async def test_stripe_create_subscription_lookup_failure_returns_the_created_subscription():
+    params = CreateSubscriptionInput(customer_id="cus_123", price_id="price_abc")
+    mock_sub = MagicMock(
+        id="sub_si", status="incomplete", pending_setup_intent="seti_abc", latest_invoice=None
+    )
+    with (
+        patch("stripe.Subscription.create", return_value=mock_sub) as sub_create,
+        patch(
+            "stripe.SetupIntent.retrieve",
+            side_effect=stripe.error.APIConnectionError("network down"),
+        ),
+    ):
+        resp = await _connector().run({"action": "create_subscription", **params.model_dump()})
+
+    assert resp.success is True
+    assert sub_create.call_count == 1  # the create was not repeated by a retry
+    assert resp.data["subscription_id"] == "sub_si"
+    assert resp.data["partial"] is True
+    assert resp.data["client_secret"] is None
+
+
+@pytest.mark.asyncio
+async def test_stripe_charge_passes_a_pending_status_through():
+    mock_charge = MagicMock(id="ch_p", receipt_url=None, paid=False, status="pending")
+    with patch("stripe.Charge.create", return_value=mock_charge):
+        result = await _connector().charge(
+            ChargeInput(amount=1000, currency="usd", source="tok_visa"), trace_id="t"
+        )
+    assert result.status == "pending"

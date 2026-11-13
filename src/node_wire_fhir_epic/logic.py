@@ -11,6 +11,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type
+from urllib.parse import quote
 
 import httpx
 import json
@@ -54,6 +55,29 @@ async def _http_client(*, trust_env: bool = True) -> AsyncIterator[httpx.AsyncCl
 
 
 logger = logging.getLogger("connectors.fhir_epic")
+
+
+def _bundle_next_link(bundle: Any) -> Optional[str]:
+    """The URL of a search Bundle's next page (``link`` with ``relation: next``), if any."""
+    if not isinstance(bundle, dict):
+        return None
+    for link in bundle.get("link") or []:
+        if isinstance(link, dict) and link.get("relation") == "next" and link.get("url"):
+            return str(link["url"])
+    return None
+
+
+def _if_none_exist(identifiers: Any) -> Optional[str]:
+    """``If-None-Exist`` for a FHIR conditional create on the first full identifier.
+
+    The server creates the resource only if none has this identifier, so a create that timed
+    out can be retried without making a duplicate.
+    """
+    for ident in identifiers or []:
+        if isinstance(ident, dict) and ident.get("system") and ident.get("value"):
+            token = quote(f"{ident['system']}|{ident['value']}", safe=":/|.-_~")
+            return f"identifier={token}"
+    return None
 
 
 def _safe_doc_ref_log_summary(doc_ref: Dict[str, Any]) -> Dict[str, Any]:
@@ -119,6 +143,7 @@ class FhirEpicConnector(BaseConnector):
             resources=out.resources,
             total=out.total,
             errors=out.errors,
+            next_link=out.next_link,
         )
 
     @sdk_action(
@@ -130,7 +155,9 @@ class FhirEpicConnector(BaseConnector):
         self, params: FhirEncounterSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
         out = await self._search_encounter(params, trace_id=trace_id)
-        return FhirEpicOperationOutput(resources=out.resources, total=out.total)
+        return FhirEpicOperationOutput(
+            resources=out.resources, total=out.total, next_link=out.next_link
+        )
 
     @nw_action("create_document_reference")
     async def create_document_reference(
@@ -144,7 +171,9 @@ class FhirEpicConnector(BaseConnector):
         self, params: FhirDocumentReferenceSearchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:
         out = await self._search_document_reference(params, trace_id=trace_id)
-        return FhirEpicOperationOutput(resources=out.resources, total=out.total)
+        return FhirEpicOperationOutput(
+            resources=out.resources, total=out.total, next_link=out.next_link
+        )
 
     # ------------------------------------------------------------------
     # Shared helpers — base URL + auth headers via AuthProvider
@@ -402,7 +431,9 @@ class FhirEpicConnector(BaseConnector):
             total,
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
-        return FhirPatientSearchOutput(resources=bundle_resources, total=total)
+        return FhirPatientSearchOutput(
+            resources=bundle_resources, total=total, next_link=_bundle_next_link(data)
+        )
 
     async def _search_encounter(
         self, params: FhirEncounterSearchInput, *, trace_id: str
@@ -474,7 +505,9 @@ class FhirEpicConnector(BaseConnector):
             len(resources),
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
-        return FhirEncounterSearchOutput(resources=resources, total=total)
+        return FhirEncounterSearchOutput(
+            resources=resources, total=total, next_link=_bundle_next_link(data)
+        )
 
     async def _create_document_reference(
         self, params: FhirDocumentReferenceCreateInput, *, trace_id: str
@@ -514,12 +547,19 @@ class FhirEpicConnector(BaseConnector):
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
 
+        # Conditional create: with it, a timed-out create is safe to retry (the runtime sees the
+        # header); without an identifier the create is not retried after a timeout or 5xx.
+        create_headers = dict(auth_header)
+        condition = _if_none_exist(params.identifier)
+        if condition:
+            create_headers["If-None-Exist"] = condition
+
         try:
             async with _http_client() as client:
                 response = await client.post(
                     f"{base_url}/DocumentReference",
                     json=doc_ref,
-                    headers=auth_header,
+                    headers=create_headers,
                     timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
                 )
                 response.raise_for_status()
@@ -644,4 +684,6 @@ class FhirEpicConnector(BaseConnector):
             len(resources),
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
-        return FhirDocumentReferenceSearchOutput(resources=resources, total=total)
+        return FhirDocumentReferenceSearchOutput(
+            resources=resources, total=total, next_link=_bundle_next_link(data)
+        )

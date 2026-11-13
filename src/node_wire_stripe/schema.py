@@ -125,3 +125,10 @@ class StripeOperationOutput(BaseModel):
     client_secret: str | None = None
     refund_id: str | None = None
     raw: dict[str, Any] | None = None
+    partial: bool | None = Field(
+        default=None,
+        description=(
+            "True when the operation was applied but a follow-up lookup failed, so some fields "
+            "(e.g. client_secret) are missing. Do not repeat the operation."
+        ),
+    )

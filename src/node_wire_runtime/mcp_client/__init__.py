@@ -61,8 +61,9 @@ from .redirect_listener import (
     LoopbackRedirectBinding,
     LoopbackRedirectListener,
 )
+from .session import McpHttpSession, McpSessionClosedError, SessionState
 from .storage import ClientRegistration, RegistrationStore, default_registration_store_dir
-from .token_manager import TokenManager
+from .token_manager import McpRecoveryAction, TokenManager, TokenState, compute_token_state
 from .token_storage import (
     InMemoryTokenStore,
     StoredOAuthTokens,
@@ -125,7 +126,13 @@ __all__ = [
     "ClientRegistration",
     "RegistrationStore",
     "default_registration_store_dir",
+    "McpHttpSession",
+    "McpSessionClosedError",
+    "SessionState",
+    "McpRecoveryAction",
     "TokenManager",
+    "TokenState",
+    "compute_token_state",
     "InMemoryTokenStore",
     "StoredOAuthTokens",
     "TokenStore",

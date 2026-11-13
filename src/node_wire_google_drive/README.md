@@ -259,7 +259,7 @@ On success, the connector returns a synthetic confirmation payload:
   "data": {
     "raw": {
       "file_id": "<FILE_ID>",
-      "status": "deleted"
+      "status": "trashed"
     },
     "description": "Successfully executed files.delete"
   },

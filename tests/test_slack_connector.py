@@ -34,6 +34,7 @@ import logging
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from node_wire_runtime import BaseConnector, ErrorCategory
@@ -902,3 +903,117 @@ async def test_resolve_channel_id_z_prefix_passthrough() -> None:
 
     channel = "Z0123456789"
     assert await _resolve_channel_id(_FAKE_TOKEN, channel) == channel
+
+
+# ---------------------------------------------------------------------------
+# upload_file: a failing step is retried on its own, carrying file_id
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _no_step_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("node_wire_slack.logic._STEP_RETRY_WAIT", 0.0)
+    from functools import partial
+
+    from node_wire_runtime.resilience import with_resilience
+
+    monkeypatch.setattr(
+        "node_wire_runtime.base_connector.with_resilience",
+        partial(with_resilience, base_wait=0.001, max_wait=0.002),
+    )
+
+
+def _upload_payload() -> dict[str, Any]:
+    return {
+        "action": "upload_file",
+        "channel": _CHANNEL,
+        "filename": "test.txt",
+        "content_base64": base64.b64encode(b"hi").decode(),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("_no_step_wait")
+async def test_upload_file_retries_only_the_rate_limited_complete_step() -> None:
+    from node_wire_slack.exceptions import SlackRateLimitError
+
+    get_url = AsyncMock(return_value=("https://upload.slack.com/u", "F0FILE"))
+    upload = AsyncMock(return_value=None)
+    complete = AsyncMock(side_effect=[SlackRateLimitError("slow down"), {"ok": True}])
+    with (
+        patch("node_wire_slack.logic._get_upload_url", new=get_url),
+        patch("node_wire_slack.logic._upload_bytes", new=upload),
+        patch("node_wire_slack.logic._complete_upload", new=complete),
+    ):
+        result = await _make_connector().run(_upload_payload())
+
+    assert result.success is True
+    assert get_url.await_count == 1
+    assert upload.await_count == 1
+    assert [c.args[1] for c in complete.await_args_list] == ["F0FILE", "F0FILE"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("_no_step_wait")
+async def test_upload_file_retries_the_byte_upload_on_a_timeout() -> None:
+    get_url = AsyncMock(return_value=("https://upload.slack.com/u", "F0FILE"))
+    upload = AsyncMock(side_effect=[httpx.ReadTimeout("slow"), None])
+    complete = AsyncMock(return_value={"ok": True})
+    with (
+        patch("node_wire_slack.logic._get_upload_url", new=get_url),
+        patch("node_wire_slack.logic._upload_bytes", new=upload),
+        patch("node_wire_slack.logic._complete_upload", new=complete),
+    ):
+        result = await _make_connector().run(_upload_payload())
+
+    assert result.success is True
+    assert get_url.await_count == 1
+    assert upload.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("_no_step_wait")
+async def test_upload_file_that_cannot_complete_reports_the_file_id_without_restarting() -> None:
+    from node_wire_slack.exceptions import SlackRateLimitError
+
+    get_url = AsyncMock(return_value=("https://upload.slack.com/u", "F0FILE"))
+    complete = AsyncMock(side_effect=SlackRateLimitError("slow down"))
+    with (
+        patch("node_wire_slack.logic._get_upload_url", new=get_url),
+        patch("node_wire_slack.logic._upload_bytes", new=AsyncMock(return_value=None)),
+        patch("node_wire_slack.logic._complete_upload", new=complete),
+    ):
+        result = await _make_connector().run(_upload_payload())
+
+    assert result.success is False
+    assert result.error_code == "SLACK_UPLOAD_ERROR"
+    assert "F0FILE" in (result.message or "")
+    assert get_url.await_count == 1  # no second file created by an action-level retry
+
+
+@pytest.mark.asyncio
+async def test_complete_upload_non_json_response_is_an_upload_error() -> None:
+    from node_wire_slack.exceptions import SlackUploadError
+
+    class _Resp:
+        status_code = 502
+
+        def json(self) -> Any:
+            raise ValueError("not json")
+
+    class _Client:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "_Client":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def post(self, *args: Any, **kwargs: Any) -> _Resp:
+            return _Resp()
+
+    with patch("node_wire_slack.logic.httpx.AsyncClient", new=_Client):
+        with pytest.raises(SlackUploadError, match="F0FILE"):
+            await _complete_upload(_FAKE_TOKEN, "F0FILE", "t.txt", channel_id=_CHANNEL)

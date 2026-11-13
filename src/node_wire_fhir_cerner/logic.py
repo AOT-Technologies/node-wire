@@ -58,6 +58,16 @@ async def _http_client(*, trust_env: bool = True) -> AsyncIterator[httpx.AsyncCl
 logger = logging.getLogger("connectors.fhir_cerner")
 
 
+def _bundle_next_link(bundle: Any) -> Optional[str]:
+    """The URL of a search Bundle's next page (``link`` with ``relation: next``), if any."""
+    if not isinstance(bundle, dict):
+        return None
+    for link in bundle.get("link") or []:
+        if isinstance(link, dict) and link.get("relation") == "next" and link.get("url"):
+            return str(link["url"])
+    return None
+
+
 def _safe_doc_ref_log_summary(doc_ref: Dict[str, Any]) -> Dict[str, Any]:
     attachment: Dict[str, Any] = {}
     content_items = doc_ref.get("content")
@@ -128,6 +138,7 @@ class FhirCernerConnector(BaseConnector):
             resources=out.resources,
             total=out.total,
             errors=out.errors,
+            next_link=out.next_link,
         )
 
     @sdk_action(
@@ -139,7 +150,9 @@ class FhirCernerConnector(BaseConnector):
         self, params: FhirCernerEncounterSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
         out = await self._search_encounter(params, trace_id=trace_id)
-        return FhirCernerOperationOutput(resources=out.resources, total=out.total)
+        return FhirCernerOperationOutput(
+            resources=out.resources, total=out.total, next_link=out.next_link
+        )
 
     @nw_action("create_document_reference")
     async def create_document_reference(
@@ -153,7 +166,9 @@ class FhirCernerConnector(BaseConnector):
         self, params: FhirCernerDocumentReferenceSearchInput, *, trace_id: str
     ) -> FhirCernerOperationOutput:
         out = await self._search_document_reference(params, trace_id=trace_id)
-        return FhirCernerOperationOutput(resources=out.resources, total=out.total)
+        return FhirCernerOperationOutput(
+            resources=out.resources, total=out.total, next_link=out.next_link
+        )
 
     # ------------------------------------------------------------------
     # Shared helpers — base URL + auth headers via AuthProvider
@@ -444,7 +459,9 @@ class FhirCernerConnector(BaseConnector):
             total,
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
-        return FhirCernerPatientSearchOutput(resources=bundle_resources, total=total)
+        return FhirCernerPatientSearchOutput(
+            resources=bundle_resources, total=total, next_link=_bundle_next_link(data)
+        )
 
     # ------------------------------------------------------------------
     # Action: search_encounter
@@ -520,7 +537,9 @@ class FhirCernerConnector(BaseConnector):
             len(resources),
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
-        return FhirCernerEncounterSearchOutput(resources=resources, total=total)
+        return FhirCernerEncounterSearchOutput(
+            resources=resources, total=total, next_link=_bundle_next_link(data)
+        )
 
     # ------------------------------------------------------------------
     # Action: create_document_reference
@@ -800,4 +819,6 @@ class FhirCernerConnector(BaseConnector):
             len(resources),
             extra={"trace_id": trace_id, "connector_id": self.connector_id},
         )
-        return FhirCernerDocumentReferenceSearchOutput(resources=resources, total=total)
+        return FhirCernerDocumentReferenceSearchOutput(
+            resources=resources, total=total, next_link=_bundle_next_link(data)
+        )

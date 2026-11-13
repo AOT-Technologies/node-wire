@@ -22,6 +22,17 @@ from mcp_builder.generate.plan import ServerPlan
 logger = structlog.get_logger()
 
 
+# node-wire: a missing anchor fails the build instead of logging a warning; the warning let a
+# changed template produce a server with no tools registered.
+class PatchAnchorError(ValueError):
+    """The scaffolded file no longer contains the text a patch replaces."""
+
+
+def _require(found: bool, step: str, anchor: str) -> None:
+    if not found:
+        raise PatchAnchorError(f"{step}: {anchor!r} not found in the scaffolded mcp_builder.py")
+
+
 def patch_mcp_builder(source: str, plan: ServerPlan) -> str:
     """Patch the scaffolded mcp_builder.py to wire generated tools.
 
@@ -47,25 +58,19 @@ def patch_mcp_builder(source: str, plan: ServerPlan) -> str:
     # Source: mcp-template-py src/mcp_template_py/api/mcp_builder.py (copied at scaffold.py:46)
     settings_import = f"from {plan.module_name}.settings import Settings"
     client_import = f"from {plan.module_name}.client import APIClient\n"
-    if settings_import not in source:
-        logger.warning(
-            "patch 1/4: settings import not found, APIClient import may be missing",
-            expected=settings_import,
-        )
+    _require(settings_import in source, "patch 1/4", settings_import)
     source = source.replace(settings_import, client_import + settings_import)
     logger.debug("patch 1/4: added APIClient import")
 
     # 2. Fix FastMCP server name from template placeholder.
     # Source: mcp-template-py src/mcp_template_py/api/mcp_builder.py (copied at scaffold.py:46)
-    if not re.search(r'FastMCP\("[^"]*"', source):
-        logger.warning("patch 2/4: FastMCP() call not found in source")
+    _require(bool(re.search(r'FastMCP\("[^"]*"', source)), "patch 2/4", 'FastMCP("...")')
     source = re.sub(r'FastMCP\("[^"]*"', f'FastMCP("{plan.server_name}"', source)
     logger.debug("patch 2/4: set FastMCP server name", server_name=plan.server_name)
 
     # 3. Inject client into Tools constructor.
     # Source: mcp-template-py src/mcp_template_py/api/mcp_builder.py (copied at scaffold.py:46)
-    if "tools = Tools()" not in source:
-        logger.warning("patch 3/4: 'Tools()' not found, client injection may fail")
+    _require("tools = Tools()" in source, "patch 3/4", "tools = Tools()")
     source = source.replace("tools = Tools()", "tools = Tools(APIClient())")
     logger.debug("patch 3/4: injected APIClient into Tools constructor")
 
@@ -75,8 +80,7 @@ def patch_mcp_builder(source: str, plan: ServerPlan) -> str:
     registrations = "".join(
         f"        mcp.add_tool(tools.{t.tool_name})\n" for t in plan.tools
     )
-    if "        return mcp" not in source:
-        logger.warning("patch 4/4: 'return mcp' not found, tool registration may fail")
+    _require("        return mcp" in source, "patch 4/4", "return mcp")
     source = source.replace(
         "        return mcp", registrations + "\n        return mcp"
     )

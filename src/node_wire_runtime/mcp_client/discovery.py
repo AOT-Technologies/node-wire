@@ -285,5 +285,13 @@ async def discover(
             await client.aclose()
 
 
+_SHARED_CACHES: Dict[int, DiscoveryCache] = {}
+
+
 def discovery_cache_for_config(config: McpClientConfig) -> DiscoveryCache:
-    return DiscoveryCache(config.auth.discovery.cache_ttl_seconds)
+    """Process-wide discovery cache for *config*'s TTL (entries keyed by server URL)."""
+    ttl = config.auth.discovery.cache_ttl_seconds
+    cache = _SHARED_CACHES.get(ttl)
+    if cache is None:
+        cache = _SHARED_CACHES.setdefault(ttl, DiscoveryCache(ttl))
+    return cache

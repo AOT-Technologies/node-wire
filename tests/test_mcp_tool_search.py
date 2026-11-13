@@ -301,3 +301,13 @@ def test_bm25_postings_rank_matches_full_scan() -> None:
         query = " ".join(rng.choices(vocab + ["missing"], k=rng.randint(1, 4)))
         assert index.search(query, limit=40) == reference(index, query, 40)
     assert Bm25Index({}).search("anything", limit=5) == []
+
+
+def test_search_index_is_rebuilt_for_a_new_manifest_even_with_a_reused_id(
+    search_server: McpServer,
+) -> None:
+    """id() of a freed manifest can be reused by the next one; the cache must not match it."""
+    manifest, _ = search_server._manifest()
+    stale = Bm25Index({"nothing_here": "nothing"})
+    search_server._search_index_cache = (id(manifest), stale)  # type: ignore[assignment]
+    assert search_server._search_index() is not stale
