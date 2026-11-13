@@ -71,6 +71,7 @@ Codes shipped in 1.0.0 keep their name and category through 1.x.
 | `INVALID_JSON` | `BUSINESS` | gRPC: `payload_json` is not JSON |
 | `UNKNOWN_TOOL` | `BUSINESS` | No such tool on this server, an ambiguous name, or a tool this server doesn't enable (tool search, tenant tools without multitenancy) |
 | `CONNECTOR_NOT_AVAILABLE` | `BUSINESS` | The connector isn't served on this surface, or isn't allowed on this server |
+| `ACTION_NOT_EXPOSED` | `BUSINESS` | The connector is served, but this deployment's exposure profile (`NW_EXPOSE_PROFILE`) hides the action |
 | `RATE_LIMIT_EXCEEDED` | `RETRYABLE` | The global or per-identity rate limiter refused the call |
 | `MISSING_TENANT` | `AUTH` | Multitenancy is on and the call names no tenant |
 | `TENANT_NOT_ALLOWED` | `AUTH` | The tenant is unknown, or excluded by `NW_MCP_ALLOWED_TENANTS` |

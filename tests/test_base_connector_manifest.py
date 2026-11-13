@@ -1008,3 +1008,19 @@ def test_normalize_mcp_tool_arguments_noop_when_action_has_no_normalizer():
     raw = {"action": "files.list", "page_size": 10}
     out = normalize_mcp_tool_arguments(connector, "files.list", raw)
     assert out == raw
+
+
+class _HttpMeta(BaseConnector):
+    connector_id = "test_http_meta"
+    output_model = _AnonPong
+
+    @nw_action("ping", http_method="GET", http_path="/ping/{id}", tags=("health",))
+    async def ping(self, params: _AnonPing, *, trace_id: str) -> _AnonPong:
+        return _AnonPong()
+
+
+def test_nw_action_records_http_metadata_and_defaults_to_none():
+    meta = _HttpMeta.nw_action_metas()["ping"]
+    assert (meta.http_method, meta.http_path, meta.tags) == ("GET", "/ping/{id}", ("health",))
+    bare = _AnonConnector.nw_action_metas()["ping"]
+    assert (bare.http_method, bare.http_path, bare.tags) == (None, None, ())

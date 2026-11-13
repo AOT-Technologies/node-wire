@@ -105,6 +105,8 @@ def write_connector_project(
         _own_connector_config(config_src, connector_id), encoding="utf-8"
     )
 
+    with_profiles = copy_profiles(node_wire_root, connector_id, project_dir)
+
     connector_pkg = connector_dist_package_name(connector_id)
     mcp_dep = resolve_mcp_dependency(node_wire_root)
 
@@ -150,6 +152,7 @@ def write_connector_project(
             connector_pkg=connector_pkg,
             mcp_dep=mcp_dep,
             tool_mode=tool_mode,
+            with_profiles=with_profiles,
         ),
         encoding="utf-8",
     )
@@ -161,6 +164,33 @@ def write_connector_project(
         connector_id,
     )
     return project_dir
+
+
+def copy_profiles(node_wire_root: Path, connector_id: str, project_dir: Path) -> bool:
+    """Copy ``expose/<connector_id>/`` into the project (replacing its copy); True if any exist."""
+    source = node_wire_root / "expose" / connector_id
+    target = project_dir / "expose" / connector_id
+    if target.exists():
+        shutil.rmtree(target)
+    profiles = sorted(source.glob("*.yaml")) if source.is_dir() else []
+    if not profiles:
+        return False
+    target.mkdir(parents=True)
+    for file in profiles:
+        shutil.copy2(file, target / file.name)
+    return True
+
+
+def profiles_in_sync(node_wire_root: Path, connector_id: str, project_dir: Path) -> bool:
+    """True when the project's ``expose/<id>/`` copy matches the repo's file for file."""
+
+    def contents(folder: Path) -> dict[str, bytes]:
+        files = sorted(folder.glob("*.yaml")) if folder.is_dir() else []
+        return {f.name: f.read_bytes() for f in files}
+
+    return contents(node_wire_root / "expose" / connector_id) == contents(
+        project_dir / "expose" / connector_id
+    )
 
 
 def resolve_mcp_dependency(node_wire_root: Path) -> str:
@@ -482,6 +512,8 @@ def _dockerignore() -> str:
 !wheels/**
 !config/
 !config/connectors.yaml
+!expose/
+!expose/**
 !src/
 !src/**
 
@@ -508,7 +540,10 @@ def _dockerfile(
     connector_pkg: str,
     mcp_dep: str,
     tool_mode: str = "list",
+    with_profiles: bool = False,
 ) -> str:
+    # NW_EXPOSE_PROFILE (chosen at run time) is read from /app/expose, beside /app/config.
+    profiles = "COPY --chmod=0755 expose/ /app/expose/\n" if with_profiles else ""
     return f'''\
 # syntax=docker/dockerfile:1
 ##
@@ -533,17 +568,30 @@ COPY wheels/ /wheels/
 # `gen-all` produces new wheel files, which invalidates this layer, so that
 # download repeats on each loop. --no-cache-dir told pip to neither read nor
 # write a cache, leaving the mount above permanently empty and doing nothing.
-# --no-compile then avoids writing .pyc files the next two lines only delete.
-# The find still earns its place: it strips the base image's own stdlib
-# __pycache__, which shrinks the /usr/local copied into the final stage.
-# Brace the __pycache__ cleanup so `|| true` cannot mask a failed pip install
-# (shell associates `&&`/`||` left-to-right; bare `pip && find || true && …`
-# succeeds even when pip fails).
+# --no-compile: pip's .pyc would only be deleted by the find below; compileall
+# writes them once, after the cleanup.
+# The find strips every __pycache__, including the base image's stdlib ones:
+# the runtime stage starts FROM the same base, which already ships those, so
+# copying them again would only duplicate them in the /usr/local layer.
+# compileall then writes .pyc for site-packages only. The app runs as a user
+# that cannot write __pycache__ under /usr/local, so without them every
+# container start recompiles every module it imports (measured: +25 MB raw,
+# ~10 MB compressed; cold import 0.82 s -> 0.29 s). checked-hash keeps the
+# .pyc valid whatever file mtimes COPY --from produces.
+# Brace the cleanup and compile steps so `|| true` cannot mask a failed pip
+# install (shell associates `&&`/`||` left-to-right; bare `pip && find || true
+# && …` succeeds even when pip fails). compileall exits non-zero when a package
+# ships a file that is not valid Python 3 (test data, templates); that must not
+# fail the build.
+# The local wheels (node-wire-runtime, {BINDINGS_DIST_PACKAGE}, {connector_pkg}) are
+# installed by path, not by name: a name lets pip pick a PyPI release with the
+# same version over the freshly built wheel in /wheels.
 RUN --mount=type=cache,target=/root/.cache/pip \\
     pip install --no-compile --find-links=/wheels \\
-        node-wire-runtime {BINDINGS_DIST_PACKAGE} {connector_pkg} "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
+        /wheels/*.whl "{mcp_dep}" "httpx[http2]>=0.27.0,<0.28.0" \\
     && {{ find /usr/local -type d -name '__pycache__' -exec rm -rf {{}} + 2>/dev/null || true; }} \\
-    && find /usr/local -type f \\( -name '*.pyc' -o -name '*.pyo' \\) -delete
+    && {{ python -m compileall -qq -j 0 --invalidation-mode checked-hash \\
+        /usr/local/lib/python3.13/site-packages || true; }}
 
 # --- runtime stage ---
 FROM {PYTHON_313_SLIM_IMAGE}
@@ -583,8 +631,11 @@ COPY --from=deps /usr/local /usr/local
 # no execute bit → ``USER app`` cannot traverse ``/app/config``.
 COPY --chmod=0755 config/connectors.yaml /app/config/connectors.yaml
 COPY --chmod=0755 src/ /app/src/
+{profiles}
 
-RUN chown -R root:root /app \\
+# Bytecode for the host package too, before the tree is made read-only.
+RUN python -m compileall -qq --invalidation-mode checked-hash /app/src \\
+    && chown -R root:root /app \\
     && chmod -R a-w /app
 
 USER app

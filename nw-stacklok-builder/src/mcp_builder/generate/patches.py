@@ -72,9 +72,18 @@ def patch_mcp_builder(source: str, plan: ServerPlan) -> str:
     # 4. Replace template tool registrations with generated ones.
     # Source: mcp-template-py src/mcp_template_py/api/mcp_builder.py (copied at scaffold.py:46)
     source = re.sub(r"^ *mcp\.add_tool\(tools\.\w+\)\n", "", source, flags=re.MULTILINE)
-    registrations = "".join(
-        f"        mcp.add_tool(tools.{t.tool_name})\n" for t in plan.tools
-    )
+    if plan.node_wire is not None:
+        # node-wire mode: NW_EXPOSE_PROFILE decides which tools exist (invoke() still enforces).
+        cid = plan.node_wire.connector_id
+        registrations = "        exposure = tools._client.node_wire.exposure\n" + "".join(
+            f'        if exposure.allows("{cid}", "{t.nw_action}"):\n'
+            f"            mcp.add_tool(tools.{t.tool_name})\n"
+            for t in plan.tools
+        )
+    else:
+        registrations = "".join(
+            f"        mcp.add_tool(tools.{t.tool_name})\n" for t in plan.tools
+        )
     if "        return mcp" not in source:
         logger.warning("patch 4/4: 'return mcp' not found, tool registration may fail")
     source = source.replace(

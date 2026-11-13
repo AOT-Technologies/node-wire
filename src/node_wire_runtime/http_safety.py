@@ -11,6 +11,8 @@ import ipaddress
 import os
 import re
 import socket
+import time
+from collections import OrderedDict
 from urllib.parse import urlsplit, urlunsplit
 
 _BLOCKED_HOSTNAMES = frozenset(
@@ -23,6 +25,13 @@ _BLOCKED_HOSTNAMES = frozenset(
 
 _ALLOWED_HOSTS_ENV = "NW_REST_ALLOWED_HOSTS"
 _TRUST_ENV_ENV = "NW_REST_TRUST_ENV"
+_DNS_CACHE_ENV = "NW_REST_DNS_CACHE_SECONDS"
+_DNS_CACHE_DEFAULT_SECONDS = 30.0
+_DNS_CACHE_MAX_ENTRIES = 1024
+
+# (host, port) -> monotonic expiry of a passed SSRF DNS check. Only passes are kept:
+# blocked or unresolvable hosts are resolved again on every call.
+_dns_checked_ok: "OrderedDict[tuple[str, int], float]" = OrderedDict()
 
 
 class SsrfBlockedError(ValueError):
@@ -127,6 +136,17 @@ async def assert_safe_destination(url: str) -> None:
 
     port = parts.port or (443 if parts.scheme == "https" else 80)
 
+    # Simplified: a passed check is reused for a short TTL instead of resolving on every
+    # call (in Kubernetes, ndots:5 turns one lookup into several DNS queries). This barely
+    # widens the DNS-rebinding window: httpx resolves separately, and pooled connections
+    # keep their original IP anyway. NW_REST_DNS_CACHE_SECONDS=0 turns it off.
+    ttl = _dns_cache_seconds()
+    key = (host, port)
+    if ttl > 0:
+        expiry = _dns_checked_ok.get(key)
+        if expiry is not None and expiry > time.monotonic():
+            return
+
     loop = asyncio.get_event_loop()
     try:
         infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
@@ -145,3 +165,24 @@ async def assert_safe_destination(url: str) -> None:
             raise SsrfBlockedError(f"url host resolved to an unparsable address: {ip_str}")
         if is_blocked_ip(ip_obj):
             raise SsrfBlockedError("url host resolves to a blocked network target")
+
+    if ttl > 0:
+        _dns_checked_ok[key] = time.monotonic() + ttl
+        _dns_checked_ok.move_to_end(key)
+        while len(_dns_checked_ok) > _DNS_CACHE_MAX_ENTRIES:
+            _dns_checked_ok.popitem(last=False)
+
+
+def _dns_cache_seconds() -> float:
+    raw = os.environ.get(_DNS_CACHE_ENV, "").strip()
+    if not raw:
+        return _DNS_CACHE_DEFAULT_SECONDS
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return _DNS_CACHE_DEFAULT_SECONDS
+
+
+def clear_dns_check_cache() -> None:
+    """Forget every passed SSRF DNS check (tests, or after a DNS change)."""
+    _dns_checked_ok.clear()

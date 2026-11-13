@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from bindings.factory import ConnectorFactory
 from bindings.invoke import invoke
+from node_wire_runtime.exposure import ActionExposure
 from bindings.rest_api.app import app, get_factory
 from node_wire_runtime import nw_action
 from node_wire_runtime.config_store import (
@@ -221,6 +222,7 @@ def test_base_url_allowlist_at_write_and_call(
             payload={},
             protocol="rest",
             tenant_id="acme",
+            exposure=ActionExposure.unrestricted(),
             principal="api-key-user",
             scopes=(_SCOPE,),
         )
@@ -260,6 +262,7 @@ def test_call_time_rejects_tampered_base_url_and_secret_key(
             payload={},
             protocol="rest",
             tenant_id="acme",
+            exposure=ActionExposure.unrestricted(),
             principal="api-key-user",
             scopes=(_SCOPE,),
         )

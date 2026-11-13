@@ -62,6 +62,9 @@ The following variables control how each binding listens and who may call it:
 | `NW_MCP_AUTH_DISABLED` | Disable MCP authentication (local dev only); default (unset) enforces auth. The legacy `NW_MCP_AUTH_ENABLED` flag is deprecated. | `false` |
 | `NW_MCP_API_KEY` | Shared secret for MCP API-key auth (set in production) | _(unset)_ |
 | `NW_MCP_TOOL_MODE` | `list` — every tool in `tools/list`; `search` — list only `nw_search_tools` + `nw_call_tool` and hand out tool schemas on demand (for large connectors). Unknown values fail at startup | `list` |
+| `NW_EXPOSE_PROFILE` | Serve only the actions in `expose/<connector_id>/<profile>.yaml` on every surface; unset exposes everything. See [Action exposure](exposure.md) | _(unset)_ |
+| `NW_EXPOSE_DIR` | Folder holding the exposure profiles | `expose/` beside `config/` |
+| `NW_EXPOSE_STRICT_VERSION` | `true` refuses to start when a profile was written for another connector version (otherwise a warning) | `false` |
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | Scope policy when action map has no entry: `deny` (conventional `mcp:<connector>.<action>`) or `allow` (map-only). Exactly `allow` or `deny` (any case); **any other value fails startup** with a message naming the variable | `deny` |
 | `NW_MCP_SCOPE_POLICY_STRICT` | Fail startup if scope policy would be disabled (`allow` + empty map) | `false` |
 | `NW_GRPC_API_KEY` | Shared secret for gRPC metadata (`authorization` or `x-api-key`) | _(unset)_ |
@@ -75,6 +78,7 @@ The following variables control how each binding listens and who may call it:
 | `NW_SMTP_ALLOWED_HOSTS` | Optional comma-separated SMTP relay hostnames permitted for `smtp.send_email` (recommended for production) | _(unset = env relay only)_ |
 | `NW_HTTP_GENERIC_ALLOWED_HOSTS` | Optional egress allowlist for the `http_generic` connector only | _(unset)_ |
 | `NW_REST_ALLOWED_HOSTS` | Egress allowlist for `RestConnector` / OpenAPI-generated connectors (comma-separated hostnames). Distinct from `NW_HTTP_GENERIC_ALLOWED_HOSTS`. **Required** for any `base_url` (YAML, `tenants.yaml` or `/v1`) whose host differs from the connector's spec server; without it such configs are rejected at write time and at call time. | _(unset)_ |
+| `NW_REST_DNS_CACHE_SECONDS` | How long a host that passed the outbound SSRF DNS check (no loopback, private or metadata address) is trusted before it is resolved again. Hosts that fail the check are re-resolved on every call. `0` resolves on every call. | `30` |
 | `NW_REST_TRUST_ENV` | When `true`, generated REST connectors construct httpx with `trust_env=True` so `HTTPS_PROXY` / `HTTP_PROXY` apply. Default remains SSRF-safe (`false`); enabling this re-introduces proxy-based egress — the operator is responsible for proxy trust. Redirects stay disabled. | `false` |
 
 ### Authentication & request limits

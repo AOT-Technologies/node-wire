@@ -283,6 +283,11 @@ class ConnectorFactory:
         self._loop: asyncio.AbstractEventLoop | None = None
 
     @property
+    def config_path(self) -> str:
+        """The resolved ``connectors.yaml`` path (exposure profiles live beside its folder)."""
+        return self._config_path
+
+    @property
     def store(self) -> ConnectorConfigStore:
         """The runtime connector config store backing this factory."""
         return self._store
@@ -727,12 +732,23 @@ class ConnectorFactory:
             lock = self._locks.get(key)
             if lock is None:
                 lock = asyncio.Lock()
-                self._locks[key] = lock  # locks are never deleted
+                self._locks[key] = lock
             return lock
+
+    def _drop_lock(self, key: Tuple[str, str, str]) -> None:
+        """Forget the per-key lock once its instance is gone, so ``_locks`` stays
+        bounded like ``_instances``. A held lock is kept; dropping a lock is safe
+        anyway because the existence check and instantiation in :meth:`get` run
+        under ``_instances_guard``."""
+        with self._locks_guard:
+            lock = self._locks.get(key)
+            if lock is not None and not lock.locked():
+                del self._locks[key]
 
     def _evict_if_needed(self) -> None:
         while len(self._instances) > self._max_instances:
-            _, old = self._instances.popitem(last=False)
+            key, old = self._instances.popitem(last=False)
+            self._drop_lock(key)
             self._schedule_aclose(old)
 
     def invalidate_configs(self, tenant_id: str, connector_id: str, names: List[str]) -> None:
@@ -742,7 +758,9 @@ class ConnectorFactory:
         non-loop thread (store writes are plain sync Python)."""
         with self._instances_guard:
             for name in names:
-                old = self._instances.pop((tenant_id, connector_id, name), None)
+                key = (tenant_id, connector_id, name)
+                old = self._instances.pop(key, None)
+                self._drop_lock(key)
                 if old is not None:
                     self._schedule_aclose(old)
 

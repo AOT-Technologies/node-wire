@@ -33,6 +33,7 @@ WORKDIR /app
 # Copy source (build context = repo root)
 COPY src/ ./src/
 COPY config/ ./config/
+COPY expose/ ./expose/
 COPY packages/runtime/dist/*.whl /wheels/
 COPY packages/connectors/http_generic/dist/*.whl /wheels/
 COPY packages/connectors/stripe/dist/*.whl /wheels/
@@ -42,6 +43,7 @@ COPY packages/connectors/google_drive/dist/*.whl /wheels/
 COPY packages/connectors/fhir_cerner/dist/*.whl /wheels/
 COPY packages/connectors/fhir_epic/dist/*.whl /wheels/
 COPY packages/connectors/salesforce/dist/*.whl /wheels/
+COPY packages/connectors/github/dist/*.whl /wheels/
 
 ENV PYTHONPATH=/app/src
 
@@ -56,8 +58,13 @@ RUN pip install --no-cache-dir --find-links=/wheels \
     node-wire-fhir-cerner \
     node-wire-fhir-epic \
     node-wire-salesforce \
+    node-wire-github \
     "mcp>=1.6.0,<2" \
     && rm -rf /wheels
+
+# pip already compiled site-packages; precompile the copied source too, or each
+# fresh container recompiles it on first import.
+RUN python -m compileall -q /app/src
 
 RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home /app app \

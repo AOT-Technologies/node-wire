@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, Optional
 
@@ -22,12 +23,13 @@ if os.environ.get("NW_REST_LOAD_DOTENV", "true").lower() not in ("0", "false", "
     load_dotenv(override=False)
 
 from bindings.factory import ConnectorFactory
-from bindings.invoke import ConnectorNotExposed, invoke
+from bindings.invoke import ActionNotExposed, ConnectorNotExposed, build_exposure, invoke
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
 from node_wire_runtime.tenant_persistence import REQUIRED_SECRETS_BY_CONNECTOR
 from node_wire_runtime import ConnectorResponse
 from node_wire_runtime.errors import ErrorCode, NodeWireError, http_status, reject
+from node_wire_runtime.exposure import ActionExposure
 from node_wire_runtime.config_store import (
     DEFAULT_TENANT,
     ConfigNameConflictError,
@@ -155,8 +157,11 @@ def _mount_playground(app: FastAPI) -> None:
         connectors: Dict[str, Dict[str, Any]] = {}
         rest = factory.list_for_protocol("rest")
         classes = {c.connector_id: type(c) for c in rest}
+        exposure = get_exposure()
         for entry in build_manifest(rest):
             cid = entry["connector_id"]
+            if not exposure.allows(cid, entry["action"]):
+                continue
             record = connectors.setdefault(
                 cid,
                 {
@@ -225,6 +230,7 @@ app.add_middleware(MaxBodySizeMiddleware, max_body_bytes=_max_body_bytes)
 _mount_playground(app)
 
 _factory: ConnectorFactory | None = None
+_exposure: ActionExposure | None = None
 
 
 def get_factory() -> ConnectorFactory:
@@ -237,6 +243,13 @@ def get_factory() -> ConnectorFactory:
 
         load_tenants(_factory.store)
     return _factory
+
+
+def get_exposure() -> ActionExposure:
+    global _exposure
+    if _exposure is None:
+        _exposure = build_exposure(get_factory(), "rest")
+    return _exposure
 
 
 def _persist_tenants(factory_dep: ConnectorFactory) -> None:
@@ -281,7 +294,8 @@ async def health() -> Dict[str, str]:
 @app.get("/ready", tags=["system"])
 async def ready() -> Dict[str, str]:
     try:
-        factory = get_factory()
+        # The first call loads YAML and the tenants file: keep that off the event loop.
+        factory = await asyncio.to_thread(get_factory)
         if not factory.list_for_protocol("rest") and not factory.list_for_protocol("grpc"):
             raise HTTPException(status_code=503, detail="no connectors loaded")
     except HTTPException:
@@ -464,7 +478,7 @@ async def config_init(
             )
         try:
             factory_dep.store.init(_init_payload_keeping_default(factory_dep.store, payload))
-            _persist_tenants(factory_dep)
+            await asyncio.to_thread(_persist_tenants, factory_dep)
         except Exception as exc:  # noqa: BLE001
             raise _map_config_error(exc)
         _audit_config_change(request, action="config.init", tenant_id="*")
@@ -475,7 +489,7 @@ async def config_init(
     try:
         _reject_default_tenant_write(tenant_id)
         factory_dep.store.replace_tenant(tenant_id, payload)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
     except Exception as exc:  # noqa: BLE001
         raise _map_config_error(exc)
     _audit_config_change(request, action="config.init", tenant_id=tenant_id)
@@ -520,7 +534,9 @@ async def secrets_upsert(
         )
     try:
         _reject_default_tenant_write(tenant_id)
-        keys = upsert_tenant_secrets(
+        # tenant_persistence._lock is held by save_tenants during file writes; wait in a thread.
+        keys = await asyncio.to_thread(
+            upsert_tenant_secrets,
             tenant_id,
             cid,
             {str(k): str(v) for k, v in secrets.items()},
@@ -531,7 +547,7 @@ async def secrets_upsert(
     except ValueError as exc:
         raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
     factory_dep.invalidate_configs(tenant_id, cid, [config_name])
-    _persist_tenants(factory_dep)
+    await asyncio.to_thread(_persist_tenants, factory_dep)
     _audit_config_change(
         request,
         action="secrets.upsert",
@@ -560,10 +576,8 @@ async def secrets_list_keys(
             status_code=400,
             detail="config_name query parameter is required",
         )
-    return JSONResponse(
-        status_code=200,
-        content={"keys": list_secret_logical_keys(tenant_id, cid, name), "config_name": name},
-    )
+    keys = await asyncio.to_thread(list_secret_logical_keys, tenant_id, cid, name)
+    return JSONResponse(status_code=200, content={"keys": keys, "config_name": name})
 
 
 @app.post(
@@ -585,17 +599,25 @@ async def config_create(
         config_name = str(body.get("name") or "").strip()
         if secrets is not None:
             _authorize(request, SCOPE_SECRETS_WRITE, tenant_id=tenant_id)
-        if secrets is not None:
+
+        # One thread hop for the whole block: it takes tenant_persistence._lock (held by
+        # save_tenants during file writes), and stays atomic relative to other requests.
+        def _write() -> Any:
+            if secrets is not None:
+                try:
+                    upsert_tenant_secrets(tenant_id, cid, secrets, config_name=config_name)
+                except ValueError as exc:
+                    raise Rejected(
+                        NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400
+                    ) from exc
             try:
-                upsert_tenant_secrets(tenant_id, cid, secrets, config_name=config_name)
-            except ValueError as exc:
-                raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
-        try:
-            record = factory_dep.store.create(tenant_id, cid, body)
-        except ConfigNameConflictError:
-            name = str(body.get("name") or "")
-            record = factory_dep.store.update(tenant_id, cid, name, body)
-        _persist_tenants(factory_dep)
+                return factory_dep.store.create(tenant_id, cid, body)
+            except ConfigNameConflictError:
+                name = str(body.get("name") or "")
+                return factory_dep.store.update(tenant_id, cid, name, body)
+
+        record = await asyncio.to_thread(_write)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request,
             action="config.create",
@@ -663,13 +685,20 @@ async def config_update(
         secrets = _pop_secrets(body)
         if secrets:
             _authorize(request, SCOPE_SECRETS_WRITE, tenant_id=tenant_id)
-        if secrets:
-            try:
-                upsert_tenant_secrets(tenant_id, cid, secrets, config_name=name)
-            except ValueError as exc:
-                raise Rejected(NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400) from exc
-        record = factory_dep.store.update(tenant_id, cid, name, body)
-        _persist_tenants(factory_dep)
+
+        # Same single thread hop as config_create.
+        def _write() -> Any:
+            if secrets:
+                try:
+                    upsert_tenant_secrets(tenant_id, cid, secrets, config_name=name)
+                except ValueError as exc:
+                    raise Rejected(
+                        NodeWireError(ErrorCode.VALIDATION_ERROR, str(exc)), 400
+                    ) from exc
+            return factory_dep.store.update(tenant_id, cid, name, body)
+
+        record = await asyncio.to_thread(_write)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request,
             action="config.update",
@@ -700,17 +729,21 @@ async def config_delete(
     try:
         tenant_id = _config_tenant(request)
         _reject_default_tenant_write(tenant_id)
-        factory_dep.store.delete(tenant_id, cid, name, new_default=new_default)
-        # Secrets are per named config; clear this config's vault.
         from node_wire_runtime.tenant_persistence import (
             clear_config_secrets,
             clear_tenant_connector_secrets,
         )
 
-        clear_config_secrets(tenant_id, cid, name)
-        if not factory_dep.store.has_config(tenant_id, cid):
-            clear_tenant_connector_secrets(tenant_id, cid)
-        _persist_tenants(factory_dep)
+        # One thread hop: the clears take tenant_persistence._lock (held during file writes).
+        def _delete() -> None:
+            factory_dep.store.delete(tenant_id, cid, name, new_default=new_default)
+            # Secrets are per named config; clear this config's vault.
+            clear_config_secrets(tenant_id, cid, name)
+            if not factory_dep.store.has_config(tenant_id, cid):
+                clear_tenant_connector_secrets(tenant_id, cid)
+
+        await asyncio.to_thread(_delete)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request, action="config.delete", tenant_id=tenant_id, connector_id=cid, config_name=name
         )
@@ -734,7 +767,7 @@ async def config_set_default(
         tenant_id = _config_tenant(request)
         _reject_default_tenant_write(tenant_id)
         factory_dep.store.set_default(tenant_id, cid, name)
-        _persist_tenants(factory_dep)
+        await asyncio.to_thread(_persist_tenants, factory_dep)
         _audit_config_change(
             request,
             action="config.set_default",
@@ -789,7 +822,8 @@ def _make_endpoint(cid: str, act: str) -> Any:
 
         if per_identity_rate_limit_enabled():
             limiter = get_per_identity_rate_limiter()
-            identity_key = get_request_identity_key(request)
+            # PBKDF2 on a cache miss costs ~0.5 s of CPU: keep it off the event loop.
+            identity_key = await asyncio.to_thread(get_request_identity_key, request)
             rate_key = f"{tenant_id}:{cid}:{act}:{identity_key}"
             result = limiter.consume(rate_key)
             if not result.allowed:
@@ -810,9 +844,18 @@ def _make_endpoint(cid: str, act: str) -> Any:
                 payload=run_payload,
                 protocol="rest",
                 tenant_id=tenant_id,
+                exposure=get_exposure(),
                 config_name=config_name,
                 principal=rest_id.principal if rest_id else None,
                 scopes=rest_id.scopes if rest_id else None,
+            )
+        except ActionNotExposed as exc:
+            raise Rejected(
+                NodeWireError(ErrorCode.ACTION_NOT_EXPOSED, str(exc)),
+                404,
+                connector_id=cid,
+                action=act,
+                tenant_id=tenant_id,
             )
         except ConnectorNotExposed:
             raise Rejected(
@@ -865,6 +908,7 @@ def _make_endpoint(cid: str, act: str) -> Any:
 
 def _build_dynamic_routes() -> None:
     factory = get_factory()
+    exposure = get_exposure()  # a bad profile stops startup here
 
     connectors = factory.list_for_protocol("rest")
     manifest = build_manifest(connectors)
@@ -872,6 +916,8 @@ def _build_dynamic_routes() -> None:
     for entry in manifest:
         connector_id = entry["connector_id"]
         action = entry["action"]
+        if not exposure.allows(connector_id, action):
+            continue
 
         # For REST, let the runtime perform full Pydantic validation.
         # We accept an arbitrary JSON object as the payload and forward it

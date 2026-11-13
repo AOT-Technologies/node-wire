@@ -15,6 +15,8 @@ All credentials are resolved at call-time via SecretProvider.
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
 import base64
 import binascii
 import json
@@ -26,7 +28,6 @@ from typing import Any, ClassVar, Dict, Tuple, Type
 import httpx
 
 from node_wire_runtime import BaseConnector, ErrorCategory, sdk_action
-
 from .exceptions import (
     SlackAuthError,
     SlackMessageError,
@@ -40,6 +41,22 @@ from .schema import (
     SlackSendDirectMessageInput,
     SlackUploadFileInput,
 )
+
+try:  # node-wire-runtime > 1.1.1: one pooled client per event loop
+    from node_wire_runtime.rest import _shared_client
+except ImportError:  # older runtime: a client per call, as before
+    _shared_client = None  # type: ignore[assignment]
+
+
+@contextlib.asynccontextmanager
+async def _http_client(*, trust_env: bool = True) -> AsyncIterator[httpx.AsyncClient]:
+    """Pooled keep-alive client; pass ``timeout=`` on every request (it has none)."""
+    if _shared_client is not None:
+        yield _shared_client(trust_env)
+    else:
+        async with httpx.AsyncClient(trust_env=trust_env, follow_redirects=False) as client:
+            yield client
+
 
 logger = logging.getLogger("connectors.slack")
 
@@ -120,11 +137,12 @@ async def _post_json(
     timeout: float = _DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     """POST JSON to the Slack API. Raises a typed exception on failure."""
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with _http_client() as client:
         response = await client.post(
             url,
             headers={**_auth_headers(token), "Content-Type": "application/json"},
             json=body,
+            timeout=timeout,
         )
     data = response.json()
     if not data.get("ok"):
@@ -139,11 +157,12 @@ async def _get_upload_url(
     timeout: float = _DEFAULT_TIMEOUT,
 ) -> tuple[str, str]:
     """Step 1 of the external upload flow. Returns (upload_url, file_id)."""
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with _http_client() as client:
         response = await client.post(
             _GET_UPLOAD_URL,
             headers=_auth_headers(token),
             data={"filename": filename, "length": str(length)},
+            timeout=timeout,
         )
     data = response.json()
     if not data.get("ok"):
@@ -161,11 +180,12 @@ async def _upload_bytes(
     timeout: float = _DEFAULT_TIMEOUT,
 ) -> None:
     """Step 2: PUT raw bytes to the pre-signed URL Slack returned."""
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with _http_client() as client:
         response = await client.post(
             upload_url,
             content=content,
             headers={"Content-Type": "application/octet-stream"},
+            timeout=timeout,
         )
     if response.status_code != 200:
         raise SlackUploadError(f"Upload to pre-signed URL failed with HTTP {response.status_code}.")
@@ -188,11 +208,12 @@ async def _complete_upload(
     if initial_comment:
         data["initial_comment"] = initial_comment
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with _http_client() as client:
         response = await client.post(
             _COMPLETE_UPLOAD_URL,
             headers=_auth_headers(token),
             data=data,
+            timeout=timeout,
         )
     resp_data = response.json()
     if not resp_data.get("ok"):
@@ -266,7 +287,7 @@ async def _resolve_channel_id(token: str, target: str) -> str:
     # User ID -> Resolve to DM channel
     if prefix in ("U", "W"):
         try:
-            async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
+            async with _http_client() as client:
                 response = await client.post(
                     _get_api_url("conversations.open"),
                     headers={
@@ -274,6 +295,7 @@ async def _resolve_channel_id(token: str, target: str) -> str:
                         "Content-Type": "application/json",
                     },
                     json={"users": target},
+                    timeout=_DEFAULT_TIMEOUT,
                 )
                 data = response.json()
                 if data.get("ok"):

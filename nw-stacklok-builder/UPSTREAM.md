@@ -61,7 +61,7 @@ node-wire project changes are applied to the *generated* copy by `nw_stacklok.pr
 | `generate/plan.py` | Optional `ParamPlan.nw_field`, `ToolPlan.nw_action`, `ServerPlan.node_wire` |
 | `generate/renderers/tools.py` | Passes `nw_action` / `nw_arguments_expr` (`nw_stacklok.render.arguments_expr`) to the template |
 | `generate/renderers/templates/tools.py.jinja2` | A `{% if tool.nw_action %}` branch: the tool calls `self._client.run(action, {...})`; `Any` import |
-| `pipeline.py` | `run_pipeline(..., node_wire: NodeWireOptions \| None = None)`; calls `nw_stacklok.hooks` to bind the plan (`attach`), render `client.py`, finish the project, and render manifests |
+| `pipeline.py` | `run_pipeline(..., node_wire: NodeWireOptions \| None = None)`; calls `nw_stacklok.hooks` to bind the plan (`attach`), render `client.py`, finish the project, and render manifests. Optional `preloaded=(scope, spec)` skips re-parsing what `nw gen-stacklok` already loaded to validate |
 
 Phase 1 files have three edits:
 
@@ -70,6 +70,13 @@ Phase 1 files have three edits:
 - `assets/pipeline-context.md`: the same command name.
 - `assets/generator-contract.md`: a "node-wire runtime" section describing what differs when tools
   run on a connector.
+
+Performance-only edits (no output change), each under a `# node-wire:` comment:
+- `spec/loader.py`: parses YAML with libyaml's `CSafeLoader` when PyYAML has it, and pauses the
+  garbage collector while the spec's containers are built.
+- `log.py`: `structlog.stdlib.filter_by_level` first in the processor chain and
+  `cache_logger_on_first_use=True`, so debug calls below the level are dropped before rendering.
+- `generate/plan.py`: `_sanitize_name`'s regexes are compiled once at module level.
 
 `generate/renderers/manifests.py` and `generate/renderers/tools.py` also pass
 `autoescape=select_autoescape()` to their Jinja `Environment` (upstream relied on the default

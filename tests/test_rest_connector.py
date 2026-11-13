@@ -787,3 +787,79 @@ async def test_execute_rest_override_with_server_url_still_checks_allowlist(
     with pytest.raises(ValueError, match="base_url host is not allowed"):
         await _call_with_server_url(_DemoConnector(base_url="https://evil.example.net"))
     assert urls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_type", "body", "expected"),
+    [
+        ("application/json", b'{"name": "caf\xc3\xa9"}', "café"),
+        ("application/json", '{"name": "café"}'.encode("utf-16"), "café"),
+    ],
+)
+async def test_execute_rest_typed_output_decodes_like_response_json(
+    monkeypatch: pytest.MonkeyPatch, content_type: str, body: bytes, expected: str
+) -> None:
+    """Bytes validation keeps response.json()'s result, including UTF-16 bodies."""
+    import httpx
+
+    class _Out(BaseModel):
+        name: str
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body, headers={"content-type": content_type})
+
+    real = httpx.AsyncClient
+
+    class _Client(real):  # type: ignore[misc, valid-type]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _Client)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination", AsyncMock(return_value=None)
+    )
+    connector = _DemoConnector(base_url="https://api.example.com")
+    result = await connector.execute_rest(
+        "GET",
+        "/users/{username}/things",
+        _ListInput(username="o"),
+        output_model=_Out,
+        trace_id="t",
+        auth=False,
+    )
+    assert result.name == expected
+
+
+@pytest.mark.asyncio
+async def test_execute_rest_non_json_body_error_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    class _Out(BaseModel):
+        name: str
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"<html>nope</html>")
+
+    real = httpx.AsyncClient
+
+    class _Client(real):  # type: ignore[misc, valid-type]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            kwargs["transport"] = httpx.MockTransport(handler)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr("node_wire_runtime.rest.httpx.AsyncClient", _Client)
+    monkeypatch.setattr(
+        "node_wire_runtime.rest.assert_safe_destination", AsyncMock(return_value=None)
+    )
+    connector = _DemoConnector(base_url="https://api.example.com")
+    with pytest.raises(ValueError, match="Expected JSON response for _Out"):
+        await connector.execute_rest(
+            "GET",
+            "/users/{username}/things",
+            _ListInput(username="o"),
+            output_model=_Out,
+            trace_id="t",
+            auth=False,
+        )

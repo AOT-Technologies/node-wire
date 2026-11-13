@@ -513,3 +513,34 @@ def test_gen_all_bad_auth_or_header_is_a_usage_error(
     assert result.exit_code == 2
     assert message in " ".join(result.output.split())
     rb.assert_not_called()
+
+
+def test_docker_build_refuses_a_project_with_other_profiles(fake_root: Path) -> None:
+    project = fake_root / "nw-mcp-builder" / "out" / "pet-store-nw-mcp"
+    project.mkdir(parents=True)
+    (project / "Dockerfile").write_text("FROM scratch\n")
+    (fake_root / "expose" / "pet_store").mkdir(parents=True)
+    (fake_root / "expose" / "pet_store" / "ro.yaml").write_text("actions: []\n")  # no select:
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.cli.refresh_profiles", return_value=[]),
+        patch("nw_cli.cli.build_image") as docker,
+    ):
+        result = runner.invoke(app, ["docker-build", "--connector-id", "pet_store"])
+    assert result.exit_code != 0
+    assert "different exposure profiles" in result.output
+    assert "gen-mcp --connector-id pet_store --force-output" in result.output
+    docker.assert_not_called()
+
+
+def test_gen_mcp_refuses_stale_profiles(fake_root: Path) -> None:
+    stale = fake_root / "expose" / "pet_store" / "ro.yaml"
+    with (
+        patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
+        patch("nw_cli.cli.refresh_profiles", return_value=[stale]),
+        patch("nw_cli.cli.run_mcp_build") as mcp,
+    ):
+        result = runner.invoke(app, ["gen-mcp", "--connector-id", "pet_store"])
+    assert result.exit_code != 0
+    assert "uv run nw expose resolve pet_store" in result.output
+    mcp.assert_not_called()
