@@ -2,216 +2,171 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
-"""Tests for Google Drive action specs and SDK call mapping."""
+"""Google Drive actions map to the right Drive v3 HTTP requests.
+
+Simplified: the connector is OpenAPI-generated (RestConnector), so each action is checked
+through a fake shared httpx client instead of patching the Google API client.
+"""
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import MagicMock, patch
+import json
+from typing import Any
+from unittest.mock import AsyncMock
 
-from node_wire_google_drive.action_spec import GOOGLE_DRIVE_ACTION_SPECS
+import pytest
+
+import node_wire_runtime.rest as rest
 from node_wire_google_drive.logic import GoogleDriveConnector
-from node_wire_google_drive.schema import GoogleDriveOperationInput
+from node_wire_google_drive.schema import (
+    DriveFilesDeleteInput,
+    DriveFilesExportInput,
+    DriveFilesGetInput,
+    DriveFilesListInput,
+    DrivePermissionsCreateInput,
+)
 from node_wire_runtime import SecretProvider
+
+BASE = "https://www.googleapis.com/drive/v3"
 
 
 class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
-        return {
-            "GOOGLE_DRIVE_SA_JSON": '{"type":"service_account","project_id":"dummy"}',
-        }[key]
+        return {"GOOGLE_DRIVE_ACCESS_TOKEN": "ya29.dummy"}[key]
+
+
+class _Resp:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.status_code = 200
+        self._payload = payload
+        self.content = json.dumps(payload).encode()
+        self.text = self.content.decode()
+        self.headers = {"content-type": "application/json"}
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+class _Client:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+        self.calls: list[dict[str, Any]] = []
+
+    async def request(self, **kwargs: Any) -> _Resp:
+        self.calls.append(kwargs)
+        return _Resp(self.payload)
+
+
+class _ClientContext:
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    async def __aenter__(self) -> Any:
+        return self._client
+
+    async def __aexit__(self, *_exc: object) -> bool:
+        return False
+
+
+def _install(monkeypatch: pytest.MonkeyPatch, client: Any) -> None:
+    """Route the runtime's HTTP calls to ``client`` (pooled-client and per-call runtimes)."""
+    monkeypatch.setattr(rest, "assert_safe_destination", AsyncMock(return_value=None))
+    if hasattr(rest, "_shared_client"):
+        monkeypatch.setattr(rest, "_shared_client", lambda _trust_env: client)
+    else:
+        monkeypatch.setattr(rest.httpx, "AsyncClient", lambda **_kw: _ClientContext(client))
 
 
 def _connector() -> GoogleDriveConnector:
     return GoogleDriveConnector(secret_provider=MockSecretProvider())
 
 
-def test_action_spec_registry_covers_all_nw_actions():
-    """Every @nw_action on GoogleDriveConnector must have a spec entry."""
-    metas = GoogleDriveConnector.nw_action_metas()
-    for action_name in metas:
-        assert action_name in GOOGLE_DRIVE_ACTION_SPECS, f"missing spec for {action_name}"
+def _fake(monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]) -> _Client:
+    client = _Client(payload)
+    _install(monkeypatch, client)
+    return client
 
 
-def test_files_create_maps_body_and_constants():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {
-            "action": "files.create",
-            "name": "doc.txt",
-            "mime_type": "text/plain",
-            "parents": ["p1"],
-        }
+def test_every_nw_action_is_a_drive_action():
+    """The generated connector registers its Drive operations as @nw_action methods."""
+    names = set(GoogleDriveConnector.nw_action_metas())
+    assert len(names) == 48
+    assert all(name.startswith("drive_") for name in names)
+
+
+@pytest.mark.asyncio
+async def test_files_list_maps_query_parameters(monkeypatch):
+    client = _fake(monkeypatch, {"files": [{"id": "f1"}]})
+    params = DriveFilesListInput(q="trashed = false", pageSize=5)
+
+    result = await _connector().drive_files_list(params, trace_id="t")
+
+    assert result.model_dump()["files"] == [{"id": "f1"}]
+    call = client.calls[0]
+    assert call["method"] == "GET"
+    assert call["url"].startswith(f"{BASE}/files?")
+    assert "pageSize=5" in call["url"]
+    assert "q=trashed" in call["url"]
+
+
+@pytest.mark.asyncio
+async def test_files_get_puts_file_id_in_the_path(monkeypatch):
+    client = _fake(monkeypatch, {"id": "fid-1", "name": "doc.txt"})
+
+    result = await _connector().drive_files_get(DriveFilesGetInput(fileId="fid-1"), trace_id="t")
+
+    assert result.model_dump()["name"] == "doc.txt"
+    assert client.calls[0]["method"] == "GET"
+    assert client.calls[0]["url"] == f"{BASE}/files/fid-1"
+
+
+@pytest.mark.asyncio
+async def test_files_delete_is_a_delete_request(monkeypatch):
+    client = _fake(monkeypatch, {})
+
+    await _connector().drive_files_delete(DriveFilesDeleteInput(fileId="fid-99"), trace_id="t")
+
+    assert client.calls[0]["method"] == "DELETE"
+    assert client.calls[0]["url"] == f"{BASE}/files/fid-99"
+
+
+@pytest.mark.asyncio
+async def test_files_export_sends_mime_type(monkeypatch):
+    client = _fake(monkeypatch, {})
+    params = DriveFilesExportInput(fileId="fid-7", mimeType="application/pdf")
+
+    await _connector().drive_files_export(params, trace_id="t")
+
+    assert client.calls[0]["url"].startswith(f"{BASE}/files/fid-7/export?")
+    assert "mimeType=application%2Fpdf" in client.calls[0]["url"]
+
+
+@pytest.mark.asyncio
+async def test_permissions_create_sends_json_body(monkeypatch):
+    client = _fake(monkeypatch, {"id": "perm-1", "role": "reader"})
+    params = DrivePermissionsCreateInput(
+        fileId="fid-1", role="reader", type="user", emailAddress="a@example.com"
     )
 
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    create_call = files_api.create.return_value
-    create_call.execute.return_value = {"id": "new-id", "name": "doc.txt"}
+    result = await _connector().drive_permissions_create(params, trace_id="t")
 
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
-
-    assert result.raw == {"id": "new-id", "name": "doc.txt"}
-    files_api.create.assert_called_once_with(
-        body={"name": "doc.txt", "mimeType": "text/plain", "parents": ["p1"]},
-        fields="id, name, webViewLink",
-        supportsAllDrives=True,
-    )
+    assert result.model_dump()["id"] == "perm-1"
+    call = client.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"].startswith(f"{BASE}/files/fid-1/permissions")
+    sent = {"role": "reader", "type": "user", "emailAddress": "a@example.com"}
+    assert sent.items() <= call["json"].items()
 
 
-def test_files_delete_returns_synthetic_raw():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {"action": "files.delete", "file_id": "fid-99"}
-    )
+@pytest.mark.asyncio
+async def test_run_dispatches_by_action_name(monkeypatch):
+    client = _fake(monkeypatch, {"id": "fid-5"})
 
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    upd = files_api.update.return_value
-    upd.execute.return_value = {"id": "fid-99", "trashed": True}
+    response = await _connector().run({"action": "drive_files_get", "fileId": "fid-5"})
 
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
-
-    assert result.raw == {"file_id": "fid-99", "status": "deleted"}
-    files_api.update.assert_called_once_with(
-        fileId="fid-99",
-        body={"trashed": True},
-        supportsAllDrives=True,
-    )
-
-
-def test_permissions_create_maps_body():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {
-            "action": "permissions.create",
-            "file_id": "f1",
-            "role": "reader",
-            "type": "user",
-            "email_address": "a@b.com",
-        }
-    )
-
-    drive = MagicMock()
-    perms = drive.permissions.return_value
-    perms.create.return_value.execute.return_value = {"id": "perm-1"}
-
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
-
-    assert result.raw == {"id": "perm-1"}
-    perms.create.assert_called_once_with(
-        fileId="f1",
-        body={"role": "reader", "type": "user", "emailAddress": "a@b.com"},
-        supportsAllDrives=True,
-    )
-
-
-def test_permissions_create_excludes_empty_optional_fields():
-    """Empty-string email_address and domain must be excluded from the body (not sent as "")."""
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {
-            "action": "permissions.create",
-            "file_id": "file-abc",
-            "role": "reader",
-            "type": "anyone",
-            "email_address": "",
-            "domain": "",
-        }
-    )
-
-    drive = MagicMock()
-    perms = drive.permissions.return_value
-    perms.create.return_value.execute.return_value = {"kind": "drive#permission"}
-
-    with patch.object(connector, "get_client", return_value=drive):
-        asyncio.run(connector.internal_execute(params, trace_id="t-empty"))
-
-    _, kwargs = perms.create.call_args
-    body = kwargs["body"]
-    assert "emailAddress" not in body
-    assert "domain" not in body
-
-
-def test_files_get_returns_metadata():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {"action": "files.get", "file_id": "fid-1", "fields": "id,name"}
-    )
-
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    files_api.get.return_value.execute.return_value = {"id": "fid-1", "name": "doc.txt"}
-
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
-
-    assert result.raw == {"id": "fid-1", "name": "doc.txt"}
-    files_api.get.assert_called_once_with(
-        fileId="fid-1",
-        fields="id,name",
-        supportsAllDrives=True,
-    )
-
-
-def test_files_update_sends_body_and_parent_changes():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {
-            "action": "files.update",
-            "file_id": "fid-2",
-            "name": "renamed.txt",
-            "mime_type": "text/plain",
-            "add_parents": ["p1"],
-            "remove_parents": ["p0"],
-        }
-    )
-
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    files_api.update.return_value.execute.return_value = {"id": "fid-2", "name": "renamed.txt"}
-
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
-
-    assert result.raw == {"id": "fid-2", "name": "renamed.txt"}
-    files_api.update.assert_called_once_with(
-        fileId="fid-2",
-        body={"name": "renamed.txt", "mimeType": "text/plain"},
-        addParents="p1",
-        removeParents="p0",
-        supportsAllDrives=True,
-    )
-
-
-def test_files_upload_uses_content_and_media_body():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate(
-        {
-            "action": "files.upload",
-            "name": "upload.txt",
-            "mime_type": "text/plain",
-            "content": "hello",
-        }
-    )
-
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    files_api.create.return_value.execute.return_value = {
-        "id": "up-1",
-        "name": "upload.txt",
-        "webViewLink": "https://drive.google.com/file/d/up-1",
-    }
-
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="t"))
-
-    assert result.raw["id"] == "up-1"
-    _, kwargs = files_api.create.call_args
-    assert kwargs["body"] == {"name": "upload.txt", "mimeType": "text/plain"}
-    assert kwargs["media_body"] is not None
-    assert kwargs["fields"] == "id, name, webViewLink"
-    assert kwargs["supportsAllDrives"] is True
+    assert response.success is True
+    assert response.data is not None and response.data["id"] == "fid-5"
+    assert client.calls[0]["url"] == f"{BASE}/files/fid-5"

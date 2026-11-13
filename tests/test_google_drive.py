@@ -2,257 +2,145 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
+"""Google Drive connector: schema validation and HTTP error mapping.
+
+Simplified: Drive is an OpenAPI-generated RestConnector, so failures are httpx errors
+mapped by ``error_map`` rather than googleapiclient exceptions.
+"""
+
 from __future__ import annotations
 
-import asyncio
-import logging
-from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from typing import Any
+from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
-from node_wire_google_drive.exceptions import (
-    GoogleDriveAuthError,
-    GoogleDriveBusinessError,
-    GoogleDriveFatalError,
-    GoogleDriveRateLimitError,
-)
-from node_wire_google_drive.logic import DEFAULT_LIST_FIELDS, GoogleDriveConnector
+import node_wire_runtime.rest as rest
+from node_wire_google_drive.logic import GoogleDriveConnector
 from node_wire_google_drive.schema import (
-    FilesListOperation,
-    FilesUploadOperation,
-    GoogleDriveOperationInput,
+    DriveFilesExportInput,
+    DriveFilesGetInput,
+    DriveFilesListInput,
 )
 from node_wire_runtime import SecretProvider
-from node_wire_runtime.auth import ServiceAccountAuthProvider
-from node_wire_runtime.auth.base import reset_upstream_bearer, set_upstream_bearer
+from node_wire_runtime.models import ErrorCategory
 
 
 class MockSecretProvider(SecretProvider):
     def get_secret(self, key: str) -> str:
-        return {
-            "GOOGLE_DRIVE_SA_JSON": '{"type":"service_account","project_id":"dummy"}',
-        }[key]
+        return {"GOOGLE_DRIVE_ACCESS_TOKEN": "ya29.dummy"}[key]
 
 
-class DummyHttpError(Exception):
-    def __init__(self, status: int, *, content: str = "", reason: str = "") -> None:
-        super().__init__(reason or f"http {status}")
-        self.resp = SimpleNamespace(status=status)
-        self.content = content
-        self.reason = reason
+class _ErrorResp:
+    def __init__(self, status: int) -> None:
+        self.status_code = status
+        self.content = b"{}"
+        self.text = "{}"
+        self.headers = {"content-type": "application/json"}
+
+    def raise_for_status(self) -> None:
+        request = httpx.Request("GET", "https://www.googleapis.com/drive/v3/files")
+        raise httpx.HTTPStatusError(
+            "error", request=request, response=httpx.Response(self.status_code, request=request)
+        )
+
+
+class _Client:
+    def __init__(self, response: _ErrorResp | None = None, error: Exception | None = None) -> None:
+        self.response, self.error = response, error
+
+    async def request(self, **_kwargs: Any) -> _ErrorResp:
+        if self.error is not None:
+            raise self.error
+        assert self.response is not None
+        return self.response
+
+
+class _ClientContext:
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    async def __aenter__(self) -> Any:
+        return self._client
+
+    async def __aexit__(self, *_exc: object) -> bool:
+        return False
+
+
+def _install(monkeypatch: pytest.MonkeyPatch, client: Any) -> None:
+    """Route the runtime's HTTP calls to ``client`` (pooled-client and per-call runtimes)."""
+    monkeypatch.setattr(rest, "assert_safe_destination", AsyncMock(return_value=None))
+    if hasattr(rest, "_shared_client"):
+        monkeypatch.setattr(rest, "_shared_client", lambda _trust_env: client)
+    else:
+        monkeypatch.setattr(rest.httpx, "AsyncClient", lambda **_kw: _ClientContext(client))
 
 
 def _connector() -> GoogleDriveConnector:
-    sp = MockSecretProvider()
-    return GoogleDriveConnector(
-        secret_provider=sp,
-        auth_provider=ServiceAccountAuthProvider(
-            secret_provider=sp,
-            sa_json_secret="GOOGLE_DRIVE_SA_JSON",
-        ),
-    )
+    return GoogleDriveConnector(secret_provider=MockSecretProvider())
 
 
-def test_files_upload_operation_requires_exactly_one_body_source() -> None:
-    FilesUploadOperation.model_validate(
-        {
-            "action": "files.upload",
-            "name": "a.txt",
-            "mime_type": "text/plain",
-            "content": "hello",
-        }
-    )
-    with pytest.raises(ValidationError):
-        FilesUploadOperation.model_validate(
-            {
-                "action": "files.upload",
-                "name": "a.txt",
-                "mime_type": "text/plain",
-            }
-        )
-    with pytest.raises(ValidationError):
-        FilesUploadOperation.model_validate(
-            {
-                "action": "files.upload",
-                "name": "a.txt",
-                "mime_type": "text/plain",
-                "content": "a",
-                "content_base64": "Zg==",
-            }
-        )
+def _fake(monkeypatch: pytest.MonkeyPatch, client: _Client) -> None:
+    _install(monkeypatch, client)
 
 
-def test_google_drive_internal_execute_files_list_happy_path():
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate({"action": "files.list", "page_size": 5})
-
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    list_call = files_api.list.return_value
-    list_call.execute.return_value = {"files": [{"id": "f-1", "name": "Report"}]}
-
-    with patch.object(connector, "get_client", return_value=drive):
-        result = asyncio.run(connector.internal_execute(params, trace_id="test-trace"))
-
-    assert result.raw == {"files": [{"id": "f-1", "name": "Report"}]}
-    assert result.description == "Successfully executed files.list"
-    files_api.list.assert_called_once_with(
-        pageSize=5,
-        q=None,
-        fields=DEFAULT_LIST_FIELDS,
-        pageToken=None,
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True,
-    )
-
-
-@pytest.mark.parametrize(
-    ("status", "content", "reason", "expected_exception"),
-    [
-        (403, "", "forbidden", GoogleDriveAuthError),
-        (403, "rateLimitExceeded", "forbidden", GoogleDriveRateLimitError),
-        (429, "", "too many requests", GoogleDriveRateLimitError),
-        (404, "", "not found", GoogleDriveBusinessError),
-        (418, "", "teapot", GoogleDriveFatalError),
-    ],
-)
-def test_google_drive_http_error_translation(
-    status: int, content: str, reason: str, expected_exception: type[Exception]
-):
-    connector = _connector()
-    err = DummyHttpError(status, content=content, reason=reason)
-
-    with pytest.raises(expected_exception):
-        connector._translate_and_raise_http_error(err)  # type: ignore[arg-type]
-
-
-def test_google_drive_schema_discriminator_validation():
-    parsed = GoogleDriveOperationInput.model_validate({"action": "files.get", "file_id": "abc123"})
-    assert parsed.root.action == "files.get"
+def test_google_drive_schema_rejects_unknown_and_missing_fields():
+    DriveFilesListInput(pageSize=10)
+    DriveFilesGetInput(fileId="fid")
 
     with pytest.raises(ValidationError):
-        GoogleDriveOperationInput.model_validate({"action": "files.unknown", "file_id": "abc123"})
+        DriveFilesListInput(not_a_drive_field="x")
+    with pytest.raises(ValidationError):
+        DriveFilesGetInput()  # fileId is a required path parameter
+    with pytest.raises(ValidationError):
+        DriveFilesExportInput(fileId="fid")  # mimeType is required
+    with pytest.raises(ValidationError):
+        DriveFilesListInput(pageSize="many")
+
+
+def test_google_drive_action_discriminator_is_fixed():
+    assert DriveFilesListInput().action == "drive_files_list"
+    with pytest.raises(ValidationError):
+        DriveFilesListInput(action="drive_files_get")
+
+
+def test_google_drive_error_map():
+    error_map = _connector().error_map
+
+    assert error_map[httpx.HTTPStatusError] == (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR")
+    assert error_map[httpx.ConnectError] == (ErrorCategory.RETRYABLE, "HTTP_CONNECT_ERROR")
+    assert error_map[httpx.ReadTimeout] == (ErrorCategory.RETRYABLE, "HTTP_READ_TIMEOUT")
 
 
 @pytest.mark.asyncio
-async def test_google_drive_upstream_bearer_uses_request_token(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from bindings.factory import ConnectorFactory
+@pytest.mark.parametrize("status", [403, 404])
+async def test_google_drive_http_error_translation(monkeypatch, status):
+    _fake(monkeypatch, _Client(_ErrorResp(status)))
 
-    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
-    sp = MockSecretProvider()
-    factory = ConnectorFactory.__new__(ConnectorFactory)
-    factory._secret_provider = sp
-    provider = factory._build_auth_provider(
-        "google_drive", {"auth": {"provider": "upstream_bearer"}}
-    )
-    connector = GoogleDriveConnector(secret_provider=sp, auth_provider=provider)
+    result = await _connector().run({"action": "drive_files_get", "fileId": "missing"})
 
-    drive = MagicMock()
-    files_api = drive.files.return_value
-    list_call = files_api.list.return_value
-    list_call.execute.return_value = {"files": []}
-
-    ctx = set_upstream_bearer("google-token-a")
-    try:
-        with patch("node_wire_google_drive.logic.build", return_value=drive) as mock_build:
-            await connector._execute_action_spec(
-                "files.list",
-                FilesListOperation(action="files.list", page_size=5),
-                trace_id="trace-1",
-            )
-            creds = mock_build.call_args.kwargs["credentials"]
-            assert creds.token == "google-token-a"
-    finally:
-        reset_upstream_bearer(ctx)
+    assert result.success is False
+    assert result.error_category == ErrorCategory.BUSINESS
+    assert result.error_code == "HTTP_STATUS_ERROR"
 
 
 @pytest.mark.asyncio
-async def test_google_drive_upstream_bearer_no_token_raises(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from bindings.factory import ConnectorFactory
+async def test_google_drive_connect_error_is_retryable(monkeypatch):
+    _fake(monkeypatch, _Client(error=httpx.ConnectError("down")))
 
-    monkeypatch.setenv("NW_UPSTREAM_BEARER_CONNECTORS", "google_drive")
-    sp = MockSecretProvider()
-    factory = ConnectorFactory.__new__(ConnectorFactory)
-    factory._secret_provider = sp
-    provider = factory._build_auth_provider(
-        "google_drive", {"auth": {"provider": "upstream_bearer"}}
-    )
-    connector = GoogleDriveConnector(secret_provider=sp, auth_provider=provider)
+    result = await _connector().run({"action": "drive_files_list"})
 
-    with pytest.raises(GoogleDriveAuthError, match="Upstream bearer token required"):
-        await connector._execute_action_spec(
-            "files.list",
-            FilesListOperation(action="files.list", page_size=5),
-            trace_id="trace-1",
-        )
-
-
-@pytest.mark.parametrize(
-    ("action", "payload", "status", "expected_exception"),
-    [
-        (
-            "files.upload",
-            {
-                "name": "upload.txt",
-                "mime_type": "text/plain",
-                "content": "hello",
-            },
-            403,
-            GoogleDriveAuthError,
-        ),
-        (
-            "permissions.create",
-            {
-                "file_id": "f1",
-                "role": "reader",
-                "type": "user",
-                "email_address": "a@b.com",
-            },
-            404,
-            GoogleDriveBusinessError,
-        ),
-    ],
-)
-def test_google_drive_execute_translates_http_errors(
-    action: str,
-    payload: dict,
-    status: int,
-    expected_exception: type[Exception],
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    from googleapiclient.errors import HttpError
-
-    connector = _connector()
-    params = GoogleDriveOperationInput.model_validate({"action": action, **payload})
-
-    async def _raise_http_error(*_args: object, **_kwargs: object) -> None:
-        resp = MagicMock()
-        resp.status = status
-        resp.reason = "upstream error"
-        raise HttpError(resp, b"error")
-
-    with (
-        patch.object(connector, "get_client", return_value=MagicMock()),
-        patch(
-            "node_wire_google_drive.logic.execute_spec_in_thread",
-            side_effect=_raise_http_error,
-        ),
-    ):
-        caplog.set_level(logging.ERROR, logger="connectors.google_drive")
-        with pytest.raises(expected_exception):
-            asyncio.run(connector.internal_execute(params, trace_id="test-trace"))
-        assert "failed" in caplog.text
-        assert any(getattr(r, "connector_id", None) == "google_drive" for r in caplog.records)
+    assert result.success is False
+    assert result.error_category == ErrorCategory.RETRYABLE
+    assert result.error_code == "HTTP_CONNECT_ERROR"
 
 
 @pytest.mark.asyncio
-async def test_google_drive_unknown_action_spec_raises():
-    connector = _connector()
-    with pytest.raises(ValueError, match="No action spec registered"):
-        await connector._execute_action_spec("not_a_real_action", {}, trace_id="test-trace")
+async def test_google_drive_unknown_action_is_rejected(monkeypatch):
+    _fake(monkeypatch, _Client(error=httpx.ConnectError("never reached")))
+
+    result = await _connector().run({"action": "drive_files_teleport"})
+
+    assert result.success is False

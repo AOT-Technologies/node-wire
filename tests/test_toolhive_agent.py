@@ -116,7 +116,7 @@ def _mcp_tools_subset_from_manifest() -> List[Dict[str, Any]]:
     manifest = build_manifest(factory.list_for_protocol("mcp"))
     want = {
         "fhir_cerner_read_patient",
-        "google_drive_files_upload",
+        "google_drive_drive_files_create",
         "smtp_send_email",
     }
     out: List[Dict[str, Any]] = []
@@ -231,7 +231,7 @@ async def test_agent_runs_three_tool_sequence() -> None:
             content=None,
             tool_calls=[
                 _tool_call(
-                    "google_drive_files_upload",
+                    "google_drive_drive_files_create",
                     {
                         "name": "summary.txt",
                         "mime_type": "text/plain",
@@ -275,7 +275,7 @@ async def test_agent_runs_three_tool_sequence() -> None:
     assert result.final_answer == "All 3 steps completed successfully."
     assert len(result.steps) == 3
     assert result.steps[0].tool_called == "fhir_cerner_read_patient"
-    assert result.steps[1].tool_called == "google_drive_files_upload"
+    assert result.steps[1].tool_called == "google_drive_drive_files_create"
     assert result.steps[2].tool_called == "smtp_send_email"
 
     # Verify MCP was called exactly 3 times
@@ -559,12 +559,12 @@ async def test_agent_stops_after_repeated_tool_failures() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive_files_upload", {"name": "a.txt"})],
+            tool_calls=[_tool_call("google_drive_drive_files_create", {"name": "a.txt"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive_files_upload", {"name": "a.txt"})],
+            tool_calls=[_tool_call("google_drive_drive_files_create", {"name": "a.txt"})],
             stop_reason="tool_calls",
         ),
         LLMResponse(content="should not run", tool_calls=[], stop_reason="stop"),
@@ -584,7 +584,7 @@ async def test_agent_stops_after_repeated_tool_failures() -> None:
 
     assert result.success is False
     assert len(result.steps) == 2
-    assert "google_drive_files_upload" in (result.error or "")
+    assert "google_drive_drive_files_create" in (result.error or "")
     assert "failed 2 times" in (result.final_answer or result.error or "").lower()
     assert mock_mcp.call_tool.await_count == 2
     assert provider._call_count == 2
@@ -598,17 +598,17 @@ async def test_agent_success_then_two_failures_same_tool_aborts() -> None:
     responses = [
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive_files_upload", {})],
+            tool_calls=[_tool_call("google_drive_drive_files_create", {})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive_files_upload", {})],
+            tool_calls=[_tool_call("google_drive_drive_files_create", {})],
             stop_reason="tool_calls",
         ),
         LLMResponse(
             content=None,
-            tool_calls=[_tool_call("google_drive_files_upload", {})],
+            tool_calls=[_tool_call("google_drive_drive_files_create", {})],
             stop_reason="tool_calls",
         ),
     ]
@@ -643,7 +643,7 @@ def test_mcp_entrypoint_exposes_manifest_tools() -> None:
     names = {t["name"] for t in server.list_tools()}
     assert "fhir_cerner_read_patient" in names
     assert "fhir_epic_read_patient" in names
-    assert "google_drive_files_upload" in names
+    assert "google_drive_drive_files_create" in names
     assert "smtp_send_email" in names
     assert "stripe_charge" in names
     assert "http_generic_request" in names
@@ -694,7 +694,7 @@ def test_mcp_server_matches_per_connector_entrypoints() -> None:
 
     drive = {t["name"] for t in McpServer(connector_ids=["google_drive"]).list_tools()}
     assert drive == {n for n in full if n.startswith("google_drive_")}
-    assert "google_drive_files_upload" in drive
+    assert "google_drive_drive_files_create" in drive
 
     smtp = {t["name"] for t in McpServer(connector_ids=["smtp"]).list_tools()}
     assert smtp == {"smtp_send_email"}

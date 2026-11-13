@@ -66,7 +66,7 @@ def test_manifest_emits_per_action():
     factory.load()
     rest_manifest = build_manifest(factory.list_for_protocol("rest"))
     rest_actions = {(e["connector_id"], e["action"]) for e in rest_manifest}
-    assert ("google_drive", "files.list") in rest_actions
+    assert ("google_drive", "drive_files_list") in rest_actions
     assert ("fhir_epic", "read_patient") in rest_actions
     assert ("stripe", "charge") in rest_actions
 
@@ -122,7 +122,7 @@ def test_mcp_tool_invoke_sets_action():
     server = McpServer()
     tools = server.list_tools()
     names = {t["name"] for t in tools}
-    assert "google_drive_files_list" in names
+    assert "google_drive_drive_files_list" in names
     assert "stripe_charge" in names
 
 
@@ -174,10 +174,10 @@ def test_mcp_sdk_tools_omit_output_schema_and_null_unions() -> None:
     listed = {t.name: t for t in tools}
     cfg = listed["nw_list_configs"] if "nw_list_configs" in listed else None
     tenants = listed["nw_list_tenants"] if "nw_list_tenants" in listed else None
-    drive = listed["google_drive_files_list"]
+    drive = listed["google_drive_drive_files_list"]
     dumped = drive.model_dump(exclude_none=True)
     assert "outputSchema" not in dumped
-    assert drive.inputSchema["properties"]["query"]["type"] == "string"
+    assert drive.inputSchema["properties"]["q"]["type"] == "string"
     if cfg is not None:
         assert cfg.inputSchema["properties"]["connector_id"]["type"] == "string"
     if tenants is not None:
