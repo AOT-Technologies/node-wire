@@ -645,7 +645,7 @@ def test_mcp_entrypoint_exposes_manifest_tools() -> None:
     assert "fhir_epic_read_patient" in names
     assert "google_drive_files_upload" in names
     assert "smtp_send_email" in names
-    assert "stripe_charge" in names
+    assert "stripe_post_charges" in names
     assert "http_generic_request" in names
     # Broader surface than the old 8 FastMCP tools
     assert len(names) >= 18

@@ -15,7 +15,11 @@ from node_wire_runtime.connector_registry import auto_register
 
 class DummySecretProvider(SecretProvider):
     def __init__(self) -> None:
-        self._store = {"STRIPE_API_KEY": "sk_test_dummy", "smtp_user": "user", "smtp_pass": "pass"}
+        self._store = {
+            "STRIPE_BASIC_AUTH": "sk_test_dummy:",
+            "smtp_user": "user",
+            "smtp_pass": "pass",
+        }
 
     def get_secret(self, key: str) -> str:
         return self._store[key]

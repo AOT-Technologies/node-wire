@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -291,39 +291,48 @@ def test_http_generic_logs_sanitized_url() -> None:
     asyncio.run(_run())
 
 
-def test_stripe_charge_via_run() -> None:
-    secrets = _MapSecrets({"stripe_api_key": "sk_test_dummy"})
+def test_stripe_charge_via_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    import node_wire_runtime.rest as rest
 
-    with patch("node_wire_stripe.logic.stripe.Charge") as mock_charge:
-        mock_charge.create.return_value = MagicMock(
-            id="ch_123", receipt_url="https://pay.example/r", paid=True
+    seen: list[dict] = []
+
+    class _Resp:
+        status_code = 200
+        content = b'{"id": "ch_123", "paid": true}'
+        text = content.decode()
+        headers = {"content-type": "application/json"}
+
+        def json(self) -> dict:
+            return {"id": "ch_123", "paid": True}
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class _Client:
+        async def request(self, **kwargs):
+            seen.append(kwargs)
+            return _Resp()
+
+    monkeypatch.setattr(rest, "_shared_client", lambda _trust_env: _Client())
+    monkeypatch.setattr(rest, "assert_safe_destination", AsyncMock(return_value=None))
+    c = StripeConnector(secret_provider=_MapSecrets({"STRIPE_BASIC_AUTH": "sk_test_dummy:"}))
+
+    async def _run() -> None:
+        resp = await c.run(
+            {
+                "action": "post_charges",
+                "amount": 1000,
+                "currency": "usd",
+                "source": "tok_visa",
+            }
         )
-        c = StripeConnector(secret_provider=secrets)
+        assert resp.success is True
+        assert resp.data is not None
+        assert resp.data.get("id") == "ch_123"
 
-        async def _run() -> None:
-            resp = await c.run(
-                {
-                    "action": "charge",
-                    "amount": 1000,
-                    "currency": "usd",
-                    "source": "tok_visa",
-                }
-            )
-            assert resp.success is True
-            assert resp.data is not None
-            assert resp.data.get("charge_id") == "ch_123"
-
-        asyncio.run(_run())
-        mock_charge.create.assert_called_once_with(
-            api_key="sk_test_dummy",
-            amount=1000,
-            currency="usd",
-            source="tok_visa",
-            customer=None,
-            description=None,
-            metadata=None,
-            idempotency_key=ANY,
-        )
+    asyncio.run(_run())
+    assert seen[0]["method"] == "POST"
+    assert seen[0]["url"] == "https://api.stripe.com/v1/charges"
 
 
 # ---------------------------------------------------------------------------

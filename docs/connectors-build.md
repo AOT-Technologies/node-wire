@@ -590,7 +590,7 @@ The `static_token` block takes the following fields:
 | `header_name` | No | `Authorization` | HTTP header the token is injected into. |
 | `prefix` | No | `Bearer` (no trailing space) | String prepended to the token value. The provider inserts a single space between `prefix` and the token itself — do **not** add a trailing space to `prefix` yourself, or you'll get a double space. Set `prefix: ""` for APIs that expect the raw token (for example, Stripe). Set `prefix: "token"` for APIs that require the `token` scheme (check your vendor's auth docs). |
 
-So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
+So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (HTTP Basic, `prefix: Basic` + `encoding: base64`) produces `Authorization: Basic base64(<STRIPE_BASIC_AUTH>)`.
 
 The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (for example, redeploy) if the underlying secret is rotated.
 
@@ -635,9 +635,9 @@ connectors:
     enabled: true
     auth:
       provider: static_token
-      secret_key: stripe_api_key
-      header_name: Authorization
-      prefix: ""  # Stripe expects raw key; env var is STRIPE_API_KEY
+      secret_key: STRIPE_BASIC_AUTH
+      prefix: Basic
+      encoding: base64  # value is "<secret key>:"
 
   smtp:
     enabled: true

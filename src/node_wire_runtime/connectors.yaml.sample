@@ -112,9 +112,9 @@ connectors:
     exposed_via: [grpc, mcp]
     auth:
       provider: static_token
-      secret_key: stripe_api_key
-      header_name: Authorization
-      prefix: ""         # Stripe expects the raw key with no "Bearer" prefix
+      secret_key: STRIPE_BASIC_AUTH
+      prefix: Basic
+      encoding: base64  # value is "<secret key>:"
 
   http_generic:
     enabled: false

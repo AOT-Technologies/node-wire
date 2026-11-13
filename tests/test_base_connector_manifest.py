@@ -14,7 +14,7 @@ from pydantic import BaseModel, ValidationError
 from bindings.factory import ConnectorFactory
 from node_wire_runtime.connector_registry import auto_register
 from node_wire_runtime.manifest import build_manifest
-from node_wire_stripe.schema import ChargeInput
+from node_wire_stripe.schema import PostChargesInput
 from node_wire_runtime import BaseConnector
 from node_wire_runtime.base_connector import _CONNECTOR_REGISTRY, nw_action
 
@@ -68,14 +68,14 @@ def test_manifest_emits_per_action():
     rest_actions = {(e["connector_id"], e["action"]) for e in rest_manifest}
     assert ("google_drive", "files.list") in rest_actions
     assert ("fhir_epic", "read_patient") in rest_actions
-    assert ("stripe", "charge") in rest_actions
+    assert ("stripe", "post_charges") in rest_actions
 
     mcp_manifest = build_manifest(factory.list_for_protocol("mcp"))
     mcp_actions = {(e["connector_id"], e["action"]) for e in mcp_manifest}
-    assert ("stripe", "charge") in mcp_actions
+    assert ("stripe", "post_charges") in mcp_actions
     # Per-action input schema should expose that action's fields (not only a buried union)
     for entry in mcp_manifest:
-        if entry["connector_id"] == "stripe" and entry["action"] == "charge":
+        if entry["connector_id"] == "stripe" and entry["action"] == "post_charges":
             props = entry["input_schema"].get("properties", {})
             assert "amount" in props
 
@@ -87,33 +87,33 @@ def test_stripe_connector_accepts_charge_payload():
     connector = factory.get_for_protocol("stripe", "grpc")
     assert connector is not None
     assert isinstance(connector, BaseConnector)
-    validated = ChargeInput.model_validate(
-        {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"}
+    validated = PostChargesInput.model_validate(
+        {"action": "post_charges", "amount": 100, "currency": "usd", "source": "tok_visa"}
     )
-    assert validated.action == "charge"
+    assert validated.action == "post_charges"
 
 
-def test_stripe_connector_normalizes_uppercase_currency():
-    validated = ChargeInput.model_validate(
-        {"action": "charge", "amount": 100, "currency": "USD", "source": "tok_visa"}
+def test_stripe_connector_passes_currency_through_unchanged():
+    # The generated schema does not rewrite values; Stripe itself validates the currency.
+    validated = PostChargesInput.model_validate(
+        {"action": "post_charges", "amount": 100, "currency": "USD", "source": "tok_visa"}
     )
-    assert validated.currency == "usd"
+    assert validated.currency == "USD"
 
 
 @pytest.mark.parametrize(
     "payload",
     [
-        {"action": "charge", "amount": 0, "currency": "usd", "source": "tok_visa"},
-        {"action": "charge", "amount": -1, "currency": "usd", "source": "tok_visa"},
-        {"action": "charge", "amount": 100_000_000, "currency": "usd", "source": "tok_visa"},
-        {"action": "charge", "amount": 100, "currency": "US", "source": "tok_visa"},
-        {"action": "charge", "amount": 100, "currency": "USDT", "source": "tok_visa"},
-        {"action": "charge", "amount": 100, "currency": "us1", "source": "tok_visa"},
+        {"action": "post_charges", "amount": "ten", "currency": "usd", "source": "tok_visa"},
+        {"action": "post_charges", "amount": 1.5, "currency": "usd", "source": "tok_visa"},
+        {"action": "post_charges", "amount": 100, "currency": ["usd"], "source": "tok_visa"},
+        {"action": "post_charges", "amount": 100, "not_a_field": 1},
+        {"action": "charge", "amount": 100, "currency": "usd", "source": "tok_visa"},
     ],
 )
 def test_stripe_connector_rejects_invalid_charge_payload(payload):
     with pytest.raises(ValidationError):
-        ChargeInput.model_validate(payload)
+        PostChargesInput.model_validate(payload)
 
 
 def test_mcp_tool_invoke_sets_action():
@@ -123,7 +123,7 @@ def test_mcp_tool_invoke_sets_action():
     tools = server.list_tools()
     names = {t["name"] for t in tools}
     assert "google_drive_files_list" in names
-    assert "stripe_charge" in names
+    assert "stripe_post_charges" in names
 
 
 def test_mcp_llm_safe_input_schema_strips_null_unions() -> None:
