@@ -1056,6 +1056,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../exposure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Action Exposure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../connectors-build/" class="md-nav__link">
         
   
@@ -1380,6 +1408,17 @@
     <span class="md-ellipsis">
       
         nw docker-build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nw-expose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw expose
       
     </span>
   </a>
@@ -2717,6 +2756,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#nw-expose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nw expose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#nw-gen-stacklok" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2916,6 +2966,10 @@ SPDX-License-Identifier: Apache-2.0
 <td><code>docker build</code> inside <code>nw-mcp-builder/out/&lt;server&gt;-mcp/</code></td>
 </tr>
 <tr>
+<td><code>nw expose</code></td>
+<td>Author <a href="../../exposure/">exposure profiles</a>: <code>new</code>, <code>resolve [--check]</code>, <code>search</code></td>
+</tr>
+<tr>
 <td><code>nw gen-stacklok</code></td>
 <td>Scope an OpenAPI spec with stacklok's <code>/ai-scoping</code>, then build a stacklok MCP server on the node-wire runtime</td>
 </tr>
@@ -3094,6 +3148,7 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong>Non-interactive:</strong> exits non-zero with the exact fix command (for example, <code>nw gen-whl --runtime --bindings</code>)</li>
 </ul>
 <p>There is no <code>--yes</code> / auto-confirm flag.</p>
+<p>Refuses to build when an <a href="../../exposure/">exposure profile</a> under <code>expose/&lt;id&gt;/</code> is stale (run <code>nw expose resolve &lt;id&gt;</code>), and copies the profiles into the host so its image can serve them (<code>NW_EXPOSE_PROFILE</code>).</p>
 <h3 id="nw-docker-build"><code>nw docker-build</code><a class="headerlink" href="#nw-docker-build" title="Anchor link to this section">&para;</a></h3>
 <p>The following commands build an image by connector id, with a tag, or by project path:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>docker-build<span class="w"> </span>--connector-id<span class="w"> </span>pet_store
@@ -3102,13 +3157,20 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div>
 <p><code>--connector-id</code> finds the projects generated for that connector: the <code>gen-all</code> / <code>gen-mcp</code> host (<code>nw-mcp-builder/out/&lt;id-dashed&gt;-nw-mcp/</code>, image <code>&lt;id-dashed&gt;-nw-mcp:&lt;tag&gt;</code>, with <code>_</code> in the id replaced by <code>-</code>) and any <code>gen-stacklok</code> server in <code>nw-stacklok-builder/out/</code> whose <code>config/connectors.yaml</code> lists it (image named after its folder, for example, <code>petstore-mcp:&lt;tag&gt;</code>). With several, a terminal gets an arrow-key menu (newest first); without one the newest is built, with a warning naming it. <code>--project &lt;dir&gt;</code> builds a project by path instead, for one written outside those folders (<code>gen-stacklok --output-dir</code>).</p>
 <p>Builds <code>docker build -t &lt;hyphenated-id&gt;-nw-mcp:&lt;tag&gt; .</code> inside <code>nw-mcp-builder/out/&lt;hyphenated-id&gt;-nw-mcp/</code> (for example, <code>pet_store</code> → image <code>pet-store-nw-mcp:latest</code>, project dir <code>…/out/pet-store-nw-mcp/</code>). <code>--tag</code> defaults to <code>latest</code>. Pass secrets at <strong>run</strong> time (<code>docker run --env-file</code> / <code>-e</code>); they are not baked into the image. To run the image and verify it, follow <a href="../nw-mcp-builder/#docker">nw-mcp-builder: Docker</a> — the container needs <code>NW_MCP_HOST=0.0.0.0</code> to be reachable.</p>
+<p>Also refuses a stale exposure profile, or a generated host whose copied profiles differ from <code>expose/&lt;id&gt;/</code> (regenerate with <code>nw gen-mcp --connector-id &lt;id&gt; --force-output</code>).</p>
 <p>If the MCP project directory is missing, one TTY / non-TTY prompt offers to generate it first (with any missing wheels), then builds the image; without a terminal it exits with <code>nw gen-mcp --connector-id &lt;id&gt;</code> as the fix. Docker must be running: <code>nw</code> checks before building.</p>
+<h3 id="nw-expose"><code>nw expose</code><a class="headerlink" href="#nw-expose" title="Anchor link to this section">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>expose<span class="w"> </span>search<span class="w"> </span>github<span class="w"> </span><span class="s2">"list branches"</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>expose<span class="w"> </span>new<span class="w"> </span>github<span class="w"> </span>github-readonly<span class="w"> </span>-s<span class="w"> </span>method:GET
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>expose<span class="w"> </span>resolve<span class="w"> </span>--check
+</span></code></pre></div>
+<p>Creates and refreshes <code>expose/&lt;connector_id&gt;/&lt;profile&gt;.yaml</code>. <code>gen-all</code> runs <code>resolve</code> for the connector it builds. Selectors, flags and run-time behaviour are in <a href="../../exposure/">Action exposure</a>.</p>
 <h3 id="nw-gen-stacklok"><code>nw gen-stacklok</code><a class="headerlink" href="#nw-gen-stacklok" title="Anchor link to this section">&para;</a></h3>
 <p>The following commands scope a spec, build from a reviewed scope, and rebuild with options:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--path<span class="w"> </span>&lt;spec<span class="w"> </span>path<span class="w"> </span>or<span class="w"> </span>URL&gt;<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="o">[</span>--workflow<span class="w"> </span><span class="s2">"..."</span><span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--auth-hint<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--scoping-notes<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">      </span><span class="c1"># reviewed scope → Phase 3</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--force<span class="w"> </span>--no-wheel<span class="w"> </span>--no-lock<span class="w"> </span>--output-dir<span class="w"> </span>out/
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--path<span class="w"> </span>&lt;spec<span class="w"> </span>path<span class="w"> </span>or<span class="w"> </span>URL&gt;<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="o">[</span>--workflow<span class="w"> </span><span class="s2">"..."</span><span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--auth-hint<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span><span class="w"> </span><span class="o">[</span>--scoping-notes<span class="w"> </span><span class="s2">"..."</span><span class="o">]</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--connector-id<span class="w"> </span>pet_store<span class="w">      </span><span class="c1"># reviewed scope → Phase 3</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>uv<span class="w"> </span>run<span class="w"> </span>nw<span class="w"> </span>gen-stacklok<span class="w"> </span>--scope<span class="w"> </span>mcp-scope.yaml<span class="w"> </span>--force<span class="w"> </span>--no-wheel<span class="w"> </span>--no-lock<span class="w"> </span>--output-dir<span class="w"> </span>out/
 </span></code></pre></div>
 <p><code>--auth</code> and <code>--header</code> work as in <a href="#nw-gen-all"><code>gen-all</code></a>. With <code>--path</code>, <code>--auth</code> is also
 declared in the prepared spec, so the AI scoping sees the same auth, and both are remembered with
@@ -3215,7 +3277,7 @@ omitted when the scope has a <code>runtime: {type: node_wire, connector_id: ...}
 <hr />
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Anchor link to this section">&para;</a></h2>
 <p>To run the CLI's tests:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_cli<span class="w"> </span>-v<span class="w"> </span>--no-cov
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/nw_cli<span class="w"> </span>-v<span class="w"> </span>--no-cov
 </span></code></pre></div>
 <p>Coverage is unit/mocked only (no live Docker or network spec fetch).</p>
 <hr />

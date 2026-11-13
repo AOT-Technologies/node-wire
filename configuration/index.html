@@ -1272,6 +1272,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../exposure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Action Exposure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../connectors-build/" class="md-nav__link">
         
   
@@ -3070,6 +3098,21 @@ SPDX-License-Identifier: Apache-2.0
 <td><code>NW_MCP_TOOL_MODE</code></td>
 <td><code>list</code> — every tool in <code>tools/list</code>; <code>search</code> — list only <code>nw_search_tools</code> + <code>nw_call_tool</code> and hand out tool schemas on demand (for large connectors). Unknown values fail at startup</td>
 <td><code>list</code></td>
+</tr>
+<tr>
+<td><code>NW_EXPOSE_PROFILE</code></td>
+<td>Serve only the actions in <code>expose/&lt;connector_id&gt;/&lt;profile&gt;.yaml</code> on every surface; unset exposes everything. See <a href="../exposure/">Action exposure</a></td>
+<td><em>(unset)</em></td>
+</tr>
+<tr>
+<td><code>NW_EXPOSE_DIR</code></td>
+<td>Folder holding the exposure profiles</td>
+<td><code>expose/</code> beside <code>config/</code></td>
+</tr>
+<tr>
+<td><code>NW_EXPOSE_STRICT_VERSION</code></td>
+<td><code>true</code> refuses to start when a profile was written for another connector version (otherwise a warning)</td>
+<td><code>false</code></td>
 </tr>
 <tr>
 <td><code>NW_MCP_SCOPE_POLICY_DEFAULT</code></td>
