@@ -13,8 +13,6 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from nw_mcp_builder.from_connector import run_from_connector
-
 from nw_cli.names import docker_image_tag, mcp_project_dir
 from nw_cli.prerequisites import require_docker
 from nw_cli.wheel_cache import is_fresh, record_build
@@ -163,6 +161,10 @@ def run_mcp_build(
     ``tool_mode`` is decided by the caller first (``tool_mode.decide_tool_mode``),
     so nw-mcp-builder does not ask again.
     """
+    # Imported here: it loads pydantic and the generator models, which most ``nw``
+    # commands (and ``--help``) never need.
+    from nw_mcp_builder.from_connector import run_from_connector
+
     package_root = node_wire_root / "nw-mcp-builder"
     return run_from_connector(
         connector_id,

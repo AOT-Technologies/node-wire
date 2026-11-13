@@ -69,3 +69,9 @@ path = "nw-stacklok-builder/scoping/**"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 AOT Technologies"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "expose/**/*.yaml"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 AOT Technologies"
+SPDX-License-Identifier = "Apache-2.0"

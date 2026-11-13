@@ -83,7 +83,10 @@ def finish_project(project_dir: Path, plan: ServerPlan, *, wheels: bool, lock: b
         sources = _copy_wheels(project_dir, node_wire_root, connector_id)
     _update_pyproject(project_dir / "pyproject.toml", node_wire_root, connector_id, sources)
     _write_config(project_dir, node_wire_root, connector_id)
-    _update_dockerfile(project_dir / "Dockerfile", connector_id, wheels=wheels)
+    with_profiles = _copy_profiles(project_dir, node_wire_root, connector_id)
+    _update_dockerfile(
+        project_dir / "Dockerfile", connector_id, wheels=wheels, profiles=with_profiles
+    )
     _update_dockerignore(project_dir / ".dockerignore")
     _update_env_example(project_dir / ".env.example", connector_id)
     _patch_sources(project_dir / "src" / plan.module_name)
@@ -196,7 +199,21 @@ def _write_config(project_dir: Path, node_wire_root: Path, connector_id: str) ->
     )
 
 
-def _update_dockerfile(path: Path, connector_id: str, *, wheels: bool) -> None:
+def _copy_profiles(project_dir: Path, node_wire_root: Path, connector_id: str) -> bool:
+    """Bake ``expose/<id>/*.yaml`` in beside ``config/``; True if the connector has any."""
+    profiles = sorted((node_wire_root / "expose" / connector_id).glob("*.yaml"))
+    if not profiles:
+        return False
+    target = project_dir / "expose" / connector_id
+    target.mkdir(parents=True, exist_ok=True)
+    for file in profiles:
+        shutil.copy2(file, target / file.name)
+    return True
+
+
+def _update_dockerfile(
+    path: Path, connector_id: str, *, wheels: bool, profiles: bool = False
+) -> None:
     text = path.read_text(encoding="utf-8")
     if wheels:
         text = _replace_once(
@@ -205,6 +222,16 @@ def _update_dockerfile(path: Path, connector_id: str, *, wheels: bool) -> None:
             "COPY wheels/ ./wheels/\nCOPY pyproject.toml uv.lock* README.md ./\n",
             where=path.name,
         )
+    # The project installs editable, so UV_COMPILE_BYTECODE only covers site-packages;
+    # compile src/ too, or every container start recompiles it (the runtime image sets
+    # PYTHONDONTWRITEBYTECODE). checked-hash .pyc stay valid whatever mtimes COPY leaves.
+    text = _replace_once(
+        text,
+        "RUN uv sync --no-dev --frozen\n",
+        "RUN uv sync --no-dev --frozen \\\n"
+        "    && .venv/bin/python -m compileall -q -j 0 --invalidation-mode checked-hash src\n",
+        where=path.name,
+    )
     env = {
         **RUNTIME_ENV,
         "NW_ALLOWED_CONNECTORS": connector_id,
@@ -214,7 +241,9 @@ def _update_dockerfile(path: Path, connector_id: str, *, wheels: bool) -> None:
     text = _replace_once(
         text,
         "COPY --from=builder /app/src /app/src\n",
-        "COPY --from=builder /app/src /app/src\nCOPY config/ /app/config/\n\n"
+        "COPY --from=builder /app/src /app/src\nCOPY config/ /app/config/\n"
+        + ("COPY expose/ /app/expose/\n" if profiles else "")
+        + "\n"
         f"# node-wire runtime (tenant configs are mounted at NW_TENANTS_PATH)\nENV {env_lines}\n",
         where=path.name,
     )

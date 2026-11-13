@@ -4,6 +4,8 @@
 #
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
 import asyncio
 import ipaddress
 import logging
@@ -15,13 +17,28 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 
 from node_wire_runtime import BaseConnector, ErrorCategory, nw_action
-
 from .schema import (
     HttpRequestInput,
     HttpResponseOutput,
     is_blocked_ip,
     load_allowed_hosts,
 )
+
+try:  # node-wire-runtime > 1.1.1: one pooled client per event loop
+    from node_wire_runtime.rest import _shared_client
+except ImportError:  # older runtime: a client per call, as before
+    _shared_client = None  # type: ignore[assignment]
+
+
+@contextlib.asynccontextmanager
+async def _http_client(*, trust_env: bool = True) -> AsyncIterator[httpx.AsyncClient]:
+    """Pooled keep-alive client; pass ``timeout=`` on every request (it has none)."""
+    if _shared_client is not None:
+        yield _shared_client(trust_env)
+    else:
+        async with httpx.AsyncClient(trust_env=trust_env, follow_redirects=False) as client:
+            yield client
+
 
 logger = logging.getLogger("connectors.http_generic")
 
@@ -133,9 +150,7 @@ class HttpGenericConnector(BaseConnector):
 
         try:
             timeout = float(os.getenv("NW_TIMEOUT", "30.0"))
-            async with httpx.AsyncClient(
-                timeout=timeout, trust_env=False, follow_redirects=False
-            ) as client:
+            async with _http_client(trust_env=False) as client:
                 response = await client.request(
                     method=params.method,
                     url=str(params.url),

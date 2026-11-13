@@ -15,13 +15,38 @@ import sys
 from pathlib import Path
 
 
+# logic.py path → (source stamp, class). One ``from-openapi`` run asks for the same
+# connector several times (tool listing size, action discovery); importing it re-creates
+# every pydantic model in its schema module, so reuse the class while the source is unchanged.
+_loaded: dict[str, tuple[tuple[tuple[str, int, int], ...], type]] = {}
+
+
+def _source_stamp(package_dir: Path) -> tuple[tuple[str, int, int], ...]:
+    stamps = []
+    for path in sorted(package_dir.rglob("*.py")):
+        stat = path.stat()
+        stamps.append((str(path), stat.st_mtime_ns, stat.st_size))
+    return tuple(stamps)
+
+
 def load_connector_class(logic_py: Path) -> type:
     """Import ``node_wire_<id>.logic`` from its own ``src`` tree and return the connector class.
 
     The ``src`` directory is put at the front of ``sys.path`` only for the import
     (see :func:`nw_mcp_builder.from_connector.discover_actions` for why that is safe for
-    ``node_wire_runtime``).
+    ``node_wire_runtime``). Re-imported only when the package's ``.py`` files changed.
     """
+    key = str(logic_py.resolve())
+    stamp = _source_stamp(logic_py.parent)
+    cached = _loaded.get(key)
+    if cached is not None and cached[0] == stamp:
+        return cached[1]
+    cls = _import_connector_class(logic_py)
+    _loaded[key] = (stamp, cls)
+    return cls
+
+
+def _import_connector_class(logic_py: Path) -> type:
     package_dir = logic_py.parent
     connector_id = package_dir.name.removeprefix("node_wire_")
     src_root = str(package_dir.parent)

@@ -702,3 +702,46 @@ def test_run_steps_pass_the_header_variables_to_docker(tmp_path: Path) -> None:
     )
     commands = " ".join(step.command or "" for step in _run_steps(project, "twitch"))
     assert "-e TWITCH_CLIENT_ID=<TWITCH_CLIENT_ID> twitch-mcp" in commands
+
+
+def test_generation_reuses_the_early_validation(fake_root: Path, tmp_path: Path) -> None:
+    """The CLI validates once up front and hands the loaded scope and spec to the generator."""
+    scope = _scope(tmp_path)
+    calls: list[tuple[str, Any]] = []
+
+    result = _invoke(fake_root, ["--scope", str(scope), "--connector-id", "pet_store"], calls)
+
+    assert result.exit_code == 0, result.output
+    _, gen_kwargs = calls[2][1]
+    check, scope_file, spec_file, loaded = gen_kwargs["validated"]
+    assert check.ok and loaded is not None
+    assert gen_kwargs["work_dir"] == scope_file.parent  # its files still exist for generation
+
+
+def test_prevalidated_scope_is_not_validated_or_parsed_again(tmp_path: Path) -> None:
+    from nw_cli.stacklok import load_and_validate_stacklok_scope
+
+    scoped = read_scope(_scope(tmp_path), "pet_store")
+    work = tmp_path / "work"
+    validated = load_and_validate_stacklok_scope(scoped, work)
+    with (
+        patch("nw_cli.stacklok.load_and_validate_stacklok_scope") as revalidate,
+        patch("mcp_builder.pipeline.run_pipeline", return_value=tmp_path / "p") as pipeline,
+    ):
+        run_stacklok_generate(
+            tmp_path, scoped, output_dir=tmp_path / "out", work_dir=work, validated=validated
+        )
+    revalidate.assert_not_called()
+    assert pipeline.call_args.kwargs["preloaded"] is validated[3]
+
+
+def test_prepared_origin_reads_only_json(tmp_path: Path) -> None:
+    """prepare_spec only writes .json; other files aren't parsed just to look for its marker."""
+    from nw_cli.stacklok import _prepared_origin
+
+    spec = tmp_path / "spec.yaml"
+    spec.write_text("x-nw-source: /elsewhere.json\nopenapi: 3.0.3\n", encoding="utf-8")
+    assert _prepared_origin(str(spec)) is None
+    as_json = tmp_path / "spec.json"
+    as_json.write_text(json.dumps({"x-nw-source": "/elsewhere.json"}), encoding="utf-8")
+    assert _prepared_origin(str(as_json)) == "/elsewhere.json"

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import gc
 import json
 import logging
 import re
@@ -13,14 +14,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import httpx
 import yaml
 
 from nw_connector_builder.normalize_v2 import (
     normalize_swagger2_to_openapi3,
     sanitize_draft4_schemas,
 )
-from nw_connector_builder.refs import collect_remote_refs
+from nw_connector_builder.refs import collect_remote_refs, resolve_local_refs
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +102,9 @@ def _is_url(source: str) -> bool:
 
 
 async def _fetch_url_bytes(url: str) -> bytes:
+    # Imported here: httpx is about half of this CLI's import time and only URL specs need it.
+    import httpx
+
     from node_wire_runtime.http_safety import assert_safe_destination
 
     await assert_safe_destination(url)
@@ -141,13 +144,33 @@ def load_raw_document(source: str) -> tuple[dict[str, Any], str, bool]:
         raise SpecLoadError("Spec is not valid UTF-8") from exc
 
     try:
-        doc = _string_keys(yaml.load(text, Loader=_SpecLoader))  # nosec B506 - safe loader
+        doc = parse_spec_text(text)
     except Exception as exc:  # noqa: BLE001
         raise SpecLoadError(f"Failed to parse YAML/JSON: {exc}") from exc
 
     if not isinstance(doc, dict):
         raise SpecLoadError("Spec root must be a mapping/object")
     return doc, origin, from_url
+
+
+def parse_spec_text(text: str) -> Any:
+    """Parse a JSON or YAML spec: ``json`` for JSON, :class:`_SpecLoader` for YAML.
+
+    PyYAML's pure-Python loader is far slower than either, and specs run to megabytes.
+    The garbage collector is paused while the (all long-lived) containers are built.
+    """
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        if text.lstrip().startswith("{"):
+            try:
+                return json.loads(text)
+            except ValueError:
+                pass  # not strict JSON (comments, YAML flow style): let YAML decide
+        return _string_keys(yaml.load(text, Loader=_SpecLoader))  # nosec B506 - safe loader
+    finally:
+        if gc_was_enabled:
+            gc.enable()
 
 
 def detect_version(doc: dict[str, Any]) -> str:
@@ -210,9 +233,15 @@ def resolve_and_validate(
         return {"type": "object", "additionalProperties": True, "x-recursive-ref": target}
 
     try:
-        resolver = RefResolver(doc, url=base_url, recursion_limit_handler=_cut_recursive_ref)
-        resolver.resolve_references()
-        resolved = resolver.specs
+        try:
+            resolved = resolve_local_refs(doc)
+        except ValueError:
+            # A $ref cycle or a dangling ref: prance cuts the cycle, or reports the ref.
+            resolved = None
+        if resolved is None:
+            resolver = RefResolver(doc, url=base_url, recursion_limit_handler=_cut_recursive_ref)
+            resolver.resolve_references()
+            resolved = resolver.specs
         if not isinstance(resolved, dict):
             raise SpecLoadError("ref resolver returned a non-object specification")
         if cut_refs:

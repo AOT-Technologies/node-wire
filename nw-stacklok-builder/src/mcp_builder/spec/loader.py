@@ -11,6 +11,7 @@ Swagger 2.0 specs with a clear conversion hint.
 
 from __future__ import annotations
 
+import gc
 import json
 from pathlib import Path
 
@@ -41,11 +42,19 @@ def load_openapi_spec(path: str | Path) -> OpenAPISpec:
     """
     path = Path(path)
     logger.info("loading openapi spec", path=str(path))
-    with path.open() as f:
-        if path.suffix in (".yaml", ".yml"):
-            raw = yaml.safe_load(f)
-        else:
-            raw = json.load(f)
+    # node-wire: libyaml loader when available, and GC paused while the
+    # (all long-lived) containers are built (nw-stacklok-builder/UPSTREAM.md).
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        with path.open() as f:
+            if path.suffix in (".yaml", ".yml"):
+                raw = yaml.load(f, Loader=getattr(yaml, "CSafeLoader", yaml.SafeLoader))  # nosec B506
+            else:
+                raw = json.load(f)
+    finally:
+        if gc_was_enabled:
+            gc.enable()
     logger.debug("detected spec format", suffix=path.suffix)
 
     # Swagger 2.0 specs use "swagger" instead of "openapi". The

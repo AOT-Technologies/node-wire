@@ -5,11 +5,22 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import os
 import threading
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
+
+
+def _call_timeout_seconds() -> float:
+    """``NW_GRPC_CALL_TIMEOUT_SECONDS`` (default 300)."""
+    try:
+        value = float(os.environ.get("NW_GRPC_CALL_TIMEOUT_SECONDS", "300"))
+    except ValueError:
+        return 300.0
+    return value if value > 0 else 300.0
 
 
 class BackgroundAsyncRunner:
@@ -43,4 +54,11 @@ class BackgroundAsyncRunner:
         if self._loop is None:
             raise RuntimeError("Background async runner is not started")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result()
+        # Bounded wait: a hung connector would otherwise hold one of the server's
+        # worker threads forever. Well above NW_TIMEOUT x retries by default.
+        timeout = _call_timeout_seconds()
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            future.cancel()
+            raise TimeoutError(f"gRPC call did not finish within {timeout:g}s") from None

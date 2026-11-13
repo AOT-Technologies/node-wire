@@ -4,6 +4,8 @@
 #
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator
 import asyncio
 import base64
 import json
@@ -17,7 +19,6 @@ import httpx
 
 from node_wire_runtime import BaseConnector, ErrorCategory, nw_action, sdk_action
 from node_wire_runtime.log_sanitization import fhir_log_extra, log_http_status_error
-
 from .normalizers import (
     assert_encounter_query_has_patient,
     normalize_fhir_read_patient,
@@ -37,6 +38,22 @@ from .schema import (
     FhirCernerPatientSearchInput,
     FhirCernerPatientSearchOutput,
 )
+
+try:  # node-wire-runtime > 1.1.1: one pooled client per event loop
+    from node_wire_runtime.rest import _shared_client
+except ImportError:  # older runtime: a client per call, as before
+    _shared_client = None  # type: ignore[assignment]
+
+
+@contextlib.asynccontextmanager
+async def _http_client(*, trust_env: bool = True) -> AsyncIterator[httpx.AsyncClient]:
+    """Pooled keep-alive client; pass ``timeout=`` on every request (it has none)."""
+    if _shared_client is not None:
+        yield _shared_client(trust_env)
+    else:
+        async with httpx.AsyncClient(trust_env=trust_env, follow_redirects=False) as client:
+            yield client
+
 
 logger = logging.getLogger("connectors.fhir_cerner")
 
@@ -266,7 +283,7 @@ class FhirCernerConnector(BaseConnector):
             )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("NW_TIMEOUT", "30.0"))) as client:
+            async with _http_client() as client:
                 response = await client.get(
                     url,
                     headers=auth_header,
@@ -389,7 +406,7 @@ class FhirCernerConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("NW_TIMEOUT", "30.0"))) as client:
+            async with _http_client() as client:
                 response = await client.get(
                     f"{base_url}/Patient",
                     headers=auth_header,
@@ -466,7 +483,7 @@ class FhirCernerConnector(BaseConnector):
         auth_header = await self._get_auth_header()
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("NW_TIMEOUT", "30.0"))) as client:
+            async with _http_client() as client:
                 response = await client.get(
                     f"{base_url}/Encounter",
                     headers=auth_header,
@@ -643,7 +660,7 @@ class FhirCernerConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("NW_TIMEOUT", "30.0"))) as client:
+            async with _http_client() as client:
                 response = await client.post(
                     f"{base_url}/DocumentReference",
                     json=doc_ref,
@@ -746,7 +763,7 @@ class FhirCernerConnector(BaseConnector):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=float(os.getenv("NW_TIMEOUT", "30.0"))) as client:
+            async with _http_client() as client:
                 response = await client.get(
                     f"{base_url}/DocumentReference",
                     headers=auth_header,

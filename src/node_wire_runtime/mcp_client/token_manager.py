@@ -66,6 +66,7 @@ class TokenManager:
         self._reauthorize = reauthorize
         self._refresh_lock = asyncio.Lock()
         self._memory: Optional[StoredOAuthTokens] = None
+        self._aud_ok_token: Optional[str] = None
 
     @property
     def partition_key(self) -> str:
@@ -102,7 +103,11 @@ class TokenManager:
             self._config.canonical_server_url,
             self._discovery.issuer,
         )
-        return self._store.get(key)
+        # Cache what the store returned: a keychain or encrypted-file read on every
+        # MCP request would block the event loop. save/discard keep _memory in sync.
+        stored = self._store.get(key)
+        self._memory = stored
+        return stored
 
     def save_tokens(self, tokens: StoredOAuthTokens) -> None:
         self._memory = tokens
@@ -139,6 +144,8 @@ class TokenManager:
 
     def validate_access_token_audience(self, access_token: str) -> None:
         """When token is JWT, ensure ``aud`` matches target MCP server URL."""
+        if access_token == self._aud_ok_token:
+            return
         if access_token.count(".") != 2:
             return
         try:
@@ -158,6 +165,7 @@ class TokenManager:
             raise McpAudienceMismatch(
                 f"Token audience {audiences!r} does not match MCP server {expected!r}"
             )
+        self._aud_ok_token = access_token
 
     async def get_bearer_token(
         self,

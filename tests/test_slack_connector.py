@@ -486,7 +486,7 @@ async def test_complete_upload_omits_invalid_channel_id(channel_id: str) -> None
             return {"ok": True, "files": [{"id": "F0TESTFILE"}]}
 
     class FakeAsyncClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float | None = None, **kwargs: Any) -> None:
             self.timeout = timeout
 
         async def __aenter__(self) -> "FakeAsyncClient":
@@ -500,6 +500,7 @@ async def test_complete_upload_omits_invalid_channel_id(channel_id: str) -> None
             url: str,
             headers: dict[str, str] | None = None,
             data: dict[str, Any] | None = None,
+            timeout: float | None = None,
         ) -> FakeResponse:
             captured["url"] = url
             captured["headers"] = headers or {}
@@ -643,7 +644,7 @@ async def test_get_upload_url_missing_fields_raises() -> None:
             return {"ok": True, "file_id": "F1"}
 
     class FakeAsyncClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float | None = None, **kwargs: Any) -> None:
             self.timeout = timeout
 
         async def __aenter__(self) -> "FakeAsyncClient":
@@ -666,7 +667,7 @@ async def test_upload_bytes_non_200_raises_slack_upload_error() -> None:
         status_code = 500
 
     class FakeAsyncClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float | None = None, **kwargs: Any) -> None:
             self.timeout = timeout
 
         async def __aenter__(self) -> "FakeAsyncClient":
@@ -713,7 +714,7 @@ def _fake_slack_client(response_json: dict[str, Any], status_code: int = 200):
             return response_json
 
     class FakeAsyncClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float | None = None, **kwargs: Any) -> None:
             self.timeout = timeout
 
         async def __aenter__(self) -> "FakeAsyncClient":
@@ -791,7 +792,7 @@ async def test_resolve_channel_id_user_success(monkeypatch: pytest.MonkeyPatch) 
     dm_channel = "D0DMCHANNEL"
 
     class FakeAsyncClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float | None = None, **kwargs: Any) -> None:
             self.timeout = timeout
 
         async def __aenter__(self) -> "FakeAsyncClient":
@@ -825,7 +826,7 @@ async def test_resolve_channel_id_user_ok_false_falls_back(
     user_id = "U87654321"
 
     class FakeAsyncClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float | None = None, **kwargs: Any) -> None:
             self.timeout = timeout
 
         async def __aenter__(self) -> "FakeAsyncClient":

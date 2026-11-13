@@ -400,6 +400,11 @@ def _tool_name_to_class(name: str) -> str:
     return "".join(word.capitalize() for word in name.split("_"))
 
 
+# node-wire: compiled once; _sanitize_name runs per parameter (nw-stacklok-builder/UPSTREAM.md).
+_NON_NAME_CHAR = re.compile(r"[^a-zA-Z0-9_]")
+_UNDERSCORE_RUN = re.compile(r"_+")
+
+
 def _sanitize_name(name: str) -> str:
     """Convert an OpenAPI parameter name to a valid Python identifier.
 
@@ -419,9 +424,9 @@ def _sanitize_name(name: str) -> str:
         "page_size"
     """
     # Replace any non-alphanumeric, non-underscore character with underscore
-    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", name)
+    sanitized = _NON_NAME_CHAR.sub("_", name)
     # Collapse runs of underscores and strip leading/trailing
-    sanitized = re.sub(r"_+", "_", sanitized).strip("_")
+    sanitized = _UNDERSCORE_RUN.sub("_", sanitized).strip("_")
     if not sanitized or sanitized[0].isdigit():
         sanitized = "param_" + sanitized
     # Avoid Python keywords and method-reserved names: from -> from_, self -> self_

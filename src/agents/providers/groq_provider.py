@@ -19,7 +19,11 @@ import logging
 from typing import Any, Dict, List, Optional, cast
 
 from agents.llm_base import BaseLLMProvider, LLMMessage, LLMResponse, TokenUsage, ToolCall
-from agents.schema_utils import openai_compatible_tool_parameters
+from agents.schema_utils import (
+    ToolConversionCache,
+    llm_request_timeout_seconds,
+    openai_compatible_tool_parameters,
+)
 
 
 logger = logging.getLogger("agents.providers.groq")
@@ -99,6 +103,7 @@ class GroqProvider(BaseLLMProvider):
             raise ImportError("groq SDK not installed. Run: pip install 'node-wire[agents]'")
         self._client = Groq(api_key=api_key)
         self._model = model
+        self._tool_cache = ToolConversionCache()
         # Inline replace so CodeQL treats newline stripping as a sanitizer.
         logger.info(
             "GroqProvider initialised | model=%s", str(model).replace("\r", " ").replace("\n", " ")
@@ -110,9 +115,13 @@ class GroqProvider(BaseLLMProvider):
         tools: List[Dict[str, Any]],
     ) -> LLMResponse:
         groq_messages = _messages_to_groq(messages)
-        groq_tools = [_mcp_tool_to_groq(t) for t in tools] if tools else []
+        groq_tools = self._tool_cache.get(tools, _mcp_tool_to_groq) if tools else []
 
-        kwargs: Dict[str, Any] = {"model": self._model, "messages": groq_messages}
+        kwargs: Dict[str, Any] = {
+            "model": self._model,
+            "messages": groq_messages,
+            "timeout": llm_request_timeout_seconds(),
+        }
         if groq_tools:
             kwargs["tools"] = groq_tools
             kwargs["tool_choice"] = "auto"

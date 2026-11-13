@@ -168,11 +168,13 @@ class InMemoryRateLimiter:
             bucket.timestamps.popleft()
 
     def _evict_idle_keys(self, now: float) -> None:
+        # consume() moves every touched key to the end, so _buckets is ordered by
+        # last_seen: stop at the first live bucket instead of scanning all keys.
         idle_cutoff = now - self._key_ttl_seconds
-        stale_keys = [
-            key for key, bucket in self._buckets.items() if bucket.last_seen <= idle_cutoff
-        ]
-        for key in stale_keys:
+        while self._buckets:
+            key, bucket = next(iter(self._buckets.items()))
+            if bucket.last_seen > idle_cutoff:
+                break
             del self._buckets[key]
 
     def _evict_lru_keys(self) -> None:

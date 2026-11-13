@@ -130,3 +130,16 @@ connectors:
     headers:
       Accept: application/vnd.github+json
       X-GitHub-Api-Version: '2022-11-28'
+  slack_api:
+    enabled: true
+    exposed_via:
+    - rest
+    - grpc
+    - mcp
+    base_url: https://slack.com/api
+    auth:
+      provider: static_token
+      secret_key: SLACK_API_ACCESS_TOKEN
+      header_name: Authorization
+      prefix: Bearer
+      host_supplied: true

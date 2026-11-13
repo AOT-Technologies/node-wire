@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from bindings.mcp_server import server as server_mod
 from bindings.mcp_server.server import McpServer, build_manifest, validate_tool_arguments
 
 
@@ -95,3 +96,86 @@ def test_unknown_top_level_key_gets_no_hint() -> None:
     msg = validate_tool_arguments({"nope": 1}, _NESTED)
     assert msg is not None
     assert "belongs inside" not in msg
+
+
+def _reference_safe_schema(schema: Any) -> Any:
+    """The pre-cache implementation (deepcopy + strip) to compare against."""
+    import copy
+
+    return server_mod._strip_json_schema_nulls(
+        server_mod._strip_internal_keys(copy.deepcopy(schema))
+    )
+
+
+@pytest.mark.parametrize("multitenancy", [False, True])
+def test_advertised_schemas_match_uncached_rewrite(
+    server: McpServer, monkeypatch: pytest.MonkeyPatch, multitenancy: bool
+) -> None:
+    monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true" if multitenancy else "false")
+    advertised = {t["name"]: t["input_schema"] for t in server._list_tools_impl(advertised=True)}
+    raw = {t["name"]: t["input_schema"] for t in server._list_tools_impl()}
+    assert advertised.keys() == raw.keys()
+    for name, schema in raw.items():
+        assert advertised[name] == _reference_safe_schema(schema), name
+        if name in dict(server._manifest()[1]):
+            assert server._advertised_input_schema(name) == advertised[name]
+
+
+def test_safe_schema_rewrite_does_not_mutate_input() -> None:
+    import copy
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "a": {"type": ["string", "null"], "default": None, "nw_location": "query"},
+            "b": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        },
+    }
+    before = copy.deepcopy(schema)
+    server_mod.mcp_llm_safe_input_schema(schema)
+    assert schema == before
+
+
+def test_cached_validator_matches_jsonschema_validate(server: McpServer) -> None:
+    for name in list(server._manifest()[1])[:20]:
+        found = server._advertised_schema_and_validator(name)
+        if found is None:
+            continue
+        schema, validator = found
+        for args in ({}, {"unexpected": 1}, {"to": 5}, {"body": {"x": None}}):
+            assert validate_tool_arguments(args, schema, validator=validator) == (
+                validate_tool_arguments(args, schema)
+            ), (name, args)
+
+
+def test_invalid_schema_still_raises_each_call() -> None:
+    import jsonschema
+
+    bad = {"type": 12}
+    assert server_mod.compile_tool_validator(bad) is None
+    for _ in range(2):
+        with pytest.raises(jsonschema.SchemaError):
+            validate_tool_arguments({}, bad, validator=server_mod.compile_tool_validator(bad))
+
+
+def test_resolve_tool_name_matches_manifest_scan(server: McpServer) -> None:
+    """Index lookup must return what the old linear manifest scan returned."""
+    manifest, _ = server._manifest()
+    for entry in manifest:
+        cid, action = str(entry["connector_id"]), str(entry["action"])
+        name = server_mod.mcp_advertised_tool_name(cid, action)
+        allowed = server._connector_ids
+        expected = [
+            (str(e["connector_id"]), str(e["action"]))
+            for e in manifest
+            if (allowed is None or str(e["connector_id"]) in allowed)
+            and server_mod.mcp_advertised_tool_name(str(e["connector_id"]), str(e["action"]))
+            == name
+        ]
+        if len(expected) == 1:
+            assert server._resolve_tool_name(name) == expected[0]
+        elif not expected:
+            with pytest.raises(server_mod.NodeWireError):
+                server._resolve_tool_name(name)
+    with pytest.raises(server_mod.NodeWireError):
+        server._resolve_tool_name("no_such_tool_anywhere")

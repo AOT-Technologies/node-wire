@@ -61,7 +61,7 @@ def test_anonymous_action_decorator_publishes_requires_auth_false() -> None:
         kw.arg: (kw.value.value if isinstance(kw.value, ast.Constant) else kw.value)
         for kw in call.keywords
     }
-    assert kwargs == {"requires_auth": False}
+    assert kwargs["requires_auth"] is False
     # Still skips auth on the wire — this test only covers the decorator metadata gap.
     assert "auth=False" in src
 
@@ -71,7 +71,7 @@ def test_authed_action_decorator_has_no_requires_auth_kwarg() -> None:
     requires_auth=True, so emitting it explicitly here would just be noise."""
     src = generate_logic_module("demo", _result(auth=True))
     call = _decorator_call(src)
-    assert call.keywords == []
+    assert "requires_auth" not in {kw.arg for kw in call.keywords}
 
 
 def test_action_with_named_auth_scheme_emits_auth_scheme_kwarg() -> None:

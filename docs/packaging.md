@@ -26,6 +26,7 @@ The following table lists every package the build script produces:
 | `node-wire-http` | `src/node_wire_http_generic/` | `http_generic` |
 | `node-wire-salesforce` | `src/node_wire_salesforce/` | `salesforce` |
 | `node-wire-slack` | `src/node_wire_slack/` | `slack` |
+| `node-wire-slack-api` | `src/node_wire_slack_api/` | `slack_api` |
 | `node-wire-smtp` | `src/node_wire_smtp/` | `smtp` |
 | `node-wire-stripe` | `src/node_wire_stripe/` | `stripe` |
 

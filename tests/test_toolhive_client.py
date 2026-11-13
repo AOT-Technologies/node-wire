@@ -118,3 +118,61 @@ def test_toolhive_mcp_client_initialize_survives_notification_transport_error() 
             assert client._session_id == "sess-abc"
 
     asyncio.run(_run())
+
+
+def test_toolhive_mcp_client_reuses_one_connection_pool() -> None:
+    """Handshake + RPCs share one AsyncClient; aclose releases it."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content.decode())
+        result = {"tools": []} if body.get("method") == "tools/list" else {}
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": body.get("id"), "result": result})
+
+    transport = httpx.MockTransport(handler)
+    _RealAsyncClient = httpx.AsyncClient
+    created: list[httpx.AsyncClient] = []
+
+    def make_client(**kwargs: object) -> httpx.AsyncClient:
+        c = _RealAsyncClient(transport=transport, timeout=float(kwargs.get("timeout", 60.0)))
+        created.append(c)
+        return c
+
+    async def _run() -> None:
+        with patch("httpx.AsyncClient", side_effect=make_client):
+            async with ToolHiveMcpClient("http://127.0.0.1:9/mcp") as client:
+                await client.list_tools()
+                await client.list_tools()
+        assert len(created) == 1
+        assert created[0].is_closed
+
+    asyncio.run(_run())
+
+
+def test_multi_mcp_client_lists_concurrently_and_keeps_first_writer() -> None:
+    from agents.toolhive import MultiMcpClient
+
+    class _Fake:
+        def __init__(self, tools, delay: float, fail: bool = False) -> None:
+            self._tools, self._delay, self._fail = tools, delay, fail
+
+        async def list_tools(self):
+            await asyncio.sleep(self._delay)
+            if self._fail:
+                raise RuntimeError("down")
+            return self._tools
+
+        async def call_tool(self, name, arguments):  # pragma: no cover - unused
+            return ""
+
+    async def _run() -> None:
+        multi = MultiMcpClient(
+            [
+                _Fake([{"name": "a", "src": 0}], 0.05),
+                _Fake([], 0.0, fail=True),
+                _Fake([{"name": "a", "src": 2}, {"name": "b", "src": 2}], 0.0),
+            ]
+        )
+        tools = await multi.list_tools()
+        assert [(t["name"], t["src"]) for t in tools] == [("a", 0), ("b", 2)]
+
+    asyncio.run(_run())

@@ -73,6 +73,10 @@ jobs:
         if: always() && steps.ruff.outcome != 'skipped' && steps.ruff.outcome != 'cancelled'
         run: uv run ruff format --check .
 
+      - name: Check exposure profiles are resolved
+        if: always() && steps.ruff.outcome != 'skipped' && steps.ruff.outcome != 'cancelled'
+        run: uv run nw expose resolve --check
+
       - name: Run REUSE lint
         id: reuse
         if: always() && steps.ruff.outcome != 'skipped' && steps.ruff.outcome != 'cancelled'

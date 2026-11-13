@@ -28,6 +28,10 @@ class ChainedSecretProvider(SecretProvider):
             raise ValueError("ChainedSecretProvider requires at least one provider")
         self._providers: Sequence[SecretProvider] = providers
 
+    @property
+    def blocking_io(self) -> bool:  # type: ignore[override]
+        return any(getattr(p, "blocking_io", False) for p in self._providers)
+
     def get_secret(self, key: str) -> str:
         last_not_found: Exception | None = None
         for provider in self._providers:

@@ -11,7 +11,7 @@ from typing import Dict, Optional
 
 from node_wire_runtime.secrets import SecretProvider
 
-from .base import AuthProvider
+from .base import AuthProvider, read_secrets_off_loop
 
 logger = logging.getLogger("runtime.auth.apikey_query")
 
@@ -50,7 +50,10 @@ class ApiKeyQueryAuthProvider(AuthProvider):
                 "ApiKeyQueryAuthProvider: resolving secret",
                 extra={"param": self._name},
             )
-            secret = self._secret_provider.get_secret(self._secret_key)
+            secret = await read_secrets_off_loop(
+                self._secret_provider,
+                lambda: self._secret_provider.get_secret(self._secret_key),
+            )
             self._cached = {self._name: secret}
         return dict(self._cached)
 

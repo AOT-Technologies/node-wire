@@ -31,7 +31,7 @@ def normalize_mcp_tool_arguments(
     args = dict(arguments)
     if not isinstance(connector, BaseConnector):
         return args
-    meta = type(connector).sdk_action_metas().get(action)
+    meta = type(connector).sdk_action_meta(action)
     if meta is not None and meta.mcp_normalize is not None:
         meta.mcp_normalize(args)
     return args

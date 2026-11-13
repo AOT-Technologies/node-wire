@@ -38,6 +38,7 @@ Global options go before the command (`uv run nw -v gen-all ...`):
 | `nw gen-whl` | Standalone wheel build via `scripts/build-packages.sh` |
 | `nw gen-mcp` | Standalone MCP host (requires existing wheels) |
 | `nw docker-build` | `docker build` inside `nw-mcp-builder/out/<server>-mcp/` |
+| `nw expose` | Author [exposure profiles](../exposure.md): `new`, `resolve [--check]`, `search` |
 | `nw gen-stacklok` | Scope an OpenAPI spec with stacklok's `/ai-scoping`, then build a stacklok MCP server on the node-wire runtime |
 
 ### `nw gen-all`
@@ -170,6 +171,8 @@ Always `skip_build_wheels=True`. If any of the runtime, bindings or connector wh
 
 There is no `--yes` / auto-confirm flag.
 
+Refuses to build when an [exposure profile](../exposure.md) under `expose/<id>/` is stale (run `nw expose resolve <id>`), and copies the profiles into the host so its image can serve them (`NW_EXPOSE_PROFILE`).
+
 ### `nw docker-build`
 
 The following commands build an image by connector id, with a tag, or by project path:
@@ -184,7 +187,19 @@ uv run nw docker-build --project nw-stacklok-builder/out/petstore-mcp   # a gen-
 
 Builds `docker build -t <hyphenated-id>-nw-mcp:<tag> .` inside `nw-mcp-builder/out/<hyphenated-id>-nw-mcp/` (for example, `pet_store` → image `pet-store-nw-mcp:latest`, project dir `…/out/pet-store-nw-mcp/`). `--tag` defaults to `latest`. Pass secrets at **run** time (`docker run --env-file` / `-e`); they are not baked into the image. To run the image and verify it, follow [nw-mcp-builder: Docker](nw-mcp-builder.md#docker) — the container needs `NW_MCP_HOST=0.0.0.0` to be reachable.
 
+Also refuses a stale exposure profile, or a generated host whose copied profiles differ from `expose/<id>/` (regenerate with `nw gen-mcp --connector-id <id> --force-output`).
+
 If the MCP project directory is missing, one TTY / non-TTY prompt offers to generate it first (with any missing wheels), then builds the image; without a terminal it exits with `nw gen-mcp --connector-id <id>` as the fix. Docker must be running: `nw` checks before building.
+
+### `nw expose`
+
+```bash
+uv run nw expose search github "list branches"
+uv run nw expose new github github-readonly -s method:GET
+uv run nw expose resolve --check
+```
+
+Creates and refreshes `expose/<connector_id>/<profile>.yaml`. `gen-all` runs `resolve` for the connector it builds. Selectors, flags and run-time behaviour are in [Action exposure](../exposure.md).
 
 ### `nw gen-stacklok`
 

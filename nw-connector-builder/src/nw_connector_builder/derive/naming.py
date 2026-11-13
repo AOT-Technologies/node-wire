@@ -8,11 +8,18 @@ from __future__ import annotations
 
 import re
 
+# Compiled once: these run for every operation and path segment of a spec.
+_CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+_NON_ALNUM_RUN = re.compile(r"[^a-zA-Z0-9]+")
+_UNDERSCORE_RUN = re.compile(r"_+")
+_IDENTIFIER = re.compile(r"[a-z][a-z0-9_]*")
+_NON_IDENTIFIER_CHAR = re.compile(r"[^a-z0-9_]")
+
 
 def to_snake_case(value: str) -> str:
-    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
-    s = re.sub(r"[^a-zA-Z0-9]+", "_", s)
-    s = re.sub(r"_+", "_", s).strip("_").lower()
+    s = _CAMEL_BOUNDARY.sub(r"\1_\2", value)
+    s = _NON_ALNUM_RUN.sub("_", s)
+    s = _UNDERSCORE_RUN.sub("_", s).strip("_").lower()
     if not s:
         s = "action"
     if s[0].isdigit():
@@ -34,8 +41,8 @@ def fallback_operation_name(method: str, path: str) -> str:
 
 def normalize_action_name(raw: str) -> str:
     name = to_snake_case(raw)
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
-        name = "a_" + re.sub(r"[^a-z0-9_]", "", name)
+    if not _IDENTIFIER.fullmatch(name):
+        name = "a_" + _NON_IDENTIFIER_CHAR.sub("", name)
         if not name or name[0].isdigit():
             name = "action"
     return name
@@ -73,7 +80,7 @@ def uniquify_names(candidates: list[str], *, max_len: int = 40) -> list[str]:
     result: list[str] = []
     for raw in candidates:
         base = _truncate(normalize_action_name(raw), max_len)
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", base):
+        if not _IDENTIFIER.fullmatch(base):
             base = (base + "x")[:max_len]
         name = base
         if name in used:
