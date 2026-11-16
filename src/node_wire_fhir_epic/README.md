@@ -81,7 +81,8 @@ The connector follows the **SMART Backend Services** specification for Epic:
 Each action execution is wrapped by the platform's **Base Runtime**:
 
 - **`BaseConnector`**: Handles trace ID generation, logging, and performance metrics.
-- **`resilience.py`**: Automatically applies **Exponential Backoff Retries** (Tenacity) and **Circuit Breaking** (PyBreaker) per action. If Epic returns a 503 or transient error, the system retries automatically before failing.
+- **`resilience.py`**: Applies **exponential backoff retries** (Tenacity) and the runtime's own **circuit breaker** per action. Reads that hit a 503 or another transient error are retried before failing. A write is retried only when that can't create a duplicate ([Retries](../../docs/errors.md#retries)): `create_document_reference` sends `If-None-Exist: identifier=<system>|<value>` for the first identifier with both a system and a value (a FHIR conditional create), so it is retried. Without such an identifier, a timed-out or 5xx create returns `OUTCOME_UNKNOWN` instead.
+- **Paging**: `search_patients` (by demographics), `search_encounter` and `search_document_reference` return `next_link`, the Bundle's `next` URL, when the server has more results. It is `null` on the last page.
 
 ### Standardised payload output — `ConnectorResponse`
 

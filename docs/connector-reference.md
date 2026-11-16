@@ -87,7 +87,7 @@ For a complete, runnable walkthrough — two tenants, the config store, `TENANT_
 
 **Multi-tenant / named configs:** resolve the tenant in your host, then `await factory.get("google_drive", tenant_id=tenant_id, config_name=name)`. The instance is pinned to that tenant. The contract is in [Tenancy — the pin contract](architecture/tenancy.md#the-pin-contract-hosts-embedding-the-factory).
 
-For composing actions within a connector, use **`self.call_action`**. It routes through **`connector.run`** so **policy hooks**, **resilience**, and the **`ConnectorResponse`** error path apply (including MCP scope policy). It returns the nested action’s **output model** on success (validated from `run()`’s `data`). On policy denial it raises **`PolicyDenied`**, which the outer `run()` maps like any other action failure.
+For composing actions within a connector, use **`self.call_action`**. It routes through **`connector.run`** so **policy hooks**, **resilience**, and the **`ConnectorResponse`** error path apply (including MCP scope policy). It returns the nested action’s **output model** on success (validated from `run()`’s `data`). On policy denial it raises **`PolicyDenied`**, which the outer `run()` maps like any other action failure. Any other nested failure is reported with the nested action's own error code and category. A nested call on the same connector instance leaves the circuit breaker to the outer call, so repeated nested upstream failures open it ([Errors — Retries](errors.md#retries)).
 
 Optional keyword args `principal`, `tenant_id`, and `scopes` override the caller identity for the nested call. When omitted, **`call_action` inherits** identity from the outer `run()` (MCP/REST with JWT or scoped API key), so nested actions receive the same authorization as a direct tool call. On a factory-pinned instance, an explicit nested `tenant_id` must agree with the instance pin.
 
@@ -148,6 +148,9 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Egress:** the payload carries only `to`, `subject`, `body` and an optional `from_email`. Relay
   settings are server-side only, so credentials never go to a caller-chosen host. Set
   `NW_SMTP_ALLOWED_HOSTS` in production. `subject` may not contain newlines or control characters.
+- **Errors:** `SMTP_AUTH_ERROR` (`AUTH`), `SMTP_CONNECT_ERROR` (`RETRYABLE`, including a connect
+  timeout), and `SMTP_TIMEOUT` and `SMTP_DISCONNECTED` (`FATAL`). The last two are not retried,
+  because the message may already have been sent.
 
 ### `stripe`
 

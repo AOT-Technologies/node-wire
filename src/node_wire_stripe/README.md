@@ -56,6 +56,12 @@ This action supports multiple payment integration flows:
 - **Saved payment method**: Pass `default_payment_method` with an existing `pm_xxx` ID.
 - **Card token**: Pass `card_token` (for example, `tok_visa`). The connector automatically creates a PaymentMethod and attaches it to the customer before creating the subscription.
 - **SCA / action required**: If the subscription requires further action (like 3D Secure), the connector returns the `client_secret` from the associated Setup Intent or Payment Intent.
+- **Idempotency**: Each step sends its own idempotency key, derived from `idempotency_key` (or the call's trace id): `<key>:pm`, `<key>:attach` and `<key>:sub`. A retried call reuses them, so it doesn't create a second payment method or subscription.
+- **Partial result**: If the subscription is created but the follow-up `client_secret` lookup fails, the action returns the subscription with `partial: true` instead of an error. Don't create it again; read the subscription to get the secret.
+
+### `charge`
+
+The output `status` is Stripe's own charge status: `succeeded`, `pending` or `failed`. A `pending` charge (an asynchronous payment method) is still in flight; don't retry it.
 
 ### `cancel_subscription`
 

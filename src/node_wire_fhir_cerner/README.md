@@ -72,7 +72,7 @@ Fetches or searches for multiple FHIR Patient resources — either a list of `re
 | Field | Detail |
 |---|---|
 | **Input** | `resource_ids` OR demographic params (`given_name`, `family_name`, `name`, `birthdate`) / `search_params` |
-| **Output** | List of Patient resources and the total count |
+| **Output** | List of Patient resources, the total count, and `next_link` (the Bundle's next-page URL, `null` on the last page) for demographic searches |
 
 ---
 
@@ -83,7 +83,7 @@ Searches for medical encounters for a specific patient. This is often a prerequi
 | Field | Detail |
 |---|---|
 | **Input** | `patient_id`, `status`, `date`, or `search_params` (for example, `{"patient": "12345"}`) |
-| **Output** | List of Encounter resources and the total count |
+| **Output** | List of Encounter resources, the total count, and `next_link` (the Bundle's next-page URL, `null` on the last page) |
 
 ---
 
@@ -99,6 +99,8 @@ The most complex operation, designed to push clinical notes or documents into Ce
   - **Context Period**: Automatically generates a `context.period` if an `encounter` is provided but no period is specified.
   - **Authentication/Author**: Synchronizes the `author` and `authenticator` fields.
 
+A create that times out or gets a 5xx is not retried, because it may already have been stored: it returns `OUTCOME_UNKNOWN` (see [Retries](../../docs/errors.md#retries)). Search for the document before you create it again.
+
 ---
 
 ### `search_document_reference`
@@ -108,7 +110,7 @@ Queries for existing documents for a patient.
 | Field | Detail |
 |---|---|
 | **Input** | `search_params` (for example, `{"patient": "12345"}`) |
-| **Output** | List of DocumentReference resources |
+| **Output** | List of DocumentReference resources and `next_link` (the Bundle's next-page URL, `null` on the last page) |
 
 ---
 

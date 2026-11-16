@@ -23,6 +23,8 @@ The connector exposes full CRUD (Create, Read, Update, Delete) operations for th
 | `update_contact` | Update specific fields on an existing Contact. |
 | `delete_contact` | Remove a Contact record. |
 
+Reads, updates and deletes are retried after a timeout or a 5xx. Creates are not, because the record may already exist: a timed-out or 5xx `create_lead` or `create_contact` returns `OUTCOME_UNKNOWN`. Look the record up before you create it again. The rules are in [Errors — Retries](errors.md#retries).
+
 ## Configuration
 
 Add the following to your `config/connectors.yaml`:

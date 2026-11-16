@@ -73,13 +73,13 @@ For a connector id like `pet_store`:
 
 1. **Load** — read the spec document from a local file path or `http(s)` URL (`--path`). URL fetches go through Node Wire's SSRF guard (`assert_safe_destination`) and never follow redirects. The raw bytes are decoded as UTF-8 and parsed as YAML/JSON into a document, then the version is detected from `swagger: "2.0"` vs. `openapi: "3.x"`.
 2. **Normalize** — Swagger 2.0 documents are translated into OpenAPI 3.x in-house; OpenAPI 3.x documents pass through unchanged.
-3. **Validate** — reject any **remote** (absolute-URL) `$ref`s outright (only local relative / in-document `#/` refs are allowed), resolve the remaining local `$ref`s in place with `prance`, then structurally and semantically validate the fully-resolved document with `openapi-spec-validator`. This step also resolves the connector's base URL (`--base-url` override, else the first `servers[]` entry).
+3. **Validate** — reject any **remote** (absolute-URL) `$ref`s outright (only local relative / in-document `#/` refs are allowed), resolve the remaining local `$ref`s in place (in-document refs in-house, refs to other local files with `prance`), cutting `$ref` cycles ([Recursive schemas](nw-connector-builder-codegen.md#recursive-schemas)), then validate with `openapi-spec-validator`. The document is validated first with its `$ref`s still in place; only if that fails is the resolved document validated part by part, so the invalid operations can be dropped. This step also resolves the connector's base URL (`--base-url` override, else the first `servers[]` entry).
 4. **Derive** — from the validated document, work out the connector's auth plan (one connector-level default scheme, plus any additional per-action schemes — see [Auth mapping](#auth-mapping)) and, per operation, either a plan for a generated `@nw_action` or a soft-drop reason (unsupported/divergent-and-unpresentable/AND-multi security, unsupported parameter styles, etc. — see [Soft-drop rules](#soft-drop-rules)).
 5. **Codegen** — write a temp staging tree: `schema.py` (Pydantic input/output models) and `logic.py`, a `RestConnector` subclass with one `@nw_action`-decorated async method per derived action. Each method's `@nw_action(...)` decorator (`requires_auth=False` for anonymous actions) makes it discoverable by `nw-mcp-builder`'s regex scan; the method body itself calls `self.execute_rest(...)`, passing `auth_scheme=<name>` when the action uses a named, non-default scheme from step 4. Also emits the package `pyproject.toml` and model tests.
 6. **Gate** — import smoke + `pytest` on staged model tests (must pass before promote)
-7. **Promote** atomically into `src/node_wire_<id>/` and `packages/connectors/<id>/`
+7. **Promote** atomically into `src/node_wire_<id>/` and `packages/connectors/<id>/`. A promote that an earlier run left half done (`*.promoting` or `*.bak` directories) is finished or rolled back first
 8. **MCP hand-off** (default) — call `nw-mcp-builder`, which regex-scrapes the promoted `logic.py` for `@nw_action` methods, for `out/<name>-mcp/`
-9. **Wire** (optional `--wire`) — update `config/connectors.yaml` and `sample.env`
+9. **Wire** (optional `--wire`) — update `config/connectors.yaml`, `sample.env` and `ALL_PACKAGES` in `scripts/build-packages.sh` (idempotent; the same step as `nw wire`)
 
 Promote never runs if the gate fails. MCP or `--wire` failures after a clean promote return exit code `1` but leave the connector in the tree.
 
@@ -191,7 +191,7 @@ Legacy flat flags (`nw-connector-builder --path … --id …`) still map to `fro
 |--------|---------|-------------|
 | `--path` | — (required) | Local path or `http(s)` URL to an OpenAPI/Swagger document |
 | `--id` | — (required) | Connector id (`[a-z][a-z0-9_]*`) |
-| `--wire` | off | After promote, edit `config/connectors.yaml` + `sample.env` |
+| `--wire` | off | After promote, edit `config/connectors.yaml`, `sample.env` and `ALL_PACKAGES` (a git-ignored connector is never added to `ALL_PACKAGES`) |
 | `--force` | off | Overwrite an existing connector tree; pass `--force-output` to MCP hand-off |
 | `--no-mcp` | off | Stop after a clean connector promote (skip MCP host generation) |
 | `--base-url` | `servers[0]` | Override baked-in default base URL (required if the spec has no absolute server URL) |
