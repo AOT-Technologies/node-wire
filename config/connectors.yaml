@@ -150,3 +150,4 @@ connectors:
     port: 55432
     database: nwdb
     sslmode: disable
+    mode: read_only           # read_only | read_write | admin (insert needs read_write)

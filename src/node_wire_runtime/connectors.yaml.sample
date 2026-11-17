@@ -116,7 +116,7 @@ connectors:
     port: 5432
     database: "mydb"
     sslmode: "require"
-    mode: admin               # read_only | read_write | admin
+    mode: read_only           # read_only | read_write | admin (default read_only)
     statement_timeout_ms: 30000
     max_rows: 1000
     # allowed_schemas: [public]

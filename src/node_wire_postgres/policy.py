@@ -81,7 +81,7 @@ def _list(value: Any) -> tuple[str, ...]:
 
 
 def settings(config: dict[str, Any]) -> Settings:
-    """connectors.yaml values win; env vars are the fallback. Default mode is admin."""
+    """connectors.yaml values win; env vars are the fallback. Default mode is read_only (least privilege)."""
 
     def get(key: str, env: str, default: Any = None) -> Any:
         value = config.get(key)
@@ -91,7 +91,7 @@ def settings(config: dict[str, Any]) -> Settings:
     database = get("database", "POSTGRES_DATABASE")
     if not host or not database:
         raise PostgresPolicyError("Postgres host and database must be set (config or env)")
-    mode = str(get("mode", "NW_POSTGRES_MODE", "admin"))
+    mode = str(get("mode", "NW_POSTGRES_MODE", "read_only"))
     if mode not in MODES:
         raise PostgresPolicyError(f"mode must be one of {', '.join(MODES)}")
     return Settings(

@@ -21,7 +21,7 @@ safe-SQL building and the read-only/limit guards.
 | Port | `port` | `POSTGRES_PORT` | `5432` |
 | Database | `database` | `POSTGRES_DATABASE` | required |
 | SSL mode | `sslmode` | `POSTGRES_SSLMODE` | `prefer` |
-| Mode | `mode` | `NW_POSTGRES_MODE` | `admin` |
+| Mode | `mode` | `NW_POSTGRES_MODE` | `read_only` |
 | Statement timeout | `statement_timeout_ms` | `NW_POSTGRES_STATEMENT_TIMEOUT_MS` | `30000` |
 | Row cap | `max_rows` | `NW_POSTGRES_MAX_ROWS` | `1000` |
 | Pool size | `pool_max` | `NW_POSTGRES_POOL_MAX` | `5` |

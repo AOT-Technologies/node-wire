@@ -156,7 +156,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Secrets / settings:** secrets `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`. Settings `host`, `port`, `database`,
   `sslmode` in `connectors.yaml` or `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE`.
   They are server-side only: the payload never names the server.
-- **Modes:** `mode` (`NW_POSTGRES_MODE`) is `read_only`, `read_write` or `admin` (default `admin`). Each action
+- **Modes:** `mode` (`NW_POSTGRES_MODE`) is `read_only`, `read_write` or `admin` (default `read_only`). Each action
   needs a minimum mode. Read actions always run in `SET TRANSACTION READ ONLY`, so the database enforces it.
 - **Limits:** `statement_timeout_ms` (30000), `max_rows` (1000), `pool_max` (5), `allowed_schemas`, `allowed_tables`
   (`schema.table`). Raw SQL takes one statement with bound parameters. The allowlists cover the structured actions;

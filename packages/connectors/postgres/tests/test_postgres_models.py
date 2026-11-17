@@ -28,3 +28,11 @@ def test_input_roundtrip(model: type) -> None:
 def test_every_input_has_an_action() -> None:
     declared = {m.model_fields["action"].default for m in INPUTS}
     assert declared == set(PostgresConnector.sdk_action_metas())
+
+
+def test_default_mode_is_least_privilege(monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_postgres.policy import settings
+
+    monkeypatch.delenv("NW_POSTGRES_MODE", raising=False)
+    assert settings({"host": "h", "database": "d"}).mode == "read_only"
+    assert settings({"host": "h", "database": "d", "mode": "admin"}).mode == "admin"
