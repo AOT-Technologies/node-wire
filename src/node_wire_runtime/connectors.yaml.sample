@@ -107,6 +107,21 @@ connectors:
       username_secret: SMTP_USERNAME
       password_secret: SMTP_PASSWORD
 
+  postgres:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # Non-sensitive connection target and limits — safe in YAML. Secrets POSTGRES_USERNAME
+    # and POSTGRES_PASSWORD come from the environment or a secrets backend.
+    host: "localhost"
+    port: 5432
+    database: "mydb"
+    sslmode: "require"
+    mode: admin               # read_only | read_write | admin
+    statement_timeout_ms: 30000
+    max_rows: 1000
+    # allowed_schemas: [public]
+    # allowed_tables: [public.orders]
+
   stripe:
     enabled: false
     exposed_via: [grpc, mcp]
