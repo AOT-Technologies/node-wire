@@ -143,3 +143,15 @@ connectors:
       header_name: Authorization
       prefix: Bearer
       host_supplied: true
+  n8n:
+    enabled: true
+    exposed_via:
+    - rest
+    - grpc
+    - mcp
+    instance_url: http://localhost:5678
+    auth:
+      provider: static_token
+      secret_key: N8N_API_KEY
+      header_name: X-N8N-API-KEY
+      prefix: ''
