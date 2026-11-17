@@ -13,7 +13,6 @@ boundary; the checks here are defence in depth.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import os
 import re
@@ -110,28 +109,29 @@ def settings(config: dict[str, Any]) -> Settings:
 
 
 # Simplified: pools live for the process; there is no explicit shutdown hook.
-_pools: dict[tuple, AsyncConnectionPool] = {}
+_pools: dict[str, AsyncConnectionPool] = {}
 _lock = asyncio.Lock()
 
 
 async def _pool(connector: Any, s: Settings) -> AsyncConnectionPool:
     user = connector.secret_provider.get_secret("POSTGRES_USERNAME")
     password = connector.secret_provider.get_secret("POSTGRES_PASSWORD")
-    # One pool per credential set, so tenants never share a connection.
-    key = (s.host, s.port, s.database, s.sslmode, user, hashlib.sha256(password.encode()).digest())
+    conninfo = make_conninfo(
+        host=s.host,
+        port=s.port,
+        dbname=s.database,
+        sslmode=s.sslmode,
+        user=user,
+        password=password,
+        connect_timeout=10,
+        application_name="node-wire",
+    )
+    # One pool per connection string (host, db, user, password), so tenants never share a
+    # connection. The key stays in process memory, like the pool's own copy; nothing is hashed.
+    key = conninfo
     async with _lock:
         pool = _pools.get(key)
         if pool is None:
-            conninfo = make_conninfo(
-                host=s.host,
-                port=s.port,
-                dbname=s.database,
-                sslmode=s.sslmode,
-                user=user,
-                password=password,
-                connect_timeout=10,
-                application_name="node-wire",
-            )
             pool = AsyncConnectionPool(conninfo, min_size=0, max_size=s.pool_max, open=False)
             await pool.open()
             _pools[key] = pool
