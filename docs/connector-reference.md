@@ -153,6 +153,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 ### `postgres`
 
 - **Package:** `node-wire-postgres`, `src/node_wire_postgres/`. Driver: psycopg 3 with `psycopg_pool`.
+- **Versions:** PostgreSQL 11 or later (tested on 16; `reindex` with `concurrently` needs 12; 17 and 18 expected to work but not tested; older than 11 unsupported). psycopg `>=3.2,<4`, Python 3.11+.
 - **Secrets / settings:** secrets `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`. Settings `host`, `port`, `database`,
   `sslmode` in `connectors.yaml` or `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE`.
   They are server-side only: the payload never names the server.

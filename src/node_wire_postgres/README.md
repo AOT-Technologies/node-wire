@@ -9,9 +9,25 @@ SPDX-License-Identifier: Apache-2.0
 > **Connector ID:** `postgres`
 > **Driver:** psycopg 3 with `psycopg_pool`
 > **Source:** `src/node_wire_postgres/`
+> **Versions:** PostgreSQL 11 or later (tested on 16); psycopg 3.2 to <4; Python 3.11+
 
 Hand-written. `logic.py` holds only the actions, `schema.py` the models, and `policy.py` the pool,
 safe-SQL building and the read-only/limit guards.
+
+## Supported versions
+
+| Component | Version | Notes |
+|---|---|---|
+| PostgreSQL server | **16 tested**; 11 or later by design | Every action was run against `postgres:16-alpine`. Other versions are not tested |
+| Why 11 | `prokind` (function and procedure listings), `CREATE PROCEDURE`, `call_procedure` | Not available before 11 |
+| Why 12 for one option | `reindex` with `concurrently` | `REINDEX ... CONCURRENTLY` needs 12. Everything else works on 11 |
+| PostgreSQL 17, 18 | expected to work | The SQL uses stable catalog views and functions (`pg_stat_activity`, `pg_locks`, `pg_get_*def`, `information_schema`). Not tested |
+| PostgreSQL older than 11 | not supported | |
+| psycopg | `>=3.2,<4` (tested 3.3.9) | Installed as `psycopg[binary]`, which bundles libpq 18 |
+| psycopg-pool | `>=3.2,<4` | |
+| Python | 3.11 or later | Same as Node Wire |
+
+On Windows, psycopg async cannot use the default `ProactorEventLoop`. Run the server on Linux, in Docker or in WSL, or start it with the selector event loop.
 
 ## Configuration
 

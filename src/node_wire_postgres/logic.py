@@ -2,6 +2,12 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
+# Version details
+#   PostgreSQL server: tested on 16 (postgres:16-alpine). Designed for 11 or later:
+#     prokind (functions/procedures, CREATE PROCEDURE) needs 11; REINDEX ... CONCURRENTLY needs 12.
+#     17 and 18 should work (stable catalog views) but are not tested. Older than 11 is unsupported.
+#   Driver: psycopg 3 (>=3.2,<4, tested 3.3.9; bundles libpq 18) and psycopg-pool (>=3.2,<4).
+#   Python: 3.11 or later.
 from __future__ import annotations
 
 from typing import ClassVar, Dict, Tuple, Type
