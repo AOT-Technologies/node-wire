@@ -697,4 +697,5 @@ def test_mcp_server_matches_per_connector_entrypoints() -> None:
     assert "google_drive_files_upload" in drive
 
     smtp = {t["name"] for t in McpServer(connector_ids=["smtp"]).list_tools()}
-    assert smtp == {"smtp_send_email"}
+    assert "smtp_send_email" in smtp and "smtp_ping" in smtp and len(smtp) == 11
+    assert all(name.startswith("smtp_") for name in smtp)

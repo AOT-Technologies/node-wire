@@ -34,9 +34,20 @@ dots replaced by underscores.
 
 | Action | MCP tool | What it does |
 |---|---|---|
-| `send_email` | `smtp_send_email` | Sends a plain-text email to one or more recipients (`to`, `subject`, `body`, optional `from_email`) |
+| `send_email` | `smtp_send_email` | Sends an email (`to`, `subject`, `body`, optional `from_email`, `cc`, `bcc`, `reply_to`, `html_body`, base64 `attachments`, extra `headers`, `priority`, `dsn_notify`, `dsn_return`). Returns the `message_id` |
+| `send_bulk` | `smtp_send_bulk` | Sends up to 100 messages (each with the `send_email` fields) over one connection. One result per message; one refused message does not stop the rest |
+| `send_raw` | `smtp_send_raw` | Sends a finished RFC 5322 message to the given envelope recipients (`from_email`, `recipients`, `message`). The message is sent as given |
+| `check_connection` | `smtp_check_connection` | Connects to the relay, logs in with the server-side credentials, sends NOOP and quits |
+| `get_server_capabilities` | `smtp_get_server_capabilities` | EHLO (no login): banner, extensions, AUTH mechanisms and the maximum message size |
+| `get_tls_info` | `smtp_get_tls_info` | Connects (no login) and reports the TLS version, cipher and the server certificate |
+| `ping` | `smtp_ping` | Connects (no login) and sends NOOP |
+| `verify_address` | `smtp_verify_address` | Sends VRFY for an address (logs in first). Many servers disable it and answer 502 |
+| `expand_list` | `smtp_expand_list` | Sends EXPN for a mailing list (logs in first). Many servers disable it and answer 502 |
+| `get_help` | `smtp_get_help` | Sends HELP (no login) |
+| `validate_address_syntax` | `smtp_validate_address_syntax` | Offline check of up to 100 addresses against RFC 5321 syntax and length limits. Nothing is sent to any server |
 
-When `from_email` is omitted, the sender is `FROM_EMAIL`, then `SMTP_USERNAME`.
+When `from_email` is omitted, the sender is `FROM_EMAIL`, then `SMTP_USERNAME`; if neither is set the
+request is rejected.
 
 ## Configuration
 
@@ -53,8 +64,9 @@ connectors:
       password_secret: SMTP_PASSWORD
 ```
 
-The relay is configured only through the environment. Credentials are read through the
-configured secret provider (environment variables by default):
+The relay is configured on the server only, through the environment or `host`, `port` and `use_tls` in
+`connectors.yaml` (the environment wins). Credentials are read through the configured secret provider
+(environment variables by default):
 
 | Variable | Purpose |
 |---|---|

@@ -125,7 +125,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | Connector | Actions | `auth.provider` | Setup guide |
 |---|---|---|---|
 | [`http_generic`](#http_generic) | `request` | `none` | — |
-| [`smtp`](#smtp) | `send_email` | `static_credentials` | — |
+| [`smtp`](#smtp) | `send_email`, `send_bulk`, `send_raw`, `check_connection`, `get_server_capabilities`, `get_tls_info`, `ping`, `verify_address`, `expand_list`, `get_help`, `validate_address_syntax` (11 actions) | `static_credentials` | — |
 | [`stripe`](#stripe) | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` | `static_token` | — |
 | [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`google_drive`](#google_drive) | `files.list`, `files.get`, `files.create`, `files.upload`, `files.update`, `files.delete`, `permissions.create` | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
@@ -145,9 +145,16 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 
 - **Package:** `node-wire-smtp`, `src/node_wire_smtp/`. MCP image `nw-smtp`.
 - **Secrets / settings:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL`.
-- **Egress:** the payload carries only `to`, `subject`, `body` and an optional `from_email`. Relay
-  settings are server-side only, so credentials never go to a caller-chosen host. Set
-  `NW_SMTP_ALLOWED_HOSTS` in production. `subject` may not contain newlines or control characters.
+  `host`, `port` and `use_tls` can also be set in `connectors.yaml`; the environment wins.
+- **Actions:** `send_email` (plus optional `cc`, `bcc`, `reply_to`, `html_body`, base64 `attachments`, extra `headers`,
+  `priority`, `dsn_notify`, `dsn_return`; returns the `message_id`), `send_bulk` (up to 100 messages over one
+  connection, one result each), `send_raw` (a finished RFC 5322 message to given envelope recipients),
+  `check_connection`, `get_server_capabilities`, `get_tls_info`, `ping`, `verify_address` (VRFY), `expand_list` (EXPN),
+  `get_help` (HELP) and `validate_address_syntax` (offline, no server call). Many servers disable VRFY, EXPN and
+  HELP and answer 502 (an `SMTP_ERROR`). `from_email` is required unless `FROM_EMAIL` or `SMTP_USERNAME` is set.
+- **Egress:** relay settings are server-side only and no action accepts them, so credentials never go to a
+  caller-chosen host. Set `NW_SMTP_ALLOWED_HOSTS` in production. `subject` and header values may not contain
+  newlines or control characters.
 
 ### `stripe`
 
