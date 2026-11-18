@@ -24,8 +24,12 @@ the 3 the spec marks deprecated (activate and deactivate a workflow, the old ver
 | `NW_TIMEOUT` | env | Request timeout in seconds, default `30` |
 
 There is no private-address guard, so an n8n on `localhost` or a private network works. The API key is only ever sent to the
-configured `instance_url`. Limit what a deployment can do with a scoped API key (n8n 2.14 and later, all plans) and an
+configured `instance_url`. The shipped config has n8n **disabled** and on REST only, because the key grants instance-admin
+actions. Limit what a deployment can do with a scoped API key (n8n 2.14 and later, all plans) and an
 [exposure profile](../../docs/exposure.md); the scopes each group needs are listed below.
+
+Profiles shipped in `expose/n8n/`: `n8n-readonly` (66 actions, every `GET`) and `n8n-workflows` (30 actions: workflows,
+executions, tags and `trigger_workflow`, no deletes). Use one with `NW_EXPOSE_PROFILE` before adding `grpc` or `mcp` to `exposed_via`.
 
 ## How a request is built
 
@@ -37,9 +41,17 @@ configured `instance_url`. Limit what a deployment can do with a scoped API key 
   are a single field named after what they hold (`users`, `destination`, `environment`, `tags`).
 - `idempotency_key` (on the 41 POST operations that support it) is sent as the `Idempotency-Key` header.
 - Lists use `limit` (1 to 250, n8n default 100) and `cursor`; the next cursor is `nextCursor` in the response body.
-- Every action returns `status_code`, `headers` and `body`. 4xx and 5xx answers are errors (`N8N_HTTP_STATUS_ERROR`) whose
-  message includes n8n's own explanation (for example a licence message); 429 and 5xx are not retried. Timeouts and
-  connection failures are retryable.
+- Every action returns `status_code`, `headers` and `body`. 4xx and 5xx answers are errors whose message includes n8n's own
+  explanation. The runtime retries the retryable ones up to 3 times:
+
+  | Answer | Error code | Category |
+  |---|---|---|
+  | 429 | `N8N_RATE_LIMITED` | retryable |
+  | 502, 503, 504 on `GET` and `DELETE` | `N8N_UNAVAILABLE` | retryable (not on writes: a gateway error on a `POST` may have run it) |
+  | 401, and 403 for a key that lacks the scope | `N8N_AUTH_ERROR` | auth |
+  | any other 4xx or 5xx, and a 403 licence message | `N8N_HTTP_STATUS_ERROR` | business |
+  | timeout, connection failure | `N8N_TIMEOUT`, `N8N_CONNECT_ERROR` | retryable |
+- Calls share the runtime's pooled HTTP client, so connections are reused.
 - **Package files are base64.** `import_package` and `import_package_selection` take the `.n8np` archive as base64 in the
   `package` field and send it as a multipart upload; their other fields are form fields. `export_package` returns the
   archive as a base64 string in `body`.

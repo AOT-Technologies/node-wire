@@ -185,7 +185,8 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Secrets / settings:** secret `N8N_API_KEY`, sent as `X-N8N-API-KEY` (`auth: static_token`, `prefix: ""`). `instance_url` is the
   instance root and is set in `connectors.yaml` only: no action accepts it, so the key can only go to the configured host.
 - **Egress:** there is no private-address guard, so an n8n on localhost or a private network works. Use a scoped API key
-  (n8n 2.14+) and an exposure profile to limit what the connector can do.
+  (n8n 2.14+) and an exposure profile to limit what the connector can do. It is disabled and REST-only in the shipped config;
+  profiles `n8n-readonly` and `n8n-workflows` are in `expose/n8n/`.
 - **Actions:** see `src/node_wire_n8n/README.md`. `trigger_workflow` calls a workflow's webhook without the API key, and only
   on the configured n8n host.
 

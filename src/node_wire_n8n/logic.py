@@ -20,6 +20,7 @@ import httpx
 
 from node_wire_runtime import BaseConnector, RestResponseOutput, nw_action
 from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.rest import _shared_client
 from node_wire_runtime.tenant_persistence import declare_secret_shape
 
 from .schema import (
@@ -201,18 +202,35 @@ from .schema import (
 logger = logging.getLogger("connectors.n8n")
 
 
+# The error map works per exception class, so each kind of answer that needs its own category
+# gets a small subclass; `_send` picks it by status. The runtime retries RETRYABLE errors.
+class _RateLimited(httpx.HTTPStatusError):
+    """429: n8n refused the call, so a retry is safe."""
+
+
+class _Unavailable(httpx.HTTPStatusError):
+    """502/503/504 on GET or DELETE (safe to repeat; a gateway error on a POST may have run it)."""
+
+
+class _AuthRejected(httpx.HTTPStatusError):
+    """401, or 403 for a key that lacks the scope (a licence 403 stays a plain status error)."""
+
+
 class N8nConnector(BaseConnector):
     """n8n public API (and workflow webhooks) as @nw_action methods."""
 
     connector_id = "n8n"
     output_model = RestResponseOutput
 
-    # Simplified: the map works per exception class, so 429 and 5xx are not retried.
+    # Simplified: other 5xx (and 502/503/504 on writes) are not retried.
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
         httpx.TimeoutException: (ErrorCategory.RETRYABLE, "N8N_TIMEOUT"),
         httpx.ConnectError: (ErrorCategory.RETRYABLE, "N8N_CONNECT_ERROR"),
         httpx.RequestError: (ErrorCategory.FATAL, "N8N_REQUEST_ERROR"),
         httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "N8N_HTTP_STATUS_ERROR"),
+        _RateLimited: (ErrorCategory.RETRYABLE, "N8N_RATE_LIMITED"),
+        _Unavailable: (ErrorCategory.RETRYABLE, "N8N_UNAVAILABLE"),
+        _AuthRejected: (ErrorCategory.AUTH, "N8N_AUTH_ERROR"),
         ValueError: (ErrorCategory.BUSINESS, "N8N_INVALID_REQUEST"),
     }
 
@@ -245,23 +263,29 @@ class N8nConnector(BaseConnector):
                 "path": urlsplit(url).path,
             },
         )
-        # Simplified: a client per call, no connection pooling and no private-address guard.
-        async with httpx.AsyncClient(
-            timeout=float(os.getenv("NW_TIMEOUT", "30.0")), trust_env=False
-        ) as client:
-            response = await client.request(
-                method,
-                url,
-                headers=headers,
-                params=query or None,
-                json=body,
-                data=form or None,
-                files=files or None,
-                auth=auth,
-            )
+        # Simplified: no private-address guard. The runtime's pooled client has no timeout of its own.
+        response = await _shared_client(False).request(
+            method,
+            url,
+            headers=headers,
+            params=query or None,
+            json=body,
+            data=form or None,
+            files=files or None,
+            auth=auth,
+            timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
+        )
         if response.is_error:
-            # Same exception class (the error map keys on it), plus n8n's own explanation.
-            raise httpx.HTTPStatusError(
+            status = response.status_code
+            error: type[httpx.HTTPStatusError] = httpx.HTTPStatusError
+            if status == 429:
+                error = _RateLimited
+            elif status in (502, 503, 504) and method in ("GET", "DELETE"):
+                error = _Unavailable
+            elif status == 401 or (status == 403 and "licen" not in response.text.lower()):
+                error = _AuthRejected
+            # n8n's own explanation goes in the message.
+            raise error(
                 f"n8n answered {response.status_code}: {response.text[:300]}",
                 request=response.request,
                 response=response,

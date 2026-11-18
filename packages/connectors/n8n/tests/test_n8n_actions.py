@@ -1291,12 +1291,8 @@ class Wire:
 @pytest.fixture
 def wire(monkeypatch: pytest.MonkeyPatch) -> Wire:
     w = Wire()
-    real = httpx.AsyncClient
-    monkeypatch.setattr(
-        logic.httpx,
-        "AsyncClient",
-        lambda **kw: real(transport=httpx.MockTransport(w.handler), **kw),
-    )
+    client = httpx.AsyncClient(transport=httpx.MockTransport(w.handler))
+    monkeypatch.setattr(logic, "_shared_client", lambda trust_env: client)
     return w
 
 
@@ -1479,11 +1475,49 @@ async def test_empty_and_text_bodies(wire: Wire) -> None:
     assert (await make().run({"action": "list_tags"})).data["body"] == "plain"
 
 
-@pytest.mark.parametrize("status", [400, 401, 404, 500])
+@pytest.mark.parametrize("status", [400, 404, 409, 500])
 async def test_http_errors_are_business_errors(wire: Wire, status: int) -> None:
     wire.status = status
     result = await make().run({"action": "get_workflow", "workflow_id": "w"})
     assert (result.error_code, result.error_category) == ("N8N_HTTP_STATUS_ERROR", "BUSINESS")
+
+
+@pytest.mark.parametrize(
+    ("status", "text", "code", "category"),
+    [
+        (429, "slow down", "N8N_RATE_LIMITED", "RETRYABLE"),
+        (401, "bad key", "N8N_AUTH_ERROR", "AUTH"),
+        (403, "missing scope workflow:read", "N8N_AUTH_ERROR", "AUTH"),
+        (403, "Your license does not allow for feat:x", "N8N_HTTP_STATUS_ERROR", "BUSINESS"),
+    ],
+)
+async def test_status_decides_the_category(
+    wire: Wire, status: int, text: str, code: str, category: str
+) -> None:
+    wire.status = status
+    wire.json = {"message": text}
+    result = await make().run({"action": "get_workflow", "workflow_id": "w"})
+    assert (result.error_code, result.error_category) == (code, category)
+
+
+@pytest.mark.parametrize("status", [502, 503, 504])
+@pytest.mark.parametrize(
+    ("payload", "retryable"),
+    [
+        ({"action": "get_workflow", "workflow_id": "w"}, True),
+        ({"action": "delete_tag", "tag_id": "t"}, True),
+        ({"action": "create_tag", "name": "x"}, False),
+    ],
+)
+async def test_gateway_errors_retry_only_safe_methods(
+    wire: Wire, status: int, payload: dict[str, Any], retryable: bool
+) -> None:
+    wire.status = status
+    result = await make().run(payload)
+    expected = (
+        ("N8N_UNAVAILABLE", "RETRYABLE") if retryable else ("N8N_HTTP_STATUS_ERROR", "BUSINESS")
+    )
+    assert (result.error_code, result.error_category) == expected
 
 
 async def test_the_error_carries_n8ns_own_explanation(wire: Wire) -> None:
