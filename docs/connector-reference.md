@@ -148,7 +148,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
   `host`, `port` and `use_tls` can also be set in `connectors.yaml`; the environment wins.
 - **Actions:** `send_email` (plus optional `cc`, `bcc`, `reply_to`, `html_body`, base64 `attachments`, extra `headers`,
   `priority`, `dsn_notify`, `dsn_return`; returns the `message_id`), `send_bulk` (up to 100 messages over one
-  connection, one result each), `send_raw` (a finished RFC 5322 message to given envelope recipients),
+  connection, one result each), `send_raw` (a finished RFC 5322 message to given envelope recipients; its `From` header must equal `from_email`, it may not carry `Bcc`, `Received` or `Return-Path`, and it is limited to 10 MB),
   `check_connection`, `get_server_capabilities`, `get_tls_info`, `ping`, `verify_address` (VRFY), `expand_list` (EXPN),
   `get_help` (HELP) and `validate_address_syntax` (offline, no server call). Many servers disable VRFY, EXPN and
   HELP and answer 502 (an `SMTP_ERROR`). `from_email` is required unless `FROM_EMAIL` or `SMTP_USERNAME` is set.

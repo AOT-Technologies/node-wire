@@ -36,7 +36,7 @@ dots replaced by underscores.
 |---|---|---|
 | `send_email` | `smtp_send_email` | Sends an email (`to`, `subject`, `body`, optional `from_email`, `cc`, `bcc`, `reply_to`, `html_body`, base64 `attachments`, extra `headers`, `priority`, `dsn_notify`, `dsn_return`). Returns the `message_id` |
 | `send_bulk` | `smtp_send_bulk` | Sends up to 100 messages (each with the `send_email` fields) over one connection. One result per message; one refused message does not stop the rest |
-| `send_raw` | `smtp_send_raw` | Sends a finished RFC 5322 message to the given envelope recipients (`from_email`, `recipients`, `message`). The message is sent as given |
+| `send_raw` | `smtp_send_raw` | Sends a finished RFC 5322 message to the given envelope recipients (`from_email`, `recipients`, `message`). The message must have exactly one `From` header equal to `from_email`, may not contain `Bcc`, `Received` or `Return-Path` headers, and is limited to 10 MB. Up to 100 recipients |
 | `check_connection` | `smtp_check_connection` | Connects to the relay, logs in with the server-side credentials, sends NOOP and quits |
 | `get_server_capabilities` | `smtp_get_server_capabilities` | EHLO (no login): banner, extensions, AUTH mechanisms and the maximum message size |
 | `get_tls_info` | `smtp_get_tls_info` | Connects (no login) and reports the TLS version, cipher and the server certificate |

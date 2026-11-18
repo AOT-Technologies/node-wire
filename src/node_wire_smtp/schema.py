@@ -8,6 +8,9 @@ import base64
 import binascii
 import os
 import re
+from email import policy
+from email.parser import Parser
+from email.utils import getaddresses
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
@@ -16,6 +19,9 @@ _FORBIDDEN_RELAY_KEYS = frozenset({"host", "port", "use_tls"})
 _HEADER_UNSAFE_RE = re.compile(r"[\x00-\x1f\x7f]")
 _HEADER_NAME_RE = re.compile(r"^[A-Za-z0-9-]+$")  # RFC 5322 field names, no separators
 _CONTENT_TYPE_RE = re.compile(r"^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")
+_MAX_RAW_MESSAGE = 10_000_000
+_MAX_ATTACHMENT_BASE64 = 14_000_000  # about 10 MB of file
+_RAW_FORBIDDEN_HEADERS = ("Bcc", "Received", "Return-Path")
 # Set by the connector itself, so a caller header may not replace them.
 _RESERVED_HEADERS = frozenset(
     {
@@ -73,7 +79,7 @@ class SmtpAttachment(BaseModel):
     """One attachment. The content is base64 text, so it travels in JSON."""
 
     filename: str
-    content_base64: str
+    content_base64: str = Field(max_length=_MAX_ATTACHMENT_BASE64)
     content_type: str = "application/octet-stream"
 
     @field_validator("filename")
@@ -276,7 +282,8 @@ class SendRawInput(_Strict):
     action: Literal["send_raw"] = "send_raw"
     from_email: EmailStr
     recipients: List[EmailStr] = Field(min_length=1, max_length=100)
-    message: str = Field(min_length=1)
+    # Simplified: a flat 10 MB cap on the text; the relay's own SIZE limit applies as well.
+    message: str = Field(min_length=1, max_length=_MAX_RAW_MESSAGE)
 
     @field_validator("from_email", mode="before")
     @classmethod
@@ -287,6 +294,19 @@ class SendRawInput(_Strict):
     @classmethod
     def _extract_recipients(cls, value: Any) -> Any:
         return _as_address_list(value)
+
+    @model_validator(mode="after")
+    def _check_headers(self) -> "SendRawInput":
+        """The header From must be the envelope sender, and the headers a relay adds or hides
+        (Bcc, Received, Return-Path) may not be set by the caller."""
+        headers = Parser(policy=policy.default).parsestr(self.message, headersonly=True)
+        for name in _RAW_FORBIDDEN_HEADERS:
+            if headers.get_all(name):
+                raise ValueError(f"the message may not contain a {name} header")
+        senders = getaddresses([str(v) for v in headers.get_all("From") or []])
+        if len(senders) != 1 or senders[0][1].lower() != str(self.from_email).lower():
+            raise ValueError("the message needs exactly one From header, equal to from_email")
+        return self
 
 
 class SendRawOutput(BaseModel):

@@ -347,7 +347,8 @@ async def test_secrets_and_addresses_are_not_logged(
         "private body",
     ):
         assert hidden not in text
-    assert "example.com" in text  # the sender's domain is logged
+    # The sender's domain is logged, as its own field.
+    assert {r.__dict__.get("sender_domain") for r in caplog.records} >= {"example.com"}
 
 
 # ---- input schema ----------------------------------------------------------------------------
@@ -695,7 +696,7 @@ async def test_send_raw_without_a_message_id(wire: Wire) -> None:
             "action": "send_raw",
             "from_email": "a@example.com",
             "recipients": "b@example.com",
-            "message": "Subject: x\r\n\r\nhi",
+            "message": "From: a@example.com\r\nSubject: x\r\n\r\nhi",
         }
     )
     assert result.data["message_id"] is None
@@ -722,6 +723,58 @@ def test_send_raw_input_is_checked(bad: dict[str, Any]) -> None:
     good = {"from_email": "a@example.com", "recipients": ["b@example.com"], "message": RAW}
     with pytest.raises(ValidationError):
         SendRawInput.model_validate({**good, **bad})
+
+
+def raw_with(*lines: str, body: str = "hi") -> str:
+    return "\r\n".join(lines) + "\r\n\r\n" + body
+
+
+@pytest.mark.parametrize(
+    ("message", "problem"),
+    [
+        (raw_with("Subject: no sender"), "exactly one From"),
+        (raw_with("From: other@example.com"), "exactly one From"),
+        (raw_with("From: a@example.com", "From: a@example.com"), "exactly one From"),
+        (raw_with("From: a@example.com, b@example.com"), "exactly one From"),
+        (raw_with("From: a@example.com", "Bcc: hidden@example.com"), "Bcc"),
+        (raw_with("From: a@example.com", "bcc: hidden@example.com"), "Bcc"),
+        (raw_with("From: a@example.com", "Received: from evil.example.com"), "Received"),
+        (raw_with("From: a@example.com", "Return-Path: <x@example.com>"), "Return-Path"),
+    ],
+)
+def test_send_raw_message_is_checked(message: str, problem: str) -> None:
+    with pytest.raises(ValidationError, match=problem):
+        SendRawInput.model_validate(
+            {"from_email": "a@example.com", "recipients": ["b@example.com"], "message": message}
+        )
+
+
+def test_send_raw_message_size_is_capped() -> None:
+    # Built here, not as a test parameter: pytest puts parameters in an environment variable.
+    big = "From: a@example.com\r\n\r\n" + "x" * 10_000_000
+    with pytest.raises(ValidationError, match="at most"):
+        SendRawInput.model_validate(
+            {"from_email": "a@example.com", "recipients": ["b@example.com"], "message": big}
+        )
+
+
+def test_send_raw_accepts_a_from_header_with_a_display_name_and_other_case() -> None:
+    inp = SendRawInput.model_validate(
+        {
+            "from_email": "Ann@Example.com",
+            "recipients": ["b@example.com"],
+            "message": raw_with('From: "Ann A" <ann@example.COM>', "Reply-To: r@example.com"),
+        }
+    )
+    assert inp.from_email == "Ann@example.com"
+
+
+def test_an_attachment_is_capped() -> None:
+    too_big = "A" * 14_000_001
+    with pytest.raises(ValidationError):
+        SmtpSendInput.model_validate(
+            {**SEND, "attachments": [{"filename": "big.bin", "content_base64": too_big}]}
+        )
 
 
 # ---- get_tls_info ----------------------------------------------------------------------------
