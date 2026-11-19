@@ -54,9 +54,9 @@ _REST_SMOKE_CASES = [
     ),
     pytest.param(
         "google_drive",
-        "files.list",
-        "/connectors/google_drive/files.list",
-        {"action": "files.list", "page_size": 1},
+        "drive_files_list",
+        "/connectors/google_drive/drive_files_list",
+        {"action": "drive_files_list", "pageSize": 1},
         id="google_drive",
     ),
     pytest.param(

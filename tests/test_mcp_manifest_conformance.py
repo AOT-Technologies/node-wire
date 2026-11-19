@@ -37,7 +37,7 @@ def test_per_connector_tool_names_are_subsets_of_unified() -> None:
     assert cerner == {n for n in full if n.startswith("fhir_cerner_")}
     drive = {t["name"] for t in _tools_from_server(connector_ids=["google_drive"])}
     assert drive == {n for n in full if n.startswith("google_drive_")}
-    assert "google_drive_files_upload" in drive
+    assert "google_drive_drive_files_create" in drive
 
 
 def test_all_eight_connectors_tools_are_subsets_of_unified() -> None:
@@ -54,7 +54,7 @@ def test_unified_manifest_includes_representative_tools_for_each_connector() -> 
         "http_generic_request",
         "smtp_send_email",
         "stripe_charge",
-        "google_drive_files_list",
+        "google_drive_drive_files_list",
         "fhir_epic_read_patient",
         "fhir_cerner_read_patient",
         "salesforce_create_contact",

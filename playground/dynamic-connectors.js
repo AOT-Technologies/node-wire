@@ -10,8 +10,8 @@
 // through the window.nwPlayground hook.
 (async () => {
     // Connectors that keep their own panels in app.js / index.html.
-    const COVERED = ['fhir_epic', 'fhir_cerner', 'google_drive', 'http_generic', 'slack', 'stripe', 'salesforce'];
-    const NAMES = { github: 'GitHub' };
+    const COVERED = ['fhir_epic', 'fhir_cerner', 'http_generic', 'slack', 'stripe', 'salesforce'];
+    const NAMES = { github: 'GitHub', google_drive: 'Google Drive' };
     // GitHub accepts either token kind as a bearer token, so both fill the same secret.
     const TOKEN_TYPES = {
         github: [

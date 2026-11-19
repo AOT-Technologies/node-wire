@@ -574,6 +574,62 @@ async def test_sa_get_headers_returns_empty() -> None:
     assert headers == {}
 
 
+class _FakeGoogleCreds:
+    """Stands in for google.oauth2.service_account.Credentials: a token that can be missing or expired."""
+
+    def __init__(self) -> None:
+        self.token: str | None = None
+        self.valid = False
+        self.refreshes = 0
+
+
+def _bearer_provider(creds: _FakeGoogleCreds) -> ServiceAccountAuthProvider:
+    sp = _DictSecretProvider({"sa_json": "{}"})
+    provider = ServiceAccountAuthProvider(
+        secret_provider=sp, sa_json_secret="sa_json", bearer_header=True
+    )
+    provider._credentials = creds
+
+    def refresh(c: _FakeGoogleCreds) -> None:
+        c.refreshes += 1
+        c.token, c.valid = f"ya29.token{c.refreshes}", True
+
+    provider._refresh_token = refresh  # type: ignore[method-assign,assignment]
+    return provider
+
+
+async def test_sa_bearer_header_fetches_a_token_once_and_reuses_it() -> None:
+    creds = _FakeGoogleCreds()
+    provider = _bearer_provider(creds)
+    assert await provider.get_headers() == {"Authorization": "Bearer ya29.token1"}
+    assert await provider.get_headers() == {"Authorization": "Bearer ya29.token1"}
+    assert creds.refreshes == 1
+
+
+async def test_sa_bearer_header_refreshes_an_expired_token() -> None:
+    creds = _FakeGoogleCreds()
+    provider = _bearer_provider(creds)
+    await provider.get_headers()
+    creds.valid = False  # expired
+    assert await provider.get_headers() == {"Authorization": "Bearer ya29.token2"}
+
+
+async def test_sa_bearer_header_concurrent_callers_share_one_refresh() -> None:
+    import asyncio
+
+    creds = _FakeGoogleCreds()
+    provider = _bearer_provider(creds)
+    results = await asyncio.gather(*(provider.get_headers() for _ in range(5)))
+    assert creds.refreshes == 1
+    assert all(r == {"Authorization": "Bearer ya29.token1"} for r in results)
+
+
+def test_sa_refresh_token_calls_google_with_the_requests_transport() -> None:
+    creds = MagicMock()
+    ServiceAccountAuthProvider._refresh_token(creds)
+    creds.refresh.assert_called_once()
+
+
 async def test_sa_get_client_credentials_caches() -> None:
     fake_creds = MagicMock()
     sp = _DictSecretProvider({"sa_json": json.dumps({"type": "service_account"})})
