@@ -47,7 +47,14 @@ from .base_connector import (
     nw_action,
     sdk_action,
 )
-from .rest import RestConnector, RestEnvelopeError, RestResponseOutput
+from .rest import (
+    RestAuthError,
+    RestConnector,
+    RestEnvelopeError,
+    RestRateLimited,
+    RestResponseOutput,
+    RestUnavailable,
+)
 from .sdk_action_spec import (
     SdkActionSpec,
     default_build_kwargs,
@@ -127,6 +134,9 @@ __all__ = [
     "RestConnector",
     "RestResponseOutput",
     "RestEnvelopeError",
+    "RestAuthError",
+    "RestRateLimited",
+    "RestUnavailable",
     "NestedConnectorActionError",
     "sdk_action",
     "nw_action",

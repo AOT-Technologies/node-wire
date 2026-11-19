@@ -8,7 +8,14 @@ from typing import ClassVar, Dict, Tuple, Type
 import httpx
 from pydantic import BaseModel
 
-from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime import (
+    RestAuthError,
+    RestConnector,
+    RestRateLimited,
+    RestResponseOutput,
+    RestUnavailable,
+    nw_action,
+)
 from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.tenant_persistence import declare_secret_shape
 
@@ -1326,14 +1333,18 @@ class StripeConnector(RestConnector):
 
     # RestConnector.execute_rest raises these; without a mapping every one
     # of them would default to FATAL and never retry (see execute_rest in
-    # node_wire_runtime/rest.py). SsrfBlockedError is intentionally left
-    # unmapped for now.
+    # node_wire_runtime/rest.py). A 401 is an auth error, a 429 is retryable, and a
+    # 502/503/504 is retryable on reads and deletes only; other statuses stay BUSINESS.
+    # SsrfBlockedError is intentionally left unmapped for now.
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
         httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),
         httpx.ConnectError: (ErrorCategory.RETRYABLE, "HTTP_CONNECT_ERROR"),
         httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "HTTP_READ_TIMEOUT"),
         httpx.RequestError: (ErrorCategory.FATAL, "HTTP_REQUEST_ERROR"),
         httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),
+        RestAuthError: (ErrorCategory.AUTH, "HTTP_AUTH_ERROR"),
+        RestRateLimited: (ErrorCategory.RETRYABLE, "HTTP_RATE_LIMITED"),
+        RestUnavailable: (ErrorCategory.RETRYABLE, "HTTP_UNAVAILABLE"),
     }
 
     @nw_action("get_account")
@@ -9082,6 +9093,6 @@ declare_secret_shape(
         "STRIPE_BASIC_AUTH",
     ],
     formats={
-        "STRIPE_BASIC_AUTH": "opaque_secret",  # nosec B105
+        "STRIPE_BASIC_AUTH": "stripe_basic_auth",  # nosec B105
     },
 )
