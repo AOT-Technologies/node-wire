@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, ValidationError
 from dotenv import load_dotenv
 import os
 import asyncio
@@ -44,13 +44,6 @@ from node_wire_fhir_cerner.schema import (
     FhirCernerDocumentReferenceSearchInput,
     FhirCernerEncounterSearchInput,
     FhirCernerPatientReadInput,
-)
-from node_wire_google_drive.schema import (
-    DriveFilesCreateInput,
-    DriveFilesGetInput,
-    DriveFilesListInput,
-    DriveFilesUpdateInput,
-    DrivePermissionsCreateInput,
 )
 from node_wire_salesforce.logic import SalesforceConnector
 from node_wire_salesforce.schema import (
@@ -148,58 +141,6 @@ class CernerPostConsultationInput(BaseModel):
     encounter_id: Optional[str] = None  # Direct Encounter ID
     note_text: str
     visit_date: Optional[str] = None
-
-
-class GoogleDriveArchivalInput(BaseModel):
-    document_name: Optional[str] = None
-    recipient_email: Optional[str] = None
-    content: Optional[str] = None
-    folder_id: Optional[str] = None
-    file_base64: Optional[str] = None
-    file_mime_type: str = "text/plain"
-    action: str = "files.upload"
-    list_page_size: Optional[int] = None
-    list_query: Optional[str] = None
-    list_fields: Optional[str] = None
-    get_file_id: Optional[str] = None
-    get_fields: Optional[str] = None
-    update_file_id: Optional[str] = None
-    update_name: Optional[str] = None
-    update_mime_type: Optional[str] = None
-    update_add_parents: Optional[str] = None
-    update_remove_parents: Optional[str] = None
-    # Resolution-time only (not a Drive API field); optional named config for the tenant.
-    config_name: Optional[str] = None
-
-    @model_validator(mode="after")
-    def require_upload_fields_when_not_list(self) -> "GoogleDriveArchivalInput":
-        if self.action in ("files.list", "files.get"):
-            return self
-        if self.action == "files.update":
-            fid = (self.update_file_id or "").strip()
-            if not fid:
-                raise ValueError("update_file_id is required for files.update")
-            has_mutation = any(
-                (
-                    (self.update_name or "").strip(),
-                    (self.update_mime_type or "").strip(),
-                    (self.update_add_parents or "").strip(),
-                    (self.update_remove_parents or "").strip(),
-                )
-            )
-            if not has_mutation:
-                raise ValueError(
-                    "At least one of update_name, update_mime_type, update_add_parents, "
-                    "or update_remove_parents is required for files.update"
-                )
-            return self
-        dn = (self.document_name or "").strip()
-        em = (self.recipient_email or "").strip()
-        if not dn or not em:
-            raise ValueError(
-                "document_name and recipient_email are required for archival upload actions"
-            )
-        return self
 
 
 class SalesforceLeadInputPlayground(BaseModel):
@@ -371,8 +312,7 @@ async def resolve_connector(
     """Resolve a tenant-scoped connector instance for the playground.
 
     Tenant comes from ``X-Tenant-ID`` (then JWT). When multitenancy is enabled,
-    a tenant id is required. ``config_name`` may be supplied as a query param
-    or (for GDrive) payload field.
+    a tenant id is required. ``config_name`` may be supplied as a query param.
     """
     from bindings.rest_api.auth import get_rest_caller_identity
 
@@ -436,11 +376,6 @@ async def get_http_connector(request: Request, config_name: Optional[str] = None
 async def get_cerner_connector(request: Request, config_name: Optional[str] = None):
     connector = await resolve_connector(request, "fhir_cerner", config_name=config_name)
     return connector
-
-
-async def get_google_drive_connector(request: Request, config_name: Optional[str] = None) -> Any:
-    """``config_name`` query param is optional; GDrive body may also carry it."""
-    return await resolve_connector(request, "google_drive", config_name=config_name)
 
 
 async def get_slack_connector(request: Request, config_name: Optional[str] = None):
@@ -1409,267 +1344,6 @@ async def stripe_refund_scenario(
         )
     except Exception as e:
         return _safe_error_return(e, steps, trace_id, "Step 3 failed")
-
-
-@router.post("/gdrive-archival", response_model=ScenarioResponse)
-async def gdrive_archival_scenario(
-    request: Request,
-    payload: GoogleDriveArchivalInput,
-) -> ScenarioResponse:
-    """4-step Google Drive archival and sharing demo (tenant-aware)."""
-    connector = await resolve_connector(
-        request,
-        "google_drive",
-        config_name=payload.config_name,
-    )
-    trace_id = str(uuid.uuid4())
-    steps: List[ScenarioStep] = []
-
-    def add_step(
-        name: str, status: str, details: str = "", display_name: str = "", data: Any = None
-    ):
-        steps.append(
-            ScenarioStep(
-                name=name, status=status, details=details, display_name=display_name, data=data
-            )
-        )
-
-    if payload.action == "files.list":
-        add_step("Drive List", "pending", display_name="List Drive Files")
-        try:
-            raw_ps = payload.list_page_size
-            page_size = 10 if raw_ps is None else raw_ps
-            page_size = max(1, min(100, page_size))
-            q = (payload.list_query or "").strip() or None
-            fields = (payload.list_fields or "").strip() or None
-            list_input = DriveFilesListInput(pageSize=page_size, q=q, fields=fields)
-            res = await run_action(connector, list_input)
-            raw = res.model_dump()
-            n = len(raw.get("files") or [])
-            steps[-1].status = "success"
-            steps[-1].details = f"Retrieved {n} file(s) (page_size={page_size})"
-            steps[-1].display_name = "Files Listed"
-            steps[-1].data = {"raw": raw}
-            return ScenarioResponse(
-                success=True,
-                steps=steps,
-                final_resource_id=None,
-                human_summary=f"Listed {n} file(s) from Google Drive (page size {page_size}).",
-                trace_id=trace_id,
-            )
-        except Exception as e:
-            return _safe_error_return(e, steps, trace_id, "List failed")
-
-    if payload.action == "files.get":
-        add_step("Drive Get", "pending", display_name="Get file metadata")
-        try:
-            fid = (payload.get_file_id or "").strip()
-            if not fid:
-                raise ValueError("get_file_id is required")
-            gf = (payload.get_fields or "").strip() or None
-            get_input = DriveFilesGetInput(fileId=fid, fields=gf)
-            res = await run_action(connector, get_input)
-            raw = res.model_dump()
-            got_id = raw.get("id") or fid
-            name = raw.get("name", "")
-            steps[-1].status = "success"
-            steps[-1].details = f"Retrieved metadata for file id {got_id}"
-            steps[-1].display_name = "File metadata retrieved"
-            steps[-1].data = {"raw": raw}
-            return ScenarioResponse(
-                success=True,
-                steps=steps,
-                final_resource_id=got_id if isinstance(got_id, str) else str(got_id),
-                human_summary=f"Fetched Google Drive file metadata{f' ({name})' if name else ''}.",
-                trace_id=trace_id,
-            )
-        except Exception as e:
-            return _safe_error_return(e, steps, trace_id, "files.get failed")
-
-    if payload.action == "files.update":
-        fid = (payload.update_file_id or "").strip()
-        if not fid:
-            raise ValueError("update_file_id is required")
-        add_ids = [
-            x.strip() for x in (payload.update_add_parents or "").split(",") if x.strip()
-        ] or None
-        remove_ids = [
-            x.strip() for x in (payload.update_remove_parents or "").split(",") if x.strip()
-        ] or None
-        new_name = (payload.update_name or "").strip() or None
-        new_mime = (payload.update_mime_type or "").strip() or None
-
-        add_step("Update Prepare", "pending", display_name="Prepare update request")
-        preview = {
-            "file_id": fid,
-            "name": new_name,
-            "mime_type": new_mime,
-            "add_parents": add_ids,
-            "remove_parents": remove_ids,
-        }
-        steps[-1].status = "success"
-        steps[-1].details = f"Prepared update for file {fid}"
-        steps[-1].display_name = "Request prepared"
-        steps[-1].data = {"raw": preview}
-
-        # Simplified: the generated files.update exposes only the content body, addParents and
-        # removeParents; it cannot rename a file or change its MIME type.
-        if new_name or new_mime:
-            return _safe_error_return(
-                ValueError(
-                    "update_name / update_mime_type are not supported by the Drive connector"
-                ),
-                steps,
-                trace_id,
-                "files.update failed",
-            )
-        upd_input = DriveFilesUpdateInput(
-            fileId=fid,
-            addParents=",".join(add_ids) if add_ids else None,
-            removeParents=",".join(remove_ids) if remove_ids else None,
-        )
-
-        add_step("Drive Update", "pending", display_name="Apply file update")
-        try:
-            res = await run_action(connector, upd_input)
-        except Exception as e:
-            return _safe_error_return(e, steps, trace_id, "files.update failed")
-
-        upd_raw = res.model_dump()
-        rid = upd_raw.get("id") or fid
-        fname = upd_raw.get("name", "")
-        steps[-1].status = "success"
-        steps[-1].details = f"Drive API updated file {rid}"
-        steps[-1].display_name = "File updated"
-        steps[-1].data = {"raw": upd_raw}
-
-        add_step("Update Verify", "pending", display_name="Verify file metadata")
-        try:
-            get_input = DriveFilesGetInput(
-                fileId=str(rid), fields="id,name,mimeType,parents,webViewLink"
-            )
-            get_res = await run_action(connector, get_input)
-        except Exception as e:
-            return _safe_error_return(e, steps, trace_id, "files.update verify failed")
-
-        steps[-1].status = "success"
-        steps[-1].details = "Metadata refreshed after update"
-        steps[-1].display_name = "Metadata verified"
-        steps[-1].data = {"raw": get_res.model_dump()}
-
-        add_step("Update Complete", "pending", display_name="Complete update")
-        steps[-1].status = "success"
-        steps[-1].details = "Update workflow complete"
-        steps[-1].display_name = "Workflow complete"
-        steps[-1].data = {}
-
-        return ScenarioResponse(
-            success=True,
-            steps=steps,
-            final_resource_id=rid if isinstance(rid, str) else str(rid),
-            human_summary=(f"Updated Google Drive file{f' ({fname})' if fname else f' ({rid})'}."),
-            trace_id=trace_id,
-        )
-
-    # STEP 1: Format Archival Metadata
-    add_step("Metadata Formatting", "pending", display_name="Format Archival Metadata")
-    try:
-        ts = datetime.now(tz=timezone.utc).isoformat()
-        mime_type = payload.file_mime_type
-        metadata = {
-            "name": payload.document_name,
-            "mime_type": mime_type,
-            "archived_at": ts,
-            "recipient": payload.recipient_email,
-            "folder_id": payload.folder_id,
-            "has_binary_payload": bool(payload.file_base64),
-        }
-        steps[-1].status = "success"
-        steps[-1].details = f"Archival schema generated for {payload.document_name}"
-        steps[-1].display_name = "Metadata Ready"
-        steps[-1].data = {"raw": metadata}
-    except Exception as e:
-        return _safe_error_return(e, steps, trace_id, "Step 1 failed")
-
-    # STEP 2: Upload to Secure Vault
-    add_step("Secure Upload", "pending", display_name="Upload to Secure Vault")
-    try:
-        mime_type = payload.file_mime_type
-        folder_id = payload.folder_id or os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
-        # Simplified: the generated files.create sends only the content body, so the file's
-        # name, MIME type and parent folder cannot be set here (Drive names it "Untitled").
-        _ = (mime_type, folder_id)
-        upload_input = DriveFilesCreateInput(body=payload.content or payload.file_base64 or "")
-
-        res = await run_action(connector, upload_input)
-        upload_raw = res.model_dump()
-        file_id = upload_raw.get("id")
-
-        if not file_id:
-            raise ValueError("File upload failed, no ID returned")
-
-        steps[-1].status = "success"
-        steps[-1].details = f"File uploaded. ID: {file_id}"
-        steps[-1].display_name = "Document Archived"
-        steps[-1].data = {"file_id": file_id, "raw": upload_raw}
-    except Exception as e:
-        return _safe_error_return(e, steps, trace_id, "Step 2 failed")
-
-    # STEP 3: Establish Data Access
-    add_step("Access Control", "pending", display_name="Establish Data Access")
-    try:
-        perm_input = DrivePermissionsCreateInput(
-            fileId=file_id,
-            role="reader",
-            emailAddress=payload.recipient_email,
-            type="user",
-        )
-        perm_res = await run_action(connector, perm_input)
-
-        steps[-1].status = "success"
-        steps[-1].details = f"Read access granted to {payload.recipient_email}"
-        steps[-1].display_name = "Access Control Applied"
-        steps[-1].data = {"raw": perm_res.model_dump()}
-    except Exception as e:
-        return _safe_error_return(e, steps, trace_id, "Step 3 failed")
-
-    # STEP 4: Verify Integrity
-    add_step("Integrity Verification", "pending", display_name="Verify Integrity")
-    try:
-        get_input = DriveFilesGetInput(
-            fileId=file_id, fields="id, name, mimeType, webViewLink, size, createdTime, owners"
-        )
-        get_res = await run_action(connector, get_input)
-        file_metadata = get_res.model_dump()
-
-        beautiful_data = {
-            "id": file_id,
-            "type": "Secure Archived Document",
-            "date": file_metadata.get("createdTime", datetime.now().isoformat()),
-            "status": "SECURED",
-            "patient_name": payload.recipient_email,  # Mimicking patient name for UI schema
-            "author": file_metadata.get("owners", [{}])[0].get("displayName", "Service Account")
-            if file_metadata.get("owners")
-            else "Service Account",
-            "category": file_metadata.get("mimeType", "text/plain"),
-            "description": file_metadata.get("name"),
-            "content_text": f"Document successfully archived and shared.\n\nWeb Link: {file_metadata.get('webViewLink')}\nSize: {file_metadata.get('size')} bytes",
-        }
-
-        steps[-1].status = "success"
-        steps[-1].details = "Archival verified on Google Drive"
-        steps[-1].display_name = "Archival Verified"
-        steps[-1].data = {"raw": file_metadata, "beautiful_data": beautiful_data}
-
-        return ScenarioResponse(
-            success=True,
-            steps=steps,
-            final_resource_id=file_id,
-            human_summary=f"Success! Document '{payload.document_name}' archived to Google Drive and shared with {payload.recipient_email}.",
-            trace_id=trace_id,
-        )
-    except Exception as e:
-        return _safe_error_return(e, steps, trace_id, "Step 4 failed")
 
 
 @router.post("/slack-messaging", response_model=ScenarioResponse)

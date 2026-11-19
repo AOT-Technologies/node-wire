@@ -90,7 +90,10 @@ REQUIRED_SECRETS_BY_CONNECTOR: Dict[str, List[str]] = {
 # Values are format-classifier labels (e.g. "opaque_secret"), not credentials —
 # B105 pattern-matches the env-var key names beside them (TOKEN/SECRET/PASSWORD).
 SECRET_FORMAT_BY_CONNECTOR: Dict[str, Dict[str, str]] = {
-    "google_drive": {"GOOGLE_DRIVE_ACCESS_TOKEN": "opaque_secret"},  # nosec B105
+    "google_drive": {
+        "GOOGLE_DRIVE_ACCESS_TOKEN": "opaque_secret",  # nosec B105
+        "GOOGLE_DRIVE_SA_JSON": "google_sa_json",  # nosec B105
+    },
     "fhir_epic": {
         "EPIC_CLIENT_ID": "opaque_secret",
         "EPIC_PRIVATE_KEY": "pem_private_key",

@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
+  (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
+
+### Changed
+
+- The generated Google Drive connector accepts a service-account key again, besides an access token. In `connectors.yaml`, set
+  `auth: {provider: service_account, sa_json_secret: GOOGLE_DRIVE_SA_JSON}` (the shipped config does); the runtime now allows
+  `GOOGLE_DRIVE_SA_JSON` as a declared Google Drive secret. For a REST connector `ServiceAccountAuthProvider(bearer_header=True)`
+  returns `Authorization: Bearer <access token>`, fetched from Google and refreshed when it expires; the default (no headers, for
+  SDK connectors) is unchanged.
+
 ## [1.1.2] - 2026-11-06
 
 ### Added

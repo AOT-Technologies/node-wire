@@ -17,13 +17,16 @@ The service-account JSON is stored as a secret and resolved at first use.
 Credentials are refreshed automatically by the Google auth library when they
 expire; this provider does not implement its own TTL.
 
-This provider intentionally returns an empty dict from :meth:`get_headers` because
-Google Drive authentication is handled at the SDK level, not via HTTP headers set
-by the connector.
+By default this provider returns an empty dict from :meth:`get_headers`, because an SDK
+connector authenticates at the SDK level, not via HTTP headers. A REST connector (one that
+sends its own requests, such as the generated Google Drive connector) sets
+``bearer_header=True``: :meth:`get_headers` then returns ``Authorization: Bearer <access token>``,
+with the token fetched from Google and refreshed when it expires.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, Dict, List, Optional
@@ -50,6 +53,9 @@ class ServiceAccountAuthProvider(AuthProvider):
     scopes:
         List of OAuth2 scopes to request. Default:
         ``["https://www.googleapis.com/auth/drive"]``.
+    bearer_header:
+        When true, :meth:`get_headers` returns ``Authorization: Bearer <access token>``
+        for a REST connector. Default false: no headers (SDK connectors).
     """
 
     def __init__(
@@ -58,7 +64,10 @@ class ServiceAccountAuthProvider(AuthProvider):
         secret_provider: SecretProvider,
         sa_json_secret: str,
         scopes: Optional[List[str]] = None,
+        bearer_header: bool = False,
     ) -> None:
+        self._bearer_header = bearer_header
+        self._refresh_lock = asyncio.Lock()
         self._sp = secret_provider
         self._sa_json_secret = sa_json_secret
         self._scopes = scopes or ["https://www.googleapis.com/auth/drive"]
@@ -119,14 +128,33 @@ class ServiceAccountAuthProvider(AuthProvider):
         )
         return creds
 
+    @staticmethod
+    def _refresh_token(creds: Any) -> None:
+        """Fetch an access token from Google (blocking; call it off the event loop)."""
+        try:
+            from google.auth.transport.requests import Request
+        except ImportError as exc:
+            raise ImportError(
+                "ServiceAccountAuthProvider(bearer_header=True) requires 'google-auth' and 'requests'."
+            ) from exc
+        creds.refresh(Request())
+
     async def get_headers(self) -> Dict[str, str]:
         """
-        Return an empty dict.
+        Return ``Authorization: Bearer <token>`` when ``bearer_header`` is set, else an empty dict.
 
-        Google Drive auth is handled at the SDK level via
-        :meth:`get_client_credentials`; no HTTP headers are injected.
+        An SDK connector gets its credentials from :meth:`get_client_credentials` and needs no
+        headers. A REST connector needs the header, so the token is fetched here and refreshed when
+        it has expired. Concurrent callers wait for one refresh.
         """
-        return {}
+        if not self._bearer_header:
+            return {}
+        creds = await self.get_client_credentials()
+        if not creds.valid:
+            async with self._refresh_lock:
+                if not creds.valid:  # another caller may have refreshed while this one waited
+                    await asyncio.to_thread(self._refresh_token, creds)
+        return {"Authorization": f"Bearer {creds.token}"}
 
     async def get_client_credentials(self) -> Any:
         """

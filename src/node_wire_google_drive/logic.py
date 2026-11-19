@@ -718,7 +718,10 @@ declare_secret_shape(
     required=[
         "GOOGLE_DRIVE_ACCESS_TOKEN",
     ],
+    # The service-account key is also a valid secret (provider: service_account in connectors.yaml).
+    # The runtime's own table declares the same shape.
     formats={
         "GOOGLE_DRIVE_ACCESS_TOKEN": "opaque_secret",  # nosec B105
+        "GOOGLE_DRIVE_SA_JSON": "google_sa_json",  # nosec B105
     },
 )
