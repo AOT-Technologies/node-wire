@@ -7,9 +7,10 @@ would pass an opaque check and then fail every Stripe call with a 401, so it is 
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 
-import node_wire_stripe.logic  # noqa: F401  (declares the shape on import)
 from node_wire_runtime.tenant_persistence import SECRET_FORMAT_BY_CONNECTOR, validate_secret_formats
 
 
@@ -48,4 +49,5 @@ def test_the_message_does_not_echo_the_value() -> None:
 
 def test_the_generated_connector_declares_the_same_format() -> None:
     # Both places must agree, or the later declaration replaces the stricter one.
+    importlib.import_module("node_wire_stripe.logic")  # declares its shape on import
     assert SECRET_FORMAT_BY_CONNECTOR["stripe"] == {"STRIPE_BASIC_AUTH": "stripe_basic_auth"}
