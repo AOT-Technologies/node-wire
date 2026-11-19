@@ -144,7 +144,26 @@ has Salesforce **disabled** and on REST only. Before you turn on `grpc` or `mcp`
 | `salesforce-leads-contacts` | 8 | Only the original lead and contact actions |
 | `salesforce-bulk` | 17 | Only Bulk API 2.0 |
 
+`NW_EXPOSE_PROFILE` is enforced on REST, gRPC and MCP alike (a hidden action is not listed and is refused if called), so the safe setting is
+not just a comment. It is one name for the whole server: a loaded connector with no file of that name exposes nothing. See
+[Action exposure profiles](exposure.md).
+
 Also use a Salesforce user with only the permissions the deployment needs: the connector can do whatever that user can.
+
+### Upgrading from the lead and contact connector
+
+The shipped `config/connectors.yaml` used to enable Salesforce on REST, gRPC and MCP. It is now off and REST-only. To keep using it
+over gRPC or MCP as before, set this in your own `connectors.yaml`, and limit it to the original 8 actions:
+
+```yaml
+  salesforce:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+```
+
+```bash
+NW_EXPOSE_PROFILE=salesforce-leads-contacts
+```
 
 ## Errors
 

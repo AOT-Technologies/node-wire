@@ -211,6 +211,26 @@ class SalesforceRateLimited(httpx.HTTPStatusError):
 DEFAULT_API_VERSION = "v68.0"
 
 
+def _error_detail(response: httpx.Response) -> str:
+    """Salesforce's own errorCode and message, at most 3 of them and 200 characters each.
+
+    The raw body is never copied: it can echo field values (duplicate-record details, emails).
+    """
+    try:
+        errors = response.json()
+    except ValueError:
+        return ""
+    if isinstance(errors, dict):
+        errors = [errors]
+    if not isinstance(errors, list):
+        return ""
+    return "; ".join(
+        f"{e.get('errorCode')}: {str(e.get('message', ''))[:200]}"
+        for e in errors[:3]
+        if isinstance(e, dict) and e.get("errorCode")
+    )
+
+
 def _query_value(value: Any) -> str:
     """A query-string value: lists are comma separated, booleans lower case."""
     if isinstance(value, bool):
@@ -433,9 +453,10 @@ class SalesforceConnector(BaseConnector):
                 error = SalesforceAuthError
             elif status in (502, 503, 504) and method in ("GET", "DELETE"):
                 error = SalesforceTransientError  # safe to repeat; a gateway error on a write may have run it
-            # Salesforce's own explanation (errorCode and message) goes in the message.
+            # Only Salesforce's errorCode and message go in the exception, not the raw body.
+            detail = _error_detail(response)
             raise error(
-                f"Salesforce answered {status}: {response.text[:300]}",
+                f"Salesforce answered {status}" + (f": {detail}" if detail else ""),
                 request=response.request,
                 response=response,
             )

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import AfterValidator, BaseModel, Field, field_validator, model_validator, ConfigDict
 import re
 
 SALESFORCE_ID_REGEX = re.compile(r"^[a-zA-Z0-9]{15,18}$")
@@ -347,7 +347,17 @@ SObjectName = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_]*$", max_lengt
 SalesforceRecordId = Annotated[str, Field(pattern=r"^[a-zA-Z0-9]{15,18}$")]
 QueryLocator = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]+$", max_length=100)]
 ApiName = Annotated[str, Field(pattern=r"^[A-Za-z0-9_]+$", max_length=100)]
-PathPart = Annotated[str, Field(min_length=1, max_length=255)]
+
+
+def _plain_segment(value: str) -> str:
+    """A path value is quoted, but quoting leaves "." and ".." alone and httpx resolves them, which
+    would send the call to another path. Refuse them, and control characters."""
+    if value in (".", "..") or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise ValueError("must be a plain value, not . or .. or one with control characters")
+    return value
+
+
+PathPart = Annotated[str, Field(min_length=1, max_length=255), AfterValidator(_plain_segment)]
 
 
 class _Op(BaseModel):

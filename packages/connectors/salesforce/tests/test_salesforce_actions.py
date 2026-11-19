@@ -1920,3 +1920,84 @@ async def test_a_create_is_sent_as_json_not_the_providers_fhir_type(wire: Wire) 
     assert wire.last.headers["accept"] == "application/json"
     await make().create_lead(CreateLeadInput(LastName="Smith", Company="Acme"), trace_id=TRACE)
     assert wire.last.headers["content-type"] == "application/json"
+
+
+# ---- path values cannot change the path -------------------------------------------------------
+
+
+def _path_fields() -> list[tuple[str, str]]:
+    out = []
+    for row in ROWS:
+        template = getattr(SalesforceConnector, row[0])._http_path
+        out += [(row[0], name) for name in row[1] if "{" + name + "}" in template]
+    return out
+
+
+@pytest.mark.parametrize(("action", "field"), _path_fields(), ids=lambda v: str(v))
+@pytest.mark.parametrize("bad", ["..", ".", "a\x00b"])
+def test_a_path_value_cannot_be_a_dot_segment(action: str, field: str, bad: str) -> None:
+    # httpx resolves "." and ".." in a URL, so such a value would send the call to another path.
+    from node_wire_salesforce import schema
+
+    row = next(r for r in ROWS if r[0] == action)
+    cls = getattr(schema, "".join(p.capitalize() for p in action.split("_")) + "Input")
+    with pytest.raises(ValidationError):
+        cls.model_validate({"action": action, **{**row[1], field: bad}})
+
+
+def test_a_dots_inside_a_value_are_fine_and_quoted() -> None:
+    from node_wire_salesforce.schema import GetNamedLayoutInput
+
+    assert GetNamedLayoutInput(sobject="Account", layout_name="a.b").layout_name == "a.b"
+    assert GetNamedLayoutInput(sobject="Account", layout_name="...").layout_name == "..."
+
+
+# ---- error messages carry only Salesforce's errorCode and message -----------------------------
+
+
+async def test_only_the_error_code_and_message_reach_the_exception(wire: Wire) -> None:
+    wire.status = 400
+    wire.json = [
+        {
+            "message": "duplicate value found",
+            "errorCode": "DUPLICATE_VALUE",
+            "fields": ["Email"],
+            "extra": "private@example.com",
+        }
+    ]
+    result = await make().run({"action": "get_limits"})
+    assert result.message == "Salesforce answered 400: DUPLICATE_VALUE: duplicate value found"
+    assert "private@example.com" not in result.message and "Email" not in result.message
+
+
+async def test_error_messages_are_cut_short(wire: Wire) -> None:
+    wire.status = 400
+    wire.json = [{"message": "x" * 500, "errorCode": f"E{i}"} for i in range(5)]
+    result = await make().run({"action": "get_limits"})
+    assert result.message.count("; ") == 2 and "E3" not in result.message
+    assert result.message.count("x") == 600  # 3 errors, 200 characters each
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"<html>secret page private@example.com</html>",
+        b"[1, 2]",
+        b'"private@example.com"',
+        b'{"error": "private@example.com"}',
+    ],
+)
+async def test_other_error_bodies_are_left_out(wire: Wire, body: bytes) -> None:
+    wire.status, wire.content = 400, body
+    result = await make().run({"action": "get_limits"})
+    assert result.message == "Salesforce answered 400"
+
+
+async def test_a_single_error_object_is_read_too(wire: Wire) -> None:
+    wire.status = 404
+    wire.json = {"message": "The requested resource does not exist", "errorCode": "NOT_FOUND"}
+    result = await make().run({"action": "get_limits"})
+    assert (
+        result.message
+        == "Salesforce answered 404: NOT_FOUND: The requested resource does not exist"
+    )
