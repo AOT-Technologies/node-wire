@@ -127,7 +127,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | [`http_generic`](#http_generic) | `request` | `none` | — |
 | [`smtp`](#smtp) | `send_email` | `static_credentials` | — |
 | [`stripe`](#stripe) | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` | `static_token` | — |
-| [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
+| [`salesforce`](#salesforce) | 150 actions: leads and contacts, plus the REST API v68.0 (records, metadata, query, search, composite, process, knowledge, consent and more) and Bulk API 2.0 | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`google_drive`](#google_drive) | `files.list`, `files.get`, `files.create`, `files.upload`, `files.update`, `files.delete`, `permissions.create` | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
 | [`fhir_epic`](#fhir_epic-and-fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
@@ -160,8 +160,12 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 
 - **Package:** `node-wire-salesforce`, `src/node_wire_salesforce/`. MCP image `nw-salesforce`.
 - **Secrets / settings:** `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`,
-  `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN`.
-- **Guide:** [Salesforce](salesforce_connector.md) covers configuration and examples.
+  `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN`. `api_version` (default `v68.0`) can be set in `connectors.yaml`.
+- **Actions:** the 8 lead and contact actions, plus 142 for the REST API and Bulk API 2.0, listed by group in the guide.
+  The instance URL and token are server-side only; no action accepts them. The shipped config has it disabled and on REST only. Use an exposure profile
+  (`expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`, `salesforce-bulk`) to limit what a
+  deployment can do (it includes password resets and bulk deletes).
+- **Guide:** [Salesforce](salesforce_connector.md) covers configuration, the action list and the error codes.
 
 ### `google_drive`
 

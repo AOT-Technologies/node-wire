@@ -88,8 +88,9 @@ connectors:
       - system/DocumentReference.write
 
   salesforce:
-    enabled: true
-    exposed_via: ["rest", "grpc", "mcp"]
+    enabled: false  # opt-in: 150 actions, including password resets and bulk deletes; see expose/salesforce/
+    exposed_via: ["rest"]  # add grpc/mcp only together with an NW_EXPOSE_PROFILE
+    # api_version: v68.0   # optional; v68.0 is the default
     auth:
       provider: oauth2
       grant_method: refresh_token
