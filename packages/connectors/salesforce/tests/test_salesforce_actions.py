@@ -1933,7 +1933,7 @@ def _path_fields() -> list[tuple[str, str]]:
     return out
 
 
-@pytest.mark.parametrize(("action", "field"), _path_fields(), ids=lambda v: str(v))
+@pytest.mark.parametrize(("action", "field"), _path_fields(), ids=str)
 @pytest.mark.parametrize("bad", ["..", ".", "a\x00b"])
 def test_a_path_value_cannot_be_a_dot_segment(action: str, field: str, bad: str) -> None:
     # httpx resolves "." and ".." in a URL, so such a value would send the call to another path.
