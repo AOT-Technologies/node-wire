@@ -325,12 +325,12 @@ def test_normalize_mcp_tool_arguments_google_drive_passes_generated_inputs_throu
     DriveFilesGetInput.model_validate({**out, "action": "drive_files_get"})
 
 
-def test_normalize_mcp_tool_arguments_google_drive_files_create_body_is_unchanged():
+def test_normalize_mcp_tool_arguments_google_drive_files_create_name_is_unchanged():
     from node_wire_google_drive.schema import DriveFilesCreateInput
 
-    out = _normalize_for_mcp("google_drive", "drive_files_create", {"body": "hello"})
+    out = _normalize_for_mcp("google_drive", "drive_files_create", {"name": "hello"})
 
-    assert out == {"body": "hello"}
+    assert out == {"name": "hello"}
     DriveFilesCreateInput.model_validate({**out, "action": "drive_files_create"})
 
 

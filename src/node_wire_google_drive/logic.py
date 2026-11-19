@@ -3,16 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import json
+import logging
+import os
+import uuid
 from typing import ClassVar, Dict, Tuple, Type
+from urllib.parse import urlencode
 
 import httpx
 from pydantic import BaseModel
 
 from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime import rest as _rest
 from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.tenant_persistence import declare_secret_shape
 
 from .schema import (
+    DriveFilesUploadInput,
     DriveAboutGetInput,
     DriveAboutGetOutput,
     DriveChangesGetStartPageTokenInput,
@@ -110,6 +117,9 @@ from .schema import (
     DriveTeamdrivesUpdateInput,
     DriveTeamdrivesUpdateOutput,
 )
+
+
+logger = logging.getLogger("connectors.google_drive")
 
 
 class GoogleDriveConnector(RestConnector):
@@ -298,6 +308,77 @@ class GoogleDriveConnector(RestConnector):
             params=params,
             output_model=DriveFilesCreateOutput,
             trace_id=trace_id,
+        )
+
+    # Hand-written, not generated (see the note in schema.py): the earlier connector's files.upload.
+    # A multipart upload sends the metadata and the content in one request to Drive's upload address,
+    # which RestConnector.execute_rest cannot build, so this makes its own request.
+    @nw_action("drive_files_upload", http_method="POST", http_path="/upload/drive/v3/files")
+    async def drive_files_upload(
+        self, params: DriveFilesUploadInput, *, trace_id: str
+    ) -> RestResponseOutput:
+        base = self.resolve_base_url().rstrip("/")
+        if not base.endswith("/drive/v3"):
+            raise ValueError("drive_files_upload needs the Drive address to end in /drive/v3")
+        url = f"{base[: -len('/drive/v3')]}/upload/drive/v3/files?" + urlencode(
+            {
+                "uploadType": "multipart",
+                "supportsAllDrives": "true" if params.supports_all_drives else "false",
+                "fields": params.fields,
+            }
+        )
+        data = params.content_bytes()
+        metadata = {
+            "name": params.name,
+            "mimeType": params.mime_type,
+            "parents": params.parents,
+            "description": params.description,
+        }
+        boundary = "nw-" + uuid.uuid4().hex
+        body = b"".join(
+            [
+                f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".encode(),
+                json.dumps({k: v for k, v in metadata.items() if v is not None}).encode("utf-8"),
+                f"\r\n--{boundary}\r\nContent-Type: {params.mime_type}\r\n\r\n".encode(),
+                data,
+                f"\r\n--{boundary}--".encode(),
+            ]
+        )
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": f"multipart/related; boundary={boundary}",
+        }
+        headers.update(self.resolve_static_headers())
+        for provider in self._auth_providers_for(None):
+            headers.update(await provider.get_headers())
+        # Only the size and the type are logged: never the name, the content or a credential.
+        logger.info(
+            "Uploading a file to Google Drive",
+            extra={
+                "trace_id": trace_id,
+                "connector_id": self.connector_id,
+                "bytes": len(data),
+                "mime_type": params.mime_type,
+            },
+        )
+        await _rest.assert_safe_destination(url)
+        response = await _rest._shared_client(_rest.rest_trust_env()).request(
+            method="POST",
+            url=url,
+            headers=headers,
+            content=body,
+            timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
+        )
+        if response.status_code >= 400:
+            response.raise_for_status()
+        try:
+            answer = response.json() if response.content else None
+        except ValueError:
+            answer = response.text
+        return RestResponseOutput(
+            status_code=response.status_code,
+            headers={k: v for k, v in response.headers.items()},
+            body=answer,
         )
 
     @nw_action("drive_files_generate_ids")

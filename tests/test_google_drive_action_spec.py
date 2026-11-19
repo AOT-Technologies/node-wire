@@ -93,7 +93,7 @@ def _fake(monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]) -> _Client:
 def test_every_nw_action_is_a_drive_action():
     """The generated connector registers its Drive operations as @nw_action methods."""
     names = set(GoogleDriveConnector.nw_action_metas())
-    assert len(names) == 48
+    assert len(names) == 49  # the 48 generated ones and the hand-written drive_files_upload
     assert all(name.startswith("drive_") for name in names)
 
 
@@ -120,7 +120,9 @@ async def test_files_get_puts_file_id_in_the_path(monkeypatch):
 
     assert result.model_dump()["name"] == "doc.txt"
     assert client.calls[0]["method"] == "GET"
-    assert client.calls[0]["url"] == f"{BASE}/files/fid-1"
+    assert (
+        client.calls[0]["url"] == f"{BASE}/files/fid-1?supportsAllDrives=true"
+    )  # shared drives are on by default
 
 
 @pytest.mark.asyncio
@@ -130,7 +132,7 @@ async def test_files_delete_is_a_delete_request(monkeypatch):
     await _connector().drive_files_delete(DriveFilesDeleteInput(fileId="fid-99"), trace_id="t")
 
     assert client.calls[0]["method"] == "DELETE"
-    assert client.calls[0]["url"] == f"{BASE}/files/fid-99"
+    assert client.calls[0]["url"] == f"{BASE}/files/fid-99?supportsAllDrives=true"
 
 
 @pytest.mark.asyncio
@@ -169,4 +171,4 @@ async def test_run_dispatches_by_action_name(monkeypatch):
 
     assert response.success is True
     assert response.data is not None and response.data["id"] == "fid-5"
-    assert client.calls[0]["url"] == f"{BASE}/files/fid-5"
+    assert client.calls[0]["url"] == f"{BASE}/files/fid-5?supportsAllDrives=true"

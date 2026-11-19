@@ -3,11 +3,19 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import base64
+import binascii
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from node_wire_runtime import RestResponseOutput
+
+# Hand-written, not generated: DriveFilesUploadInput; the name, mime_type, description and parents fields of
+# DriveFilesCreateInput and DriveFilesUpdateInput (the generated raw body could not carry them), and trashed on
+# update; and the True defaults of supportsalldrives and includeitemsfromalldrives, as the earlier connector had.
+# Regenerating this file drops them; tests/test_google_drive.py fails when they are missing.
+_MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # the most Drive takes in one multipart upload
 
 
 def _drop_titles(schema: dict[str, Any]) -> None:
@@ -329,7 +337,7 @@ class DriveChangesListInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -469,7 +477,7 @@ class DriveChangesGetStartPageTokenInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -730,7 +738,7 @@ class DriveChangesWatchInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -2275,7 +2283,7 @@ class DriveFilesListInput(BaseModel):
         },
     )
     includeitemsfromalldrives: bool | None = Field(
-        None,
+        True,
         alias="includeItemsFromAllDrives",
         description="Whether both My Drive and shared drive items should be included in results",
         json_schema_extra={
@@ -2383,7 +2391,7 @@ class DriveFilesListInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -2442,7 +2450,7 @@ class DriveFilesCreateInput(BaseModel):
         },
     )
     fields: str | None = Field(
-        None,
+        "id,name,mimeType,parents,webViewLink",
         description="Selector specifying which fields to include in a partial response",
         json_schema_extra={
             "nw_in": "query",
@@ -2583,7 +2591,7 @@ class DriveFilesCreateInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -2618,14 +2626,49 @@ class DriveFilesCreateInput(BaseModel):
             "nw_media_type": None,
         },
     )
-    body: str | None = Field(
+    name: str | None = Field(
         None,
+        description="The name of the file or folder",
         json_schema_extra={
-            "nw_in": "body",
-            "nw_wire_name": "body",
+            "nw_in": "body_property",
+            "nw_wire_name": "name",
             "nw_style": None,
             "nw_explode": None,
-            "nw_media_type": "application/octet-stream",
+            "nw_media_type": "application/json",
+        },
+    )
+    mime_type: str | None = Field(
+        None,
+        alias="mimeType",
+        description="The MIME type. Use application/vnd.google-apps.folder to create a folder",
+        json_schema_extra={
+            "nw_in": "body_property",
+            "nw_wire_name": "mimeType",
+            "nw_style": None,
+            "nw_explode": None,
+            "nw_media_type": "application/json",
+        },
+    )
+    description: str | None = Field(
+        None,
+        description="A short description of the file",
+        json_schema_extra={
+            "nw_in": "body_property",
+            "nw_wire_name": "description",
+            "nw_style": None,
+            "nw_explode": None,
+            "nw_media_type": "application/json",
+        },
+    )
+    parents: list[str] | None = Field(
+        None,
+        description="IDs of the parent folders",
+        json_schema_extra={
+            "nw_in": "body_property",
+            "nw_wire_name": "parents",
+            "nw_style": None,
+            "nw_explode": None,
+            "nw_media_type": "application/json",
         },
     )
 
@@ -2633,6 +2676,69 @@ class DriveFilesCreateInput(BaseModel):
 class DriveFilesCreateOutput(BaseModel):
     model_config = ConfigDict(extra="allow", json_schema_extra=_drop_titles)
     # OpenAPI object success schema — permissive allow for nested props
+
+
+class DriveFilesUploadInput(BaseModel):
+    "Creates a file with content: one multipart upload (metadata and content together), up to 5 MB."
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid", json_schema_extra=_drop_titles)
+    action: Literal["drive_files_upload"] = "drive_files_upload"
+    name: str = Field(..., min_length=1, max_length=255, description="The name of the file")
+    mime_type: str = Field(
+        ...,
+        alias="mimeType",
+        pattern=r"^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$",
+        description="The MIME type of the content, for example text/plain or application/pdf",
+    )
+    parents: list[str] | None = Field(None, description="IDs of the parent folders")
+    description: str | None = Field(None, description="A short description of the file")
+    content: str | None = Field(
+        None, max_length=_MAX_UPLOAD_BYTES, description="UTF-8 text content to upload"
+    )
+    content_base64: str | None = Field(
+        None,
+        max_length=_MAX_UPLOAD_BYTES * 4 // 3 + 4,
+        description="Base64 encoded binary content to upload",
+    )
+    fields: str = Field(
+        "id,name,mimeType,size,parents,webViewLink",
+        description="Selector specifying which fields to include in the response",
+    )
+    supports_all_drives: bool = Field(
+        True,
+        alias="supportsAllDrives",
+        description="Whether the requesting application supports both My Drives and shared drives",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def _plain_name(cls, value: str) -> str:
+        if any(ord(c) < 32 or ord(c) == 127 for c in value):
+            raise ValueError("name must not contain control characters")
+        return value
+
+    @model_validator(mode="after")
+    def _exactly_one_content_within_the_limit(self) -> "DriveFilesUploadInput":
+        """One content source, as the earlier files.upload required, and no more than a multipart upload takes."""
+        if (self.content is None) == (self.content_base64 is None):
+            raise ValueError("Provide exactly one of 'content' or 'content_base64'.")
+        if self.content_base64 is not None:
+            try:
+                size = len(base64.b64decode(self.content_base64, validate=True))
+            except (binascii.Error, ValueError) as exc:
+                raise ValueError("content_base64 must be valid base64") from exc
+        else:
+            size = len((self.content or "").encode("utf-8"))
+        if size > _MAX_UPLOAD_BYTES:
+            raise ValueError(
+                f"content is {size} bytes; a multipart upload takes at most {_MAX_UPLOAD_BYTES} (5 MB)"
+            )
+        return self
+
+    def content_bytes(self) -> bytes:
+        if self.content_base64 is not None:
+            return base64.b64decode(self.content_base64)
+        return (self.content or "").encode("utf-8")
 
 
 class DriveFilesGenerateIdsInput(BaseModel):
@@ -2986,7 +3092,7 @@ class DriveFilesDeleteInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -3148,7 +3254,7 @@ class DriveFilesGetInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -3195,7 +3301,7 @@ class DriveFilesUpdateInput(BaseModel):
         },
     )
     fields: str | None = Field(
-        None,
+        "id,name,mimeType,parents,webViewLink",
         description="Selector specifying which fields to include in a partial response",
         json_schema_extra={
             "nw_in": "query",
@@ -3360,7 +3466,7 @@ class DriveFilesUpdateInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -3395,14 +3501,49 @@ class DriveFilesUpdateInput(BaseModel):
             "nw_media_type": None,
         },
     )
-    body: str | None = Field(
+    name: str | None = Field(
         None,
+        description="The name of the file or folder",
         json_schema_extra={
-            "nw_in": "body",
-            "nw_wire_name": "body",
+            "nw_in": "body_property",
+            "nw_wire_name": "name",
             "nw_style": None,
             "nw_explode": None,
-            "nw_media_type": "application/octet-stream",
+            "nw_media_type": "application/json",
+        },
+    )
+    mime_type: str | None = Field(
+        None,
+        alias="mimeType",
+        description="The MIME type. Use application/vnd.google-apps.folder to create a folder",
+        json_schema_extra={
+            "nw_in": "body_property",
+            "nw_wire_name": "mimeType",
+            "nw_style": None,
+            "nw_explode": None,
+            "nw_media_type": "application/json",
+        },
+    )
+    trashed: bool | None = Field(
+        None,
+        description="Set to true to move the file to the trash (what the earlier connector's files.delete did)",
+        json_schema_extra={
+            "nw_in": "body_property",
+            "nw_wire_name": "trashed",
+            "nw_style": None,
+            "nw_explode": None,
+            "nw_media_type": "application/json",
+        },
+    )
+    description: str | None = Field(
+        None,
+        description="A short description of the file",
+        json_schema_extra={
+            "nw_in": "body_property",
+            "nw_wire_name": "description",
+            "nw_style": None,
+            "nw_explode": None,
+            "nw_media_type": "application/json",
         },
     )
 
@@ -5346,7 +5487,7 @@ class DriveFilesCopyInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -6610,7 +6751,7 @@ class DrivePermissionsListInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -6798,7 +6939,7 @@ class DrivePermissionsCreateInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -7112,7 +7253,7 @@ class DrivePermissionsDeleteInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -7262,7 +7403,7 @@ class DrivePermissionsGetInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -7426,7 +7567,7 @@ class DrivePermissionsUpdateInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
@@ -8418,7 +8559,7 @@ class DriveFilesWatchInput(BaseModel):
         },
     )
     supportsalldrives: bool | None = Field(
-        None,
+        True,
         alias="supportsAllDrives",
         description="Whether the requesting application supports both My Drives and shared drives",
         json_schema_extra={
