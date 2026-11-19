@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`node-wire-salesforce`** now has **150 actions**: the 8 lead and contact actions plus 142 for the REST API and Bulk API 2.0,
+  written against API v68.0 (Winter '27). `api_version` can be set in `connectors.yaml` (default `v68.0`; it was a fixed `v58.0`).
+  Four exposure profiles are in `expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`
+  and `salesforce-bulk`. The playground shows a generic "Salesforce (all actions)" card next to the Lead and Contact panel.
+
+### Changed
+
+- **Salesforce is off by default in the shipped `config/connectors.yaml`** (`enabled: false`, `exposed_via: ["rest"]`), because it now
+  includes password resets and bulk deletes. **Migration:** a deployment that used Salesforce over gRPC or MCP must set
+  `enabled: true` and `exposed_via: ["rest", "grpc", "mcp"]` in its own `connectors.yaml`, and should set `NW_EXPOSE_PROFILE` (for example
+  `salesforce-leads-contacts` for the original 8 actions) so it does not expose all 150. See `docs/salesforce_connector.md`.
+- Salesforce actions answer 401 as an auth error, 429 as retryable, and retry 502, 503 and 504 only for `GET` and `DELETE`.
+  A 503 on a write such as `create_lead` is no longer retried (the write may already have run); before, any 5xx on the 8 original actions
+  was retryable. Error messages carry only Salesforce's `errorCode` and `message` (at most 3, 200 characters each), never the raw body.
+- Salesforce requests are sent as JSON (CSV for Bulk API data) instead of the OAuth provider's FHIR media types, which Salesforce refuses.
+- The package now requires `node-wire-runtime>=1.1.3`. Because it adds many actions and changes defaults, release it as a minor version.
+
 ## [1.1.2] - 2026-11-06
 
 ### Added
