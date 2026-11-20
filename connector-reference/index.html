@@ -3102,9 +3102,13 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <h3 id="stripe"><code>stripe</code><a class="headerlink" href="#stripe" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><strong>Package:</strong> <code>node-wire-stripe</code>, <code>src/node_wire_stripe/</code>. MCP image <code>nw-stripe</code>.</li>
-<li><strong>Secrets / settings:</strong> <code>STRIPE_API_KEY</code>, sent raw in <code>Authorization</code> (<code>prefix: ""</code>).</li>
-<li><strong>Errors:</strong> <code>src/node_wire_stripe/logic.py</code> is the worked <code>error_map</code> example
+<li><strong>Secrets / settings:</strong> <code>STRIPE_BASIC_AUTH</code> (the Stripe secret key followed by a colon, <code>sk_test_...:</code>), sent as HTTP Basic in <code>Authorization</code> (<code>prefix: Basic</code>, <code>encoding: base64</code>).</li>
+<li><strong>Errors:</strong> the connector is generated, so it uses the shared REST error map: 401 is <code>HTTP_AUTH_ERROR</code> (auth), 429 is
+  <code>HTTP_RATE_LIMITED</code> and 502, 503 and 504 on reads and deletes are <code>HTTP_UNAVAILABLE</code> (both retryable), and any other
+  status, including a declined card (402), is <code>HTTP_STATUS_ERROR</code> (business)
   (<a href="../connectors-build/#optional-error_map-for-errormapper">Build a connector</a>).</li>
+<li><strong>Key format:</strong> <code>STRIPE_BASIC_AUTH</code> must be <code>sk_test_…:</code>, <code>sk_live_…:</code> or an <code>rk_</code> restricted key, each followed by the colon. A tenant
+  secret in any other form (no colon, or already base64) is refused when stored.</li>
 </ul>
 <h3 id="salesforce"><code>salesforce</code><a class="headerlink" href="#salesforce" title="Anchor link to this section">&para;</a></h3>
 <ul>

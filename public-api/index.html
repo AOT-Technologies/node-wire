@@ -2989,6 +2989,7 @@ major version bump.</p>
 <li><code>BaseConnector</code>, <code>RestConnector</code> — base classes for connectors (<code>RestConnector</code> adds the shared HTTP-request scaffolding used by OpenAPI-generated connectors).</li>
 <li><code>RestResponseOutput</code> — shared output model for <code>RestConnector</code>-based connectors.</li>
 <li><code>RestEnvelopeError</code> — raised by <code>RestConnector</code> when a 2xx response's declared success flag (<code>envelope_ok_field</code>, for example, Slack's <code>ok</code>) reports failure.</li>
+<li><code>RestAuthError</code>, <code>RestRateLimited</code>, <code>RestUnavailable</code> — <code>httpx.HTTPStatusError</code> subclasses that <code>RestConnector</code> raises for a 401, a 429, and a 502, 503 or 504 on a read or delete. Generated connectors map them to auth, retryable and retryable; any other status stays a plain <code>HTTPStatusError</code> (business).</li>
 <li><code>get_connector_registry()</code> — returns a copy of the connector-id → class registry.</li>
 <li><code>nw_action</code>, <code>sdk_action</code> — action decorators.</li>
 <li><code>SdkActionSpec</code>, <code>default_build_kwargs</code>, <code>default_resolve_method</code>, <code>default_invoke</code>, <code>execute_spec_in_thread</code>, <code>execute_spec_async</code>.</li>
