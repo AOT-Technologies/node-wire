@@ -53,6 +53,9 @@ def _shared_client(trust_env: bool) -> Any:
 __all__ = [
     "RestResponseOutput",
     "RestConnector",
+    "RestAuthError",
+    "RestRateLimited",
+    "RestUnavailable",
     "SsrfBlockedError",
     "encode_param_value",
     "split_params_by_location",
@@ -105,6 +108,42 @@ class RestResponseOutput(BaseModel):
     status_code: int
     headers: Dict[str, str] = Field(default_factory=dict)
     body: Any = None
+
+
+# The error map works per exception class, so the answers that need their own category get a small
+# HTTPStatusError subclass (same message as httpx's own). Generated connectors map them; see
+# nw_connector_builder.codegen.
+class RestAuthError(httpx.HTTPStatusError):
+    """401: the credential was rejected."""
+
+
+class RestRateLimited(httpx.HTTPStatusError):
+    """429: the API refused the call, so a retry is safe."""
+
+
+class RestUnavailable(httpx.HTTPStatusError):
+    """502, 503 or 504 on a read or a delete. A gateway error on a write may already have run it,
+    so writes keep the plain HTTPStatusError and are not retried."""
+
+
+_SAFE_TO_REPEAT = frozenset({"GET", "HEAD", "DELETE", "OPTIONS"})
+
+
+def _status_error(method: str, response: httpx.Response) -> httpx.HTTPStatusError:
+    """The HTTPStatusError httpx would raise, as the subclass that carries the right category."""
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status = response.status_code
+        cls: type[httpx.HTTPStatusError] = httpx.HTTPStatusError
+        if status == 401:
+            cls = RestAuthError
+        elif status == 429:
+            cls = RestRateLimited
+        elif status in (502, 503, 504) and method.upper() in _SAFE_TO_REPEAT:
+            cls = RestUnavailable
+        return cls(str(exc), request=exc.request, response=exc.response)
+    raise AssertionError("not an error status")  # pragma: no cover
 
 
 class RestEnvelopeError(Exception):
@@ -838,10 +877,8 @@ class RestConnector(BaseConnector):
             **body_kwargs,
         )
 
-        if response.status_code >= 500:
-            response.raise_for_status()
         if response.status_code >= 400:
-            response.raise_for_status()
+            raise _status_error(method, response)
 
         resp_headers = {k: v for k, v in response.headers.items()}
 

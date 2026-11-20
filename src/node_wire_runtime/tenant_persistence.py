@@ -78,7 +78,7 @@ REQUIRED_SECRETS_BY_CONNECTOR: Dict[str, List[str]] = {
     "fhir_epic": ["EPIC_CLIENT_ID", "EPIC_PRIVATE_KEY", "EPIC_KID"],
     "fhir_cerner": ["CERNER_CLIENT_ID", "CERNER_PRIVATE_KEY", "CERNER_KID"],
     "slack": ["SLACK_BOT_TOKEN"],
-    "stripe": ["stripe_api_key"],
+    "stripe": ["STRIPE_BASIC_AUTH"],
     "salesforce": [
         "SALESFORCE_CLIENT_ID",
         "SALESFORCE_CLIENT_SECRET",
@@ -103,7 +103,7 @@ SECRET_FORMAT_BY_CONNECTOR: Dict[str, Dict[str, str]] = {
         "CERNER_SCOPES": "scopes_space_separated",
     },
     "slack": {"SLACK_BOT_TOKEN": "slack_bot_token"},  # nosec B105
-    "stripe": {"stripe_api_key": "stripe_secret_key"},
+    "stripe": {"STRIPE_BASIC_AUTH": "stripe_basic_auth"},  # nosec B105
     "salesforce": {
         "SALESFORCE_CLIENT_ID": "opaque_secret",
         "SALESFORCE_CLIENT_SECRET": "opaque_secret",  # nosec B105
@@ -231,7 +231,8 @@ _PEM_PRIVATE_RE = re.compile(
 )
 _JWT_KID_RE = re.compile(r"^[A-Za-z0-9._\-]{1,128}$")
 _SLACK_BOT_RE = re.compile(r"^xoxb-[A-Za-z0-9\-]+$")
-_STRIPE_SECRET_RE = re.compile(r"^sk_(?:test|live)_[A-Za-z0-9]+$")
+# The Stripe key and a trailing colon (an empty password), as sent in HTTP Basic: sk_test_...: or rk_live_...:
+_STRIPE_BASIC_AUTH_RE = re.compile(r"^(?:sk|rk)_(?:test|live)_\w+:$")
 
 
 def _normalize_pem(value: str) -> str:
@@ -269,9 +270,11 @@ def _validate_slack_bot_token(value: str) -> None:
         raise ValueError("expected Slack bot token starting with xoxb-")
 
 
-def _validate_stripe_secret_key(value: str) -> None:
-    if not _STRIPE_SECRET_RE.match(value.strip()):
-        raise ValueError("expected Stripe secret key (sk_test_… or sk_live_…)")
+def _validate_stripe_basic_auth(value: str) -> None:
+    if not _STRIPE_BASIC_AUTH_RE.match(value.strip()):
+        raise ValueError(
+            "expected the Stripe key followed by a colon (sk_test_…: or sk_live_…:, or an rk_ restricted key)"
+        )
 
 
 def _validate_opaque_secret(value: str) -> None:
@@ -332,7 +335,7 @@ _FORMAT_VALIDATORS: Dict[str, Callable[[str], None]] = {
     "jwt_kid": _validate_jwt_kid,
     "google_sa_json": _validate_google_sa_json,
     "slack_bot_token": _validate_slack_bot_token,
-    "stripe_secret_key": _validate_stripe_secret_key,
+    "stripe_basic_auth": _validate_stripe_basic_auth,
     "opaque_secret": _validate_opaque_secret,
     "scopes_space_separated": _validate_scopes_space_separated,
 }

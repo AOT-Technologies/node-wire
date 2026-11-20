@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Generated REST connectors (GitHub, Slack API, Stripe, Pet Store) now classify errors by status instead of one generic
+  `HTTP_STATUS_ERROR`: 401 is `HTTP_AUTH_ERROR` (auth), 429 is `HTTP_RATE_LIMITED` and 502, 503 and 504 on reads and deletes are
+  `HTTP_UNAVAILABLE` (both retryable). Other statuses, and 502, 503 and 504 on writes, stay `HTTP_STATUS_ERROR` (business, not
+  retried). The runtime exports `RestAuthError`, `RestRateLimited` and `RestUnavailable` (subclasses of `httpx.HTTPStatusError`), and
+  `nw-connector-builder` writes the mapping.
+- `STRIPE_BASIC_AUTH` is checked when stored: it must be `sk_test_…:`, `sk_live_…:` or an `rk_` restricted key, each followed by a
+  colon. A value without the colon, or already base64, is refused instead of failing later with a 401. `nw-connector-builder` keeps a
+  connector's stricter runtime format when it regenerates the secret declaration. The unused `stripe_secret_key` format is removed.
+
 ## [1.1.2] - 2026-11-06
 
 ### Added
